@@ -10,7 +10,7 @@ For now its only support basic syntax highlighting and diagnostics.
 ### Features
 
 -   Basic syntax highlighting
-![Basic Syntax Highlighting Example Image](https://github.com/TrustNoOneElse/cosmoteer-lsp/showcase/syntax_highlighting.png)
+![Basic Syntax Highlighting Example Image](https://github.com/TrustNoOneElse/cosmoteer-lsp/tree/master/showcase/syntax_highlighting.png)
 -   Diagnostics for syntax errors
-![Diagnostics for syntax errors Example Image](https://github.com/TrustNoOneElse/cosmoteer-lsp/showcase/diagnostics.png)
+![Diagnostics for syntax errors Example Image](https://github.com/TrustNoOneElse/cosmoteer-lsp/tree/master/showcase/diagnostics.png)
 -   Code completion for & references in the same parent scope
