@@ -19,6 +19,7 @@
     "activationEvents": [
         "onLanguage:rules"
     ],
+    "pricing": "Free",
     "main": "./client/out/extension",
     "galleryBanner": {
         "color": "#007ACC",
