@@ -1,93 +1,23 @@
 import { Token, TOKEN_TYPES } from '../lexer/lexer';
 import { MAX_NUMBER_OF_PROBLEMS } from '../server';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    ArrayNode,
+    AssignmentNode,
+    ExpressionNode,
+    FunctionCallNode,
+    IdentifierNode,
+    InheritanceNode,
+    ObjectNode,
+    ValueNode,
+} from './ast';
 
+/**
+ * TODO add Parser per Object to beatufy the code below lol
+ */
 abstract class Parser {
     abstract parse(): void;
-}
-
-export type PropertyType = PropertyType[] | number | string | boolean;
-
-interface AbstractNode {
-    type: string;
-    parent?: AbstractNode;
-    position: Position;
-}
-
-interface AbstractNodeDocument {
-    type: 'Document';
-    body: AbstractNode[];
-}
-
-interface ObjectNode extends AbstractNode {
-    identifier?: IdentifierNode;
-    type: 'Object';
-    properties: AbstractNode[];
-}
-
-interface ArrayNode extends AbstractNode {
-    identifier?: IdentifierNode;
-    type: 'Array';
-    elements: AbstractNode[];
-}
-
-interface IdentifierNode extends AbstractNode {
-    type: 'Identifier';
-    name: string;
-}
-
-interface ValueNode extends AbstractNode {
-    type: 'Value';
-    valueType: 'String' | 'Number' | 'Boolean' | 'Reference' | 'Sprite';
-    delimiter?: ';' | ',';
-    values: PropertyType;
-    fileType?: 'png';
-    parenthesized?: boolean;
-}
-
-interface ExpressionNode extends AbstractNode {
-    type: 'Expression';
-    expressionType: '+' | '-' | '*' | '/';
-}
-
-interface FunctionCallNode extends AbstractNode {
-    type: 'FunctionCall';
-    name: string;
-    arguments: Array<ValueNode | FunctionCallNode | ExpressionNode>;
-}
-
-// Make a node for expression and function nodes
-interface MathExpressionNode extends AbstractNode {
-    type: 'MathExpression';
-    expressionType: '+' | '-' | '*' | '/';
-    left: ValueNode | FunctionCallNode;
-    right: ValueNode | FunctionCallNode;
-}
-
-interface AssignmentNode extends AbstractNode {
-    type: 'Assignment';
-    assignmentType: 'Equals' | 'Colon';
-    left: IdentifierNode;
-    right:
-        | ArrayNode
-        | ValueNode
-        | ObjectNode
-        | FunctionCallNode
-        | MathExpressionNode;
-}
-
-interface inheritanceNode extends AbstractNode {
-    type: 'Inheritance';
-    left?: IdentifierNode;
-    inheritance: ValueNode[];
-    right: ObjectNode | ArrayNode;
-}
-
-interface Position {
-    line: number;
-    characterStart: number;
-    characterEnd: number;
-    start: number;
-    end: number;
 }
 
 export const parser = (tokens: Token[]): TokenParserResult => {
@@ -570,7 +500,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 left: identifierNode,
                 inheritance: inheritanceNodes,
                 right,
-            } as inheritanceNode;
+            } as InheritanceNode;
         }
 
         if (
@@ -633,6 +563,7 @@ export interface TokenParserResult {
     value: AbstractNodeDocument;
     parserErrors: ParserError[];
 }
+
 function inferValueType(IS_NUMBER: RegExp, token: Token) {
     if (!token.value) throw new Error('Token value is undefined');
     let valueType: 'String' | 'Number' | 'Reference' | 'Sprite' =
