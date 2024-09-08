@@ -1,0 +1,121 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "scopeName": "source.rules",
+    "patterns": [
+        { "include": "#strings" },
+        { "include": "#functions" },
+        { "include": "#comments" },
+        { "include": "#constants" },
+        { "include": "#expression" }
+    ],
+    "repository": {
+        "expression": {
+            "patterns": [
+                { "include": "#constants" },
+                { "include": "#paren-expression" }
+            ]
+        },
+        "constants": {
+            "patterns": [
+                {
+                    "match": "(?<=:|=) ?(true|false)",
+                    "name": "constant.language"
+                },
+                {
+                    "name": "constant.numeric",
+                    "match": "\\b(\\-?\\d+.?\\d*)\\b"
+                },
+                {
+                    "name": "constant.numeric",
+                    "match": "\\d+.\\d*E\\+\\d+"
+                },
+                {
+                    "name": "variable.name",
+                    "match": "[a-zA-Z_][a-zA-Z0-9_]+ ?(?=:|=)"
+                }
+            ]
+        },
+        "strings": {
+            "patterns": [
+                {
+                    "name": "string.quoted",
+                    "match": "\"(?:[^\"\\\\]|\\\\.)*\""
+                },
+
+                {
+                    "name": "string.unquoted",
+                    "match": "((?<=: |= )[^0-9][\\w&<./>]+[ ]?[\\w]*)(?!=|:|\\()"
+                }
+            ]
+        },
+        "functions": {
+            "patterns": [
+                {
+                    "name": "support.function",
+                    "match": "(?<=:|=) ?[a-zA-Z_][a-zA-Z0-9_]+ ?(?=\\()"
+                },
+                {
+                    "name": "variable.parameter",
+                    "begin": "\\(",
+                    "end": "\\)",
+                    "beginCaptures": {
+                        "0": { "name": "punctuation.paren.open" }
+                    },
+                    "endCaptures": {
+                        "0": { "name": "punctuation.paren.close" }
+                    },
+                    "patterns": [
+                        {
+                            "name": "constant.numeric",
+                            "match": "(\\-?\\d+.?\\d*)"
+                        },
+                        {
+                            "name": "variable.parameter",
+                            "match": " ?[a-zA-Z_][a-zA-Z0-9_]+ ?(?=,)"
+                        },
+                        {
+                            "name": "punctuation.comma",
+                            "match": ","
+                        }
+                    ]
+                }
+            ]
+        },
+        "comments": {
+            "patterns": [
+                {
+                    "begin": "/\\*",
+                    "end": "\\*/",
+                    "beginCaptures": {
+                        "0": { "name": "punctuation.definition.comment" }
+                    },
+                    "endCaptures": {
+                        "0": { "name": "punctuation.definition.comment" }
+                    },
+                    "name": "comment.block"
+                },
+                {
+                    "begin": "//",
+                    "end": "$",
+                    "beginCaptures": {
+                        "0": { "name": "punctuation.definition.comment" }
+                    },
+                    "name": "comment.line.double-slash"
+                }
+            ],
+            "name": "comment"
+        },
+        "paren-expression": {
+            "begin": "\\(",
+            "end": "\\)",
+            "beginCaptures": {
+                "0": { "name": "punctuation.paren.open" }
+            },
+            "endCaptures": {
+                "0": { "name": "punctuation.paren.close" }
+            },
+            "name": "expression.group",
+            "patterns": [{ "include": "#expression" }]
+        }
+    }
+}

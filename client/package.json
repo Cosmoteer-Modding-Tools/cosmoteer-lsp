@@ -1,0 +1,22 @@
+{
+    "name": "lsp-cosmoteer-client",
+    "description": "VSCode part of the cosmoteer language server",
+    "author": "TrustNoOneElse",
+    "license": "MIT",
+    "publisher": "vscode",
+    "version": "0.0.1",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/TrustNoOneElse/cosmoteer-lsp"
+    },
+    "engines": {
+        "vscode": "^1.75.0"
+    },
+    "dependencies": {
+        "vscode-languageclient": "^9.0.1"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.75.1",
+        "@vscode/test-electron": "^2.3.9"
+    }
+}
