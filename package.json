@@ -1,5 +1,5 @@
 {
-    "name": "cosmoteer-lsp",
+    "name": "cosmoteer-language-server",
     "description": "A complete language server for Cosmoteer rules",
     "author": "TrustNoOneElse",
     "license": "MIT",
@@ -20,6 +20,10 @@
         "onLanguage:rules"
     ],
     "main": "./client/out/extension",
+    "galleryBanner": {
+        "color": "#007ACC",
+        "theme": "dark"
+    },
     "contributes": {
         "languages": [
             {

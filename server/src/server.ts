@@ -200,15 +200,15 @@ async function validateTextDocument(
         if (hasDiagnosticRelatedInformationCapability) {
             // provides more details about this diagnostic
             // TODO get for token type a message
-            diagnostic.relatedInformation = [
-                {
-                    location: {
-                        uri: textDocument.uri,
-                        range: Object.assign({}, diagnostic.range),
-                    },
-                    message: 'Unexpected Bracket, did you mean to close it?',
-                },
-            ];
+            // diagnostic.relatedInformation = [
+            //     {
+            //         location: {
+            //             uri: textDocument.uri,
+            //             range: Object.assign({}, diagnostic.range),
+            //         },
+            //         message: 'Unexpected Bracket, did you mean to close it?',
+            //     },
+            // ];
         }
         diagnostics.push(diagnostic);
     }
