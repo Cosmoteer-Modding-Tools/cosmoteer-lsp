@@ -195,7 +195,7 @@ async function validateTextDocument(
                 ),
             },
             message: error.message,
-            source: 'cosmoooter-language-server',
+            source: 'cosmoteer-language-server',
         };
         if (hasDiagnosticRelatedInformationCapability) {
             // provides more details about this diagnostic
