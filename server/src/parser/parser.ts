@@ -47,7 +47,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             };
             if (!tokens[current]) {
                 errors.push({
-                    message: 'Expected Right Brace',
+                    message: 'Expected Right Brace but found end of file',
                     token,
                 } as ParserError);
                 return node;
@@ -76,6 +76,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 node.position.end = tokens[current].end ?? 0;
                 current++;
             } else {
+                console.warn(tokens[current]);
                 errors.push({
                     message: 'Expected Right Brace',
                     token,
@@ -108,19 +109,25 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             } as ArrayNode;
             if (!tokens[current]) {
                 errors.push({
-                    message: 'Expected Right Bracket',
+                    message: 'Expected Right Bracket but found end of file',
                     token,
                 } as ParserError);
                 return node;
             }
             let lastNode: AbstractNode = node;
-            while (tokens[current].type !== TOKEN_TYPES.RIGHT_BRACKET) {
+            while (
+                tokens[current] &&
+                tokens[current].type !== TOKEN_TYPES.RIGHT_BRACKET
+            ) {
                 const nextNode = walk(lastNode);
                 if (nextNode === null) {
                     break;
                 }
                 lastNode = nextNode;
                 node.elements.push(nextNode);
+                if (tokens[current]?.type === TOKEN_TYPES.COMMA) {
+                    current++;
+                }
                 if (tokens[current] === undefined) {
                     break;
                 }
@@ -130,6 +137,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 node.position.end = tokens[current].end ?? 0;
                 current++;
             } else {
+                console.warn(tokens[current]);
                 errors.push({
                     message: 'Expected Right Bracket',
                     token,
