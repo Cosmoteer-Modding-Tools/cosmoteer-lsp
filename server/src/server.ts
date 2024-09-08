@@ -18,6 +18,8 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { lexer } from './lexer/lexer';
 import { parser } from './parser/parser';
+import { ParserResultRegistrar } from './registrar/parserResultRegistrar';
+import { findNodeAtPosition } from './utils/ast.utils';
 
 export const MAX_NUMBER_OF_PROBLEMS = 10;
 
@@ -173,16 +175,18 @@ documents.onDidChangeContent((change) => {
 async function validateTextDocument(
     textDocument: TextDocument
 ): Promise<Diagnostic[]> {
-    // In this simple example we get the settings for every validate run.
     const settings = await getDocumentSettings(textDocument.uri);
 
-    // The validator creates diagnostics for all uppercase words length 2 and more
     const text = textDocument.getText();
     const tokens = lexer(text);
     const parserResult = parser(tokens);
     console.dir(parserResult, { depth: Infinity, colors: true });
     let problems = 0;
     const diagnostics: Diagnostic[] = [];
+    ParserResultRegistrar.instance.setResult(
+        textDocument.uri,
+        parserResult.value
+    );
     for (const error of parserResult.parserErrors) {
         problems++;
         if (problems > settings.maxNumberOfProblems) break;
@@ -212,6 +216,7 @@ async function validateTextDocument(
         }
         diagnostics.push(diagnostic);
     }
+    // TODO Add Validators
     return diagnostics;
 }
 
@@ -223,6 +228,13 @@ connection.onDidChangeWatchedFiles((_change) => {
 // This handler provides the initial list of the completion items.
 connection.onCompletion(
     (textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
+        const parserResult = ParserResultRegistrar.instance.getResult(
+            textDocumentPosition.textDocument.uri
+        );
+        if (parserResult)
+            console.log(
+                findNodeAtPosition(parserResult, textDocumentPosition.position)
+            );
         console.log(textDocumentPosition.position);
         return [];
     }

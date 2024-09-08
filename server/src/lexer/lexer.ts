@@ -5,7 +5,6 @@ export const lexer = (input: string): Token[] => {
     const tokens: Token[] = [];
     while (current < input.length) {
         let char = input[current];
-        lineOffset += 1;
 
         if (isSingleLineComment(char, input, current)) {
             current += 2;
@@ -200,8 +199,9 @@ export const lexer = (input: string): Token[] => {
             if (char === '\n') {
                 lineNumber++;
                 lineOffset = 0;
+            } else {
+                lineOffset++;
             }
-            lineOffset++;
             current++;
             continue;
         }

@@ -1,7 +1,7 @@
 export interface AbstractNode {
     type: string;
     parent?: AbstractNode;
-    position: Position;
+    position: AstPosition;
 }
 
 export interface AbstractNodeDocument {
@@ -73,12 +73,60 @@ export interface InheritanceNode extends AbstractNode {
     right: ObjectNode | ArrayNode;
 }
 
-export interface Position {
+export interface AstPosition {
     line: number;
     characterStart: number;
     characterEnd: number;
     start: number;
     end: number;
 }
+
+export const isObjectNode = (astNode: AbstractNode): astNode is ObjectNode => {
+    return astNode.type === 'Object';
+};
+
+export const isArrayNode = (astNode: AbstractNode): astNode is ArrayNode => {
+    return astNode.type === 'Array';
+};
+
+export const isIdentifierNode = (
+    astNode: AbstractNode
+): astNode is IdentifierNode => {
+    return astNode.type === 'Identifier';
+};
+
+export const isValueNode = (astNode: AbstractNode): astNode is ValueNode => {
+    return astNode.type === 'Value';
+};
+
+export const isExpressionNode = (
+    astNode: AbstractNode
+): astNode is ExpressionNode => {
+    return astNode.type === 'Expression';
+};
+
+export const isFunctionCallNode = (
+    astNode: AbstractNode
+): astNode is FunctionCallNode => {
+    return astNode.type === 'FunctionCall';
+};
+
+export const isMathExpressionNode = (
+    astNode: AbstractNode
+): astNode is MathExpressionNode => {
+    return astNode.type === 'MathExpression';
+};
+
+export const isAssignmentNode = (
+    astNode: AbstractNode
+): astNode is AssignmentNode => {
+    return astNode.type === 'Assignment';
+};
+
+export const isInheritanceNode = (
+    astNode: AbstractNode
+): astNode is InheritanceNode => {
+    return astNode.type === 'Inheritance';
+};
 
 export type PropertyType = PropertyType[] | number | string | boolean;
