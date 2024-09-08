@@ -12,7 +12,7 @@ export const findNodeAtPosition = (
     document: AbstractNodeDocument,
     position: Position
 ) => {
-    for (const node of document.body) {
+    for (const node of document.elements) {
         const foundNode = findNodeAtPositionRecursive(node, position);
         if (foundNode) {
             return foundNode;
@@ -25,7 +25,7 @@ const findNodeAtPositionRecursive = (
     position: Position
 ): AbstractNode | undefined => {
     if (isObjectNode(node)) {
-        for (const property of node.properties) {
+        for (const property of node.elements) {
             return findNodeAtPositionRecursive(property, position);
         }
     } else if (isArrayNode(node)) {
@@ -47,7 +47,7 @@ const findNodeAtPositionRecursive = (
                 return findNodeAtPositionRecursive(element, position);
             }
         } else if (isObjectNode(node.right)) {
-            for (const property of node.right.properties) {
+            for (const property of node.right.elements) {
                 return findNodeAtPositionRecursive(property, position);
             }
         }
@@ -57,7 +57,7 @@ const findNodeAtPositionRecursive = (
             position.character <= node.right.position.characterEnd &&
             position.character >= node.right.position.characterStart
         ) {
-            return node;
+            return node.right;
         }
     } else {
         if (

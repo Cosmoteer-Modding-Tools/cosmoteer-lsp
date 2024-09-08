@@ -1,18 +1,18 @@
 export interface AbstractNode {
     type: string;
-    parent?: AbstractNode;
+    parent?: ObjectNode | ArrayNode | AbstractNodeDocument;
     position: AstPosition;
 }
 
 export interface AbstractNodeDocument {
     type: 'Document';
-    body: AbstractNode[];
+    elements: AbstractNode[];
 }
 
 export interface ObjectNode extends AbstractNode {
     identifier?: IdentifierNode;
     type: 'Object';
-    properties: AbstractNode[];
+    elements: AbstractNode[];
 }
 
 export interface ArrayNode extends AbstractNode {

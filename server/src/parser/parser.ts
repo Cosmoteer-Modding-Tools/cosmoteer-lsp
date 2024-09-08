@@ -26,7 +26,10 @@ export const parser = (tokens: Token[]): TokenParserResult => {
     const IS_NUMBER = /[-.]?^[\d]+[.]?[\d]*$/;
     // TODO: Add Identifier to object and array if exists
     // TODO: Add Function calls and expressions to assignment nodes
-    const walk = (_lastNode?: AbstractNode): AbstractNode | null => {
+    const walk = (
+        _lastNode?: AbstractNode,
+        parent?: ObjectNode | ArrayNode | AbstractNodeDocument
+    ): AbstractNode | null => {
         const token = tokens[current];
         if (!token) {
             return null;
@@ -36,7 +39,8 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             current++;
             const node: ObjectNode = {
                 type: 'Object',
-                properties: [],
+                elements: [],
+                parent,
                 position: {
                     line: token.lineNumber,
                     characterStart: token.lineOffset,
@@ -55,12 +59,12 @@ export const parser = (tokens: Token[]): TokenParserResult => {
 
             let lastNode: AbstractNode = node;
             while (tokens[current].type !== TOKEN_TYPES.RIGHT_BRACE) {
-                const nextNode = walk(lastNode);
+                const nextNode = walk(lastNode, node);
                 if (!nextNode) {
                     break;
                 }
                 lastNode = nextNode;
-                node.properties.push(nextNode);
+                node.elements.push(nextNode);
                 if (
                     tokens[current] &&
                     tokens[current].type === TOKEN_TYPES.SEMICOLON
@@ -98,6 +102,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             current++;
             const node = {
                 type: 'Array',
+                parent,
                 elements: [],
                 position: {
                     line: token.lineNumber,
@@ -119,7 +124,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 tokens[current] &&
                 tokens[current].type !== TOKEN_TYPES.RIGHT_BRACKET
             ) {
-                const nextNode = walk(lastNode);
+                const nextNode = walk(lastNode, node);
                 if (nextNode === null) {
                     break;
                 }
@@ -158,7 +163,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
         if (token.type === TOKEN_TYPES.COMMA && _lastNode?.type === 'Value') {
             current++;
             (_lastNode as ValueNode).delimiter = ',';
-            return walk(_lastNode);
+            return walk(_lastNode, parent);
         } else if (token.type === TOKEN_TYPES.COMMA) {
             current++;
             errors.push({
@@ -174,6 +179,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 type: 'Value',
                 valueType: 'String',
                 values: token.value,
+                parent,
                 position: {
                     characterEnd:
                         token.lineOffset + (token.value as string)?.length,
@@ -191,6 +197,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 type: 'Value',
                 valueType: 'Boolean',
                 values: true,
+                parent,
                 position: {
                     characterEnd: token.lineOffset + 4,
                     characterStart: token.lineOffset,
@@ -206,6 +213,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             return {
                 type: 'Value',
                 valueType: 'Boolean',
+                parent,
                 values: false,
                 position: {
                     characterEnd: token.lineOffset + 5,
@@ -234,6 +242,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                     type: 'Value',
                     valueType: 'Number',
                     values: value,
+                    parent,
                     position: {
                         characterEnd:
                             token.lineOffset +
@@ -257,6 +266,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                     type: 'Value',
                     valueType: 'Reference',
                     values: value,
+                    parent,
                     position: {
                         characterEnd: token.lineOffset + value.length,
                         characterStart: token.lineOffset,
@@ -269,6 +279,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             return {
                 type: 'Expression',
                 expressionType: token.value as '+' | '-' | '*' | '/',
+                parent,
                 position: {
                     characterEnd: token.lineOffset + 1,
                     characterStart: token.lineOffset,
@@ -303,6 +314,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                             type: 'Value',
                             valueType: valueType,
                             values: tokens[current].value as string,
+                            parent,
                             position: {
                                 characterEnd:
                                     token.lineOffset +
@@ -320,7 +332,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                         tokens[current] &&
                         tokens[current].type !== TOKEN_TYPES.RIGHT_PAREN
                     ) {
-                        const nextNode = walk(lastNode);
+                        const nextNode = walk(lastNode, parent);
                         if (!nextNode) {
                             break;
                         }
@@ -356,11 +368,12 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                             line: token.lineNumber,
                             start: token.start,
                         },
+                        parent,
                     } as FunctionCallNode;
                 }
             } else {
                 current++;
-                const node = walk() as ValueNode;
+                const node = walk(_lastNode, parent) as ValueNode;
                 if (!node) {
                     errors.push({
                         message: 'Expected Value',
@@ -397,9 +410,11 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 node = {
                     type: 'Assignment',
                     assignmentType: 'Equals',
+                    parent,
                     left: {
                         type: 'Identifier',
                         name: token.value,
+                        parent,
                         position: {
                             characterEnd:
                                 token.lineOffset +
@@ -410,7 +425,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                             start: token.start,
                         },
                     } as IdentifierNode,
-                    right: walk(),
+                    right: walk(_lastNode, parent),
                 } as AssignmentNode;
             } else if (
                 token.value &&
@@ -430,6 +445,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                     type: 'Value',
                     valueType,
                     values: token.value,
+                    parent,
                     position: {
                         characterEnd:
                             token.lineOffset + (token.value as string)?.length,
@@ -443,6 +459,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 node = {
                     type: 'Identifier',
                     name: token.value,
+                    parent,
                     position: {
                         characterEnd:
                             token.lineOffset + (token.value as string)?.length,
@@ -478,7 +495,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                     (tokens[current].type === TOKEN_TYPES.EXPRESSION &&
                         tokens[current + 1]?.type === TOKEN_TYPES.VALUE))
             ) {
-                const nextNode = walk(lastNode ?? undefined);
+                const nextNode = walk(lastNode ?? undefined, parent);
                 lastNode = nextNode;
                 if (!nextNode) {
                     break;
@@ -498,9 +515,9 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             }
             let right: ObjectNode | ArrayNode | undefined = undefined;
             if (tokens[current]?.type === TOKEN_TYPES.LEFT_BRACE) {
-                right = walk() as ObjectNode;
+                right = walk(_lastNode, parent) as ObjectNode;
             } else if (tokens[current]?.type === TOKEN_TYPES.LEFT_BRACKET) {
-                right = walk() as ArrayNode;
+                right = walk(_lastNode, parent) as ArrayNode;
             }
 
             return {
@@ -508,6 +525,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 left: identifierNode,
                 inheritance: inheritanceNodes,
                 right,
+                parent,
             } as InheritanceNode;
         }
 
@@ -516,7 +534,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             token.type === TOKEN_TYPES.MULTI_COMMENT
         ) {
             current++;
-            return walk(_lastNode);
+            return walk(_lastNode, parent);
         }
 
         if (token.type === TOKEN_TYPES.RIGHT_PAREN) {
@@ -537,12 +555,12 @@ export const parser = (tokens: Token[]): TokenParserResult => {
 
     const ast: AbstractNodeDocument = {
         type: 'Document',
-        body: [],
+        elements: [],
     };
 
     let lastNode = undefined;
     while (current < tokens.length) {
-        const nextNode = walk(lastNode);
+        const nextNode = walk(lastNode, ast);
         if (errors.length > MAX_NUMBER_OF_PROBLEMS) {
             break;
         }
@@ -556,7 +574,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             (nextNode as ObjectNode).identifier = lastNode as IdentifierNode;
         }
         lastNode = nextNode;
-        ast.body.push(nextNode);
+        ast.elements.push(nextNode);
     }
 
     return { value: ast, parserErrors: errors };

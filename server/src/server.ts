@@ -20,6 +20,7 @@ import { lexer } from './lexer/lexer';
 import { parser } from './parser/parser';
 import { ParserResultRegistrar } from './registrar/parserResultRegistrar';
 import { findNodeAtPosition } from './utils/ast.utils';
+import { AutoCompletionService } from './autocompletion/autocompletion.service';
 
 export const MAX_NUMBER_OF_PROBLEMS = 10;
 
@@ -231,18 +232,30 @@ connection.onCompletion(
         const parserResult = ParserResultRegistrar.instance.getResult(
             textDocumentPosition.textDocument.uri
         );
-        if (parserResult)
-            console.log(
-                findNodeAtPosition(parserResult, textDocumentPosition.position)
+        let completions: string[] = [];
+        if (parserResult) {
+            const node = findNodeAtPosition(
+                parserResult,
+                textDocumentPosition.position
             );
-        console.log(textDocumentPosition.position);
-        return [];
+            if (node) {
+                completions =
+                    AutoCompletionService.instance.getCompletions(node);
+                console.log(completions);
+                console.log(node);
+            }
+        }
+        return completions.map<CompletionItem>((completion) => ({
+            label: completion,
+            kind: CompletionItemKind.Text,
+        }));
     }
 );
 
 // This handler resolves additional information for the item selected in
 // the completion list.
 connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
+    console.log(item);
     return item;
 });
 
