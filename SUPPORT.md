@@ -1,0 +1,1 @@
+For Bugs, Priorizations and Suggestions please check the [Cosmoteer Language Server GitHub](https://github.com/TrustNoOneElse/cosmoteer-lsp) and open a Issue or comment on a existing.
