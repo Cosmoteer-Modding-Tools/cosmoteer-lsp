@@ -546,16 +546,25 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             return null;
         }
 
+        // Invalid Section
         errors.push({
             message: 'Unknown token type',
             token,
         } as ParserError);
+        current++;
         return null;
     };
 
     const ast: AbstractNodeDocument = {
         type: 'Document',
         elements: [],
+        position: {
+            characterEnd: 0,
+            characterStart: 0,
+            end: 0,
+            line: 0,
+            start: 0,
+        },
     };
 
     let lastNode = undefined;

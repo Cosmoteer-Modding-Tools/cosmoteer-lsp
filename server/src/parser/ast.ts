@@ -1,10 +1,10 @@
 export interface AbstractNode {
-    type: string;
+    type: AstType;
     parent?: ObjectNode | ArrayNode | AbstractNodeDocument;
     position: AstPosition;
 }
 
-export interface AbstractNodeDocument {
+export interface AbstractNodeDocument extends AbstractNode {
     type: 'Document';
     elements: AbstractNode[];
 }
@@ -46,14 +46,6 @@ export interface FunctionCallNode extends AbstractNode {
     arguments: Array<ValueNode | FunctionCallNode | ExpressionNode>;
 }
 
-// Make a node for expression and function nodes
-export interface MathExpressionNode extends AbstractNode {
-    type: 'MathExpression';
-    expressionType: '+' | '-' | '*' | '/';
-    left: ValueNode | FunctionCallNode;
-    right: ValueNode | FunctionCallNode;
-}
-
 export interface AssignmentNode extends AbstractNode {
     type: 'Assignment';
     assignmentType: 'Equals' | 'Colon';
@@ -62,8 +54,7 @@ export interface AssignmentNode extends AbstractNode {
         | ArrayNode
         | ValueNode
         | ObjectNode
-        | FunctionCallNode
-        | MathExpressionNode;
+        | FunctionCallNode;
 }
 
 export interface InheritanceNode extends AbstractNode {
@@ -111,12 +102,6 @@ export const isFunctionCallNode = (
     return astNode.type === 'FunctionCall';
 };
 
-export const isMathExpressionNode = (
-    astNode: AbstractNode
-): astNode is MathExpressionNode => {
-    return astNode.type === 'MathExpression';
-};
-
 export const isAssignmentNode = (
     astNode: AbstractNode
 ): astNode is AssignmentNode => {
@@ -129,4 +114,21 @@ export const isInheritanceNode = (
     return astNode.type === 'Inheritance';
 };
 
+export const isDocumentNode = (
+    astNode: AbstractNode
+): astNode is AbstractNodeDocument => {
+    return astNode.type === 'Document';
+};
+
 export type PropertyType = PropertyType[] | number | string | boolean;
+
+export type AstType =
+    | InheritanceNode['type']
+    | AssignmentNode['type']
+    | ObjectNode['type']
+    | ArrayNode['type']
+    | IdentifierNode['type']
+    | ValueNode['type']
+    | ExpressionNode['type']
+    | FunctionCallNode['type']
+    | AbstractNodeDocument['type'];

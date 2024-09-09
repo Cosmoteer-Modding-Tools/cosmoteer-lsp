@@ -247,7 +247,7 @@ connection.onCompletion(
         }
         return completions.map<CompletionItem>((completion) => ({
             label: completion,
-            kind: CompletionItemKind.Text,
+            kind: CompletionItemKind.Reference,
         }));
     }
 );

@@ -16,7 +16,11 @@ export class AutoCompletionReference implements AutoCompletion<ValueNode> {
             const value = node.values.toString().slice(1);
             return (
                 node.parent?.elements
-                    .filter((v) => isIdentifierNode(v) || isAssignmentNode(v))
+                    .filter(
+                        (v) =>
+                            isIdentifierNode(v) ||
+                            (isAssignmentNode(v) && v.right !== node)
+                    )
                     .filter(
                         (v) =>
                             (isIdentifierNode(v) && v.name.startsWith(value)) ||

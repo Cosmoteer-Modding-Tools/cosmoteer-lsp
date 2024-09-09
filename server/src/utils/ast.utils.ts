@@ -26,11 +26,17 @@ const findNodeAtPositionRecursive = (
 ): AbstractNode | undefined => {
     if (isObjectNode(node)) {
         for (const property of node.elements) {
-            return findNodeAtPositionRecursive(property, position);
+            const foundNode = findNodeAtPositionRecursive(property, position);
+            if (foundNode) {
+                return foundNode;
+            }
         }
     } else if (isArrayNode(node)) {
         for (const element of node.elements) {
-            return findNodeAtPositionRecursive(element, position);
+            const foundNode = findNodeAtPositionRecursive(element, position);
+            if (foundNode) {
+                return foundNode;
+            }
         }
     } else if (isInheritanceNode(node)) {
         for (const inheritance of node.inheritance) {
@@ -42,13 +48,10 @@ const findNodeAtPositionRecursive = (
                 return foundNode;
             }
         }
-        if (isArrayNode(node.right)) {
-            for (const element of node.right.elements) {
-                return findNodeAtPositionRecursive(element, position);
-            }
-        } else if (isObjectNode(node.right)) {
-            for (const property of node.right.elements) {
-                return findNodeAtPositionRecursive(property, position);
+        for (const element of node.right.elements) {
+            const foundNode = findNodeAtPositionRecursive(element, position);
+            if (foundNode) {
+                return foundNode;
             }
         }
     } else if (isAssignmentNode(node)) {
