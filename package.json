@@ -22,7 +22,7 @@
         "onLanguage:rules"
     ],
     "pricing": "Free",
-    "icon": "showcase/leibwaechter_De_FACTORY.ship.png",
+    "icon": "./showcase/leibwaechter_De_FACTORY.ship.png",
     "main": "./client/out/extension",
     "galleryBanner": {
         "color": "#007ACC",
@@ -31,6 +31,10 @@
     "contributes": {
         "languages": [
             {
+                "icon": {
+                    "dark": "./images/dark_icon_rules.png",
+                    "light": "./images/dark_icon_rules.png"
+                },
                 "id": "rules",
                 "extensions": [
                     ".rules"
