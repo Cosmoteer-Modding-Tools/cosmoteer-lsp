@@ -21,6 +21,8 @@ import { parser } from './parser/parser';
 import { ParserResultRegistrar } from './registrar/parserResultRegistrar';
 import { findNodeAtPosition } from './utils/ast.utils';
 import { AutoCompletionService } from './autocompletion/autocompletion.service';
+import { ValidationError, Validator } from './validation/validator';
+import { ValidationForReference } from './validation/validator.reference';
 
 export const MAX_NUMBER_OF_PROBLEMS = 10;
 
@@ -73,6 +75,7 @@ connection.onInitialize((params: InitializeParams) => {
 });
 
 connection.onInitialized(() => {
+    Validator.instance.registerValidation(ValidationForReference);
     if (hasConfigurationCapability) {
         // Register for all configuration changes.
         connection.client.register(
@@ -181,13 +184,17 @@ async function validateTextDocument(
     const text = textDocument.getText();
     const tokens = lexer(text);
     const parserResult = parser(tokens);
-    console.dir(parserResult, { depth: Infinity, colors: true });
+    // console.dir(parserResult, { depth: Infinity, colors: true });
     let problems = 0;
     const diagnostics: Diagnostic[] = [];
     ParserResultRegistrar.instance.setResult(
         textDocument.uri,
         parserResult.value
     );
+    const validationErrors: ValidationError[] = [];
+    for (const node of parserResult.value.elements) {
+        validationErrors.push(...Validator.instance.validate(node));
+    }
     for (const error of parserResult.parserErrors) {
         problems++;
         if (problems > settings.maxNumberOfProblems) break;
@@ -217,7 +224,20 @@ async function validateTextDocument(
         }
         diagnostics.push(diagnostic);
     }
-    // TODO Add Validators
+    for (const error of validationErrors) {
+        problems++;
+        if (problems > settings.maxNumberOfProblems) break;
+        const diagnostic: Diagnostic = {
+            severity: DiagnosticSeverity.Error,
+            range: {
+                start: textDocument.positionAt(error.node.position.start),
+                end: textDocument.positionAt(error.node.position.end),
+            },
+            message: error.message,
+            source: 'cosmoteer-language-server',
+        };
+        diagnostics.push(diagnostic);
+    }
     return diagnostics;
 }
 
