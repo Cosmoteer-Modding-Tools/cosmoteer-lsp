@@ -130,7 +130,10 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 }
                 lastNode = nextNode;
                 node.elements.push(nextNode);
-                if (tokens[current]?.type === TOKEN_TYPES.COMMA) {
+                if (
+                    tokens[current]?.type === TOKEN_TYPES.COMMA ||
+                    tokens[current]?.type === TOKEN_TYPES.SEMICOLON
+                ) {
                     current++;
                 }
                 if (tokens[current] === undefined) {
@@ -551,6 +554,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             message: 'Unknown token type',
             token,
         } as ParserError);
+        console.log(token);
         current++;
         return null;
     };

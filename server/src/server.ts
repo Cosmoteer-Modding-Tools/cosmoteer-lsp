@@ -180,11 +180,10 @@ async function validateTextDocument(
     textDocument: TextDocument
 ): Promise<Diagnostic[]> {
     const settings = await getDocumentSettings(textDocument.uri);
-
     const text = textDocument.getText();
     const tokens = lexer(text);
     const parserResult = parser(tokens);
-    // console.dir(parserResult, { depth: Infinity, colors: true });
+    console.dir(parserResult, { depth: Infinity, colors: true });
     let problems = 0;
     const diagnostics: Diagnostic[] = [];
     ParserResultRegistrar.instance.setResult(
@@ -275,7 +274,6 @@ connection.onCompletion(
 // This handler resolves additional information for the item selected in
 // the completion list.
 connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
-    console.log(item);
     return item;
 });
 

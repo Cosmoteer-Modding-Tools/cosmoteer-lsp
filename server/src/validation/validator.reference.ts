@@ -1,4 +1,5 @@
 import { isAssignmentNode, isIdentifierNode, ValueNode } from '../parser/ast';
+import { startsWithAmpersandAndLetter } from '../utils/reference.utils';
 import { Validation } from './validator';
 
 export const ValidationForReference: Validation<ValueNode> = {
@@ -6,8 +7,8 @@ export const ValidationForReference: Validation<ValueNode> = {
     callback: (node: ValueNode) => {
         if (
             node.valueType === 'Reference' &&
-            node.values.toString().length > 1 &&
-            node.values.toString().startsWith('&') &&
+            (node.values as string).length > 1 &&
+            startsWithAmpersandAndLetter(node.values as string) &&
             !hasIdentifier(node, (node.values as string).substring(1))
         ) {
             return {
@@ -24,7 +25,7 @@ const hasIdentifier = (node: ValueNode, name: string) => {
         if (isIdentifierNode(v) && v.name === name) {
             return v;
         }
-        if (isAssignmentNode(v) && v.left.name === name) {
+        if (isAssignmentNode(v) && v.left.name === name && v.right !== node) {
             return true;
         }
         return false;
