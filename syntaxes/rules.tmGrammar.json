@@ -78,11 +78,15 @@
                     "patterns": [
                         {
                             "name": "constant.numeric",
-                            "match": "(\\-?\\d+.?\\d*)"
+                            "match": "\\b(\\-?\\d+.?\\d*)\\b"
                         },
                         {
                             "name": "variable.parameter",
                             "match": " ?[a-zA-Z_][a-zA-Z0-9_]+ ?(?=,)"
+                        },
+                        {
+                            "name": "entity.name.tag",
+                            "match": "[&|<|^][<>.\\/\\w_]+"
                         },
                         {
                             "name": "punctuation.comma",

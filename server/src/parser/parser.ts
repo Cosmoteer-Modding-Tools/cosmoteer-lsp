@@ -304,9 +304,14 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 const name = token.value;
                 current += 2;
                 if (
-                    tokens[current] &&
-                    tokens[current].type === TOKEN_TYPES.VALUE
+                    tokens[current]?.type === TOKEN_TYPES.VALUE ||
+                    tokens[current]?.type === TOKEN_TYPES.LEFT_PAREN
                 ) {
+                    let isParenthesized = false;
+                    if (tokens[current]?.type === TOKEN_TYPES.LEFT_PAREN) {
+                        current++;
+                        isParenthesized = true;
+                    }
                     const valueType:
                         | 'String'
                         | 'Number'
@@ -327,9 +332,13 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                                 line: token.lineNumber,
                                 start: token.start,
                             },
+                            parenthesized: isParenthesized,
                         },
                     ];
                     current++;
+                    if (tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN) {
+                        current++;
+                    }
                     lastNode = args[0];
                     while (
                         tokens[current] &&
@@ -348,6 +357,9 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                             args.push(nextNode as ValueNode);
                         } else {
                             throw new Error('Invalid argument type');
+                        }
+                        if (tokens[current]?.type === TOKEN_TYPES.COMMA) {
+                            current++;
                         }
                         if (tokens[current] === undefined) {
                             break;
