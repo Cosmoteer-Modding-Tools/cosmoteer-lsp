@@ -212,7 +212,7 @@ export const lexer = (input: string): Token[] => {
             const lineOffsetBefore = lineOffset;
             char = input[++current];
             lineOffset++;
-            while (char !== '"') {
+            while (char !== '"' || input[current - 1] === '\\') {
                 value += char;
                 char = input[++current];
                 lineOffset++;
@@ -303,7 +303,7 @@ export const lexer = (input: string): Token[] => {
             );
             continue;
         }
-
+        console.warn('unexcpected', char);
         tokens.push(
             createToken(
                 TOKEN_TYPES.UNEXPECTED,
@@ -314,6 +314,7 @@ export const lexer = (input: string): Token[] => {
                 char
             )
         );
+        current++;
     }
 
     return tokens;

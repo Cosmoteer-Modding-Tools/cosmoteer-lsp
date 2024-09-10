@@ -43,7 +43,14 @@
             "patterns": [
                 {
                     "name": "string.quoted",
-                    "match": "\"(?:[^\"\\\\]|\\\\.)*\""
+                    "begin": "\"",
+                    "end": "\"",
+                    "patterns": [
+                        {
+                            "name": "constant.character.escape",
+                            "match": "\\\\."
+                        }
+                    ]
                 },
 
                 {
