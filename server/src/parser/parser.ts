@@ -307,10 +307,10 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                     tokens[current]?.type === TOKEN_TYPES.VALUE ||
                     tokens[current]?.type === TOKEN_TYPES.LEFT_PAREN
                 ) {
-                    let isParenthesized = false;
+                    let startWithParens = false;
                     if (tokens[current]?.type === TOKEN_TYPES.LEFT_PAREN) {
                         current++;
-                        isParenthesized = true;
+                        startWithParens = true;
                     }
                     const valueType:
                         | 'String'
@@ -332,12 +332,20 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                                 line: token.lineNumber,
                                 start: token.start,
                             },
-                            parenthesized: isParenthesized,
                         },
                     ];
                     current++;
-                    if (tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN) {
+                    if (
+                        startWithParens &&
+                        tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN
+                    ) {
+                        args[0].parenthesized = true;
                         current++;
+                    } else if (startWithParens) {
+                        errors.push({
+                            message: 'Expected Right Paren for Reference',
+                            token,
+                        } as ParserError);
                     }
                     lastNode = args[0];
                     while (

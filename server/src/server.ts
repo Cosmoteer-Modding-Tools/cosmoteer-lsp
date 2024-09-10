@@ -23,6 +23,7 @@ import { findNodeAtPosition } from './utils/ast.utils';
 import { AutoCompletionService } from './autocompletion/autocompletion.service';
 import { ValidationError, Validator } from './validation/validator';
 import { ValidationForReference } from './validation/validator.reference';
+import { ValidationForFunctionCall } from './validation/validator.functioncall';
 
 export const MAX_NUMBER_OF_PROBLEMS = 10;
 
@@ -76,6 +77,7 @@ connection.onInitialize((params: InitializeParams) => {
 
 connection.onInitialized(() => {
     Validator.instance.registerValidation(ValidationForReference);
+    Validator.instance.registerValidation(ValidationForFunctionCall);
     if (hasConfigurationCapability) {
         // Register for all configuration changes.
         connection.client.register(
