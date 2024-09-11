@@ -1,1 +1,5 @@
 If you are intereted in contributing to this project, please create an issue and we can setup a guide for the contribution!
+
+# Language Contributors
+For those who are interested in contributing to the language translation, please checkout the folder `l10n`. Inside the folder, you will find a list of languages that are currently supported, please do not edit `bundle.i10n.json` directly, this file is purely for orientation. If you would like to contribute to a language that is not listed, then see [Language Codes](https://en.wikipedia.org/wiki/List_of_ISO_639-2_codes) and look at 639-1 codes. Then create a new file with the language code and the translation. For example, if you want to contribute to the Spanish translation, then create a file called `bundle.l10n.es.json` and add the translation to the file.
+Arguments are declared with {Number}. If you have any questions, please create an issue and we can help you out!
