@@ -25,7 +25,16 @@ import { ValidationError, Validator } from './validation/validator';
 import { ValidationForReference } from './validation/validator.reference';
 import { ValidationForFunctionCall } from './validation/validator.functioncall';
 
+import * as l10n from '@vscode/l10n';
+
 export const MAX_NUMBER_OF_PROBLEMS = 10;
+
+if (process.env['EXTENSION_BUNDLE_PATH']) {
+    console.log('l10n.config');
+    l10n.config({
+        fsPath: process.env['EXTENSION_BUNDLE_PATH'],
+    });
+}
 
 const connection = createConnection(ProposedFeatures.all);
 
@@ -97,10 +106,14 @@ connection.onInitialized(() => {
         // 	console.log(data?.isDirectory());
         // }
         // );
-
         connection.workspace.onDidChangeWorkspaceFolders((_event) => {
             connection.console.log('Workspace folder change event received.');
         });
+        connection.sendProgress<string>(
+            { __: ['test', { _$endMarker$_: 1 }], _pr: '100' },
+            100,
+            'Cosmoteer Language Server is ready'
+        );
     }
 });
 

@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { workspace, ExtensionContext } from 'vscode';
+import { workspace, ExtensionContext, l10n } from 'vscode';
 
 import {
     LanguageClient,
@@ -16,11 +16,29 @@ export function activate(context: ExtensionContext) {
         path.join('server', 'out', 'server.js')
     );
 
+    const bundle = l10n.uri
+        ? { EXTENSION_BUNDLE_PATH: l10n.uri?.fsPath }
+        : undefined;
+    console.log('bundle', bundle);
+
     const serverOptions: ServerOptions = {
-        run: { module: serverModule, transport: TransportKind.ipc },
+        run: {
+            module: serverModule,
+            options: {
+                env: {
+                    ...bundle,
+                },
+            },
+            transport: TransportKind.ipc,
+        },
         debug: {
             module: serverModule,
             transport: TransportKind.ipc,
+            options: {
+                env: {
+                    ...bundle,
+                },
+            },
         },
     };
 
@@ -31,6 +49,7 @@ export function activate(context: ExtensionContext) {
             // Notify the server about file changes to '.clientrc files contained in the workspace
             fileEvents: workspace.createFileSystemWatcher('**/.clientrc'),
         },
+        progressOnInitialization: true,
     };
 
     client = new LanguageClient(

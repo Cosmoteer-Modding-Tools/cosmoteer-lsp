@@ -12,7 +12,7 @@ import {
     ObjectNode,
     ValueNode,
 } from './ast';
-
+import * as l10n from '@vscode/l10n';
 /**
  * TODO add Parser per Object to beatufy the code below lol
  */
@@ -51,7 +51,9 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             };
             if (!tokens[current]) {
                 errors.push({
-                    message: 'Expected Right Brace but found end of file',
+                    message: l10n.t(
+                        'Expected right brace but found end of file'
+                    ),
                     token,
                 } as ParserError);
                 return node;
@@ -82,7 +84,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             } else {
                 console.warn(tokens[current]);
                 errors.push({
-                    message: 'Expected Right Brace',
+                    message: l10n.t('Expected right brace'),
                     token,
                 } as ParserError);
             }
@@ -91,7 +93,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
 
         if (token.type === TOKEN_TYPES.RIGHT_BRACE) {
             errors.push({
-                message: 'Not expected token',
+                message: l10n.t('Not expected token'),
                 token,
             } as ParserError);
             current++;
@@ -114,7 +116,9 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             } as ArrayNode;
             if (!tokens[current]) {
                 errors.push({
-                    message: 'Expected Right Bracket but found end of file',
+                    message: l10n.t(
+                        'Expected right bracket but found end of file'
+                    ),
                     token,
                 } as ParserError);
                 return node;
@@ -147,7 +151,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             } else {
                 console.warn(tokens[current]);
                 errors.push({
-                    message: 'Expected Right Bracket',
+                    message: l10n.t('Expected right bracket'),
                     token,
                 } as ParserError);
             }
@@ -156,7 +160,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
 
         if (token.type === TOKEN_TYPES.RIGHT_BRACKET) {
             errors.push({
-                message: 'Not expected token',
+                message: l10n.t('Not expected bracket'),
                 token,
             } as ParserError);
             current++;
@@ -170,7 +174,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
         } else if (token.type === TOKEN_TYPES.COMMA) {
             current++;
             errors.push({
-                message: 'Not expected Comma',
+                message: l10n.t('Not expected comma'),
                 token,
             } as ParserError);
             return null;
@@ -343,7 +347,9 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                         current++;
                     } else if (startWithParens) {
                         errors.push({
-                            message: 'Expected Right Paren for Reference',
+                            message: l10n.t(
+                                'Expected right paren for reference'
+                            ),
                             token,
                         } as ParserError);
                     }
@@ -399,7 +405,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 const node = walk(_lastNode, parent) as ValueNode;
                 if (!node) {
                     errors.push({
-                        message: 'Expected Value',
+                        message: l10n.t('Expected value'),
                         token,
                     } as ParserError);
                     return null;
@@ -425,7 +431,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 current++;
                 if (current >= tokens.length) {
                     errors.push({
-                        message: 'Expected Value',
+                        message: l10n.t('Expected value'),
                         token,
                     } as ParserError);
                     return null;
@@ -500,7 +506,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             current++;
             if (current >= tokens.length) {
                 errors.push({
-                    message: 'Expected Value in Colon',
+                    message: l10n.t('Expected value in colon'),
                     token,
                 } as ParserError);
                 return null;
@@ -526,9 +532,11 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 if (nextNode.type === 'Value') {
                     inheritanceNodes.push(nextNode as ValueNode);
                 } else {
-                    console.warn(nextNode);
                     errors.push({
-                        message: 'Expected Value after value but found',
+                        message: l10n.t(
+                            'Expected value after value but found {0}',
+                            nextNode.type
+                        ),
                         token: tokens[current],
                     } as ParserError);
                 }
@@ -562,7 +570,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
 
         if (token.type === TOKEN_TYPES.RIGHT_PAREN) {
             errors.push({
-                message: 'Not expected paren',
+                message: l10n.t('Not expected paren'),
                 token,
             } as ParserError);
             current++;
@@ -571,7 +579,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
 
         // Invalid Section
         errors.push({
-            message: 'Unknown token type',
+            message: l10n.t('Unknown token type'),
             token,
         } as ParserError);
         console.log(token);

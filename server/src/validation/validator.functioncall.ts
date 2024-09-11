@@ -1,5 +1,6 @@
 import { FunctionCallNode } from '../parser/ast';
 import { Validation } from './validator';
+import * as l10n from '@vscode/l10n';
 
 export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
     type: 'FunctionCall',
@@ -8,15 +9,17 @@ export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
             if (arg.type === 'Value' && arg.valueType === 'Reference') {
                 if (!(arg.values as string).startsWith('&')) {
                     return {
-                        message:
-                            'Reference in function calls need to start with an ampersand',
+                        message: l10n.t(
+                            'Reference in function calls need to start with an ampersand'
+                        ),
                         node: arg,
                     };
                 }
                 if (!arg.parenthesized) {
                     return {
-                        message:
-                            'Reference in function calls need to be parenthesized',
+                        message: l10n.t(
+                            'Reference in function calls need to be parenthesized'
+                        ),
                         node: arg,
                     };
                 }
@@ -26,8 +29,10 @@ export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
                 arg.valueType !== 'Number'
             ) {
                 return {
-                    message:
-                        'Invalid argument type, expected Reference(&) or Number',
+                    message: l10n.t(
+                        'Invalid argument type, expected Reference(&) or Number. Got {0}',
+                        arg.valueType
+                    ),
                     node: arg,
                 };
             }

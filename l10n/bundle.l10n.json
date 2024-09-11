@@ -1,0 +1,19 @@
+{
+  "Reference name is not known": "Reference name is not known",
+  "Reference in function calls need to start with an ampersand": "Reference in function calls need to start with an ampersand",
+  "Reference in function calls need to be parenthesized": "Reference in function calls need to be parenthesized",
+  "Invalid argument type, expected Reference(&) or Number. Got {0}": "Invalid argument type, expected Reference(&) or Number. Got {0}",
+  "Expected right brace but found end of file": "Expected right brace but found end of file",
+  "Expected right brace": "Expected right brace",
+  "Not expected token": "Not expected token",
+  "Expected right bracket but found end of file": "Expected right bracket but found end of file",
+  "Expected right bracket": "Expected right bracket",
+  "Not expected bracket": "Not expected bracket",
+  "Not expected comma": "Not expected comma",
+  "Expected right paren for reference": "Expected right paren for reference",
+  "Expected value": "Expected value",
+  "Expected value in colon": "Expected value in colon",
+  "Expected value after value but found {0}": "Expected value after value but found {0}",
+  "Not expected paren": "Not expected paren",
+  "Unknown token type": "Unknown token type"
+}

@@ -12,6 +12,7 @@
         "url": "https://github.com/TrustNoOneElse/cosmoteer-lsp"
     },
     "dependencies": {
+        "@vscode/l10n": "^0.0.18",
         "vscode-languageserver": "^9.0.1",
         "vscode-languageserver-textdocument": "^1.0.12"
     },

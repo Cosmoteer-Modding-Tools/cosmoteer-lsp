@@ -10,7 +10,7 @@
     },
     "publisher": "TrustNoOneElse",
     "categories": [
-        "Programming Languages"
+        "Other"
     ],
     "keywords": [
         "multi-root ready"
@@ -28,12 +28,13 @@
         "color": "#007ACC",
         "theme": "dark"
     },
+    "l10n": "./l10n",
     "contributes": {
         "languages": [
             {
                 "icon": {
-                    "dark": "./images/dark_icon_rules.png",
-                    "light": "./images/dark_icon_rules.png"
+                    "dark": "./images/test.png",
+                    "light": "./images/test.png"
                 },
                 "id": "rules",
                 "extensions": [
@@ -81,13 +82,15 @@
         "watch": "tsc -b -w",
         "lint": "eslint ./client/src ./server/src --ext .ts,.tsx",
         "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
-        "test": "sh ./scripts/e2e.sh"
+        "test": "sh ./scripts/e2e.sh",
+        "l10n": "npx @vscode/l10n-dev export --outDir ./l10n .\\server"
     },
     "devDependencies": {
         "@types/mocha": "^10.0.6",
         "@types/node": "^18.14.6",
         "@typescript-eslint/eslint-plugin": "^7.1.0",
         "@typescript-eslint/parser": "^7.1.0",
+        "@vscode/l10n-dev": "^0.0.35",
         "eslint": "^8.57.0",
         "eslint-config-prettier": "^9.1.0",
         "mocha": "^10.3.0",

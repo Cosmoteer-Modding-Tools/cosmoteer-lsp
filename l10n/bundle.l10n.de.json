@@ -1,0 +1,19 @@
+{
+    "Reference name is not known": "Referenz ist nicht bekannt",
+    "Reference in function calls need to start with an ampersand": "Referenz in dem Funktionsaufruf muss mit einem & beginnen",
+    "Reference in function calls need to be parenthesized": "Referenz in dem Funktionsaufruf muss in Klammern stehen",
+    "Invalid argument type, expected Reference(&) or Number. Got {0}": "Ungültiger Argumenttyp, erwartet Referenz(&) oder Nummer. Erhalten {0}",
+    "Expected right brace but found end of file": "Erwartet wird eine rechte geschweifte Klammer, aber Dateiende gefunden",
+    "Expected right brace": "Erwartet wird eine rechte geschweifte Klammer",
+    "Not expected token": "Unbekanntes Token",
+    "Expected right bracket but found end of file": "Erwartete rechte Klammer, aber Dateiende gefunden",
+    "Expected right bracket": "Erwartet rechte Klammer",
+    "Not expected bracket": "Unbekannte Klammer",
+    "Not expected comma": "Unbekanntes Komma",
+    "Expected right paren for reference": "Erwartet wird eine rechte Klammer für die Referenz",
+    "Expected value": "Erwartet Wert",
+    "Expected value in colon": "Erwartet Wert nach Doppelpunkt",
+    "Expected value after value but found {0}": "Erwartet Wert nach Wert, aber gefunden {0}",
+    "Not expected paren": "Unbekannte Klammer",
+    "Unknown token type": "Unbekannter Token-Typ"
+}

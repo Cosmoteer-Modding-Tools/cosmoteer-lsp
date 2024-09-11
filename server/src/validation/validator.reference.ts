@@ -1,6 +1,7 @@
 import { isAssignmentNode, isIdentifierNode, ValueNode } from '../parser/ast';
 import { startsWithAmpersandAndLetter } from '../utils/reference.utils';
 import { Validation } from './validator';
+import * as l10n from '@vscode/l10n';
 
 export const ValidationForReference: Validation<ValueNode> = {
     type: 'Value',
@@ -12,7 +13,7 @@ export const ValidationForReference: Validation<ValueNode> = {
             !hasIdentifier(node, (node.values as string).substring(1))
         ) {
             return {
-                message: 'Reference name is not known',
+                message: l10n.t('Reference name is not known'),
                 node: node,
             };
         }
