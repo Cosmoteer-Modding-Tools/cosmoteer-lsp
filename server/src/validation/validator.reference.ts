@@ -15,6 +15,9 @@ export const ValidationForReference: Validation<ValueNode> = {
             return {
                 message: l10n.t('Reference name is not known'),
                 node: node,
+                addditionalInfo: l10n.t(
+                    'You either reference a non-existing identifier or a identifier that is not in scope'
+                ),
             };
         }
         return undefined;

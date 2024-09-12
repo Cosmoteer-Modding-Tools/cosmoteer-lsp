@@ -84,7 +84,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             } else {
                 console.warn(tokens[current]);
                 errors.push({
-                    message: l10n.t('Expected right brace'),
+                    message: l10n.t('Expected right brace to close the object'),
                     token,
                 } as ParserError);
             }
@@ -93,7 +93,9 @@ export const parser = (tokens: Token[]): TokenParserResult => {
 
         if (token.type === TOKEN_TYPES.RIGHT_BRACE) {
             errors.push({
-                message: l10n.t('Not expected token'),
+                message: l10n.t(
+                    'Not expected right brace, did you mean to open an object?'
+                ),
                 token,
             } as ParserError);
             current++;
@@ -151,7 +153,9 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             } else {
                 console.warn(tokens[current]);
                 errors.push({
-                    message: l10n.t('Expected right bracket'),
+                    message: l10n.t(
+                        'Expected right bracket to close the array'
+                    ),
                     token,
                 } as ParserError);
             }
@@ -160,7 +164,9 @@ export const parser = (tokens: Token[]): TokenParserResult => {
 
         if (token.type === TOKEN_TYPES.RIGHT_BRACKET) {
             errors.push({
-                message: l10n.t('Not expected bracket'),
+                message: l10n.t(
+                    'Not expected bracket, did you mean to open an array?'
+                ),
                 token,
             } as ParserError);
             current++;
@@ -370,7 +376,20 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                         ) {
                             args.push(nextNode as ValueNode);
                         } else {
-                            throw new Error('Invalid argument type');
+                            errors.push({
+                                message: l10n.t(
+                                    'Expected value, expression or function call'
+                                ),
+                                token,
+                                addditionalInfo: [
+                                    {
+                                        message: l10n.t(
+                                            'Values can be a number or a reference, expressions can be +, -, *, /'
+                                        ),
+                                    },
+                                ],
+                            } as ParserError);
+                            current++;
                         }
                         if (tokens[current]?.type === TOKEN_TYPES.COMMA) {
                             current++;
@@ -405,7 +424,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 const node = walk(_lastNode, parent) as ValueNode;
                 if (!node) {
                     errors.push({
-                        message: l10n.t('Expected value'),
+                        message: l10n.t('Expected value after left paren'),
                         token,
                     } as ParserError);
                     return null;
@@ -431,8 +450,20 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 current++;
                 if (current >= tokens.length) {
                     errors.push({
-                        message: l10n.t('Expected value'),
+                        message: l10n.t('Expected value after equals'),
                         token,
+                        addditionalInfo: [
+                            {
+                                message: l10n.t(
+                                    'If you want to assign a value to an identifier, you need to provide a value after the equals sign'
+                                ),
+                            },
+                            {
+                                message: l10n.t(
+                                    'If you want to not assign a value to an identifier, you need to remove the equals sign'
+                                ),
+                            },
+                        ],
                     } as ParserError);
                     return null;
                 }
@@ -508,6 +539,13 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 errors.push({
                     message: l10n.t('Expected value in colon'),
                     token,
+                    addditionalInfo: [
+                        {
+                            message: l10n.t(
+                                'Those Values should be a References with & or beginning with /'
+                            ),
+                        },
+                    ],
                 } as ParserError);
                 return null;
             }
@@ -581,8 +619,14 @@ export const parser = (tokens: Token[]): TokenParserResult => {
         errors.push({
             message: l10n.t('Unknown token type'),
             token,
+            addditionalInfo: [
+                {
+                    message: l10n.t(
+                        'This could be a bug in the parser or lexer, please report this issue, if you think this is a bug'
+                    ),
+                },
+            ],
         } as ParserError);
-        console.log(token);
         current++;
         return null;
     };
@@ -624,6 +668,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
 export type ParserError = {
     message: string;
     token: Token;
+    addditionalInfo?: Pick<ParserError, 'message' | 'token'>[];
 };
 
 export interface TokenParserResult {

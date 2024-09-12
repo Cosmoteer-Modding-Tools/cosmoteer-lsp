@@ -79,4 +79,6 @@ type ValidationCallback<T extends AbstractNode> = (
 export type ValidationError = {
     message: string;
     node: AbstractNode;
+    addditionalInfo?: string;
+    additionalNode?: AbstractNode;
 };

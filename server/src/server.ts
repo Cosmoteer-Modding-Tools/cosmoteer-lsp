@@ -223,18 +223,21 @@ async function validateTextDocument(
             message: error.message,
             source: 'cosmoteer-language-server',
         };
-        if (hasDiagnosticRelatedInformationCapability) {
-            // provides more details about this diagnostic
-            // TODO get for token type a message
-            // diagnostic.relatedInformation = [
-            //     {
-            //         location: {
-            //             uri: textDocument.uri,
-            //             range: Object.assign({}, diagnostic.range),
-            //         },
-            //         message: 'Unexpected Bracket, did you mean to close it?',
-            //     },
-            // ];
+        if (
+            hasDiagnosticRelatedInformationCapability &&
+            error.addditionalInfo
+        ) {
+            for (const info of error.addditionalInfo) {
+                diagnostic.relatedInformation = [
+                    {
+                        location: {
+                            uri: textDocument.uri,
+                            range: Object.assign({}, diagnostic.range),
+                        },
+                        message: info.message,
+                    },
+                ];
+            }
         }
         diagnostics.push(diagnostic);
     }
@@ -250,6 +253,22 @@ async function validateTextDocument(
             message: error.message,
             source: 'cosmoteer-language-server',
         };
+        if (
+            hasDiagnosticRelatedInformationCapability &&
+            error.addditionalInfo
+        ) {
+            for (const info of error.addditionalInfo) {
+                diagnostic.relatedInformation = [
+                    {
+                        location: {
+                            uri: textDocument.uri,
+                            range: Object.assign({}, diagnostic.range),
+                        },
+                        message: info,
+                    },
+                ];
+            }
+        }
         diagnostics.push(diagnostic);
     }
     return diagnostics;
