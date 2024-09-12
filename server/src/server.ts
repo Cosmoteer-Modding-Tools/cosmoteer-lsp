@@ -198,17 +198,21 @@ async function validateTextDocument(
     const text = textDocument.getText();
     const tokens = lexer(text);
     const parserResult = parser(tokens);
-    console.dir(parserResult, { depth: Infinity, colors: true });
+
     let problems = 0;
     const diagnostics: Diagnostic[] = [];
+
     ParserResultRegistrar.instance.setResult(
         textDocument.uri,
         parserResult.value
     );
+
     const validationErrors: ValidationError[] = [];
+
     for (const node of parserResult.value.elements) {
         validationErrors.push(...Validator.instance.validate(node));
     }
+
     for (const error of parserResult.parserErrors) {
         problems++;
         if (problems > settings.maxNumberOfProblems) break;
@@ -294,8 +298,6 @@ connection.onCompletion(
             if (node) {
                 completions =
                     AutoCompletionService.instance.getCompletions(node);
-                console.log(completions);
-                console.log(node);
             }
         }
         return completions.map<CompletionItem>((completion) => ({

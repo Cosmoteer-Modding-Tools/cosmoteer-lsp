@@ -19,7 +19,6 @@ export function activate(context: ExtensionContext) {
     const bundle = l10n.uri
         ? { EXTENSION_BUNDLE_PATH: l10n.uri?.fsPath }
         : undefined;
-    console.log('bundle', bundle);
 
     const serverOptions: ServerOptions = {
         run: {
