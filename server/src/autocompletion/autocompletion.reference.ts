@@ -10,10 +10,10 @@ export class AutoCompletionReference implements AutoCompletion<ValueNode> {
     public getCompletions(node: ValueNode): string[] {
         if (
             isValueNode(node) &&
-            node.valueType === 'Reference' &&
-            node.values.toString().startsWith('&')
+            node.valueType.type === 'Reference' &&
+            node.valueType.value.startsWith('&')
         ) {
-            const value = node.values.toString().slice(1);
+            const value = node.valueType.value.slice(1);
             return (
                 node.parent?.elements
                     .filter(

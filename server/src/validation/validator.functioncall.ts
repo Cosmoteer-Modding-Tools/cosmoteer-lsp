@@ -6,8 +6,8 @@ export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
     type: 'FunctionCall',
     callback: (node: FunctionCallNode) => {
         for (const arg of node.arguments) {
-            if (arg.type === 'Value' && arg.valueType === 'Reference') {
-                if (!(arg.values as string).startsWith('&')) {
+            if (arg.type === 'Value' && arg.valueType.type === 'Reference') {
+                if (!(arg.valueType.value as string).startsWith('&')) {
                     return {
                         message: l10n.t(
                             'Reference in function calls need to start with an ampersand'
@@ -15,7 +15,11 @@ export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
                         node: arg,
                     };
                 }
-                if (!arg.parenthesized) {
+                if (
+                    !arg.parenthesized &&
+                    arg.delimiter === undefined &&
+                    node.arguments.length > 1
+                ) {
                     return {
                         message: l10n.t(
                             'Reference in function calls need to be parenthesized'
@@ -25,8 +29,8 @@ export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
                 }
             } else if (
                 arg.type === 'Value' &&
-                arg.valueType !== 'Reference' &&
-                arg.valueType !== 'Number'
+                arg.valueType.type !== 'Reference' &&
+                arg.valueType.type !== 'Number'
             ) {
                 return {
                     message: l10n.t(

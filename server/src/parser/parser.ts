@@ -1,5 +1,7 @@
+import { DocumentUri } from 'vscode-languageserver';
 import { Token, TOKEN_TYPES } from '../lexer/lexer';
 import { MAX_NUMBER_OF_PROBLEMS } from '../server';
+import { ALLOWED_AUDIO_EXTENSIONS } from '../utils/constants';
 import {
     AbstractNode,
     AbstractNodeDocument,
@@ -11,6 +13,7 @@ import {
     InheritanceNode,
     ObjectNode,
     ValueNode,
+    ValueNodeTypes,
 } from './ast';
 import * as l10n from '@vscode/l10n';
 /**
@@ -20,7 +23,10 @@ abstract class Parser {
     abstract parse(): void;
 }
 
-export const parser = (tokens: Token[]): TokenParserResult => {
+export const parser = (
+    tokens: Token[],
+    uri: DocumentUri
+): TokenParserResult => {
     let current = 0;
     const errors: ParserError[] = [];
     const IS_NUMBER = /[-.]?^[\d]+[.]?[\d]*$/;
@@ -83,6 +89,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 current++;
             } else {
                 console.warn(tokens[current]);
+                console.warn(_lastNode);
                 errors.push({
                     message: l10n.t('Expected right brace to close the object'),
                     token,
@@ -188,19 +195,41 @@ export const parser = (tokens: Token[]): TokenParserResult => {
 
         if (token.type === TOKEN_TYPES.STRING) {
             current++;
+            let value = token.value as string;
+            let lastType: 'STRING' | 'STRING_DELIMITER' = 'STRING';
+            while (
+                (tokens[current]?.type === TOKEN_TYPES.STRING ||
+                    tokens[current]?.type === TOKEN_TYPES.STRING_DELIMITER) &&
+                lastType !== tokens[current]?.type
+            ) {
+                lastType = tokens[current]?.type as
+                    | 'STRING'
+                    | 'STRING_DELIMITER';
+                if (
+                    tokens[current]?.type === TOKEN_TYPES.STRING_DELIMITER &&
+                    tokens[current + 1]?.type !== TOKEN_TYPES.STRING
+                ) {
+                    break;
+                }
+                if (tokens[current]?.type === TOKEN_TYPES.STRING_DELIMITER) {
+                    current++;
+                    continue;
+                }
+                value += tokens[current].value as string;
+                current++;
+            }
             return {
                 type: 'Value',
-                valueType: 'String',
-                values: token.value,
+                valueType: inferValueType(IS_NUMBER, token),
                 parent,
                 position: {
-                    characterEnd:
-                        token.lineOffset + (token.value as string)?.length,
+                    characterEnd: token.lineOffset + value?.length,
                     characterStart: token.lineOffset,
                     end: token.end ?? 0,
                     line: token.lineNumber,
                     start: token.start,
                 },
+                quoted: true,
             } as ValueNode;
         }
 
@@ -208,8 +237,10 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             current++;
             return {
                 type: 'Value',
-                valueType: 'Boolean',
-                values: true,
+                valueType: {
+                    type: 'Boolean',
+                    value: true,
+                },
                 parent,
                 position: {
                     characterEnd: token.lineOffset + 4,
@@ -225,9 +256,11 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             current++;
             return {
                 type: 'Value',
-                valueType: 'Boolean',
+                valueType: {
+                    type: 'Boolean',
+                    value: false,
+                },
                 parent,
-                values: false,
                 position: {
                     characterEnd: token.lineOffset + 5,
                     characterStart: token.lineOffset,
@@ -247,14 +280,16 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 tokens[current - 2] &&
                 tokens[current].type === TOKEN_TYPES.VALUE &&
                 IS_NUMBER.test(tokenValue) &&
-                tokens[current - 2].type !== TOKEN_TYPES.VALUE
+                _lastNode?.type !== 'Value'
             ) {
                 const value = -tokenValue;
                 current++;
                 return {
                     type: 'Value',
-                    valueType: 'Number',
-                    values: value,
+                    valueType: {
+                        type: 'Number',
+                        value: value,
+                    },
                     parent,
                     position: {
                         characterEnd:
@@ -277,8 +312,10 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                 current++;
                 return {
                     type: 'Value',
-                    valueType: 'Reference',
-                    values: value,
+                    valueType: {
+                        type: 'Reference',
+                        value: value,
+                    },
                     parent,
                     position: {
                         characterEnd: token.lineOffset + value.length,
@@ -305,6 +342,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
 
         if (
             (token.type === TOKEN_TYPES.VALUE &&
+                !IS_NUMBER.test(token.value as string) &&
                 tokens[current + 1] &&
                 tokens[current + 1].type === TOKEN_TYPES.LEFT_PAREN) ||
             token.type === TOKEN_TYPES.LEFT_PAREN
@@ -322,16 +360,11 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                         current++;
                         startWithParens = true;
                     }
-                    const valueType:
-                        | 'String'
-                        | 'Number'
-                        | 'Reference'
-                        | 'Sprite' = inferValueType(IS_NUMBER, tokens[current]);
+                    const currentToken = tokens[current];
                     const args: ValueNode[] = [
                         {
                             type: 'Value',
-                            valueType: valueType,
-                            values: tokens[current].value as string,
+                            valueType: inferValueType(IS_NUMBER, currentToken),
                             parent,
                             position: {
                                 characterEnd:
@@ -498,13 +531,9 @@ export const parser = (tokens: Token[]): TokenParserResult => {
                     tokens[current - 2].type === TOKEN_TYPES.LEFT_PAREN ||
                     _lastNode?.type === 'Value')
             ) {
-                const valueType: 'String' | 'Number' | 'Reference' | 'Sprite' =
-                    inferValueType(IS_NUMBER, token);
-
                 node = {
                     type: 'Value',
-                    valueType,
-                    values: token.value,
+                    valueType: inferValueType(IS_NUMBER, token),
                     parent,
                     position: {
                         characterEnd:
@@ -606,12 +635,32 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             return walk(_lastNode, parent);
         }
 
-        if (token.type === TOKEN_TYPES.RIGHT_PAREN) {
+        if (
+            token.type === TOKEN_TYPES.RIGHT_PAREN &&
+            _lastNode?.type !== 'Value'
+        ) {
             errors.push({
                 message: l10n.t('Not expected paren'),
                 token,
             } as ParserError);
             current++;
+            return null;
+        } else if (
+            token.type === TOKEN_TYPES.RIGHT_PAREN &&
+            _lastNode?.type === 'Value'
+        ) {
+            current++;
+            return walk(_lastNode, parent);
+        }
+
+        if (token.type === TOKEN_TYPES.STRING_DELIMITER) {
+            current++;
+            errors.push({
+                message: l10n.t(
+                    'String delimiters are only allowed after a String'
+                ),
+                token,
+            } as ParserError);
             return null;
         }
 
@@ -641,6 +690,7 @@ export const parser = (tokens: Token[]): TokenParserResult => {
             line: 0,
             start: 0,
         },
+        uri,
     };
 
     let lastNode = undefined;
@@ -676,15 +726,33 @@ export interface TokenParserResult {
     parserErrors: ParserError[];
 }
 
-function inferValueType(IS_NUMBER: RegExp, token: Token) {
-    if (!token.value) throw new Error('Token value is undefined');
-    let valueType: 'String' | 'Number' | 'Reference' | 'Sprite' =
-        IS_NUMBER.test(token.value) ? 'Number' : 'String';
+function inferValueType(IS_NUMBER: RegExp, token: Token): ValueNodeTypes {
+    if (typeof token.value === 'undefined')
+        throw new Error('Token value is undefined');
+    let value: ValueNodeTypes['value'] = token.value;
+    let valueType: ValueNodeTypes['type'] = IS_NUMBER.test(token.value)
+        ? 'Number'
+        : 'String';
+    const IS_SOUND = new RegExp(ALLOWED_AUDIO_EXTENSIONS.join('|'));
     if (valueType === 'String' && token.value.includes('.png')) {
         valueType = 'Sprite';
+        value = value as string;
+    } else if (valueType === 'String' && IS_SOUND.test(token.value)) {
+        valueType = 'Sound';
+        value = value as string;
+    } else if (valueType === 'String' && token.value.endsWith('.shader')) {
+        valueType = 'Shader';
+        value = value as string;
+    } else if (
+        token.value.startsWith('&') ||
+        token.value.startsWith('^') ||
+        token.value.startsWith('..') ||
+        token.value.startsWith('<')
+    ) {
+        return { type: 'Reference', value: token.value };
     }
-    if (token.value.includes('&') || token.value.includes('<')) {
-        valueType = 'Reference';
+    if (valueType === 'Number') {
+        return { type: 'Number', value: parseFloat(value as string) };
     }
-    return valueType;
+    return { type: valueType, value: value };
 }

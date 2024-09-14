@@ -197,8 +197,8 @@ async function validateTextDocument(
     const settings = await getDocumentSettings(textDocument.uri);
     const text = textDocument.getText();
     const tokens = lexer(text);
-    const parserResult = parser(tokens);
-
+    const parserResult = parser(tokens, textDocument.uri);
+    //console.dir(parserResult);
     let problems = 0;
     const diagnostics: Diagnostic[] = [];
 

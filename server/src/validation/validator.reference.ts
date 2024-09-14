@@ -7,10 +7,10 @@ export const ValidationForReference: Validation<ValueNode> = {
     type: 'Value',
     callback: (node: ValueNode) => {
         if (
-            node.valueType === 'Reference' &&
-            (node.values as string).length > 1 &&
-            startsWithAmpersandAndLetter(node.values as string) &&
-            !hasIdentifier(node, (node.values as string).substring(1))
+            node.valueType.type === 'Reference' &&
+            node.valueType.value.length > 1 &&
+            startsWithAmpersandAndLetter(node.valueType.value) &&
+            !hasIdentifier(node, node.valueType.value.substring(1))
         ) {
             return {
                 message: l10n.t('Reference name is not known'),

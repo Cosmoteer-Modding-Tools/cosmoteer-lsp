@@ -1,3 +1,5 @@
+import { DocumentUri } from 'vscode-languageserver';
+
 export interface AbstractNode {
     type: AstType;
     parent?: ObjectNode | ArrayNode | AbstractNodeDocument;
@@ -7,6 +9,7 @@ export interface AbstractNode {
 export interface AbstractNodeDocument extends AbstractNode {
     type: 'Document';
     elements: AbstractNode[];
+    uri: DocumentUri;
 }
 
 export interface ObjectNode extends AbstractNode {
@@ -28,12 +31,42 @@ export interface IdentifierNode extends AbstractNode {
 
 export interface ValueNode extends AbstractNode {
     type: 'Value';
-    valueType: 'String' | 'Number' | 'Boolean' | 'Reference' | 'Sprite';
+    valueType: ValueNodeTypes;
     delimiter?: ';' | ',';
-    values: PropertyType;
-    fileType?: 'png';
+    fileType?: string;
     parenthesized?: boolean;
+    quoted?: boolean;
 }
+
+export type ValueNodeTypes =
+    | {
+          type: 'String';
+          value: string;
+      }
+    | {
+          type: 'Number';
+          value: number;
+      }
+    | {
+          type: 'Boolean';
+          value: boolean;
+      }
+    | {
+          type: 'Reference';
+          value: string;
+      }
+    | {
+          type: 'Sprite';
+          value: string;
+      }
+    | {
+          type: 'Sound';
+          value: string;
+      }
+    | {
+          type: 'Shader';
+          value: string;
+      };
 
 export interface ExpressionNode extends AbstractNode {
     type: 'Expression';
@@ -50,11 +83,7 @@ export interface AssignmentNode extends AbstractNode {
     type: 'Assignment';
     assignmentType: 'Equals' | 'Colon';
     left: IdentifierNode;
-    right:
-        | ArrayNode
-        | ValueNode
-        | ObjectNode
-        | FunctionCallNode;
+    right: ArrayNode | ValueNode | ObjectNode | FunctionCallNode;
 }
 
 export interface InheritanceNode extends AbstractNode {
@@ -119,8 +148,6 @@ export const isDocumentNode = (
 ): astNode is AbstractNodeDocument => {
     return astNode.type === 'Document';
 };
-
-export type PropertyType = PropertyType[] | number | string | boolean;
 
 export type AstType =
     | InheritanceNode['type']

@@ -275,6 +275,7 @@ export const lexer = (input: string): Token[] => {
         }
 
         const VALUE = /[a-zA-Z0-9-^~./&_<>% ]/;
+        const IS_NUMBER = /^[0-9 ]+$/;
 
         if (VALUE.test(char)) {
             let value = '';
@@ -286,6 +287,10 @@ export const lexer = (input: string): Token[] => {
                 !isStartOfMultiLineComment(char, input, current)
             ) {
                 value += char;
+                if (IS_NUMBER.test(value) && input[current + 1] === '/') {
+                    current++;
+                    break;
+                }
                 char = input[++current];
                 lineOffset++;
                 if (current >= input.length) break;
@@ -301,6 +306,20 @@ export const lexer = (input: string): Token[] => {
                     value
                 )
             );
+            continue;
+        }
+        if (char === '\\') {
+            tokens.push(
+                createToken(
+                    TOKEN_TYPES.STRING_DELIMITER,
+                    lineOffset,
+                    lineNumber,
+                    current,
+                    current + 1,
+                    char
+                )
+            );
+            current++;
             continue;
         }
         console.warn('unexcpected', char);
@@ -328,7 +347,7 @@ export const createToken = (
     end?: number,
     value?: string
 ): Token => {
-    if (value) {
+    if (typeof value !== 'undefined') {
         return {
             lineOffset,
             type,
@@ -365,6 +384,7 @@ export enum TOKEN_TYPES {
     EXPRESSION = 'EXPRESSION',
     SINGLE_COMMENT = 'SINGLE_COMMENT',
     MULTI_COMMENT = 'MULTI_COMMENT',
+    STRING_DELIMITER = 'STRING_DELIMITER',
     UNEXPECTED = 'UNEXPECTED',
 }
 
