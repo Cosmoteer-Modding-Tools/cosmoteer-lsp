@@ -5,7 +5,6 @@ import {
     isAssignmentNode,
     isDocumentNode,
     isFunctionCallNode,
-    isInheritanceNode,
     isObjectNode,
 } from '../parser/ast';
 
@@ -51,14 +50,14 @@ export class Validator {
             for (const child of node.elements) {
                 this.validateRecursive(child, errors);
             }
+            if ((isArrayNode(node) || isObjectNode(node)) && node.inheritance) {
+                for (const child of node.inheritance) {
+                    this.validateRecursive(child, errors);
+                }
+            }
         } else if (isAssignmentNode(node)) {
             this.validateRecursive(node.left, errors);
             this.validateRecursive(node.right, errors);
-        } else if (isInheritanceNode(node)) {
-            this.validateRecursive(node.right, errors);
-            for (const child of node.inheritance) {
-                this.validateRecursive(child, errors);
-            }
         } else if (isFunctionCallNode(node)) {
             for (const child of node.arguments) {
                 this.validateRecursive(child, errors);

@@ -10,7 +10,7 @@ import {
     ExpressionNode,
     FunctionCallNode,
     IdentifierNode,
-    InheritanceNode,
+    isIdentifierNode,
     ObjectNode,
     ValueNode,
     ValueNodeTypes,
@@ -29,7 +29,7 @@ export const parser = (
 ): TokenParserResult => {
     let current = 0;
     const errors: ParserError[] = [];
-    const IS_NUMBER = /[-.]?^[\d]+[.]?[\d]*$/;
+    const IS_NUMBER = /[-.]?^[\d]+[.]?[\d]*d?$/;
     // TODO: Add Identifier to object and array if exists
     // TODO: Add Function calls and expressions to assignment nodes
     const walk = (
@@ -46,6 +46,11 @@ export const parser = (
             const node: ObjectNode = {
                 type: 'Object',
                 elements: [],
+                identifier: _lastNode
+                    ? isIdentifierNode(_lastNode)
+                        ? _lastNode
+                        : undefined
+                    : undefined,
                 parent,
                 position: {
                     line: token.lineNumber,
@@ -114,6 +119,11 @@ export const parser = (
             const node = {
                 type: 'Array',
                 parent,
+                identifier: _lastNode
+                    ? isIdentifierNode(_lastNode)
+                        ? _lastNode
+                        : undefined
+                    : undefined,
                 elements: [],
                 position: {
                     line: token.lineNumber,
@@ -306,7 +316,8 @@ export const parser = (
             else if (
                 tokenValue &&
                 token.value === '/' &&
-                tokens[current].type === TOKEN_TYPES.VALUE
+                tokens[current].type === TOKEN_TYPES.VALUE &&
+                !IS_NUMBER.test(tokenValue)
             ) {
                 const value = '/' + tokenValue;
                 current++;
@@ -558,6 +569,13 @@ export const parser = (
                         start: token.start,
                     },
                 } as IdentifierNode;
+                if (
+                    tokens[current]?.type === TOKEN_TYPES.LEFT_BRACE ||
+                    tokens[current]?.type === TOKEN_TYPES.LEFT_BRACKET ||
+                    tokens[current]?.type === TOKEN_TYPES.COLON
+                ) {
+                    return walk(node, parent);
+                }
             }
             return node;
         }
@@ -579,11 +597,7 @@ export const parser = (
                 return null;
             }
             const inheritanceNodes: ValueNode[] = [];
-            let identifierNode = undefined;
-            if (_lastNode?.type === 'Identifier') {
-                identifierNode = _lastNode as IdentifierNode;
-            }
-            let lastNode: AbstractNode | undefined | null = _lastNode;
+            let lastNode: AbstractNode | undefined | null = undefined;
             // check for next value or the special case with Expression(/) + Value
             while (
                 tokens[current] &&
@@ -611,20 +625,16 @@ export const parser = (
                     break;
                 }
             }
-            let right: ObjectNode | ArrayNode | undefined = undefined;
+            let right: ArrayNode | ObjectNode | null = null;
             if (tokens[current]?.type === TOKEN_TYPES.LEFT_BRACE) {
                 right = walk(_lastNode, parent) as ObjectNode;
             } else if (tokens[current]?.type === TOKEN_TYPES.LEFT_BRACKET) {
                 right = walk(_lastNode, parent) as ArrayNode;
             }
-
-            return {
-                type: 'Inheritance',
-                left: identifierNode,
-                inheritance: inheritanceNodes,
-                right,
-                parent,
-            } as InheritanceNode;
+            if (right) {
+                right.inheritance = inheritanceNodes;
+            }
+            return right;
         }
 
         if (

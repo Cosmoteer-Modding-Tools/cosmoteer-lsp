@@ -10,10 +10,7 @@
     ],
     "repository": {
         "expression": {
-            "patterns": [
-                { "include": "#constants" },
-                { "include": "#paren-expression" }
-            ]
+            "patterns": [{ "include": "#paren-expression" }, { "include": "#constants" }]
         },
         "constants": {
             "patterns": [

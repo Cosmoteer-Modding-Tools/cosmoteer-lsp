@@ -4,7 +4,7 @@
     "author": "TrustNoOneElse",
     "license": "MIT",
     "publisher": "vscode",
-    "version": "0.0.1",
+    "version": "0.2.1",
     "repository": {
         "type": "git",
         "url": "https://github.com/TrustNoOneElse/cosmoteer-lsp"

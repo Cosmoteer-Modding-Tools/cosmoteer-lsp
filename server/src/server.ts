@@ -26,6 +26,7 @@ import { ValidationForReference } from './validation/validator.reference';
 import { ValidationForFunctionCall } from './validation/validator.functioncall';
 
 import * as l10n from '@vscode/l10n';
+import { CosmoteerWorkspaceService } from './workspace/cosmoteer-workspace.service';
 
 export const MAX_NUMBER_OF_PROBLEMS = 10;
 
@@ -45,7 +46,7 @@ let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
 
-connection.onInitialize((params: InitializeParams) => {
+connection.onInitialize(async (params: InitializeParams) => {
     const capabilities = params.capabilities;
 
     // Does the client support the `workspace/configuration` request?
@@ -61,10 +62,9 @@ connection.onInitialize((params: InitializeParams) => {
         capabilities.textDocument.publishDiagnostics &&
         capabilities.textDocument.publishDiagnostics.relatedInformation
     );
-
     const result: InitializeResult = {
         capabilities: {
-            textDocumentSync: TextDocumentSyncKind.Incremental,
+            textDocumentSync: TextDocumentSyncKind.Full,
             completionProvider: {
                 resolveProvider: true,
             },
@@ -81,12 +81,34 @@ connection.onInitialize((params: InitializeParams) => {
             },
         };
     }
+
     return result;
 });
 
-connection.onInitialized(() => {
+connection.onInitialized(async () => {
     Validator.instance.registerValidation(ValidationForReference);
     Validator.instance.registerValidation(ValidationForFunctionCall);
+    const workspaceFolders = await connection.workspace.getWorkspaceFolders();
+    console.log(workspaceFolders);
+
+    if (workspaceFolders) {
+        const settings = (await connection.workspace.getConfiguration({
+            scopeUri: workspaceFolders[0].uri,
+            section: 'cosmoteerLSPRules',
+        })) as CosmoteerSettings;
+        if (settings.cosmoteerPath) {
+            CosmoteerWorkspaceService.instance.initialize(
+                workspaceFolders[0].uri,
+                settings.cosmoteerPath,
+                await connection.window.createWorkDoneProgress()
+            );
+        } else {
+            connection.window.showErrorMessage(
+                l10n.t('Cosmoteer path not set, please set it in the settings.')
+            );
+        }
+    }
+
     if (hasConfigurationCapability) {
         // Register for all configuration changes.
         connection.client.register(
@@ -95,31 +117,16 @@ connection.onInitialized(() => {
         );
     }
     if (hasWorkspaceFolderCapability) {
-        // TODO Get cosmooters folder
-        // console.log(homedir());
-        // opendir(homedir(), async (err, dir) => {
-        // 	if (err) {
-        // 		console.error(err);
-        // 		return;
-        // 	}
-        // 	const data  = await dir.read();
-        // 	console.log(data?.isDirectory());
-        // }
-        // );
         connection.workspace.onDidChangeWorkspaceFolders((_event) => {
             connection.console.log('Workspace folder change event received.');
         });
-        connection.sendProgress<string>(
-            { __: ['test', { _$endMarker$_: 1 }], _pr: '100' },
-            100,
-            'Cosmoteer Language Server is ready'
-        );
     }
 });
 
 // The example settings
 interface CosmoteerSettings {
     maxNumberOfProblems: number;
+    cosmoteerPath: string;
 }
 
 // The global settings, used when the `workspace/configuration` request is not supported by the client.
@@ -127,25 +134,37 @@ interface CosmoteerSettings {
 // but could happen with other clients.
 const defaultSettings: CosmoteerSettings = {
     maxNumberOfProblems: MAX_NUMBER_OF_PROBLEMS,
+    cosmoteerPath: '',
 };
 let globalSettings: CosmoteerSettings = defaultSettings;
 
 // Cache the settings of all open documents
 const documentSettings: Map<string, Thenable<CosmoteerSettings>> = new Map();
 
-connection.onDidChangeConfiguration((change) => {
+connection.onDidChangeConfiguration(async (change) => {
+    console.log('onDidChangeConfiguration');
     if (hasConfigurationCapability) {
         // Reset all cached document settings
         documentSettings.clear();
     } else {
         globalSettings = <CosmoteerSettings>(
-            (change.settings.languageServerExample || defaultSettings)
+            (change.settings.cosmoteerLSPRules || defaultSettings)
         );
     }
-    // Refresh the diagnostics since the `maxNumberOfProblems` could have changed.
-    // We could optimize things here and re-fetch the setting first can compare it
-    // to the existing setting, but this is out of scope for this example.
-    connection.languages.diagnostics.refresh();
+    const workspaceFolders = await connection.workspace.getWorkspaceFolders();
+    if (
+        (change.settings.cosmoteerLSPRules as CosmoteerSettings)
+            .cosmoteerPath &&
+        workspaceFolders
+    ) {
+        CosmoteerWorkspaceService.instance.initialize(
+            workspaceFolders[0].uri,
+            change.settings.cosmoteerLSPRules.cosmoteerPath,
+            await connection.window.createWorkDoneProgress()
+        );
+    }
+    if (change.settings.cosmoteerLSPRules !== defaultSettings)
+        connection.languages.diagnostics.refresh();
 });
 
 function getDocumentSettings(resource: string): Thenable<CosmoteerSettings> {
@@ -168,7 +187,8 @@ documents.onDidClose((e) => {
     documentSettings.delete(e.document.uri);
 });
 
-connection.languages.diagnostics.on(async (params) => {
+connection.languages.diagnostics.on(async (params, token, workDone, result) => {
+    console.log('onDiagnostics');
     const document = documents.get(params.textDocument.uri);
     if (document !== undefined) {
         return {
@@ -185,20 +205,15 @@ connection.languages.diagnostics.on(async (params) => {
     }
 });
 
-// The content of a text document has changed. This event is emitted
-// when the text document first opened or when its content has changed.
-documents.onDidChangeContent((change) => {
-    validateTextDocument(change.document);
-});
-
 async function validateTextDocument(
     textDocument: TextDocument
 ): Promise<Diagnostic[]> {
     const settings = await getDocumentSettings(textDocument.uri);
+    console.log(settings);
     const text = textDocument.getText();
     const tokens = lexer(text);
     const parserResult = parser(tokens, textDocument.uri);
-    //console.dir(parserResult);
+    console.dir(parserResult);
     let problems = 0;
     const diagnostics: Diagnostic[] = [];
 
@@ -261,17 +276,15 @@ async function validateTextDocument(
             hasDiagnosticRelatedInformationCapability &&
             error.addditionalInfo
         ) {
-            for (const info of error.addditionalInfo) {
-                diagnostic.relatedInformation = [
-                    {
-                        location: {
-                            uri: textDocument.uri,
-                            range: Object.assign({}, diagnostic.range),
-                        },
-                        message: info,
+            diagnostic.relatedInformation = [
+                {
+                    location: {
+                        uri: textDocument.uri,
+                        range: Object.assign({}, diagnostic.range),
                     },
-                ];
-            }
+                    message: error.addditionalInfo,
+                },
+            ];
         }
         diagnostics.push(diagnostic);
     }

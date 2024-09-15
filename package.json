@@ -10,7 +10,8 @@
     },
     "publisher": "TrustNoOneElse",
     "categories": [
-        "Other"
+        "Other",
+        "Programming Languages"
     ],
     "keywords": [
         "multi-root ready"
@@ -72,6 +73,12 @@
                     ],
                     "default": "off",
                     "description": "Traces the communication between VS Code and the language server."
+                },
+                "cosmoteerLSPRules.cosmoteerPath": {
+                    "scope": "application",
+                    "type": "string",
+                    "default": "",
+                    "description": "The path to the Cosmoteer installation."
                 }
             }
         }

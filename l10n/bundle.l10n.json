@@ -22,6 +22,7 @@
   "Those Values should be a References with & or beginning with /": "Those Values should be a References with & or beginning with /",
   "Expected value after value but found {0}": "Expected value after value but found {0}",
   "Not expected paren": "Not expected paren",
+  "String delimiters are only allowed after a String": "String delimiters are only allowed after a String",
   "Unknown token type": "Unknown token type",
   "This could be a bug in the parser or lexer, please report this issue, if you think this is a bug": "This could be a bug in the parser or lexer, please report this issue, if you think this is a bug"
 }

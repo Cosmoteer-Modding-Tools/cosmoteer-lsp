@@ -15,12 +15,14 @@ export interface AbstractNodeDocument extends AbstractNode {
 export interface ObjectNode extends AbstractNode {
     identifier?: IdentifierNode;
     type: 'Object';
+    inheritance?: ValueNode[];
     elements: AbstractNode[];
 }
 
 export interface ArrayNode extends AbstractNode {
     identifier?: IdentifierNode;
     type: 'Array';
+    inheritance?: ValueNode[];
     elements: AbstractNode[];
 }
 
@@ -86,13 +88,6 @@ export interface AssignmentNode extends AbstractNode {
     right: ArrayNode | ValueNode | ObjectNode | FunctionCallNode;
 }
 
-export interface InheritanceNode extends AbstractNode {
-    type: 'Inheritance';
-    left?: IdentifierNode;
-    inheritance: ValueNode[];
-    right: ObjectNode | ArrayNode;
-}
-
 export interface AstPosition {
     line: number;
     characterStart: number;
@@ -137,12 +132,6 @@ export const isAssignmentNode = (
     return astNode.type === 'Assignment';
 };
 
-export const isInheritanceNode = (
-    astNode: AbstractNode
-): astNode is InheritanceNode => {
-    return astNode.type === 'Inheritance';
-};
-
 export const isDocumentNode = (
     astNode: AbstractNode
 ): astNode is AbstractNodeDocument => {
@@ -150,7 +139,6 @@ export const isDocumentNode = (
 };
 
 export type AstType =
-    | InheritanceNode['type']
     | AssignmentNode['type']
     | ObjectNode['type']
     | ArrayNode['type']
