@@ -757,7 +757,9 @@ function inferValueType(IS_NUMBER: RegExp, token: Token): ValueNodeTypes {
         token.value.startsWith('&') ||
         token.value.startsWith('^') ||
         token.value.startsWith('..') ||
-        token.value.startsWith('<')
+        token.value.startsWith('/') ||
+        token.value.startsWith('~') ||
+        (token.value.startsWith('<') && token.value.includes('.rules'))
     ) {
         return { type: 'Reference', value: token.value };
     }
