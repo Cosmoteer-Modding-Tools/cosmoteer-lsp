@@ -23,7 +23,7 @@
         "onLanguage:rules"
     ],
     "pricing": "Free",
-    "icon": "./showcase/Leibwaechter_De_FACTORY.ship.png",
+    "icon": "./images/Language_Server_Icon.png",
     "main": "./client/out/extension",
     "galleryBanner": {
         "color": "#007ACC",
