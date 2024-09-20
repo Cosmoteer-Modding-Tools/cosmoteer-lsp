@@ -671,7 +671,7 @@ export const parser = (
                 ),
                 token,
             } as ParserError);
-            return null;
+            return walk(_lastNode, parent);
         }
 
         // Invalid Section
