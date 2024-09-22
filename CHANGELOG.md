@@ -5,13 +5,13 @@ All notable changes to this project will be documented in this file.
 # Version 0.3.0 Beta
 -   Removed InheritanceNode and replaced it with a property in the ObjectNode and ArrayNode
 -   Added Readme for Images
--   Added Setting for Cosmoteer Workspace and show error message when not set
--   Added Validation for references which are not assets
--   Added Validation for Assignments `=`  where the right side is a reference
--   Added Validation for Values which are paranthesized
--   Added Validation for Math expressions
+-   Added setting for Cosmoteer Workspace and show error message when not set
+-   Added validation for references which are not assets
+-   Added validation for Assignments `=`  where the right side is a reference
+-   Added validation for Values which are paranthesized
+-   Added validation for Math expressions
 -   Added a new icon for the Extension
--   Fixed a Bug with `""` String which used `<` at the beginning but wasn't a reference, would be regocnized as a reference.
+-   Fixed a bug with `""` String which used `<` at the beginning but wasn't a reference, would be regocnized as a reference.
 -   Fixed a bug which would lead to parse a document 3 times in a row
 -   Fixed a bug with `,` which is like `;` a seperator in Objects
 -   Fixed a bug with `\` where it would crash the language server when its not after a string
