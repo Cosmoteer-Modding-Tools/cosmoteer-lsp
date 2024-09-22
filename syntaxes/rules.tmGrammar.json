@@ -2,9 +2,9 @@
     "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
     "scopeName": "source.rules",
     "patterns": [
+        { "include": "#comments" },
         { "include": "#strings" },
         { "include": "#functions" },
-        { "include": "#comments" },
         { "include": "#constants" },
         { "include": "#expression" }
     ],
@@ -23,11 +23,11 @@
                 },
                 {
                     "name": "constant.numeric",
-                    "match": "\\-?\\d+.?\\d*"
+                    "match": "\\-?.?\\d+\\.?\\d*"
                 },
                 {
                     "name": "constant.numeric",
-                    "match": "\\d+.\\d*E\\+\\d+"
+                    "match": "\\d+\\.\\d*E\\+\\d+"
                 },
                 {
                     "name": "variable.name",
@@ -35,7 +35,7 @@
                 },
                 {
                     "name": "entity.name.tag",
-                    "match": "[&|<|^][<>~.\\/\\w_]+"
+                    "match": "[&|<|^|/|..][<>~./\\w_]+"
                 }
             ]
         },
@@ -54,7 +54,7 @@
                 },
                 {
                     "name": "string.unquoted",
-                    "match": "((?<=: |= )[^0-9\\[\\-&<\\^\\(\\)][\\w._]+[ ]?[\\w]*)(?!=|:|\\()"
+                    "match": "((?<= = )[^0-9.\\[\\-&<\\^\\(\\)][\\w._]+[ ]?[\\w]*)(?!=|:|\\()"
                 }
             ]
         },
