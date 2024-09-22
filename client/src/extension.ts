@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { workspace, ExtensionContext, l10n } from 'vscode';
+import { workspace, ExtensionContext, l10n, commands } from 'vscode';
 
 import {
     LanguageClient,
@@ -57,6 +57,10 @@ export function activate(context: ExtensionContext) {
         serverOptions,
         clientOptions
     );
+
+    client.onRequest('cosmoteer/openSettings', async (params) => {
+        await commands.executeCommand('workbench.action.openSettings2', params);
+    });
 
     client.start();
 }

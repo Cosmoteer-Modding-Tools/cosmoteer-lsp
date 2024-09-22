@@ -4,7 +4,7 @@ import * as l10n from '@vscode/l10n';
 
 export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
     type: 'FunctionCall',
-    callback: (node: FunctionCallNode) => {
+    callback: async (node: FunctionCallNode) => {
         for (const arg of node.arguments) {
             if (arg.type === 'Value' && arg.valueType.type === 'Reference') {
                 if (!(arg.valueType.value as string).startsWith('&')) {
@@ -35,7 +35,7 @@ export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
                 return {
                     message: l10n.t(
                         'Invalid argument type, expected Reference(&) or Number. Got {0}',
-                        arg.valueType
+                        arg.valueType.type
                     ),
                     node: arg,
                 };

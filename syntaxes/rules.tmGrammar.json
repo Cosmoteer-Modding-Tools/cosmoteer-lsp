@@ -10,7 +10,10 @@
     ],
     "repository": {
         "expression": {
-            "patterns": [{ "include": "#paren-expression" }, { "include": "#constants" }]
+            "patterns": [
+                { "include": "#paren-expression" },
+                { "include": "#constants" }
+            ]
         },
         "constants": {
             "patterns": [
@@ -28,11 +31,11 @@
                 },
                 {
                     "name": "variable.name",
-                    "match": "[a-zA-Z_][a-zA-Z0-9_]+ ?(?=:|=)"
+                    "match": "[a-zA-Z_][a-zA-Z0-9_]+ ?(?=:|=|)"
                 },
                 {
                     "name": "entity.name.tag",
-                    "match": "[&|<|^][<>.\\/\\w_]+"
+                    "match": "[&|<|^][<>~.\\/\\w_]+"
                 }
             ]
         },
@@ -49,10 +52,9 @@
                         }
                     ]
                 },
-
                 {
                     "name": "string.unquoted",
-                    "match": "((?<=: |= )[^0-9\\[\\-&<\\^][\\w._]+[ ]?[\\w]*)(?!=|:|\\()"
+                    "match": "((?<=: |= )[^0-9\\[\\-&<\\^\\(\\)][\\w._]+[ ]?[\\w]*)(?!=|:|\\()"
                 }
             ]
         },

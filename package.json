@@ -78,7 +78,7 @@
                     "scope": "application",
                     "type": "string",
                     "default": "",
-                    "description": "The path to the Cosmoteer installation."
+                    "description": "The path to the Cosmoteer installation. If not set, the extension cannot validate .rules files correctly. Example: C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer"
                 }
             }
         }

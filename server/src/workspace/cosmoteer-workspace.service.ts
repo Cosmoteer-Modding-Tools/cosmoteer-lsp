@@ -1,24 +1,19 @@
-import { DocumentUri, WorkDoneProgressReporter } from 'vscode-languageserver';
+import { Connection, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { AbstractNodeDocument } from '../parser/ast';
 import { readdir } from 'fs/promises';
 import { sep } from 'path';
+import { Dirent } from 'fs';
+import { parseFile } from '../utils/ast.utils';
+import * as l10n from '@vscode/l10n';
+import path = require('path');
 
 export class CosmoteerWorkspaceService {
-    private _rulesWorkspace: Map<
-        string,
-        CosmoteerWorkspace<RulesCosmoteerWorkspaceData>
-    >;
-    private _assetsWorkspace: Map<
-        string,
-        CosmoteerWorkspace<AssetsCosmoteerWorkspaceData>
-    >;
+    private _fileWorkspaceTree!: FileTree;
     private static _instance: CosmoteerWorkspaceService;
+    private _connection!: Connection;
     private isInitalized = false;
 
-    constructor() {
-        this._rulesWorkspace = new Map();
-        this._assetsWorkspace = new Map();
-    }
+    constructor() {}
 
     public static get instance(): CosmoteerWorkspaceService {
         if (!CosmoteerWorkspaceService._instance) {
@@ -28,16 +23,64 @@ export class CosmoteerWorkspaceService {
         return CosmoteerWorkspaceService._instance;
     }
 
-    public findRulesFile(
-        relativePath: string
-    ): CosmoteerWorkspace<RulesCosmoteerWorkspaceData> | undefined {
-        for (const [, value] of this._rulesWorkspace) {
-            if (value.data.relativePath === relativePath) {
-                return value;
+    setConnection(connection: Connection) {
+        this._connection = connection;
+    }
+
+    public findRulesFile(pathes: string[]):
+        | (File & {
+              readonly path: string;
+          })
+        | undefined {
+        if (!this.isInitalized) return;
+        if (isDirectory(this._fileWorkspaceTree)) {
+            return this.findFileRecursive(this._fileWorkspaceTree, pathes);
+        }
+    }
+
+    public async getCosmoteerRules(): Promise<
+        | (File & {
+              readonly path: string;
+          })
+        | undefined
+    > {
+        if (!this.isInitalized) return;
+        const cosmoteerRules = (
+            this._fileWorkspaceTree as Directory
+        ).children.find((c) => c.name === 'cosmoteer.rules') as File & {
+            readonly path: string;
+        };
+        if (!(cosmoteerRules.content as CosmoteerWorkspaceData).parsedDocument)
+            (cosmoteerRules.content as CosmoteerWorkspaceData).parsedDocument =
+                await parseFile(cosmoteerRules);
+        return cosmoteerRules;
+    }
+
+    findFileRecursive = (
+        parent: FileTree,
+        pathes: string[],
+        index: number = 0
+    ):
+        | (File & {
+              readonly path: string;
+          })
+        | undefined => {
+        if (index === pathes.length) return;
+        if (isFile(parent) && parent.name === pathes[index]) {
+            return parent;
+        } else if (isDirectory(parent)) {
+            for (const dirent of parent.children) {
+                if (isFile(dirent) && dirent.name === pathes[index]) {
+                    return dirent;
+                } else if (
+                    isDirectory(dirent) &&
+                    dirent.name === pathes[index]
+                ) {
+                    return this.findFileRecursive(dirent, pathes, index + 1);
+                }
             }
         }
-        return undefined;
-    }
+    };
 
     public async initialize(
         currentWorkSpacePath: string,
@@ -52,14 +95,6 @@ export class CosmoteerWorkspaceService {
             'Initializing workspace',
             false
         );
-        //@experimental Probably a official game dev workspace
-        if (
-            !currentWorkSpacePath.includes('Mods') &&
-            !currentWorkSpacePath.includes('workshop')
-        ) {
-            workDoneProgress.done();
-            return;
-        }
         if (
             cosmoteerWorkspacePath.endsWith('Data') ||
             cosmoteerWorkspacePath.endsWith(`Data${sep}`)
@@ -68,93 +103,135 @@ export class CosmoteerWorkspaceService {
                 /Data$/,
                 ''
             );
+            cosmoteerWorkspacePath = path.join(cosmoteerWorkspacePath, 'Data');
         } else if (
             cosmoteerWorkspacePath.endsWith('Cosmoteer') ||
             cosmoteerWorkspacePath.endsWith(`Cosmoteer${sep}`)
         ) {
-            cosmoteerWorkspacePath += cosmoteerWorkspacePath.endsWith(
-                `Cosmoteer${sep}`
-            )
-                ? `Data${sep}`
-                : `${sep}Data${sep}`;
+            cosmoteerWorkspacePath = path.join(cosmoteerWorkspacePath, 'Data');
         } else if (
             cosmoteerWorkspacePath.endsWith('common') ||
             cosmoteerWorkspacePath.endsWith(`common${sep}`)
         ) {
-            cosmoteerWorkspacePath += cosmoteerWorkspacePath.endsWith(
-                `common${sep}`
-            )
-                ? `Cosmoteer${sep}Data${sep}`
-                : `${sep}Cosmoteer${sep}Data${sep}`;
+            cosmoteerWorkspacePath = path.join(
+                cosmoteerWorkspacePath,
+                'Cosmoteer',
+                'Data'
+            );
+        } else {
+            this._connection.window.showWarningMessage(
+                l10n.t(
+                    'Invalid cosmoteer path, the path should end with common or Cosmoteer or Data'
+                )
+            );
+            workDoneProgress.done();
+            return;
         }
         const dirents = await this.iterateFiles(cosmoteerWorkspacePath);
-        let current = 0;
-        for (const dirent of dirents) {
-            if (dirent.isFile()) {
-                if (dirent.name.endsWith('.rules')) {
-                    this._rulesWorkspace.set(dirent.name, {
-                        data: {
-                            name: dirent.name.substring(
-                                0,
-                                dirent.name.length - '.rules'.length
-                            ),
-                            relativePath: dirent.path.substring(
-                                dirent.path.indexOf('Data') + 4 + sep.length,
-                                dirent.path.lastIndexOf(sep)
-                            ),
-                            parsedDocument: undefined,
-                        },
-                        uri: dirent.path,
-                    });
-                } else if (
-                    dirent.name.endsWith('.png') ||
-                    dirent.name.endsWith('.shader')
-                ) {
-                    this._assetsWorkspace.set(dirent.name, {
-                        uri: dirent.path,
-                        data: {
-                            name: dirent.name.substring(
-                                0,
-                                dirent.name.lastIndexOf('.')
-                            ),
-                            relativePath: dirent.path.substring(
-                                dirent.path.indexOf('Data') + 4 + sep.length,
-                                dirent.path.lastIndexOf(sep)
-                            ),
-                            fileEnding: dirent.name.substring(
-                                dirent.name.lastIndexOf('.')
-                            ),
-                        },
-                    });
-                }
-            }
-            current++;
-            workDoneProgress.report((current / dirents.length) * 100);
-        }
-        if (this._rulesWorkspace.size > 0) {
+        this._fileWorkspaceTree = {
+            type: 'Dir',
+            name: 'Data',
+            path: cosmoteerWorkspacePath,
+            children: [],
+        };
+
+        await this.buildFileStructure(this._fileWorkspaceTree, dirents);
+        if (
+            this._fileWorkspaceTree.children &&
+            this._fileWorkspaceTree.children.length > 0
+        ) {
             this.isInitalized = true;
+            this._connection.languages.diagnostics.refresh();
         }
         workDoneProgress.done();
     }
 
     iterateFiles = (workspacePath: string) => {
-        return readdir(workspacePath, { withFileTypes: true, recursive: true });
+        return readdir(workspacePath, { withFileTypes: true });
+    };
+
+    buildFileStructure = async (parentTree: FileTree, dirents: Dirent[]) => {
+        for (const dirent of dirents) {
+            if (dirent.isDirectory()) {
+                const nextDirents = await this.iterateFiles(
+                    `${dirent.path + sep + dirent.name}`
+                );
+                if (nextDirents.length === 0) continue;
+                const parent: FileTree = {
+                    type: 'Dir',
+                    name: dirent.name,
+                    children: [],
+                    path: dirent.path + sep + dirent.name,
+                };
+                await this.buildFileStructure(parent, nextDirents);
+                if (isDirectory(parentTree)) parentTree.children?.push(parent);
+            } else if (dirent.isFile()) {
+                if (dirent.name.endsWith('.rules')) {
+                    const dataContent: FileTree = {
+                        type: 'File',
+                        name: dirent.name,
+                        content: {
+                            name: dirent.name.substring(
+                                0,
+                                dirent.name.lastIndexOf('.')
+                            ),
+                        },
+                        path: dirent.path + sep + dirent.name,
+                        parent: parentTree,
+                    };
+                    if (isDirectory(parentTree))
+                        parentTree.children.push(dataContent);
+                } else if (
+                    dirent.name.endsWith('.png') ||
+                    dirent.name.endsWith('.shader')
+                ) {
+                    if (isDirectory(parentTree)) {
+                        parentTree.children.push({
+                            type: 'File',
+                            name: dirent.name,
+                            content: {
+                                name: dirent.name.substring(
+                                    0,
+                                    dirent.name.lastIndexOf('.')
+                                ),
+                                fileEnding: dirent.name.split('.')[1],
+                            },
+                            path: dirent.path + sep + dirent.name,
+                            parent: parentTree,
+                        });
+                    }
+                }
+            }
+        }
     };
 }
 
-export type CosmoteerWorkspace<Data> = {
-    readonly uri: DocumentUri;
-    data: Data;
-};
-
-export type RulesCosmoteerWorkspaceData = {
-    name: string;
-    relativePath: string;
+export type CosmoteerWorkspaceData = {
+    readonly name: string;
+    readonly fileEnding?: string;
     parsedDocument?: AbstractNodeDocument;
 };
 
-export type AssetsCosmoteerWorkspaceData = {
+export type FileTree = {
+    readonly path: string;
+    readonly parent?: FileTree;
+} & (Directory | File);
+
+export type Directory = {
+    type: 'Dir';
     name: string;
-    relativePath: string;
-    fileEnding: string;
+    children: FileTree[];
 };
+
+export type File = {
+    type: 'File';
+    readonly name: string;
+    content: CosmoteerWorkspaceData;
+};
+
+export const isDirectory = (
+    fileTree: FileTree
+): fileTree is Directory & { path: string } => fileTree.type === 'Dir';
+export const isFile = (
+    fileTree: FileTree
+): fileTree is File & { path: string } => fileTree.type === 'File';

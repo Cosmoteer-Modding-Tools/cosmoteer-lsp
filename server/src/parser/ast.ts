@@ -85,7 +85,17 @@ export interface AssignmentNode extends AbstractNode {
     type: 'Assignment';
     assignmentType: 'Equals' | 'Colon';
     left: IdentifierNode;
-    right: ArrayNode | ValueNode | ObjectNode | FunctionCallNode;
+    right:
+        | ArrayNode
+        | ValueNode
+        | ObjectNode
+        | FunctionCallNode
+        | MathExpressionNode;
+}
+
+export interface MathExpressionNode extends AbstractNode {
+    type: 'MathExpression';
+    elements: Array<ValueNode | MathExpressionNode | ExpressionNode>;
 }
 
 export interface AstPosition {
@@ -138,6 +148,12 @@ export const isDocumentNode = (
     return astNode.type === 'Document';
 };
 
+export const isMathExpressionNode = (
+    astNode: AbstractNode
+): astNode is MathExpressionNode => {
+    return astNode.type === 'MathExpression';
+};
+
 export type AstType =
     | AssignmentNode['type']
     | ObjectNode['type']
@@ -146,4 +162,5 @@ export type AstType =
     | ValueNode['type']
     | ExpressionNode['type']
     | FunctionCallNode['type']
-    | AbstractNodeDocument['type'];
+    | AbstractNodeDocument['type']
+    | MathExpressionNode['type'];

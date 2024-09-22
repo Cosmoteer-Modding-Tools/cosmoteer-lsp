@@ -10,7 +10,11 @@ import {
     ExpressionNode,
     FunctionCallNode,
     IdentifierNode,
+    isExpressionNode,
     isIdentifierNode,
+    isMathExpressionNode,
+    isValueNode,
+    MathExpressionNode,
     ObjectNode,
     ValueNode,
     ValueNodeTypes,
@@ -30,8 +34,6 @@ export const parser = (
     let current = 0;
     const errors: ParserError[] = [];
     const IS_NUMBER = /[-.]?^[\d]+[.]?[\d]*d?$/;
-    // TODO: Add Identifier to object and array if exists
-    // TODO: Add Function calls and expressions to assignment nodes
     const walk = (
         _lastNode?: AbstractNode,
         parent?: ObjectNode | ArrayNode | AbstractNodeDocument
@@ -71,7 +73,7 @@ export const parser = (
             }
 
             let lastNode: AbstractNode = node;
-            while (tokens[current].type !== TOKEN_TYPES.RIGHT_BRACE) {
+            while (tokens[current]?.type !== TOKEN_TYPES.RIGHT_BRACE) {
                 const nextNode = walk(lastNode, node);
                 if (!nextNode) {
                     break;
@@ -80,7 +82,8 @@ export const parser = (
                 node.elements.push(nextNode);
                 if (
                     tokens[current] &&
-                    tokens[current].type === TOKEN_TYPES.SEMICOLON
+                    (tokens[current].type === TOKEN_TYPES.SEMICOLON ||
+                        tokens[current].type === TOKEN_TYPES.COMMA)
                 ) {
                     current++;
                 }
@@ -93,8 +96,6 @@ export const parser = (
                 node.position.end = tokens[current].end ?? 0;
                 current++;
             } else {
-                console.warn(tokens[current]);
-                console.warn(_lastNode);
                 errors.push({
                     message: l10n.t('Expected right brace to close the object'),
                     token,
@@ -168,7 +169,6 @@ export const parser = (
                 node.position.end = tokens[current].end ?? 0;
                 current++;
             } else {
-                console.warn(tokens[current]);
                 errors.push({
                     message: l10n.t(
                         'Expected right bracket to close the array'
@@ -288,7 +288,7 @@ export const parser = (
             if (
                 tokenValue &&
                 tokens[current - 2] &&
-                tokens[current].type === TOKEN_TYPES.VALUE &&
+                tokens[current]?.type === TOKEN_TYPES.VALUE &&
                 IS_NUMBER.test(tokenValue) &&
                 _lastNode?.type !== 'Value'
             ) {
@@ -316,7 +316,7 @@ export const parser = (
             else if (
                 tokenValue &&
                 token.value === '/' &&
-                tokens[current].type === TOKEN_TYPES.VALUE &&
+                tokens[current]?.type === TOKEN_TYPES.VALUE &&
                 !IS_NUMBER.test(tokenValue)
             ) {
                 const value = '/' + tokenValue;
@@ -384,7 +384,7 @@ export const parser = (
                                 characterStart: token.lineOffset,
                                 end: tokens[current].end ?? 0,
                                 line: token.lineNumber,
-                                start: token.start,
+                                start: tokens[current].start,
                             },
                         },
                     ];
@@ -478,9 +478,62 @@ export const parser = (
                     tokens[current].type === TOKEN_TYPES.RIGHT_PAREN
                 ) {
                     current++;
+                    node.parenthesized = true;
+                    return node;
+                } else if (tokens[current]) {
+                    const mathNode = {
+                        type: 'MathExpression',
+                        elements: [node],
+                        parent,
+                        position: {
+                            characterEnd: node.position.characterEnd,
+                            characterStart: node.position.characterStart,
+                            end: node.position.end,
+                            line: node.position.line,
+                            start: node.position.start,
+                        },
+                    } as MathExpressionNode;
+                    let lastNode: AbstractNode = node;
+                    while (
+                        tokens[current] &&
+                        tokens[current].type !== TOKEN_TYPES.RIGHT_PAREN
+                    ) {
+                        const nextNode = walk(lastNode, parent);
+                        if (!nextNode) {
+                            break;
+                        }
+                        if (
+                            isValueNode(nextNode) ||
+                            isExpressionNode(nextNode) ||
+                            isMathExpressionNode(nextNode)
+                        ) {
+                            mathNode.elements.push(nextNode);
+                        } else {
+                            errors.push({
+                                message: l10n.t(
+                                    'Expected value or expression in math expression'
+                                ),
+                                token,
+                            } as ParserError);
+                        }
+                        if (tokens[current] === undefined) {
+                            break;
+                        }
+                        lastNode = nextNode;
+                    }
+                    if (
+                        tokens[current] &&
+                        tokens[current].type !== TOKEN_TYPES.RIGHT_PAREN
+                    ) {
+                        errors.push({
+                            message: l10n.t('Expected right paren'),
+                            token,
+                        } as ParserError);
+                    }
+                    current++;
+                    return mathNode;
                 }
-                node.parenthesized = true;
-                return node;
+                return null;
             }
         }
 
@@ -504,7 +557,7 @@ export const parser = (
                             },
                             {
                                 message: l10n.t(
-                                    'If you want to not assign a value to an identifier, you need to remove the equals sign'
+                                    "If you don't want to assign a value to an identifier, you need to remove the equals sign"
                                 ),
                             },
                         ],
@@ -584,12 +637,12 @@ export const parser = (
             current++;
             if (current >= tokens.length) {
                 errors.push({
-                    message: l10n.t('Expected value in colon'),
+                    message: l10n.t('Expected value after colon'),
                     token,
                     addditionalInfo: [
                         {
                             message: l10n.t(
-                                'Those Values should be a References with & or beginning with /'
+                                'Those Values should be a References'
                             ),
                         },
                     ],
@@ -610,12 +663,12 @@ export const parser = (
                 if (!nextNode) {
                     break;
                 }
-                if (nextNode.type === 'Value') {
+                if (isValueNode(nextNode)) {
                     inheritanceNodes.push(nextNode as ValueNode);
                 } else {
                     errors.push({
                         message: l10n.t(
-                            'Expected value after value but found {0}',
+                            'Expected reference value after reference value but found {0}',
                             nextNode.type
                         ),
                         token: tokens[current],
@@ -632,7 +685,11 @@ export const parser = (
                 right = walk(_lastNode, parent) as ArrayNode;
             }
             if (right) {
-                right.inheritance = inheritanceNodes;
+                // Inheritance nodes parent is the right node
+                right.inheritance = inheritanceNodes.map((v) => {
+                    v.parent = right;
+                    return v;
+                });
             }
             return right;
         }
@@ -761,7 +818,10 @@ function inferValueType(IS_NUMBER: RegExp, token: Token): ValueNodeTypes {
         token.value.startsWith('~') ||
         (token.value.startsWith('<') && token.value.includes('.rules'))
     ) {
-        return { type: 'Reference', value: token.value };
+        return {
+            type: 'Reference',
+            value: token.value,
+        };
     }
     if (valueType === 'Number') {
         return { type: 'Number', value: parseFloat(value as string) };
