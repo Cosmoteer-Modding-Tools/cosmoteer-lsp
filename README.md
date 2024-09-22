@@ -23,7 +23,7 @@ Set the `cosmoteerPath` setting to the path of your Cosmoteer installation. This
 -  Validation for assets (e.g. images, sounds, shaders)
 -  Code completion for assets
 -  Code completion for functions
--  Code completion for all references (**With the next relase**)
+-  Code completion for all references (**With the next release**)
 -  Respecting additions/inheritances/deletions `Actions` of mod.rules files
 -  Code formatting
 -  Type checking
