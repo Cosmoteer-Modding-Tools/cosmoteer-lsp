@@ -12,6 +12,10 @@ Set the `cosmoteerPath` setting to the path of your Cosmoteer installation. This
 If you have custom references which can't yet be resolved by the language server, you can add them to the `ignoredPaths` setting. This is an array of strings which will ingore every path which includes the String specified in it.
 Please be aware that the language server at the moment only checks the file which is currently open and not the whole workspace.
 
+## Suggestions
+Please be aware that this extension does not provide `abc`(You can see those icons or text left from the suggested text) suggestions those are by vs code itself. If you see a file icon with a `->`in the top corner of this file icon. Than this is a suggestion from the language server.
+To generate those suggestions you can use the `ctrl+space` keybinding to get the suggestions from the language server. Unless you changed it in the settings.
+
 ### Features until now
 
 -   Basic syntax highlighting

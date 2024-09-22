@@ -1,6 +1,9 @@
 import {
+    isArrayNode,
     isAssignmentNode,
+    isDocumentNode,
     isIdentifierNode,
+    isObjectNode,
     isValueNode,
     ValueNode,
 } from '../parser/ast';
@@ -18,19 +21,24 @@ export class AutoCompletionReference implements AutoCompletion<ValueNode> {
                 node.parent?.elements
                     .filter(
                         (v) =>
-                            isIdentifierNode(v) ||
+                            isObjectNode(v) ||
+                            isArrayNode(v) ||
                             (isAssignmentNode(v) && v.right !== node)
                     )
                     .filter(
                         (v) =>
-                            (isIdentifierNode(v) && v.name.startsWith(value)) ||
+                            ((isArrayNode(v) || isObjectNode(v)) &&
+                                v.identifier?.name.startsWith(value)) ||
                             value === '' ||
                             (isAssignmentNode(v) &&
                                 v.left.name.startsWith(value))
                     )
                     .map((v) => {
-                        if (isIdentifierNode(v)) {
-                            return v.name;
+                        if (
+                            (isObjectNode(v) || isArrayNode(v)) &&
+                            v.identifier
+                        ) {
+                            return v.identifier.name;
                         } else if (isAssignmentNode(v)) {
                             return v.left.name;
                         }
