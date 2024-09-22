@@ -47,7 +47,7 @@ export class CosmoteerWorkspaceService {
         if (!this.isInitalized) return;
         const cosmoteerRules = (
             this._fileWorkspaceTree as Directory
-        ).children.find((c) => c.name === 'cosmoteer.rules') as File & {
+        ).children.find((c) => c.name.toLowerCase() === 'cosmoteer.rules') as File & {
             readonly path: string;
         };
         if (!(cosmoteerRules.content as CosmoteerWorkspaceData).parsedDocument)
@@ -66,15 +66,18 @@ export class CosmoteerWorkspaceService {
           })
         | undefined => {
         if (index === pathes.length) return;
-        if (isFile(parent) && parent.name === pathes[index]) {
+        if (isFile(parent) && parent.name.toLowerCase() === pathes[index].toLowerCase()) {
             return parent;
         } else if (isDirectory(parent)) {
             for (const dirent of parent.children) {
-                if (isFile(dirent) && dirent.name === pathes[index]) {
+                if (
+                    isFile(dirent) &&
+                    dirent.name.toLowerCase() === pathes[index].toLowerCase()
+                ) {
                     return dirent;
                 } else if (
                     isDirectory(dirent) &&
-                    dirent.name === pathes[index]
+                    dirent.name.toLowerCase() === pathes[index].toLowerCase()
                 ) {
                     return this.findFileRecursive(dirent, pathes, index + 1);
                 }

@@ -9,6 +9,8 @@ For now its only support basic syntax highlighting and diagnostics.
 
 ### How to use
 Set the `cosmoteerPath` setting to the path of your Cosmoteer installation. This is needed to validate references and assets for this language server, if you don't set it.
+If you have custom references which can't yet be resolved by the language server, you can add them to the `ignoredPaths` setting. This is an array of strings which will ingore every path which includes the String specified in it.
+Please be aware that the language server at the moment only checks the file which is currently open and not the whole workspace.
 
 ### Features until now
 
@@ -20,16 +22,18 @@ Set the `cosmoteerPath` setting to the path of your Cosmoteer installation. This
 -   localisation support (en, de) so far
 
 ### Features in the future
--  Validation for assets (e.g. images, sounds, shaders)
+-  Validation for assets (e.g. images, sounds, shaders) (**With the next release v0.4.0**)
 -  Code completion for assets
--  Code completion for functions
--  Code completion for all references (**With the next release**)
+-  Code completion for functions (Needs type checking)
+-  Code completion for all references (**With the next release v0.4.0**)
+-  Reference Validation for mod.rules (**With the next release v0.4.0**)
 -  Respecting additions/inheritances/deletions `Actions` of mod.rules files
 -  Code formatting
 -  Type checking
 -  Identifer validation
 -  Renaming/Refactoring across files
 -  Multi root workspace support
+-  Validate all `.rules` in the workspace
 - *If you have any suggestions or ideas, please open a issue on the [GitHub](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/issues)*
 
 ### Showcase

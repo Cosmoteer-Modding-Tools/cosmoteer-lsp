@@ -99,6 +99,7 @@ connection.onInitialized(async () => {
             scopeUri: workspaceFolders[0].uri,
             section: 'cosmoteerLSPRules',
         })) as CosmoteerSettings;
+        globalSettings = settings;
         if (settings.cosmoteerPath) {
             await CosmoteerWorkspaceService.instance.initialize(
                 workspaceFolders[0].uri,
@@ -159,6 +160,7 @@ interface CosmoteerSettings {
     trace: {
         server: 'off' | 'messages' | 'verbose';
     };
+    ignorePaths: string[];
 }
 
 // The global settings, used when the `workspace/configuration` request is not supported by the client.
@@ -170,6 +172,7 @@ const defaultSettings: CosmoteerSettings = {
     trace: {
         server: 'off',
     },
+    ignorePaths: [],
 };
 export let globalSettings: CosmoteerSettings = defaultSettings;
 
@@ -180,11 +183,11 @@ connection.onDidChangeConfiguration(async (change) => {
     if (hasConfigurationCapability) {
         // Reset all cached document settings
         documentSettings.clear();
-    } else {
-        globalSettings = <CosmoteerSettings>(
-            (change.settings.cosmoteerLSPRules || defaultSettings)
-        );
     }
+    if (change.settings?.cosmoteerLSPRules)
+        globalSettings = <CosmoteerSettings>(
+            (change.settings?.cosmoteerLSPRules || defaultSettings)
+        );
     const workspaceFolders = await connection.workspace.getWorkspaceFolders();
     if (
         (change.settings?.cosmoteerLSPRules as CosmoteerSettings)

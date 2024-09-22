@@ -1,4 +1,10 @@
-import { ValueNode } from '../parser/ast';
+import {
+    AbstractNode,
+    isArrayNode,
+    isObjectNode,
+    ValueNode,
+} from '../parser/ast';
+import { globalSettings } from '../server';
 import { getStartOfAstNode, navigate } from '../utils/ast.utils';
 import { Validation } from './validator';
 import * as l10n from '@vscode/l10n';
@@ -47,9 +53,13 @@ const checkReference = async (node: ValueNode) => {
         } else if (
             // Workaround for mod.rules which can contain references to other files and cosmoteer rules
             !getStartOfAstNode(node).uri.includes('mod.rules') &&
+            !ignorePath(node.valueType.value) &&
             (await navigate(
                 node.valueType.value,
-                node,
+                // safe to assume that the parent is always an AbstractNode because otherwise it could't not be a inheritance
+                isInheritanceInSameFile(node)
+                    ? ((node.parent as AbstractNode).parent as AbstractNode)
+                    : node,
                 getStartOfAstNode(node).uri
             )) === null
         ) {
@@ -63,6 +73,26 @@ const checkReference = async (node: ValueNode) => {
         }
     }
     return undefined;
+};
+
+const isInheritanceInSameFile = (value: ValueNode) => {
+    return (
+        value.valueType.type === 'Reference' &&
+        value.valueType.value.startsWith('..') &&
+        value.parent &&
+        (isArrayNode(value.parent) || isObjectNode(value.parent)) &&
+        value.parent.inheritance &&
+        value.parent.inheritance.some((inheritance) => inheritance === value)
+    );
+};
+
+const ignorePath = (value: string) => {
+    for (const path of globalSettings.ignorePaths) {
+        if (value.toLowerCase().includes(path.toLowerCase())) {
+            return true;
+        }
+    }
+    return false;
 };
 
 const isValidReference = (value: string) => {

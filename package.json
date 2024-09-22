@@ -79,6 +79,15 @@
                     "type": "string",
                     "default": "",
                     "description": "The path to the Cosmoteer installation. If not set, the extension cannot validate .rules files correctly. Example: C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer"
+                },
+                "cosmoteerLSPRules.ignorePaths": {
+                    "scope": "application",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "Paths to ignore when validating references. Example: [\"SW_\"]"
                 }
             }
         }

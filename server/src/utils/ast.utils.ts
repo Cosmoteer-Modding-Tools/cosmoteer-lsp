@@ -286,7 +286,6 @@ export const navigateReference = async (
                 node.valueType.value.startsWith('<') ||
                 node.valueType.value.startsWith('/'))
         ) {
-            // TODO handle cross references
             const nextNode = await navigate(
                 node.valueType.value,
                 node,
@@ -404,7 +403,7 @@ export const navigateRulesByCurrentLocation = async (
                 continue;
             }
             for (const dirent of dir) {
-                if (dirent.name === pathes[i]) {
+                if (dirent.name.toLowerCase() === pathes[i].toLowerCase()) {
                     if (i === lastWorkspacePathIndex && dirent.isFile()) {
                         const parsed = await parseFilePath(
                             createDirentPath(dirent)
