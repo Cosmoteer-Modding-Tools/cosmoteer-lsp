@@ -17,7 +17,8 @@ All notable changes to this project will be documented in this file.
 -   Fixed a bug with `\` where it would crash the language server when its not after a string
 -   Fixed some bugs with the parser and autocompletion which would crash the language server
 -   Fixed a bug with `Values` in function calls which would have a start position where the function begins instead of the string, which would lead to a confusing error highlighting
--   Fixed a bug with Math expressions which were not regocnized as a valid node. 
+-   Fixed a bug with Math expressions which were not regocnized as a valid node.
+-   Fixed some of styling issues with the grammar. References should now hopefully be all highlighted in the same color and numbers should be more consistent too.
 
 
 # Version 0.2.1 Beta Hotfix
