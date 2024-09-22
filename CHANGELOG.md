@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 # Version 0.3.0 Beta
 -   Removed InheritanceNode and replaced it with a property in the ObjectNode and ArrayNode
--   Added Readme for Images
+-   Added Readme for Images Folder
 -   Added setting for Cosmoteer Workspace and show error message when not set
 -   Added validation for references which are not assets
 -   Added validation for Assignments `=`  where the right side is a reference
@@ -17,7 +17,7 @@ All notable changes to this project will be documented in this file.
 -   Fixed a bug with `\` where it would crash the language server when its not after a string
 -   Fixed some bugs with the parser and autocompletion which would crash the language server
 -   Fixed a bug with `Values` in function calls which would have a start position where the function begins instead of the string, which would lead to a confusing error highlighting
--   Fixed a bug with Math expressions which were not regocnized as a valid node.
+-   Fixed a bug with Math expressions which were not recognized as a valid node.
 -   Fixed some of styling issues with the grammar. References should now hopefully be all highlighted in the same color and numbers should be more consistent too.
 
 
