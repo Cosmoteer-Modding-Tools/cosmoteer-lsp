@@ -19,9 +19,22 @@ Set the `cosmoteerPath` setting to the path of your Cosmoteer installation. This
 -   Validation for function calls, math expressions and assignments with references
 -   localisation support (en, de) so far
 
+### Features in the future
+-  Validation for assets (e.g. images, sounds, shaders)
+-  Code completion for assets
+-  Code completion for functions
+-  Code completion for all references (**With the next relase**)
+-  Respecting additions/inheritances/deletions `Actions` of mod.rules files
+-  Code formatting
+-  Type checking
+-  Identifer validation
+-  Renaming/Refactoring across files
+-  Multi root workspace support
+- *If you have any suggestions or ideas, please open a issue on the [GitHub](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/issues)*
+
 ### Showcase
-![Basic Syntax Highlighting Example Image](https://github.com/TrustNoOneElse/cosmoteer-lsp/blob/master/showcase/syntax_highlighting.png?raw=true)
-![Diagnostics for syntax errors Example Image](https://github.com/TrustNoOneElse/cosmoteer-lsp/blob/master/showcase/diagnostics.png?raw=true)
+![Basic Syntax Highlighting Example Image](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/syntax_highlighting.png?raw=true)
+![Diagnostics for syntax errors Example Image](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/diagnostics.png?raw=true)
 
 https://github.com/user-attachments/assets/b1de7a49-404f-483b-8739-f1e7b6706a50
 
