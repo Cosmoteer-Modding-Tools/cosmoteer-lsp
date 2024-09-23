@@ -5,7 +5,7 @@ import { sep } from 'path';
 import { Dirent } from 'fs';
 import { parseFile } from '../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
-import path = require('path');
+import * as path from 'path';
 
 export class CosmoteerWorkspaceService {
     private _fileWorkspaceTree!: FileTree;

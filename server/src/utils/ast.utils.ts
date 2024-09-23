@@ -20,7 +20,7 @@ import { readFile, readdir } from 'fs/promises';
 import { lexer } from '../lexer/lexer';
 import { parser } from '../parser/parser';
 import { Dirent } from 'fs';
-import path = require('path');
+import * as path from 'path';
 import { globalSettings } from '../server';
 
 export const parseFile = async (

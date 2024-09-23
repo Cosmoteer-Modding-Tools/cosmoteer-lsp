@@ -2,12 +2,14 @@
     "compilerOptions": {
         "target": "ES2023",
         "lib": ["ES2023"],
-        "module": "commonjs",
-        "moduleResolution": "node",
+        "module": "CommonJS",
+        "moduleResolution": "Node",
         "sourceMap": true,
         "strict": true,
-        "outDir": "out",
-        "rootDir": "src"
+        "outDir": "../out/server",
+        "rootDir": "src",
+        "incremental": true,
+        "tsBuildInfoFile": "../out/tsbuildinfo.json"
     },
     "include": ["src"],
     "exclude": ["node_modules", ".vscode-test"]
