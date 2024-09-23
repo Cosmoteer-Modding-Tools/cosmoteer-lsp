@@ -6,7 +6,7 @@
     "version": "0.3.0",
     "repository": {
         "type": "git",
-        "url": "https://github.com/TrustNoOneElse/cosmoteer-lsp"
+        "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
     },
     "publisher": "TrustNoOneElse",
     "categories": [
