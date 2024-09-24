@@ -102,7 +102,6 @@ connection.onInitialized(async () => {
         globalSettings = settings;
         if (settings.cosmoteerPath) {
             await CosmoteerWorkspaceService.instance.initialize(
-                workspaceFolders[0].uri,
                 settings.cosmoteerPath,
                 await connection.window.createWorkDoneProgress()
             );
@@ -195,7 +194,6 @@ connection.onDidChangeConfiguration(async (change) => {
         workspaceFolders
     ) {
         CosmoteerWorkspaceService.instance.initialize(
-            workspaceFolders[0].uri,
             change.settings.cosmoteerLSPRules.cosmoteerPath,
             await connection.window.createWorkDoneProgress()
         );

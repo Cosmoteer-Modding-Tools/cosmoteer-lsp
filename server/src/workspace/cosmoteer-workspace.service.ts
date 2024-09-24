@@ -91,7 +91,6 @@ export class CosmoteerWorkspaceService {
     };
 
     public async initialize(
-        currentWorkSpacePath: string,
         cosmoteerWorkspacePath: string,
         workDoneProgress: WorkDoneProgressReporter
     ) {
@@ -162,7 +161,7 @@ export class CosmoteerWorkspaceService {
         for (const dirent of dirents) {
             if (dirent.isDirectory()) {
                 const nextDirents = await this.iterateFiles(
-                    `${dirent.path + sep + dirent.name}`
+                    `${dirent.parentPath + sep + dirent.name}`
                 );
                 if (nextDirents.length === 0) continue;
                 const parent: FileTree = {
@@ -184,7 +183,7 @@ export class CosmoteerWorkspaceService {
                                 dirent.name.lastIndexOf('.')
                             ),
                         },
-                        path: dirent.path + sep + dirent.name,
+                        path: dirent.parentPath + sep + dirent.name,
                         parent: parentTree,
                     };
                     if (isDirectory(parentTree))
@@ -204,7 +203,7 @@ export class CosmoteerWorkspaceService {
                                 ),
                                 fileEnding: dirent.name.split('.')[1],
                             },
-                            path: dirent.path + sep + dirent.name,
+                            path: dirent.parentPath + sep + dirent.name,
                             parent: parentTree,
                         });
                     }
