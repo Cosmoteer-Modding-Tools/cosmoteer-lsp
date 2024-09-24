@@ -28,7 +28,7 @@ export class CosmoteerWorkspaceService {
     }
 
     public findRulesFile(pathes: string[]):
-        | (File & {
+        | (CosmoteerFile & {
               readonly path: string;
           })
         | undefined {
@@ -39,7 +39,7 @@ export class CosmoteerWorkspaceService {
     }
 
     public async getCosmoteerRules(): Promise<
-        | (File & {
+        | (CosmoteerFile & {
               readonly path: string;
           })
         | undefined
@@ -47,7 +47,9 @@ export class CosmoteerWorkspaceService {
         if (!this.isInitalized) return;
         const cosmoteerRules = (
             this._fileWorkspaceTree as Directory
-        ).children.find((c) => c.name.toLowerCase() === 'cosmoteer.rules') as File & {
+        ).children.find(
+            (c) => c.name.toLowerCase() === 'cosmoteer.rules'
+        ) as CosmoteerFile & {
             readonly path: string;
         };
         if (!(cosmoteerRules.content as CosmoteerWorkspaceData).parsedDocument)
@@ -61,12 +63,15 @@ export class CosmoteerWorkspaceService {
         pathes: string[],
         index: number = 0
     ):
-        | (File & {
+        | (CosmoteerFile & {
               readonly path: string;
           })
         | undefined => {
         if (index === pathes.length) return;
-        if (isFile(parent) && parent.name.toLowerCase() === pathes[index].toLowerCase()) {
+        if (
+            isFile(parent) &&
+            parent.name.toLowerCase() === pathes[index].toLowerCase()
+        ) {
             return parent;
         } else if (isDirectory(parent)) {
             for (const dirent of parent.children) {
@@ -218,7 +223,7 @@ export type CosmoteerWorkspaceData = {
 export type FileTree = {
     readonly path: string;
     readonly parent?: FileTree;
-} & (Directory | File);
+} & (Directory | CosmoteerFile);
 
 export type Directory = {
     type: 'Dir';
@@ -226,7 +231,7 @@ export type Directory = {
     children: FileTree[];
 };
 
-export type File = {
+export type CosmoteerFile = {
     type: 'File';
     readonly name: string;
     content: CosmoteerWorkspaceData;
@@ -237,4 +242,4 @@ export const isDirectory = (
 ): fileTree is Directory & { path: string } => fileTree.type === 'Dir';
 export const isFile = (
     fileTree: FileTree
-): fileTree is File & { path: string } => fileTree.type === 'File';
+): fileTree is CosmoteerFile & { path: string } => fileTree.type === 'File';

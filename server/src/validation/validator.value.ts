@@ -1,3 +1,4 @@
+import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
 import {
     AbstractNode,
     isArrayNode,
@@ -5,9 +6,12 @@ import {
     ValueNode,
 } from '../parser/ast';
 import { globalSettings } from '../server';
-import { getStartOfAstNode, navigate } from '../utils/ast.utils';
+import { getStartOfAstNode } from '../utils/ast.utils';
+import { isValidReference } from '../utils/reference.utils';
 import { Validation } from './validator';
 import * as l10n from '@vscode/l10n';
+
+const navigationStrategy = new FullNavigationStrategy();
 
 export const ValidationForValue: Validation<ValueNode> = {
     type: 'Value',
@@ -54,7 +58,7 @@ const checkReference = async (node: ValueNode) => {
             // Workaround for mod.rules which can contain references to other files and cosmoteer rules
             !getStartOfAstNode(node).uri.includes('mod.rules') &&
             !ignorePath(node.valueType.value) &&
-            (await navigate(
+            (await navigationStrategy.navigate(
                 node.valueType.value,
                 // safe to assume that the parent is always an AbstractNode because otherwise it could't not be a inheritance
                 isInheritanceInSameFile(node)
@@ -91,51 +95,6 @@ const ignorePath = (value: string) => {
         if (value.toLowerCase().includes(path.toLowerCase())) {
             return true;
         }
-    }
-    return false;
-};
-
-const isValidReference = (value: string) => {
-    if (value.startsWith('&')) {
-        const valueWithoutAmpersand = value.substring(1);
-        if (
-            (valueWithoutAmpersand.startsWith('<') &&
-                valueWithoutAmpersand.includes('.rules>')) ||
-            valueWithoutAmpersand.startsWith('..') ||
-            valueWithoutAmpersand.startsWith('~') ||
-            valueWithoutAmpersand.startsWith('/') ||
-            valueWithoutAmpersand.search(/^[A-Za-z_]/) !== -1
-        ) {
-            const nextValue = valueWithoutAmpersand.substring(1);
-            if (
-                nextValue.includes('&') ||
-                nextValue.includes('<') ||
-                nextValue.includes('~') ||
-                nextValue.includes('^')
-            ) {
-                return false;
-            }
-            return true;
-        }
-    } else if (
-        (value.startsWith('<') && value.includes('.rules>')) ||
-        value.startsWith('..') ||
-        value.startsWith('/') ||
-        value.startsWith('^') ||
-        value.startsWith('~')
-    ) {
-        const nextValue = value.substring(1);
-        if (
-            nextValue.includes('&') ||
-            nextValue.includes(' ') ||
-            nextValue.includes('<') ||
-            nextValue.includes('~') ||
-            (!value.startsWith('^') && nextValue.startsWith('/')) ||
-            nextValue.includes('^')
-        ) {
-            return false;
-        }
-        return true;
     }
     return false;
 };
