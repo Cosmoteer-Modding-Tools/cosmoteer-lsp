@@ -800,7 +800,9 @@ function inferValueType(IS_NUMBER: RegExp, token: Token): ValueNodeTypes {
     let valueType: ValueNodeTypes['type'] = IS_NUMBER.test(token.value)
         ? 'Number'
         : 'String';
-    const IS_SOUND = new RegExp(ALLOWED_AUDIO_EXTENSIONS.join('|'));
+    const IS_SOUND = new RegExp(
+        ALLOWED_AUDIO_EXTENSIONS.join('|').replaceAll('.', '\\.')
+    );
     if (valueType === 'String' && token.value.includes('.png')) {
         valueType = 'Sprite';
         value = value as string;

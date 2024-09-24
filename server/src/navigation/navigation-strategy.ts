@@ -1,5 +1,6 @@
 import { Dirent } from 'fs';
 import { AbstractNode } from '../parser/ast';
+import { join } from 'path';
 
 export abstract class NavigationStrategy<T> {
     abstract navigate(
@@ -10,7 +11,7 @@ export abstract class NavigationStrategy<T> {
 }
 
 export const filePathToDirectoryPath = (path: string) => {
-    if (path.endsWith('.rules') && path.startsWith('file:///')) {
+    if (path.startsWith('file:///')) {
         const cleanedPath = path
             .replace(`file:///`, '')
             .replace('c%3A', 'C:')
@@ -37,12 +38,5 @@ export const extractSubstrings = (input: string): string[] => {
 };
 
 export const createDirentPath = (dirent: Dirent) => {
-    // TODO can this be handled by path.join?
-    let nextPath: string;
-    if (dirent.parentPath.endsWith('/')) {
-        nextPath = dirent.parentPath + dirent.name;
-    } else {
-        nextPath = dirent.parentPath + '\\' + dirent.name;
-    }
-    return nextPath;
+    return join(dirent.parentPath, dirent.name);
 };

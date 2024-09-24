@@ -193,7 +193,7 @@ export class FullNavigationStrategy extends NavigationStrategy<
                                         .slice(lastWorkspacePathIndex + 1)
                                         .join('/'),
                                     parsed,
-                                    dirent.path
+                                    dirent.parentPath
                                 );
                             }
                             return parsed;
@@ -264,7 +264,7 @@ export class FullNavigationStrategy extends NavigationStrategy<
 
     navigateCosmoteerRules = (pathes: string[]) => {
         const file =
-            CosmoteerWorkspaceService.instance.findRulesFile(pathes) ?? null;
+            CosmoteerWorkspaceService.instance.findFile(pathes) ?? null;
         return file;
     };
 

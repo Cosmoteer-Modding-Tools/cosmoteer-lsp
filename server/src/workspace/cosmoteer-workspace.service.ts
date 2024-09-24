@@ -27,7 +27,7 @@ export class CosmoteerWorkspaceService {
         this._connection = connection;
     }
 
-    public findRulesFile(pathes: string[]):
+    public findFile(pathes: string[]):
         | (CosmoteerFile & {
               readonly path: string;
           })
@@ -58,7 +58,7 @@ export class CosmoteerWorkspaceService {
         return cosmoteerRules;
     }
 
-    findFileRecursive = (
+    private findFileRecursive = (
         parent: FileTree,
         pathes: string[],
         index: number = 0
@@ -153,11 +153,14 @@ export class CosmoteerWorkspaceService {
         workDoneProgress.done();
     }
 
-    iterateFiles = (workspacePath: string) => {
+    private iterateFiles = (workspacePath: string) => {
         return readdir(workspacePath, { withFileTypes: true });
     };
 
-    buildFileStructure = async (parentTree: FileTree, dirents: Dirent[]) => {
+    private buildFileStructure = async (
+        parentTree: FileTree,
+        dirents: Dirent[]
+    ) => {
         for (const dirent of dirents) {
             if (dirent.isDirectory()) {
                 const nextDirents = await this.iterateFiles(
@@ -168,7 +171,7 @@ export class CosmoteerWorkspaceService {
                     type: 'Dir',
                     name: dirent.name,
                     children: [],
-                    path: dirent.path + sep + dirent.name,
+                    path: dirent.parentPath + sep + dirent.name,
                 };
                 await this.buildFileStructure(parent, nextDirents);
                 if (isDirectory(parentTree)) parentTree.children?.push(parent);

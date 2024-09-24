@@ -1,3 +1,4 @@
+import { AssetNavigationStrategy } from '../navigation/assset.navigation-strategy';
 import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
 import {
     AbstractNode,
@@ -11,16 +12,23 @@ import { isValidReference } from '../utils/reference.utils';
 import { Validation } from './validator';
 import * as l10n from '@vscode/l10n';
 
-const navigationStrategy = new FullNavigationStrategy();
+const rulesNavigationStrategy = new FullNavigationStrategy();
+const assetsNavigationStrategy = new AssetNavigationStrategy();
 
 export const ValidationForValue: Validation<ValueNode> = {
     type: 'Value',
     callback: async (node: ValueNode) => {
-        const reference = await checkReference(node);
-        if (!reference) {
-            return checkParantheses(node);
+        if (node.valueType.type === 'Reference') {
+            return await checkReference(node);
         }
-        return reference;
+        if (
+            node.valueType.type === 'Sprite' ||
+            node.valueType.type === 'Sound' ||
+            node.valueType.type === 'Shader'
+        ) {
+            return await checkAssets(node);
+        }
+        return checkParantheses(node);
     },
 };
 
@@ -41,6 +49,37 @@ const checkParantheses = (node: ValueNode) => {
     return undefined;
 };
 
+const checkAssets = async (node: ValueNode) => {
+    if (
+        node.valueType.type === 'Shader' ||
+        node.valueType.type === 'Sound' ||
+        node.valueType.type === 'Sprite'
+    ) {
+        if (!node.quoted) {
+            return {
+                message: l10n.t('Asset pathes should be quoted'),
+                node: node,
+                addditionalInfo: l10n.t('Assets should be quoted with ""'),
+            };
+        }
+        if (
+            await assetsNavigationStrategy.navigate(
+                node.valueType.value,
+                node,
+                getStartOfAstNode(node).uri
+            )
+        ) {
+            return undefined;
+        } else {
+            return {
+                message: l10n.t('Asset not found'),
+                node: node,
+                addditionalInfo: l10n.t('The asset could not be found'),
+            };
+        }
+    }
+};
+
 const checkReference = async (node: ValueNode) => {
     if (
         node.valueType.type === 'Reference' &&
@@ -58,7 +97,7 @@ const checkReference = async (node: ValueNode) => {
             // Workaround for mod.rules which can contain references to other files and cosmoteer rules
             !getStartOfAstNode(node).uri.includes('mod.rules') &&
             !ignorePath(node.valueType.value) &&
-            (await navigationStrategy.navigate(
+            (await rulesNavigationStrategy.navigate(
                 node.valueType.value,
                 // safe to assume that the parent is always an AbstractNode because otherwise it could't not be a inheritance
                 isInheritanceInSameFile(node)
