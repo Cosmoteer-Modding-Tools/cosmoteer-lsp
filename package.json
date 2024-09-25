@@ -3,7 +3,7 @@
     "description": "A complete language server for Cosmoteer rules",
     "author": "TrustNoOneElse",
     "license": "MIT",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "repository": {
         "type": "git",
         "url": "https://github.com/TrustNoOneElse/cosmoteer-lsp"
