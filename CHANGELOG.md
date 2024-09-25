@@ -2,6 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
+# Version 0.3.1 Beta Hotfix
+-   Notify the user that when he doesn't see the settings, that he needs to restart vscode.
+
 # Version 0.3.0 Beta
 -   Removed InheritanceNode and replaced it with a property in the ObjectNode and ArrayNode
 -   Added Readme for Images Folder
