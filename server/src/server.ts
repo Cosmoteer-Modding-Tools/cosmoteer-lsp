@@ -109,15 +109,14 @@ connection.onInitialized(async () => {
             connection.window
                 .showErrorMessage(
                     l10n.t(
-                        'Cosmoteer path not set, please set it in the settings for Cosmoteer Rules Configuration. This is required for the language server to work correctly.'
+                        'Cosmoteer path not set, please set it in the extensions settings for Cosmoteer Rules Configuration. If you dont see this setting, than please restart vscode. This is required for the language server to work correctly.'
                     ),
                     {
                         title: 'Open Settings',
                         command: 'workbench.action.openSettings',
                     }
                 )
-                .then((v) => {
-                    console.log(v);
+                .then(() => {
                     connection.sendRequest('cosmoteer/openSettings', {
                         items: [
                             {
