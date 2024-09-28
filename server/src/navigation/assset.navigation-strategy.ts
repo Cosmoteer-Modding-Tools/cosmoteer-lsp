@@ -58,6 +58,9 @@ export class AssetNavigationStrategy extends NavigationStrategy<boolean> {
         return true;
     };
 
+    /**
+     * Searches for a file in the directory incasesensitive which {access} will fail most of the times.
+     */
     private searchInDirForFile = async (
         pathes: string[],
         currentLocation: string
