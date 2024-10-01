@@ -13,6 +13,7 @@ import {
     InitializeResult,
     DocumentDiagnosticReportKind,
     type DocumentDiagnosticReport,
+    CancellationToken,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -221,12 +222,12 @@ documents.onDidClose((e) => {
     documentSettings.delete(e.document.uri);
 });
 
-connection.languages.diagnostics.on(async (params) => {
+connection.languages.diagnostics.on(async (params, cancelToken) => {
     const document = documents.get(params.textDocument.uri);
     if (document !== undefined) {
         return {
             kind: DocumentDiagnosticReportKind.Full,
-            items: await validateTextDocument(document),
+            items: await validateTextDocument(document, cancelToken),
             resultId: params.textDocument.uri,
         } satisfies DocumentDiagnosticReport;
     } else {
@@ -240,12 +241,15 @@ connection.languages.diagnostics.on(async (params) => {
 });
 
 async function validateTextDocument(
-    textDocument: TextDocument
+    textDocument: TextDocument,
+    cancelToken: CancellationToken
 ): Promise<Diagnostic[]> {
     const settings = await getDocumentSettings(textDocument.uri);
     const text = textDocument.getText();
     const tokens = lexer(text);
+    if (cancelToken.isCancellationRequested) return [];
     const parserResult = parser(tokens, textDocument.uri);
+    if (cancelToken.isCancellationRequested) return [];
     if (settings.trace.server === 'verbose') {
         console.dir(parserResult);
     }

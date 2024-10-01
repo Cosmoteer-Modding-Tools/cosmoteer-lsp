@@ -6,13 +6,13 @@ import {
     isAssignmentNode,
     isObjectNode,
 } from '../parser/ast';
-import { CosmoteerFile } from '../workspace/cosmoteer-workspace.service';
+import { FileWithPath } from '../workspace/cosmoteer-workspace.service';
 import { readFile } from 'fs/promises';
 import { lexer } from '../lexer/lexer';
 import { parser } from '../parser/parser';
 
 export const parseFile = async (
-    file: CosmoteerFile & { readonly path: string }
+    file: FileWithPath
 ): Promise<AbstractNodeDocument> => {
     const data = await readFile(file.path, { encoding: 'utf-8' });
     const document = parser(lexer(data), file.path).value;
@@ -105,5 +105,4 @@ export const getStartOfAstNode = (node: AbstractNode): AbstractNodeDocument => {
     }
     return node as AbstractNodeDocument;
 };
-
 

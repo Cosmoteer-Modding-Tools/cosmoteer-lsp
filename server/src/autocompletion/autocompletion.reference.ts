@@ -1,8 +1,6 @@
 import {
     isArrayNode,
     isAssignmentNode,
-    isDocumentNode,
-    isIdentifierNode,
     isObjectNode,
     isValueNode,
     ValueNode,

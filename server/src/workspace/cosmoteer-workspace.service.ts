@@ -13,7 +13,7 @@ export class CosmoteerWorkspaceService {
     private _connection!: Connection;
     private isInitalized = false;
 
-    constructor() {}
+    private constructor() {}
 
     public static get instance(): CosmoteerWorkspaceService {
         if (!CosmoteerWorkspaceService._instance) {
@@ -37,6 +37,60 @@ export class CosmoteerWorkspaceService {
             return this.findFileRecursive(this._fileWorkspaceTree, pathes);
         }
     }
+
+    public findPathes(pathes: string[]): string[] {
+        if (!this.isInitalized) return [];
+        if (isDirectory(this._fileWorkspaceTree)) {
+            return this.findPathesRecursive(this._fileWorkspaceTree, pathes);
+        }
+        return [];
+    }
+
+    private findPathesRecursive = (
+        parent: FileTree,
+        pathes: string[],
+        index: number = 0,
+        results: string[] = []
+    ): string[] => {
+        if (index === pathes.length) return results;
+        if (index === pathes.length - 1) {
+            if (isDirectory(parent)) {
+                for (const p of parent.children) {
+                    if (
+                        isFile(p) &&
+                        p.name
+                            .toLowerCase()
+                            .startsWith(pathes[index].toLowerCase())
+                    ) {
+                        results.push(p.name);
+                    } else if (
+                        isDirectory(p) &&
+                        p.name
+                            .toLowerCase()
+                            .startsWith(pathes[index].toLowerCase())
+                    ) {
+                        results.push(p.path + '/');
+                    }
+                }
+            }
+        }
+        if (isDirectory(parent)) {
+            for (const dirent of parent.children) {
+                if (
+                    isDirectory(dirent) &&
+                    dirent.name.toLowerCase() === pathes[index].toLowerCase()
+                ) {
+                    return this.findPathesRecursive(
+                        dirent,
+                        pathes,
+                        index + 1,
+                        results
+                    );
+                }
+            }
+        }
+        return results;
+    };
 
     public async getCosmoteerRules(): Promise<
         | (CosmoteerFile & {
@@ -226,6 +280,8 @@ export type FileTree = {
     readonly path: string;
     readonly parent?: FileTree;
 } & (Directory | CosmoteerFile);
+
+export type FileWithPath = CosmoteerFile & { readonly path: string };
 
 export type Directory = {
     type: 'Dir';
