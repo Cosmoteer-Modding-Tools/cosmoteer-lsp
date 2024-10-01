@@ -23,9 +23,7 @@ export class Validator {
 
     private constructor() {}
 
-    public registerValidation<T extends AbstractNode>(
-        validation: Validation<T>
-    ): void {
+    public registerValidation<T extends AbstractNode>(validation: Validation<T>): void {
         this.map.set(validation.type, validation.callback);
     }
 
@@ -76,9 +74,7 @@ export type Validation<T extends AbstractNode> = {
     callback: ValidationCallback<T>;
 };
 
-type ValidationCallback<T extends AbstractNode> = (
-    node: T
-) => Promise<ValidationError | undefined>;
+type ValidationCallback<T extends AbstractNode> = (node: T) => Promise<ValidationError | undefined>;
 
 export type ValidationError = {
     message: string;

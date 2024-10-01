@@ -54,12 +54,8 @@ connection.onInitialize(async (params: InitializeParams) => {
 
     // Does the client support the `workspace/configuration` request?
     // If not, we fall back using global settings.
-    hasConfigurationCapability = !!(
-        capabilities.workspace && !!capabilities.workspace.configuration
-    );
-    hasWorkspaceFolderCapability = !!(
-        capabilities.workspace && !!capabilities.workspace.workspaceFolders
-    );
+    hasConfigurationCapability = !!(capabilities.workspace && !!capabilities.workspace.configuration);
+    hasWorkspaceFolderCapability = !!(capabilities.workspace && !!capabilities.workspace.workspaceFolders);
     hasDiagnosticRelatedInformationCapability = !!(
         capabilities.textDocument &&
         capabilities.textDocument.publishDiagnostics &&
@@ -132,17 +128,12 @@ connection.onInitialized(async () => {
 
     if (hasConfigurationCapability) {
         // Register for all configuration changes.
-        connection.client.register(
-            DidChangeConfigurationNotification.type,
-            undefined
-        );
+        connection.client.register(DidChangeConfigurationNotification.type, undefined);
     }
     if (hasWorkspaceFolderCapability) {
         connection.workspace.onDidChangeWorkspaceFolders((_event) => {
             if (globalSettings.trace.server === 'verbose') {
-                connection.console.log(
-                    'Workspace folder change event received.'
-                );
+                connection.console.log('Workspace folder change event received.');
             }
         });
     }
@@ -184,22 +175,15 @@ connection.onDidChangeConfiguration(async (change) => {
         documentSettings.clear();
     }
     if (change.settings?.cosmoteerLSPRules)
-        globalSettings = <CosmoteerSettings>(
-            (change.settings?.cosmoteerLSPRules || defaultSettings)
-        );
+        globalSettings = <CosmoteerSettings>(change.settings?.cosmoteerLSPRules || defaultSettings);
     const workspaceFolders = await connection.workspace.getWorkspaceFolders();
-    if (
-        (change.settings?.cosmoteerLSPRules as CosmoteerSettings)
-            ?.cosmoteerPath &&
-        workspaceFolders
-    ) {
+    if ((change.settings?.cosmoteerLSPRules as CosmoteerSettings)?.cosmoteerPath && workspaceFolders) {
         CosmoteerWorkspaceService.instance.initialize(
             change.settings.cosmoteerLSPRules.cosmoteerPath,
             await connection.window.createWorkDoneProgress()
         );
     }
-    if (change.settings?.cosmoteerLSPRules !== defaultSettings)
-        connection.languages.diagnostics.refresh();
+    if (change.settings?.cosmoteerLSPRules !== defaultSettings) connection.languages.diagnostics.refresh();
 });
 
 function getDocumentSettings(resource: string): Thenable<CosmoteerSettings> {
@@ -240,10 +224,7 @@ connection.languages.diagnostics.on(async (params, cancelToken) => {
     }
 });
 
-async function validateTextDocument(
-    textDocument: TextDocument,
-    cancelToken: CancellationToken
-): Promise<Diagnostic[]> {
+async function validateTextDocument(textDocument: TextDocument, cancelToken: CancellationToken): Promise<Diagnostic[]> {
     const settings = await getDocumentSettings(textDocument.uri);
     const text = textDocument.getText();
     const tokens = lexer(text);
@@ -256,10 +237,7 @@ async function validateTextDocument(
     let problems = 0;
     const diagnostics: Diagnostic[] = [];
 
-    ParserResultRegistrar.instance.setResult(
-        textDocument.uri,
-        parserResult.value
-    );
+    ParserResultRegistrar.instance.setResult(textDocument.uri, parserResult.value);
 
     const pormises: Promise<ValidationError[]>[] = [];
     for (const node of parserResult.value.elements) {
@@ -274,17 +252,12 @@ async function validateTextDocument(
             severity: DiagnosticSeverity.Error,
             range: {
                 start: textDocument.positionAt(error.token.start),
-                end: textDocument.positionAt(
-                    error.token.end ?? error.token.start
-                ),
+                end: textDocument.positionAt(error.token.end ?? error.token.start),
             },
             message: error.message,
             source: 'cosmoteer-language-server',
         };
-        if (
-            hasDiagnosticRelatedInformationCapability &&
-            error.addditionalInfo
-        ) {
+        if (hasDiagnosticRelatedInformationCapability && error.addditionalInfo) {
             for (const info of error.addditionalInfo) {
                 diagnostic.relatedInformation = [
                     {
@@ -311,10 +284,7 @@ async function validateTextDocument(
             message: error.message,
             source: 'cosmoteer-language-server',
         };
-        if (
-            hasDiagnosticRelatedInformationCapability &&
-            error.addditionalInfo
-        ) {
+        if (hasDiagnosticRelatedInformationCapability && error.addditionalInfo) {
             diagnostic.relatedInformation = [
                 {
                     location: {
@@ -338,35 +308,26 @@ connection.onDidChangeWatchedFiles((_change) => {
 });
 
 // This handler provides the initial list of the completion items.
-connection.onCompletion(
-    (textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
-        const parserResult = ParserResultRegistrar.instance.getResult(
-            textDocumentPosition.textDocument.uri
-        );
-        let completions: string[] = [];
-        if (parserResult) {
-            const node = findNodeAtPosition(
-                parserResult,
-                textDocumentPosition?.position
-            );
-            if (node) {
-                completions =
-                    AutoCompletionService.instance.getCompletions(node);
-            }
+connection.onCompletion((textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
+    const parserResult = ParserResultRegistrar.instance.getResult(textDocumentPosition.textDocument.uri);
+    let completions: string[] = [];
+    if (parserResult) {
+        const node = findNodeAtPosition(parserResult, textDocumentPosition?.position);
+        if (node) {
+            completions = AutoCompletionService.instance.getCompletions(node);
         }
-        return completions.map<CompletionItem>((completion) => ({
-            label: completion,
-            kind: CompletionItemKind.Reference,
-        }));
     }
-);
+    return completions.map<CompletionItem>((completion) => ({
+        label: completion,
+        kind: CompletionItemKind.Reference,
+    }));
+});
 
 // This handler resolves additional information for the item selected in
 // the completion list.
 connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
     return item;
 });
-
 
 // Make the text document manager listen on the connection
 // for open, change and close text document events

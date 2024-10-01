@@ -1,12 +1,5 @@
 import { extractSubstrings } from '../../navigation/navigation-strategy';
-import {
-    AbstractNode,
-    isArrayNode,
-    isAssignmentNode,
-    isDocumentNode,
-    isObjectNode,
-    ValueNode,
-} from '../../parser/ast';
+import { AbstractNode, isArrayNode, isAssignmentNode, isDocumentNode, isObjectNode, ValueNode } from '../../parser/ast';
 import { parseFile } from '../../utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { AutoCompletionStrategy } from './autocompletion.strategy';
@@ -20,10 +13,7 @@ export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
     };
     private readonly referenceRegex = /&[a-zA-Z0-9_]*$/;
 
-    async complete(args: {
-        node: ValueNode;
-        isInheritanceNode: boolean;
-    }): Promise<string[]> {
+    async complete(args: { node: ValueNode; isInheritanceNode: boolean }): Promise<string[]> {
         const { node, isInheritanceNode } = args;
         if (node.valueType.type !== 'Reference') {
             return [];
@@ -31,11 +21,7 @@ export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
         const reference = node.valueType.value;
         if (reference === '' && !isInheritanceNode) {
             const completions = ['&', '&<', '&~/', '&../', '&/', '&<./Data/'];
-            if (
-                node.parent &&
-                (isArrayNode(node.parent) || isObjectNode(node.parent)) &&
-                node.parent.inheritance
-            ) {
+            if (node.parent && (isArrayNode(node.parent) || isObjectNode(node.parent)) && node.parent.inheritance) {
                 for (let i = 0; i < node.parent.inheritance.length; i++) {
                     completions.push(`&^/${i}/`);
                 }
@@ -47,31 +33,19 @@ export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
         if (this.referenceRegex.test(reference)) {
             return getOptionsForSameLevel(reference, node);
         } else {
-            return await traversePath(
-                reference.startsWith('&') ? reference.substring(1) : reference,
-                node
-            );
+            return await traversePath(reference.startsWith('&') ? reference.substring(1) : reference, node);
         }
     }
 }
 
-const getOptionsForSameLevel = (
-    reference: string,
-    node: ValueNode
-): string[] => {
+const getOptionsForSameLevel = (reference: string, node: ValueNode): string[] => {
     const value = reference.slice(1);
     return (
         node.parent?.elements
+            .filter((v) => isObjectNode(v) || isArrayNode(v) || (isAssignmentNode(v) && v.right !== node))
             .filter(
                 (v) =>
-                    isObjectNode(v) ||
-                    isArrayNode(v) ||
-                    (isAssignmentNode(v) && v.right !== node)
-            )
-            .filter(
-                (v) =>
-                    ((isArrayNode(v) || isObjectNode(v)) &&
-                        v.identifier?.name.startsWith(value)) ||
+                    ((isArrayNode(v) || isObjectNode(v)) && v.identifier?.name.startsWith(value)) ||
                     value === '' ||
                     (isAssignmentNode(v) && v.left.name.startsWith(value))
             )
@@ -86,16 +60,12 @@ const getOptionsForSameLevel = (
     );
 };
 
-const getOptionsForLevel = (
-    node: AbstractNode,
-    search: string = ''
-): string[] => {
+const getOptionsForLevel = (node: AbstractNode, search: string = ''): string[] => {
     if (isObjectNode(node) || isArrayNode(node) || isDocumentNode(node)) {
         return node.elements
             .filter(
                 (v) =>
-                    ((isObjectNode(v) || isArrayNode(v)) &&
-                        v.identifier?.name.startsWith(search)) ||
+                    ((isObjectNode(v) || isArrayNode(v)) && v.identifier?.name.startsWith(search)) ||
                     search === '' ||
                     (isAssignmentNode(v) && v.left.name.startsWith(search))
             )
@@ -111,10 +81,7 @@ const getOptionsForLevel = (
     return [];
 };
 
-const traversePath = async (
-    path: string,
-    node: AbstractNode
-): Promise<string[]> => {
+const traversePath = async (path: string, node: AbstractNode): Promise<string[]> => {
     const parts = extractSubstrings(path);
     if (path.startsWith('<./Data/')) {
         return traverseCosmoteerPath(parts, node);
@@ -133,30 +100,25 @@ const traverseInheritancePath = (parts: string[], node: AbstractNode) => {
 };
 
 const traverseCosmoteerPath = async (parts: string[], _node: AbstractNode) => {
+    // Case ends with .rules>
     if (parts[parts.length - 1].endsWith('.rules>')) {
-        const cosmoteerRules = CosmoteerWorkspaceService.instance.findFile(
-            parts.slice(0, parts.length - 1)
-        );
+        const cosmoteerRules = CosmoteerWorkspaceService.instance.findFile(parts.slice(0, parts.length - 1));
         if (!cosmoteerRules) return [];
         const node = await parseFile(cosmoteerRules);
         cosmoteerRules.content.parsedDocument = node;
         if (node) {
             getOptionsForLevel(node);
         }
+        // case has some paths after .rules>
     } else if (parts.some((part) => part.endsWith('.rules>'))) {
-        const cosmoteerRules = CosmoteerWorkspaceService.instance.findFile(
-            parts.slice(0, parts.length - 1)
-        );
+        const cosmoteerRules = CosmoteerWorkspaceService.instance.findFile(parts.slice(0, parts.length - 1));
         if (!cosmoteerRules) return [];
         const node = await parseFile(cosmoteerRules);
         cosmoteerRules.content.parsedDocument = node;
-        return await traversePath(
-            parts
-                .slice(parts.findIndex((part) => part.endsWith('.rules')))
-                .join('/'),
-            node
-        );
+        return await traversePath(parts.slice(parts.findIndex((part) => part.endsWith('.rules'))).join('/'), node);
+        // Case has not .rules>
     } else {
+        return CosmoteerWorkspaceService.instance.findPathes(parts);
     }
     return [];
 };

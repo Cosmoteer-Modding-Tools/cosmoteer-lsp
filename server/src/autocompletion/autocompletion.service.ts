@@ -3,9 +3,7 @@ import { AutoCompletionReference } from './autocompletion.reference';
 
 export class AutoCompletionService {
     private static _instance: AutoCompletionService;
-    private completions: AutoCompletion<AbstractNode>[] = [
-        new AutoCompletionReference(),
-    ];
+    private completions: AutoCompletion<AbstractNode>[] = [new AutoCompletionReference()];
 
     private constructor() {}
 
@@ -16,9 +14,7 @@ export class AutoCompletionService {
         return AutoCompletionService._instance;
     }
 
-    public registerCompletion<T extends AbstractNode>(
-        completion: AutoCompletion<T>
-    ): void {
+    public registerCompletion<T extends AbstractNode>(completion: AutoCompletion<T>): void {
         this.completions.push(completion);
     }
 

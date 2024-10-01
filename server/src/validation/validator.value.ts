@@ -1,11 +1,6 @@
 import { AssetNavigationStrategy } from '../navigation/assset.navigation-strategy';
 import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
-import {
-    AbstractNode,
-    isArrayNode,
-    isObjectNode,
-    ValueNode,
-} from '../parser/ast';
+import { AbstractNode, isArrayNode, isObjectNode, ValueNode } from '../parser/ast';
 import { globalSettings } from '../server';
 import { getStartOfAstNode } from '../utils/ast.utils';
 import { isValidReference } from '../utils/reference.utils';
@@ -21,11 +16,7 @@ export const ValidationForValue: Validation<ValueNode> = {
         if (node.valueType.type === 'Reference') {
             return await checkReference(node);
         }
-        if (
-            node.valueType.type === 'Sprite' ||
-            node.valueType.type === 'Sound' ||
-            node.valueType.type === 'Shader'
-        ) {
+        if (node.valueType.type === 'Sprite' || node.valueType.type === 'Sound' || node.valueType.type === 'Shader') {
             return await checkAssets(node);
         }
         return checkParantheses(node);
@@ -33,28 +24,18 @@ export const ValidationForValue: Validation<ValueNode> = {
 };
 
 const checkParantheses = (node: ValueNode) => {
-    if (
-        node.valueType.type !== 'Number' &&
-        node.valueType.type !== 'Reference' &&
-        node.parenthesized
-    ) {
+    if (node.valueType.type !== 'Number' && node.valueType.type !== 'Reference' && node.parenthesized) {
         return {
             message: l10n.t('Value should not be parenthesized'),
             node: node,
-            addditionalInfo: l10n.t(
-                'References in function calls need to be parenthesized or math expressions'
-            ),
+            addditionalInfo: l10n.t('References in function calls need to be parenthesized or math expressions'),
         };
     }
     return undefined;
 };
 
 const checkAssets = async (node: ValueNode) => {
-    if (
-        node.valueType.type === 'Shader' ||
-        node.valueType.type === 'Sound' ||
-        node.valueType.type === 'Sprite'
-    ) {
+    if (node.valueType.type === 'Shader' || node.valueType.type === 'Sound' || node.valueType.type === 'Sprite') {
         if (!node.quoted) {
             return {
                 message: l10n.t('Asset pathes should be quoted'),
@@ -62,13 +43,7 @@ const checkAssets = async (node: ValueNode) => {
                 addditionalInfo: l10n.t('Assets should be quoted with ""'),
             };
         }
-        if (
-            await assetsNavigationStrategy.navigate(
-                node.valueType.value,
-                node,
-                getStartOfAstNode(node).uri
-            )
-        ) {
+        if (await assetsNavigationStrategy.navigate(node.valueType.value, node, getStartOfAstNode(node).uri)) {
             return undefined;
         } else {
             return {
@@ -81,10 +56,7 @@ const checkAssets = async (node: ValueNode) => {
 };
 
 const checkReference = async (node: ValueNode) => {
-    if (
-        node.valueType.type === 'Reference' &&
-        node.valueType.value.length > 1
-    ) {
+    if (node.valueType.type === 'Reference' && node.valueType.value.length > 1) {
         if (!isValidReference(node.valueType.value)) {
             return {
                 message: l10n.t('Reference is not valid'),
@@ -100,9 +72,7 @@ const checkReference = async (node: ValueNode) => {
             (await rulesNavigationStrategy.navigate(
                 node.valueType.value,
                 // safe to assume that the parent is always an AbstractNode because otherwise it could't not be a inheritance
-                isInheritanceInSameFile(node)
-                    ? ((node.parent as AbstractNode).parent as AbstractNode)
-                    : node,
+                isInheritanceInSameFile(node) ? ((node.parent as AbstractNode).parent as AbstractNode) : node,
                 getStartOfAstNode(node).uri
             )) === null
         ) {
