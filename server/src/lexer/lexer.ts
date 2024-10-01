@@ -1,3 +1,5 @@
+import { globalSettings } from '../server';
+
 export const lexer = (input: string): Token[] => {
     let current = 0;
     let lineNumber = 0;
@@ -185,7 +187,7 @@ export const lexer = (input: string): Token[] => {
             current++;
             continue;
         }
-        console.warn('unexcpected', char);
+        if (globalSettings.trace.server !== 'off') console.warn('unexcpected', char);
         tokens.push(createToken(TOKEN_TYPES.UNEXPECTED, lineOffset, lineNumber, current, current + 1, char));
         current++;
     }
