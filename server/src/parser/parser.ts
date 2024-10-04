@@ -581,12 +581,24 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 tokens[current] &&
                 (tokens[current].type === TOKEN_TYPES.VALUE ||
                     (tokens[current].type === TOKEN_TYPES.EXPRESSION &&
-                        tokens[current + 1]?.type === TOKEN_TYPES.VALUE))
+                        tokens[current + 1]?.type === TOKEN_TYPES.VALUE) ||
+                    (tokens[current].type === TOKEN_TYPES.EXPRESSION && tokens[current].value === '/'))
             ) {
                 const nextNode = walk(lastNode ?? undefined, parent);
                 lastNode = nextNode;
                 if (!nextNode) {
                     break;
+                }
+                if (isExpressionNode(nextNode) && nextNode.expressionType === '/') {
+                    inheritanceNodes.push({
+                        position: nextNode.position,
+                        parent: nextNode.parent,
+                        type: 'Value',
+                        valueType: {
+                            type: 'Reference',
+                            value: '/',
+                        },
+                    } as ValueNode);
                 }
                 if (isValueNode(nextNode)) {
                     inheritanceNodes.push(nextNode as ValueNode);
