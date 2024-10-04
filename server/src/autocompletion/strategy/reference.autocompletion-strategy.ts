@@ -61,7 +61,7 @@ export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
 
 const getOptionsForParentLevel = (reference: string, node: AbstractNode): string[] => {
     const value = reference.startsWith('&') ? reference.slice(1) : reference;
-    if (isDocumentNode(node)) {
+    if (isDocumentNode(node) || isObjectNode(node) || isArrayNode(node)) {
         return getOptionsForElement(node, value);
     }
     if (!node.parent) return [];
@@ -75,11 +75,13 @@ const getOptionsForElement = (node: AbstractNode, search: string = ''): string[]
                 (v) =>
                     ((isObjectNode(v) || isArrayNode(v)) && v.identifier?.name.startsWith(search)) ||
                     search === '' ||
+                    (isArrayNode(v) && v.identifier === undefined) ||
+                    (isObjectNode(v) && v.identifier === undefined) ||
                     (isAssignmentNode(v) && v.left.name.startsWith(search))
             )
             .map((v) => {
-                if (node.parent && isArrayNode(node.parent)) {
-                    return node.parent.elements.indexOf(v).toString() + '/';
+                if ((isArrayNode(v) && v.identifier === undefined) || (isObjectNode(v) && v.identifier === undefined)) {
+                    return node.elements.indexOf(v).toString() + '/';
                 } else if ((isObjectNode(v) || isArrayNode(v)) && v.identifier) {
                     return v.identifier.name;
                 } else if (isAssignmentNode(v)) {
@@ -208,6 +210,9 @@ const traverseReferencePath = async (parts: string[], node: AbstractNode, cancel
         return getOptionsForParentLevel(parts[0], node);
     }
     let currentNode = node;
+    if (!(isObjectNode(currentNode) || isArrayNode(currentNode) || isDocumentNode(currentNode)) && node.parent) {
+        currentNode = node.parent;
+    }
     for (const path of parts) {
         if (path === '..' && currentNode.parent) {
             currentNode = currentNode.parent;
@@ -224,7 +229,7 @@ const traverseReferencePath = async (parts: string[], node: AbstractNode, cancel
                     (isAssignmentNode(v) && v.left.name === path) ||
                     (isArrayNode(currentNode) && i === parseInt(path))
             );
-            if (!nextNode) return [];
+            if (!nextNode) break;
             currentNode = nextNode;
             continue;
         }
