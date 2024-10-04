@@ -1,9 +1,10 @@
-import { Position } from 'vscode-languageserver';
+import { CancellationToken, Position } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isArrayNode, isAssignmentNode, isObjectNode } from '../parser/ast';
 import { FileWithPath } from '../workspace/cosmoteer-workspace.service';
 import { readFile } from 'fs/promises';
 import { lexer } from '../lexer/lexer';
 import { parser } from '../parser/parser';
+import { CancellationError } from './cancellation';
 
 export const parseFile = async (file: FileWithPath): Promise<AbstractNodeDocument> => {
     const data = await readFile(file.path, { encoding: 'utf-8' });
@@ -11,8 +12,9 @@ export const parseFile = async (file: FileWithPath): Promise<AbstractNodeDocumen
     return document;
 };
 
-export const parseFilePath = async (path: string) => {
+export const parseFilePath = async (path: string, cancellationToken?: CancellationToken) => {
     const data = await readFile(path, { encoding: 'utf-8' });
+    if (cancellationToken?.isCancellationRequested) throw new CancellationError();
     const document = parser(lexer(data), path).value;
     return document;
 };

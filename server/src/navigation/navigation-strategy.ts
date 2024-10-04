@@ -1,9 +1,15 @@
 import { Dirent } from 'fs';
 import { AbstractNode } from '../parser/ast';
 import { join } from 'path';
+import { CancellationToken } from 'vscode-languageserver';
 
 export abstract class NavigationStrategy<T> {
-    abstract navigate(path: string, startNode: AbstractNode, currentLocation: string): Promise<T>;
+    abstract navigate(
+        path: string,
+        startNode: AbstractNode,
+        currentLocation: string,
+        cancellationToken: CancellationToken
+    ): Promise<T>;
 }
 
 export const filePathToDirectoryPath = (path: string) => {

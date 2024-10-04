@@ -1,3 +1,4 @@
+import { CancellationToken } from 'vscode-languageserver';
 import {
     AbstractNode,
     AstType,
@@ -27,9 +28,9 @@ export class Validator {
         this.map.set(validation.type, validation.callback);
     }
 
-    public async validate(node: AbstractNode): Promise<ValidationError[]> {
+    public async validate(node: AbstractNode, cancellationToken: CancellationToken): Promise<ValidationError[]> {
         const promises: Promise<ValidationError | undefined>[] = [];
-        promises.push(this.validateRecursive(node, promises));
+        promises.push(this.validateRecursive(node, promises, cancellationToken));
         return (
             await Promise.all(promises).catch((error) => {
                 if (globalSettings.trace.server !== 'off') {
@@ -42,28 +43,29 @@ export class Validator {
 
     private async validateRecursive(
         node: AbstractNode,
-        promises: Promise<ValidationError | undefined>[]
+        promises: Promise<ValidationError | undefined>[],
+        cancellationToken: CancellationToken
     ): Promise<ValidationError | undefined> {
         if (node === undefined) return;
         const callback = this.map.get(node.type);
         if (callback) {
-            promises.push(callback(node));
+            promises.push(callback(node, cancellationToken));
         }
         if (isArrayNode(node) || isObjectNode(node) || isDocumentNode(node)) {
             for (const child of node.elements) {
-                promises.push(this.validateRecursive(child, promises));
+                promises.push(this.validateRecursive(child, promises, cancellationToken));
             }
             if ((isArrayNode(node) || isObjectNode(node)) && node.inheritance) {
                 for (const child of node.inheritance) {
-                    promises.push(this.validateRecursive(child, promises));
+                    promises.push(this.validateRecursive(child, promises, cancellationToken));
                 }
             }
         } else if (isAssignmentNode(node)) {
-            promises.push(this.validateRecursive(node.left, promises));
-            promises.push(this.validateRecursive(node.right, promises));
+            promises.push(this.validateRecursive(node.left, promises, cancellationToken));
+            promises.push(this.validateRecursive(node.right, promises, cancellationToken));
         } else if (isFunctionCallNode(node)) {
             for (const child of node.arguments) {
-                promises.push(this.validateRecursive(child, promises));
+                promises.push(this.validateRecursive(child, promises, cancellationToken));
             }
         }
     }
@@ -74,7 +76,10 @@ export type Validation<T extends AbstractNode> = {
     callback: ValidationCallback<T>;
 };
 
-type ValidationCallback<T extends AbstractNode> = (node: T) => Promise<ValidationError | undefined>;
+type ValidationCallback<T extends AbstractNode> = (
+    node: T,
+    cancellationToken: CancellationToken
+) => Promise<ValidationError | undefined>;
 
 export type ValidationError = {
     message: string;

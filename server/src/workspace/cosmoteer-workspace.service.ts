@@ -6,6 +6,7 @@ import { Dirent } from 'fs';
 import { parseFile } from '../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
 import * as path from 'path';
+import { globalSettings } from '../server';
 
 export class CosmoteerWorkspaceService {
     private _fileWorkspaceTree!: FileTree;
@@ -26,53 +27,29 @@ export class CosmoteerWorkspaceService {
         this._connection = connection;
     }
 
+    get CosmoteerWorkspacePath(): string {
+        let cosmoteerPath = globalSettings.cosmoteerPath;
+        if (cosmoteerPath.endsWith('Data') || cosmoteerPath.endsWith(`Data${sep}`)) {
+            cosmoteerPath = cosmoteerPath.replace(/Data$/, '');
+            cosmoteerPath = path.join(cosmoteerPath, 'Data');
+        } else if (cosmoteerPath.endsWith('Cosmoteer') || cosmoteerPath.endsWith(`Cosmoteer${sep}`)) {
+            cosmoteerPath = path.join(cosmoteerPath, 'Data');
+        } else if (cosmoteerPath.endsWith('common') || cosmoteerPath.endsWith(`common${sep}`)) {
+            cosmoteerPath = path.join(cosmoteerPath, 'Cosmoteer', 'Data');
+        }
+        return cosmoteerPath;
+    }
+
     public findFile(pathes: string[]):
         | (CosmoteerFile & {
               readonly path: string;
           })
         | undefined {
-        if (!this.isInitalized) return;
-        if (isDirectory(this._fileWorkspaceTree)) {
-            return this.findFileRecursive(this._fileWorkspaceTree, pathes);
-        }
-    }
-
-    public findPathes(pathes: string[]): string[] {
-        if (!this.isInitalized) return [];
-        if (isDirectory(this._fileWorkspaceTree)) {
-            return this.findPathesRecursive(this._fileWorkspaceTree, pathes);
-        }
-        return [];
-    }
-
-    private findPathesRecursive = (
-        parent: FileTree,
-        pathes: string[],
-        index: number = 0,
-        results: string[] = []
-    ): string[] => {
-        if (index === pathes.length) return results;
-        if (index === pathes.length - 1) {
-            if (isDirectory(parent)) {
-                for (const p of parent.children) {
-                    if (isFile(p) && p.name.toLowerCase().startsWith(pathes[index].toLowerCase())) {
-                        results.push(p.name);
-                    } else if (isDirectory(p) && p.name.toLowerCase().startsWith(pathes[index].toLowerCase())) {
-                        results.push(p.path + '/');
-                    }
-                }
+            if (!this.isInitalized) return;
+            if (isDirectory(this._fileWorkspaceTree)) {
+                return this.findFileRecursive(this._fileWorkspaceTree, pathes);
             }
         }
-        if (isDirectory(parent)) {
-            for (const dirent of parent.children) {
-                if (isDirectory(dirent) && dirent.name.toLowerCase() === pathes[index].toLowerCase()) {
-                    return this.findPathesRecursive(dirent, pathes, index + 1, results);
-                }
-            }
-        }
-        return results;
-    };
-
     public async getCosmoteerRules(): Promise<
         | (CosmoteerFile & {
               readonly path: string;
@@ -94,11 +71,7 @@ export class CosmoteerWorkspaceService {
         parent: FileTree,
         pathes: string[],
         index: number = 0
-    ):
-        | (CosmoteerFile & {
-              readonly path: string;
-          })
-        | undefined => {
+    ): (CosmoteerFile & { readonly path: string }) | undefined => {
         if (index === pathes.length) return;
         if (isFile(parent) && parent.name.toLowerCase() === pathes[index].toLowerCase()) {
             return parent;
@@ -220,5 +193,7 @@ export type CosmoteerFile = {
     content: CosmoteerWorkspaceData;
 };
 
-export const isDirectory = (fileTree: FileTree): fileTree is Directory & { path: string } => fileTree.type === 'Dir';
-export const isFile = (fileTree: FileTree): fileTree is CosmoteerFile & { path: string } => fileTree.type === 'File';
+export const isDirectory = (fileTree: FileTree): fileTree is Directory & { readonly path: string } =>
+    fileTree.type === 'Dir';
+export const isFile = (fileTree: FileTree): fileTree is CosmoteerFile & { readonly path: string } =>
+    fileTree.type === 'File';

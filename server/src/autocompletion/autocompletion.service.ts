@@ -1,5 +1,7 @@
+import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode } from '../parser/ast';
 import { AutoCompletionReference } from './autocompletion.reference';
+import { CancellationError } from '../utils/cancellation';
 
 export class AutoCompletionService {
     private static _instance: AutoCompletionService;
@@ -18,17 +20,16 @@ export class AutoCompletionService {
         this.completions.push(completion);
     }
 
-    public getCompletions(node: AbstractNode): string[] {
-        for (const completion of this.completions) {
-            const completions = completion.getCompletions(node);
-            if (completions.length > 0) {
-                return completions;
-            }
-        }
-        return [];
+    public async getCompletions(node: AbstractNode, cancellationToken: CancellationToken): Promise<string[]> {
+        const promises = this.completions
+            .map((completion) => completion.getCompletions(node, cancellationToken))
+            .flat();
+        if (cancellationToken.isCancellationRequested) throw new CancellationError();
+        const results = (await Promise.all(promises)).flat();
+        return results;
     }
 }
 
 export interface AutoCompletion<T extends AbstractNode> {
-    getCompletions(node: T): string[];
+    getCompletions(node: T, cancellationToken: CancellationToken): Promise<string[]>;
 }

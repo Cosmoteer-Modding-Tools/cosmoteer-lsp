@@ -30,6 +30,7 @@ import * as l10n from '@vscode/l10n';
 import { CosmoteerWorkspaceService } from './workspace/cosmoteer-workspace.service';
 import { ValidationForAssignment } from './validation/validator.assignment';
 import { ValidationForMath } from './validation/validator.math';
+import { CancellationError } from './utils/cancellation';
 
 export const MAX_NUMBER_OF_PROBLEMS = 10;
 
@@ -239,12 +240,6 @@ async function validateTextDocument(textDocument: TextDocument, cancelToken: Can
 
     ParserResultRegistrar.instance.setResult(textDocument.uri, parserResult.value);
 
-    const pormises: Promise<ValidationError[]>[] = [];
-    for (const node of parserResult.value.elements) {
-        pormises.push(Validator.instance.validate(node));
-    }
-    const validationErrors = (await Promise.all(pormises)).flat();
-
     for (const error of parserResult.parserErrors) {
         problems++;
         if (problems > settings.maxNumberOfProblems) break;
@@ -272,6 +267,19 @@ async function validateTextDocument(textDocument: TextDocument, cancelToken: Can
         }
         diagnostics.push(diagnostic);
     }
+
+    let validationErrors: ValidationError[] = [];
+    try {
+        const pormises: Promise<ValidationError[]>[] = [];
+
+        for (const node of parserResult.value.elements) {
+            pormises.push(Validator.instance.validate(node, cancelToken));
+        }
+        validationErrors = (await Promise.all(pormises)).flat();
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+    }
+
     for (const error of validationErrors) {
         problems++;
         if (problems > settings.maxNumberOfProblems) break;
@@ -308,20 +316,26 @@ connection.onDidChangeWatchedFiles((_change) => {
 });
 
 // This handler provides the initial list of the completion items.
-connection.onCompletion((textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
-    const parserResult = ParserResultRegistrar.instance.getResult(textDocumentPosition.textDocument.uri);
-    let completions: string[] = [];
-    if (parserResult) {
-        const node = findNodeAtPosition(parserResult, textDocumentPosition?.position);
-        if (node) {
-            completions = AutoCompletionService.instance.getCompletions(node);
+connection.onCompletion(
+    async (textDocumentPosition: TextDocumentPositionParams, cancellationToken): Promise<CompletionItem[]> => {
+        const parserResult = ParserResultRegistrar.instance.getResult(textDocumentPosition.textDocument.uri);
+        let completions: string[] = [];
+        try {
+            if (parserResult) {
+                const node = findNodeAtPosition(parserResult, textDocumentPosition?.position);
+                if (node) {
+                    completions = await AutoCompletionService.instance.getCompletions(node, cancellationToken);
+                }
+            }
+        } catch (e) {
+            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
         }
+        return completions.map<CompletionItem>((completion) => ({
+            label: completion,
+            kind: CompletionItemKind.Reference,
+        }));
     }
-    return completions.map<CompletionItem>((completion) => ({
-        label: completion,
-        kind: CompletionItemKind.Reference,
-    }));
-});
+);
 
 // This handler resolves additional information for the item selected in
 // the completion list.

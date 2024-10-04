@@ -8,13 +8,22 @@ import { globalSettings } from '../server';
 export class AssetNavigationStrategy extends NavigationStrategy<boolean> {
     async navigate(path: string, _startNode: AbstractNode, currentLocation: string): Promise<boolean> {
         if (path.startsWith('./Data')) {
-            return this.navigateTroughCosmoteerFiles(path) ? true : false;
+            return (await this.navigateTroughCosmoteerFiles(path)) ? true : false;
         } else {
             return await this.navigateTroughOwnFiles(path, currentLocation);
         }
     }
-    navigateTroughCosmoteerFiles(path: string): CosmoteerFile | null {
-        return CosmoteerWorkspaceService.instance.findFile(extractSubstrings(path).slice(2)) as CosmoteerFile | null;
+
+    async navigateTroughCosmoteerFiles(path: string): Promise<CosmoteerFile | null | boolean> {
+        const pathWithoutData = path.replace('./Data', '');
+        // Workshop path
+        if (path.includes('..')) {
+            return await this.navigateRulesByCurrentLocation(
+                extractSubstrings(pathWithoutData),
+                CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath
+            );
+        }
+        return CosmoteerWorkspaceService.instance.findFile(extractSubstrings(pathWithoutData)) as CosmoteerFile | null;
     }
 
     async navigateTroughOwnFiles(path: string, currentLocation: string): Promise<boolean> {

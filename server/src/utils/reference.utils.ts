@@ -1,4 +1,4 @@
-export const startsWithAmpersandAndLetter = (value: string) => /^&[A-Za-z_]/.test(value);
+export const startsWithAmpersandAndLetter = (value: string) => /^&[A-Za-z_.]/.test(value);
 
 export const isValidReference = (value: string) => {
     if (value.startsWith('&')) {
