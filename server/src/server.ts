@@ -14,6 +14,7 @@ import {
     DocumentDiagnosticReportKind,
     type DocumentDiagnosticReport,
     CancellationToken,
+    CancellationTokenSource,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -97,8 +98,8 @@ connection.onInitialized(async () => {
             scopeUri: workspaceFolders[0].uri,
             section: 'cosmoteerLSPRules',
         })) as CosmoteerSettings;
-        globalSettings = settings;
-        if (settings.cosmoteerPath) {
+        globalSettings = settings ?? defaultSettings;
+        if (settings?.cosmoteerPath) {
             await CosmoteerWorkspaceService.instance.initialize(
                 settings.cosmoteerPath,
                 await connection.window.createWorkDoneProgress()
@@ -205,6 +206,16 @@ function getDocumentSettings(resource: string): Thenable<CosmoteerSettings> {
 // Only keep settings for open documents
 documents.onDidClose((e) => {
     documentSettings.delete(e.document.uri);
+});
+
+const tokenSource = new CancellationTokenSource();
+
+documents.onDidOpen(async (e) => {
+    await connection.sendDiagnostics({
+        uri: e.document.uri,
+        version: e.document.version,
+        diagnostics: await validateTextDocument(e.document, tokenSource.token),
+    });
 });
 
 connection.languages.diagnostics.on(async (params, cancelToken) => {

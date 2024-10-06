@@ -1,0 +1,36 @@
+<idea-plugin require-restart="true">
+    <id>modding.cosmoteer.tools</id>
+    <name>Cosmoteer Language Server</name>
+    <version>0.4.0</version>
+    <vendor>Cosmoteer Modding Tools</vendor>
+    <description><![CDATA[
+        Cosmoteer Language Server
+
+        This plugin provides language support for Cosmoteer rules files.
+    ]]></description>
+    <depends>com.intellij.modules.ultimate</depends>
+    <depends>JavaScript</depends>
+    <depends>org.jetbrains.plugins.textmate</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType name="Rules"
+                  language="Rules"
+                  implementationClass="file.RulesFileType"
+                  extensions="rules"
+                  fieldName="INSTANCE"/>
+        <platform.lsp.serverSupportProvider implementation="lsp.CosmoteerLspServerSupportProvider"/>
+        <editorHighlighterProvider
+                filetype="Rules"
+                implementationClass="org.jetbrains.plugins.textmate.language.syntax.highlighting.TextMateEditorHighlighterProvider"
+        />
+        <lang.syntaxHighlighterFactory
+                language="Rules"
+                implementationClass="org.jetbrains.plugins.textmate.language.syntax.highlighting.TextMateSyntaxHighlighterFactory"/>
+    </extensions>
+
+    <applicationListeners>
+        <listener
+                class="PluginListener"
+                topic="com.intellij.ide.plugins.DynamicPluginListener"/>
+    </applicationListeners>
+</idea-plugin>
