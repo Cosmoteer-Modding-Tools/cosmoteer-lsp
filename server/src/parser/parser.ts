@@ -611,6 +611,10 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 if (tokens[current] === undefined) {
                     break;
                 }
+                if (tokens[current]?.type === TOKEN_TYPES.COMMA) {
+                    current++;
+                    continue;
+                }
             }
             let right: ArrayNode | ObjectNode | null = null;
             if (tokens[current]?.type === TOKEN_TYPES.LEFT_BRACE) {
