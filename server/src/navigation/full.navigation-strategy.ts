@@ -66,12 +66,14 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         const substrings = extractSubstrings(path);
         let node: AbstractNode | null | undefined = startNode;
         let lastNode: AbstractNode | null | undefined = startNode;
+        let index = 0;
         for (const substring of substrings) {
             node = this.navigateReferenceRecursive(
                 substring,
                 node,
-                substrings.length > 1 && substrings[0] === '^' && substrings[1] === substring
+                substrings.length > 1 && index > 0 && substrings[index - 1] === '^' && substrings[index] === substring
             );
+            index++;
             if (!node) {
                 // if the node is not found, try to add inheritance to the last node
                 if (
