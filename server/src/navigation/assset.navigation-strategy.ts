@@ -16,14 +16,10 @@ export class AssetNavigationStrategy extends NavigationStrategy<boolean> {
 
     async navigateTroughCosmoteerFiles(path: string): Promise<CosmoteerFile | null | boolean> {
         const pathWithoutData = path.replace('./Data', '');
-        // Workshop path
-        if (path.includes('..')) {
-            return await this.navigateRulesByCurrentLocation(
-                extractSubstrings(pathWithoutData),
-                CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath
-            );
-        }
-        return CosmoteerWorkspaceService.instance.findFile(extractSubstrings(pathWithoutData)) as CosmoteerFile | null;
+        return await this.navigateRulesByCurrentLocation(
+            extractSubstrings(pathWithoutData),
+            CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath
+        );
     }
 
     async navigateTroughOwnFiles(path: string, currentLocation: string): Promise<boolean> {
