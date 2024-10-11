@@ -86,7 +86,7 @@ connection.onInitialize(async (params: InitializeParams) => {
     return result;
 });
 
-connection.onInitialized(async () => {
+connection.onInitialized(async (_params) => {
     Validator.instance.registerValidation(ValidationForValue);
     Validator.instance.registerValidation(ValidationForFunctionCall);
     Validator.instance.registerValidation(ValidationForAssignment);
@@ -105,6 +105,11 @@ connection.onInitialized(async () => {
                 await connection.window.createWorkDoneProgress()
             );
         } else {
+            if (
+                !(await CosmoteerWorkspaceService.instance.initializeWithoutPath(
+                    await connection.window.createWorkDoneProgress()
+                ))
+            )
             connection.window
                 .showErrorMessage(
                     l10n.t(

@@ -7,6 +7,7 @@ import { parseFile } from '../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
 import * as path from 'path';
 import { globalSettings } from '../server';
+import Registry from 'winreg';
 
 export class CosmoteerWorkspaceService {
     private _fileWorkspaceTree!: FileTree;
@@ -45,11 +46,11 @@ export class CosmoteerWorkspaceService {
               readonly path: string;
           })
         | undefined {
-            if (!this.isInitalized) return;
-            if (isDirectory(this._fileWorkspaceTree)) {
-                return this.findFileRecursive(this._fileWorkspaceTree, pathes);
-            }
+        if (!this.isInitalized) return;
+        if (isDirectory(this._fileWorkspaceTree)) {
+            return this.findFileRecursive(this._fileWorkspaceTree, pathes);
         }
+    }
     public async getCosmoteerRules(): Promise<
         | (CosmoteerFile & {
               readonly path: string;
@@ -85,6 +86,43 @@ export class CosmoteerWorkspaceService {
             }
         }
     };
+
+    public async initializeWithoutPath(workDoneProgress: WorkDoneProgressReporter): Promise<boolean> {
+        workDoneProgress.begin('Initializing workspace', 0, 'Initializing workspace', false);
+        const cosmoteerPath = await this.getCosmoteerPathFromRegistry();
+        if (!cosmoteerPath) {
+            this._connection.window.showWarningMessage(
+                l10n.t('Could not find Cosmoteer installation automatically, please set the path manually')
+            );
+            workDoneProgress.done();
+            return false;
+        }
+        workDoneProgress.report(50, 'Found Cosmoteer installation');
+        globalSettings.cosmoteerPath = cosmoteerPath;
+        await this.initialize(cosmoteerPath, workDoneProgress);
+        workDoneProgress.done();
+        return true;
+    }
+
+    private async getCosmoteerPathFromRegistry(): Promise<string | undefined> {
+        const reg = new Registry({
+            hive: Registry.HKLM,
+            key: '\\SOFTWARE\\WOW6432Node\\Valve\\Steam',
+        });
+        return new Promise<string | undefined>((resolve, reject) => {
+            reg.get('InstallPath', (err, item) => {
+                if (err) {
+                    this._connection.window.showWarningMessage(
+                        l10n.t('Could not find Cosmoteer installation, please set the path manually')
+                    );
+                    reject(err);
+                    return;
+                }
+                const cosmoteerPath = path.join(item.value, '\\steamapps\\common\\Cosmoteer\\Data');
+                resolve(cosmoteerPath);
+            });
+        });
+    }
 
     public async initialize(cosmoteerWorkspacePath: string, workDoneProgress: WorkDoneProgressReporter) {
         if (this.isInitalized) return;
