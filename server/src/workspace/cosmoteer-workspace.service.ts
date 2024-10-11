@@ -100,7 +100,6 @@ export class CosmoteerWorkspaceService {
         workDoneProgress.report(50, 'Found Cosmoteer installation');
         globalSettings.cosmoteerPath = cosmoteerPath;
         await this.initialize(cosmoteerPath, workDoneProgress);
-        workDoneProgress.done();
         return true;
     }
 
@@ -126,8 +125,6 @@ export class CosmoteerWorkspaceService {
 
     public async initialize(cosmoteerWorkspacePath: string, workDoneProgress: WorkDoneProgressReporter) {
         if (this.isInitalized) return;
-
-        workDoneProgress.begin('Initializing workspace', 0, 'Initializing workspace', false);
         if (cosmoteerWorkspacePath.endsWith('Data') || cosmoteerWorkspacePath.endsWith(`Data${sep}`)) {
             cosmoteerWorkspacePath = cosmoteerWorkspacePath.replace(/Data$/, '');
             cosmoteerWorkspacePath = path.join(cosmoteerWorkspacePath, 'Data');

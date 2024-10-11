@@ -185,9 +185,11 @@ connection.onDidChangeConfiguration(async (change) => {
         globalSettings = <CosmoteerSettings>(change.settings?.cosmoteerLSPRules || defaultSettings);
     const workspaceFolders = await connection.workspace.getWorkspaceFolders();
     if ((change.settings?.cosmoteerLSPRules as CosmoteerSettings)?.cosmoteerPath && workspaceFolders) {
+        const workDoneProgress = await connection.window.createWorkDoneProgress();
+        workDoneProgress.begin('Initializing workspace', 0, 'Initializing workspace', false);
         CosmoteerWorkspaceService.instance.initialize(
             change.settings.cosmoteerLSPRules.cosmoteerPath,
-            await connection.window.createWorkDoneProgress()
+            workDoneProgress
         );
     }
     if (change.settings?.cosmoteerLSPRules !== defaultSettings) connection.languages.diagnostics.refresh();
