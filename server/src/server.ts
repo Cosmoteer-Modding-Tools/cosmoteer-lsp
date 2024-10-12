@@ -14,7 +14,6 @@ import {
     DocumentDiagnosticReportKind,
     type DocumentDiagnosticReport,
     CancellationToken,
-    CancellationTokenSource,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -317,7 +316,7 @@ async function validateTextDocument(textDocument: TextDocument, cancelToken: Can
         for (const node of parserResult.value.elements) {
             pormises.push(Validator.instance.validate(node, cancelToken));
         }
-        validationErrors = (await Promise.all(pormises)).flat();
+        validationErrors = (await Promise.all(pormises).catch(() => [])).flat();
     } catch (e) {
         if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
     }
@@ -356,12 +355,10 @@ connection.onCompletion(
         const parserResult = ParserResultRegistrar.instance.getResult(textDocumentPosition.textDocument.uri);
         let completions: string[] = [];
         try {
-            if (parserResult) {
-                const node = findNodeAtPosition(parserResult, textDocumentPosition?.position);
-                if (node) {
-                    completions = await AutoCompletionService.instance.getCompletions(node, cancellationToken);
-                }
-            }
+            if (!parserResult) return [];
+            const node = findNodeAtPosition(parserResult, textDocumentPosition?.position);
+            if (!node) return [];
+            completions = await AutoCompletionService.instance.getCompletions(node, cancellationToken).catch(() => []);
         } catch (e) {
             if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
         }

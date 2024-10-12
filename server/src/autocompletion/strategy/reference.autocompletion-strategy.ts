@@ -9,7 +9,7 @@ import {
     isValueNode,
     ValueNode,
 } from '../../parser/ast';
-import { getStartOfAstNode, parseFile, parseFilePath } from '../../utils/ast.utils';
+import { findNodeByIdentifier, getStartOfAstNode, parseFile, parseFilePath } from '../../utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { AutoCompletionStrategy } from './autocompletion.strategy';
 import { join } from 'path';
@@ -19,6 +19,7 @@ import { existsSync } from 'fs';
 import { FullNavigationStrategy } from '../../navigation/full.navigation-strategy';
 
 const navigation = new FullNavigationStrategy();
+const EMPTY_STRING = '';
 
 export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
     string[],
@@ -36,7 +37,7 @@ export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
             return [];
         }
         const reference = node.valueType.value;
-        if (reference === '' && !isInheritanceNode) {
+        if (reference === EMPTY_STRING && !isInheritanceNode) {
             const completions = ['&', '&<', '&~/', '&../', '&/', '&<./Data/'];
             if (node.parent && (isArrayNode(node.parent) || isObjectNode(node.parent)) && node.parent.inheritance) {
                 for (let i = 0; i < node.parent.inheritance.length; i++) {
@@ -44,7 +45,7 @@ export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
                 }
             }
             return completions;
-        } else if (reference === '' && isInheritanceNode) {
+        } else if (reference === EMPTY_STRING && isInheritanceNode) {
             return ['/', '<./Data', '..', '~', '<'];
         }
         if (this.referenceRegex.test(reference)) {
@@ -54,13 +55,16 @@ export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
                 reference.startsWith('&') ? reference.substring(1) : reference,
                 node,
                 cancellationToken
-            );
+            ).catch(() => []);
         }
     }
 }
 
-const getOptionsForParentLevel = (reference: string, node: AbstractNode): string[] => {
+const getOptionsForParentLevel = (reference: string, node: AbstractNode, isInheritanceRequested = false): string[] => {
     const value = reference.startsWith('&') ? reference.slice(1) : reference;
+    if (isInheritanceRequested) {
+        return getOptionsForInheritance(node, value);
+    }
     if (isDocumentNode(node) || isObjectNode(node) || isArrayNode(node)) {
         return getOptionsForElement(node, value);
     }
@@ -68,13 +72,26 @@ const getOptionsForParentLevel = (reference: string, node: AbstractNode): string
     return getOptionsForElement(node.parent, value) || [];
 };
 
-const getOptionsForElement = (node: AbstractNode, search: string = ''): string[] => {
+const getOptionsForInheritance = (node: AbstractNode, search: string = EMPTY_STRING): string[] => {
+    if (isObjectNode(node) && node.inheritance) {
+        return node.inheritance
+            .filter((_, i) => search === EMPTY_STRING || i.toString().startsWith(search))
+            .map((_, i) => i.toString() + '/');
+    } else if (node.parent && isObjectNode(node.parent) && node.parent.inheritance) {
+        return node.parent.inheritance
+            .filter((_, i) => search === EMPTY_STRING || i.toString().startsWith(search))
+            .map((_, i) => i.toString() + '/');
+    }
+    return [];
+};
+
+const getOptionsForElement = (node: AbstractNode, search: string = EMPTY_STRING): string[] => {
     if (isObjectNode(node) || isArrayNode(node) || isDocumentNode(node)) {
         return node.elements
             .filter(
                 (v) =>
                     ((isObjectNode(v) || isArrayNode(v)) && v.identifier?.name.startsWith(search)) ||
-                    search === '' ||
+                    search === EMPTY_STRING ||
                     (isArrayNode(v) && v.identifier === undefined) ||
                     (isObjectNode(v) && v.identifier === undefined) ||
                     (isAssignmentNode(v) && v.left.name.startsWith(search))
@@ -87,13 +104,13 @@ const getOptionsForElement = (node: AbstractNode, search: string = ''): string[]
                 } else if (isAssignmentNode(v)) {
                     return v.left.name;
                 }
-                return '';
+                return EMPTY_STRING;
             });
     }
     return [];
 };
 
-const getOptionsForLevel = (node: AbstractNode, search: string = ''): string[] => {
+const getOptionsForLevel = (node: AbstractNode, search: string = EMPTY_STRING): string[] => {
     if (isObjectNode(node) || isArrayNode(node) || isDocumentNode(node)) {
         return getOptionsForElement(node, search);
     }
@@ -107,31 +124,17 @@ const traversePath = async (
 ): Promise<string[]> => {
     if (cancellationToken.isCancellationRequested) throw new CancellationError();
 
-    const parts = path === '' ? [''] : extractSubstrings(path);
-
-    if (path.endsWith('/')) parts.push('');
+    const parts = path === EMPTY_STRING ? [EMPTY_STRING] : extractSubstrings(path);
+    if (path.endsWith('/')) parts.push(EMPTY_STRING);
     if (path.startsWith('<./Data/')) {
-        return await traverseCosmoteerPath(parts, node, cancellationToken);
+        return await traverseCosmoteerPath(parts, node, cancellationToken).catch(() => []);
     } else if (path.startsWith('<')) {
-        return await traverseOwnPath(parts, node, cancellationToken);
+        return await traverseOwnPath(parts, node, cancellationToken).catch(() => []);
     } else if (path.startsWith('/')) {
-        return await traverseSuperPath(parts, cancellationToken);
-    } else if (path.startsWith('^/')) {
-        return await traverseInheritancePath(parts, node, cancellationToken);
+        return await traverseSuperPath(parts, cancellationToken).catch(() => []);
     } else {
-        return await traverseReferencePath(parts, node, cancellationToken);
+        return await traverseReferencePath(parts, node, cancellationToken).catch(() => []);
     }
-};
-
-const traverseInheritancePath = async (parts: string[], node: AbstractNode, cancellationToken: CancellationToken) => {
-    if (node.parent && (isObjectNode(node.parent) || isArrayNode(node.parent)) && node.parent.inheritance) {
-        if (parts.length < 2) return node.parent.inheritance.map((_v, i) => `${i}/`);
-        const inheritanceIndex = parseInt(parts[0].substring(1));
-        const inheritanceNode = node.parent.inheritance[inheritanceIndex];
-        if (!inheritanceNode) return [];
-        return await traversePath(parts.slice(2).join('/'), inheritanceNode, cancellationToken);
-    }
-    return [];
 };
 
 const traverseOwnPath = async (parts: string[], node: AbstractNode, cancellationToken: CancellationToken) => {
@@ -145,18 +148,20 @@ const traverseOwnPath = async (parts: string[], node: AbstractNode, cancellation
                     parts.findIndex((part) => part.endsWith('.rules'))
                 )
                 .join('/')
-                .replaceAll(/[<>]/g, '')
+                .replaceAll(/[<>]/g, EMPTY_STRING)
         );
         if (cancellationToken.isCancellationRequested) throw new CancellationError();
         const nextNode = await parseFilePath(ownPath, cancellationToken);
-        console.log(nextNode);
         return await traversePath(
             parts.slice(parts.findIndex((part) => part.endsWith('.rules'))).join('/'),
             nextNode,
             cancellationToken
         );
     } else {
-        const ownPath = join(filePathToDirectoryPath(currentLocation), parts.join('/').replaceAll(/[<>]/g, ''));
+        const ownPath = join(
+            filePathToDirectoryPath(currentLocation),
+            parts.join('/').replaceAll(/[<>]/g, EMPTY_STRING)
+        );
         return await getPathOptions(ownPath);
     }
 };
@@ -192,7 +197,9 @@ const traverseCosmoteerPath = async (parts: string[], _node: AbstractNode, cance
     } else if (isWorkshopPath) {
         return await tarverseWorkshopPath(parts, cancellationToken);
     } else {
-        return await getPathOptions(join(CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath, parts.join('/')));
+        return await getPathOptions(
+            join(CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath, parts.join('/').replace('<./Data/', ''))
+        );
     }
 };
 
@@ -245,6 +252,13 @@ const traverseReferencePath = async (parts: string[], node: AbstractNode, cancel
         currentNode = node.parent;
     }
     for (const path of parts) {
+        if (path === EMPTY_STRING) break;
+
+        if (path === '^' && node.parent?.parent) {
+            currentNode = node.parent?.parent;
+            continue;
+        }
+
         if (path === '..' && currentNode.parent) {
             currentNode = currentNode.parent;
             continue;
@@ -253,6 +267,14 @@ const traverseReferencePath = async (parts: string[], node: AbstractNode, cancel
             currentNode = getStartOfAstNode(currentNode);
             continue;
         }
+
+        if (isObjectNode(currentNode) && !isNaN(parseInt(path)) && currentNode.inheritance) {
+            const nextNode = currentNode.inheritance.find((_, i) => i === parseInt(path));
+            if (!nextNode) break;
+            currentNode = nextNode;
+            continue;
+        }
+
         if (isObjectNode(currentNode) || isArrayNode(currentNode) || isDocumentNode(currentNode)) {
             const nextNode = currentNode.elements.find(
                 (v, i) =>
@@ -282,15 +304,21 @@ const traverseReferencePath = async (parts: string[], node: AbstractNode, cancel
                 if (cancellationToken.isCancellationRequested) throw new CancellationError();
                 const parsedDocument = await parseFile(node);
                 currentNode = parsedDocument;
+                const nextNode = findNodeByIdentifier(currentNode, path);
+                if (!nextNode) break;
+                currentNode = nextNode;
             } else if (node?.type) {
                 currentNode = node;
+                const nextNode = findNodeByIdentifier(currentNode, path);
+                if (!nextNode) break;
+                currentNode = nextNode;
             } else {
                 return [];
             }
         }
     }
-    if (isAssignmentNode(currentNode) && currentNode.left.name === parts[parts.length - 1]) return [];
-    return getOptionsForParentLevel(parts[parts.length - 1], currentNode);
+    if (isAssignmentNode(currentNode) && currentNode.left.name === parts[parts.length - 2]) return [];
+    return getOptionsForParentLevel(parts[parts.length - 1], currentNode, parts[parts.length - 2] === '^');
 };
 
 const traverseSuperPath = async (parts: string[], cancellationToken: CancellationToken) => {

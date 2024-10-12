@@ -1,5 +1,12 @@
 import { CancellationToken, Position } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, isArrayNode, isAssignmentNode, isObjectNode } from '../parser/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    isArrayNode,
+    isAssignmentNode,
+    isDocumentNode,
+    isObjectNode,
+} from '../parser/ast';
 import { FileWithPath } from '../workspace/cosmoteer-workspace.service';
 import { readFile } from 'fs/promises';
 import { lexer } from '../lexer/lexer';
@@ -79,6 +86,28 @@ const findNodeAtPositionRecursive = (node: AbstractNode, position: Position): Ab
         }
     }
     return undefined;
+};
+
+export const findNodeByIdentifier = (node: AbstractNode, identifier: string): AbstractNode | undefined => {
+    if (isObjectNode(node) || isDocumentNode(node)) {
+        return node.elements.find((element) => {
+            if ((isArrayNode(element) || isObjectNode(element)) && element.identifier?.name === identifier) {
+                return element;
+            } else if (isAssignmentNode(element) && element.left.name === identifier) {
+                return element;
+            }
+        });
+    } else if (isArrayNode(node)) {
+        return node.elements.find((element, i) => {
+            if ((isArrayNode(element) || isObjectNode(element)) && element.identifier?.name === identifier) {
+                return element;
+            } else if (isAssignmentNode(element) && element.left.name === identifier) {
+                return element;
+            } else if (i.toString() === identifier) {
+                return element;
+            }
+        });
+    }
 };
 
 export const getStartOfAstNode = (node: AbstractNode): AbstractNodeDocument => {
