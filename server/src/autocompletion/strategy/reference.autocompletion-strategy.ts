@@ -1,5 +1,5 @@
 import { CancellationToken } from 'vscode-languageserver';
-import { extractSubstrings } from '../../navigation/navigation-strategy';
+import { extractSubstrings, filePathToDirectoryPath } from '../../navigation/navigation-strategy';
 import {
     AbstractNode,
     isArrayNode,
@@ -106,10 +106,14 @@ const traversePath = async (
     cancellationToken: CancellationToken
 ): Promise<string[]> => {
     if (cancellationToken.isCancellationRequested) throw new CancellationError();
-    const parts = extractSubstrings(path);
+
+    const parts = path === '' ? [''] : extractSubstrings(path);
+
     if (path.endsWith('/')) parts.push('');
     if (path.startsWith('<./Data/')) {
         return await traverseCosmoteerPath(parts, node, cancellationToken);
+    } else if (path.startsWith('<')) {
+        return await traverseOwnPath(parts, node, cancellationToken);
     } else if (path.startsWith('/')) {
         return await traverseSuperPath(parts, cancellationToken);
     } else if (path.startsWith('^/')) {
@@ -128,6 +132,33 @@ const traverseInheritancePath = async (parts: string[], node: AbstractNode, canc
         return await traversePath(parts.slice(2).join('/'), inheritanceNode, cancellationToken);
     }
     return [];
+};
+
+const traverseOwnPath = async (parts: string[], node: AbstractNode, cancellationToken: CancellationToken) => {
+    const currentLocation = getStartOfAstNode(node).uri;
+    if (parts.some((part) => part.endsWith('.rules>'))) {
+        const ownPath = join(
+            filePathToDirectoryPath(currentLocation),
+            parts
+                .slice(
+                    0,
+                    parts.findIndex((part) => part.endsWith('.rules'))
+                )
+                .join('/')
+                .replaceAll(/[<>]/g, '')
+        );
+        if (cancellationToken.isCancellationRequested) throw new CancellationError();
+        const nextNode = await parseFilePath(ownPath, cancellationToken);
+        console.log(nextNode);
+        return await traversePath(
+            parts.slice(parts.findIndex((part) => part.endsWith('.rules'))).join('/'),
+            nextNode,
+            cancellationToken
+        );
+    } else {
+        const ownPath = join(filePathToDirectoryPath(currentLocation), parts.join('/').replaceAll(/[<>]/g, ''));
+        return await getPathOptions(ownPath);
+    }
 };
 
 const traverseCosmoteerPath = async (parts: string[], _node: AbstractNode, cancellationToken: CancellationToken) => {
@@ -258,6 +289,7 @@ const traverseReferencePath = async (parts: string[], node: AbstractNode, cancel
             }
         }
     }
+    if (isAssignmentNode(currentNode) && currentNode.left.name === parts[parts.length - 1]) return [];
     return getOptionsForParentLevel(parts[parts.length - 1], currentNode);
 };
 

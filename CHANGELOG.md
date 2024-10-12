@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+# Version 0.4.0 Beta
+
+-   Added support for Jetbrains IDEs
+-   Added validation for assets paths 
+-   Added autocompletion for references (With Ctrl+Space accessible, if keysettings are default)
+-   Added a automated way to find the cosmoteer workspace path, without requiring the user to set it manually
+-   Fixed a bug with `^` only allowed as first symbol in a reference
+
 # Version 0.3.1 Beta Hotfix
 
 -   Notify the user that when he doesn't see the settings, that he needs to restart vscode.

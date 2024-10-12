@@ -32,6 +32,7 @@ import { CosmoteerWorkspaceService } from './workspace/cosmoteer-workspace.servi
 import { ValidationForAssignment } from './validation/validator.assignment';
 import { ValidationForMath } from './validation/validator.math';
 import { CancellationError } from './utils/cancellation';
+import { WorkspaceTokenManager } from './workspace/token-manager';
 
 export const MAX_NUMBER_OF_PROBLEMS = 10;
 
@@ -46,6 +47,7 @@ CosmoteerWorkspaceService.instance.setConnection(connection);
 
 // Create a simple text document manager.
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
+const tokenSourceManager = new WorkspaceTokenManager();
 
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
@@ -110,26 +112,26 @@ connection.onInitialized(async (_params) => {
                     await connection.window.createWorkDoneProgress()
                 ))
             )
-            connection.window
-                .showErrorMessage(
-                    l10n.t(
-                        'Cosmoteer path not set, please set it in the extensions settings for Cosmoteer Rules Configuration. If you dont see this setting, than please restart vscode. This is required for the language server to work correctly.'
-                    ),
-                    {
-                        title: 'Open Settings',
-                        command: 'workbench.action.openSettings',
-                    }
-                )
-                .then(() => {
-                    connection.sendRequest('cosmoteer/openSettings', {
-                        items: [
-                            {
-                                scopeUri: workspaceFolders[0].uri,
-                                section: 'cosmoteerLSPRules',
-                            },
-                        ],
+                connection.window
+                    .showErrorMessage(
+                        l10n.t(
+                            'Cosmoteer path not set, please set it in the extensions settings for Cosmoteer Rules Configuration. If you dont see this setting, than please restart vscode. This is required for the language server to work correctly.'
+                        ),
+                        {
+                            title: 'Open Settings',
+                            command: 'workbench.action.openSettings',
+                        }
+                    )
+                    .then(() => {
+                        connection.sendRequest('cosmoteer/openSettings', {
+                            items: [
+                                {
+                                    scopeUri: workspaceFolders[0].uri,
+                                    section: 'cosmoteerLSPRules',
+                                },
+                            ],
+                        });
                     });
-                });
         }
     }
 
@@ -187,7 +189,7 @@ connection.onDidChangeConfiguration(async (change) => {
     if ((change.settings?.cosmoteerLSPRules as CosmoteerSettings)?.cosmoteerPath && workspaceFolders) {
         const workDoneProgress = await connection.window.createWorkDoneProgress();
         workDoneProgress.begin('Initializing workspace', 0, 'Initializing workspace', false);
-        CosmoteerWorkspaceService.instance.initialize(
+        await CosmoteerWorkspaceService.instance.initialize(
             change.settings.cosmoteerLSPRules.cosmoteerPath,
             workDoneProgress
         );
@@ -215,18 +217,41 @@ documents.onDidClose((e) => {
     documentSettings.delete(e.document.uri);
 });
 
-const tokenSource = new CancellationTokenSource();
+documents.onDidOpen(
+    async (e) => {
+        try {
+            await connection.sendDiagnostics({
+                uri: e.document.uri,
+                version: e.document.version,
+                diagnostics: await validateTextDocument(e.document, tokenSourceManager.createToken(e.document.uri)),
+            });
+        } catch (e) {
+            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        }
+    },
+    null,
+    [tokenSourceManager]
+);
 
-documents.onDidOpen(async (e) => {
-    await connection.sendDiagnostics({
-        uri: e.document.uri,
-        version: e.document.version,
-        diagnostics: await validateTextDocument(e.document, tokenSource.token),
-    });
-});
+documents.onDidChangeContent(
+    async (e) => {
+        try {
+            await connection.sendDiagnostics({
+                uri: e.document.uri,
+                version: e.document.version,
+                diagnostics: await validateTextDocument(e.document, tokenSourceManager.createToken(e.document.uri)),
+            });
+        } catch (e) {
+            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        }
+    },
+    null,
+    [tokenSourceManager]
+);
 
 connection.languages.diagnostics.on(async (params, cancelToken) => {
     const document = documents.get(params.textDocument.uri);
+    tokenSourceManager.cancelToken(params.textDocument.uri);
     if (document !== undefined) {
         return {
             kind: DocumentDiagnosticReportKind.Full,
@@ -255,7 +280,7 @@ async function validateTextDocument(textDocument: TextDocument, cancelToken: Can
     }
     let problems = 0;
     const diagnostics: Diagnostic[] = [];
-
+    console.error('set result for ' + textDocument.uri);
     ParserResultRegistrar.instance.setResult(textDocument.uri, parserResult.value);
 
     for (const error of parserResult.parserErrors) {
@@ -326,21 +351,19 @@ async function validateTextDocument(textDocument: TextDocument, cancelToken: Can
     return diagnostics;
 }
 
-connection.onDidChangeWatchedFiles((_change) => {
-    // Monitored files have change in VSCode
-    if (globalSettings.trace.server === 'verbose') {
-        connection.console.log('We received a file change event');
-    }
-});
-
 // This handler provides the initial list of the completion items.
 connection.onCompletion(
     async (textDocumentPosition: TextDocumentPositionParams, cancellationToken): Promise<CompletionItem[]> => {
         const parserResult = ParserResultRegistrar.instance.getResult(textDocumentPosition.textDocument.uri);
+        console.error(
+            'Get result for ' + textDocumentPosition.textDocument.uri + ' and it isExisting?' + !!parserResult
+        );
+        console.error(textDocumentPosition.textDocument.uri);
         let completions: string[] = [];
         try {
             if (parserResult) {
                 const node = findNodeAtPosition(parserResult, textDocumentPosition?.position);
+                console.error(node);
                 if (node) {
                     completions = await AutoCompletionService.instance.getCompletions(node, cancellationToken);
                 }
