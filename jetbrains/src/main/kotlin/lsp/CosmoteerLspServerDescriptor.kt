@@ -20,7 +20,6 @@ class CosmoteerLspServerDescriptor(project: Project) : ProjectWideLspServerDescr
 
     override fun createCommandLine(): GeneralCommandLine {
         val textMateBundle = JSLanguageServiceUtil.getPluginDirectory(javaClass, "ressources/rules.tmBundle")
-        println(textMateBundle.exists())
         TextMateUserBundlesSettings.getInstance()?.addBundle(textMateBundle.path, "rules")
         TextMateService.getInstance().reloadEnabledBundles();
         // start language server
