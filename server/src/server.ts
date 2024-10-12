@@ -280,7 +280,6 @@ async function validateTextDocument(textDocument: TextDocument, cancelToken: Can
     }
     let problems = 0;
     const diagnostics: Diagnostic[] = [];
-    console.error('set result for ' + textDocument.uri);
     ParserResultRegistrar.instance.setResult(textDocument.uri, parserResult.value);
 
     for (const error of parserResult.parserErrors) {
@@ -355,15 +354,10 @@ async function validateTextDocument(textDocument: TextDocument, cancelToken: Can
 connection.onCompletion(
     async (textDocumentPosition: TextDocumentPositionParams, cancellationToken): Promise<CompletionItem[]> => {
         const parserResult = ParserResultRegistrar.instance.getResult(textDocumentPosition.textDocument.uri);
-        console.error(
-            'Get result for ' + textDocumentPosition.textDocument.uri + ' and it isExisting?' + !!parserResult
-        );
-        console.error(textDocumentPosition.textDocument.uri);
         let completions: string[] = [];
         try {
             if (parserResult) {
                 const node = findNodeAtPosition(parserResult, textDocumentPosition?.position);
-                console.error(node);
                 if (node) {
                     completions = await AutoCompletionService.instance.getCompletions(node, cancellationToken);
                 }
