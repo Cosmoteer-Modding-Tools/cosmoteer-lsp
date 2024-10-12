@@ -8,7 +8,12 @@ All notable changes to this project will be documented in this file.
 -   Added validation for assets paths 
 -   Added autocompletion for references (With Ctrl+Space accessible, if keysettings are default)
 -   Added a automated way to find the cosmoteer workspace path, without requiring the user to set it manually
+-   Added support for Cancellation Tokens, which should prevent the language server from doing unnecessary work
+-   Fixed console log outputs is now respecting the settings for the language server
+-   Fixed a bug with `,` in Group Inheritance which would not be regocnized as a seperator
 -   Fixed a bug with `^` only allowed as first symbol in a reference
+-   Fixed a bug with notifications which did not close after work done
+-   Fixed a bug with `./Data/..` paths which would not be regocnized as a valid path
 
 # Version 0.3.1 Beta Hotfix
 

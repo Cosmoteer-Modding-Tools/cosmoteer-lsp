@@ -135,6 +135,14 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
             }
             return file;
         } else {
+            if (pathes[0] === '.' && pathes[1] === 'Data' && pathes[2] === '..') {
+                return await this.navigateRulesByCurrentLocation(
+                    pathes.slice(2),
+                    CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath,
+                    lastWorkspacePathIndex - 2,
+                    cancellationToken
+                );
+            }
             return await this.navigateRulesByCurrentLocation(
                 pathes,
                 currentLocation,

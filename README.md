@@ -22,17 +22,16 @@ To generate those suggestions you can use the `ctrl+space` keybinding to get the
 
 -   Basic syntax highlighting
 -   Provide diagnostics for syntax errors
--   Code completion for & references in the same parent scope
+-   Code completion for all references 
 -   Validation for references for .rules files
 -   Validation for function calls, math expressions and assignments with references
+-   Validation for assets (e.g. images, sounds, shaders) 
 -   localisation support (en, de) so far
 
 ### Features in the future
 
--   Validation for assets (e.g. images, sounds, shaders) (**With the next release v0.4.0**)
 -   Code completion for assets
 -   Code completion for functions (Needs type checking)
--   Code completion for all references (**With the next release v0.4.0**)
 -   Reference Validation for mod.rules (**With the next release v0.4.0**)
 -   Respecting additions/inheritances/deletions `Actions` of mod.rules files
 -   Code formatting
