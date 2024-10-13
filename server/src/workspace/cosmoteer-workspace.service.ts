@@ -6,6 +6,8 @@ import { Dirent } from 'fs';
 import { parseFile } from '../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
 import * as path from 'path';
+import { globalSettings } from '../server';
+import Registry from 'winreg';
 
 export class CosmoteerWorkspaceService {
     private _fileWorkspaceTree!: FileTree;
@@ -13,18 +15,30 @@ export class CosmoteerWorkspaceService {
     private _connection!: Connection;
     private isInitalized = false;
 
-    constructor() {}
+    private constructor() {}
 
     public static get instance(): CosmoteerWorkspaceService {
         if (!CosmoteerWorkspaceService._instance) {
-            CosmoteerWorkspaceService._instance =
-                new CosmoteerWorkspaceService();
+            CosmoteerWorkspaceService._instance = new CosmoteerWorkspaceService();
         }
         return CosmoteerWorkspaceService._instance;
     }
 
     setConnection(connection: Connection) {
         this._connection = connection;
+    }
+
+    get CosmoteerWorkspacePath(): string {
+        let cosmoteerPath = globalSettings.cosmoteerPath;
+        if (cosmoteerPath.endsWith('Data') || cosmoteerPath.endsWith(`Data${sep}`)) {
+            cosmoteerPath = cosmoteerPath.replace(/Data$/, '');
+            cosmoteerPath = path.join(cosmoteerPath, 'Data');
+        } else if (cosmoteerPath.endsWith('Cosmoteer') || cosmoteerPath.endsWith(`Cosmoteer${sep}`)) {
+            cosmoteerPath = path.join(cosmoteerPath, 'Data');
+        } else if (cosmoteerPath.endsWith('common') || cosmoteerPath.endsWith(`common${sep}`)) {
+            cosmoteerPath = path.join(cosmoteerPath, 'Cosmoteer', 'Data');
+        }
+        return cosmoteerPath;
     }
 
     public findFile(pathes: string[]):
@@ -37,7 +51,6 @@ export class CosmoteerWorkspaceService {
             return this.findFileRecursive(this._fileWorkspaceTree, pathes);
         }
     }
-
     public async getCosmoteerRules(): Promise<
         | (CosmoteerFile & {
               readonly path: string;
@@ -45,16 +58,13 @@ export class CosmoteerWorkspaceService {
         | undefined
     > {
         if (!this.isInitalized) return;
-        const cosmoteerRules = (
-            this._fileWorkspaceTree as Directory
-        ).children.find(
+        const cosmoteerRules = (this._fileWorkspaceTree as Directory).children.find(
             (c) => c.name.toLowerCase() === 'cosmoteer.rules'
         ) as CosmoteerFile & {
             readonly path: string;
         };
         if (!(cosmoteerRules.content as CosmoteerWorkspaceData).parsedDocument)
-            (cosmoteerRules.content as CosmoteerWorkspaceData).parsedDocument =
-                await parseFile(cosmoteerRules);
+            (cosmoteerRules.content as CosmoteerWorkspaceData).parsedDocument = await parseFile(cosmoteerRules);
         return cosmoteerRules;
     }
 
@@ -62,74 +72,69 @@ export class CosmoteerWorkspaceService {
         parent: FileTree,
         pathes: string[],
         index: number = 0
-    ):
-        | (CosmoteerFile & {
-              readonly path: string;
-          })
-        | undefined => {
+    ): (CosmoteerFile & { readonly path: string }) | undefined => {
         if (index === pathes.length) return;
-        if (
-            isFile(parent) &&
-            parent.name.toLowerCase() === pathes[index].toLowerCase()
-        ) {
+        if (isFile(parent) && parent.name.toLowerCase() === pathes[index].toLowerCase()) {
             return parent;
         } else if (isDirectory(parent)) {
             for (const dirent of parent.children) {
-                if (
-                    isFile(dirent) &&
-                    dirent.name.toLowerCase() === pathes[index].toLowerCase()
-                ) {
+                if (isFile(dirent) && dirent.name.toLowerCase() === pathes[index].toLowerCase()) {
                     return dirent;
-                } else if (
-                    isDirectory(dirent) &&
-                    dirent.name.toLowerCase() === pathes[index].toLowerCase()
-                ) {
+                } else if (isDirectory(dirent) && dirent.name.toLowerCase() === pathes[index].toLowerCase()) {
                     return this.findFileRecursive(dirent, pathes, index + 1);
                 }
             }
         }
     };
 
-    public async initialize(
-        cosmoteerWorkspacePath: string,
-        workDoneProgress: WorkDoneProgressReporter
-    ) {
-        if (this.isInitalized) return;
+    public async initializeWithoutPath(workDoneProgress: WorkDoneProgressReporter): Promise<boolean> {
+        workDoneProgress.begin('Initializing workspace', 0, 'Initializing workspace', false);
+        const cosmoteerPath = await this.getCosmoteerPathFromRegistry();
+        if (!cosmoteerPath) {
+            this._connection.window.showWarningMessage(
+                l10n.t('Could not find Cosmoteer installation automatically, please set the path manually')
+            );
+            workDoneProgress.done();
+            return false;
+        }
+        workDoneProgress.report(50, 'Found Cosmoteer installation');
+        globalSettings.cosmoteerPath = cosmoteerPath;
+        await this.initialize(cosmoteerPath, workDoneProgress);
+        return true;
+    }
 
-        workDoneProgress.begin(
-            'Initializing workspace',
-            0,
-            'Initializing workspace',
-            false
-        );
-        if (
-            cosmoteerWorkspacePath.endsWith('Data') ||
-            cosmoteerWorkspacePath.endsWith(`Data${sep}`)
-        ) {
-            cosmoteerWorkspacePath = cosmoteerWorkspacePath.replace(
-                /Data$/,
-                ''
-            );
+    private async getCosmoteerPathFromRegistry(): Promise<string | undefined> {
+        const reg = new Registry({
+            hive: Registry.HKLM,
+            key: '\\SOFTWARE\\WOW6432Node\\Valve\\Steam',
+        });
+        return new Promise<string | undefined>((resolve, reject) => {
+            reg.get('InstallPath', (err, item) => {
+                if (err) {
+                    this._connection.window.showWarningMessage(
+                        l10n.t('Could not find Cosmoteer installation, please set the path manually')
+                    );
+                    reject(err);
+                    return;
+                }
+                const cosmoteerPath = path.join(item.value, '\\steamapps\\common\\Cosmoteer\\Data');
+                resolve(cosmoteerPath);
+            });
+        });
+    }
+
+    public async initialize(cosmoteerWorkspacePath: string, workDoneProgress: WorkDoneProgressReporter) {
+        if (this.isInitalized) return;
+        if (cosmoteerWorkspacePath.endsWith('Data') || cosmoteerWorkspacePath.endsWith(`Data${sep}`)) {
+            cosmoteerWorkspacePath = cosmoteerWorkspacePath.replace(/Data$/, '');
             cosmoteerWorkspacePath = path.join(cosmoteerWorkspacePath, 'Data');
-        } else if (
-            cosmoteerWorkspacePath.endsWith('Cosmoteer') ||
-            cosmoteerWorkspacePath.endsWith(`Cosmoteer${sep}`)
-        ) {
+        } else if (cosmoteerWorkspacePath.endsWith('Cosmoteer') || cosmoteerWorkspacePath.endsWith(`Cosmoteer${sep}`)) {
             cosmoteerWorkspacePath = path.join(cosmoteerWorkspacePath, 'Data');
-        } else if (
-            cosmoteerWorkspacePath.endsWith('common') ||
-            cosmoteerWorkspacePath.endsWith(`common${sep}`)
-        ) {
-            cosmoteerWorkspacePath = path.join(
-                cosmoteerWorkspacePath,
-                'Cosmoteer',
-                'Data'
-            );
+        } else if (cosmoteerWorkspacePath.endsWith('common') || cosmoteerWorkspacePath.endsWith(`common${sep}`)) {
+            cosmoteerWorkspacePath = path.join(cosmoteerWorkspacePath, 'Cosmoteer', 'Data');
         } else {
             this._connection.window.showWarningMessage(
-                l10n.t(
-                    'Invalid cosmoteer path, the path should end with common or Cosmoteer or Data'
-                )
+                l10n.t('Invalid cosmoteer path, the path should end with common or Cosmoteer or Data')
             );
             workDoneProgress.done();
             return;
@@ -143,10 +148,7 @@ export class CosmoteerWorkspaceService {
         };
 
         await this.buildFileStructure(this._fileWorkspaceTree, dirents);
-        if (
-            this._fileWorkspaceTree.children &&
-            this._fileWorkspaceTree.children.length > 0
-        ) {
+        if (this._fileWorkspaceTree.children && this._fileWorkspaceTree.children.length > 0) {
             this.isInitalized = true;
             this._connection.languages.diagnostics.refresh();
         }
@@ -157,15 +159,10 @@ export class CosmoteerWorkspaceService {
         return readdir(workspacePath, { withFileTypes: true });
     };
 
-    private buildFileStructure = async (
-        parentTree: FileTree,
-        dirents: Dirent[]
-    ) => {
+    private buildFileStructure = async (parentTree: FileTree, dirents: Dirent[]) => {
         for (const dirent of dirents) {
             if (dirent.isDirectory()) {
-                const nextDirents = await this.iterateFiles(
-                    `${dirent.parentPath + sep + dirent.name}`
-                );
+                const nextDirents = await this.iterateFiles(`${dirent.parentPath + sep + dirent.name}`);
                 if (nextDirents.length === 0) continue;
                 const parent: FileTree = {
                     type: 'Dir',
@@ -181,29 +178,19 @@ export class CosmoteerWorkspaceService {
                         type: 'File',
                         name: dirent.name,
                         content: {
-                            name: dirent.name.substring(
-                                0,
-                                dirent.name.lastIndexOf('.')
-                            ),
+                            name: dirent.name.substring(0, dirent.name.lastIndexOf('.')),
                         },
                         path: dirent.parentPath + sep + dirent.name,
                         parent: parentTree,
                     };
-                    if (isDirectory(parentTree))
-                        parentTree.children.push(dataContent);
-                } else if (
-                    dirent.name.endsWith('.png') ||
-                    dirent.name.endsWith('.shader')
-                ) {
+                    if (isDirectory(parentTree)) parentTree.children.push(dataContent);
+                } else if (dirent.name.endsWith('.png') || dirent.name.endsWith('.shader')) {
                     if (isDirectory(parentTree)) {
                         parentTree.children.push({
                             type: 'File',
                             name: dirent.name,
                             content: {
-                                name: dirent.name.substring(
-                                    0,
-                                    dirent.name.lastIndexOf('.')
-                                ),
+                                name: dirent.name.substring(0, dirent.name.lastIndexOf('.')),
                                 fileEnding: dirent.name.split('.')[1],
                             },
                             path: dirent.parentPath + sep + dirent.name,
@@ -227,6 +214,8 @@ export type FileTree = {
     readonly parent?: FileTree;
 } & (Directory | CosmoteerFile);
 
+export type FileWithPath = CosmoteerFile & { readonly path: string };
+
 export type Directory = {
     type: 'Dir';
     name: string;
@@ -239,9 +228,7 @@ export type CosmoteerFile = {
     content: CosmoteerWorkspaceData;
 };
 
-export const isDirectory = (
-    fileTree: FileTree
-): fileTree is Directory & { path: string } => fileTree.type === 'Dir';
-export const isFile = (
-    fileTree: FileTree
-): fileTree is CosmoteerFile & { path: string } => fileTree.type === 'File';
+export const isDirectory = (fileTree: FileTree): fileTree is Directory & { readonly path: string } =>
+    fileTree.type === 'Dir';
+export const isFile = (fileTree: FileTree): fileTree is CosmoteerFile & { readonly path: string } =>
+    fileTree.type === 'File';

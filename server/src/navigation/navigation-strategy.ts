@@ -1,12 +1,14 @@
 import { Dirent } from 'fs';
 import { AbstractNode } from '../parser/ast';
 import { join } from 'path';
+import { CancellationToken } from 'vscode-languageserver';
 
 export abstract class NavigationStrategy<T> {
     abstract navigate(
         path: string,
         startNode: AbstractNode,
-        currentLocation: string
+        currentLocation: string,
+        cancellationToken: CancellationToken
     ): Promise<T>;
 }
 
@@ -21,12 +23,7 @@ export const filePathToDirectoryPath = (path: string) => {
         return cleanedPath.substring(0, cleanedPath.lastIndexOf('/') + 1);
     }
     if (path.endsWith('.rules')) {
-        return path.substring(
-            0,
-            (path.includes('/')
-                ? path.lastIndexOf('/')
-                : path.lastIndexOf('\\') - 1) + 1
-        );
+        return path.substring(0, (path.includes('/') ? path.lastIndexOf('/') : path.lastIndexOf('\\') - 1) + 1);
     }
     return path;
 };

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>contactName</key>
+	<string>Cosmoteer Modding Tools</string>
+	<key>description</key>
+	<string>Rules Language</string>
+	<key>name</key>
+	<string>rules</string>
+	<key>uuid</key>
+	<string>0EA94AF2-A21A-5C59-9B27-C44459AC0ACB</string>
+</dict>
+</plist>

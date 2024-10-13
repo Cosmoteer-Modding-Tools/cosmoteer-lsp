@@ -10,15 +10,12 @@ import {
     isValueNode,
     ObjectNode,
 } from '../parser/ast';
-import {
-    getStartOfAstNode,
-    parseFile,
-    parseFilePath,
-} from '../utils/ast.utils';
+import { getStartOfAstNode, parseFile, parseFilePath } from '../utils/ast.utils';
 import {
     CosmoteerFile,
     CosmoteerWorkspaceService,
     FileTree,
+    FileWithPath,
     isFile,
 } from '../workspace/cosmoteer-workspace.service';
 import {
@@ -30,15 +27,16 @@ import {
 import * as path from 'path';
 import { globalSettings } from '../server';
 import { isNumber } from '../utils/utils';
+import { CancellationToken } from 'vscode-languageserver';
+import { CancellationError } from '../utils/cancellation';
 
-export class FullNavigationStrategy extends NavigationStrategy<
-    AbstractNode | null | CosmoteerFile
-> {
+export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | null | FileWithPath> {
     async navigate(
         path: string,
         startNode: AbstractNode,
-        currentLocation: string
-    ): Promise<AbstractNode | null | CosmoteerFile> {
+        currentLocation: string,
+        cancellationToken: CancellationToken
+    ): Promise<AbstractNode | null | FileWithPath> {
         if (!path) {
             return null;
         }
@@ -46,58 +44,52 @@ export class FullNavigationStrategy extends NavigationStrategy<
         if (path.startsWith('&<') || path.startsWith('<')) {
             promise = this.navigateRules(
                 path.substring(path.startsWith('&') ? 2 : 1),
-                currentLocation
+                currentLocation,
+                cancellationToken
             );
         } else if (path.startsWith('&/') || path.startsWith('/')) {
-            promise = this.navigateSuperPath(path);
+            promise = this.navigateSuperPath(path, cancellationToken);
         } else if (path.startsWith('&') && startNode.parent) {
-            promise = this.navigateReference(
-                path.substring(1),
-                startNode.parent
-            );
+            promise = this.navigateReference(path.substring(1), startNode.parent, cancellationToken);
         } else {
-            promise = this.navigateReference(path, startNode);
+            promise = this.navigateReference(path, startNode, cancellationToken);
         }
+        if (cancellationToken.isCancellationRequested) throw new CancellationError();
         return await promise;
     }
 
     navigateReference = async (
         path: string,
-        startNode: AbstractNode
+        startNode: AbstractNode,
+        cancellationToken: CancellationToken
     ): Promise<AbstractNode | null> => {
         const substrings = extractSubstrings(path);
         let node: AbstractNode | null | undefined = startNode;
         let lastNode: AbstractNode | null | undefined = startNode;
+        let index = 0;
         for (const substring of substrings) {
             node = this.navigateReferenceRecursive(
                 substring,
                 node,
-                substrings.length > 1 &&
-                    substrings[0] === '^' &&
-                    substrings[1] === substring
+                substrings.length > 1 && index > 0 && substrings[index - 1] === '^' && substrings[index] === substring
             );
+            index++;
             if (!node) {
                 // if the node is not found, try to add inheritance to the last node
                 if (
                     lastNode.parent &&
-                    (isObjectNode(lastNode.parent) ||
-                        isArrayNode(lastNode.parent)) &&
+                    (isObjectNode(lastNode.parent) || isArrayNode(lastNode.parent)) &&
                     lastNode.parent.inheritance
                 ) {
-                    await this.addInhertinaceToNode(lastNode.parent);
-                    node = this.navigateReferenceRecursive(
-                        substring,
-                        lastNode.parent
-                    );
+                    await this.addInhertinaceToNode(lastNode.parent, 0, cancellationToken);
+                    node = this.navigateReferenceRecursive(substring, lastNode.parent);
                 } else if (
                     lastNode &&
                     (isObjectNode(lastNode) || isArrayNode(lastNode)) &&
                     lastNode.inheritance &&
-                    !lastNode.inheritance.some(
-                        (v) => v.valueType.value === substring
-                    )
+                    !lastNode.inheritance.some((v) => v.valueType.value === substring)
                 ) {
-                    await this.addInhertinaceToNode(lastNode);
+                    await this.addInhertinaceToNode(lastNode, 0, cancellationToken);
                     node = this.navigateReferenceRecursive(substring, lastNode);
                 }
                 if (!node) return null;
@@ -113,10 +105,10 @@ export class FullNavigationStrategy extends NavigationStrategy<
                 const nextNode = await this.navigate(
                     node.valueType.value,
                     node,
-                    getStartOfAstNode(node).uri
+                    getStartOfAstNode(node).uri,
+                    cancellationToken
                 );
-                if (!nextNode || isFile(nextNode as unknown as FileTree))
-                    return null;
+                if (!nextNode || isFile(nextNode as unknown as FileTree)) return null;
                 node = nextNode as AbstractNode;
             }
             lastNode = node;
@@ -124,36 +116,38 @@ export class FullNavigationStrategy extends NavigationStrategy<
         return node;
     };
 
-    navigateRules = async (path: string, currentLocation: string) => {
+    navigateRules = async (path: string, currentLocation: string, cancellationToken: CancellationToken) => {
         const pathes = extractSubstrings(path);
-        const lastWorkspacePathIndex = pathes.findLastIndex((v) =>
-            v.includes('>')
-        );
+        const lastWorkspacePathIndex = pathes.findLastIndex((v) => v.includes('>'));
         if (lastWorkspacePathIndex === -1) return null;
-        pathes[lastWorkspacePathIndex] = pathes[lastWorkspacePathIndex].replace(
-            '>',
-            ''
-        );
+        pathes[lastWorkspacePathIndex] = pathes[lastWorkspacePathIndex].replace('>', '');
         if (pathes[0] === '.' && pathes[1] === 'Data' && pathes[2] !== '..') {
-            const file = this.navigateCosmoteerRules(
-                pathes.slice(2, lastWorkspacePathIndex + 1)
-            );
+            const file = this.navigateCosmoteerRules(pathes.slice(2, lastWorkspacePathIndex + 1));
             if (file && lastWorkspacePathIndex < pathes.length - 1) {
-                const document =
-                    file.content.parsedDocument ?? (await parseFile(file));
+                const document = file.content.parsedDocument ?? (await parseFile(file));
                 file.content.parsedDocument = document;
                 return await this.navigate(
                     pathes.slice(lastWorkspacePathIndex + 1).join('/'),
                     document,
-                    document.uri
+                    document.uri,
+                    cancellationToken
                 );
             }
             return file;
         } else {
+            if (pathes[0] === '.' && pathes[1] === 'Data' && pathes[2] === '..') {
+                return await this.navigateRulesByCurrentLocation(
+                    pathes.slice(2),
+                    CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath,
+                    lastWorkspacePathIndex - 2,
+                    cancellationToken
+                );
+            }
             return await this.navigateRulesByCurrentLocation(
                 pathes,
                 currentLocation,
-                lastWorkspacePathIndex
+                lastWorkspacePathIndex,
+                cancellationToken
             );
         }
     };
@@ -161,7 +155,8 @@ export class FullNavigationStrategy extends NavigationStrategy<
     navigateRulesByCurrentLocation = async (
         pathes: string[],
         currentLocation: string,
-        lastWorkspacePathIndex: number
+        lastWorkspacePathIndex: number,
+        cancellationToken: CancellationToken
     ) => {
         try {
             const cleanedPath = filePathToDirectoryPath(currentLocation);
@@ -172,28 +167,22 @@ export class FullNavigationStrategy extends NavigationStrategy<
             let nextPath: string | null = null;
             for (let i = 0; i <= lastWorkspacePathIndex; i++) {
                 if (pathes[i] === '..') {
-                    dir = await readdir(
-                        filePathToDirectoryPath(path.join(currentPath, '..')),
-                        {
-                            withFileTypes: true,
-                        }
-                    );
+                    dir = await readdir(filePathToDirectoryPath(path.join(currentPath, '..')), {
+                        withFileTypes: true,
+                    });
                     currentPath = path.join(currentPath, '..');
                     continue;
                 }
                 for (const dirent of dir) {
                     if (dirent.name.toLowerCase() === pathes[i].toLowerCase()) {
                         if (i === lastWorkspacePathIndex && dirent.isFile()) {
-                            const parsed = await parseFilePath(
-                                createDirentPath(dirent)
-                            );
+                            const parsed = await parseFilePath(createDirentPath(dirent));
                             if (pathes.length - 1 > lastWorkspacePathIndex) {
                                 return await this.navigate(
-                                    pathes
-                                        .slice(lastWorkspacePathIndex + 1)
-                                        .join('/'),
+                                    pathes.slice(lastWorkspacePathIndex + 1).join('/'),
                                     parsed,
-                                    dirent.parentPath
+                                    dirent.parentPath,
+                                    cancellationToken
                                 );
                             }
                             return parsed;
@@ -206,8 +195,7 @@ export class FullNavigationStrategy extends NavigationStrategy<
                         }
                     }
                 }
-                if (nextPath)
-                    dir = await readdir(nextPath, { withFileTypes: true });
+                if (nextPath) dir = await readdir(nextPath, { withFileTypes: true });
             }
         } catch (e) {
             if (globalSettings.trace.server !== 'off') {
@@ -218,11 +206,7 @@ export class FullNavigationStrategy extends NavigationStrategy<
         return null;
     };
 
-    navigateReferenceRecursive = (
-        substring: string,
-        node: AbstractNode,
-        isInheritance = false
-    ) => {
+    navigateReferenceRecursive = (substring: string, node: AbstractNode, isInheritance = false) => {
         if (isNumber(substring)) {
             const index = Number(substring);
             if (isInheritance && (isArrayNode(node) || isObjectNode(node))) {
@@ -240,20 +224,11 @@ export class FullNavigationStrategy extends NavigationStrategy<
         } else {
             if (isObjectNode(node) || isDocumentNode(node)) {
                 for (const element of node.elements) {
-                    if (
-                        isAssignmentNode(element) &&
-                        element.left.name === substring
-                    ) {
+                    if (isAssignmentNode(element) && element.left.name === substring) {
                         return element.right;
-                    } else if (
-                        isObjectNode(element) &&
-                        element.identifier?.name === substring
-                    ) {
+                    } else if (isObjectNode(element) && element.identifier?.name === substring) {
                         return element;
-                    } else if (
-                        isArrayNode(element) &&
-                        element.identifier?.name === substring
-                    ) {
+                    } else if (isArrayNode(element) && element.identifier?.name === substring) {
                         return element;
                     }
                 }
@@ -263,26 +238,25 @@ export class FullNavigationStrategy extends NavigationStrategy<
     };
 
     navigateCosmoteerRules = (pathes: string[]) => {
-        const file =
-            CosmoteerWorkspaceService.instance.findFile(pathes) ?? null;
+        const file = CosmoteerWorkspaceService.instance.findFile(pathes) ?? null;
         return file;
     };
 
-    navigateSuperPath = async (path: string) => {
-        const comsoteerRules =
-            await CosmoteerWorkspaceService.instance.getCosmoteerRules();
-        if (!comsoteerRules || !comsoteerRules.content.parsedDocument)
-            return null;
+    navigateSuperPath = async (path: string, cancellationToken: CancellationToken) => {
+        const comsoteerRules = await CosmoteerWorkspaceService.instance.getCosmoteerRules();
+        if (!comsoteerRules || !comsoteerRules.content.parsedDocument) return null;
         return await this.navigate(
             path.substring(path.at(0) === '&' ? 2 : 1),
             comsoteerRules.content.parsedDocument,
-            comsoteerRules.path
+            comsoteerRules.path,
+            cancellationToken
         );
     };
 
     addInhertinaceToNode = async (
         node: ArrayNode | ObjectNode,
-        recursiveProtection = 0
+        recursiveProtection = 0,
+        cancellationToken: CancellationToken
     ) => {
         if (recursiveProtection > 10) return null;
         let promises = [];
@@ -290,32 +264,19 @@ export class FullNavigationStrategy extends NavigationStrategy<
         for (const inheritance of node.inheritance) {
             if (inheritance.valueType.type === 'Reference') {
                 promises.push(
-                    this.navigate(
-                        inheritance.valueType.value,
-                        node,
-                        getStartOfAstNode(node).uri
-                    )
+                    this.navigate(inheritance.valueType.value, node, getStartOfAstNode(node).uri, cancellationToken)
                 );
             }
         }
         const nodes = await Promise.all(promises);
         promises = [];
-        const filteredNodes = nodes
-            .filter((n) => n !== null)
-            .filter((n) => n.type !== 'File') as AbstractNode[];
+        const filteredNodes = nodes.filter((n) => n !== null).filter((n) => n.type !== 'File') as AbstractNode[];
         for (const filteredNode of filteredNodes) {
-            if (
-                (isObjectNode(filteredNode) || isArrayNode(filteredNode)) &&
-                filteredNode.inheritance
-            ) {
-                promises.push(
-                    this.addInhertinaceToNode(
-                        filteredNode,
-                        recursiveProtection + 1
-                    )
-                );
+            if ((isObjectNode(filteredNode) || isArrayNode(filteredNode)) && filteredNode.inheritance) {
+                promises.push(this.addInhertinaceToNode(filteredNode, recursiveProtection + 1, cancellationToken));
             }
         }
+        if (cancellationToken.isCancellationRequested) throw new CancellationError();
         await Promise.all(promises);
 
         node.elements.push(
@@ -333,51 +294,25 @@ export class FullNavigationStrategy extends NavigationStrategy<
     addInhertinaceToNodeRecursive = async (
         node: AbstractNode,
         document: AbstractNodeDocument,
-        promises: Promise<void>[]
+        promises: Promise<void>[],
+        cancellationToken: CancellationToken
     ) => {
         if (isArrayNode(node) || isObjectNode(node) || isDocumentNode(node)) {
             for (const element of node.elements) {
-                promises.push(
-                    this.addInhertinaceToNodeRecursive(
-                        element,
-                        document,
-                        promises
-                    )
-                );
+                promises.push(this.addInhertinaceToNodeRecursive(element, document, promises, cancellationToken));
             }
             if ((isArrayNode(node) || isObjectNode(node)) && node.inheritance) {
                 for (const inheritance of node.inheritance) {
                     promises.push(
-                        this.addInhertinaceToNodeRecursive(
-                            inheritance,
-                            document,
-                            promises
-                        )
+                        this.addInhertinaceToNodeRecursive(inheritance, document, promises, cancellationToken)
                     );
                 }
             }
-        } else if (
-            isAssignmentNode(node) &&
-            (isObjectNode(node.right) || isArrayNode(node.right))
-        ) {
-            promises.push(
-                this.addInhertinaceToNodeRecursive(
-                    node.right,
-                    document,
-                    promises
-                )
-            );
+        } else if (isAssignmentNode(node) && (isObjectNode(node.right) || isArrayNode(node.right))) {
+            promises.push(this.addInhertinaceToNodeRecursive(node.right, document, promises, cancellationToken));
         } else if (isValueNode(node) && node.valueType.type === 'Reference') {
-            const toAdd = await this.navigate(
-                node.valueType.value,
-                node,
-                document.uri
-            );
-            if (
-                toAdd &&
-                toAdd?.type !== 'File' &&
-                (isObjectNode(toAdd) || isArrayNode(toAdd))
-            ) {
+            const toAdd = await this.navigate(node.valueType.value, node, document.uri, cancellationToken);
+            if (toAdd && toAdd?.type !== 'File' && (isObjectNode(toAdd) || isArrayNode(toAdd))) {
                 node.parent?.elements.push(...toAdd.elements);
             }
         }

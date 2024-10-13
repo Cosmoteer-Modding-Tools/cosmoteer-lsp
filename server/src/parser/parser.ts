@@ -27,10 +27,7 @@ abstract class Parser {
     abstract parse(): void;
 }
 
-export const parser = (
-    tokens: Token[],
-    uri: DocumentUri
-): TokenParserResult => {
+export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => {
     let current = 0;
     const errors: ParserError[] = [];
     const IS_NUMBER = /[-.]?^[\d]+[.]?[\d]*d?$/;
@@ -48,11 +45,7 @@ export const parser = (
             const node: ObjectNode = {
                 type: 'Object',
                 elements: [],
-                identifier: _lastNode
-                    ? isIdentifierNode(_lastNode)
-                        ? _lastNode
-                        : undefined
-                    : undefined,
+                identifier: _lastNode ? (isIdentifierNode(_lastNode) ? _lastNode : undefined) : undefined,
                 parent,
                 position: {
                     line: token.lineNumber,
@@ -64,9 +57,7 @@ export const parser = (
             };
             if (!tokens[current]) {
                 errors.push({
-                    message: l10n.t(
-                        'Expected right brace but found end of file'
-                    ),
+                    message: l10n.t('Expected right brace but found end of file'),
                     token,
                 } as ParserError);
                 return node;
@@ -82,8 +73,7 @@ export const parser = (
                 node.elements.push(nextNode);
                 if (
                     tokens[current] &&
-                    (tokens[current].type === TOKEN_TYPES.SEMICOLON ||
-                        tokens[current].type === TOKEN_TYPES.COMMA)
+                    (tokens[current].type === TOKEN_TYPES.SEMICOLON || tokens[current].type === TOKEN_TYPES.COMMA)
                 ) {
                     current++;
                 }
@@ -106,9 +96,7 @@ export const parser = (
 
         if (token.type === TOKEN_TYPES.RIGHT_BRACE) {
             errors.push({
-                message: l10n.t(
-                    'Not expected right brace, did you mean to open an object?'
-                ),
+                message: l10n.t('Not expected right brace, did you mean to open an object?'),
                 token,
             } as ParserError);
             current++;
@@ -120,11 +108,7 @@ export const parser = (
             const node = {
                 type: 'Array',
                 parent,
-                identifier: _lastNode
-                    ? isIdentifierNode(_lastNode)
-                        ? _lastNode
-                        : undefined
-                    : undefined,
+                identifier: _lastNode ? (isIdentifierNode(_lastNode) ? _lastNode : undefined) : undefined,
                 elements: [],
                 position: {
                     line: token.lineNumber,
@@ -136,28 +120,20 @@ export const parser = (
             } as ArrayNode;
             if (!tokens[current]) {
                 errors.push({
-                    message: l10n.t(
-                        'Expected right bracket but found end of file'
-                    ),
+                    message: l10n.t('Expected right bracket but found end of file'),
                     token,
                 } as ParserError);
                 return node;
             }
             let lastNode: AbstractNode = node;
-            while (
-                tokens[current] &&
-                tokens[current].type !== TOKEN_TYPES.RIGHT_BRACKET
-            ) {
+            while (tokens[current] && tokens[current].type !== TOKEN_TYPES.RIGHT_BRACKET) {
                 const nextNode = walk(lastNode, node);
                 if (nextNode === null) {
                     break;
                 }
                 lastNode = nextNode;
                 node.elements.push(nextNode);
-                if (
-                    tokens[current]?.type === TOKEN_TYPES.COMMA ||
-                    tokens[current]?.type === TOKEN_TYPES.SEMICOLON
-                ) {
+                if (tokens[current]?.type === TOKEN_TYPES.COMMA || tokens[current]?.type === TOKEN_TYPES.SEMICOLON) {
                     current++;
                 }
                 if (tokens[current] === undefined) {
@@ -170,9 +146,7 @@ export const parser = (
                 current++;
             } else {
                 errors.push({
-                    message: l10n.t(
-                        'Expected right bracket to close the array'
-                    ),
+                    message: l10n.t('Expected right bracket to close the array'),
                     token,
                 } as ParserError);
             }
@@ -181,9 +155,7 @@ export const parser = (
 
         if (token.type === TOKEN_TYPES.RIGHT_BRACKET) {
             errors.push({
-                message: l10n.t(
-                    'Not expected bracket, did you mean to open an array?'
-                ),
+                message: l10n.t('Not expected bracket, did you mean to open an array?'),
                 token,
             } as ParserError);
             current++;
@@ -212,9 +184,7 @@ export const parser = (
                     tokens[current]?.type === TOKEN_TYPES.STRING_DELIMITER) &&
                 lastType !== tokens[current]?.type
             ) {
-                lastType = tokens[current]?.type as
-                    | 'STRING'
-                    | 'STRING_DELIMITER';
+                lastType = tokens[current]?.type as 'STRING' | 'STRING_DELIMITER';
                 if (
                     tokens[current]?.type === TOKEN_TYPES.STRING_DELIMITER &&
                     tokens[current + 1]?.type !== TOKEN_TYPES.STRING
@@ -302,9 +272,7 @@ export const parser = (
                     },
                     parent,
                     position: {
-                        characterEnd:
-                            token.lineOffset +
-                            (value as number).toString().length,
+                        characterEnd: token.lineOffset + (value as number).toString().length,
                         characterStart: token.lineOffset,
                         end: tokens[current].end ?? 0,
                         line: token.lineNumber,
@@ -362,10 +330,7 @@ export const parser = (
             if (token.type === TOKEN_TYPES.VALUE) {
                 const name = token.value;
                 current += 2;
-                if (
-                    tokens[current]?.type === TOKEN_TYPES.VALUE ||
-                    tokens[current]?.type === TOKEN_TYPES.LEFT_PAREN
-                ) {
+                if (tokens[current]?.type === TOKEN_TYPES.VALUE || tokens[current]?.type === TOKEN_TYPES.LEFT_PAREN) {
                     let startWithParens = false;
                     if (tokens[current]?.type === TOKEN_TYPES.LEFT_PAREN) {
                         current++;
@@ -378,9 +343,7 @@ export const parser = (
                             valueType: inferValueType(IS_NUMBER, currentToken),
                             parent,
                             position: {
-                                characterEnd:
-                                    token.lineOffset +
-                                    (tokens[current].value as string).length,
+                                characterEnd: token.lineOffset + (tokens[current].value as string).length,
                                 characterStart: token.lineOffset,
                                 end: tokens[current].end ?? 0,
                                 line: token.lineNumber,
@@ -389,25 +352,17 @@ export const parser = (
                         },
                     ];
                     current++;
-                    if (
-                        startWithParens &&
-                        tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN
-                    ) {
+                    if (startWithParens && tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN) {
                         args[0].parenthesized = true;
                         current++;
                     } else if (startWithParens) {
                         errors.push({
-                            message: l10n.t(
-                                'Expected right paren for reference'
-                            ),
+                            message: l10n.t('Expected right paren for reference'),
                             token,
                         } as ParserError);
                     }
                     lastNode = args[0];
-                    while (
-                        tokens[current] &&
-                        tokens[current].type !== TOKEN_TYPES.RIGHT_PAREN
-                    ) {
+                    while (tokens[current] && tokens[current].type !== TOKEN_TYPES.RIGHT_PAREN) {
                         const nextNode = walk(lastNode, parent);
                         if (!nextNode) {
                             break;
@@ -421,9 +376,7 @@ export const parser = (
                             args.push(nextNode as ValueNode);
                         } else {
                             errors.push({
-                                message: l10n.t(
-                                    'Expected value, expression or function call'
-                                ),
+                                message: l10n.t('Expected value, expression or function call'),
                                 token,
                                 addditionalInfo: [
                                     {
@@ -442,10 +395,7 @@ export const parser = (
                             break;
                         }
                     }
-                    if (
-                        tokens[current] &&
-                        tokens[current].type === TOKEN_TYPES.RIGHT_PAREN
-                    ) {
+                    if (tokens[current] && tokens[current].type === TOKEN_TYPES.RIGHT_PAREN) {
                         current++;
                     }
                     return {
@@ -453,8 +403,7 @@ export const parser = (
                         name,
                         arguments: args,
                         position: {
-                            characterEnd:
-                                token.lineOffset + (name?.length ?? 0),
+                            characterEnd: token.lineOffset + (name?.length ?? 0),
                             characterStart: token.lineOffset,
                             end: tokens[current - 1]?.start ?? 0,
                             line: token.lineNumber,
@@ -473,10 +422,7 @@ export const parser = (
                     } as ParserError);
                     return null;
                 }
-                if (
-                    tokens[current] &&
-                    tokens[current].type === TOKEN_TYPES.RIGHT_PAREN
-                ) {
+                if (tokens[current] && tokens[current].type === TOKEN_TYPES.RIGHT_PAREN) {
                     current++;
                     node.parenthesized = true;
                     return node;
@@ -494,25 +440,16 @@ export const parser = (
                         },
                     } as MathExpressionNode;
                     let lastNode: AbstractNode = node;
-                    while (
-                        tokens[current] &&
-                        tokens[current].type !== TOKEN_TYPES.RIGHT_PAREN
-                    ) {
+                    while (tokens[current] && tokens[current].type !== TOKEN_TYPES.RIGHT_PAREN) {
                         const nextNode = walk(lastNode, parent);
                         if (!nextNode) {
                             break;
                         }
-                        if (
-                            isValueNode(nextNode) ||
-                            isExpressionNode(nextNode) ||
-                            isMathExpressionNode(nextNode)
-                        ) {
+                        if (isValueNode(nextNode) || isExpressionNode(nextNode) || isMathExpressionNode(nextNode)) {
                             mathNode.elements.push(nextNode);
                         } else {
                             errors.push({
-                                message: l10n.t(
-                                    'Expected value or expression in math expression'
-                                ),
+                                message: l10n.t('Expected value or expression in math expression'),
                                 token,
                             } as ParserError);
                         }
@@ -521,10 +458,7 @@ export const parser = (
                         }
                         lastNode = nextNode;
                     }
-                    if (
-                        tokens[current] &&
-                        tokens[current].type !== TOKEN_TYPES.RIGHT_PAREN
-                    ) {
+                    if (tokens[current] && tokens[current].type !== TOKEN_TYPES.RIGHT_PAREN) {
                         errors.push({
                             message: l10n.t('Expected right paren'),
                             token,
@@ -540,10 +474,7 @@ export const parser = (
         if (token.type === TOKEN_TYPES.VALUE) {
             current++;
             let node: AbstractNode;
-            if (
-                tokens[current] &&
-                tokens[current].type === TOKEN_TYPES.EQUALS
-            ) {
+            if (tokens[current] && tokens[current].type === TOKEN_TYPES.EQUALS) {
                 current++;
                 if (current >= tokens.length) {
                     errors.push({
@@ -573,9 +504,7 @@ export const parser = (
                         name: token.value,
                         parent,
                         position: {
-                            characterEnd:
-                                token.lineOffset +
-                                (token.value as string)?.length,
+                            characterEnd: token.lineOffset + (token.value as string)?.length,
                             characterStart: token.lineOffset,
                             end: token.end ?? 0,
                             line: token.lineNumber,
@@ -600,8 +529,7 @@ export const parser = (
                     valueType: inferValueType(IS_NUMBER, token),
                     parent,
                     position: {
-                        characterEnd:
-                            token.lineOffset + (token.value as string)?.length,
+                        characterEnd: token.lineOffset + (token.value as string)?.length,
                         characterStart: token.lineOffset,
                         end: token.end ?? 0,
                         line: token.lineNumber,
@@ -614,8 +542,7 @@ export const parser = (
                     name: token.value,
                     parent,
                     position: {
-                        characterEnd:
-                            token.lineOffset + (token.value as string)?.length,
+                        characterEnd: token.lineOffset + (token.value as string)?.length,
                         characterStart: token.lineOffset,
                         end: token.end ?? 0,
                         line: token.lineNumber,
@@ -641,9 +568,7 @@ export const parser = (
                     token,
                     addditionalInfo: [
                         {
-                            message: l10n.t(
-                                'Those Values should be a References'
-                            ),
+                            message: l10n.t('Those Values should be a References'),
                         },
                     ],
                 } as ParserError);
@@ -656,26 +581,39 @@ export const parser = (
                 tokens[current] &&
                 (tokens[current].type === TOKEN_TYPES.VALUE ||
                     (tokens[current].type === TOKEN_TYPES.EXPRESSION &&
-                        tokens[current + 1]?.type === TOKEN_TYPES.VALUE))
+                        tokens[current + 1]?.type === TOKEN_TYPES.VALUE) ||
+                    (tokens[current].type === TOKEN_TYPES.EXPRESSION && tokens[current].value === '/'))
             ) {
                 const nextNode = walk(lastNode ?? undefined, parent);
                 lastNode = nextNode;
                 if (!nextNode) {
                     break;
                 }
+                if (isExpressionNode(nextNode) && nextNode.expressionType === '/') {
+                    inheritanceNodes.push({
+                        position: nextNode.position,
+                        parent: nextNode.parent,
+                        type: 'Value',
+                        valueType: {
+                            type: 'Reference',
+                            value: '/',
+                        },
+                    } as ValueNode);
+                }
                 if (isValueNode(nextNode)) {
                     inheritanceNodes.push(nextNode as ValueNode);
                 } else {
                     errors.push({
-                        message: l10n.t(
-                            'Expected reference value after reference value but found {0}',
-                            nextNode.type
-                        ),
+                        message: l10n.t('Expected reference value after reference value but found {0}', nextNode.type),
                         token: tokens[current],
                     } as ParserError);
                 }
                 if (tokens[current] === undefined) {
                     break;
+                }
+                if (tokens[current]?.type === TOKEN_TYPES.COMMA) {
+                    current++;
+                    continue;
                 }
             }
             let right: ArrayNode | ObjectNode | null = null;
@@ -694,28 +632,19 @@ export const parser = (
             return right;
         }
 
-        if (
-            token.type === TOKEN_TYPES.SINGLE_COMMENT ||
-            token.type === TOKEN_TYPES.MULTI_COMMENT
-        ) {
+        if (token.type === TOKEN_TYPES.SINGLE_COMMENT || token.type === TOKEN_TYPES.MULTI_COMMENT) {
             current++;
             return walk(_lastNode, parent);
         }
 
-        if (
-            token.type === TOKEN_TYPES.RIGHT_PAREN &&
-            _lastNode?.type !== 'Value'
-        ) {
+        if (token.type === TOKEN_TYPES.RIGHT_PAREN && _lastNode?.type !== 'Value') {
             errors.push({
                 message: l10n.t('Not expected paren'),
                 token,
             } as ParserError);
             current++;
             return null;
-        } else if (
-            token.type === TOKEN_TYPES.RIGHT_PAREN &&
-            _lastNode?.type === 'Value'
-        ) {
+        } else if (token.type === TOKEN_TYPES.RIGHT_PAREN && _lastNode?.type === 'Value') {
             current++;
             return walk(_lastNode, parent);
         }
@@ -723,9 +652,7 @@ export const parser = (
         if (token.type === TOKEN_TYPES.STRING_DELIMITER) {
             current++;
             errors.push({
-                message: l10n.t(
-                    'String delimiters are only allowed after a String'
-                ),
+                message: l10n.t('String delimiters are only allowed after a String'),
                 token,
             } as ParserError);
             return walk(_lastNode, parent);
@@ -794,15 +721,10 @@ export interface TokenParserResult {
 }
 
 function inferValueType(IS_NUMBER: RegExp, token: Token): ValueNodeTypes {
-    if (typeof token.value === 'undefined')
-        throw new Error('Token value is undefined');
+    if (typeof token.value === 'undefined') throw new Error('Token value is undefined');
     let value: ValueNodeTypes['value'] = token.value;
-    let valueType: ValueNodeTypes['type'] = IS_NUMBER.test(token.value)
-        ? 'Number'
-        : 'String';
-    const IS_SOUND = new RegExp(
-        ALLOWED_AUDIO_EXTENSIONS.join('|').replaceAll('.', '\\.')
-    );
+    let valueType: ValueNodeTypes['type'] = IS_NUMBER.test(token.value) ? 'Number' : 'String';
+    const IS_SOUND = new RegExp(ALLOWED_AUDIO_EXTENSIONS.join('|').replaceAll('.', '\\.'));
     if (valueType === 'String' && token.value.includes('.png')) {
         valueType = 'Sprite';
         value = value as string;

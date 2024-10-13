@@ -1,24 +1,17 @@
-export const startsWithAmpersandAndLetter = (value: string) =>
-    /^&[A-Za-z_]/.test(value);
+export const startsWithAmpersandAndLetter = (value: string) => /^&[A-Za-z_.]/.test(value);
 
 export const isValidReference = (value: string) => {
     if (value.startsWith('&')) {
         const valueWithoutAmpersand = value.substring(1);
         if (
-            (valueWithoutAmpersand.startsWith('<') &&
-                valueWithoutAmpersand.includes('.rules>')) ||
+            (valueWithoutAmpersand.startsWith('<') && valueWithoutAmpersand.includes('.rules>')) ||
             valueWithoutAmpersand.startsWith('..') ||
             valueWithoutAmpersand.startsWith('~') ||
             valueWithoutAmpersand.startsWith('/') ||
             valueWithoutAmpersand.search(/^[A-Za-z_]/) !== -1
         ) {
             const nextValue = valueWithoutAmpersand.substring(1);
-            if (
-                nextValue.includes('&') ||
-                nextValue.includes('<') ||
-                nextValue.includes('~') ||
-                nextValue.includes('^')
-            ) {
+            if (nextValue.includes('&') || nextValue.includes('<') || nextValue.includes('~')) {
                 return false;
             }
             return true;
@@ -36,8 +29,7 @@ export const isValidReference = (value: string) => {
             nextValue.includes(' ') ||
             nextValue.includes('<') ||
             nextValue.includes('~') ||
-            (!value.startsWith('^') && nextValue.startsWith('/')) ||
-            nextValue.includes('^')
+            (!value.startsWith('^') && nextValue.startsWith('/'))
         ) {
             return false;
         }

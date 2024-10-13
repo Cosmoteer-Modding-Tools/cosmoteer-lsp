@@ -13,6 +13,7 @@ import {
     InitializeResult,
     DocumentDiagnosticReportKind,
     type DocumentDiagnosticReport,
+    CancellationToken,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -29,6 +30,8 @@ import * as l10n from '@vscode/l10n';
 import { CosmoteerWorkspaceService } from './workspace/cosmoteer-workspace.service';
 import { ValidationForAssignment } from './validation/validator.assignment';
 import { ValidationForMath } from './validation/validator.math';
+import { CancellationError } from './utils/cancellation';
+import { WorkspaceTokenManager } from './workspace/token-manager';
 
 export const MAX_NUMBER_OF_PROBLEMS = 10;
 
@@ -43,6 +46,7 @@ CosmoteerWorkspaceService.instance.setConnection(connection);
 
 // Create a simple text document manager.
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
+const tokenSourceManager = new WorkspaceTokenManager();
 
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
@@ -53,12 +57,8 @@ connection.onInitialize(async (params: InitializeParams) => {
 
     // Does the client support the `workspace/configuration` request?
     // If not, we fall back using global settings.
-    hasConfigurationCapability = !!(
-        capabilities.workspace && !!capabilities.workspace.configuration
-    );
-    hasWorkspaceFolderCapability = !!(
-        capabilities.workspace && !!capabilities.workspace.workspaceFolders
-    );
+    hasConfigurationCapability = !!(capabilities.workspace && !!capabilities.workspace.configuration);
+    hasWorkspaceFolderCapability = !!(capabilities.workspace && !!capabilities.workspace.workspaceFolders);
     hasDiagnosticRelatedInformationCapability = !!(
         capabilities.textDocument &&
         capabilities.textDocument.publishDiagnostics &&
@@ -87,7 +87,7 @@ connection.onInitialize(async (params: InitializeParams) => {
     return result;
 });
 
-connection.onInitialized(async () => {
+connection.onInitialized(async (_params) => {
     Validator.instance.registerValidation(ValidationForValue);
     Validator.instance.registerValidation(ValidationForFunctionCall);
     Validator.instance.registerValidation(ValidationForAssignment);
@@ -99,49 +99,49 @@ connection.onInitialized(async () => {
             scopeUri: workspaceFolders[0].uri,
             section: 'cosmoteerLSPRules',
         })) as CosmoteerSettings;
-        globalSettings = settings;
-        if (settings.cosmoteerPath) {
+        globalSettings = settings ?? defaultSettings;
+        if (settings?.cosmoteerPath) {
             await CosmoteerWorkspaceService.instance.initialize(
                 settings.cosmoteerPath,
                 await connection.window.createWorkDoneProgress()
             );
         } else {
-            connection.window
-                .showErrorMessage(
-                    l10n.t(
-                        'Cosmoteer path not set, please set it in the extensions settings for Cosmoteer Rules Configuration. If you dont see this setting, than please restart vscode. This is required for the language server to work correctly.'
-                    ),
-                    {
-                        title: 'Open Settings',
-                        command: 'workbench.action.openSettings',
-                    }
-                )
-                .then(() => {
-                    connection.sendRequest('cosmoteer/openSettings', {
-                        items: [
-                            {
-                                scopeUri: workspaceFolders[0].uri,
-                                section: 'cosmoteerLSPRules',
-                            },
-                        ],
+            if (
+                !(await CosmoteerWorkspaceService.instance.initializeWithoutPath(
+                    await connection.window.createWorkDoneProgress()
+                ))
+            )
+                connection.window
+                    .showErrorMessage(
+                        l10n.t(
+                            'Cosmoteer path not set, please set it in the extensions settings for Cosmoteer Rules Configuration. If you dont see this setting, than please restart vscode. This is required for the language server to work correctly.'
+                        ),
+                        {
+                            title: 'Open Settings',
+                            command: 'workbench.action.openSettings',
+                        }
+                    )
+                    .then(() => {
+                        connection.sendRequest('cosmoteer/openSettings', {
+                            items: [
+                                {
+                                    scopeUri: workspaceFolders[0].uri,
+                                    section: 'cosmoteerLSPRules',
+                                },
+                            ],
+                        });
                     });
-                });
         }
     }
 
     if (hasConfigurationCapability) {
         // Register for all configuration changes.
-        connection.client.register(
-            DidChangeConfigurationNotification.type,
-            undefined
-        );
+        connection.client.register(DidChangeConfigurationNotification.type, undefined);
     }
     if (hasWorkspaceFolderCapability) {
         connection.workspace.onDidChangeWorkspaceFolders((_event) => {
             if (globalSettings.trace.server === 'verbose') {
-                connection.console.log(
-                    'Workspace folder change event received.'
-                );
+                connection.console.log('Workspace folder change event received.');
             }
         });
     }
@@ -183,22 +183,17 @@ connection.onDidChangeConfiguration(async (change) => {
         documentSettings.clear();
     }
     if (change.settings?.cosmoteerLSPRules)
-        globalSettings = <CosmoteerSettings>(
-            (change.settings?.cosmoteerLSPRules || defaultSettings)
-        );
+        globalSettings = <CosmoteerSettings>(change.settings?.cosmoteerLSPRules || defaultSettings);
     const workspaceFolders = await connection.workspace.getWorkspaceFolders();
-    if (
-        (change.settings?.cosmoteerLSPRules as CosmoteerSettings)
-            ?.cosmoteerPath &&
-        workspaceFolders
-    ) {
-        CosmoteerWorkspaceService.instance.initialize(
+    if ((change.settings?.cosmoteerLSPRules as CosmoteerSettings)?.cosmoteerPath && workspaceFolders) {
+        const workDoneProgress = await connection.window.createWorkDoneProgress();
+        workDoneProgress.begin('Initializing workspace', 0, 'Initializing workspace', false);
+        await CosmoteerWorkspaceService.instance.initialize(
             change.settings.cosmoteerLSPRules.cosmoteerPath,
-            await connection.window.createWorkDoneProgress()
+            workDoneProgress
         );
     }
-    if (change.settings?.cosmoteerLSPRules !== defaultSettings)
-        connection.languages.diagnostics.refresh();
+    if (change.settings?.cosmoteerLSPRules !== defaultSettings) connection.languages.diagnostics.refresh();
 });
 
 function getDocumentSettings(resource: string): Thenable<CosmoteerSettings> {
@@ -221,12 +216,45 @@ documents.onDidClose((e) => {
     documentSettings.delete(e.document.uri);
 });
 
-connection.languages.diagnostics.on(async (params) => {
+documents.onDidOpen(
+    async (e) => {
+        try {
+            await connection.sendDiagnostics({
+                uri: e.document.uri,
+                version: e.document.version,
+                diagnostics: await validateTextDocument(e.document, tokenSourceManager.createToken(e.document.uri)),
+            });
+        } catch (e) {
+            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        }
+    },
+    null,
+    [tokenSourceManager]
+);
+
+documents.onDidChangeContent(
+    async (e) => {
+        try {
+            await connection.sendDiagnostics({
+                uri: e.document.uri,
+                version: e.document.version,
+                diagnostics: await validateTextDocument(e.document, tokenSourceManager.createToken(e.document.uri)),
+            });
+        } catch (e) {
+            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        }
+    },
+    null,
+    [tokenSourceManager]
+);
+
+connection.languages.diagnostics.on(async (params, cancelToken) => {
     const document = documents.get(params.textDocument.uri);
+    tokenSourceManager.cancelToken(params.textDocument.uri);
     if (document !== undefined) {
         return {
             kind: DocumentDiagnosticReportKind.Full,
-            items: await validateTextDocument(document),
+            items: await validateTextDocument(document, cancelToken),
             resultId: params.textDocument.uri,
         } satisfies DocumentDiagnosticReport;
     } else {
@@ -239,29 +267,19 @@ connection.languages.diagnostics.on(async (params) => {
     }
 });
 
-async function validateTextDocument(
-    textDocument: TextDocument
-): Promise<Diagnostic[]> {
+async function validateTextDocument(textDocument: TextDocument, cancelToken: CancellationToken): Promise<Diagnostic[]> {
     const settings = await getDocumentSettings(textDocument.uri);
     const text = textDocument.getText();
     const tokens = lexer(text);
+    if (cancelToken.isCancellationRequested) return [];
     const parserResult = parser(tokens, textDocument.uri);
+    if (cancelToken.isCancellationRequested) return [];
     if (settings.trace.server === 'verbose') {
         console.dir(parserResult);
     }
     let problems = 0;
     const diagnostics: Diagnostic[] = [];
-
-    ParserResultRegistrar.instance.setResult(
-        textDocument.uri,
-        parserResult.value
-    );
-
-    const pormises: Promise<ValidationError[]>[] = [];
-    for (const node of parserResult.value.elements) {
-        pormises.push(Validator.instance.validate(node));
-    }
-    const validationErrors = (await Promise.all(pormises)).flat();
+    ParserResultRegistrar.instance.setResult(textDocument.uri, parserResult.value);
 
     for (const error of parserResult.parserErrors) {
         problems++;
@@ -270,17 +288,12 @@ async function validateTextDocument(
             severity: DiagnosticSeverity.Error,
             range: {
                 start: textDocument.positionAt(error.token.start),
-                end: textDocument.positionAt(
-                    error.token.end ?? error.token.start
-                ),
+                end: textDocument.positionAt(error.token.end ?? error.token.start),
             },
             message: error.message,
             source: 'cosmoteer-language-server',
         };
-        if (
-            hasDiagnosticRelatedInformationCapability &&
-            error.addditionalInfo
-        ) {
+        if (hasDiagnosticRelatedInformationCapability && error.addditionalInfo) {
             for (const info of error.addditionalInfo) {
                 diagnostic.relatedInformation = [
                     {
@@ -295,6 +308,19 @@ async function validateTextDocument(
         }
         diagnostics.push(diagnostic);
     }
+
+    let validationErrors: ValidationError[] = [];
+    try {
+        const pormises: Promise<ValidationError[]>[] = [];
+
+        for (const node of parserResult.value.elements) {
+            pormises.push(Validator.instance.validate(node, cancelToken));
+        }
+        validationErrors = (await Promise.all(pormises).catch(() => [])).flat();
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+    }
+
     for (const error of validationErrors) {
         problems++;
         if (problems > settings.maxNumberOfProblems) break;
@@ -307,10 +333,7 @@ async function validateTextDocument(
             message: error.message,
             source: 'cosmoteer-language-server',
         };
-        if (
-            hasDiagnosticRelatedInformationCapability &&
-            error.addditionalInfo
-        ) {
+        if (hasDiagnosticRelatedInformationCapability && error.addditionalInfo) {
             diagnostic.relatedInformation = [
                 {
                     location: {
@@ -326,29 +349,18 @@ async function validateTextDocument(
     return diagnostics;
 }
 
-connection.onDidChangeWatchedFiles((_change) => {
-    // Monitored files have change in VSCode
-    if (globalSettings.trace.server === 'verbose') {
-        connection.console.log('We received a file change event');
-    }
-});
-
 // This handler provides the initial list of the completion items.
 connection.onCompletion(
-    (textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
-        const parserResult = ParserResultRegistrar.instance.getResult(
-            textDocumentPosition.textDocument.uri
-        );
+    async (textDocumentPosition: TextDocumentPositionParams, cancellationToken): Promise<CompletionItem[]> => {
+        const parserResult = ParserResultRegistrar.instance.getResult(textDocumentPosition.textDocument.uri);
         let completions: string[] = [];
-        if (parserResult) {
-            const node = findNodeAtPosition(
-                parserResult,
-                textDocumentPosition?.position
-            );
-            if (node) {
-                completions =
-                    AutoCompletionService.instance.getCompletions(node);
-            }
+        try {
+            if (!parserResult) return [];
+            const node = findNodeAtPosition(parserResult, textDocumentPosition?.position);
+            if (!node) return [];
+            completions = await AutoCompletionService.instance.getCompletions(node, cancellationToken).catch(() => []);
+        } catch (e) {
+            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
         }
         return completions.map<CompletionItem>((completion) => ({
             label: completion,
@@ -362,7 +374,6 @@ connection.onCompletion(
 connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
     return item;
 });
-
 
 // Make the text document manager listen on the connection
 // for open, change and close text document events

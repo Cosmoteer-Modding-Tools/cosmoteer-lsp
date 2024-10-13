@@ -1,24 +1,15 @@
 import * as path from 'path';
 import { workspace, ExtensionContext, l10n, commands } from 'vscode';
 
-import {
-    LanguageClient,
-    LanguageClientOptions,
-    ServerOptions,
-    TransportKind,
-} from 'vscode-languageclient/node';
+import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 
 let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
     // The server is implemented in node
-    const serverModule = context.asAbsolutePath(
-        path.join('out', 'server', 'src', 'server.js')
-    );
+    const serverModule = context.asAbsolutePath(path.join('out', 'server', 'src', 'server.js'));
 
-    const bundle = l10n.uri
-        ? { EXTENSION_BUNDLE_PATH: l10n.uri?.fsPath }
-        : undefined;
+    const bundle = l10n.uri ? { EXTENSION_BUNDLE_PATH: l10n.uri?.fsPath } : undefined;
 
     const serverOptions: ServerOptions = {
         run: {
@@ -51,12 +42,7 @@ export function activate(context: ExtensionContext) {
         progressOnInitialization: true,
     };
 
-    client = new LanguageClient(
-        'cosmoteer lsp',
-        'Cosmoteer Language Server',
-        serverOptions,
-        clientOptions
-    );
+    client = new LanguageClient('cosmoteer lsp', 'Cosmoteer Language Server', serverOptions, clientOptions);
 
     client.onRequest('cosmoteer/openSettings', async (params) => {
         await commands.executeCommand('workbench.action.openSettings2', params);

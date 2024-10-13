@@ -1,3 +1,5 @@
+import { globalSettings } from '../server';
+
 export const lexer = (input: string): Token[] => {
     let current = 0;
     let lineNumber = 0;
@@ -39,156 +41,67 @@ export const lexer = (input: string): Token[] => {
         }
 
         if (char === '{') {
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.LEFT_BRACE,
-                    lineOffset++,
-                    lineNumber,
-                    current,
-                    current + 1
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.LEFT_BRACE, lineOffset++, lineNumber, current, current + 1));
             current++;
             continue;
         }
 
         if (char === '}') {
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.RIGHT_BRACE,
-                    lineOffset++,
-                    lineNumber,
-                    current,
-                    current + 1
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.RIGHT_BRACE, lineOffset++, lineNumber, current, current + 1));
             current++;
             continue;
         }
 
         if (char === '[') {
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.LEFT_BRACKET,
-                    lineOffset++,
-                    lineNumber,
-                    current,
-                    current + 1
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.LEFT_BRACKET, lineOffset++, lineNumber, current, current + 1));
             current++;
             continue;
         }
 
         if (char === ']') {
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.RIGHT_BRACKET,
-                    lineOffset++,
-                    lineNumber,
-                    current,
-                    current + 1
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.RIGHT_BRACKET, lineOffset++, lineNumber, current, current + 1));
             current++;
             continue;
         }
 
         if (char === ':') {
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.COLON,
-                    lineOffset++,
-                    lineNumber,
-                    current,
-                    current + 1
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.COLON, lineOffset++, lineNumber, current, current + 1));
             current++;
             continue;
         }
 
         if (char === ',') {
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.COMMA,
-                    lineOffset++,
-                    lineNumber,
-                    current,
-                    current + 1
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.COMMA, lineOffset++, lineNumber, current, current + 1));
             current++;
             continue;
         }
 
         if (char === '=') {
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.EQUALS,
-                    lineOffset++,
-                    lineNumber,
-                    current,
-                    current + 1
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.EQUALS, lineOffset++, lineNumber, current, current + 1));
             current++;
             continue;
         }
 
         if (char === ';') {
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.SEMICOLON,
-                    lineOffset++,
-                    lineNumber,
-                    current,
-                    current + 1
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.SEMICOLON, lineOffset++, lineNumber, current, current + 1));
             current++;
             continue;
         }
 
         if (char === '+' || char === '-' || char === '*' || char === '/') {
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.EXPRESSION,
-                    lineOffset++,
-                    lineNumber,
-                    current,
-                    current + 1,
-                    char
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.EXPRESSION, lineOffset++, lineNumber, current, current + 1, char));
             current++;
             continue;
         }
 
         if (char === '(') {
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.LEFT_PAREN,
-                    lineOffset++,
-                    lineNumber,
-                    current,
-                    current + 1
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.LEFT_PAREN, lineOffset++, lineNumber, current, current + 1));
             current++;
             continue;
         }
 
         if (char === ')') {
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.RIGHT_PAREN,
-                    lineOffset++,
-                    lineNumber,
-                    current,
-                    current + 1
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.RIGHT_PAREN, lineOffset++, lineNumber, current, current + 1));
             current++;
             continue;
         }
@@ -220,34 +133,12 @@ export const lexer = (input: string): Token[] => {
             }
             char = input[++current];
             lineOffset++;
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.STRING,
-                    lineOffsetBefore,
-                    lineNumber,
-                    start,
-                    current,
-                    value
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.STRING, lineOffsetBefore, lineNumber, start, current, value));
             continue;
         }
 
-        if (
-            char === 't' &&
-            input[current + 1] === 'r' &&
-            input[current + 2] === 'u' &&
-            input[current + 3] === 'e'
-        ) {
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.TRUE,
-                    lineOffset,
-                    lineNumber,
-                    current,
-                    current + 4
-                )
-            );
+        if (char === 't' && input[current + 1] === 'r' && input[current + 2] === 'u' && input[current + 3] === 'e') {
+            tokens.push(createToken(TOKEN_TYPES.TRUE, lineOffset, lineNumber, current, current + 4));
             lineOffset += 4;
             current += 4;
             continue;
@@ -260,15 +151,7 @@ export const lexer = (input: string): Token[] => {
             input[current + 3] === 's' &&
             input[current + 4] === 'e'
         ) {
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.FALSE,
-                    lineOffset,
-                    lineNumber,
-                    current,
-                    current + 4
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.FALSE, lineOffset, lineNumber, current, current + 4));
             lineOffset += 5;
             current += 5;
             continue;
@@ -296,43 +179,16 @@ export const lexer = (input: string): Token[] => {
                 if (current >= input.length) break;
             }
             value = value.trim();
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.VALUE,
-                    lineOffsetBefore,
-                    lineNumber,
-                    start,
-                    current,
-                    value
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.VALUE, lineOffsetBefore, lineNumber, start, current, value));
             continue;
         }
         if (char === '\\') {
-            tokens.push(
-                createToken(
-                    TOKEN_TYPES.STRING_DELIMITER,
-                    lineOffset,
-                    lineNumber,
-                    current,
-                    current + 1,
-                    char
-                )
-            );
+            tokens.push(createToken(TOKEN_TYPES.STRING_DELIMITER, lineOffset, lineNumber, current, current + 1, char));
             current++;
             continue;
         }
-        console.warn('unexcpected', char);
-        tokens.push(
-            createToken(
-                TOKEN_TYPES.UNEXPECTED,
-                lineOffset,
-                lineNumber,
-                current,
-                current + 1,
-                char
-            )
-        );
+        if (globalSettings.trace.server !== 'off') console.warn('unexcpected', char);
+        tokens.push(createToken(TOKEN_TYPES.UNEXPECTED, lineOffset, lineNumber, current, current + 1, char));
         current++;
     }
 
@@ -404,10 +260,6 @@ const isSingleLineComment = (char: string, input: string, current: number) => {
     return char === '/' && input[current + 1] === '/';
 };
 
-const isStartOfMultiLineComment = (
-    char: string,
-    input: string,
-    current: number
-) => {
+const isStartOfMultiLineComment = (char: string, input: string, current: number) => {
     return char === '/' && input[current + 1] === '*';
 };

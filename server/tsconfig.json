@@ -9,6 +9,7 @@
         "outDir": "../out/server",
         "rootDir": "src",
         "incremental": true,
+        "esModuleInterop": true,
         "tsBuildInfoFile": "../out/tsbuildinfo.json"
     },
     "include": ["src"],

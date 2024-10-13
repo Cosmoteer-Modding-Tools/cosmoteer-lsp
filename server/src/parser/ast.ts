@@ -85,12 +85,7 @@ export interface AssignmentNode extends AbstractNode {
     type: 'Assignment';
     assignmentType: 'Equals' | 'Colon';
     left: IdentifierNode;
-    right:
-        | ArrayNode
-        | ValueNode
-        | ObjectNode
-        | FunctionCallNode
-        | MathExpressionNode;
+    right: ArrayNode | ValueNode | ObjectNode | FunctionCallNode | MathExpressionNode;
 }
 
 export interface MathExpressionNode extends AbstractNode {
@@ -114,9 +109,7 @@ export const isArrayNode = (astNode: AbstractNode): astNode is ArrayNode => {
     return astNode.type === 'Array';
 };
 
-export const isIdentifierNode = (
-    astNode: AbstractNode
-): astNode is IdentifierNode => {
+export const isIdentifierNode = (astNode: AbstractNode): astNode is IdentifierNode => {
     return astNode.type === 'Identifier';
 };
 
@@ -124,33 +117,23 @@ export const isValueNode = (astNode: AbstractNode): astNode is ValueNode => {
     return astNode.type === 'Value';
 };
 
-export const isExpressionNode = (
-    astNode: AbstractNode
-): astNode is ExpressionNode => {
+export const isExpressionNode = (astNode: AbstractNode): astNode is ExpressionNode => {
     return astNode.type === 'Expression';
 };
 
-export const isFunctionCallNode = (
-    astNode: AbstractNode
-): astNode is FunctionCallNode => {
+export const isFunctionCallNode = (astNode: AbstractNode): astNode is FunctionCallNode => {
     return astNode.type === 'FunctionCall';
 };
 
-export const isAssignmentNode = (
-    astNode: AbstractNode
-): astNode is AssignmentNode => {
+export const isAssignmentNode = (astNode: AbstractNode): astNode is AssignmentNode => {
     return astNode.type === 'Assignment';
 };
 
-export const isDocumentNode = (
-    astNode: AbstractNode
-): astNode is AbstractNodeDocument => {
+export const isDocumentNode = (astNode: AbstractNode): astNode is AbstractNodeDocument => {
     return astNode.type === 'Document';
 };
 
-export const isMathExpressionNode = (
-    astNode: AbstractNode
-): astNode is MathExpressionNode => {
+export const isMathExpressionNode = (astNode: AbstractNode): astNode is MathExpressionNode => {
     return astNode.type === 'MathExpression';
 };
 

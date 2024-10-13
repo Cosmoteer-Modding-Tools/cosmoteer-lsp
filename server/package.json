@@ -14,9 +14,13 @@
     "dependencies": {
         "@vscode/l10n": "^0.0.18",
         "vscode-languageserver": "^9.0.1",
-        "vscode-languageserver-textdocument": "^1.0.12"
+        "vscode-languageserver-textdocument": "^1.0.12",
+        "winreg": "^1.2.5"
     },
     "scripts": {
         "fix": "eslint --fix ."
+    },
+    "devDependencies": {
+        "@types/winreg": "^1.2.36"
     }
 }
