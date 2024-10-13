@@ -14,14 +14,16 @@ export let platformEol: string;
 /**
  * Activates the vscode.lsp-sample extension
  */
-export async function activate(docUri: vscode.Uri) {
+export async function activate(docUri: vscode.Uri, timeout = 2_000) {
     // The extensionId is `publisher.name` from package.json
     const ext = vscode.extensions.getExtension('TrustNoOneElse.cosmoteer-language-server');
-    await ext.activate();
+    if (!ext.isActive) {
+        await ext.activate();
+    }
     try {
         doc = await vscode.workspace.openTextDocument(docUri);
         editor = await vscode.window.showTextDocument(doc);
-        await sleep(7_000); // Wait for init
+        await sleep(timeout); // Wait for init
     } catch (e) {
         console.error(e);
     }

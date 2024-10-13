@@ -178,8 +178,18 @@ export const lexer = (input: string): Token[] => {
                 lineOffset++;
                 if (current >= input.length) break;
             }
+            const untrimmedValue = value;
             value = value.trim();
-            tokens.push(createToken(TOKEN_TYPES.VALUE, lineOffsetBefore, lineNumber, start, current, value));
+            tokens.push(
+                createToken(
+                    TOKEN_TYPES.VALUE,
+                    lineOffsetBefore,
+                    lineNumber,
+                    start,
+                    current - (untrimmedValue.length - value.length),
+                    value
+                )
+            );
             continue;
         }
         if (char === '\\') {
