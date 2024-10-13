@@ -11,10 +11,10 @@ suite('Should get diagnostics', () => {
     test('Diagnoses inheritances', async () => {
         await testDiagnostics(getDocUri('diagnostics_inheritance.rules'), [
             {
-                message: 'ANY is all uppercase.',
-                range: toRange(0, 0, 0, 3),
+                message: 'Expected reference value after reference value but found Number',
+                range: toRange(0, 7, 0, 12),
                 severity: vscode.DiagnosticSeverity.Error,
-                source: 'ex',
+                source: 'cosmoteer-language-server',
             },
         ]);
     });
@@ -38,5 +38,6 @@ async function testDiagnostics(docUri: vscode.Uri, expectedDiagnostics: vscode.D
         assert.equal(actualDiagnostic.message, expectedDiagnostic.message);
         assert.deepEqual(actualDiagnostic.range, expectedDiagnostic.range);
         assert.equal(actualDiagnostic.severity, expectedDiagnostic.severity);
+        assert.equal(actualDiagnostic.source, expectedDiagnostic.source);
     });
 }
