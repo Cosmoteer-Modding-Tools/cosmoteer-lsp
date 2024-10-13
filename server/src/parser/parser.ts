@@ -601,11 +601,21 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     } as ValueNode);
                 }
                 if (isValueNode(nextNode)) {
-                    inheritanceNodes.push(nextNode as ValueNode);
+                    if (nextNode.valueType.type === 'Reference') {
+                        inheritanceNodes.push(nextNode as ValueNode);
+                    } else {
+                        errors.push({
+                            message: l10n.t(
+                                'Expected reference value after reference value but found {0}',
+                                nextNode.valueType.type
+                            ),
+                            token: tokens[current - 1],
+                        } as ParserError);
+                    }
                 } else {
                     errors.push({
                         message: l10n.t('Expected reference value after reference value but found {0}', nextNode.type),
-                        token: tokens[current],
+                        token: tokens[current - 1],
                     } as ParserError);
                 }
                 if (tokens[current] === undefined) {
@@ -740,7 +750,8 @@ function inferValueType(IS_NUMBER: RegExp, token: Token): ValueNodeTypes {
         token.value.startsWith('..') ||
         token.value.startsWith('/') ||
         token.value.startsWith('~') ||
-        (token.value.startsWith('<') && token.value.includes('.rules'))
+        (token.value.startsWith('<') && token.value.includes('.rules')) ||
+        (token.value.startsWith('<') && !token.value.includes('>'))
     ) {
         return {
             type: 'Reference',

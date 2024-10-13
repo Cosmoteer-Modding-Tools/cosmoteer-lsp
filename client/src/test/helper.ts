@@ -16,12 +16,12 @@ export let platformEol: string;
  */
 export async function activate(docUri: vscode.Uri) {
     // The extensionId is `publisher.name` from package.json
-    const ext = vscode.extensions.getExtension('vscode-samples.lsp-sample')!;
+    const ext = vscode.extensions.getExtension('TrustNoOneElse.cosmoteer-language-server');
     await ext.activate();
     try {
         doc = await vscode.workspace.openTextDocument(docUri);
         editor = await vscode.window.showTextDocument(doc);
-        await sleep(2000); // Wait for server activation
+        await sleep(7_000); // Wait for init
     } catch (e) {
         console.error(e);
     }
@@ -32,7 +32,7 @@ async function sleep(ms: number) {
 }
 
 export const getDocPath = (p: string) => {
-    return path.resolve(__dirname, '../../testFixture', p);
+    return path.resolve(__dirname, '../../client/testFixture', p);
 };
 export const getDocUri = (p: string) => {
     return vscode.Uri.file(getDocPath(p));

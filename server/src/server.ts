@@ -69,6 +69,7 @@ connection.onInitialize(async (params: InitializeParams) => {
             textDocumentSync: TextDocumentSyncKind.Full,
             completionProvider: {
                 resolveProvider: true,
+                triggerCharacters: ['<', '&', '/', '^', '~', '..'],
             },
             diagnosticProvider: {
                 interFileDependencies: true,
@@ -346,6 +347,7 @@ async function validateTextDocument(textDocument: TextDocument, cancelToken: Can
         }
         diagnostics.push(diagnostic);
     }
+    if (cancelToken.isCancellationRequested) return [];
     return diagnostics;
 }
 

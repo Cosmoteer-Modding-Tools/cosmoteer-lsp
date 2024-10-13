@@ -2,29 +2,55 @@ import { context } from 'esbuild';
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
+const test = process.argv.includes('--test');
 
 async function main() {
-    const ctx = await context({
-        entryPoints: ['client/src/extension.ts', 'server/src/server.ts'],
-        bundle: true,
-        format: 'cjs',
-        minify: production,
-        sourcemap: !production,
-        sourcesContent: false,
-        platform: 'node',
-        outdir: 'out',
-        external: ['vscode'],
-        logLevel: 'silent',
-        plugins: [
-            /* add to the end of plugins array */
-            esbuildProblemMatcherPlugin,
-        ],
-    });
-    if (watch) {
-        await ctx.watch();
+    if (!test) {
+        const ctx = await context({
+            entryPoints: ['client/src/extension.ts', 'server/src/server.ts'],
+            bundle: true,
+            format: 'cjs',
+            minify: production,
+            sourcemap: !production,
+            sourcesContent: false,
+            platform: 'node',
+            outdir: 'out',
+            external: ['vscode'],
+            logLevel: 'silent',
+            plugins: [
+                /* add to the end of plugins array */
+                esbuildProblemMatcherPlugin,
+            ],
+        });
+        if (watch) {
+            await ctx.watch();
+        } else {
+            await ctx.rebuild();
+            await ctx.dispose();
+        }
     } else {
-        await ctx.rebuild();
-        await ctx.dispose();
+        console.log('Compiling tests...');
+        const testCtx = await context({
+            entryPoints: ['client/src/test/**/*.ts'],
+            bundle: false,
+            format: 'cjs',
+            minify: production,
+            sourcemap: !production,
+            sourcesContent: false,
+            platform: 'node',
+            outdir: 'out/test',
+            logLevel: 'debug',
+            plugins: [
+                /* add to the end of plugins array */
+                esbuildProblemMatcherPlugin,
+            ],
+        });
+        if (watch) {
+            await testCtx.watch();
+        } else {
+            await testCtx.rebuild();
+            await testCtx.dispose();
+        }
     }
 }
 
