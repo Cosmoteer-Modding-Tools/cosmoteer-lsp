@@ -5,7 +5,7 @@ import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } f
 
 let client: LanguageClient;
 
-export function activate(context: ExtensionContext) {
+export async function activate(context: ExtensionContext) {
     // The server is implemented in node
     const serverModule = context.asAbsolutePath(path.join('out', 'server', 'src', 'server.js'));
 
@@ -48,7 +48,7 @@ export function activate(context: ExtensionContext) {
         await commands.executeCommand('workbench.action.openSettings2', params);
     });
 
-    client.start();
+    return client.start();
 }
 
 export function deactivate(): Thenable<void> | undefined {

@@ -140,20 +140,18 @@ const traversePath = async (
 const traverseOwnPath = async (parts: string[], node: AbstractNode, cancellationToken: CancellationToken) => {
     const currentLocation = getStartOfAstNode(node).uri;
     if (parts.some((part) => part.endsWith('.rules>'))) {
+        const indexOfRules = parts.findIndex((part) => part.endsWith('.rules>'));
         const ownPath = join(
             filePathToDirectoryPath(currentLocation),
             parts
-                .slice(
-                    0,
-                    parts.findIndex((part) => part.endsWith('.rules'))
-                )
+                .slice(0, indexOfRules === 0 ? 1 : indexOfRules)
                 .join('/')
                 .replaceAll(/[<>]/g, EMPTY_STRING)
         );
         if (cancellationToken.isCancellationRequested) throw new CancellationError();
         const nextNode = await parseFilePath(ownPath, cancellationToken);
         return await traversePath(
-            parts.slice(parts.findIndex((part) => part.endsWith('.rules'))).join('/'),
+            parts.slice(indexOfRules === 0 ? 1 : indexOfRules).join('/'),
             nextNode,
             cancellationToken
         );
@@ -294,12 +292,9 @@ const traverseReferencePath = async (parts: string[], node: AbstractNode, cancel
         ) {
             const value = (isValueNode(currentNode) ? currentNode : currentNode.right) as ValueNode;
             if (value.valueType.type !== 'Reference') return [];
-            const node = await navigation.navigate(
-                value.valueType.value,
-                currentNode,
-                getStartOfAstNode(currentNode).uri,
-                cancellationToken
-            );
+            const node = await navigation
+                .navigate(value.valueType.value, currentNode, getStartOfAstNode(currentNode).uri, cancellationToken)
+                .catch(() => undefined);
             if (node?.type === 'File') {
                 if (cancellationToken.isCancellationRequested) throw new CancellationError();
                 const parsedDocument = await parseFile(node);

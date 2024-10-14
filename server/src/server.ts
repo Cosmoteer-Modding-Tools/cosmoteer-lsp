@@ -14,6 +14,7 @@ import {
     DocumentDiagnosticReportKind,
     type DocumentDiagnosticReport,
     CancellationToken,
+    FullDocumentDiagnosticReport,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -69,6 +70,7 @@ connection.onInitialize(async (params: InitializeParams) => {
             textDocumentSync: TextDocumentSyncKind.Full,
             completionProvider: {
                 resolveProvider: true,
+                triggerCharacters: ['<', '&', '/', '^', '~', '..'],
             },
             diagnosticProvider: {
                 interFileDependencies: true,
@@ -212,33 +214,39 @@ function getDocumentSettings(resource: string): Thenable<CosmoteerSettings> {
 }
 
 // Only keep settings for open documents
-documents.onDidClose((e) => {
+documents.onDidClose(async (e) => {
     documentSettings.delete(e.document.uri);
+    await connection.sendDiagnostics({
+        uri: e.document.uri,
+        version: e.document.version,
+        diagnostics: [],
+    });
 });
 
-documents.onDidOpen(
-    async (e) => {
-        try {
-            await connection.sendDiagnostics({
-                uri: e.document.uri,
-                version: e.document.version,
-                diagnostics: await validateTextDocument(e.document, tokenSourceManager.createToken(e.document.uri)),
-            });
-        } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
-        }
-    },
-    null,
-    [tokenSourceManager]
-);
+// documents.onDidOpen(
+//     async (e) => {
+//         try {
+//             await connection.sendDiagnostics({
+//                 uri: e.document.uri,
+//                 version: e.document.version,
+//                 diagnostics: await validateTextDocument(e.document, tokenSourceManager.createToken(e.document.uri)),
+//             });
+//         } catch (e) {
+//             if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+//         }
+//     },
+//     null,
+//     [tokenSourceManager]
+// );
 
 documents.onDidChangeContent(
     async (e) => {
         try {
+            const diagnostics = await validateTextDocument(e.document, tokenSourceManager.createToken(e.document.uri));
             await connection.sendDiagnostics({
                 uri: e.document.uri,
                 version: e.document.version,
-                diagnostics: await validateTextDocument(e.document, tokenSourceManager.createToken(e.document.uri)),
+                diagnostics: diagnostics,
             });
         } catch (e) {
             if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
@@ -251,12 +259,17 @@ documents.onDidChangeContent(
 connection.languages.diagnostics.on(async (params, cancelToken) => {
     const document = documents.get(params.textDocument.uri);
     tokenSourceManager.cancelToken(params.textDocument.uri);
+    // clean previous diagnostics
+    await connection.sendDiagnostics({
+        uri: params.textDocument.uri,
+        version: document?.version ?? 0,
+        diagnostics: [],
+    });
     if (document !== undefined) {
         return {
             kind: DocumentDiagnosticReportKind.Full,
             items: await validateTextDocument(document, cancelToken),
-            resultId: params.textDocument.uri,
-        } satisfies DocumentDiagnosticReport;
+        } satisfies FullDocumentDiagnosticReport;
     } else {
         // We don't know the document. We can either try to read it from disk
         // or we don't report problems for it.
@@ -346,6 +359,7 @@ async function validateTextDocument(textDocument: TextDocument, cancelToken: Can
         }
         diagnostics.push(diagnostic);
     }
+    if (cancelToken.isCancellationRequested) return [];
     return diagnostics;
 }
 

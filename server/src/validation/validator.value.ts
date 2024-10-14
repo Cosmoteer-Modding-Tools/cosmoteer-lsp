@@ -44,7 +44,11 @@ const checkAssets = async (node: ValueNode) => {
                 addditionalInfo: l10n.t('Assets should be quoted with ""'),
             };
         }
-        if (await assetsNavigationStrategy.navigate(node.valueType.value, node, getStartOfAstNode(node).uri)) {
+        if (
+            await assetsNavigationStrategy
+                .navigate(node.valueType.value, node, getStartOfAstNode(node).uri)
+                .catch(() => true)
+        ) {
             return undefined;
         } else {
             return {
@@ -70,13 +74,15 @@ const checkReference = async (node: ValueNode, cancellationToken: CancellationTo
             // Workaround for mod.rules which can contain references to other files and cosmoteer rules
             !getStartOfAstNode(node).uri.includes('mod.rules') &&
             !ignorePath(node.valueType.value) &&
-            (await rulesNavigationStrategy.navigate(
-                node.valueType.value,
-                // safe to assume that the parent is always an AbstractNode because otherwise it could't not be a inheritance
-                isInheritanceInSameFile(node) ? ((node.parent as AbstractNode).parent as AbstractNode) : node,
-                getStartOfAstNode(node).uri,
-                cancellationToken
-            )) === null
+            (await rulesNavigationStrategy
+                .navigate(
+                    node.valueType.value,
+                    // safe to assume that the parent is always an AbstractNode because otherwise it could't not be a inheritance
+                    isInheritanceInSameFile(node) ? ((node.parent as AbstractNode).parent as AbstractNode) : node,
+                    getStartOfAstNode(node).uri,
+                    cancellationToken
+                )
+                .catch(() => undefined)) === null
         ) {
             return {
                 message: l10n.t('Reference name is not known'),
