@@ -55,7 +55,7 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
             promise = this.navigateReference(path, startNode, cancellationToken);
         }
         if (cancellationToken.isCancellationRequested) throw new CancellationError();
-        return await promise;
+        return await promise.catch(() => null);
     }
 
     navigateReference = async (
@@ -81,7 +81,7 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
                     (isObjectNode(lastNode.parent) || isArrayNode(lastNode.parent)) &&
                     lastNode.parent.inheritance
                 ) {
-                    await this.addInhertinaceToNode(lastNode.parent, 0, cancellationToken);
+                    await this.addInhertinaceToNode(lastNode.parent, 0, cancellationToken).catch(() => {});
                     node = this.navigateReferenceRecursive(substring, lastNode.parent);
                 } else if (
                     lastNode &&
@@ -89,7 +89,7 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
                     lastNode.inheritance &&
                     !lastNode.inheritance.some((v) => v.valueType.value === substring)
                 ) {
-                    await this.addInhertinaceToNode(lastNode, 0, cancellationToken);
+                    await this.addInhertinaceToNode(lastNode, 0, cancellationToken).catch(() => {});
                     node = this.navigateReferenceRecursive(substring, lastNode);
                 }
                 if (!node) return null;
@@ -107,7 +107,7 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
                     node,
                     getStartOfAstNode(node).uri,
                     cancellationToken
-                );
+                ).catch(() => null);
                 if (!nextNode || isFile(nextNode as unknown as FileTree)) return null;
                 node = nextNode as AbstractNode;
             }
@@ -131,7 +131,7 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
                     document,
                     document.uri,
                     cancellationToken
-                );
+                ).catch(() => null);
             }
             return file;
         } else {
@@ -183,7 +183,7 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
                                     parsed,
                                     dirent.parentPath,
                                     cancellationToken
-                                );
+                                ).catch(() => null);
                             }
                             return parsed;
                         } else if (dirent.isDirectory()) {
@@ -250,7 +250,7 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
             comsoteerRules.content.parsedDocument,
             comsoteerRules.path,
             cancellationToken
-        );
+        ).catch(() => null);
     };
 
     addInhertinaceToNode = async (
@@ -264,7 +264,12 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         for (const inheritance of node.inheritance) {
             if (inheritance.valueType.type === 'Reference') {
                 promises.push(
-                    this.navigate(inheritance.valueType.value, node, getStartOfAstNode(node).uri, cancellationToken)
+                    this.navigate(
+                        inheritance.valueType.value,
+                        node,
+                        getStartOfAstNode(node).uri,
+                        cancellationToken
+                    ).catch(() => null)
                 );
             }
         }
@@ -273,7 +278,11 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         const filteredNodes = nodes.filter((n) => n !== null).filter((n) => n.type !== 'File') as AbstractNode[];
         for (const filteredNode of filteredNodes) {
             if ((isObjectNode(filteredNode) || isArrayNode(filteredNode)) && filteredNode.inheritance) {
-                promises.push(this.addInhertinaceToNode(filteredNode, recursiveProtection + 1, cancellationToken));
+                promises.push(
+                    this.addInhertinaceToNode(filteredNode, recursiveProtection + 1, cancellationToken).catch(
+                        () => null
+                    )
+                );
             }
         }
         if (cancellationToken.isCancellationRequested) throw new CancellationError();
@@ -311,7 +320,9 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         } else if (isAssignmentNode(node) && (isObjectNode(node.right) || isArrayNode(node.right))) {
             promises.push(this.addInhertinaceToNodeRecursive(node.right, document, promises, cancellationToken));
         } else if (isValueNode(node) && node.valueType.type === 'Reference') {
-            const toAdd = await this.navigate(node.valueType.value, node, document.uri, cancellationToken);
+            const toAdd = await this.navigate(node.valueType.value, node, document.uri, cancellationToken).catch(
+                () => null
+            );
             if (toAdd && toAdd?.type !== 'File' && (isObjectNode(toAdd) || isArrayNode(toAdd))) {
                 node.parent?.elements.push(...toAdd.elements);
             }
