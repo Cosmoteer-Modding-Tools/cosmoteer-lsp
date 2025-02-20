@@ -16,6 +16,13 @@ import org.jetbrains.plugins.textmate.TextMateService
 import org.jetbrains.plugins.textmate.configuration.TextMateUserBundlesSettings
 
 class CosmoteerLspServerDescriptor(project: Project) : ProjectWideLspServerDescriptor(project, "Cosmoteer Language Server") {
+    override val clientCapabilities: ClientCapabilities
+        get() = super.clientCapabilities.apply {
+            workspace = super.clientCapabilities.workspace.apply {
+                configuration = true
+            }
+        }
+
     override fun isSupportedFile(file: VirtualFile): Boolean {
         return file.extension == "rules"
     }
@@ -47,5 +54,28 @@ class CosmoteerLspServerDescriptor(project: Project) : ProjectWideLspServerDescr
         }
     }
 
+    override fun getWorkspaceConfiguration(item: ConfigurationItem): Any? {
+        // TODO: create plugin settings and return them here
+        return Configuration();
+    }
 
+    class Configuration
+    {
+        var maxNumberOfProblems : Int = 100
+        var trace : TraceConfiguration = TraceConfiguration()
+        var cosmoteerPath : String = ""
+        var ignorePaths : List<String> = emptyList()
+
+        class TraceConfiguration
+        {
+            var server : TraceLevel = TraceLevel.Off
+        }
+    }
+
+    enum class TraceLevel
+    {
+        Off,
+        Messages,
+        Verbose
+    }
 }
