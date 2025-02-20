@@ -10,6 +10,8 @@ import com.intellij.lang.javascript.service.JSLanguageServiceUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
+import org.eclipse.lsp4j.ClientCapabilities
+import org.eclipse.lsp4j.ConfigurationItem
 import org.jetbrains.plugins.textmate.TextMateService
 import org.jetbrains.plugins.textmate.configuration.TextMateUserBundlesSettings
 
@@ -20,6 +22,7 @@ class CosmoteerLspServerDescriptor(project: Project) : ProjectWideLspServerDescr
 
     override fun createCommandLine(): GeneralCommandLine {
         val textMateBundle = JSLanguageServiceUtil.getPluginDirectory(javaClass, "ressources/rules.tmBundle")
+            ?: throw Exception()
         TextMateUserBundlesSettings.getInstance()?.addBundle(textMateBundle.path, "rules")
         TextMateService.getInstance().reloadEnabledBundles();
         // start language server

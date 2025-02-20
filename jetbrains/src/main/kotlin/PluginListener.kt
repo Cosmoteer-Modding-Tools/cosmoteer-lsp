@@ -7,6 +7,7 @@ import org.jetbrains.plugins.textmate.configuration.TextMateUserBundlesSettings
 internal class PluginListener : DynamicPluginListener {
     override fun pluginLoaded(pluginDescriptor: IdeaPluginDescriptor) {
         val textMateBundle = JSLanguageServiceUtil.getPluginDirectory(javaClass, "ressources/rules.tmLanguage.json")
+            ?: throw Exception()
         println(textMateBundle.exists())
         TextMateUserBundlesSettings.getInstance()?.addBundle(textMateBundle.path, "rules")
         TextMateService.getInstance().reloadEnabledBundles();
@@ -14,6 +15,7 @@ internal class PluginListener : DynamicPluginListener {
 
     override fun pluginUnloaded(pluginDescriptor: IdeaPluginDescriptor, isUpdate: Boolean) {
         val textMateBundle = JSLanguageServiceUtil.getPluginDirectory(javaClass, "ressources/rules.tmLanguage.json")
+            ?: throw Exception()
         TextMateUserBundlesSettings.getInstance()?.disableBundle(textMateBundle.path);
         TextMateService.getInstance().reloadEnabledBundles();
     }

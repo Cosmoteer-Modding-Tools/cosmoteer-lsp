@@ -1,6 +1,5 @@
 rootProject.name = "cosmoteer-lsp"
 
-
 buildscript {
     repositories {
         mavenCentral()

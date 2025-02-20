@@ -5,7 +5,7 @@ import org.jetbrains.changelog.date
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm")
-    id("org.jetbrains.intellij.platform") version "2.1.0"
+    id("org.jetbrains.intellij.platform") version "2.2.1"
     id("org.jetbrains.changelog") version "2.2.1"
 }
 
@@ -13,20 +13,22 @@ group = "modding.cosmoteer.tools"
 version = "0.4"
 
 repositories {
+    mavenCentral()
+
     intellijPlatform {
         defaultRepositories()
     }
-    mavenCentral()
 }
 
 dependencies {
     intellijPlatform {
-        instrumentationTools()
         pluginVerifier()
         zipSigner()
         bundledPlugin("JavaScript")
         bundledPlugin("org.jetbrains.plugins.textmate")
-        intellijIdeaUltimate("2024.2.3")
+        // Rider requires the equivalent dependency entry in plugin.xml
+        rider("2024.3.5")
+//        intellijIdeaUltimate("2024.3.3")
     }
 }
 
@@ -38,7 +40,7 @@ intellijPlatform {
         description = "Cosmoteer Language Server provides a lot of useful features, like autocompletion and diagnostics."
         ideaVersion {
             sinceBuild = "242"
-            untilBuild = "242.*"
+//            untilBuild = "242.*"
         }
         tasks {
             prepareSandbox {
