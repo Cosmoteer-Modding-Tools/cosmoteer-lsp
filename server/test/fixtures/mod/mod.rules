@@ -1,0 +1,26 @@
+ID = author.testmod
+Actions
+[
+	{
+		Action = Add
+		AddTo = <cosmoteer.rules>
+		Name = FOO
+		ToAdd = &<provider.rules>/Provider
+		OnlyIfNotExisting = true
+	}
+	{
+		Action = Overrides
+		OverrideIn = <cosmoteer.rules>/FOO
+		Overrides = &<provider.rules>/Provider
+	}
+	{
+		Action = Overrides
+		OverrideIn = <indicators/indicators.rules>
+		Overrides = &<mod_indicators.rules>
+	}
+	{
+		Action = Overrides
+		OverrideIn = <cosmoteer.rules>/BASE_AUDIO
+		Overrides = &<mod_base_audio.rules>
+	}
+]

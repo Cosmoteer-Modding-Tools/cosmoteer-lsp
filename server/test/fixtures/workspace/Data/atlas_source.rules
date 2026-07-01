@@ -1,0 +1,10 @@
+AtlasSource
+{
+	// A `floor((&ref) * (&ref))` math field BEFORE the cross-file reference below, mirroring the
+	// real armor parts (`MaxHealth = floor((&<base>/MaxHealth) * (&~/Scale))`). Before the
+	// function-call parse fixes, this math corrupted the file's AST so the AtlasSprite reference
+	// further down no longer parsed/resolved (it returned null).
+	Mult = 3
+	MaxHealth = floor((&<./Data/atlas_target.rules>/AtlasTarget/Scale) * (&~/Mult))
+	AtlasSprite = &<./Data/atlas_target.rules>/AtlasTarget/Components/Graphics/Floor/DamageLevels/0
+}

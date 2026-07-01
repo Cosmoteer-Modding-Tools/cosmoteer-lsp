@@ -15,7 +15,9 @@ import org.jetbrains.plugins.textmate.configuration.TextMateUserBundlesSettings
 
 class CosmoteerLspServerDescriptor(project: Project) : ProjectWideLspServerDescriptor(project, "Cosmoteer Language Server") {
     override fun isSupportedFile(file: VirtualFile): Boolean {
-        return file.extension == "rules"
+        // `.rules` data files and `.shader` (HLSL) files both go to the language server; the server
+        // branches on the extension. Sending `.shader` here is what lights up its LSP semantic tokens.
+        return file.extension == "rules" || file.extension == "shader"
     }
 
     override fun createCommandLine(): GeneralCommandLine {

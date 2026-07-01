@@ -1,0 +1,7 @@
+// Base audio definition (like cosmoteer's common_effects/sounds/base_sounds.rules).
+// Relative asset paths in objects that inherit BaseAudio are resolved relative to
+// THIS file's directory (Data/sounds), not the inheriting file's directory.
+BaseAudio
+{
+	Type = Audio
+}

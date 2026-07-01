@@ -1,0 +1,6 @@
+Base
+{
+	BaseOnly = 999
+	// An inherited member that itself crosses into c.rules.
+	BaseToC = &<./Data/c.rules>/C/Leaf
+}

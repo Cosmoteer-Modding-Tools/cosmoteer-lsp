@@ -1,0 +1,15 @@
+BASE_COST = 100
+COST = &BASE_COST
+MULTIPLIKATOR = 2
+SIZE = [3, 4]
+
+Part
+{
+	Resources
+	[
+		[SW.ingot, ceil((&~/COST) * (&~/MULTIPLIKATOR))]
+	]
+	Size = [&~/SIZE/0, &~/SIZE/1]
+	MaxHealth = ceil((&~/COST) * (&~/MULTIPLIKATOR))
+	FractionalCostToRepair = (ceil((&Resources/0/1)/5)/(&Resources/0/1))
+}

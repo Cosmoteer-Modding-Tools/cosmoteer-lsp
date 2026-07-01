@@ -52,6 +52,12 @@ intellijPlatform {
                         into("${destinationDir.path}/cosmoteer-lsp/ressources/rules.tmBundle/Syntaxes/")
                     }
                     copy {
+                        // The shader grammar (JSON tmLanguage) gives `.shader` files a TextMate base
+                        // layer in JetBrains, under the same bundle; semantic tokens overlay via LSP.
+                        from("${project.projectDir}/../syntaxes/shader.tmLanguage.json")
+                        into("${destinationDir.path}/cosmoteer-lsp/ressources/rules.tmBundle/Syntaxes/")
+                    }
+                    copy {
                         from("${project.projectDir}/rules.tmBundle")
                         into("${destinationDir.path}/cosmoteer-lsp/ressources/rules.tmBundle")
                     }

@@ -1,0 +1,8 @@
+// `MySound` inherits BaseAudio (defined in ../sounds/base_audio.rules via the
+// /BASE_AUDIO super alias). Its `Sound` asset path is relative to the BASE's
+// directory (Data/sounds), NOT this file's directory (Data/effects):
+//   Data/effects/inherits_audio.rules  ->  base dir Data/sounds  ->  Data/sounds/fx/beep.wav
+MySound : /BASE_AUDIO/BaseAudio
+{
+	Sound = "fx/beep.wav"
+}

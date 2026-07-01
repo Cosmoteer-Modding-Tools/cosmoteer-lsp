@@ -1,0 +1,20 @@
+// Whole-file inheritance: each group inherits an entire base file (no `/member` suffix), so the
+// base's ROOT-level members (WFRootLeaf, WFRootGroup) are inherited.
+WFComp : &<./Data/whole_file_base.rules>
+{
+	// A bare `&WFRootLeaf` must resolve through the whole-file base to the root-level member.
+	UsesRoot = &WFRootLeaf
+}
+
+// Cross-file extend-own-member where the member EXISTS on the base file root.
+WFExtendPresent : <./Data/whole_file_base.rules>/WFRootGroup
+{
+	Extra = 1
+}
+
+// Cross-file extend-own-member where the member is ABSENT on the base file (like terran.rules
+// `Fire : <../base_ship.rules>/Fire`). The game tolerates this — must not be flagged.
+WFExtendAbsent : <./Data/whole_file_base.rules>/WFAbsent
+{
+	Extra = 1
+}

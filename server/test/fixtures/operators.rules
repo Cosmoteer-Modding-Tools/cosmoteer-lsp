@@ -1,0 +1,27 @@
+Calc
+{
+	Pow = 2 ^ 8
+	PowPrec = 3 * 2 ^ 2
+	RightAssoc = 2 ^ 3 ^ 2
+	AddPow = 1 + 2 ^ 3
+	Base = 200
+	Half = 50%
+	Quarter = 25 %
+	PctExpr = (&Base) * 50%
+	Fact = 5!
+	FactSub = 5! - 3
+	PowFact = 2 ^ 3!
+	ParenFact = (2 + 3)!
+	FactInFunc = ceil(4! / 7)
+	Neg = 3 * -7
+	BadFact = 3.5!
+}
+
+Outer
+[
+	{ Val = 5 }
+	Child : ^/0/Val
+	{
+		Copied = &Val
+	}
+]

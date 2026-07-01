@@ -1,0 +1,16 @@
+Calc
+{
+	A = 10
+	B = 2
+	Simple = 3 * 4
+	WithFunc = sqrt(16)
+	Precedence = 2 + 3 * 4
+	Result = (&A) / (&B) + ceil(17 / 2)
+	Text = "hello"
+	Plain = 5
+	RefToA = &A
+	Resources = [[Metals, 50]]
+	FractionalCostToRepair = (ceil((&Resources/0/1) / 5) / (&Resources/0/1))
+	ArrayMath = [10 * 2, &A + 5, 30]
+	NestedFunc = floor(sqrt(&Resources/0/1) * 2)
+}

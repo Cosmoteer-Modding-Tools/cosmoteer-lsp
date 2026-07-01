@@ -1,0 +1,7 @@
+// The mod's override source: members it merges into the vanilla indicators.rules via the
+// whole-file `Overrides` action in mod.rules. `SWNoShields` exists ONLY here, so a reference
+// `&/INDICATORS/SWNoShields` resolves only through the mod context, not vanilla.
+SWNoShields
+{
+	Y = 42
+}

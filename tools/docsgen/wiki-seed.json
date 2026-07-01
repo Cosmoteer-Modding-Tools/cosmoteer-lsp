@@ -1,0 +1,43 @@
+{
+    "Cosmoteer.Bullets.BulletRules": {
+        "ID": "Identifier that must be unique across the game.",
+        "OtherIDs": "Legacy identifiers. You shouldn't normally need these.",
+        "Range": "How far the target can be when the projectile is shot at it.",
+        "IdealRange": "The range from which the AI will try to use this weapon.",
+        "Speed": "How fast the projectile moves forward when spawned.",
+        "RandomRotation": "Whether the projectile spawns facing a random direction."
+    },
+    "Cosmoteer.Ships.Parts.PartRules": {
+        "NameKey": "The part's name, displayed when it is selected or hovered over.",
+        "IconNameKey": "The part name as it shows up in the ship editor's menus.",
+        "ID": "Game-wide unique ID of the part. Must start with the author's name.",
+        "OtherIDs": "Alternate part identifiers this part also answers to.",
+        "FlipWhenLoadingIDs": "Part IDs that trigger flipping when the ship is loaded.",
+        "EditorGroups": "The names of the ship-editor tabs the part appears in.",
+        "EditorGroup": "The name of the ship-editor tab the part appears in.",
+        "IsBuildable": "If false, the part cannot be built.",
+        "Resources": "Resource name and cost pairs defining what the part costs to build.",
+        "FractionalCostToRepair": "How much of the build cost, at most, is spent to repair the part to full health.",
+        "Size": "The width and height of the part, in tiles.",
+        "Density": "How much one tile of the part weighs, in tons.",
+        "MaxHealth": "How much damage the part can endure before being destroyed.",
+        "HealthType": "The part's health category. See the HealthTypes reference.",
+        "HasNonContiguousPathing": "Set to true if some tiles of the part cannot be walked across by crew in a given direction.",
+        "CrewSpeedFactor": "The speed at which crew move within the part.",
+        "CrewCongestedSpeedFactor": "The speed at which crew move within the part while passing other crew.",
+        "SelectionTypeByRotation": "If true, double-clicking the part in-game only selects parts of the same type facing the same direction.",
+        "IsExternal": "If false, the part must have either no doors to anything else or only doors with legal placement.",
+        "IsRotateable": "Whether the part can be rotated during placement.",
+        "IsFlippable": "Whether the part can be flipped during placement.",
+        "IsWalled": "If false, the part can only have doors to parts that are themselves not walled.",
+        "FlipHRotate": "The rotation mapping applied when the part is flipped horizontally.",
+        "FlipVRotate": "The rotation mapping applied when the part is flipped vertically.",
+        "AIValueFactor": "How much the AI wants to destroy this part on ships it considers enemies.",
+        "MinBuffValues": "Per-buff minimum values this part clamps received buffs to.",
+        "MaxBuffValues": "Per-buff maximum values this part clamps received buffs to.",
+        "TypeCategories": "Part-category identifiers used to classify the part.",
+        "SelectionPriority": "Determines selection ordering when parts overlap.",
+        "SelectionTypeID": "Part ID used to group parts together for selection.",
+        "JobsIcon": "Sprite shown for the part's job assignments."
+    }
+}

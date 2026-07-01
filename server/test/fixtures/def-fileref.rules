@@ -1,0 +1,4 @@
+// A reference that resolves to a whole file (no in-file path after `>`), used to
+// exercise go-to-definition's file-target branch. Resolves via the workspace tree,
+// independent of where this file lives.
+X = &<./Data/c.rules>

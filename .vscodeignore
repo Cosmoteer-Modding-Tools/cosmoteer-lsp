@@ -1,6 +1,21 @@
 .vscode/**
+.idea/**
+.claude/**
 **/*.ts
 **/*.map
+
+# Tests, fixtures and snapshots (not needed in the published extension)
+**/test/**
+**/testFixture/**
+**/__snapshots__/**
+**/*.snap
+client/out/test/**
+scripts/**
+
+# The server is bundled into out/server/src/server.js by esbuild,
+# so its node_modules are not needed at runtime.
+server/node_modules/**
+
 .gitignore
 **/tsconfig.json
 **/tsconfig.base.json

@@ -1,0 +1,5 @@
+// Mutually-referential alias cycle: A -> B -> A. Resolving `&A/x` must terminate
+// (return null) rather than loop forever — the visited-set guard handles this.
+A = &B
+B = &A
+C = &A/x

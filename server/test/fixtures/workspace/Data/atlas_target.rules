@@ -1,0 +1,18 @@
+AtlasTarget
+{
+	Scale = 2
+	Components
+	{
+		Graphics
+		{
+			Floor
+			{
+				DamageLevels
+				[
+					{ File = "level0.png" }
+					{ File = "level1.png" }
+				]
+			}
+		}
+	}
+}

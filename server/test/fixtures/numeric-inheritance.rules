@@ -1,0 +1,19 @@
+// Numeric inheritance: an array element `: N` inherits from the sibling at index N
+// of the containing array (used by Cosmoteer beam effect arrays, e.g.
+// shots/beam/tractor/tractor_beam.rules line 80 `: 1`). Must parse without errors
+// and resolve inherited members from that index.
+Effects
+[
+	{
+		Type = Beam
+		Color = 11
+	}
+	{
+		Type = Beam
+		Color = 22
+	}
+	: 1
+	{
+		Extra = true
+	}
+]

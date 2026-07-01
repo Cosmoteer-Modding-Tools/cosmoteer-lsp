@@ -1,0 +1,7 @@
+// Lives one directory below Data/ so it exercises relative "../" file paths,
+// which resolve via the real filesystem (navigateRulesByCurrentLocation).
+
+Ship
+{
+	Hull = &<../c.rules>/C/Leaf
+}

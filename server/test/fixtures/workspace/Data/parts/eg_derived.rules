@@ -1,0 +1,18 @@
+// Inherit-and-extend members the base does not define: top-level (EditorGroups),
+// nested in a REAL inherited container (Extras in Inner), and nested in a VIRTUAL
+// container (Deep inside Virtual, which itself extends a missing base member — the
+// roof_headlight Toggles-in-IsOperational case). Control: BadBase has no inheritance slot.
+Thing : <./Data/parts/eg_base.rules>/EgBase
+{
+	EditorGroups : ^/0/EditorGroups [Utilities]
+	BadBase : ^/9/Whatever [X]
+	Typoed : ^/0/Tpyoed [z]
+	Inner : ^/0/Inner
+	{
+		Extras : ^/0/Extras [foo]
+	}
+	Virtual : ^/0/Virtual
+	{
+		Deep : ^/0/Deep [bar]
+	}
+}

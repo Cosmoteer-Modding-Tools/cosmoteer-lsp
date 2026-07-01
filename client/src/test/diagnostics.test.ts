@@ -11,9 +11,9 @@ suite('Should get diagnostics', () => {
     test('Diagnoses inheritances', async () => {
         await testDiagnostics(getDocUri('diagnostics_inheritance.rules'), [
             {
-                message: 'Expected reference value after reference value but found Number',
+                message: 'Reference name is not known',
                 range: toRange(0, 7, 0, 12),
-                severity: vscode.DiagnosticSeverity.Error,
+                severity: vscode.DiagnosticSeverity.Warning,
                 source: 'cosmoteer-language-server',
             },
         ]);

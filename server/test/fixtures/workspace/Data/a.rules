@@ -1,0 +1,20 @@
+// Entry-point file for cross-file navigation tests.
+
+A
+{
+	Direct = 1
+	// file -> file: this member points at B's in-file member.
+	ToB = &<./Data/b.rules>/B/InnerValue
+	// file -> file -> file: A -> b.rules B/ToC -> c.rules C/Leaf.
+	ToC = &<./Data/b.rules>/B/ToC
+	// file -> file -> in-file -> in-file: cross into B, then walk a nested path.
+	ToNested = &<./Data/b.rules>/B/Nested/Deep/Leaf
+	// points at the OBJECT B (not a scalar) so completing `&RefToB/` can list members.
+	RefToB = &<./Data/b.rules>/B
+}
+
+// Cross-file inheritance: AChild inherits from Base in base.rules.
+AChild : &<./Data/base.rules>/Base
+{
+	ChildOwn = 10
+}

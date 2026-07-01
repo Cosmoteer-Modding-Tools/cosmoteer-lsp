@@ -1,14 +1,16 @@
 {
     "compilerOptions": {
         "module": "CommonJS",
-        "target": "ES2023",
-        "lib": ["ES2023"],
+        "target": "ES2024",
+        "lib": ["ES2024"],
         "outDir": "../out/client",
         "rootDir": "src",
         "sourceMap": true,
         "incremental": true,
         "esModuleInterop": true,
-        "tsBuildInfoFile": "../out/tsbuildinfo.json"
+        "skipLibCheck": true,
+        "types": ["node", "mocha", "vscode"],
+        "tsBuildInfoFile": "../out/client.tsbuildinfo"
     },
     "include": ["src"],
     "exclude": ["node_modules", ".vscode-test"]

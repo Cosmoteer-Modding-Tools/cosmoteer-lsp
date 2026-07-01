@@ -2,40 +2,12 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "type": "npm",
-            "script": "compile",
-            "group": "build",
-            "presentation": {
-                "panel": "dedicated",
-                "reveal": "never"
-            },
-            "problemMatcher": ["$tsc"]
-        },
-        {
-            "type": "npm",
-            "script": "watch",
-            "isBackground": true,
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "presentation": {
-                "panel": "dedicated",
-                "reveal": "never"
-            },
-            "problemMatcher": ["$tsc-watch"]
-        },
-        {
-            "type": "npm",
-            "script": "esbuild",
-            "group": "build",
-            "presentation": {
-                "panel": "dedicated",
-                "reveal": "never"
-            },
-            "problemMatcher": ["$esbuild"]
-        },
-        {
+            // The default build: an esbuild watch that rebuilds the bundle the extension
+            // actually loads (out/server/src/server.js) on every save. The background
+            // problemMatcher keys off the `[watch] build started/finished` lines esbuild.mjs
+            // prints, so VS Code knows when the FIRST build is done and never launches the
+            // debugger against a stale bundle (the gap that previously broke live changes).
+            "label": "esbuild-watch",
             "type": "npm",
             "script": "esbuild-watch",
             "isBackground": true,
@@ -47,7 +19,54 @@
                 "panel": "dedicated",
                 "reveal": "never"
             },
-            "problemMatcher": ["$esbuild-watch"]
+            "problemMatcher": {
+                "owner": "esbuild",
+                "source": "esbuild",
+                "fileLocation": "absolute",
+                "pattern": [
+                    {
+                        "regexp": "^✘ \\[ERROR\\] (.*)$",
+                        "message": 1
+                    },
+                    {
+                        "regexp": "^\\s+(.*):(\\d+):(\\d+):$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3
+                    }
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^\\[watch\\] build started$",
+                    "endsPattern": "^\\[watch\\] build finished$"
+                }
+            }
+        },
+        {
+            // One-shot bundle, for a clean rebuild without a watch (e.g. before packaging).
+            "label": "compile",
+            "type": "npm",
+            "script": "compile",
+            "group": "build",
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "never"
+            },
+            "problemMatcher": []
+        },
+        {
+            // Type checking runs separately: esbuild bundles without type-checking, so this
+            // is the only task that surfaces type errors. Not the default build.
+            "label": "check-types (watch)",
+            "type": "npm",
+            "script": "watch:tsc",
+            "isBackground": true,
+            "group": "build",
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "never"
+            },
+            "problemMatcher": ["$tsc-watch"]
         }
     ]
 }

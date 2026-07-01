@@ -1,0 +1,10 @@
+Thing
+{
+	// `&/GLOBAL_TWO/Bar` is a super-path into a global the mod inserts into cosmoteer.rules
+	// (declared in the mod's own cosmoteer.rules). It resolves only in the mod's effective tree.
+	Default = &/GLOBAL_TWO/Bar
+	// `&/INDICATORS/SWNoShields` reaches a member the mod merges into the vanilla indicators file
+	// (which `INDICATORS` aliases) via a whole-file `Overrides`. Go-to-def must land on the mod's
+	// override SOURCE (mod_indicators.rules), not the vanilla indicators file the prefix resolves to.
+	Indicator = &/INDICATORS/SWNoShields
+}

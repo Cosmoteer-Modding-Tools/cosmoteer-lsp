@@ -12,11 +12,15 @@ export let documentEol: string;
 export let platformEol: string;
 
 /**
- * Activates the vscode.lsp-sample extension
+ * Activates the extension and opens the given document so its language features are available.
+ *
+ * @param docUri the URI of the document to open.
+ * @param timeout milliseconds to wait after opening for the server to initialize.
  */
 export async function activate(docUri: vscode.Uri, timeout = 2_000) {
     // The extensionId is `publisher.name` from package.json
     const ext = vscode.extensions.getExtension('TrustNoOneElse.cosmoteer-language-server');
+    if (!ext) return;
     if (!ext.isActive) {
         await ext.activate();
     }

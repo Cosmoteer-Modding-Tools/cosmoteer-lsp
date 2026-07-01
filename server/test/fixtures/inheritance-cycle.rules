@@ -1,0 +1,13 @@
+// Cyclic inheritance whose refs are multi-segment paths: resolving `&CycleB/Shared`
+// needs to find `Shared` through CycleB's inheritance, which points back at CycleA — a
+// loop that crosses the navigate <-> inheritance boundary. `Shared` exists nowhere, so a
+// lookup for any missing member must terminate (null), not recurse until the stack blows.
+CycleA : &CycleB/Shared
+{
+	OwnA = 1
+}
+
+CycleB : &CycleA/Shared
+{
+	OwnB = 2
+}

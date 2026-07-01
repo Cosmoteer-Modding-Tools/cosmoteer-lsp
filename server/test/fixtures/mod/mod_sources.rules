@@ -1,0 +1,16 @@
+ID = author.testmod
+Name = "Test"
+Logo = "logo.png"
+Actions
+[
+	{
+		Action = Overrides
+		OverrideIn = "<a.rules>"
+		Overrides = &<provider.rules>/Provider
+	}
+	{
+		Action = Overrides
+		OverrideIn = "<a.rules>"
+		Overrides = &<nonexistent.rules>/Provider
+	}
+]

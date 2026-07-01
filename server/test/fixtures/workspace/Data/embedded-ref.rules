@@ -1,0 +1,8 @@
+// References embedded inside math expressions (the common computed-stat shape).
+// `&Base` appears only inside expressions here, never as a whole value.
+Calc
+{
+	Base = 10
+	Doubled = (&Base) * 2
+	Mixed = ceil((&Base) / 5) + (&Base)
+}

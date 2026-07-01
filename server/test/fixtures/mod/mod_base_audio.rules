@@ -1,0 +1,7 @@
+// Override source for the nested-global pattern: the mod merges `SWExtraSound` into the
+// cosmoteer.rules `BASE_AUDIO` global (which itself aliases sounds/base_audio.rules), via
+// `OverrideIn=<cosmoteer.rules>/BASE_AUDIO`. Mirrors the real mod's `OverrideIn=<cosmoteer.rules>/COMMON_EFFECTS`.
+SWExtraSound
+{
+	Z = 7
+}
