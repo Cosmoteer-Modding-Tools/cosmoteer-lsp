@@ -207,34 +207,46 @@ export class CosmoteerWorkspaceService {
         return readdir(workspacePath, { withFileTypes: true });
     };
 
+    /**
+     * Builds the file tree under `parentTree` from its directory entries. Subdirectories are scanned
+     * concurrently (the game `Data` tree holds thousands of directories, so a sequential walk pays
+     * one disk round-trip per directory), while children are appended in the original entry order so
+     * the resulting tree is deterministic.
+     *
+     * @param parentTree the directory node the built children are appended to.
+     * @param dirents the directory's entries, as read by `readdir`.
+     * @returns once the whole subtree below `parentTree` is built.
+     */
     private buildFileStructure = async (parentTree: FileTree, dirents: Dirent[]) => {
-        for (const dirent of dirents) {
-            if (dirent.isDirectory()) {
-                const nextDirents = await this.iterateFiles(`${dirent.parentPath + sep + dirent.name}`);
-                if (nextDirents.length === 0) continue;
-                const parent: FileTree = {
-                    type: 'Dir',
-                    name: dirent.name,
-                    children: [],
-                    path: dirent.parentPath + sep + dirent.name,
-                };
-                await this.buildFileStructure(parent, nextDirents);
-                if (isDirectory(parentTree)) parentTree.children?.push(parent);
-            } else if (dirent.isFile()) {
-                if (dirent.name.endsWith('.rules')) {
-                    const dataContent: FileTree = {
-                        type: 'File',
+        if (!isDirectory(parentTree)) return;
+        const children = await Promise.all(
+            dirents.map(async (dirent): Promise<FileTree | undefined> => {
+                if (dirent.isDirectory()) {
+                    const nextDirents = await this.iterateFiles(`${dirent.parentPath + sep + dirent.name}`);
+                    if (nextDirents.length === 0) return undefined;
+                    const parent: FileTree = {
+                        type: 'Dir',
                         name: dirent.name,
-                        content: {
-                            name: dirent.name.substring(0, dirent.name.lastIndexOf('.')),
-                        },
+                        children: [],
                         path: dirent.parentPath + sep + dirent.name,
-                        parent: parentTree,
                     };
-                    if (isDirectory(parentTree)) parentTree.children.push(dataContent);
-                } else if (dirent.name.endsWith('.png') || dirent.name.endsWith('.shader')) {
-                    if (isDirectory(parentTree)) {
-                        parentTree.children.push({
+                    await this.buildFileStructure(parent, nextDirents);
+                    return parent;
+                }
+                if (dirent.isFile()) {
+                    if (dirent.name.endsWith('.rules')) {
+                        return {
+                            type: 'File',
+                            name: dirent.name,
+                            content: {
+                                name: dirent.name.substring(0, dirent.name.lastIndexOf('.')),
+                            },
+                            path: dirent.parentPath + sep + dirent.name,
+                            parent: parentTree,
+                        };
+                    }
+                    if (dirent.name.endsWith('.png') || dirent.name.endsWith('.shader')) {
+                        return {
                             type: 'File',
                             name: dirent.name,
                             content: {
@@ -243,10 +255,14 @@ export class CosmoteerWorkspaceService {
                             },
                             path: dirent.parentPath + sep + dirent.name,
                             parent: parentTree,
-                        });
+                        };
                     }
                 }
-            }
+                return undefined;
+            })
+        );
+        for (const child of children) {
+            if (child) parentTree.children.push(child);
         }
     };
 }

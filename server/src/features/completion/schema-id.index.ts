@@ -47,9 +47,42 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         return SchemaIdIndex._instance;
     }
 
+    /** This index's slot in the persistent game-tree cache. */
+    public readonly cacheId = 'schemaIds';
+
     protected clear(): void {
         this.byClass.clear();
         this.bySource.clear();
+    }
+
+    /**
+     * Serializes the per-source id declarations for the persistent game-tree cache.
+     *
+     * @returns the JSON-safe state.
+     */
+    public saveState(): unknown {
+        return [...this.bySource.entries()];
+    }
+
+    /**
+     * Primes the index from a previously saved state, rebuilding the class lookup from the
+     * per-source entries.
+     *
+     * @param state the value a prior {@link saveState} returned.
+     * @returns true when the state had the expected shape and was loaded.
+     */
+    public loadState(state: unknown): boolean {
+        if (!Array.isArray(state)) return false;
+        this.clear();
+        for (const entry of state as Array<[string, Array<{ cls: string; id: string }>]>) {
+            if (!Array.isArray(entry) || typeof entry[0] !== 'string' || !Array.isArray(entry[1])) return false;
+            const [source, entries] = entry;
+            this.bySource.set(source, entries);
+            for (const { cls, id } of entries) {
+                (this.byClass.get(cls) ?? this.byClass.set(cls, new Map()).get(cls)!).set(id, source);
+            }
+        }
+        return true;
     }
 
     protected removeSource(source: string): void {

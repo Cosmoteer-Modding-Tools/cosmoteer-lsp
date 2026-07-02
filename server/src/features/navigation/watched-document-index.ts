@@ -4,6 +4,7 @@ import { parseFilePath } from '../../utils/ast.utils';
 import { CancellationError } from '../../utils/cancellation';
 import { ParserResultRegistrar } from '../../registrar/parser-result-registrar';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
+import { saveIndexCache, tryLoadIndexCache } from '../../workspace/index-cache';
 import { normalizeUri } from './reference-location';
 import { projectDocuments, uriToFsPath } from './workspace-files';
 
@@ -22,6 +23,32 @@ export abstract class WatchedDocumentIndex {
     /** The in-flight (or completed) one-time build, shared so concurrent queries don't rebuild. */
     private buildPromise?: Promise<void>;
     private readonly dirty = new Set<string>();
+
+    /** This index's slot name in the persistent game-tree cache, or undefined when it doesn't
+     *  participate (an index whose scope excludes the game tree must not, see {@link buildTogether}). */
+    public readonly cacheId: string | undefined = undefined;
+
+    /**
+     * Serializes this index's current state for the persistent game-tree cache. Called only while
+     * the state is pure game-tree (before any live workspace folder was indexed). Must return plain
+     * JSON-safe data.
+     *
+     * @returns the serialized state, or undefined when this index doesn't participate.
+     */
+    public saveState(): unknown {
+        return undefined;
+    }
+
+    /**
+     * Primes this index from a previously saved state, replacing any current content.
+     *
+     * @param state the value a prior {@link saveState} returned, parsed from disk.
+     * @returns true when the state was accepted, false to reject it (malformed or wrong shape).
+     */
+    public loadState(state: unknown): boolean {
+        void state;
+        return false;
+    }
 
     /** Mark a document changed so it is re-indexed before the next query. */
     public markDirty(uri: string): void {
@@ -118,6 +145,110 @@ export abstract class WatchedDocumentIndex {
             await this.indexDocument(document, CancellationToken.None);
             progress?.report(`${++count} files`);
         }
+        await this.finishBuild(progress);
+        this.buildCompleted();
+    }
+
+    /**
+     * Completes a one-time build after every project document has been streamed through
+     * {@link indexDocument} once. A no-op by default. An index whose entries depend on each other
+     * (the reverse-include fixpoint) overrides this to run its follow-up passes here, so the shared
+     * multi-index walk of {@link buildTogether} and the solo {@link buildFromProject} both finish it.
+     * May run more than once per build (once over the cacheable game tree, once after the live
+     * folders), so an override must leave its working data usable for a follow-up run.
+     *
+     * @param progress the reporter of the running build, to post follow-up pass counts to.
+     * @returns once the index is complete.
+     */
+    protected finishBuild(progress?: WorkDoneProgressReporter): Promise<void> | void {
+        void progress;
+    }
+
+    /**
+     * Called once at the very end of a one-time build, after the last {@link finishBuild} run, so
+     * an index can release build-scoped working data (retained documents). A no-op by default.
+     */
+    protected buildCompleted(): void {}
+
+    /**
+     * Builds several project indexes over one shared document walk, so the project's files are read
+     * and parsed once instead of once per index. The first feature request used to pay a separate
+     * whole-project parse for each index it touched, which is what made the server slow to become
+     * fully usable. Indexes that are already built or building are skipped and keep their own run.
+     * Each pending index adopts the shared run as its one-time build, so a concurrent query awaits
+     * the same run and a later one sees the index as built.
+     *
+     * The game `Data` root in the folder set is served from the persistent index cache when its
+     * saved state is still valid (see `index-cache.ts`), and is otherwise walked from disk and then
+     * saved — in both cases before any live folder is indexed, so the cache only ever holds pure
+     * game-tree state and mod files are re-scanned on every build.
+     *
+     * @param indexes the indexes to build, all scanning the same folder set.
+     * @param folderPaths the project folders (the mod plus the game `Data` tree) to walk once.
+     * @param indexLabel the progress title shown while the shared walk runs.
+     * @returns once every given index is built (or its failed build has been cleared for retry).
+     */
+    public static async buildTogether(
+        indexes: WatchedDocumentIndex[],
+        folderPaths: string[],
+        indexLabel: string
+    ): Promise<void> {
+        const pending = indexes.filter((index) => !index.built && !index.buildPromise);
+        if (pending.length > 0) {
+            const run = CosmoteerWorkspaceService.instance.withIndexingProgress(indexLabel, async (progress) => {
+                const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+                const isDataRoot = (folder: string): boolean =>
+                    !!dataRoot && normalizeUri(uriToFsPath(folder)) === normalizeUri(dataRoot);
+                const gameFolders = folderPaths.filter(isDataRoot);
+                const liveFolders = folderPaths.filter((folder) => !isDataRoot(folder));
+                let count = 0;
+                const indexAll = async (folders: string[], diskOnly: boolean): Promise<void> => {
+                    if (folders.length === 0 && diskOnly) return;
+                    for await (const document of projectDocuments(folders, CancellationToken.None, { diskOnly })) {
+                        for (const index of pending) await index.indexDocument(document, CancellationToken.None);
+                        progress.report(`${++count} files`);
+                    }
+                };
+                if (gameFolders.length === 1 && dataRoot && pending.every((index) => index.cacheId)) {
+                    const cached = await tryLoadIndexCache(dataRoot);
+                    const loaded = !!cached && pending.every((index) => {
+                        const state = cached[index.cacheId!];
+                        return state !== undefined && index.loadState(state);
+                    });
+                    if (loaded) {
+                        progress.report('game data from cache');
+                    } else {
+                        // A partially accepted cache would leave mixed state, so start clean, walk
+                        // the game tree from disk, converge it, and save that pure state.
+                        for (const index of pending) index.clear();
+                        await indexAll(gameFolders, true);
+                        for (const index of pending) await index.finishBuild(progress);
+                        const states: Record<string, unknown> = {};
+                        for (const index of pending) states[index.cacheId!] = index.saveState();
+                        await saveIndexCache(dataRoot, states);
+                    }
+                } else {
+                    // No recognizable game root in the folder set (or a non-cacheable index in the
+                    // group): plain uncached walk of those folders.
+                    await indexAll(gameFolders, true);
+                }
+                await indexAll(liveFolders, false);
+                for (const index of pending) await index.finishBuild(progress);
+                for (const index of pending) index.buildCompleted();
+            });
+            for (const index of pending) {
+                index.buildPromise = run
+                    .then(() => {
+                        index.built = true;
+                    })
+                    .catch((error) => {
+                        // Let a failed shared build be retried by the next query on this index.
+                        index.buildPromise = undefined;
+                        throw error;
+                    });
+            }
+        }
+        await Promise.all(indexes.map((index) => index.buildPromise?.catch(() => undefined)));
     }
 
     /** (Re)index one document, replacing any prior contribution from the same source. */

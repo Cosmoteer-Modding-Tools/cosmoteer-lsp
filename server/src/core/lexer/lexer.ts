@@ -11,6 +11,56 @@ const parenFollowsSpaces = (input: string, i: number): boolean => {
     return input[i] === '(';
 };
 
+// The hot per-character classifiers, hoisted to module scope and reduced to charcode lookups. The
+// lexer runs these for every character of every file in a whole-project walk, and a regex literal
+// inside the loop would allocate a fresh RegExp object per character on top of the match cost.
+
+/** Lookup for the ASCII part of the unquoted-value charset (see the VALUE loop below). */
+const ASCII_VALUE_CHAR = new Uint8Array(128);
+for (const range of [
+    [0x30, 0x39],
+    [0x41, 0x5a],
+    [0x61, 0x7a],
+] as const) {
+    for (let code = range[0]; code <= range[1]; code++) ASCII_VALUE_CHAR[code] = 1;
+}
+for (const char of "-^~./&_<>%! '") ASCII_VALUE_CHAR[char.charCodeAt(0)] = 1;
+
+/** Matches the non-ASCII whitespace `\s` recognizes (NBSP, ideographic space, BOM, …). */
+const NON_ASCII_WHITESPACE = new RegExp('[\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]');
+
+/**
+ * Whether a character belongs in an unquoted value. Unquoted values may contain arbitrary text: the
+ * game's value is simply every token joined until a delimiter. Localized strings/*.rules carry
+ * unquoted accented letters (Fuellen), CJK text and punctuation. Every structural/math character in
+ * our grammar is ASCII, so every character from U+0080 up (including lone surrogate halves) plus the
+ * listed ASCII set counts as a value character. Numbers stay ASCII so the number checks are unaffected.
+ *
+ * @param code the character's UTF-16 code unit.
+ * @returns true when the character can be part of an unquoted value.
+ */
+const isValueCharCode = (code: number): boolean => (code < 128 ? ASCII_VALUE_CHAR[code] === 1 : true);
+
+/**
+ * Whether a character is whitespace by the same definition as the `\s` regex class.
+ *
+ * @param char the single character to test.
+ * @returns true for ASCII whitespace and the Unicode spaces `\s` matches.
+ */
+const isWhitespaceChar = (char: string): boolean => {
+    const code = char.charCodeAt(0);
+    if (code === 32 || (code >= 9 && code <= 13)) return true;
+    return code >= 128 && NON_ASCII_WHITESPACE.test(char);
+};
+
+/** Whether a character is a digit or space, the charset of the `IS_NUMBER` value check. */
+const isNumberCharCode = (code: number): boolean => (code >= 0x30 && code <= 0x39) || code === 32;
+
+/** `MM:SS`/`HH:MM:SS` time-literal prefix, evaluated only when a `:` follows a value. */
+const TIME_LITERAL_PREFIX = /^\d+(:\d+)*$/;
+/** Scientific-notation mantissa+`e`, evaluated only when a `+`/`-` follows a value. */
+const EXPONENT_PREFIX = /^[\d.]+[eE]$/;
+
 export const lexer = (input: string): Token[] => {
     let current = 0;
     let lineNumber = 0;
@@ -161,9 +211,7 @@ export const lexer = (input: string): Token[] => {
             continue;
         }
 
-        const WHITESPACE = /\s/;
-
-        if (WHITESPACE.test(char)) {
+        if (isWhitespaceChar(char)) {
             if (char === '\n') {
                 // A `\` earlier in this whitespace/comment run (before the run's first newline)
                 // suppresses it as an ObjectText line continuation; otherwise it terminates the value.
@@ -271,18 +319,14 @@ export const lexer = (input: string): Token[] => {
             continue;
         }
 
-        // Unquoted values may contain arbitrary text: the game's value is simply every token
-        // joined until a delimiter. Localized strings/*.rules carry unquoted accented letters
-        // (Fuellen), CJK text and punctuation. Every structural/math character in our grammar is
-        // ASCII, so it is safe to treat all non-ASCII characters (U+0080 and up) plus the ASCII
-        // apostrophe as value characters. Numbers stay ASCII so the IS_NUMBER checks are unaffected.
-        const VALUE = /[a-zA-Z0-9-^~./&_<>%! '\u0080-\u{10FFFF}]/u;
-        const IS_NUMBER = /^[0-9 ]+$/;
-
-        if (VALUE.test(char)) {
-            let value = '';
+        if (isValueCharCode(char.charCodeAt(0))) {
             const start = current;
             const lineOffsetBefore = lineOffset;
+            // Whether every character consumed so far is a digit or space (the number predicate the
+            // `!`-factorial and `<number>/` checks need). Tracked incrementally so the loop does not
+            // re-scan the whole accumulated value on each character. The value string itself is not
+            // accumulated either \u2014 the loop consumes contiguous input, so it is sliced once at the end.
+            let numberSoFar = true;
             // Track whether we're inside a `<...>` file-path segment of a reference. There a backslash
             // is a path separator — ObjectText accepts `&<dir\file.rules>` (it's not an invalid path
             // char) and .NET resolves it on Windows — not the whitespace/line-continuation `\` is
@@ -291,7 +335,7 @@ export const lexer = (input: string): Token[] => {
             // is wrongly reported "not valid".
             let insideFilePath = false;
             while (
-                (((VALUE.test(char) || (insideFilePath && char === '\\')) &&
+                (((isValueCharCode(char.charCodeAt(0)) || (insideFilePath && char === '\\')) &&
                     // A `^` that is not part of a `^/…` super-path is the power operator, so it
                     // must end the current value (`2^8` → `2`, `^`, `8`) instead of being absorbed.
                     !(char === '^' && input[current + 1] !== '/') &&
@@ -302,28 +346,32 @@ export const lexer = (input: string): Token[] => {
                     // function name). The `(` may be separated from the `-`/`/` by spaces/tabs
                     // (`7- (12/64)`), so look past them. End the value there and lex it as an
                     // EXPRESSION. Attached forms (`-7`, `a-b`, `E-38`, `SIZE/0`) stay in the value.
-                    !((char === '-' || char === '/') && (/\s$/.test(value) || parenFollowsSpaces(input, current + 1))) &&
+                    !((char === '-' || char === '/') &&
+                        ((current > start && isWhitespaceChar(input[current - 1])) ||
+                            parenFollowsSpaces(input, current + 1))) &&
                     // `!` is the factorial operator only after a number (`5!`). After letters it is a
                     // literal exclamation that belongs to the value — localized UI text is full of
                     // them (`KÄMPFEN!`, `LOS!`). Keep `!` in non-numeric values, split it off numbers.
-                    !(char === '!' && IS_NUMBER.test(value))) ||
+                    !(char === '!' && numberSoFar && current > start)) ||
                     // `MM:SS`/`HH:MM:SS` time literal: a `:` between digits stays in the
                     // value (e.g. `TimeLimit = 30:00`) so it is not lexed as an inheritance
                     // colon. `Child : Parent` is unaffected (the value there is not digits).
-                    (char === ':' && /^\d+(:\d+)*$/.test(value) && /\d/.test(input[current + 1] ?? '')) ||
+                    (char === ':' &&
+                        TIME_LITERAL_PREFIX.test(input.slice(start, current)) &&
+                        /\d/.test(input[current + 1] ?? '')) ||
                     // Scientific-notation exponent sign: a `+`/`-` right after `e`/`E`
                     // (e.g. `3.4028235E+38`) stays in the value rather than being lexed as a
                     // math operator. (`E-38` already works via the `-` in the value charset.)
                     ((char === '+' || char === '-') &&
-                        /^[\d.]+[eE]$/.test(value) &&
+                        EXPONENT_PREFIX.test(input.slice(start, current)) &&
                         /\d/.test(input[current + 1] ?? ''))) &&
                 !isSingleLineComment(char, input, current) &&
                 !isStartOfMultiLineComment(char, input, current)
             ) {
-                value += char;
                 if (char === '<') insideFilePath = true;
                 else if (char === '>') insideFilePath = false;
-                if (IS_NUMBER.test(value) && input[current + 1] === '/') {
+                if (numberSoFar && !isNumberCharCode(char.charCodeAt(0))) numberSoFar = false;
+                if (numberSoFar && input[current + 1] === '/') {
                     current++;
                     // Keep the column counter in step with `current`. Without this every token
                     // after a `<number>/…` split (e.g. `1/16`) is reported one column too early.
@@ -334,8 +382,8 @@ export const lexer = (input: string): Token[] => {
                 lineOffset++;
                 if (current >= input.length) break;
             }
-            const untrimmedValue = value;
-            value = value.trim();
+            const untrimmedValue = input.slice(start, current);
+            const value = untrimmedValue.trim();
             pushToken(
                 createToken(
                     TOKEN_TYPES.VALUE,

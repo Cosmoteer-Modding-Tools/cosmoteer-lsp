@@ -65,9 +65,40 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
         return TemplateBaseIndex._instance;
     }
 
+    /** This index's slot in the persistent game-tree cache. */
+    public readonly cacheId = 'templateBases';
+
     protected clear(): void {
         this.counts.clear();
         this.bySource.clear();
+    }
+
+    /**
+     * Serializes the per-source base names for the persistent game-tree cache.
+     *
+     * @returns the JSON-safe state.
+     */
+    public saveState(): unknown {
+        return [...this.bySource.entries()];
+    }
+
+    /**
+     * Primes the index from a previously saved state, rebuilding the reference counts from the
+     * per-source name lists.
+     *
+     * @param state the value a prior {@link saveState} returned.
+     * @returns true when the state had the expected shape and was loaded.
+     */
+    public loadState(state: unknown): boolean {
+        if (!Array.isArray(state)) return false;
+        this.clear();
+        for (const entry of state as Array<[string, string[]]>) {
+            if (!Array.isArray(entry) || typeof entry[0] !== 'string' || !Array.isArray(entry[1])) return false;
+            const [source, names] = entry;
+            this.bySource.set(source, names);
+            for (const name of names) this.counts.set(name, (this.counts.get(name) ?? 0) + 1);
+        }
+        return true;
     }
 
     protected removeSource(source: string): void {

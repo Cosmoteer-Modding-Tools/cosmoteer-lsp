@@ -1115,11 +1115,14 @@ export interface TokenParserResult {
     parserErrors: ParserError[];
 }
 
+// Hoisted out of inferValueType, which runs for every value token of every parsed file — building
+// the pattern there compiled a fresh RegExp per token.
+const IS_SOUND = new RegExp(ALLOWED_AUDIO_EXTENSIONS.join('|').replaceAll('.', '\\.'));
+
 function inferValueType(IS_NUMBER: RegExp, token: Token): ValueNodeTypes {
     if (typeof token.value === 'undefined') throw new Error('Token value is undefined');
     let value: ValueNodeTypes['value'] = token.value;
     let valueType: ValueNodeTypes['type'] = IS_NUMBER.test(token.value) ? 'Number' : 'String';
-    const IS_SOUND = new RegExp(ALLOWED_AUDIO_EXTENSIONS.join('|').replaceAll('.', '\\.'));
     if (valueType === 'String' && token.value.includes('.png')) {
         valueType = 'Sprite';
         value = value as string;

@@ -26,10 +26,10 @@ describe('projectDocuments — resilient to an unparseable file', () => {
     });
 
     it('skips the throwing file and still yields the parseable ones', async () => {
-        const realParse = astUtils.parseFilePath;
-        vi.spyOn(astUtils, 'parseFilePath').mockImplementation(async (path: string, cancel) => {
+        const realParse = astUtils.parseText;
+        vi.spyOn(astUtils, 'parseText').mockImplementation((text: string, path: string) => {
             if (path.endsWith('bad.rules')) throw new Error('Token value is undefined');
-            return realParse(path, cancel);
+            return realParse(text, path);
         });
 
         const documents = [];

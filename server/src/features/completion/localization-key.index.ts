@@ -85,8 +85,43 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
         return LocalizationKeyIndex._instance;
     }
 
+    /** This index's slot in the persistent game-tree cache. */
+    public readonly cacheId = 'localizationKeys';
+
     protected clear(): void {
         this.bySource.clear();
+    }
+
+    /**
+     * Serializes the per-source language and key texts for the persistent game-tree cache.
+     *
+     * @returns the JSON-safe state.
+     */
+    public saveState(): unknown {
+        return [...this.bySource.entries()].map(([source, file]) => [source, file.language, [...file.keys.entries()]]);
+    }
+
+    /**
+     * Primes the index from a previously saved state.
+     *
+     * @param state the value a prior {@link saveState} returned.
+     * @returns true when the state had the expected shape and was loaded.
+     */
+    public loadState(state: unknown): boolean {
+        if (!Array.isArray(state)) return false;
+        this.clear();
+        for (const entry of state as Array<[string, string, Array<[string, string]>]>) {
+            if (
+                !Array.isArray(entry) ||
+                typeof entry[0] !== 'string' ||
+                typeof entry[1] !== 'string' ||
+                !Array.isArray(entry[2])
+            ) {
+                return false;
+            }
+            this.bySource.set(entry[0], { language: entry[1], keys: new Map(entry[2]) });
+        }
+        return true;
     }
 
     protected removeSource(source: string): void {

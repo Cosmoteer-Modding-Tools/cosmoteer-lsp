@@ -15,6 +15,9 @@ const normalizePath = (uriOrPath: string): string => {
 export class ParserResultRegistrar {
     private static _instance: ParserResultRegistrar;
     private results: Map<DocumentUri, AbstractNodeDocument> = new Map();
+    /** Normalized path → document, kept in step with {@link results} so path lookups are O(1).
+     *  Project walks look up every file here, so a linear scan would be paid per file. */
+    private byNormalizedPath: Map<string, AbstractNodeDocument> = new Map();
 
     private constructor() {}
 
@@ -38,11 +41,7 @@ export class ParserResultRegistrar {
      * @returns the registered AST for that file, or `undefined` if none is open for it.
      */
     public getResultByPath(osPath: string): AbstractNodeDocument | undefined {
-        const target = normalizePath(osPath);
-        for (const [uri, document] of this.results) {
-            if (normalizePath(uri) === target) return document;
-        }
-        return undefined;
+        return this.byNormalizedPath.get(normalizePath(osPath));
     }
 
     /** Every currently-registered (open/parsed) document. */
@@ -52,13 +51,28 @@ export class ParserResultRegistrar {
 
     public setResult(uri: DocumentUri, result: AbstractNodeDocument): void {
         this.results.set(uri, result);
+        this.byNormalizedPath.set(normalizePath(uri), result);
     }
 
     public removeResult(uri: DocumentUri): void {
+        const removed = this.results.get(uri);
         this.results.delete(uri);
+        if (!removed) return;
+        const normalized = normalizePath(uri);
+        if (this.byNormalizedPath.get(normalized) !== removed) return;
+        this.byNormalizedPath.delete(normalized);
+        // The same file can be registered under another uri spelling. Re-point the path entry at
+        // that surviving document so path lookups keep finding it.
+        for (const [otherUri, document] of this.results) {
+            if (normalizePath(otherUri) === normalized) {
+                this.byNormalizedPath.set(normalized, document);
+                return;
+            }
+        }
     }
 
     public clear(): void {
         this.results.clear();
+        this.byNormalizedPath.clear();
     }
 }

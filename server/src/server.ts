@@ -19,6 +19,7 @@ import {
     FullDocumentDiagnosticReport,
     CodeAction,
     CodeActionKind,
+    WorkspaceFolder,
 } from 'vscode-languageserver/node';
 
 import { readFile } from 'fs/promises';
@@ -83,8 +84,10 @@ import { filePathToUri } from './features/navigation/navigation-strategy';
 import { normalizeUri } from './features/navigation/reference-location';
 import { computeSignatureHelp } from './features/signature/signature-help.service';
 import { ensureAliasRootIndex } from './features/navigation/alias-root-builder';
+import { WatchedDocumentIndex } from './features/navigation/watched-document-index';
 import { aliasRootIndex } from './document/schema/alias-root';
 import { ReverseIncludeIndex } from './features/navigation/reverse-include.index';
+import { MentionIndex } from './features/navigation/mention.index';
 import { buildSemanticTokens } from './features/semantic/semantic-tokens.service';
 import { buildShaderSemanticTokens } from './features/semantic/shader-semantic-tokens';
 import { semanticTokensLegend } from './features/semantic/legend';
@@ -120,6 +123,38 @@ let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
 let hasDidChangeWatchedFilesCapability = false;
 let hasSnippetCapability = false;
+
+/** The cached `workspace/workspaceFolders` answer, `undefined` until (re)fetched. */
+let workspaceFoldersCache: WorkspaceFolder[] | null | undefined;
+
+/** Resolves {@link workspaceInitialized} once `onInitialized` settled the game-tree scan. */
+let resolveWorkspaceInitialized: () => void;
+/**
+ * Settles once `onInitialized` finished initializing the Cosmoteer workspace (successfully or
+ * not). A `didOpen` validation of an already-open file can arrive while that scan is still
+ * running, and building the project indexes at that moment would bake in a folder set without the
+ * game `Data` root — every index would then silently lack the vanilla tree for the whole session.
+ * {@link ensureFragmentRooting} awaits this before any index build.
+ */
+const workspaceInitialized = new Promise<void>((resolve) => {
+    resolveWorkspaceInitialized = resolve;
+});
+
+/**
+ * The client's workspace folders, fetched once and cached. Nearly every feature request needs the
+ * folder list (through {@link searchFolderUris}), and asking the client each time made every
+ * completion, hover, and validation pay a client round-trip. Never asks a client that did not
+ * advertise the capability, since the request would go unanswered on such a client and pend the
+ * feature forever. The cache is invalidated when the folder set changes.
+ *
+ * @returns the workspace folders, or null when the client has none (or doesn't support them).
+ */
+async function getWorkspaceFoldersCached(): Promise<WorkspaceFolder[] | null> {
+    if (!hasWorkspaceFolderCapability) return null;
+    if (workspaceFoldersCache !== undefined) return workspaceFoldersCache;
+    workspaceFoldersCache = (await connection.workspace.getWorkspaceFolders()) ?? null;
+    return workspaceFoldersCache;
+}
 
 connection.onInitialize(async (params: InitializeParams) => {
     const capabilities = params.capabilities;
@@ -192,7 +227,7 @@ connection.onInitialized(async (_params) => {
     Validator.instance.registerValidation(ValidationForAssignment);
     Validator.instance.registerValidation(ValidationForMath);
     Validator.instance.registerValidation(ValidationForGroupDuplicates);
-    const workspaceFolders = await connection.workspace.getWorkspaceFolders();
+    const workspaceFolders = await getWorkspaceFoldersCached();
 
     if (workspaceFolders) {
         const settings = (await connection.workspace.getConfiguration({
@@ -233,6 +268,9 @@ connection.onInitialized(async (_params) => {
                     });
         }
     }
+    // The game-tree scan (or the decision that there is none) is settled. Index builds that were
+    // waiting on it may now resolve the folder set, with the Data root included when it exists.
+    resolveWorkspaceInitialized();
 
     if (hasConfigurationCapability) {
         // Register for all configuration changes.
@@ -251,14 +289,17 @@ connection.onInitialized(async (_params) => {
             if (globalSettings.trace.server === 'verbose') {
                 connection.console.log('Workspace folder change event received.');
             }
-            // Multi-root: the set of folders changed. Drop the cached symbol table (it is
-            // folder-scoped) and re-run whole-workspace diagnostics over the new folder set —
-            // clearing first so diagnostics for removed folders don't linger.
+            // Multi-root: the set of folders changed. Refetch the cached folder list, drop the
+            // cached symbol table (it is folder-scoped), and re-run whole-workspace diagnostics
+            // over the new folder set — clearing first so diagnostics for removed folders don't
+            // linger.
+            workspaceFoldersCache = undefined;
             WorkspaceSymbolService.instance.reset();
             SchemaIdIndex.instance.reset();
             TemplateBaseIndex.instance.reset();
             LocalizationKeyIndex.instance.reset();
             ReverseIncludeIndex.instance.reset();
+            MentionIndex.instance.reset();
             if (wholeWorkspaceEnabled()) {
                 await clearWorkspaceDiagnostics();
                 await runWorkspaceValidation();
@@ -272,6 +313,15 @@ connection.onInitialized(async (_params) => {
     // never recovers (every `&/INDICATORS/SWX`-style override ref then false-flags). Drop it now that
     // the scan is done so the next resolve rebuilds against the fully-loaded tree.
     invalidateModContext();
+
+    // Warm the project indexes in the background so the first completion, hover, or validation
+    // finds them already built instead of paying the whole-project walk itself. Deliberately not
+    // awaited, since the first feature request would coalesce onto the same in-flight build anyway.
+    // The mention index (find-all-references pre-filter) warms afterwards so the two builds don't
+    // compete for the disk.
+    void ensureFragmentRooting(CancellationToken.None)
+        .then(async () => MentionIndex.instance.ensureBuilt(await searchFolderUris(), CancellationToken.None))
+        .catch(() => undefined);
 
     // Opt-in: validate every file in the workspace, not just the open ones.
     await runWorkspaceValidation();
@@ -291,7 +341,7 @@ connection.onDidChangeConfiguration(async (change) => {
     const wasWholeWorkspace = wholeWorkspaceEnabled();
     const previousCosmoteerPath = globalSettings.cosmoteerPath;
 
-    const workspaceFolders = await connection.workspace.getWorkspaceFolders();
+    const workspaceFolders = await getWorkspaceFoldersCached();
     // With the pull model (the client advertises `workspace/configuration`), the change
     // notification carries no payload — `change.settings` is null — so we must re-pull the
     // settings here. Only fall back to the pushed payload when the client uses the push model.
@@ -321,6 +371,7 @@ connection.onDidChangeConfiguration(async (change) => {
         TemplateBaseIndex.instance.reset();
         LocalizationKeyIndex.instance.reset();
         ReverseIncludeIndex.instance.reset();
+        MentionIndex.instance.reset();
     }
     connection.languages.diagnostics.refresh();
 
@@ -731,7 +782,7 @@ async function runWorkspaceValidation(): Promise<void> {
     workspaceValidationSource = source;
     const token = source.token;
 
-    const folders = await connection.workspace.getWorkspaceFolders();
+    const folders = await getWorkspaceFoldersCached();
     const folderUris = (folders ?? []).map((folder) => folder.uri);
     if (folderUris.length === 0) return;
 
@@ -1002,7 +1053,7 @@ connection.onDocumentSymbol((params, cancellationToken) => {
 // to them live in the game install, outside the open mod folder — without this, find-all-
 // references on a vanilla symbol finds only its declaration.
 async function searchFolderUris(): Promise<string[]> {
-    const folders = await connection.workspace.getWorkspaceFolders();
+    const folders = await getWorkspaceFoldersCached();
     const uris = (folders ?? []).map((folder) => folder.uri);
     // Use the actually-initialized Data root (reliable), not globalSettings.cosmoteerPath
     // (which a config-change event can transiently blank). This is where the vanilla files
@@ -1016,14 +1067,31 @@ async function searchFolderUris(): Promise<string[]> {
  * Makes both fragment-rooting indexes current before any synchronous schema resolution runs. A
  * standalone fragment file is rooted either forward, through `cosmoteer.rules`'s own aliases, or in
  * reverse, through the field that `&<includes>` it, so every schema feature awaits this so a fragment's
- * fields, references, and shader material resolve.
+ * fields, references, and shader material resolve. The first call also builds the other project-wide
+ * indexes over the same document walk, so completion and validation don't each pay a separate
+ * whole-project parse later.
  *
  * @param cancellationToken cancels the reconcile of changed documents.
- * @returns once both indexes are built and reconciled.
+ * @returns once the indexes are built and the fragment-rooting ones are reconciled.
  */
 async function ensureFragmentRooting(cancellationToken: CancellationToken): Promise<void> {
+    // Never build before `onInitialized` settled the game-tree scan: a validation of an
+    // already-open file arrives earlier, and building then would permanently omit the game
+    // `Data` root from every project index (they are one-time builds).
+    await workspaceInitialized;
     await ensureAliasRootIndex(cancellationToken).catch(() => undefined);
-    await ReverseIncludeIndex.instance.ensureBuilt(await searchFolderUris(), cancellationToken).catch(() => undefined);
+    const folders = await searchFolderUris();
+    await WatchedDocumentIndex.buildTogether(
+        [
+            ReverseIncludeIndex.instance,
+            SchemaIdIndex.instance,
+            TemplateBaseIndex.instance,
+            LocalizationKeyIndex.instance,
+        ],
+        folders,
+        'Indexing project'
+    ).catch(() => undefined);
+    await ReverseIncludeIndex.instance.ensureBuilt(folders, cancellationToken).catch(() => undefined);
 }
 
 // Disk changes the editor doesn't surface as edits (git pull/checkout, external tools,
@@ -1093,7 +1161,7 @@ connection.onWorkspaceSymbol(async (params, cancellationToken) => {
         // Scoped to the open project (the mod), not the whole game tree — a project-wide
         // symbol table over all of Cosmoteer would be huge; "go to symbol in workspace" is
         // about the files you're editing.
-        const folders = await connection.workspace.getWorkspaceFolders();
+        const folders = await getWorkspaceFoldersCached();
         const folderUris = (folders ?? []).map((folder) => folder.uri);
         return await WorkspaceSymbolService.instance.getWorkspaceSymbols(
             params.query,
