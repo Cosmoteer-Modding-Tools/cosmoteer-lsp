@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { tmpdir } from 'os';
-import { pathToFileURL } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
@@ -207,6 +207,48 @@ describe('reverse-include rooting', () => {
         }
     });
 
+    // A pure inheritance base — a fragment reached only through `Derived : <base.rules>/Base`, never as a
+    // field value — is rooted to the most-derived class all its derivers share. Mirrors the real
+    // `commands/` layout with the real command classes: `MoveCommand` (MoveCommandRules) and
+    // `DirectControlCommand` (BaseCommandRules) both inherit `base_cmd.rules`'s `BaseCommand`, whose common
+    // ancestor is BaseCommandRules — so the base roots there and its fields resolve.
+    it('roots a pure inheritance base to the common ancestor of its derivers', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'revinc-inherit-'));
+        const uriOf = (name: string) => pathToFileURL(join(dir, name)).href;
+        try {
+            // A stand-in cosmoteer.rules aliases commands.rules (Commands is group<CommandRules>), which in
+            // turn member-aliases each concrete command, so they root via the forward walk.
+            writeFileSync(join(dir, 'cosmoteer.rules'), 'Commands = &<commands.rules>\n');
+            writeFileSync(
+                join(dir, 'commands.rules'),
+                'Move = &<cmd_move.rules>/MoveCommand\nDirectControl = &<cmd_dc.rules>/DirectControlCommand\n'
+            );
+            writeFileSync(join(dir, 'cmd_move.rules'), 'MoveCommand : <base_cmd.rules>/BaseCommand\n{\n\tCircleDuration = 1\n}\n');
+            writeFileSync(join(dir, 'cmd_dc.rules'), 'DirectControlCommand : <base_cmd.rules>/BaseCommand\n{\n}\n');
+            const baseText = 'BaseCommand\n{\n\tAvoidRadiusBuffer = 5\n}\n';
+            writeFileSync(join(dir, 'base_cmd.rules'), baseText);
+
+            aliasRootIndex.invalidate();
+            const parsed = (name: string) => parser(lexer(readFileSync(join(dir, name), 'utf8')), uriOf(name)).value;
+            await aliasRootIndex.build(parsed('cosmoteer.rules'), async (fileRef) => {
+                const m = /<([^>]+)>/.exec(fileRef);
+                return m ? parsed(m[1]) : undefined;
+            });
+            ReverseIncludeIndex.instance.reset();
+            await ReverseIncludeIndex.instance.ensureBuilt([dir], token);
+
+            const doc = parser(lexer(baseText), uriOf('base_cmd.rules')).value;
+            const base = findEnclosingGroup(doc, baseText.indexOf('AvoidRadiusBuffer'));
+            expect(base?.identifier?.name).toBe('BaseCommand');
+            // MoveCommandRules and BaseCommandRules share BaseCommandRules as their nearest common base.
+            expect(resolveGroupClass(base!)).toBe('Cosmoteer.Ships.Commands.BaseCommandRules');
+        } finally {
+            ReverseIncludeIndex.instance.reset();
+            aliasRootIndex.invalidate();
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
     // End to end on the real game file the bug was reported against: with the effect files scanned, the
     // preview builds a payload instead of returning null (which is what showed the "place the cursor in a
     // material" message).
@@ -230,13 +272,90 @@ describe('reverse-include rooting', () => {
         }
     });
 
+    // The real bug this feature fixes: `base_command.rules` gets no schema features because its
+    // `BaseCommand` group is pulled in only as an inheritance base, never as a field value. With the real
+    // command files (which root via the forward walk) scanned, the base roots to BaseCommandRules and the
+    // intermediate `base_follow_command.rules` (reached only through the chain) roots to BaseFollowCommandRules.
+    it.runIf(HAVE_DATA)('roots the real commands/ inheritance bases (base_command, base_follow_command)', async () => {
+        const commandsDir = join(DATA_DIR, 'commands');
+        if (!existsSync(join(commandsDir, 'base_command.rules'))) return;
+        try {
+            // Build the real forward alias index over just the commands subtree: a synthetic root aliases the
+            // real commands.rules (Commands is group<CommandRules>), whose member aliases root each command.
+            aliasRootIndex.invalidate();
+            const parseReal = (abs: string) => parser(lexer(readFileSync(abs, 'utf8')), pathToFileURL(abs).href).value;
+            const rootDoc = parser(lexer('Commands = &<commands/commands.rules>\n'), pathToFileURL(join(DATA_DIR, 'cosmoteer.rules')).href).value;
+            await aliasRootIndex.build(rootDoc, async (fileRef, fromUri) => {
+                const rel = fileRef.replace(/[<>]/g, '').trim();
+                const abs = join(dirname(fileURLToPath(fromUri)), rel);
+                try {
+                    return existsSync(abs) ? parseReal(abs) : undefined;
+                } catch {
+                    return undefined;
+                }
+            });
+            ReverseIncludeIndex.instance.reset();
+            await ReverseIncludeIndex.instance.ensureBuilt([commandsDir], token);
+
+            const baseCmdText = readFileSync(join(commandsDir, 'base_command.rules'), 'utf8');
+            const baseCmdDoc = parser(lexer(baseCmdText), pathToFileURL(join(commandsDir, 'base_command.rules')).href).value;
+            const baseCmd = findEnclosingGroup(baseCmdDoc, baseCmdText.indexOf('AvoidRadiusBuffer'));
+            expect(baseCmd?.identifier?.name).toBe('BaseCommand');
+            expect(resolveGroupClass(baseCmd!)).toBe('Cosmoteer.Ships.Commands.BaseCommandRules');
+            // The base's own fields now resolve (autocomplete/hover/validation), and it validates cleanly.
+            expect(await validateSchema(baseCmdDoc, token)).toEqual([]);
+
+            const followPath = join(commandsDir, 'base_follow_command.rules');
+            if (existsSync(followPath)) {
+                const followText = readFileSync(followPath, 'utf8');
+                const followDoc = parser(lexer(followText), pathToFileURL(followPath).href).value;
+                // Reached only through the chain (its derivers root it, and it in turn roots base_command),
+                // so this is what the fixpoint buys — it must pass more than one pass.
+                expect(ReverseIncludeIndex.instance.memberType(followDoc.uri, 'BaseFollowCommand')).toMatchObject({
+                    ref: 'Cosmoteer.Ships.Commands.BaseFollowCommandRules',
+                });
+                expect(ReverseIncludeIndex.instance.passesUsed).toBeGreaterThan(1);
+            }
+        } finally {
+            ReverseIncludeIndex.instance.reset();
+            aliasRootIndex.invalidate();
+        }
+    });
+
     // The always-on reverse rooting must not introduce false positives. Built over the whole game tree it
-    // roots a set of fragments that were previously unvalidated (particle defs and the like), and every
-    // one of those must still validate cleanly, since the game ships and loads all of it. The floor guards
-    // against a silent regression (a path-resolution break) that would root nothing and pass vacuously.
+    // roots a set of fragments that were previously unvalidated (particle defs, inheritance bases and the
+    // like), and every one of those must still validate cleanly, since the game ships and loads all of it.
+    // The forward alias index is built first, exactly as production does, so forward-rooted derivers (the
+    // commands) root and their inheritance bases are exercised too. The floors guard against a silent
+    // regression (a path-resolution break) that would root nothing and pass vacuously.
     it.runIf(HAVE_DATA)('roots vanilla fragments in reverse without any new validation warnings', async () => {
         try {
+            // Production order: real forward alias index first, then reverse-include (see server.ts startup).
+            // Built directly from the real cosmoteer.rules with a real-file resolver (dir-relative first,
+            // then game-root anchored), so it is independent of any workspace-service state other tests set.
+            const parseReal = (abs: string) => parser(lexer(readFileSync(abs, 'utf8')), pathToFileURL(abs).href).value;
+            const resolveRef = async (fileRef: string, fromUri: string) => {
+                const rel = fileRef.replace(/[<>]/g, '').trim();
+                if (!rel) return undefined;
+                const withExt = /\.[^/\\.]+$/.test(rel) ? rel : `${rel}.rules`;
+                for (const abs of [
+                    join(dirname(fileURLToPath(fromUri)), withExt),
+                    join(DATA_DIR, withExt),
+                    join(dirname(DATA_DIR), withExt),
+                ]) {
+                    if (!existsSync(abs)) continue;
+                    try {
+                        return parseReal(abs);
+                    } catch {
+                        return undefined;
+                    }
+                }
+                return undefined;
+            };
+            aliasRootIndex.invalidate();
+            await aliasRootIndex.build(parseReal(join(DATA_DIR, 'cosmoteer.rules')), resolveRef);
             await ReverseIncludeIndex.instance.ensureBuilt([DATA_DIR], token);
+
             let newlyRooted = 0;
             const offenders: string[] = [];
             for (const file of rulesFiles(DATA_DIR)) {
@@ -254,8 +373,19 @@ describe('reverse-include rooting', () => {
             }
             expect(offenders.slice(0, 40)).toEqual([]);
             expect(newlyRooted).toBeGreaterThanOrEqual(10);
+
+            // The reported file specifically: its inheritance-only `BaseCommand` group now roots and its
+            // fields validate, proving forward + reverse + inheritance rooting compose in production order.
+            const baseCmdPath = join(DATA_DIR, 'commands', 'base_command.rules');
+            if (existsSync(baseCmdPath)) {
+                const text = readFileSync(baseCmdPath, 'utf8');
+                const doc = parser(lexer(text), pathToFileURL(baseCmdPath).href).value;
+                const base = findEnclosingGroup(doc, text.indexOf('AvoidRadiusBuffer'));
+                expect(resolveGroupClass(base!)).toBe('Cosmoteer.Ships.Commands.BaseCommandRules');
+            }
         } finally {
             ReverseIncludeIndex.instance.reset();
+            aliasRootIndex.invalidate();
         }
     }, 120000);
 });

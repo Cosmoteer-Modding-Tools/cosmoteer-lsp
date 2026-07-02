@@ -4,6 +4,8 @@ import { dirname, resolve } from 'path';
 import {
     AbstractNode,
     AbstractNodeDocument,
+    GroupNode,
+    ListNode,
     isAssignmentNode,
     isDocumentNode,
     isGroupNode,
@@ -11,7 +13,8 @@ import {
     isValueNode,
 } from '../../core/ast/ast';
 import { getStartOfAstNode, parseFilePath } from '../../utils/ast.utils';
-import { listElementType, memberTypeIn } from '../../document/schema/schema-context';
+import { listElementType, memberTypeIn, resolveGroupClass } from '../../document/schema/schema-context';
+import { commonAncestorClass } from '../../document/schema/schema';
 import { ValueType } from '../../document/schema/schema.types';
 import { AliasMemberSource, parseAlias, registerAliasFallbackSource } from '../../document/schema/alias-root';
 import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
@@ -54,6 +57,21 @@ const navigation = new FullNavigationStrategy();
  * resolved by a cheap join against the including file's own directory first, then, when that misses, by
  * the shared {@link FullNavigationStrategy}, so a game-root `<Data/…>` include and a mod-overlay path
  * whose target lives in the vanilla tree both root the fragment as well.
+ *
+ * **Inheritance-base rooting.** A second class of fragment is unrooted for a different reason: it is a
+ * pure inheritance base, pulled in only through `Derived : <base_file.rules>/BaseNode` and never as a
+ * field value. The `commands/` folder is the canonical case — `base_command.rules`'s `BaseCommand`
+ * group is inherited by `MoveCommand`, `DirectControlCommand`, `BaseFollowCommand` and (transitively)
+ * every command, but nothing aliases it in as a field, so neither the forward walk nor the include
+ * scan above roots it. This index also records, per base file and base member, the concrete schema
+ * class of every deriving group that inherits it (via {@link resolveGroupClass}). The base then roots
+ * to the *most-derived common ancestor* of all its derivers ({@link commonAncestorClass}) — the one
+ * class they all agree on — computed at query time so it converges as more derivers root, and so a base
+ * inherited by unrelated classes roots to nothing rather than to a guessed type. This too runs to the
+ * same fixpoint: a base file that is itself only reachable through another base (a
+ * `BaseFollowCommand : <base_command.rules>/BaseCommand` that is in turn inherited by the concrete
+ * commands) roots on a later pass, once its own derivers have rooted it. Inheritance bases (`: <base>`)
+ * are the one reference form the include scan deliberately skips, so this is the seam that covers them.
  */
 export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMemberSource {
     private static _instance: ReverseIncludeIndex;
@@ -62,8 +80,14 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
      *  include, and each member maps to the declaring field's type per including source uri, so a
      *  source can be removed on its own. */
     private readonly byTarget = new Map<string, Map<string, Map<string, ValueType>>>();
+    /** Base fragment uri (normalized) → base member → deriving source uri → the deriver's concrete
+     *  schema class. The base roots to the common ancestor of these classes (see {@link memberType}).
+     *  The member is '' for a member-less `: <base_file.rules>` whole-file inheritance base. */
+    private readonly inheritanceByTarget = new Map<string, Map<string, Map<string, string>>>();
     /** Normalized including-source uri to the `(target, member)` entries it contributed. */
     private readonly bySource = new Map<string, Array<{ target: string; member: string }>>();
+    /** Normalized deriving-source uri to the inheritance `(target, member)` entries it contributed. */
+    private readonly inheritanceBySource = new Map<string, Array<{ target: string; member: string }>>();
     /** Fixpoint passes the last build ran (a test/telemetry hook; > 1 means a chain rooted across passes). */
     public passesUsed = 0;
     /** Documents seen during the one-time build that contain at least one `&<…>` alias include.
@@ -126,20 +150,44 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
      * @returns the aliased schema type, or undefined when no include declares it or sources disagree.
      */
     public memberType(uri: string, member: string): ValueType | undefined {
-        const sources = this.byTarget.get(normalizeUri(uri))?.get(member);
-        if (!sources || sources.size === 0) return undefined;
-        let chosen: ValueType | undefined;
-        let signature: string | undefined;
-        for (const valueType of sources.values()) {
-            const current = JSON.stringify(valueType);
-            if (signature === undefined) {
-                signature = current;
-                chosen = valueType;
-            } else if (current !== signature) {
-                return undefined;
+        const normalized = normalizeUri(uri);
+        const sources = this.byTarget.get(normalized)?.get(member);
+        if (sources && sources.size > 0) {
+            let chosen: ValueType | undefined;
+            let signature: string | undefined;
+            let conflict = false;
+            for (const valueType of sources.values()) {
+                const current = JSON.stringify(valueType);
+                if (signature === undefined) {
+                    signature = current;
+                    chosen = valueType;
+                } else if (current !== signature) {
+                    conflict = true;
+                    break;
+                }
             }
+            // An explicit field include is the authoritative slot; only when the field includes
+            // disagree (or there are none) does inheritance-base rooting get a say.
+            if (!conflict) return chosen;
         }
-        return chosen;
+        return this.inheritedMemberType(normalized, member);
+    }
+
+    /**
+     * The schema type a pure inheritance base at `member` of the file at `uri` roots to: the most-derived
+     * common ancestor of every group that inherits it. Computed live from the recorded deriver classes so
+     * it converges as more derivers root, and roots to nothing when they share no ancestor.
+     *
+     * @param normalizedUri the base fragment's normalized document uri.
+     * @param member the inherited base member name, or '' for a whole-file inheritance base.
+     * @returns the base's group schema type, or undefined when no deriver roots it (or they disagree).
+     */
+    private inheritedMemberType(normalizedUri: string, member: string): ValueType | undefined {
+        const derivers = this.inheritanceByTarget.get(normalizedUri)?.get(member);
+        if (!derivers || derivers.size === 0) return undefined;
+        const cls = commonAncestorClass([...derivers.values()]);
+        if (!cls) return undefined;
+        return { kind: 'group', ref: cls, name: cls.split('.').pop() ?? cls };
     }
 
     /**
@@ -152,9 +200,24 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         return this.memberType(uri, '');
     }
 
+    /**
+     * The base-member names the file at `uri` is rooted by through inheritance-base rooting (a
+     * `Derived : <uri>/Member` somewhere in the project), or an empty array. These are the members no
+     * forward walk or field include reaches, so this identifies exactly the fragments this seam newly
+     * roots — used by the mod/vanilla no-regression scans.
+     *
+     * @param uri the base fragment's document uri.
+     * @returns the recorded inherited base members, or an empty array when none.
+     */
+    public inheritanceBaseMembers(uri: string): string[] {
+        return [...(this.inheritanceByTarget.get(normalizeUri(uri))?.keys() ?? [])];
+    }
+
     protected clear(): void {
         this.byTarget.clear();
+        this.inheritanceByTarget.clear();
         this.bySource.clear();
+        this.inheritanceBySource.clear();
         this.sourceSignatures.clear();
         this.changedSinceLastPass = false;
         this.fixpointDocuments = [];
@@ -175,7 +238,12 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
                 target,
                 [...members.entries()].map(([member, sources]) => [member, [...sources.entries()]]),
             ]),
+            inheritanceByTarget: [...this.inheritanceByTarget.entries()].map(([target, members]) => [
+                target,
+                [...members.entries()].map(([member, derivers]) => [member, [...derivers.entries()]]),
+            ]),
             bySource: [...this.bySource.entries()],
+            inheritanceBySource: [...this.inheritanceBySource.entries()],
             signatures: [...this.sourceSignatures.entries()],
             aliasFiles: (this.fixpointDocuments ?? []).map((document) => uriToFsPath(document.uri)),
         };
@@ -192,14 +260,18 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
     public loadState(state: unknown): boolean {
         const parsed = state as {
             byTarget?: Array<[string, Array<[string, Array<[string, ValueType]>]>]>;
+            inheritanceByTarget?: Array<[string, Array<[string, Array<[string, string]>]>]>;
             bySource?: Array<[string, Array<{ target: string; member: string }>]>;
+            inheritanceBySource?: Array<[string, Array<{ target: string; member: string }>]>;
             signatures?: Array<[string, string]>;
             aliasFiles?: string[];
         };
         if (
             !parsed ||
             !Array.isArray(parsed.byTarget) ||
+            !Array.isArray(parsed.inheritanceByTarget) ||
             !Array.isArray(parsed.bySource) ||
+            !Array.isArray(parsed.inheritanceBySource) ||
             !Array.isArray(parsed.signatures) ||
             !Array.isArray(parsed.aliasFiles)
         ) {
@@ -211,7 +283,13 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             for (const [member, sources] of members) memberMap.set(member, new Map(sources));
             this.byTarget.set(target, memberMap);
         }
+        for (const [target, members] of parsed.inheritanceByTarget) {
+            const memberMap = new Map<string, Map<string, string>>();
+            for (const [member, derivers] of members) memberMap.set(member, new Map(derivers));
+            this.inheritanceByTarget.set(target, memberMap);
+        }
         for (const [source, entries] of parsed.bySource) this.bySource.set(source, entries);
+        for (const [source, entries] of parsed.inheritanceBySource) this.inheritanceBySource.set(source, entries);
         for (const [source, signature] of parsed.signatures) this.sourceSignatures.set(source, signature);
         this.pendingAliasFilePaths = parsed.aliasFiles;
         // Force at least one fixpoint pass over the restored alias files, so mod-era rooting of
@@ -223,15 +301,27 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
     protected removeSource(source: string): void {
         this.sourceSignatures.delete(source);
         const prior = this.bySource.get(source);
-        if (!prior) return;
-        for (const { target, member } of prior) {
-            const members = this.byTarget.get(target);
-            const sources = members?.get(member);
-            sources?.delete(source);
-            if (sources && sources.size === 0) members!.delete(member);
-            if (members && members.size === 0) this.byTarget.delete(target);
+        if (prior) {
+            for (const { target, member } of prior) {
+                const members = this.byTarget.get(target);
+                const sources = members?.get(member);
+                sources?.delete(source);
+                if (sources && sources.size === 0) members!.delete(member);
+                if (members && members.size === 0) this.byTarget.delete(target);
+            }
+            this.bySource.delete(source);
         }
-        this.bySource.delete(source);
+        const priorInheritance = this.inheritanceBySource.get(source);
+        if (priorInheritance) {
+            for (const { target, member } of priorInheritance) {
+                const members = this.inheritanceByTarget.get(target);
+                const derivers = members?.get(member);
+                derivers?.delete(source);
+                if (derivers && derivers.size === 0) members!.delete(member);
+                if (members && members.size === 0) this.inheritanceByTarget.delete(target);
+            }
+            this.inheritanceBySource.delete(source);
+        }
     }
 
     /**
@@ -251,12 +341,16 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         const previousSignature = this.sourceSignatures.get(source) ?? '';
         this.removeSource(source);
         const contributed: Array<{ target: string; member: string; slot: string }> = [];
+        const inherited: Array<{ target: string; member: string; deriverClass: string }> = [];
         const state = { sawAlias: false };
-        await this.collectIncludes(document, source, contributed, state, cancellationToken);
+        await this.collectIncludes(document, source, contributed, inherited, state, cancellationToken);
         if (contributed.length) this.bySource.set(source, contributed);
+        if (inherited.length) this.inheritanceBySource.set(source, inherited.map(({ target, member }) => ({ target, member })));
         if (!this.built && !this.inFixpointPass && state.sawAlias) this.fixpointDocuments?.push(document);
-        const signature = contributed
-            .map((entry) => `${entry.target} ${entry.member} ${entry.slot}`)
+        const signature = [
+            ...contributed.map((entry) => `${entry.target} ${entry.member} ${entry.slot}`),
+            ...inherited.map((entry) => `: ${entry.target} ${entry.member} ${entry.deriverClass}`),
+        ]
             .sort()
             .join('\n');
         if (signature !== previousSignature) this.changedSinceLastPass = true;
@@ -273,6 +367,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
      * @param container the node whose elements are scanned.
      * @param source the including document's canonical uri, recorded per contribution so it can be removed.
      * @param contributed collects this source's `(target, member, slot)` entries for {@link bySource}.
+     * @param inherited collects this source's inheritance-base `(target, member, deriverClass)` entries.
      * @param state gets `sawAlias` set when any alias include is seen, even one whose slot can't be typed yet.
      * @param cancellationToken cancels the slow-path navigation.
      */
@@ -280,9 +375,14 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         container: AbstractNode,
         source: string,
         contributed: Array<{ target: string; member: string; slot: string }>,
+        inherited: Array<{ target: string; member: string; deriverClass: string }>,
         state: { sawAlias: boolean },
         cancellationToken: CancellationToken
     ): Promise<void> {
+        // A group/list that inherits a cross-file base roots that base by the deriver's own class.
+        if (isGroupNode(container) || isListNode(container)) {
+            await this.recordInheritanceBases(container, source, inherited, state, cancellationToken);
+        }
         const inList = isListNode(container);
         const elements =
             isDocumentNode(container) || isGroupNode(container) || isListNode(container) ? container.elements : [];
@@ -298,7 +398,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
                     const slot = alias && memberTypeIn(container, element.left.name);
                     if (alias && slot) await this.recordInclude(element.right, alias, slot, source, contributed, cancellationToken);
                 } else if (isGroupNode(element.right) || isListNode(element.right)) {
-                    await this.collectIncludes(element.right, source, contributed, state, cancellationToken);
+                    await this.collectIncludes(element.right, source, contributed, inherited, state, cancellationToken);
                 }
                 continue;
             }
@@ -310,8 +410,56 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
                 continue;
             }
             if (isGroupNode(element) || isListNode(element)) {
-                await this.collectIncludes(element, source, contributed, state, cancellationToken);
+                await this.collectIncludes(element, source, contributed, inherited, state, cancellationToken);
             }
+        }
+    }
+
+    /**
+     * Records every cross-file inheritance base a group/list node declares (`Derived : <base.rules>/Base`),
+     * keyed by the base fragment's uri and base member, together with the deriving group's own concrete
+     * schema class. The base later roots to the common ancestor of all its derivers (see
+     * {@link inheritedMemberType}). Only a group deriver contributes a class; a same-file base (`&Base`,
+     * `^/0`, a numeric index) carries no `<file>` and is left to ordinary scope resolution. When the
+     * deriver isn't yet rooted its class can't be read, so nothing is recorded and the document is retained
+     * for a later fixpoint pass (via `sawAlias`), which is what roots a base that is itself reached only
+     * through another base.
+     *
+     * @param node the deriving group or list node whose inheritance bases are scanned.
+     * @param source the deriving document's canonical uri, recorded per contribution so it can be removed.
+     * @param inherited collects this source's `(target, member, deriverClass)` entries.
+     * @param state gets `sawAlias` set when a cross-file base can't be typed yet, to retain the document.
+     * @param cancellationToken cancels the slow-path navigation used to resolve the base file.
+     */
+    private async recordInheritanceBases(
+        node: GroupNode | ListNode,
+        source: string,
+        inherited: Array<{ target: string; member: string; deriverClass: string }>,
+        state: { sawAlias: boolean },
+        cancellationToken: CancellationToken
+    ): Promise<void> {
+        const bases = node.inheritance;
+        if (!bases || bases.length === 0) return;
+        // Resolve the deriver's class lazily, and only when a cross-file base is actually present, so the
+        // common case (same-file inheritance, which is everywhere) pays nothing.
+        let deriverClass: string | undefined | null = null;
+        for (const base of bases) {
+            if (!isValueNode(base) || base.valueType.type !== 'Reference') continue;
+            const alias = parseAlias(String(base.valueType.value));
+            if (!alias) continue;
+            if (deriverClass === null) deriverClass = isGroupNode(node) ? resolveGroupClass(node) : undefined;
+            if (!deriverClass) {
+                state.sawAlias = true;
+                continue;
+            }
+            const target = await this.resolveTarget(base, alias.fileRef, cancellationToken);
+            if (!target) continue;
+            const member = alias.member ?? '';
+            const members =
+                this.inheritanceByTarget.get(target) ?? this.inheritanceByTarget.set(target, new Map()).get(target)!;
+            const derivers = members.get(member) ?? members.set(member, new Map()).get(member)!;
+            derivers.set(source, deriverClass);
+            inherited.push({ target, member, deriverClass });
         }
     }
 

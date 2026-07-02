@@ -203,6 +203,28 @@ const typeChain = (fullName: string): string[] => {
     return out;
 };
 
+/** The inheritance chain of a class, most-derived first (the class itself, then each `extends`). */
+export const classAncestry = (fullName: string): string[] => typeChain(fullName);
+
+/**
+ * The most-derived class that is an ancestor of (or equal to) every class in `classes` — their nearest
+ * common base in the single-inheritance `extends` chain. Used to root a shared inheritance-base node
+ * (`BaseCommand`, inherited by commands of several concrete classes) to the one class all its derivers
+ * agree on, so the base's fields resolve without over-specializing to any single deriver.
+ *
+ * @param classes the deriver class FullNames (concrete classes that inherit the base).
+ * @returns the nearest common ancestor FullName, or undefined for an empty input or disjoint chains.
+ */
+export const commonAncestorClass = (classes: readonly string[]): string | undefined => {
+    if (classes.length === 0) return undefined;
+    let common = classAncestry(classes[0]);
+    for (let i = 1; i < classes.length && common.length > 0; i++) {
+        const chain = new Set(classAncestry(classes[i]));
+        common = common.filter((c) => chain.has(c));
+    }
+    return common[0];
+};
+
 /**
  * The most relevant SPECIALIZED modding-wiki page for a class, matched against its inheritance chain so
  * a derived part/component/buff still resolves to its family's page. Ordered most-specific first.
