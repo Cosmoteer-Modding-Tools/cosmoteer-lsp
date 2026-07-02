@@ -18,6 +18,7 @@ import {
 } from '../../document/schema/schema-context';
 import { documentRootClass, documentRootRegistry } from '../../document/schema/document-root';
 import { discriminatorIsAmbiguous, enumDef, fieldOf, schema } from '../../document/schema/schema';
+import { deprecatedDiscriminator } from '../../document/schema/deprecations';
 import { SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { GroupNode } from '../../core/ast/ast';
 import { ValidationError } from './validator';
@@ -175,6 +176,29 @@ export const validateSchema = async (
         const written = String(valueNode.valueType.value);
         const members = Object.keys(registry.members);
         if (members.some((m) => m.toLowerCase() === written.toLowerCase())) return;
+        // A type that was renamed in a newer game version (a mod written against an older Cosmoteer):
+        // say what it became and offer that fix, but only when the new name is valid in THIS registry, so
+        // the hint never points at a replacement that wouldn't deserialize here.
+        const deprecation = deprecatedDiscriminator(written);
+        if (deprecation && members.includes(deprecation.replacement)) {
+            errors.push({
+                message: l10n.t(
+                    "'{0}' was renamed to '{1}' in a newer game version ({2}).",
+                    written,
+                    deprecation.replacement,
+                    deprecation.note
+                ),
+                node: valueNode,
+                severity: 'warning',
+                data: {
+                    quickFix: {
+                        title: l10n.t("Change to '{0}'", deprecation.replacement),
+                        newText: deprecation.replacement,
+                    },
+                },
+            });
+            return;
+        }
         const suggestion = closestMatch(written, members, true);
         errors.push({
             message: l10n.t("'{0}' is not a valid {1} type.", written, registry.name),

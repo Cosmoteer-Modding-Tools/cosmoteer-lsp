@@ -43,12 +43,16 @@ describe('applyFieldDocs', () => {
 
 describe('fieldSignatureMarkdown with a description', () => {
     it('renders the prose below the type signature, separated by a rule', () => {
-        const md = fieldSignatureMarkdown({
-            name: 'Foo',
-            valueType: { kind: 'string' },
-            optional: true,
-            description: 'the foo value',
-        });
+        const md = fieldSignatureMarkdown(
+            {
+                name: 'Foo',
+                valueType: { kind: 'string' },
+                optional: true,
+                description: 'the foo value',
+            },
+            // A class with a specialized wiki page, so the footer link is present after the prose.
+            'Cosmoteer.Ships.Buffs.BuffType'
+        );
         expect(md).toContain('**Foo**');
         expect(md).toContain('\n\n---\n\n');
         expect(md).toContain('the foo value');
@@ -56,11 +60,24 @@ describe('fieldSignatureMarkdown with a description', () => {
         expect(md).toContain('cosmoteer.wiki.gg');
     });
 
-    it('shows the wiki footer even when a field has no description', () => {
-        const md = fieldSignatureMarkdown({ name: 'Foo', valueType: { kind: 'string' }, optional: true });
-        // no description rule, but the wiki link is always present
+    it('shows the wiki footer for a specialized class even when a field has no description', () => {
+        const md = fieldSignatureMarkdown(
+            { name: 'Foo', valueType: { kind: 'string' }, optional: true },
+            'Cosmoteer.Ships.Parts.PartComponentRules'
+        );
+        // no description rule, but the specialized wiki link is present
         expect(md).not.toContain('---');
         expect(md).toContain('cosmoteer.wiki.gg');
+    });
+
+    it('omits the wiki footer when the class maps to no specialized page', () => {
+        // No owning class (and an unmapped class) → the generic /Modding page is not linked.
+        expect(fieldSignatureMarkdown({ name: 'Foo', valueType: { kind: 'string' }, optional: true })).not.toContain(
+            'cosmoteer.wiki.gg'
+        );
+        expect(
+            fieldSignatureMarkdown({ name: 'Foo', valueType: { kind: 'string' }, optional: true }, 'Halfling.Gui.WindowBox`1')
+        ).not.toContain('cosmoteer.wiki.gg');
     });
 });
 
@@ -73,9 +90,9 @@ describe('wikiUrlForType', () => {
         expect(wikiUrlForType('Cosmoteer.Factions.FactionRules')).toContain('/Modding/Factions');
     });
 
-    it('falls back to the general modding page for an unmapped or missing class', () => {
-        expect(wikiUrlForType('Halfling.Gui.WindowBox`1')).toMatch(/\/wiki\/Modding$/);
-        expect(wikiUrlForType(undefined)).toMatch(/\/wiki\/Modding$/);
+    it('returns undefined for an unmapped or missing class (no generic-page fallback)', () => {
+        expect(wikiUrlForType('Halfling.Gui.WindowBox`1')).toBeUndefined();
+        expect(wikiUrlForType(undefined)).toBeUndefined();
     });
 
     it('renders the resolved page in the field footer', () => {

@@ -14,6 +14,7 @@ import {
     fieldSignatureMarkdown,
     isShaderConstantField,
 } from '../../document/schema/schema';
+import { deprecatedDiscriminator } from '../../document/schema/deprecations';
 
 /**
  * Markdown documenting the schema field a hovered node belongs to its value type, whether it's
@@ -84,5 +85,11 @@ export const schemaDiscriminatorHover = (node: AbstractNode): string | null => {
 
     const written = String(node.valueType.value);
     const cls = classByDiscriminator(written, registry.name);
-    return cls ? `**${registry.typeField} = ${written}** → \`${cls.split('.').pop()}\`` : null;
+    if (cls) return `**${registry.typeField} = ${written}** → \`${cls.split('.').pop()}\``;
+    // An unresolved discriminator that is a known rename from an older game version: show what it became.
+    const deprecation = deprecatedDiscriminator(written);
+    if (deprecation && registry.members[deprecation.replacement]) {
+        return `**${registry.typeField} = ${written}** — renamed to \`${deprecation.replacement}\` (${deprecation.note})`;
+    }
+    return null;
 };

@@ -198,6 +198,36 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
     'Halfling.Particles.Renderers.StandardParticleQuadRenderer': [
         { name: 'MaxScale', valueType: { kind: 'number' }, optional: true },
     ],
+    // The builtin-ships database files (`builtin_ships/**`) are read by a custom deserializer that only
+    // reflects `_ships`; the OT writes the list under `Ships` and carries file-level defaults `Faction`
+    // / `Tags` / `IDPrefix` (the same members each `BuiltinShipRules` element has, applied to every ship
+    // in the file and referenced from the blueprints as `~/Tags`). Modeling them here lets those files
+    // root (see the `builtin_ships/` rule in document-root.ts) and validate their ship list. Types match
+    // `BuiltinShipRules`' own fields, so nothing is validated in a way vanilla wouldn't already accept.
+    'Cosmoteer.Data.BuiltinShipsDatabase': [
+        {
+            name: 'Ships',
+            valueType: {
+                kind: 'list',
+                element: { kind: 'group', ref: 'Cosmoteer.Data.BuiltinShipRules', name: 'BuiltinShipRules' },
+            },
+            optional: true,
+        },
+        {
+            name: 'Faction',
+            valueType: { kind: 'reference', target: 'Cosmoteer.Factions.FactionRules', targetName: 'FactionRules' },
+            optional: true,
+        },
+        {
+            name: 'Tags',
+            valueType: {
+                kind: 'list',
+                element: { kind: 'reference', target: 'Cosmoteer.Data.BuiltinShipTag', targetName: 'BuiltinShipTag' },
+            },
+            optional: true,
+        },
+        { name: 'IDPrefix', valueType: { kind: 'string' }, optional: true },
+    ],
 };
 
 /**

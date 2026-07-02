@@ -122,4 +122,24 @@ describe('schemaDiscriminatorHover', () => {
         const firingArc = doc.elements.map((n) => findValue(n, 'FiringArc')).find(Boolean);
         expect(schemaDiscriminatorHover(firingArc!)).toBeNull();
     });
+
+    it('shows the current name when a `Type=` was renamed in a newer game version', () => {
+        // The valid `Known` sibling identifies the container's registry, so the deprecated `AmmoChange`
+        // on `Old` resolves to its rename note.
+        const doc = parse('Part\n{\n\tComponents\n\t{\n\t\tKnown { Type = TurretWeapon }\n\t\tOld { Type = AmmoChange }\n\t}\n}');
+        const findByValue = (node: AbstractNode, v: string): ValueNode | undefined => {
+            if (isValueNode(node) && node.valueType.value === v) return node;
+            const kids = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) ? [node.right] : [];
+            for (const k of kids) {
+                const f = findByValue(k, v);
+                if (f) return f;
+            }
+            return undefined;
+        };
+        const old = doc.elements.map((n) => findByValue(n, 'AmmoChange')).find(Boolean);
+        const hover = schemaDiscriminatorHover(old!);
+        expect(hover).toContain('AmmoChange');
+        expect(hover).toContain('renamed');
+        expect(hover).toContain('ResourceChange');
+    });
 });

@@ -40,6 +40,18 @@ type RootRule = {
 /** Path-scoped roots: a fixed class, or a registry whose discriminators are too generic to dispatch globally. */
 const PATH_ROOTS: ReadonlyArray<RootRule> = [
     { test: /\/shots\//i, cls: 'Cosmoteer.Bullets.BulletRules' },
+    // Codex page files (`codex/lore/**`, `codex/tutorials/**`) are whole-file `CodexPageRules`, pulled
+    // into the codex through `CodexPages` lists that are assembled by multi-source `&<a>/CodexPages,
+    // &<b>/CodexPages` concatenation the alias walk doesn't follow. Guarded by the top-level `Entries`
+    // field, which every page declares but the list-container files (`codex.rules`, `lore.rules`,
+    // `tutorials.rules`, `tips.rules`, whose top-level field is `CodexPages`) lack — so those stay
+    // unrooted here instead of mis-typing as a page.
+    { test: /[/\\]codex[/\\]/i, cls: 'Cosmoteer.Codex.CodexPageRules', requireTopLevelField: 'Entries' },
+    // Builtin-ships database files (`builtin_ships/**`) are whole-file `BuiltinShipsDatabase`, whose
+    // `Ships` list of ship blueprints is assembled by multi-source concatenation the alias walk can't
+    // follow. The `Ships` / `Faction` / `Tags` / `IDPrefix` members are modeled in schema-overlay.ts.
+    // Guarded by the top-level `Ships` field that every one of these files (concat and leaf) declares.
+    { test: /[/\\]builtin_ships[/\\]/i, cls: 'Cosmoteer.Data.BuiltinShipsDatabase', requireTopLevelField: 'Ships' },
     { test: /\/resources\//i, cls: 'Cosmoteer.Resources.ResourceRules', requireTopLevelField: 'ID' },
     { test: /\/statuses\//i, cls: 'Cosmoteer.Ships.Statuses.StatusType', requireTopLevelField: 'ID' },
     // AI behaviour files (`ai/ai_normal.rules`, one per difficulty and station type) are whole-file

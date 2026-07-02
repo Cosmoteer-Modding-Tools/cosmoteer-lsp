@@ -178,13 +178,16 @@ export const fieldSignatureMarkdown = (field: SchemaField, owningType?: string):
     // The prose description, when documented, goes below the type signature separated by a rule.
     const body = field.description ? `${signature}\n\n---\n\n${field.description}` : signature;
     // A footer link to the most relevant modding-wiki page for the field's owning class (a buff →
-    // /Buffs, a part → /Data_fields, …), so a modder can read further from hover or completion. The
-    // wiki is the place for guides and worked examples; these field docs stay field-scoped.
-    return `${body}\n\n_[Cosmoteer modding wiki ↗](${wikiUrlForType(owningType)})_`;
+    // /Buffs, a part → /Data_fields, …), so a modder can read further from hover or completion. Only a
+    // SPECIALIZED page is linked — the generic /Modding landing page is not, since a link that always
+    // points at the same top-level page on every field is noise rather than help.
+    const wiki = wikiUrlForType(owningType);
+    return wiki ? `${body}\n\n_[Cosmoteer modding wiki ↗](${wiki})_` : body;
 };
 
 const WIKI = 'https://cosmoteer.wiki.gg/wiki';
-/** The general modding wiki, linked when a field's class maps to no more specific page. */
+/** The general modding-wiki landing page. Kept for reference, but deliberately NOT linked from hovers
+ *  (see {@link wikiUrlForType}) — only class-specific pages are worth a footer link. */
 export const MODDING_WIKI_URL = `${WIKI}/Modding`;
 
 /** The inheritance chain of FullNames for a class (itself first, then each `extends`). */
@@ -201,12 +204,14 @@ const typeChain = (fullName: string): string[] => {
 };
 
 /**
- * The most relevant modding-wiki page for a class, matched against its inheritance chain so a derived
- * part/component/buff still resolves to its family's page. Ordered most-specific first; falls back to
- * the general modding page. Only pages verified to exist on cosmoteer.wiki.gg are linked.
+ * The most relevant SPECIALIZED modding-wiki page for a class, matched against its inheritance chain so
+ * a derived part/component/buff still resolves to its family's page. Ordered most-specific first.
+ * Returns undefined when no specific page applies — the caller then links nothing rather than the
+ * generic /Modding landing page, so a wiki link only appears where it points somewhere useful. Only
+ * pages verified to exist on cosmoteer.wiki.gg are linked.
  */
-export const wikiUrlForType = (owningType?: string): string => {
-    if (!owningType) return MODDING_WIKI_URL;
+export const wikiUrlForType = (owningType?: string): string | undefined => {
+    if (!owningType) return undefined;
     const chain = typeChain(owningType);
     const has = (needle: string): boolean => chain.some((c) => c.includes(needle));
     // A proxy is also a component, so match it before the component rule.
@@ -218,7 +223,7 @@ export const wikiUrlForType = (owningType?: string): string => {
     if (has('Cosmoteer.Resources')) return `${WIKI}/Modding/Resources`;
     if (has('Cosmoteer.Factions')) return `${WIKI}/Modding/Factions`;
     if (has('.Ships.AI')) return `${WIKI}/Modding/AI`;
-    return MODDING_WIKI_URL;
+    return undefined;
 };
 
 /** A short human label for a field's value type, for completion `detail` / hover. */

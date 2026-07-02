@@ -34,6 +34,43 @@ export const ROOT_GROUP_CLASSES: Record<string, string> = {
     Part: 'Cosmoteer.Ships.Parts.PartRules',
 };
 
+/**
+ * Folder-scoped whole-file group roots: a `.rules` file whose root is a single named group whose
+ * class is fixed by the folder it lives in rather than by a canonical identifier. A ship file is
+ * `Asteroid : <base_ship.rules> { … }` — the group's name is the ship's own, so {@link
+ * ROOT_GROUP_CLASSES} (which keys on a fixed name like `Part`) can't anchor it, but every ship under
+ * `ships/`/`builtin_ships/` is a `ShipRules`. Applied only to a top-level group and only when the
+ * group's fields are a majority of the candidate's (see {@link groupFitsClass}), so the part, wall and
+ * sprite files that share the ships folders are not mis-rooted (parts anchor as `Part` earlier anyway).
+ */
+const ROOT_GROUP_BY_PATH: ReadonlyArray<{ readonly test: RegExp; readonly cls: string }> = [
+    { test: /[/\\](?:ships|builtin_ships)[/\\]/i, cls: 'Cosmoteer.Ships.ShipRules' },
+];
+
+/** Minimum fraction of a root group's named members the candidate class must own to anchor it. */
+const MIN_GROUP_ROOT_COVERAGE = 0.5;
+
+/**
+ * Whether `cls` is a plausible root for `group`: it must own a majority of the group's named members.
+ * Guards the folder-scoped root against a non-ship group that happens to sit under a ships folder (a
+ * group with too few members to judge, < 3, carries too little signal and is rejected, staying
+ * unrooted rather than risking a mis-root).
+ */
+const groupFitsClass = (group: GroupNode, cls: string): boolean => {
+    const names = group.elements
+        .map((node) =>
+            isAssignmentNode(node)
+                ? node.left.name
+                : isGroupNode(node) || isListNode(node)
+                  ? node.identifier?.name
+                  : undefined
+        )
+        .filter((name): name is string => !!name);
+    if (names.length < 3) return false;
+    const known = names.filter((name) => fieldOf(cls, name)).length;
+    return known / names.length >= MIN_GROUP_ROOT_COVERAGE;
+};
+
 const ELEMENT_KINDS = new Set(['list', 'range', 'interpolated']);
 
 /**
@@ -167,7 +204,57 @@ export const resolveGroupClass = (group: GroupNode, depth = 0): string | undefin
     if (viaType) return viaType;
     const id = group.identifier?.name;
     if (id && ROOT_GROUP_CLASSES[id]) return ROOT_GROUP_CLASSES[id];
+    // A top-level named group whose class is fixed by its folder (a ship under `ships/`), guarded by
+    // field coverage so the part/wall/sprite files sharing those folders are not mis-rooted.
+    if (group.parent && isDocumentNode(group.parent)) {
+        const uri = group.parent.uri.replace(/\\/g, '/');
+        const rule = ROOT_GROUP_BY_PATH.find((r) => r.test.test(uri));
+        if (rule && groupFitsClass(group, rule.cls)) return rule.cls;
+    }
     return undefined;
+};
+
+/**
+ * The schema type expected at top-level (or nested) member `member` of `container`, which is either a
+ * group node or the document root. A rooted container reads the type straight off its class; a map
+ * container types every member as its value type (the member is a key, e.g. a planet style `Styles {
+ * alien = &<…> }`); an unrooted top-level member falls back to how the game root (or a reverse
+ * `&<include>`) aliases this fragment file in. This is the primitive the reverse-include index uses to
+ * type an `&<file>` include by the field that declares it, wherever that field sits.
+ *
+ * @param container the group or document the member is declared in.
+ * @param member the declared member name.
+ * @returns the schema type at that slot, or undefined when the container can't be anchored to a class.
+ */
+export const memberTypeIn = (
+    container: GroupNode | AbstractNodeDocument,
+    member: string
+): ValueType | undefined => {
+    if (isDocumentNode(container)) {
+        const root = documentRootClass(container);
+        if (root) return fieldOf(root, member)?.valueType;
+        return aliasedMemberType(container, member);
+    }
+    const cls = resolveGroupClass(container);
+    if (cls) return fieldOf(cls, member)?.valueType;
+    // A map-typed group (`Styles { alien = &<…> }`) has no class of its own; its members are keys, so
+    // every one takes the map's value type.
+    const expected = expectedValueType(container, 0);
+    return expected?.kind === 'map' ? expected.value : undefined;
+};
+
+/**
+ * The element type of a list node — what the schema expects at each of its slots. Resolves the list's
+ * own declared type (through the same container/alias anchoring as everything else) and unwraps its
+ * element. Used to type an `&<file>` include written as a bare list element (a codex `CodexPages [
+ * &<page> ]`), so the included fragment roots as the element class.
+ *
+ * @param list the list node whose element type is wanted.
+ * @returns the element schema type, or undefined when the list can't be typed.
+ */
+export const listElementType = (list: ListNode): ValueType | undefined => {
+    const listType = expectedValueType(list, 0);
+    return listType && ELEMENT_KINDS.has(listType.kind) && 'element' in listType ? listType.element : undefined;
 };
 
 /**

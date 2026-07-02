@@ -42,6 +42,38 @@ describe('validateSchema — invalid enum values', () => {
     });
 });
 
+describe('validateSchema — deprecated (renamed) discriminator', () => {
+    // A component whose `Type=` is a value that was renamed in a newer game version (a mod written
+    // against an older Cosmoteer). `Components` is a PartComponentRules slot, so the discriminator is
+    // validated against that registry.
+    // A valid sibling (`Known`) pins the container's registry to PartComponentRules (the container is
+    // custom-deserialized, so a sibling's valid `Type` is what identifies the registry), then the `X`
+    // component's `Type` is validated against it — mirroring how real component files are structured.
+    const partWith = (type: string) =>
+        `Part\n{\n\tComponents\n\t{\n\t\tKnown\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t}\n\t\tX\n\t\t{\n\t\t\tType = ${type}\n\t\t}\n\t}\n}`;
+
+    it('flags a renamed type with the current name and offers it as a quick fix', async () => {
+        const errors = await validateSchema(parse(partWith('AmmoChange')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('AmmoChange');
+        expect(errors[0].message).toContain('renamed');
+        expect(errors[0].message).toContain('ResourceChange');
+        expect(errors[0].severity).toBe('warning');
+        expect(errors[0].data?.quickFix?.newText).toBe('ResourceChange');
+    });
+
+    it('accepts the current name with no warning', async () => {
+        expect(await validateSchema(parse(partWith('ResourceChange')), token)).toHaveLength(0);
+    });
+
+    it('still gives a generic did-you-mean for an unrelated invalid type', async () => {
+        const errors = await validateSchema(parse(partWith('TurretWeapn')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('is not a valid');
+        expect(errors[0].data?.quickFix?.newText).toBe('TurretWeapon');
+    });
+});
+
 describe('validateSchema — invalid boolean values', () => {
     // ReturnToCenter is a bool field on TurretWeaponRules.
     const turret = (body: string) =>
