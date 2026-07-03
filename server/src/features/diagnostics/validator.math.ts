@@ -1,6 +1,6 @@
 import { AbstractNode, ExpressionNode, isExpressionNode, isValueNode, MathExpressionNode } from '../../core/ast/ast';
 import { Validation } from './validator';
-import { KNOWN_CONSTANT_NAMES } from '../../semantics/value-evaluator';
+import { KNOWN_CONSTANT_NAMES } from '../../semantics/math-function-registry';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { isStringsFile } from '../../mod/strings-folder';
 import * as l10n from '@vscode/l10n';

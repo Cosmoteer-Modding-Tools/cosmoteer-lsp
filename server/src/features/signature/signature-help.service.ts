@@ -10,89 +10,41 @@
  * mid-edit and handles arbitrary nesting uniformly.
  */
 import { SignatureHelp, SignatureInformation } from 'vscode-languageserver/node';
-import { FUNCTION_ARITY } from '../../semantics/value-evaluator';
-import { MXPARSER_FUNCTION_NAMES, COSMOTEER_FUNCTION_NAMES } from '../../semantics/mxparser-functions';
+import { MathFunctionSpec, mathFunction } from '../../semantics/math-function-registry';
 
-interface Signature {
-    /** Ordered parameter names, each a substring of the rendered label so the client can highlight it. */
-    params: readonly string[];
-    /** One-line human description shown under the signature. */
-    doc: string;
-    /** Variadic functions (`min`, `max`, …) keep highlighting their single `…values` slot. */
-    variadic?: boolean;
-}
-
-const unary = (param: string, doc: string): Signature => ({ params: [param], doc });
-const trig = (doc: string): Signature => unary('angle', doc);
-const invTrig = (doc: string): Signature => unary('x', doc);
+// Fallback parameter names for registry entries that declare an arity but no named params.
+const GENERIC_PARAM_NAMES = ['a', 'b', 'c', 'd', 'e'];
 
 /**
- * Curated signatures for the functions whose meaning we know — the numerically-evaluatable set plus
- * Cosmoteer's `db2vol`. Keyed by lowercase name. Aliases (`tg`/`tan`, `lg`/`log10`, …) share an
- * entry. Any other valid-but-unmodelled mXparser keyword still gets a generic `name(…)` signature so
- * help appears for it too, just without named parameters.
+ * Derive the parameter labels for a spec: curated names when present, otherwise generic names from
+ * the arity (`x` for unary, `a, b` for binary, `…values` for variadic). An optional tail parameter
+ * of a `[min, max]` range is rendered too, the highlight clamp below keeps it usable.
+ *
+ * @param spec the registry entry to render.
+ * @returns the ordered parameter labels for the signature.
  */
-const SIGNATURES: Record<string, Signature> = {
-    ceil: unary('x', 'Round up to the nearest integer.'),
-    floor: unary('x', 'Round down to the nearest integer.'),
-    round: { params: ['x', 'places'], doc: 'Round to the nearest integer, or to `places` decimals.' },
-    abs: unary('x', 'Absolute value.'),
-    sign: unary('x', 'Sign of x: -1, 0 or 1.'),
-    sgn: unary('x', 'Sign of x: -1, 0 or 1.'),
-    sqrt: unary('x', 'Square root.'),
-    cbrt: unary('x', 'Cube root.'),
-    exp: unary('x', 'e raised to the power x.'),
-    ln: unary('x', 'Natural logarithm (base e).'),
-    log2: unary('x', 'Logarithm base 2.'),
-    log10: unary('x', 'Logarithm base 10.'),
-    lg: unary('x', 'Logarithm base 10.'),
-    log: { params: ['base', 'x'], doc: 'Logarithm of x to the given base.' },
-    pow: { params: ['base', 'exponent'], doc: 'base raised to the power exponent.' },
-    mod: { params: ['a', 'b'], doc: 'Remainder of a divided by b.' },
-    atan2: { params: ['y', 'x'], doc: 'Angle of the vector (x, y), in radians.' },
-    sin: trig('Sine of an angle (radians).'),
-    cos: trig('Cosine of an angle (radians).'),
-    tan: trig('Tangent of an angle (radians).'),
-    tg: trig('Tangent of an angle (radians).'),
-    cot: trig('Cotangent of an angle (radians).'),
-    ctg: trig('Cotangent of an angle (radians).'),
-    ctan: trig('Cotangent of an angle (radians).'),
-    sec: trig('Secant of an angle (radians).'),
-    csc: trig('Cosecant of an angle (radians).'),
-    cosec: trig('Cosecant of an angle (radians).'),
-    asin: invTrig('Arc sine, in radians.'),
-    arcsin: invTrig('Arc sine, in radians.'),
-    acos: invTrig('Arc cosine, in radians.'),
-    arccos: invTrig('Arc cosine, in radians.'),
-    atan: invTrig('Arc tangent, in radians.'),
-    arctan: invTrig('Arc tangent, in radians.'),
-    arctg: invTrig('Arc tangent, in radians.'),
-    sinh: invTrig('Hyperbolic sine.'),
-    cosh: invTrig('Hyperbolic cosine.'),
-    tanh: invTrig('Hyperbolic tangent.'),
-    asinh: invTrig('Inverse hyperbolic sine.'),
-    acosh: invTrig('Inverse hyperbolic cosine.'),
-    atanh: invTrig('Inverse hyperbolic tangent.'),
-    min: { params: ['…values'], doc: 'Smallest of the given values.', variadic: true },
-    max: { params: ['…values'], doc: 'Largest of the given values.', variadic: true },
-    sum: { params: ['…values'], doc: 'Sum of the given values.', variadic: true },
-    avg: { params: ['…values'], doc: 'Average of the given values.', variadic: true },
-    db2vol: { params: ['"decibels"'], doc: 'Convert a decibel string to a linear volume.' },
+const paramsOf = (spec: MathFunctionSpec): readonly string[] => {
+    if (spec.params) return spec.params;
+    const [min, max] = spec.arity;
+    if (!isFinite(max)) return ['…values'];
+    if (max === 1) return ['x'];
+    return GENERIC_PARAM_NAMES.slice(0, max);
 };
 
-/** True for any name that should get signature help — a curated, evaluatable or valid mXparser/Cosmoteer function. */
-const isKnownFunction = (name: string): boolean =>
-    name in SIGNATURES || MXPARSER_FUNCTION_NAMES.has(name) || COSMOTEER_FUNCTION_NAMES.has(name) || name in FUNCTION_ARITY;
-
-/** Build the LSP signature for a function name (curated if known, else a generic variadic `name(…)`). */
-const buildSignature = (rawName: string): SignatureInformation => {
+/**
+ * Build the LSP signature for a known function name from its registry entry.
+ *
+ * @param rawName the function name as written in the document.
+ * @param spec the registry entry for that name.
+ * @returns the rendered signature with one label per parameter.
+ */
+const buildSignature = (rawName: string, spec: MathFunctionSpec): SignatureInformation => {
     const name = rawName.toLowerCase();
-    const sig = SIGNATURES[name] ?? { params: ['…'], doc: 'mXparser math function.', variadic: true };
-    const label = `${name}(${sig.params.join(', ')})`;
+    const params = paramsOf(spec);
     return {
-        label,
-        documentation: sig.doc,
-        parameters: sig.params.map((p) => ({ label: p })),
+        label: `${name}(${params.join(', ')})`,
+        documentation: spec.doc ?? 'mXparser math function.',
+        parameters: params.map((p) => ({ label: p })),
     };
 };
 
@@ -159,11 +111,11 @@ export const activeCallAt = (text: string, offset: number): ActiveCall | undefin
 /** Compute signature help for the math function call the cursor sits in, or null if there is none. */
 export const computeSignatureHelp = (text: string, offset: number): SignatureHelp | null => {
     const active = activeCallAt(text, offset);
-    if (!active || !isKnownFunction(active.name.toLowerCase())) return null;
+    const spec = active ? mathFunction(active.name) : undefined;
+    if (!active || !spec) return null;
 
-    const signature = buildSignature(active.name);
+    const signature = buildSignature(active.name, spec);
     const paramCount = signature.parameters?.length ?? 0;
-    const sig = SIGNATURES[active.name.toLowerCase()];
     // Clamp the highlighted parameter to the last slot: variadic functions keep highlighting their
     // single `…values` slot, and an over-typed fixed-arity call keeps the last parameter lit rather
     // than highlighting nothing.
@@ -172,6 +124,6 @@ export const computeSignatureHelp = (text: string, offset: number): SignatureHel
     return {
         signatures: [signature],
         activeSignature: 0,
-        activeParameter: sig?.variadic ? 0 : activeParameter,
+        activeParameter: isFinite(spec.arity[1]) ? activeParameter : 0,
     };
 };

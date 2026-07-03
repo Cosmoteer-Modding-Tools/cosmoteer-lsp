@@ -57,7 +57,7 @@ export const validateLocalizationKeys = async (
         const key = String(value.valueType.value).trim();
         if (!key) continue;
         const name = assignmentNameOf(value);
-        if (!name || !fieldNames.has(name)) continue;
+        if (!name || !fieldNames.has(name.toLowerCase())) continue;
         candidates.push({ node: value, key });
     }
     if (candidates.length === 0) return [];

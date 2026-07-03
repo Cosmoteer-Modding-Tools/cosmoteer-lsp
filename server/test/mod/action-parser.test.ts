@@ -121,6 +121,29 @@ describe('parseModActions', () => {
         const [action] = parseActions('Actions\n[\n\t{\n\t\tAction = Frobnicate\n\t\tFoo = 1\n\t}\n]\n');
         expect(action.type).toBe('Unknown');
         expect(action.verbText).toBe('Frobnicate');
-        expect(action.presentFields.has('Foo')).toBe(true);
+        expect(action.presentFields.has('foo')).toBe(true);
+    });
+
+    it('matches the Actions list and field names case-insensitively like the game', () => {
+        // Seen in a published mod (Feuerhai's Coilgun Tech): lowercase `actions`. The game keys
+        // node children with InvariantCultureIgnoreCase, so this loads fine in game.
+        const lowercase = `
+ID = author.mod
+actions
+[
+	{
+		action = AddMany
+		addto = "<ships/terran/terran.rules>/Terran/Parts"
+		manytoadd
+		[
+			&<Parts/coilgun/coilgun.rules>/Part
+		]
+	}
+]
+`;
+        const [action] = parseActions(lowercase);
+        expect(action.type).toBe('AddMany');
+        expect(action.targets.map((t) => String(t.valueType.value))).toEqual(['<ships/terran/terran.rules>/Terran/Parts']);
+        expect(action.sources).toHaveLength(1);
     });
 });

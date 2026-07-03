@@ -884,7 +884,7 @@ exports[`lexer > tokenizes booleans, percentages and assignments 1`] = `
     "type": "EQUALS",
   },
   {
-    "end": 17,
+    "end": 18,
     "lineNumber": 1,
     "lineOffset": 4,
     "start": 13,

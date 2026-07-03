@@ -53,8 +53,12 @@ const isWhitespaceChar = (char: string): boolean => {
     return code >= 128 && NON_ASCII_WHITESPACE.test(char);
 };
 
-/** Whether a character is a digit or space, the charset of the `IS_NUMBER` value check. */
-const isNumberCharCode = (code: number): boolean => (code >= 0x30 && code <= 0x39) || code === 32;
+/**
+ * Whether a character can appear in a numeric literal for the `<number>/` and `!`-factorial
+ * splits: digit, space, or decimal point. A dot alone is not a number — callers must also require
+ * a digit seen so far, or `../Ref` relative paths would split at their slash.
+ */
+const isNumberCharCode = (code: number): boolean => (code >= 0x30 && code <= 0x39) || code === 32 || code === 0x2e;
 
 /** `MM:SS`/`HH:MM:SS` time-literal prefix, evaluated only when a `:` follows a value. */
 const TIME_LITERAL_PREFIX = /^\d+(:\d+)*$/;
@@ -313,7 +317,7 @@ export const lexer = (input: string): Token[] => {
             input[current + 3] === 's' &&
             input[current + 4] === 'e'
         ) {
-            pushToken(createToken(TOKEN_TYPES.FALSE, lineOffset, lineNumber, current, current + 4));
+            pushToken(createToken(TOKEN_TYPES.FALSE, lineOffset, lineNumber, current, current + 5));
             lineOffset += 5;
             current += 5;
             continue;
@@ -322,11 +326,15 @@ export const lexer = (input: string): Token[] => {
         if (isValueCharCode(char.charCodeAt(0))) {
             const start = current;
             const lineOffsetBefore = lineOffset;
-            // Whether every character consumed so far is a digit or space (the number predicate the
-            // `!`-factorial and `<number>/` checks need). Tracked incrementally so the loop does not
-            // re-scan the whole accumulated value on each character. The value string itself is not
-            // accumulated either \u2014 the loop consumes contiguous input, so it is sliced once at the end.
+            // Whether every character consumed so far is a digit, space, or decimal point (the number
+            // predicate the `!`-factorial and `<number>/` checks need). Tracked incrementally so the loop
+            // does not re-scan the whole accumulated value on each character. The value string itself is
+            // not accumulated either \u2014 the loop consumes contiguous input, so it is sliced once at the end.
             let numberSoFar = true;
+            // Whether an actual digit was consumed. The `<number>/` division split requires it so that
+            // dot-only prefixes stay whole: `../Ref` and `./Data/\u2026` are paths, not division, while
+            // `0.065/1.75` and `.5/2` are division and must split.
+            let sawDigit = false;
             // Track whether we're inside a `<...>` file-path segment of a reference. There a backslash
             // is a path separator — ObjectText accepts `&<dir\file.rules>` (it's not an invalid path
             // char) and .NET resolves it on Windows — not the whitespace/line-continuation `\` is
@@ -352,7 +360,7 @@ export const lexer = (input: string): Token[] => {
                     // `!` is the factorial operator only after a number (`5!`). After letters it is a
                     // literal exclamation that belongs to the value — localized UI text is full of
                     // them (`KÄMPFEN!`, `LOS!`). Keep `!` in non-numeric values, split it off numbers.
-                    !(char === '!' && numberSoFar && current > start)) ||
+                    !(char === '!' && numberSoFar && sawDigit && current > start)) ||
                     // `MM:SS`/`HH:MM:SS` time literal: a `:` between digits stays in the
                     // value (e.g. `TimeLimit = 30:00`) so it is not lexed as an inheritance
                     // colon. `Child : Parent` is unaffected (the value there is not digits).
@@ -371,7 +379,8 @@ export const lexer = (input: string): Token[] => {
                 if (char === '<') insideFilePath = true;
                 else if (char === '>') insideFilePath = false;
                 if (numberSoFar && !isNumberCharCode(char.charCodeAt(0))) numberSoFar = false;
-                if (numberSoFar && input[current + 1] === '/') {
+                if (numberSoFar && char >= '0' && char <= '9') sawDigit = true;
+                if (numberSoFar && sawDigit && input[current + 1] === '/') {
                     current++;
                     // Keep the column counter in step with `current`. Without this every token
                     // after a `<number>/…` split (e.g. `1/16`) is reported one column too early.

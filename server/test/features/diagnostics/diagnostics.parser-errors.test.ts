@@ -23,6 +23,9 @@ describe('parser error diagnostics', () => {
         ['empty parentheses', 'X = ()\n', 'Expected value after left paren'],
         ['non-reference after inheritance value', 'A : 1\nB = 2\n', 'Expected reference value after reference value but found Assignment'],
         ['unknown token', 'X = @\n', 'Unknown token type'],
+        // The real OT parser throws `Unexpected "=" at position …` here too (OTGroupNode.Parse),
+        // so this is reported as invalid input rather than a possible parser bug.
+        ['stray equals after a comma terminator', 'X = &<a.rules>, = &<b.rules>\n', 'Unexpected "="'],
         ['group brace never closed (immediate EOF)', 'Foo {', 'Expected right brace but found end of file'],
         ['list bracket never closed (immediate EOF)', 'Foo [', 'Expected right bracket but found end of file'],
         ['unclosed parenthesized reference', 'X = ceil((&A + 3\n', 'Expected right paren'],

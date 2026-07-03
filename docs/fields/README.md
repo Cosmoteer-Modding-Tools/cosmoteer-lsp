@@ -1,15 +1,14 @@
 # Field documentation
 
 This folder holds the human-written descriptions the Cosmoteer `.rules` language server shows when you
-hover a field or pick it from autocompletion. Anyone can improve them — you do **not** need to own the
-game, install the toolchain, or write any code. If you know what a field does, you can document it.
+hover a field or pick it from autocompletion. Anyone can improve them. You do **not** need to install the toolchain or write any code. If you know what a field does, you can document it.
 
 There is one Markdown file per schema type (e.g. `Cosmoteer.Ships.Parts.PartRules.md`), and one
 `## Heading` per field inside it. Right now ~19% of fields are documented (seeded automatically from the
 game's own developer notes and the community [modding wiki](https://cosmoteer.wiki.gg/wiki/Modding)); the
 other ~81% are marked `<!-- TODO: needs documentation -->` and waiting for you.
 
-> **Scope:** these docs describe *individual fields* — what to type and what it does. They are not a
+> **Scope:** these docs describe *individual fields*, what to type and what it does. They are not a
 > replacement for the [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding), which is the
 > place for tutorials, guides and worked examples. Each scaffolded file links back to the wiki. If a
 > field is documented on the wiki (e.g. under [Data fields](https://cosmoteer.wiki.gg/wiki/Modding/Data_fields)
@@ -38,9 +37,9 @@ other ~81% are marked `<!-- TODO: needs documentation -->` and waiting for you.
   the `#` H1, the `## Field` headings, and the signature line alone: they are regenerated from the
   schema and any hand-edits are overwritten.
 - Markdown works in the prose (lists, `code`, links). Link a related field or type with
-  `[[Type.Field]]`-style references if you like — they render as text and help future editors.
+  `[[Type.Field]]`-style references if you like, they render as text and help future editors.
 - Don't invent behaviour. If you're unsure, say what you know and leave the rest, or open a PR marked
-  *needs review* — a partial, honest description beats a confident wrong one.
+  *needs review*, a partial, honest description beats a confident wrong one.
 
 ### How to write the description
 
@@ -55,7 +54,7 @@ Conventions, so every field reads the same way:
   `Used to…`.
 - **Don't restate the type.** The signature line above already shows `` `float` · optional · default `100` ``.
   Write what the number *means*, not that it is a number.
-- **Give units and range when they aren't obvious** — seconds, degrees, tiles, a `0..1` fraction, a
+- **Give units and range when they aren't obvious** like seconds, degrees, tiles, a `0..1` fraction, a
   multiplier vs an absolute value. This is the single most useful thing you can add.
 - **Name related fields** rather than describing them again: "Ignored unless [[Cosmoteer.Ships.Parts.PartRules.Flammable]] is true."
 - **Keep it plain.** No SHOUTING for emphasis, and no run-on sentences stitched together with `;` or ` - `
@@ -104,7 +103,7 @@ The editable source of truth is the `.md` files here. Two generated artifacts fl
 
 `field-docs.json` is merged onto the extracted schema at load by `applyFieldDocs`
 (`server/src/document/schema/field-docs.ts`), which attaches each description to its field. From there
-`fieldSignatureMarkdown` renders it below the type signature in both hover and completion — a
+`fieldSignatureMarkdown` renders it below the type signature in both hover and completion. A
 description written on a base-class field shows on every type that inherits it.
 
 Because the docs are keyed by field name (and alias), they survive schema regens: a field keeps its

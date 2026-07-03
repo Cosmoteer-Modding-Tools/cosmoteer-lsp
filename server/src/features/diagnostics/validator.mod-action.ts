@@ -110,7 +110,7 @@ export const validateModActions = async (
 
         const schema = VERB_SCHEMA[action.type];
         for (const required of schema.required) {
-            if (!action.presentFields.has(required)) {
+            if (!action.presentFields.has(required.toLowerCase())) {
                 errors.push({
                     message: l10n.t('Mod action is missing a required field'),
                     node: action.verbNode ?? action.group,

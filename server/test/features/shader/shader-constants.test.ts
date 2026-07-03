@@ -15,7 +15,8 @@ import {
 } from '../../../src/core/ast/ast';
 import { resolveGroupClass } from '../../../src/document/schema/schema-context';
 import { globalSettings } from '../../../src/settings';
-import { constantSnippet, shaderConstantCompletions } from '../../../src/features/completion/autocompletion.shader-constants';
+import { constantSnippet, shaderConstantCompletions, shaderConstantGroupClass } from '../../../src/features/completion/autocompletion.shader-constants';
+import { schemaFieldNameCompletions } from '../../../src/features/completion/autocompletion.schema-fields';
 import { ShaderConstant } from '../../../src/features/shader/shader-parser';
 import { shaderConstantHover } from '../../../src/features/shader/shader-hover';
 import { clearShaderCache } from '../../../src/features/shader/shader-index';
@@ -170,5 +171,47 @@ describe('shader-constant validation', () => {
     it('skips a material whose shader cannot be resolved (no false positives)', async () => {
         const doc = parse(partSprite('\t\t\t\tShader = "does_not_exist.shader"\n\t\t\t\t_anything = 1'));
         expect(await validateShaderConstants(doc, token)).toEqual([]);
+    });
+});
+
+describe('shader-constant group form', () => {
+    // The vanilla shield shader declares a `Texture2D _waveTex` and a `float4 _fullPowerColor1`, and
+    // vanilla writes the texture constant as a group (`_waveTex { File = … UVMode = … }`). The group
+    // form is not a schema field, so its class comes from the referenced shader's constant kind.
+    const SHIELD_DOC_URI = pathToFileURL(join(DATA_DIR, 'ships/terran/shield_gen_small/__test__.rules')).href;
+    const parseShield = (src: string) => parser(lexer(src), SHIELD_DOC_URI).value;
+    const shieldSprite = (body: string) =>
+        `Part\n{\n\tComponents\n\t{\n\t\tT\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t\tBlueprintArcSprite\n\t\t\t{\n\t\t\t\tShader = "shield.shader"\n${body}\n\t\t\t}\n\t\t}\n\t}\n}`;
+
+    it.runIf(HAVE_DATA)('resolves a Texture2D constant written as a group to the texture group class', async () => {
+        clearShaderCache();
+        const doc = parseShield(shieldSprite('\t\t\t\t_waveTex\n\t\t\t\t{\n\t\t\t\t\tFile = "x.png"\n\t\t\t\t}'));
+        const group = findGroup(doc, '_waveTex')!;
+        expect(await shaderConstantGroupClass(group, SHIELD_DOC_URI, token)).toBe('Halfling.Graphics.Texture');
+    });
+
+    it.runIf(HAVE_DATA)('resolves a float4 constant written as a group to the colour group class', async () => {
+        clearShaderCache();
+        const doc = parseShield(shieldSprite('\t\t\t\t_fullPowerColor1\n\t\t\t\t{\n\t\t\t\t\tRf = 1\n\t\t\t\t}'));
+        const group = findGroup(doc, '_fullPowerColor1')!;
+        expect(await shaderConstantGroupClass(group, SHIELD_DOC_URI, token)).toBe('Halfling.Graphics.IntColor');
+    });
+
+    it.runIf(HAVE_DATA)('gives a scalar constant no group class', async () => {
+        clearShaderCache();
+        const doc = parseShield(shieldSprite('\t\t\t\t_waveSpeed\n\t\t\t\t{\n\t\t\t\t}'));
+        const group = findGroup(doc, '_waveSpeed')!;
+        expect(await shaderConstantGroupClass(group, SHIELD_DOC_URI, token)).toBeUndefined();
+    });
+
+    it.runIf(HAVE_DATA)('offers the texture fields for completion inside the constant group', async () => {
+        clearShaderCache();
+        const SRC = shieldSprite('\t\t\t\t_waveTex\n\t\t\t\t{\n\t\t\t\t\t\n\t\t\t\t}');
+        const gapOffset = SRC.indexOf('{', SRC.indexOf('_waveTex')) + 2;
+        const labels = (await schemaFieldNameCompletions(parseShield(SRC), gapOffset, token)).map((c) => c.label);
+        expect(labels).toContain('File');
+        expect(labels).toContain('UVMode');
+        expect(labels).toContain('SampleMode');
+        expect(labels).toContain('MipLevels');
     });
 });

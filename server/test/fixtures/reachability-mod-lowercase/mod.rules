@@ -1,0 +1,14 @@
+ID = Test.LowercaseMod
+Name = "Lowercase Manifest Fixture"
+Stringsfolder = "strings"
+
+actions
+[
+	{
+		action = Add
+		addto = "<cosmoteer.rules>"
+		name = WIRED
+		toadd = &<wired/a.rules>
+		createifnotexisting = true
+	}
+]

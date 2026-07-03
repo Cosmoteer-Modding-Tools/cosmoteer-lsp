@@ -38,12 +38,21 @@
                 "command": "cosmoteer.previewShader",
                 "title": "Cosmoteer: Preview Shader",
                 "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.showModOverview",
+                "title": "Cosmoteer: Show Mod Overview",
+                "category": "Cosmoteer"
             }
         ],
         "menus": {
             "commandPalette": [
                 {
                     "command": "cosmoteer.previewShader",
+                    "when": "editorLangId == rules"
+                },
+                {
+                    "command": "cosmoteer.showModOverview",
                     "when": "editorLangId == rules"
                 }
             ],
@@ -150,17 +159,31 @@
                     "default": false,
                     "description": "Validate every .rules file in the open workspace folder(s), not just the files open in the editor. Off by default: parsing the whole project keeps every file's AST in memory and costs CPU up front, which low-memory machines may not want."
                 },
+                "cosmoteerLSPRules.diagnostics.workspaceValidationScope": {
+                    "scope": "resource",
+                    "type": "string",
+                    "enum": [
+                        "allFiles",
+                        "modRulesReachable"
+                    ],
+                    "enumDescriptions": [
+                        "Validate every .rules file under the workspace folder(s).",
+                        "Validate only the files the game can actually load: the closure of the mod.rules action sources, their includes and inheritance, and the strings folder. Backups, templates and other dead content are skipped (files open in the editor always validate)."
+                    ],
+                    "default": "allFiles",
+                    "description": "Which files the whole-workspace validation pass covers (only relevant when 'validateWholeWorkspace' is on)."
+                },
                 "cosmoteerLSPRules.diagnostics.validateComponentReferences": {
                     "scope": "resource",
                     "type": "boolean",
-                    "default": false,
-                    "description": "Flag a component ID reference (e.g. 'OperationalToggle = IsOperational') whose id names no component anywhere in the part or its inherited bases. Off by default: some components are injected by the engine at runtime (never declared in .rules, such as ConstructionTracker) and some files are fragments merged into a parent part, so a single-file check cannot be fully false-positive-free."
+                    "default": true,
+                    "description": "Flag a component ID reference (e.g. 'OperationalToggle = IsOperational') whose id names no component anywhere in the part, its inherited bases, or its include-valued components blocks. On by default; it only runs once the game install is indexed (inherited vanilla bases must resolve), skips fragment files, runtime-injected engine components, and fields with non-sibling semantics, which took the vanilla scan to zero false positives."
                 },
                 "cosmoteerLSPRules.diagnostics.validateCrossFileReferences": {
                     "scope": "resource",
                     "type": "boolean",
-                    "default": false,
-                    "description": "Flag a cross-file ID reference (e.g. 'ResourceType = battery', a buff in 'ReceivableBuffs', a status key in 'StatusResistances') whose id names no declaration of that kind anywhere in the project. Off by default, because it depends on the whole project and game tree being indexed, so a reference to something the index has not seen would be a false positive."
+                    "default": true,
+                    "description": "Flag a cross-file ID reference (a GUI toggle/color/targeter/trigger id) whose id names no declaration of that kind anywhere in the project. On by default; it only runs once the game install is indexed, since a reference to a vanilla-declared id would otherwise be a false positive."
                 },
                 "cosmoteerLSPRules.diagnostics.validateRequiredFields": {
                     "scope": "resource",
@@ -171,20 +194,20 @@
                 "cosmoteerLSPRules.diagnostics.validateShaderConstants": {
                     "scope": "resource",
                     "type": "boolean",
-                    "default": false,
-                    "description": "Flag an inline shader constant a material sets (e.g. '_hotColor = ...') that the referenced .shader declares no uniform for (a typo such as '_hotColr'), with a did-you-mean quick fix, and one whose value is the wrong shape for its type. Off by default: the game itself ships a few dead constant keys its shaders do not read (e.g. a nebula's '_color4', an ion beam's '_sizePulseFactor'), which are technically-correct warnings on vanilla data. Only fires when the shader resolves on disk."
+                    "default": true,
+                    "description": "Flag an inline shader constant a material sets (e.g. '_hotColor = ...') that the referenced .shader declares no uniform for (a typo such as '_hotColr'), with a did-you-mean quick fix, and one whose value is the wrong shape for its type. On by default; it only fires when the shader resolves on disk, and the few dead constant keys the game itself ships are skipped."
                 },
                 "cosmoteerLSPRules.diagnostics.validateShaderCode": {
                     "scope": "resource",
                     "type": "boolean",
-                    "default": false,
-                    "description": "Run lightweight diagnostics on .shader files themselves: an #include whose target does not exist, a '_'-prefixed uniform read that no file in the include chain declares (a probable typo), and a call to a function that is neither an HLSL intrinsic nor defined in scope. Off by default: it is a lexical check, not an HLSL compiler, and the undeclared-symbol checks only run when the whole include chain is readable, so a shader whose base include lives in an unconfigured game path is left unchecked rather than flagged wrongly."
+                    "default": true,
+                    "description": "Run lightweight diagnostics on .shader files themselves: an #include whose target does not exist, a '_'-prefixed uniform read that no file in the include chain declares (a probable typo), and a call to a function that is neither an HLSL intrinsic nor defined in scope. On by default; it is a lexical check, not an HLSL compiler, and the undeclared-symbol checks only run when the whole include chain is readable, so a shader whose base include lives in an unconfigured game path is left unchecked rather than flagged wrongly."
                 },
                 "cosmoteerLSPRules.diagnostics.validateLocalizationKeys": {
                     "scope": "resource",
                     "type": "boolean",
-                    "default": false,
-                    "description": "Flag a localization key (e.g. 'NameKey = \"Parts/Foo\"', a C# KeyString) whose path is declared in no language strings file in the project. Only literal key paths are checked (reference-valued keys are validated as references) and matching is case-insensitive, like the game. Off by default because coverage needs the base game strings indexed (a configured game path); a scan over vanilla and 42 workshop mods found only genuine missing-string bugs, so it is safe to enable once the game path is set. Offers a 'did you mean' fix and an insert-into-your-strings-files fix."
+                    "default": true,
+                    "description": "Flag a localization key (e.g. 'NameKey = \"Parts/Foo\"', a C# KeyString) whose path is declared in no language strings file in the project. Only literal key paths are checked (reference-valued keys are validated as references) and matching is case-insensitive, like the game. On by default; it only runs once the game install is indexed, since a mod's reference to a vanilla key would otherwise false-positive. Offers a 'did you mean' fix and an insert-into-your-strings-files fix."
                 },
                 "cosmoteerLSPRules.rename.allowEditingVanillaFiles": {
                     "scope": "resource",
@@ -197,6 +220,18 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Open .shader files with the Cosmoteer Shader language (HLSL) even when another installed extension — such as the built-in Unity ShaderLab support — also claims the .shader extension. Only reassigns files opened as ShaderLab or plain text, never a language you chose yourself. Turn off if you edit Unity ShaderLab .shader files in the same window."
+                },
+                "cosmoteerLSPRules.formatting.enabled": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable document formatting (Format Document) for .rules and .shader files. Formatting is whitespace-only and self-verifying: the result must lex to the identical token stream, otherwise no change is made."
+                },
+                "cosmoteerLSPRules.formatting.formatOnSave": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Automatically format .rules and .shader files right before every save, independent of the editor's own 'editor.formatOnSave'. Off by default so saving never rewrites a file you did not ask to reformat. On-save formatting indents with tabs (the vanilla convention), since the save event carries no editor indent options."
                 }
             }
         }

@@ -8,13 +8,13 @@ schema-driven completion and validation.
 
 `.rules` files are deserialized by the game into C# `*Rules` classes (Halfling's reflection
 serializer). Those classes — their `[Serialize]` fields, `[SerialBaseType]`/`[SerialDerivedType]`
-`Type=` dispatch, enums, and defaults — *are* the schema. This tool reads that metadata directly
+`Type=` dispatch, enums, and defaults are the schema. This tool reads that metadata directly
 from `Cosmoteer.dll` **and `HalflingCore.dll`** with **Mono.Cecil** (no decompiler fragility),
 prunes it to everything reachable from the document root (`Cosmoteer.Data.Rules`), and serializes
 it to JSON.
 
 `HalflingCore.dll` is scanned alongside `Cosmoteer.dll` because many fields nest engine types from
-the Halfling runtime — most visibly a particle effect's entire `Def { … }` body
+the Halfling runtime, most visibly a particle effect's entire `Def { … }` body
 (`Halfling.Particles.ParticleSystemDef`, its updater/renderer registries, `IMaterial`). Without it
 those files have no schema below their top-level fields. Note two Halfling wrinkles the extractor
 handles: a registry's `[SerialBaseType]` can sit on an **interface** that an abstract base class
@@ -49,12 +49,12 @@ into `field-docs.seed.json`, written next to the schema output. This is the pros
 documentation the LSP shows on hover/completion. It is a build intermediate (gitignored); the docs
 scaffolder (`tools/docsgen`) turns it into editable `docs/fields/*.md`, which are the committed source
 of truth. Regenerate it on a Cosmoteer update, then re-run the scaffolder to fold in newly-documented
-fields — see `docs/fields/README.md`.
+fields (see `docs/fields/README.md`).
 
 ## Code mods (C# mods)
 # This is basically an idea of how to support feature mods, i don't think there is yet a single mod out there that adds new serializable types, but if there were, this is how you would extract them.
 
-A code mod ships a `.dll` that adds new serializable types — parts, components, effects — with their
+A code mod ships a `.dll` that adds new serializable types, parts, components, effects with their
 own `Type=` discriminators (`Type = AmmoChange`, …). Point the extractor at the mod's assemblies so
 those types are extracted and merged into the registries exactly like the game's own, producing a
 schema that also understands the modded content:
@@ -75,12 +75,10 @@ PRUNED: registries=29/55 types=578/1033 enums=61 | curation: unresolvedTypes=14 
 wrote .../cosmoteer.schema.json (1199 KB)
 ```
 
-## After regenerating (e.g. a Cosmoteer update)
+## After regenerating (e.g., a Cosmoteer update)
 
-1. **Re-run the false-positive guard** — validate every shipped vanilla file through the schema; it
-   must stay warning-free. The method is recorded in the `schema-extraction-source` project memory
-   (parse all `Data/**/*.rules` → `validateSchema` → expect 0 warnings). New warnings mean a
-   mis-modelled type to fix here (e.g. an enum-like over-fire, or a discriminator collision).
+1. **Re-run the false-positive guard** — validate every shipped vanilla file through the schema. It
+   must stay warning-free.
 2. Re-run the server tests: `cd server && npm test`.
 
 ## How it works (high level)
@@ -100,5 +98,5 @@ wrote .../cosmoteer.schema.json (1199 KB)
   input, runtime object refs) that shares the same `[Serialize]` attribute.
 
 > Note: `[ObjectTextConstructor]` ctors are mostly deserializer *plumbing*
-> (`ObjectTextSerializer`/`IOTNode`/`ProgressTracker`), not schema — guarded against so `Modifiable*`
+> (`ObjectTextSerializer`/`IOTNode`/`ProgressTracker`), not schema, guarded against so `Modifiable*`
 > types don't mis-map.

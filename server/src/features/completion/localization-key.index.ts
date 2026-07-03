@@ -1,5 +1,5 @@
 import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, isGroupNode, isValueNode } from '../../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
 import { namedMembersOf } from '../../utils/ast.utils';
 import { isLocalizationKeyType } from '../../document/schema/schema';
 import { normalizeUri } from '../navigation/reference-location';
@@ -55,8 +55,22 @@ const collectKeys = (container: { elements: AbstractNode[] }, prefix: string, ou
         if (name.startsWith('__')) continue;
         const path = prefix ? `${prefix}/${name}` : name;
         if (isGroupNode(value)) collectKeys(value, path, out);
+        else if (isListNode(value)) collectListKeys(value, path, out);
         else if (isValueNode(value)) out.set(path, String(value.valueType.value));
     }
+};
+
+/**
+ * Collect the keys of a strings list into `out`, addressed by element index: vanilla's
+ * `FameTitles [ "WHO??" … ]` is referenced as `FameTitles/0`, `FameTitles/1`, … by `career.rules`.
+ */
+const collectListKeys = (list: { elements: AbstractNode[] }, prefix: string, out: Map<string, string>): void => {
+    list.elements.forEach((element, index) => {
+        const path = `${prefix}/${index}`;
+        if (isGroupNode(element)) collectKeys(element, path, out);
+        else if (isListNode(element)) collectListKeys(element, path, out);
+        else if (isValueNode(element)) out.set(path, String(element.valueType.value));
+    });
 };
 
 /** English-ish languages sort first in hover output so the most-read text leads. */

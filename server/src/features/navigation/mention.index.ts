@@ -14,7 +14,7 @@ const IS_WORD_NAME = /^[A-Za-z0-9_]+$/;
 /** How many `stat` calls run concurrently during a disk sync. */
 const STAT_CONCURRENCY = 64;
 
-/** One indexed file: its on-disk identity (to detect changes) and its distinct words. */
+/** One indexed file: its on-disk identity (to detect changes) and its distinct lower-cased words. */
 interface IndexedFile {
     path: string;
     size: number;
@@ -49,7 +49,7 @@ export class MentionIndex {
     private syncPromise: Promise<void> | undefined;
     /** Normalized file key → the file's identity and words. */
     private readonly files = new Map<string, IndexedFile>();
-    /** Word → normalized keys of the files whose text contains it. */
+    /** Lower-cased word → normalized keys of the files whose text contains it. */
     private readonly byWord = new Map<string, Set<string>>();
 
     private constructor() {}
@@ -83,9 +83,12 @@ export class MentionIndex {
     ): Promise<string[] | undefined> {
         if (!IS_WORD_NAME.test(name)) return undefined;
         await this.ensureFresh(folderPaths, cancellationToken);
+        // Case-folded: the game resolves names ignoring case, so a file mentioning `enginesmall`
+        // is a candidate when searching `EngineSmall` (the per-file resolution confirms real hits).
+        const needle = name.toLowerCase();
         const keys = new Set<string>();
         for (const [word, sources] of this.byWord) {
-            if (!word.includes(name)) continue;
+            if (!word.includes(needle)) continue;
             for (const key of sources) keys.add(key);
         }
         const paths: string[] = [];
@@ -205,7 +208,9 @@ export class MentionIndex {
      */
     private indexText(meta: { key: string; path: string; size: number; mtimeMs: number }, text: string): void {
         this.removeSource(meta.key);
-        const words = new Set<string>(text.match(WORD_RE) ?? []);
+        // Words are stored lower-cased so candidate matching is case-insensitive like the game's
+        // name resolution. The raw text keeps its casing; only this index folds.
+        const words = new Set<string>((text.match(WORD_RE) ?? []).map((word) => word.toLowerCase()));
         this.files.set(meta.key, { path: meta.path, size: meta.size, mtimeMs: meta.mtimeMs, words: [...words] });
         for (const word of words) {
             (this.byWord.get(word) ?? this.byWord.set(word, new Set()).get(word)!).add(meta.key);

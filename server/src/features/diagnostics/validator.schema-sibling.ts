@@ -13,6 +13,7 @@ import { isModRules } from '../../document/document-kind';
 import { classOfGroup, registryForContainer, resolveGroupClass } from '../../document/schema/schema-context';
 import { fieldOf, registryOf } from '../../document/schema/schema';
 import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
+import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
 import { isFile, FileWithPath } from '../../workspace/cosmoteer-workspace.service';
 import { namedMembersOf, getStartOfAstNode } from '../../utils/ast.utils';
 import { closestMatch } from '../../utils/did-you-mean';
@@ -24,6 +25,21 @@ const navigation = new FullNavigationStrategy();
 // A plain, single-segment identifier. Sibling `ID<…>` values are bare component names — anything with
 // a `/`, `&`, `<`, math, or whitespace is a path/reference/expression we must not treat as a sibling id.
 const PLAIN_ID = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * Component ids the engine injects at runtime: they are referenced in `.rules` (vanilla's
+ * `GetColorFrom = ConstructionTracker`) but declared in no file, so existence cannot be judged.
+ */
+const RUNTIME_INJECTED_IDS: ReadonlySet<string> = new Set(['constructiontracker']);
+
+/**
+ * Schema `ID<…>` fields whose value is not a same-part component reference despite the type:
+ *  - `OverridePriorityKey` is an opaque shared priority label (vanilla's `PartCrew` groups
+ *    `PartCrew1..4` under one key that names no component),
+ *  - `ChainFireToggleComponent` names a component of the part the beam chains into (vanilla's ion
+ *    beam emitter references the prism's `IonBeamChainToggle`), so it resolves outside this part.
+ */
+const NON_SIBLING_FIELDS: ReadonlySet<string> = new Set(['overrideprioritykey', 'chainfiretogglecomponent']);
 
 const isNode = (value: unknown): value is AbstractNode =>
     !!value && !isFile(value as FileWithPath) && typeof (value as AbstractNode).type === 'string';
@@ -74,6 +90,37 @@ const collectComponentIds = async (
                     if (isNode(target)) queue.push(target);
                 }
             }
+            if (isAssignmentNode(node)) {
+                // An assignment-form component (`PowerToggle = { Type = UIToggle … }`) declares an id
+                // exactly like the brace form, since the engine treats `X = { }` and `X { }` the same.
+                // A reference-valued assignment (`LightHighToggle = &<roof_light.rules>/…/LightHighToggle`,
+                // `BeerMug10 = &~/Part/BeerMug`) also declares its name: the engine copies the referenced
+                // group in under that name. The value need not resolve here, the name alone is the id.
+                if (
+                    isGroupNode(node.right) ||
+                    isListNode(node.right) ||
+                    (isValueNode(node.right) && node.right.valueType.type === 'Reference')
+                ) {
+                    ids.add(node.left.name.toLowerCase());
+                }
+                // An include-valued components block (`Components = &<he/….rules>/Components`, the
+                // mode-variant pattern of vanilla's missile launcher) merges the target's components
+                // into this part, so their ids belong to the union just like an inherited base's.
+                if (
+                    node.left.name.toLowerCase() === 'components' &&
+                    isValueNode(node.right) &&
+                    node.right.valueType.type === 'Reference'
+                ) {
+                    const ref = node.right.valueType.value;
+                    if (!seenRefs.has(ref)) {
+                        seenRefs.add(ref);
+                        const target = await navigation
+                            .navigate(ref, node.right, getStartOfAstNode(node).uri, token)
+                            .catch(() => null);
+                        if (isNode(target)) queue.push(target);
+                    }
+                }
+            }
             const children: AbstractNode[] =
                 isGroupNode(node) || isListNode(node) || isDocumentNode(node)
                     ? node.elements
@@ -110,6 +157,12 @@ export const validateSchemaSiblingReferences = async (
     // ids resolve against that parent — checking it standalone would false-positive.
     if (!isCompletePart(document)) return [];
 
+    // A file other files inherit from (`Derived : <this_file.rules>/Part/…`) is a template: its
+    // references may name components only the deriving parts declare (a mod's `jump_wire_stuff.rules`
+    // wires `OperationalToggle = LogicSignal` for a signal component each deriver brings). Standalone
+    // existence cannot be judged there, so such files are skipped rather than false-positived.
+    if (ReverseIncludeIndex.instance.inheritanceBaseMembers(document.uri).length > 0) return [];
+
     // Cheap pre-pass: only do the (cross-file) id collection if the document actually contains a
     // candidate sibling-reference field. Most files have none.
     if (!hasCandidateSiblingReference(document)) return [];
@@ -135,6 +188,7 @@ export const validateSchemaSiblingReferences = async (
         for (const element of group.elements) {
             if (cancellationToken.isCancellationRequested) return;
             if (!isAssignmentNode(element)) continue;
+            if (NON_SIBLING_FIELDS.has(element.left.name.toLowerCase())) continue;
             const value = element.right;
             if (!isValueNode(value) || value.valueType.type !== 'String') continue;
 
@@ -145,6 +199,7 @@ export const validateSchemaSiblingReferences = async (
             }
             const written = String(value.valueType.value);
             if (!PLAIN_ID.test(written)) continue;
+            if (RUNTIME_INJECTED_IDS.has(written.toLowerCase())) continue;
             if (componentIds.has(written.toLowerCase())) continue;
 
             const siblings = namedMembersOf(container)
@@ -180,17 +235,22 @@ export const validateSchemaSiblingReferences = async (
 
 /**
  * True if `group` is a cross-part proxy: it declares `PartLocation` or `PartCriteria`, the fields a
- * proxy uses to name another cell's part. Such a proxy's `ComponentID` targets a component in *that*
- * part, so it must not be checked against this part's component ids.
+ * proxy uses to name another cell's part, or it is a `Type = ChainableProxy`, which resolves its
+ * `ComponentID` against whichever part is chained to this one (a solar panel spike's
+ * `AnchorLocation` lives in the anchor part). Such a proxy's `ComponentID` targets a component in
+ * that other part, so it must not be checked against this part's component ids.
  */
 const targetsAnotherPart = (group: GroupNode): boolean =>
     group.elements.some((element) => {
-        const name = isAssignmentNode(element)
-            ? element.left.name
-            : isGroupNode(element)
-              ? element.identifier?.name
-              : undefined;
-        return name === 'PartLocation' || name === 'PartCriteria';
+        if (isAssignmentNode(element)) {
+            if (element.left.name === 'PartLocation' || element.left.name === 'PartCriteria') return true;
+            return (
+                element.left.name === 'Type' &&
+                isValueNode(element.right) &&
+                String(element.right.valueType.value) === 'ChainableProxy'
+            );
+        }
+        return isGroupNode(element) && (element.identifier?.name === 'PartLocation' || element.identifier?.name === 'PartCriteria');
     });
 
 /** True if the document is a self-contained part: it has a top-level `Part` group. */

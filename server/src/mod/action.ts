@@ -114,6 +114,11 @@ export const VERB_SCHEMA: Record<ActionVerb, VerbSchema> = {
 /** Every field name that holds a game-data target path (used to skip generic ref validation on them). */
 export const TARGET_FIELDS = new Set<string>(Object.values(VERB_SCHEMA).flatMap((s) => s.targets));
 
+const targetFieldKeys = new Set([...TARGET_FIELDS].map((name) => name.toLowerCase()));
+
+/** Whether a written field name is a target field, ignoring case like the game's node lookup. */
+export const isTargetField = (name: string): boolean => targetFieldKeys.has(name.toLowerCase());
+
 /** Every field name that supplies source data (a reference or inline group/list). */
 export const SOURCE_FIELDS = new Set<string>(Object.values(VERB_SCHEMA).flatMap((s) => s.sources));
 
@@ -140,7 +145,7 @@ export interface ModAction {
     /** The `Name` value node for a named `Add`. */
     nameNode?: ValueNode;
     flags: Partial<Record<ActionFlag, boolean>>;
-    /** Names of all fields present on the entry (for required-field checks). */
+    /** Lower-cased names of all fields present on the entry (for case-insensitive required-field checks). */
     presentFields: Set<string>;
 }
 

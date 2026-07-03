@@ -23,7 +23,7 @@ import { SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { GroupNode } from '../../core/ast/ast';
 import { ValidationError } from './validator';
 import { closestMatch } from '../../utils/did-you-mean';
-import { MXPARSER_FUNCTION_NAMES, COSMOTEER_FUNCTION_NAMES } from '../../semantics/mxparser-functions';
+import { ALL_MATH_FUNCTION_NAMES } from '../../semantics/math-function-registry';
 import { evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
 import * as l10n from '@vscode/l10n';
 
@@ -45,6 +45,9 @@ const NUMERIC_SCALAR_TYPES = new Set([
 // Excludes `(`, `)`, operators and number-ish tokens, so expression fragments never reach the flag.
 const BARE_WORD = /^[A-Za-z_][\w.]*$/;
 
+// Every word the game's BooleanSerializer parses (case-insensitively), verified in HalflingCore.dll.
+const BOOLEAN_WORDS = new Set(['true', 'yes', 'y', 'false', 'no', 'n']);
+
 // Bare words that are valid inside a Cosmoteer math expression even unparenthesized, so they must
 // never be flagged: mXparser/Cosmoteer function and constant keywords plus the boolean/limit
 // literals the evaluator understands.
@@ -65,7 +68,9 @@ const requiresWholeNumber = (valueType: ValueType): boolean =>
  * callback per AstType, and `Assignment` is taken). Deliberately conservative: every check is built
  * to have no false positives on partially-modelled / custom-deserialized classes, unlike unknown-field
  * checks. It flags:
- *   - invalid **enum** / **boolean** values (a bare word that is not a member, compared case-insensitively),
+ *   - invalid **enum** / **boolean** values. Enum members must match exactly (the game's
+ *     `Enum.Parse` is case-sensitive, so a case-only mismatch gets a dedicated warning with a
+ *     casing quick-fix); booleans accept the game's full `true/yes/y`/`false/no/n` word set,
  *   - an invalid `Type=` **discriminator** against the registry inferred for the group,
  *   - a bare **non-numeric word** in a confirmed numeric-scalar field, and
  *   - a value in an **integer-only** field (scalar or a `Range<int>` endpoint) that resolves
@@ -98,11 +103,30 @@ export const validateSchema = async (
 
             if (field.valueType.kind === 'enum') {
                 const members = enumDef(field.valueType.ref)?.members ?? [];
-                if (members.length > 0 && !members.some((m) => m.toLowerCase() === written.toLowerCase())) {
-                    flag(value, written, field.valueType.name, members, closestMatch(written, members, true));
+                if (members.length > 0 && !members.includes(written)) {
+                    // The game parses enum values with the case-SENSITIVE `Enum.Parse(type, text)`
+                    // (verified in HalflingCore's EnumSerializer), so a member matched only after
+                    // case-folding still fails to load in game and deserves its own message.
+                    const folded = members.find((m) => m.toLowerCase() === written.toLowerCase());
+                    if (folded) {
+                        errors.push({
+                            message: l10n.t(
+                                "'{0}' has the wrong casing. The game's enum parsing is case-sensitive; write '{1}'.",
+                                written,
+                                folded
+                            ),
+                            node: value,
+                            severity: 'warning',
+                            data: { quickFix: { title: l10n.t("Change to '{0}'", folded), newText: folded } },
+                        });
+                    } else {
+                        flag(value, written, field.valueType.name, members, closestMatch(written, members, true));
+                    }
                 }
             } else if (field.valueType.kind === 'bool') {
-                if (written.toLowerCase() !== 'true' && written.toLowerCase() !== 'false') {
+                // The game's BooleanSerializer accepts true/yes/y and false/no/n (ignoring case)
+                // plus the literal 1/0 (which lex as numbers and never reach this String branch).
+                if (!BOOLEAN_WORDS.has(written.toLowerCase())) {
                     const bools = ['true', 'false'];
                     flag(value, written, 'boolean', bools, closestMatch(written, bools, true));
                 }
@@ -122,8 +146,7 @@ export const validateSchema = async (
         if (
             !BARE_WORD.test(written) ||
             NUMERIC_LITERAL_WORDS.has(word) ||
-            MXPARSER_FUNCTION_NAMES.has(word) ||
-            COSMOTEER_FUNCTION_NAMES.has(word)
+            ALL_MATH_FUNCTION_NAMES.has(word)
         ) {
             return;
         }

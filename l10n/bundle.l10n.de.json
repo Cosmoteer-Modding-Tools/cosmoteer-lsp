@@ -36,5 +36,20 @@
     "Expected value after value but found {0}": "Erwartetet wurde ein Wert nach dem Wert, aber {0} gefunden",
     "Not expected paren": "Nicht erwartete Klammer",
     "Unknown token type": "Unbekannter Token-Typ",
-    "This could be a bug in the parser or lexer, please report this issue, if you think this is a bug": "Dies könnte ein Fehler im Parser oder Lexer sein, bitte melden Sie dieses Problem, wenn Sie denken, dass dies ein Fehler ist"
+    "Unexpected \"{0}\"": "Unerwartetes \"{0}\"",
+    "This could be a bug in the parser or lexer, please report this issue, if you think this is a bug": "Dies könnte ein Fehler im Parser oder Lexer sein, bitte melden Sie dieses Problem, wenn Sie denken, dass dies ein Fehler ist",
+    "Mod overview": "Mod-Übersicht",
+    "Actions": "Aktionen",
+    "Each action patches the effective game tree. ✓ the target exists, ✗ it resolves to nothing (the action does nothing in game), · existence is not required (create/ignore flag).": "Jede Aktion verändert den effektiven Spielbaum. ✓ das Ziel existiert, ✗ es löst sich zu nichts auf (die Aktion bewirkt im Spiel nichts), · Existenz ist nicht erforderlich (Create/Ignore-Flag).",
+    "Unknown verb": "Unbekanntes Verb",
+    "⚠ {0} action(s) have a target that resolves to nothing — they silently do nothing in game.": "⚠ {0} Aktion(en) haben ein Ziel, das sich zu nichts auflöst — sie bewirken im Spiel stillschweigend nichts.",
+    "File reachability": "Datei-Erreichbarkeit",
+    "{0} of {1} `.rules` files are reachable from the manifest (action sources, their includes and inheritance, and the strings folder). The game never loads the rest.": "{0} von {1} `.rules`-Dateien sind vom Manifest aus erreichbar (Aktionsquellen, deren Includes und Vererbung sowie der Strings-Ordner). Den Rest lädt das Spiel nie.",
+    "Unreachable files": "Nicht erreichbare Dateien",
+    "Dead content: backups and templates are expected here, but a part or effect you meant to ship should not be.": "Toter Inhalt: Backups und Vorlagen sind hier zu erwarten, ein Teil oder Effekt, der ausgeliefert werden sollte, aber nicht.",
+    "ℹ The root `cosmoteer.rules` here is a documentation convention: the game injects such globals via the manifest actions into its own `Data/cosmoteer.rules` and never loads the mod's copy.": "ℹ Die `cosmoteer.rules` im Mod-Stammverzeichnis ist eine Dokumentations-Konvention: das Spiel fügt solche Globals über die Manifest-Aktionen in seine eigene `Data/cosmoteer.rules` ein und lädt die Kopie des Mods nie.",
+    "{0} of these are referenced by nothing at all. {1} are referenced only from other unreachable files or from commented-out lines (shown as ←), so wiring in the root of such a chain revives every file behind it.": "{0} davon werden von nichts referenziert. {1} werden nur von anderen nicht erreichbaren Dateien oder aus auskommentierten Zeilen referenziert (als ← angezeigt), das Anbinden der Wurzel einer solchen Kette belebt also alle Dateien dahinter wieder.",
+    "(mod root)": "(Mod-Wurzel)",
+    "'{0}' was renamed to '{1}' in a newer game version ({2}).": "'{0}' wurde in einer neueren Spielversion in '{1}' umbenannt ({2}).",
+    "'{0}' has the wrong casing. The game's enum parsing is case-sensitive; write '{1}'.": "'{0}' hat die falsche Groß-/Kleinschreibung. Das Spiel liest Enum-Werte case-sensitiv; schreibe '{1}'."
 }

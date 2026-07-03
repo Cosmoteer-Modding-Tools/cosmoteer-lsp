@@ -1,6 +1,7 @@
 import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
-import { GroupNode } from '../../core/ast/ast';
+import { GroupNode, isGroupNode } from '../../core/ast/ast';
 import { resolveGroupClass } from '../../document/schema/schema-context';
+import { TEXTURE_GROUP_CLASS } from '../../document/schema/schema-overlay';
 import { acceptsShaderConstants } from '../../document/schema/schema';
 import { resolveAssetPath } from '../../features/navigation/asset-resolver';
 import { ShaderConstant, ShaderConstantKind } from '../../features/shader/shader-parser';
@@ -52,6 +53,43 @@ const KIND_LABEL: Readonly<Record<ShaderConstantKind, string>> = {
     bool: 'bool',
 };
 
+/** The class a `vec4` colour constant's group form resolves to (`{ Rf Gf Bf Af }`). */
+const COLOR_GROUP_CLASS = 'Halfling.Graphics.IntColor';
+
+/**
+ * The schema class a shader constant written in GROUP form resolves to, so field-name completion
+ * works inside it. A `Texture2D` uniform is conventionally written as a texture group
+ * (`_waveTex { File = … UVMode = … }`) and a `float4` colour uniform as a colour group
+ * (`{ Rf Gf Bf Af }`). Neither is a schema field, so the ordinary slot walk cannot type them and
+ * this resolves the class from the material's referenced `.shader` file instead.
+ *
+ * @param group the `_name { … }` group whose class is wanted.
+ * @param documentUri the URI of the document, used to resolve the shader path on disk.
+ * @param cancellationToken cancels the asset resolution.
+ * @returns the group-form class FullName, or undefined when the group is not a shader constant of the enclosing material.
+ */
+export const shaderConstantGroupClass = async (
+    group: GroupNode,
+    documentUri: string,
+    cancellationToken: CancellationToken
+): Promise<string | undefined> => {
+    const name = group.identifier?.name;
+    if (!name || !name.startsWith('_')) return undefined;
+    const material = group.parent;
+    if (!material || !isGroupNode(material)) return undefined;
+    const cls = resolveGroupClass(material);
+    if (!cls || !acceptsShaderConstants(cls)) return undefined;
+    const shaderNode = materialShaderNode(material);
+    if (!shaderNode) return undefined;
+    const shaderPath = await resolveAssetPath(shaderNode, documentUri, cancellationToken).catch(() => null);
+    if (!shaderPath) return undefined;
+    const constants = await shaderConstants(shaderPath).catch(() => [] as readonly ShaderConstant[]);
+    const constant = constants.find((c) => c.name.toLowerCase() === name.toLowerCase());
+    if (constant?.kind === 'texture') return TEXTURE_GROUP_CLASS;
+    if (constant?.kind === 'vec4') return COLOR_GROUP_CLASS;
+    return undefined;
+};
+
 /**
  * Shader-constant field-name completions for a group, or an empty array when the group does not accept
  * shader constants, sets no shader, or the shader cannot be resolved. Constants already written in the
@@ -59,7 +97,7 @@ const KIND_LABEL: Readonly<Record<ShaderConstantKind, string>> = {
  *
  * @param group the enclosing material group the cursor is in.
  * @param documentUri the URI of the document, used to resolve the shader path on disk.
- * @param present the field names already written in the group, which are not offered again.
+ * @param present the lower-cased field names already written in the group, which are not offered again.
  * @param cancellationToken cancels the asset resolution.
  * @returns the shader-constant completions for the group's referenced shader.
  */
@@ -80,7 +118,7 @@ export const shaderConstantCompletions = async (
 
     const constants = await shaderConstants(shaderPath).catch(() => []);
     return constants
-        .filter((constant) => !present.has(constant.name))
+        .filter((constant) => !present.has(constant.name.toLowerCase()))
         .map((constant) => ({
             label: constant.name,
             kind: CompletionItemKind.Field,

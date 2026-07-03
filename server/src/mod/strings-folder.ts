@@ -45,7 +45,8 @@ export const isUnderFolder = (filePath: string, folder: string): boolean => {
 const foldersFromDoc = (doc: AbstractNodeDocument, baseDir: string): string[] => {
     const folders: string[] = [];
     for (const [name, value] of namedMembersOf(doc)) {
-        if (name === STRINGS_FOLDER_FIELD && isValueNode(value)) {
+        // Case-insensitive: the game keys node children with InvariantCultureIgnoreCase.
+        if (name.toLowerCase() === STRINGS_FOLDER_FIELD.toLowerCase() && isValueNode(value)) {
             const relative = String(value.valueType.value).trim();
             if (relative) folders.push(join(baseDir, relative));
         }

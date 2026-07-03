@@ -49,6 +49,32 @@ const declaredUnderscoreNames = (scope: string, structNames: ReadonlySet<string>
     return collectGroup(scope, re);
 };
 
+/**
+ * The offset just past a preprocessor directive that starts at `hashIndex`: the end of its line,
+ * extended across `\` line continuations.
+ */
+const endOfDirective = (text: string, hashIndex: number): number => {
+    let i = hashIndex;
+    while (i < text.length) {
+        const newline = text.indexOf('\n', i);
+        if (newline < 0) return text.length;
+        const lineEnd = text[newline - 1] === '\r' ? newline - 1 : newline;
+        if (text[lineEnd - 1] === '\\') {
+            i = newline + 1;
+            continue;
+        }
+        return newline;
+    }
+    return text.length;
+};
+
+/** Whether the last non-whitespace character before `index` is `[` (an HLSL attribute context). */
+const precededByBracket = (text: string, index: number): boolean => {
+    let i = index - 1;
+    while (i >= 0 && /\s/.test(text[i])) i--;
+    return i >= 0 && text[i] === '[';
+};
+
 /** The index of the next non-whitespace character at or after `from`, or -1 when the rest is blank. */
 const nextNonSpace = (text: string, from: number): number => {
     let i = from;
@@ -167,9 +193,18 @@ export const validateShaderDocument = async (
     for (let m = TOKENS.exec(text); m !== null; m = TOKENS.exec(text)) {
         const token = m[0];
         const first = token[0];
-        if (first === '/' || first === '"' || first === '#' || (first >= '0' && first <= '9')) continue;
+        if (first === '/' || first === '"' || (first >= '0' && first <= '9')) continue;
+        // The rest of a preprocessor directive line is directive syntax, not shader code: `#pragma
+        // warning( disable : 3571 )` must not read as a call to `warning`, and a `#define` body is
+        // only judged where it is expanded. Skips past line continuations (`\` at end of line).
+        if (first === '#') {
+            TOKENS.lastIndex = endOfDirective(text, m.index);
+            continue;
+        }
         // A member after a `.` (`_tex.Sample`) is resolved by its object, not a standalone symbol.
         if (m.index > 0 && text[m.index - 1] === '.') continue;
+        // An HLSL attribute (`[maxvertexcount(4)]`, `[unroll]`) is compiler metadata, not a call.
+        if (precededByBracket(text, m.index)) continue;
 
         const afterIndex = nextNonSpace(text, m.index + token.length);
         const isCall = afterIndex >= 0 && text[afterIndex] === '(';
@@ -194,16 +229,18 @@ export const validateShaderDocument = async (
             });
             continue;
         }
-        // A call to a function we have the signature of: check the argument count.
+        // A call to a function we have the signature of: check the argument count. Parameters with a
+        // default value may be omitted, so any count between the required and full arity is fine.
         const signature = isCall ? signatures.get(token) : undefined;
         if (signature) {
             const argCount = countArguments(text, afterIndex);
-            if (argCount !== null && argCount !== signature.params.length) {
+            const required = signature.params.filter((param) => !param.optional).length;
+            if (argCount !== null && (argCount < required || argCount > signature.params.length)) {
                 diagnostics.push({
                     message: l10n.t(
                         "Function '{0}' expects {1} argument(s) but got {2}.",
                         token,
-                        signature.params.length,
+                        required === signature.params.length ? required : `${required}-${signature.params.length}`,
                         argCount
                     ),
                     range: rangeAt(m.index, token.length),

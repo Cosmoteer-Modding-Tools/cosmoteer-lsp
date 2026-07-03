@@ -33,6 +33,24 @@ import * as l10n from '@vscode/l10n';
  * deserializer could not accept, never an ambiguous string or reference that might resolve to a number.
  */
 
+/**
+ * Dead constant keys the game itself ships: vanilla materials set them, but the referenced shaders
+ * declare no uniform for them, so the engine silently drops them. Flagging one is technically correct
+ * but useless noise on shipping data (and on the many mods that copy vanilla materials), so they are
+ * skipped. The vanilla FP-scan test pins this set: a new dead key the game ships shows up there.
+ */
+const VANILLA_DEAD_KEYS: ReadonlySet<string> = new Set([
+    '_color3',
+    '_color4',
+    '_color5',
+    '_colorTexture',
+    '_noiseTex2',
+    '_rampTexture',
+    '_sizePulseFactor',
+    '_sizePulseInterval',
+    '_sizePulseUOffsetFactor',
+]);
+
 /** Yields every material group (one that accepts shader constants) in a document. */
 function* materialGroupsOf(document: AbstractNodeDocument): Generator<GroupNode> {
     const visit = function* (node: AbstractNode): Generator<GroupNode> {
@@ -104,6 +122,7 @@ export const validateShaderConstants = async (
         const kinds = new Map(settable.map((constant) => [constant.name, constant.kind]));
 
         for (const constant of constants) {
+            if (VANILLA_DEAD_KEYS.has(constant.name)) continue;
             if (!names.has(constant.name)) {
                 const suggestion = closestMatch(constant.name, [...names], true);
                 errors.push({

@@ -131,11 +131,12 @@ export const validateRequiredFields = async (
         const required = fieldsOf(cls).filter((field) => !field.optional);
         if (required.length === 0) continue;
 
-        const present = new Set(namedMembersOf(group).map(([name]) => name));
+        // Lower-cased: a written `maxhealth` satisfies required `MaxHealth` (game lookup ignores case).
+        const present = new Set(namedMembersOf(group).map(([name]) => name.toLowerCase()));
         const ancestry = await gatherInheritedNames(group, cancellationToken);
         // A base we cannot see might supply the field, so stay silent rather than guess.
         if (!ancestry.fullyResolved) continue;
-        for (const name of ancestry.names) present.add(name);
+        for (const name of ancestry.names) present.add(name.toLowerCase());
 
         const runtimeProvided = RUNTIME_REQUIRED_ALLOWLIST[cls];
         for (const field of required) {
@@ -150,9 +151,10 @@ export const validateRequiredFields = async (
     return errors;
 };
 
-/** A required field is satisfied if it, or any of its aliases, is among the present member names. */
+/** A required field is satisfied if it, or any of its aliases, is among the present member names (lower-cased on both sides). */
 const isSatisfied = (field: SchemaField, present: Set<string>): boolean =>
-    present.has(field.name) || (field.aliases?.some((alias) => present.has(alias)) ?? false);
+    present.has(field.name.toLowerCase()) ||
+    (field.aliases?.some((alias) => present.has(alias.toLowerCase())) ?? false);
 
 /**
  * Collect every member name reachable up a group's inheritance chain, and whether the chain resolved

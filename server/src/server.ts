@@ -20,6 +20,7 @@ import {
     CodeAction,
     CodeActionKind,
     WorkspaceFolder,
+    TextEdit,
 } from 'vscode-languageserver/node';
 
 import { readFile } from 'fs/promises';
@@ -54,6 +55,10 @@ import { WorkspaceTokenManager } from './workspace/token-manager';
 import { CosmoteerSettings, defaultSettings, globalSettings, setGlobalSettings } from './settings';
 import { basenameOf, isModRules } from './document/document-kind';
 import { ModRulesRegistrar } from './mod/mod-rules.registrar';
+import { computeModReachability, reachabilityKey } from './mod/mod-reachability';
+import { generateModOverview } from './mod/mod-overview';
+import { findModRoot } from './mod/mod-root';
+import { join } from 'path';
 import { validateModActions } from './features/diagnostics/validator.mod-action';
 import { invalidateModContext } from './mod/mod-context';
 import { modRulesOffsetCompletions } from './features/completion/autocompletion.mod-rules';
@@ -101,6 +106,9 @@ import {
 import { validateShaderDocument } from './features/shader/shader-diagnostics';
 import { shaderCompletions } from './features/shader/shader-completion';
 import { shaderSignatureHelp } from './features/shader/shader-signature';
+import { formatRulesDocument } from './features/formatting/rules-formatter';
+import { formatShaderDocument } from './features/formatting/shader-formatter';
+import { minimalReplacementEdits } from './features/formatting/formatting.service';
 
 // Re-exported for backwards compatibility with modules that imported these from './server'.
 export { MAX_NUMBER_OF_PROBLEMS, globalSettings } from './settings';
@@ -173,7 +181,12 @@ connection.onInitialize(async (params: InitializeParams) => {
     hasDidChangeWatchedFilesCapability = !!capabilities.workspace?.didChangeWatchedFiles?.dynamicRegistration;
     const result: InitializeResult = {
         capabilities: {
-            textDocumentSync: TextDocumentSyncKind.Full,
+            textDocumentSync: {
+                openClose: true,
+                change: TextDocumentSyncKind.Full,
+                // Lets the format-on-save setting return edits right before the client writes the file.
+                willSaveWaitUntil: true,
+            },
             completionProvider: {
                 resolveProvider: true,
                 // '.' drives `.shader` member/swizzle completion; '"' pops value completion (localization
@@ -201,6 +214,7 @@ connection.onInitialize(async (params: InitializeParams) => {
                 triggerCharacters: ['(', ','],
                 retriggerCharacters: [','],
             },
+            documentFormattingProvider: true,
             codeActionProvider: {
                 codeActionKinds: [CodeActionKind.QuickFix],
             },
@@ -339,6 +353,7 @@ connection.onDidChangeConfiguration(async (change) => {
         documentSettings.clear();
     }
     const wasWholeWorkspace = wholeWorkspaceEnabled();
+    const previousScope = globalSettings.diagnostics?.workspaceValidationScope ?? 'allFiles';
     const previousCosmoteerPath = globalSettings.cosmoteerPath;
 
     const workspaceFolders = await getWorkspaceFoldersCached();
@@ -375,10 +390,14 @@ connection.onDidChangeConfiguration(async (change) => {
     }
     connection.languages.diagnostics.refresh();
 
-    // React to the whole-workspace diagnostics toggle (and to a Cosmoteer-path change while it's on,
-    // since that changes how every reference resolves).
+    // React to the whole-workspace diagnostics toggle (and to a Cosmoteer-path or scope change while
+    // it's on, since those change how every reference resolves / which files are covered). A scope
+    // change clears first, so diagnostics published for now-out-of-scope files don't linger.
     const nowWholeWorkspace = wholeWorkspaceEnabled();
-    if (nowWholeWorkspace && (!wasWholeWorkspace || cosmoteerPathChanged)) {
+    const nowScope = globalSettings.diagnostics?.workspaceValidationScope ?? 'allFiles';
+    const scopeChanged = nowScope !== previousScope;
+    if (nowWholeWorkspace && (!wasWholeWorkspace || cosmoteerPathChanged || scopeChanged)) {
+        if (scopeChanged && wasWholeWorkspace) await clearWorkspaceDiagnostics();
         await runWorkspaceValidation();
     } else if (!nowWholeWorkspace && wasWholeWorkspace) {
         await clearWorkspaceDiagnostics();
@@ -624,15 +643,16 @@ async function validateTextDocument(
         const schemaErrors = await validateSchema(parserResult.value, cancelToken).catch(() => []);
         validationErrors = validationErrors.concat(schemaErrors);
         // Separate pass: schema `ID<…>` component references that name no component in the part.
-        // Opt-in (default off): runtime-injected components and fragment files make a single-file
-        // check impossible to keep fully false-positive-free.
-        if (settings.diagnostics?.validateComponentReferences) {
+        // On by default, but only once the game `Data` tree is indexed: the part-wide id union folds
+        // in inherited vanilla bases, which cannot resolve without the install.
+        if (settings.diagnostics?.validateComponentReferences && gameIndexAvailable()) {
             const siblingRefErrors = await validateSchemaSiblingReferences(parserResult.value, cancelToken).catch(() => []);
             validationErrors = validationErrors.concat(siblingRefErrors);
         }
-        // Separate pass: cross-file `ID<…>` references (resources, factions, buffs, statuses, …) whose
-        // id names no declaration in the project. Opt-in, since it depends on a complete project index.
-        if (settings.diagnostics?.validateCrossFileReferences) {
+        // Separate pass: cross-file `ID<…>` references (GUI toggle/color/targeter/trigger ids) whose
+        // id names no declaration in the project. On by default, but only once the game `Data` tree is
+        // indexed: without it, a reference to a vanilla-declared id would be a false positive.
+        if (settings.diagnostics?.validateCrossFileReferences && gameIndexAvailable()) {
             const idRefErrors = await validateCrossFileIdReferences(
                 parserResult.value,
                 await searchFolderUris(),
@@ -664,8 +684,9 @@ async function validateTextDocument(
             validationErrors = validationErrors.concat(shaderConstantErrors);
         }
         // Separate pass: literal localization keys (`NameKey = "Parts/Foo"`) that no strings file
-        // declares. Opt-in, since it needs the project's strings (base game + mod) fully indexed.
-        if (settings.diagnostics?.validateLocalizationKeys) {
+        // declares. On by default, but only once the game `Data` tree is indexed: a mod referencing a
+        // vanilla key would false-positive against the mod's own strings alone.
+        if (settings.diagnostics?.validateLocalizationKeys && gameIndexAvailable()) {
             const localizationErrors = await validateLocalizationKeys(
                 parserResult.value,
                 await searchFolderUris(),
@@ -794,6 +815,27 @@ async function runWorkspaceValidation(): Promise<void> {
             for await (const file of collectRulesFiles(uriToFsPath(folder))) {
                 if (token.isCancellationRequested) return;
                 files.push(file);
+            }
+        }
+        // In 'modRulesReachable' scope, restrict the pass to files the game can actually load (the
+        // manifest's reachability closure), so dead backups and templates stay out of the Problems
+        // panel. A folder without a manifest keeps every file (nothing to scope by).
+        if (globalSettings.diagnostics?.workspaceValidationScope === 'modRulesReachable') {
+            const reachableKeys = new Set<string>();
+            let anyManifest = false;
+            for (const folder of folderUris) {
+                const folderPath = uriToFsPath(folder);
+                const modRoot = findModRoot(join(folderPath, 'probe.rules'));
+                if (!modRoot) continue;
+                const reachability = await computeModReachability(modRoot, token);
+                if (!reachability) continue;
+                anyManifest = true;
+                for (const key of reachability.reachable) reachableKeys.add(key);
+            }
+            if (anyManifest) {
+                const scoped = files.filter((file) => reachableKeys.has(reachabilityKey(file)));
+                files.length = 0;
+                files.push(...scoped);
             }
         }
         const openNorms = openDocumentNorms();
@@ -1047,6 +1089,12 @@ connection.onDocumentSymbol((params, cancellationToken) => {
         return null;
     }
 });
+
+// The cross-file existence validators (ids, localization keys) judge a reference against everything
+// the game can see at load time, most of which is the vanilla install. Until the game `Data` root is
+// initialized, that coverage is missing and an unknown-id verdict could be wrong, so those passes
+// hold off rather than false-positive (they are on by default and activate once the path resolves).
+const gameIndexAvailable = (): boolean => !!CosmoteerWorkspaceService.instance.dataRootPath;
 
 // Folders the cross-file index searches: the open workspace (the mod) plus the Cosmoteer
 // game `Data` tree. Vanilla symbols (e.g. `Part` in `base_part.rules`) and most references
@@ -1304,6 +1352,20 @@ connection.onRequest('cosmoteer/shaderPreview', async (params: TextDocumentPosit
     }
 });
 
+// Mod overview: render the "what does this mod.rules do" markdown report — the manifest header,
+// every action with its resolution status, and the reachability section listing dead files.
+connection.onRequest('cosmoteer/modOverview', async (params: { textDocument: { uri: string } }, cancellationToken) => {
+    try {
+        // Action targets resolve against the effective game tree, so the workspace and the fragment
+        // indexes must be ready, exactly as for validation of the manifest itself.
+        await ensureFragmentRooting(cancellationToken);
+        return (await generateModOverview(params.textDocument.uri, cancellationToken)) ?? null;
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        return null;
+    }
+});
+
 // Document colours: render an inline swatch for `{ Rf Gf Bf Af }` / `{ R G B A }` colour groups.
 connection.onDocumentColor((params) => {
     const parserResult = ensureParserResult(params.textDocument.uri);
@@ -1381,6 +1443,49 @@ connection.onSignatureHelp(async (params) => {
     } catch (e) {
         if (globalSettings.trace.server === 'messages') console.error(e);
         return null;
+    }
+});
+
+// Document formatting: whitespace-only normalization (indentation, spacing around structural
+// punctuation, trailing whitespace). `.rules` formatting is guarded by a lexical-equivalence check
+// and returns no edits rather than risk changing what the game reads; `.shader` files get a plain
+// brace-depth re-indent. `mod.rules` actions are ordinary ObjectText and format like any `.rules`.
+const formattingEdits = (uri: string, options: { tabSize: number; insertSpaces: boolean }): TextEdit[] => {
+    const document = documents.get(uri);
+    if (!document) return [];
+    const text = document.getText();
+    const formatted = isShaderDocument(uri)
+        ? formatShaderDocument(text, options)
+        : formatRulesDocument(text, options);
+    if (formatted === null) return [];
+    return minimalReplacementEdits(document, formatted);
+};
+
+connection.onDocumentFormatting((params) => {
+    if (globalSettings.formatting?.enabled === false) return [];
+    try {
+        return formattingEdits(params.textDocument.uri, {
+            tabSize: params.options.tabSize,
+            insertSpaces: params.options.insertSpaces,
+        });
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages') console.error(e);
+        return null;
+    }
+});
+
+// Format-on-save (`cosmoteerLSPRules.formatting.formatOnSave`, default off): the edits returned
+// here are applied by the client before the file hits disk. The save event carries no editor
+// indent options, so it formats with tabs, the vanilla `.rules` convention.
+documents.onWillSaveWaitUntil((event) => {
+    if (globalSettings.formatting?.enabled === false || globalSettings.formatting?.formatOnSave !== true) {
+        return [];
+    }
+    try {
+        return formattingEdits(event.document.uri, { tabSize: 4, insertSpaces: false });
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages') console.error(e);
+        return [];
     }
 });
 

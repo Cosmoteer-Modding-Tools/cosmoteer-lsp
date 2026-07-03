@@ -85,7 +85,7 @@ export interface EntityField {
 }
 
 /**
- * List field name → the entity candidate(s) it declares. Derived once: BFS the group/list field graph
+ * Lower-cased list field name → the entity candidate(s) it declares. Derived once: BFS the group/list field graph
  * from `Cosmoteer.Data.Rules`, and for every list field whose element class is a reference target with
  * a resolvable identity key, record `fieldName → {elementClass, identityKey}`.
  *
@@ -113,7 +113,9 @@ export const ENTITY_FIELDS: ReadonlyMap<string, readonly EntityField[]> = (() =>
                 if (!referenceTargets.has(elementClass)) continue;
                 const identityKey = identityKeyOf(elementClass);
                 if (!identityKey) continue;
-                const candidates = found.get(field.name) ?? found.set(field.name, []).get(field.name)!;
+                // Keyed lower-case so a written `factions [ … ]` still matches (game lookup ignores case).
+                const key = field.name.toLowerCase();
+                const candidates = found.get(key) ?? found.set(key, []).get(key)!;
                 if (!candidates.some((candidate) => candidate.elementClass === elementClass)) {
                     candidates.push({ elementClass, identityKey });
                 }
@@ -127,7 +129,7 @@ export const ENTITY_FIELDS: ReadonlyMap<string, readonly EntityField[]> = (() =>
 const idValueNodeOf = (element: AbstractNode, identityKey: string): ValueNode | undefined => {
     if (!isGroupNode(element)) return undefined;
     for (const member of element.elements) {
-        if (isAssignmentNode(member) && member.left.name === identityKey && isValueNode(member.right)) {
+        if (isAssignmentNode(member) && member.left.name.toLowerCase() === identityKey.toLowerCase() && isValueNode(member.right)) {
             const value = member.right;
             if (value.valueType.type === 'String') return value;
         }
@@ -141,6 +143,62 @@ export interface EntityDeclaration {
     /** The node to jump to for go-to-definition — an id value node, or a group-keyed member. */
     readonly node: AbstractNode;
 }
+
+/**
+ * The GUI id classes whose instances mods also declare as loose named groups (`WindowsOnOff
+ * { ToggleID = "windows_on_off" Style = … Choices [ … ] }`) that a `mod.rules` action then adds into
+ * the game's collection list, a declaration site the `PartToggles [ … ]`-list harvest cannot see.
+ * Keyed by the class's identity field, lowercased.
+ */
+const LOOSE_GUI_CLASSES: ReadonlyMap<string, string> = new Map([
+    ['toggleid', 'Cosmoteer.Game.PartToggleGuiRules'],
+    ['colorid', 'Cosmoteer.Game.PartColorGuiRules'],
+    ['targeterid', 'Cosmoteer.Game.PartTargeterGuiRules'],
+    ['triggerid', 'Cosmoteer.Game.PartTriggerGuiRules'],
+]);
+
+/**
+ * Members only a GUI id declaration carries. A reference site never has them: a part references a
+ * toggle inside a `Type = UIToggle` component (which the `Type` guard excludes anyway) or a
+ * `ShowOnlyInToggleMode { ToggleID, Mode }` sprite gate, which has none of these.
+ */
+const GUI_DECLARATION_MEMBERS: ReadonlySet<string> = new Set([
+    'style',
+    'choices',
+    'buttontooltipkey',
+    'buttonsprite',
+    'coloredsprite',
+]);
+
+/**
+ * The GUI id declaration a loose group makes, or undefined. A group declares a GUI id when it writes
+ * one of the identity fields as a string, carries a declaration-shape member, and has no `Type`
+ * discriminator (a part component referencing the id always has one).
+ */
+const looseGuiDeclarationOf = (group: AbstractNode): EntityDeclaration | undefined => {
+    if (!isGroupNode(group)) return undefined;
+    let idNode: ValueNode | undefined;
+    let elementClass: string | undefined;
+    let hasShapeMember = false;
+    for (const member of group.elements) {
+        const name = isAssignmentNode(member)
+            ? member.left.name
+            : isGroupNode(member) || isListNode(member)
+              ? member.identifier?.name
+              : undefined;
+        if (!name) continue;
+        const lower = name.toLowerCase();
+        if (lower === 'type') return undefined;
+        if (GUI_DECLARATION_MEMBERS.has(lower)) hasShapeMember = true;
+        const cls = LOOSE_GUI_CLASSES.get(lower);
+        if (cls && isAssignmentNode(member) && isValueNode(member.right) && member.right.valueType.type === 'String') {
+            idNode = member.right;
+            elementClass = cls;
+        }
+    }
+    if (!idNode || !elementClass || !hasShapeMember) return undefined;
+    return { elementClass, id: String(idNode.valueType.value), node: idNode };
+};
 
 /**
  * Group-name-keyed entities: a `map<reference X, V>` collection writes each entity as a named member
@@ -170,7 +228,7 @@ function* mapKeyedMembers(container: AbstractNode, elementClass: string): Genera
 export function* entityDeclarationsOf(document: AbstractNodeDocument): Generator<EntityDeclaration> {
     function* visit(node: AbstractNode): Generator<EntityDeclaration> {
         if (isListNode(node) && node.identifier) {
-            const candidates = ENTITY_FIELDS.get(node.identifier.name);
+            const candidates = ENTITY_FIELDS.get(node.identifier.name.toLowerCase());
             if (candidates) {
                 for (const element of node.elements) {
                     // Index each element under every candidate class whose identity key it carries. A
@@ -182,6 +240,9 @@ export function* entityDeclarationsOf(document: AbstractNodeDocument): Generator
                 }
             }
         }
+        // A loose GUI id group a mod.rules action later adds into the game's collection.
+        const loose = looseGuiDeclarationOf(node);
+        if (loose) yield loose;
         const children: AbstractNode[] =
             isGroupNode(node) || isListNode(node) || isDocumentNode(node)
                 ? node.elements

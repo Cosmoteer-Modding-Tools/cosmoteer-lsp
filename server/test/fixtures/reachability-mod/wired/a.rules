@@ -1,0 +1,10 @@
+Base : <../shared/base.rules>/Base
+{
+	Child = &<b.rules>
+	Url = "http://not-a-comment" Next = &<c.rules>
+	// Disabled prototype, like a parts list whose registrations are commented out.
+	//Proto = &<../disabled/proto.rules>
+	/*
+	AlsoProto = &<../disabled/proto.rules>
+	*/
+}

@@ -150,7 +150,7 @@ const scaffold = () => {
     const schema = readJson(SCHEMA_PATH);
     const seed = mergedSeed();
     if (!existsSync(SEED_PATH)) {
-        console.warn(`note: ${SEED_PATH} not found — scaffolding from the wiki seed and TODO placeholders only.\n` +
+        console.warn(`note: ${SEED_PATH} not found, scaffolding from the wiki seed and TODO placeholders only.\n` +
             '      Regenerate it with schemagen (needs the game DLLs) to also pre-fill from the game XML docs.');
     }
     mkdirSync(DOCS_DIR, { recursive: true });

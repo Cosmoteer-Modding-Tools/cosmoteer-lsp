@@ -1,12 +1,12 @@
 import { FunctionCallNode } from '../../core/ast/ast';
 import { Validation } from './validator';
+import { functionArgumentCount } from '../../semantics/value-evaluator';
 import {
-    FUNCTION_ARITY,
-    functionArgumentCount,
+    ALL_MATH_FUNCTION_NAMES,
     KNOWN_CONSTANT_NAMES,
     KNOWN_FUNCTION_NAMES,
-} from '../../semantics/value-evaluator';
-import { COSMOTEER_FUNCTION_NAMES, MXPARSER_FUNCTION_NAMES } from '../../semantics/mxparser-functions';
+    mathFunction,
+} from '../../semantics/math-function-registry';
 import * as l10n from '@vscode/l10n';
 
 // A numeric literal with a unit suffix — percent `%`, degrees `d`, radians `r` — lexes as an
@@ -25,13 +25,8 @@ export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
     type: 'FunctionCall',
     callback: async (node: FunctionCallNode) => {
         const name = node.name.toLowerCase();
-        // A name that is neither evaluatable, a recognized (but unevaluated) mXparser function, nor a
-        // Cosmoteer-custom function (`db2vol`) is almost certainly a typo.
-        if (
-            !KNOWN_FUNCTION_NAMES.has(name) &&
-            !MXPARSER_FUNCTION_NAMES.has(name) &&
-            !COSMOTEER_FUNCTION_NAMES.has(name)
-        ) {
+        // A name the math-function registry does not know is almost certainly a typo.
+        if (!ALL_MATH_FUNCTION_NAMES.has(name)) {
             return {
                 message: l10n.t('Unknown function "{0}"', node.name),
                 node,
@@ -42,15 +37,15 @@ export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
         // when it sits alongside other arguments) hold for every math function, so they run for the
         // whole recognized set. The argument-*type* check (below) is limited to the evaluatable
         // functions we model: other valid functions (unevaluated mXparser extras, Cosmoteer's
-        // `db2vol` which takes a quoted string) have signatures we don't know, so type-checking their
-        // args would false-positive. Arity is likewise checked only for the evaluatable set (below).
+        // `db2vol` which takes a quoted string) have argument types we don't know, so type-checking
+        // their args would false-positive.
         //
-        // Arity is only checked for functions we model (the evaluatable ones), and only for too few
-        // arguments. A nested call in an argument position (`floor(sqrt(x) * 2)`) is flattened by the
+        // Arity comes from the registry for every known function, and only too few arguments are
+        // flagged. A nested call in an argument position (`floor(sqrt(x) * 2)`) is flattened by the
         // parser into extra operands, which can inflate the apparent count, so an over-count is
         // unreliable and never flagged. An under-count cannot be produced that way, so "forgot an
-        // argument" (`pow(&a)`, `max()`) is reported safely.
-        const arity = FUNCTION_ARITY[name];
+        // argument" (`pow(&a)`, `if(a, b)`, `max()`) is reported safely.
+        const arity = mathFunction(name)?.arity;
         if (arity) {
             const got = functionArgumentCount(node);
             if (got < arity[0]) {
@@ -96,8 +91,7 @@ export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
                 const text = String(arg.valueType.value).toLowerCase();
                 const isMisparsedNestedCallOrConstant =
                     !arg.quoted &&
-                    (KNOWN_FUNCTION_NAMES.has(text) ||
-                        MXPARSER_FUNCTION_NAMES.has(text) ||
+                    (ALL_MATH_FUNCTION_NAMES.has(text) ||
                         KNOWN_CONSTANT_NAMES.has(text) ||
                         NUMBER_WITH_UNIT.test(text.replace(/\s+/g, '')));
                 if (!isMisparsedNestedCallOrConstant) {

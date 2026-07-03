@@ -11,113 +11,9 @@ import {
 import { getStartOfAstNode } from '../utils/ast.utils';
 import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
 import { FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
+import { CONSTANTS, mathFunction } from './math-function-registry';
 
 const navigation = new FullNavigationStrategy();
-
-/**
- * The pure numeric functions we can evaluate. Cosmoteer's math is mXparser-compatible
- * (https://mathparser.org/mxparser-math-collection/), so these follow mXparser semantics:
- * trigonometry is in radians and `ln` is the natural log. Names are matched case-insensitively
- * and several mXparser aliases map to the same function. A call with the wrong arity (or a
- * domain function whose meaning isn't pure arithmetic, e.g. `deg`/`vol`) returns `null` so the
- * caller shows nothing rather than a wrong number. Operators beyond `+ - * /` (mXparser's `^`,
- * `!`, `%`) are not covered — the lexer never tokenizes them, so they can't reach this table.
- */
-const unary = (fn: (x: number) => number) => (a: number[]) => (a.length === 1 ? fn(a[0]) : null);
-const binary = (fn: (x: number, y: number) => number) => (a: number[]) => (a.length === 2 ? fn(a[0], a[1]) : null);
-const variadic = (fn: (xs: number[]) => number) => (a: number[]) => (a.length ? fn(a) : null);
-
-const FUNCTIONS: Record<string, (args: number[]) => number | null> = {
-    // Rounding / sign / magnitude
-    ceil: unary(Math.ceil),
-    floor: unary(Math.floor),
-    // mXparser `round(x, n)` rounds to n decimals; a lone `round(x)` is the nearest integer.
-    round: (a) =>
-        a.length === 1
-            ? Math.round(a[0])
-            : a.length === 2
-              ? Math.round(a[0] * 10 ** a[1]) / 10 ** a[1]
-              : null,
-    abs: unary(Math.abs),
-    sign: unary(Math.sign),
-    sgn: unary(Math.sign), // mXparser spelling
-    // Roots / powers / exponential / logarithms
-    sqrt: unary(Math.sqrt),
-    cbrt: unary(Math.cbrt),
-    exp: unary(Math.exp),
-    ln: unary(Math.log), // natural log (mXparser)
-    log2: unary(Math.log2),
-    log10: unary(Math.log10),
-    lg: unary(Math.log10), // mXparser alias for log base 10
-    // mXparser `log(a, b)` is log base a of b.
-    log: binary((base, x) => Math.log(x) / Math.log(base)),
-    pow: binary(Math.pow),
-    // Trigonometry — radians
-    sin: unary(Math.sin),
-    cos: unary(Math.cos),
-    tan: unary(Math.tan),
-    tg: unary(Math.tan),
-    ctan: unary((x) => 1 / Math.tan(x)),
-    cot: unary((x) => 1 / Math.tan(x)),
-    ctg: unary((x) => 1 / Math.tan(x)),
-    sec: unary((x) => 1 / Math.cos(x)),
-    csc: unary((x) => 1 / Math.sin(x)),
-    cosec: unary((x) => 1 / Math.sin(x)),
-    asin: unary(Math.asin),
-    arcsin: unary(Math.asin),
-    acos: unary(Math.acos),
-    arccos: unary(Math.acos),
-    atan: unary(Math.atan),
-    arctan: unary(Math.atan),
-    arctg: unary(Math.atan),
-    atan2: binary(Math.atan2),
-    // Hyperbolic
-    sinh: unary(Math.sinh),
-    cosh: unary(Math.cosh),
-    tanh: unary(Math.tanh),
-    asinh: unary(Math.asinh),
-    acosh: unary(Math.acosh),
-    atanh: unary(Math.atanh),
-    // Aggregates (variadic)
-    min: variadic((xs) => Math.min(...xs)),
-    max: variadic((xs) => Math.max(...xs)),
-    sum: variadic((xs) => xs.reduce((s, x) => s + x, 0)),
-    avg: variadic((xs) => xs.reduce((s, x) => s + x, 0) / xs.length),
-    // Modulo
-    mod: binary((x, y) => x % y),
-};
-
-/** Lowercased names of every function we can numerically evaluate (a subset of all valid mXparser functions). */
-export const KNOWN_FUNCTION_NAMES: ReadonlySet<string> = new Set(Object.keys(FUNCTIONS));
-
-/**
- * Argument-count bounds `[min, max]` for each {@link FUNCTIONS} entry (`max` is `Infinity` for the
- * variadic aggregates). Mirrors the arity each closure enforces, so the validator can flag a call
- * with the wrong number of arguments. Only covers functions we evaluate — arity is intentionally not
- * checked for valid-but-unevaluatable mXparser functions, whose arities we don't model. A test keeps
- * this table's keys in lock-step with {@link FUNCTIONS}.
- */
-export const FUNCTION_ARITY: Record<string, [number, number]> = {
-    ceil: [1, 1], floor: [1, 1], round: [1, 2], abs: [1, 1], sign: [1, 1], sgn: [1, 1],
-    sqrt: [1, 1], cbrt: [1, 1], exp: [1, 1], ln: [1, 1], log2: [1, 1], log10: [1, 1], lg: [1, 1],
-    log: [2, 2], pow: [2, 2],
-    sin: [1, 1], cos: [1, 1], tan: [1, 1], tg: [1, 1], ctan: [1, 1], cot: [1, 1], ctg: [1, 1],
-    sec: [1, 1], csc: [1, 1], cosec: [1, 1],
-    asin: [1, 1], arcsin: [1, 1], acos: [1, 1], arccos: [1, 1], atan: [1, 1], arctan: [1, 1], arctg: [1, 1],
-    atan2: [2, 2],
-    sinh: [1, 1], cosh: [1, 1], tanh: [1, 1], asinh: [1, 1], acosh: [1, 1], atanh: [1, 1],
-    min: [1, Infinity], max: [1, Infinity], sum: [1, Infinity], avg: [1, Infinity],
-    mod: [2, 2],
-};
-
-/** mXparser mathematical constants usable bare in an expression (no `&`). */
-const CONSTANTS: Record<string, number> = {
-    pi: Math.PI,
-    e: Math.E,
-};
-
-/** Lowercased names of bare numeric constants (`pi`, `e`) that are valid operands without a `&`. */
-export const KNOWN_CONSTANT_NAMES: ReadonlySet<string> = new Set(Object.keys(CONSTANTS));
 
 interface EvalContext {
     token: CancellationToken;
@@ -128,7 +24,8 @@ interface EvalContext {
 /**
  * Compute the concrete numeric value a node resolves to — following references (through
  * inheritance, via the shared {@link FullNavigationStrategy}), arithmetic with `* /` before
- * `+ -`, and the {@link FUNCTIONS} above. Returns `null` for anything not purely numeric
+ * `+ -`, and the evaluatable functions of the math-function registry. Returns `null` for
+ * anything not purely numeric
  * (strings, percentages/units, unknown functions, unresolved refs, cycles) so callers can
  * simply show nothing rather than a wrong value.
  */
@@ -277,7 +174,7 @@ const evaluateSequence = async (parts: AbstractNode[], context: EvalContext): Pr
 };
 
 const evaluateFunction = async (node: FunctionCallNode, context: EvalContext): Promise<number | null> => {
-    const fn = FUNCTIONS[node.name.toLowerCase()];
+    const fn = mathFunction(node.name)?.evaluate;
     if (!fn) return null;
     const args: number[] = [];
     for (const group of segmentArguments(node.arguments)) {

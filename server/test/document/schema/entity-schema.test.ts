@@ -6,8 +6,9 @@ import { aliasRootIndex } from '../../../src/document/schema/alias-root';
 
 const parse = (src: string) => parser(lexer(src), 'file:///t.rules').value;
 
+// ENTITY_FIELDS is keyed lower-case, mirroring the game's case-insensitive node lookup.
 const only = (name: string) => {
-    const c = ENTITY_FIELDS.get(name);
+    const c = ENTITY_FIELDS.get(name.toLowerCase());
     expect(c).toHaveLength(1);
     return c![0];
 };
@@ -27,7 +28,7 @@ describe('entity-schema: derived ENTITY_FIELDS', () => {
     });
 
     it('keeps BOTH candidates for an ambiguous field name (Techs → two element classes)', () => {
-        const techs = ENTITY_FIELDS.get('Techs');
+        const techs = ENTITY_FIELDS.get('techs');
         expect(techs?.length).toBe(2);
         const classes = techs!.map((c) => c.elementClass).sort();
         expect(classes).toContain('Cosmoteer.Modes.Career.TechTree.TechRules');
@@ -59,6 +60,12 @@ describe('entity-schema: entityDeclarationsOf', () => {
     it('ignores a list whose name is not an entity field', () => {
         const doc = parse('Whatever\n[\n\t{ ID = x }\n]');
         expect([...entityDeclarationsOf(doc)]).toHaveLength(0);
+    });
+
+    it('harvests entities from a list written in a different case (game lookup ignores case)', () => {
+        const doc = parse('factions\n[\n\t{ id = monolith }\n]');
+        const decls = [...entityDeclarationsOf(doc)];
+        expect(decls.map((d) => d.id)).toEqual(['monolith']);
     });
 });
 

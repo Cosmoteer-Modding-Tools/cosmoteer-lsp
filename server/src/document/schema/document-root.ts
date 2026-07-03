@@ -96,10 +96,10 @@ const ROOT_REGISTRIES: ReadonlyArray<string> = [
     'Cosmoteer.Simulation.Doodads.DoodadRules',
 ];
 
-/** A top-level named member of the document, if present. */
+/** A top-level named member of the document, if present. The name matches case-insensitively like the game's node lookup. */
 const topLevelField = (document: AbstractNodeDocument, name: string): AbstractNode | undefined => {
     for (const [memberName, value] of namedMembersOf(document)) {
-        if (memberName === name) return value;
+        if (memberName.toLowerCase() === name.toLowerCase()) return value;
     }
     return undefined;
 };
@@ -132,7 +132,7 @@ const classFitsDocument = (cls: string, document: AbstractNodeDocument): boolean
         // The polymorphic `Type=` discriminator is structural, never a class field, so counting it
         // would understate coverage on `Type`-dispatched roots (a spawner file's only fields besides
         // `Type` may be a couple of base members). Drop it when it isn't a real field of the candidate.
-        .filter((name) => name !== 'Type' || !!fieldOf(cls, name));
+        .filter((name) => name.toLowerCase() !== 'type' || !!fieldOf(cls, name));
     if (names.length < 3) return true;
     const known = names.filter((name) => fieldOf(cls, name)).length;
     return known / names.length >= MIN_ROOT_COVERAGE;

@@ -1,11 +1,16 @@
+import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
-import { dirname, resolve as resolvePath } from 'path';
+import { dirname, relative as relativePath, resolve as resolvePath } from 'path';
+import { findModRoot } from '../../mod/mod-root';
 
 /**
  * Resolves a shader `#include` path to an absolute path. Cosmoteer shaders use two include forms, a
  * path relative to the including file (`"../base.shader"`) and a root-anchored path that names the game
  * data tree (`"./Data/base.shader"`). The latter is resolved against the game's `Data` directory, the
- * former against the including file's own directory.
+ * former against the including file's own directory. A relative include that does not exist on disk is
+ * also tried at the same mod-relative location inside the game tree: a mod mirrors the `Data` layout
+ * and the game merges the two at load, so a mod's `common_effects/x.shader` can include vanilla's
+ * sibling `base_particle.shader` even though the mod folder holds no such file.
  *
  * @param fromFile the absolute path of the file that contains the include directive.
  * @param includePath the literal path written in the `#include "…"` directive.
@@ -15,7 +20,14 @@ import { dirname, resolve as resolvePath } from 'path';
 export const resolveInclude = (fromFile: string, includePath: string, dataDir?: string): string => {
     const rooted = /^\.?[\\/]?[Dd]ata[\\/](.+)$/.exec(includePath);
     if (rooted && dataDir) return resolvePath(dataDir, rooted[1]);
-    return resolvePath(dirname(fromFile), includePath);
+    const relative = resolvePath(dirname(fromFile), includePath);
+    if (!dataDir || existsSync(relative)) return relative;
+    const modRoot = findModRoot(fromFile);
+    if (!modRoot) return relative;
+    const withinMod = relativePath(resolvePath(modRoot), relative);
+    if (withinMod.startsWith('..')) return relative;
+    const inGameTree = resolvePath(dataDir, withinMod);
+    return existsSync(inGameTree) ? inGameTree : relative;
 };
 
 /**

@@ -13,17 +13,22 @@ export interface CosmoteerSettings {
         // files open in the editor. Off by default: parsing the whole project keeps every file's
         // AST in memory and costs CPU up front, which low-memory machines may not want.
         validateWholeWorkspace: boolean;
-        // When true, flag a component `ID<…>` reference (e.g. `OperationalToggle = IsOperational`)
-        // whose id names no component anywhere in the part or its inherited bases. Off by default:
-        // some components are injected by the engine at runtime (never declared in `.rules`, e.g.
-        // `ConstructionTracker`) and some files are fragments merged into a parent part, so a
-        // single-file check cannot be fully false-positive-free.
+        // Which files the whole-workspace pass covers. 'allFiles' (the default) validates every
+        // `.rules` under the workspace folders. 'modRulesReachable' restricts the pass to the files
+        // the game can actually load — the closure of the mod.rules action sources, their includes
+        // and inheritance, and the strings folder — so backups, templates and other dead content
+        // stop flooding the Problems panel. Files open in the editor always validate either way.
+        workspaceValidationScope: 'allFiles' | 'modRulesReachable';
+        // When true (the default), flag a component `ID<…>` reference (e.g. `OperationalToggle =
+        // IsOperational`) whose id names no component anywhere in the part, its inherited bases, or
+        // its include-valued components blocks. Only runs once the game `Data` tree is indexed
+        // (inherited vanilla bases must resolve); runtime-injected engine components and fields with
+        // non-sibling semantics are excluded, which took the vanilla scan to zero false positives.
         validateComponentReferences: boolean;
-        // When true, flag a cross-file `ID<…>` reference (e.g. `ResourceType = battery`, a buff in
-        // `ReceivableBuffs`, a status key in `StatusResistances`) whose id names no declaration of
-        // that kind anywhere in the project. Off by default, because it depends on the whole project
-        // and game tree being indexed, so a reference to something the index has not seen would be a
-        // false positive.
+        // When true (the default), flag a cross-file `ID<…>` reference (a GUI toggle/color/targeter/
+        // trigger id) whose id names no declaration of that kind anywhere in the project. Only runs
+        // once the game `Data` tree is indexed, since a reference to a vanilla-declared id would
+        // otherwise be a false positive.
         validateCrossFileReferences: boolean;
         // When true (the default), flag a group that is missing a schema-required field, checking the
         // inheritance chain so a field supplied by a base does not count as missing. Validated to zero
@@ -31,29 +36,23 @@ export interface CosmoteerSettings {
         // flag is derived from real C# signals and cross-file templates are absorbed by a project-wide
         // index. Can be turned off to skip the one-time project index build it performs.
         validateRequiredFields: boolean;
-        // When true, flag an inline `_`-prefixed shader constant a material sets that the referenced
-        // `.shader` declares no uniform for (a typo such as `_hotColr`), and one whose value is the wrong
-        // shape for its type. Off by default: the type check is false-positive-free, but the game itself
-        // ships a handful of dead constant keys its shaders do not read (e.g. a nebula's `_color4`, an
-        // ion beam's `_sizePulseFactor`), which are technically-correct warnings on vanilla data, so the
-        // check is opt-in. Only fires when the shader resolves on disk (otherwise the names cannot be
-        // judged).
+        // When true (the default), flag an inline `_`-prefixed shader constant a material sets that the
+        // referenced `.shader` declares no uniform for (a typo such as `_hotColr`), and one whose value
+        // is the wrong shape for its type. Only fires when the shader resolves on disk (otherwise the
+        // names cannot be judged); the handful of dead constant keys the game itself ships are skipped.
         validateShaderConstants: boolean;
-        // When true, run lightweight diagnostics on `.shader` files themselves: an `#include` whose
-        // target does not exist, a `_`-prefixed uniform read that no file in the include chain declares,
-        // and a call to a function that is neither an HLSL intrinsic nor defined in scope. Off by
-        // default: it is a lexical check (not an HLSL compiler), and the undeclared-symbol checks only
-        // run when the whole include chain is readable, so a shader whose base include lives in an
-        // unconfigured game path is left unchecked rather than flagged wrongly.
+        // When true (the default), run lightweight diagnostics on `.shader` files themselves: an
+        // `#include` whose target does not exist, a `_`-prefixed uniform read that no file in the
+        // include chain declares, and a call to a function that is neither an HLSL intrinsic nor
+        // defined in scope. It is a lexical check (not an HLSL compiler) built to stay false-positive-
+        // free: the undeclared-symbol checks only run when the whole include chain is readable, so a
+        // shader whose base include lives in an unconfigured game path is left unchecked.
         validateShaderCode: boolean;
-        // When true, flag a localization key (`NameKey = "Parts/Foo"`, a C# `KeyString`) whose path is
-        // declared in no language strings file in the project. Only literal key paths are checked
-        // (reference-valued keys `&<…>/NameKey` are validated as references), and matching is
-        // case-insensitive (the game resolves keys case-folded). Off by default like the other
-        // cross-file existence checks: coverage needs the base game strings indexed (a configured
-        // `cosmoteerPath`), so without it a reference to a vanilla key would false-positive. An FP scan
-        // over vanilla (0 findings on 874 keys) and 42 workshop mods found only genuine missing-string
-        // bugs, so it is safe to enable once the game path is set.
+        // When true (the default), flag a localization key (`NameKey = "Parts/Foo"`, a C# `KeyString`)
+        // whose path is declared in no language strings file in the project. Only literal key paths are
+        // checked (reference-valued keys `&<…>/NameKey` are validated as references), and matching is
+        // case-insensitive (the game resolves keys case-folded). Only runs once the game `Data` tree is
+        // indexed, since a mod's reference to a vanilla key would otherwise false-positive.
         validateLocalizationKeys: boolean;
     };
     rename: {
@@ -61,6 +60,16 @@ export interface CosmoteerSettings {
         // default to protect the read-only vanilla files — only a developer working on the game data
         // itself should turn this on.
         allowEditingVanillaFiles: boolean;
+    };
+    formatting: {
+        // Master switch for document formatting (Format Document on `.rules` and `.shader` files).
+        // On by default; turning it off makes the server return no formatting edits.
+        enabled: boolean;
+        // When true, the document is auto-formatted right before every save (LSP willSaveWaitUntil),
+        // independent of the editor's own `editor.formatOnSave`. Off by default so saving never
+        // rewrites a file the user did not ask to reformat. On-save formatting indents with tabs,
+        // the vanilla `.rules` convention, since the save event carries no editor indent options.
+        formatOnSave: boolean;
     };
 }
 
@@ -74,15 +83,20 @@ export const defaultSettings: CosmoteerSettings = {
     ignorePaths: [],
     diagnostics: {
         validateWholeWorkspace: false,
-        validateComponentReferences: false,
-        validateCrossFileReferences: false,
+        workspaceValidationScope: 'allFiles',
+        validateComponentReferences: true,
+        validateCrossFileReferences: true,
         validateRequiredFields: true,
-        validateShaderConstants: false,
-        validateShaderCode: false,
-        validateLocalizationKeys: false,
+        validateShaderConstants: true,
+        validateShaderCode: true,
+        validateLocalizationKeys: true,
     },
     rename: {
         allowEditingVanillaFiles: false,
+    },
+    formatting: {
+        enabled: true,
+        formatOnSave: false,
     },
 };
 

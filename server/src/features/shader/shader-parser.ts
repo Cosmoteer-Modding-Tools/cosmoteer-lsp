@@ -233,6 +233,8 @@ export interface ShaderParam {
     readonly type: string;
     /** The parameter name. */
     readonly name: string;
+    /** True when the parameter declares a default value (`float limit = 1.0`), so a call may omit it. */
+    readonly optional?: boolean;
 }
 
 /** A file-scope function's full signature: return type, name, and typed parameter list. */
@@ -259,13 +261,13 @@ const SIGNATURE_RE =
 /** Parses one parameter declaration (`in float2 uv : TEXCOORD0`) into its type and name, or null. */
 const parseParam = (part: string): ShaderParam | null => {
     // Drop a trailing HLSL semantic (`: TEXCOORD0`) and any default value, then the leading qualifiers.
-    const cleaned = part
-        .replace(/:\s*[A-Za-z_]\w*.*$/, '')
-        .replace(/=.*$/, '')
-        .trim();
+    const withoutSemantic = part.replace(/:\s*[A-Za-z_]\w*.*$/, '');
+    // A default value (`float limit = 1.0`) makes the parameter omittable at the call site.
+    const optional = withoutSemantic.includes('=');
+    const cleaned = withoutSemantic.replace(/=.*$/, '').trim();
     const tokens = cleaned.split(/\s+/).filter((t) => t && !/^(?:in|out|inout|uniform|const)$/.test(t));
     if (tokens.length < 2) return null; // a bare `void` or a malformed entry contributes no parameter
-    return { type: tokens[0], name: tokens[tokens.length - 1] };
+    return { type: tokens[0], name: tokens[tokens.length - 1], ...(optional ? { optional } : {}) };
 };
 
 /**

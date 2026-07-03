@@ -3,7 +3,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { ValidationForFunctionCall } from '../../../src/features/diagnostics/validator.functioncall';
-import { FUNCTION_ARITY, KNOWN_FUNCTION_NAMES } from '../../../src/semantics/value-evaluator';
+import { KNOWN_FUNCTION_NAMES, MATH_FUNCTIONS } from '../../../src/semantics/math-function-registry';
 import {
     AbstractNode,
     FunctionCallNode,
@@ -81,18 +81,47 @@ describe('function arity diagnostics (too-few only)', () => {
         expect(await validate('X = round((&A), 2)\n')).toBeUndefined();
         expect(await validate('X = round(&A)\n')).toBeUndefined();
     });
+
+    it('flags too few arguments for an unevaluated mXparser function (registry-wide arity)', async () => {
+        // `root` is binary and `if` is ternary in mXparser; neither is evaluatable, but the registry
+        // still carries their arity so a forgotten argument is caught.
+        const rootError = await validate('X = root(&A)\n');
+        expect(rootError?.message).toBe('Too few arguments for "root"');
+        const ifError = await validate('X = if((&A), 2)\n');
+        expect(ifError?.message).toBe('Too few arguments for "if"');
+    });
 });
 
-describe('arity table integrity', () => {
-    it('only lists functions that are actually evaluatable', () => {
-        for (const name of Object.keys(FUNCTION_ARITY)) {
-            expect(KNOWN_FUNCTION_NAMES.has(name)).toBe(true);
+describe('registry integrity', () => {
+    it('assigns a sane arity to every function', () => {
+        for (const [name, spec] of Object.entries(MATH_FUNCTIONS)) {
+            expect(spec.arity[0], `bad minimum arity for ${name}`).toBeGreaterThanOrEqual(1);
+            expect(spec.arity[1], `arity bounds inverted for ${name}`).toBeGreaterThanOrEqual(spec.arity[0]);
         }
     });
 
-    it('assigns an arity to every evaluatable function (no drift)', () => {
+    it('derives the evaluatable set from the entries with an implementation (no drift)', () => {
         for (const name of KNOWN_FUNCTION_NAMES) {
-            expect(FUNCTION_ARITY[name], `missing arity for ${name}`).toBeDefined();
+            expect(MATH_FUNCTIONS[name]?.evaluate, `missing implementation for ${name}`).toBeDefined();
+        }
+    });
+
+    it('keeps declared parameter names consistent with the arity', () => {
+        for (const [name, spec] of Object.entries(MATH_FUNCTIONS)) {
+            if (!spec.params) continue;
+            const max = isFinite(spec.arity[1]) ? spec.arity[1] : spec.params.length;
+            expect(spec.params.length, `param names of ${name} disagree with its arity`).toBe(max);
+        }
+    });
+
+    it('rejects a wrong argument count in every evaluate closure (arity and implementation agree)', () => {
+        for (const [name, spec] of Object.entries(MATH_FUNCTIONS)) {
+            if (!spec.evaluate) continue;
+            expect(spec.evaluate([]), `${name} should reject an empty argument list`).toBeNull();
+            if (isFinite(spec.arity[1])) {
+                const tooMany = new Array(spec.arity[1] + 1).fill(1);
+                expect(spec.evaluate(tooMany), `${name} should reject ${tooMany.length} arguments`).toBeNull();
+            }
         }
     });
 });

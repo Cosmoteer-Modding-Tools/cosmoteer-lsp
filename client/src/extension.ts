@@ -4,6 +4,12 @@ import { workspace, ExtensionContext, l10n, commands, languages, window, Positio
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { ShaderPreviewCodeLensProvider } from './shader-preview/codelens';
 import { ShaderPreviewPanel } from './shader-preview/preview-panel';
+import {
+    MOD_OVERVIEW_SCHEME,
+    ModOverviewCodeLensProvider,
+    ModOverviewContentProvider,
+    showModOverview,
+} from './mod-overview/mod-overview';
 
 let client: LanguageClient;
 
@@ -66,6 +72,17 @@ export async function activate(context: ExtensionContext) {
             const targetPosition = position ?? editor?.selection.active;
             if (!targetUri || !targetPosition) return;
             await ShaderPreviewPanel.show(context, client, targetUri, targetPosition);
+        })
+    );
+
+    // Mod overview: a CodeLens on a mod manifest and a command that render what the manifest does
+    // (its actions with resolution status, and the mod's unreachable files) as a markdown preview.
+    const modOverviewProvider = new ModOverviewContentProvider();
+    context.subscriptions.push(
+        workspace.registerTextDocumentContentProvider(MOD_OVERVIEW_SCHEME, modOverviewProvider),
+        languages.registerCodeLensProvider({ scheme: 'file', language: 'rules' }, new ModOverviewCodeLensProvider()),
+        commands.registerCommand('cosmoteer.showModOverview', async (uri?: Uri) => {
+            await showModOverview(client, modOverviewProvider, uri);
         })
     );
 

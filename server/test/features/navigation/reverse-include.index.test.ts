@@ -8,6 +8,7 @@ import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
 import { findEnclosingGroup, resolveGroupClass } from '../../../src/document/schema/schema-context';
+import { fieldOf } from '../../../src/document/schema/schema';
 import { documentRootClass } from '../../../src/document/schema/document-root';
 import { validateSchema } from '../../../src/features/diagnostics/validator.schema';
 import { clearShaderCache } from '../../../src/features/shader/shader-index';
@@ -208,11 +209,11 @@ describe('reverse-include rooting', () => {
     });
 
     // A pure inheritance base — a fragment reached only through `Derived : <base.rules>/Base`, never as a
-    // field value — is rooted to the most-derived class all its derivers share. Mirrors the real
-    // `commands/` layout with the real command classes: `MoveCommand` (MoveCommandRules) and
-    // `DirectControlCommand` (BaseCommandRules) both inherit `base_cmd.rules`'s `BaseCommand`, whose common
-    // ancestor is BaseCommandRules — so the base roots there and its fields resolve.
-    it('roots a pure inheritance base to the common ancestor of its derivers', async () => {
+    // field value — is rooted to the deriver class that best fits its OWN fields. Mirrors the real
+    // `commands/` layout: `MoveCommand` (MoveCommandRules) and `DirectControlCommand` (BaseCommandRules)
+    // both inherit `base_cmd.rules`'s `BaseCommand`; since MoveCommandRules owns the base's field(s) and is
+    // the most-derived (most fields) candidate that does, the base roots there so all its fields resolve.
+    it('roots a pure inheritance base to the best-fitting deriver class', async () => {
         const dir = mkdtempSync(join(tmpdir(), 'revinc-inherit-'));
         const uriOf = (name: string) => pathToFileURL(join(dir, name)).href;
         try {
@@ -240,12 +241,60 @@ describe('reverse-include rooting', () => {
             const doc = parser(lexer(baseText), uriOf('base_cmd.rules')).value;
             const base = findEnclosingGroup(doc, baseText.indexOf('AvoidRadiusBuffer'));
             expect(base?.identifier?.name).toBe('BaseCommand');
-            // MoveCommandRules and BaseCommandRules share BaseCommandRules as their nearest common base.
-            expect(resolveGroupClass(base!)).toBe('Cosmoteer.Ships.Commands.BaseCommandRules');
+            // MoveCommandRules is the most-derived deriver that owns the base's fields, so it wins the fit.
+            expect(resolveGroupClass(base!)).toBe('Cosmoteer.Ships.Commands.MoveCommandRules');
         } finally {
             ReverseIncludeIndex.instance.reset();
             aliasRootIndex.invalidate();
             rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    // The inverse of inheritance-base rooting. A top-level group inheriting a whole-file base roots to
+    // that base's class, since inheritance preserves type. Roots the overclock shot fragments like
+    // `Beam : <ion_beam.rules>`. Here the base self-roots via its own `Type=` dispatch.
+    it('roots a top-level group from the whole-file base it inherits (`Group : <base>`)', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'revinc-ownbase-'));
+        try {
+            const baseText = 'Type = Particles\nEmitPerSecond = 0\n';
+            writeFileSync(join(dir, 'base_shot.rules'), baseText);
+            const ocText = 'MACRO = &<base_shot.rules>\nOverclock : <base_shot.rules>\n{\n\tEmitPerSecond = 5\n}\n';
+            writeFileSync(join(dir, 'oc.rules'), ocText);
+
+            ReverseIncludeIndex.instance.reset();
+            await ReverseIncludeIndex.instance.ensureBuilt([dir], token);
+
+            const baseDoc = parser(lexer(baseText), pathToFileURL(join(dir, 'base_shot.rules')).href).value;
+            const expected = documentRootClass(baseDoc);
+            expect(expected).toBeTruthy();
+            const doc = parser(lexer(ocText), pathToFileURL(join(dir, 'oc.rules')).href).value;
+            const oc = findEnclosingGroup(doc, ocText.indexOf('EmitPerSecond = 5'));
+            expect(oc?.identifier?.name).toBe('Overclock');
+            expect(resolveGroupClass(oc!)).toBe(expected);
+        } finally {
+            ReverseIncludeIndex.instance.reset();
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    // The real overclock case, exercising the `&BASE` same-file alias to `&<file>` indirection. The
+    // `disruptor_bolt_overclock.rules` `Bullet : &BASE` group roots to BulletRules, the class its sibling
+    // base shot roots to. Uses only dir-relative includes, so it needs no workspace init.
+    it.runIf(HAVE_DATA)('roots the real disruptor_bolt_overclock `Bullet : &BASE` group', async () => {
+        const dir = join(DATA_DIR, 'shots/disruptor_bolt');
+        const ocPath = join(dir, 'disruptor_bolt_overclock.rules');
+        if (!existsSync(ocPath)) return;
+        try {
+            ReverseIncludeIndex.instance.reset();
+            await ReverseIncludeIndex.instance.ensureBuilt([dir], token);
+
+            const text = readFileSync(ocPath, 'utf8');
+            const doc = parser(lexer(text), pathToFileURL(ocPath).href).value;
+            const bullet = findEnclosingGroup(doc, text.indexOf('{', text.indexOf('Bullet')) + 2);
+            expect(bullet?.identifier?.name).toBe('Bullet');
+            expect(resolveGroupClass(bullet!)).toBe('Cosmoteer.Bullets.BulletRules');
+        } finally {
+            ReverseIncludeIndex.instance.reset();
         }
     });
 
@@ -301,20 +350,29 @@ describe('reverse-include rooting', () => {
             const baseCmdDoc = parser(lexer(baseCmdText), pathToFileURL(join(commandsDir, 'base_command.rules')).href).value;
             const baseCmd = findEnclosingGroup(baseCmdDoc, baseCmdText.indexOf('AvoidRadiusBuffer'));
             expect(baseCmd?.identifier?.name).toBe('BaseCommand');
-            expect(resolveGroupClass(baseCmd!)).toBe('Cosmoteer.Ships.Commands.BaseCommandRules');
-            // The base's own fields now resolve (autocomplete/hover/validation), and it validates cleanly.
+            // Roots to a deriver class that owns EVERY field the base declares — including the move-widget
+            // groups (MoverWidget/RotatorWidget/DeleterWidget) that the shallow BaseCommandRules lacks. The
+            // exact winner among owns-all candidates is an arbitrary tiebreak; the guarantee is that the
+            // widget field resolves (`fieldOf` non-undefined) so nested completion works and it validates clean.
+            const baseClass = resolveGroupClass(baseCmd!);
+            expect(baseClass && fieldOf(baseClass, 'MoverWidget')).toBeTruthy();
             expect(await validateSchema(baseCmdDoc, token)).toEqual([]);
+            // A nested widget group inside the base now resolves too (it did not under the common ancestor).
+            const mover = findEnclosingGroup(baseCmdDoc, baseCmdText.indexOf('MoverWidget'));
+            expect(resolveGroupClass(mover!)).toBeTruthy();
 
             const followPath = join(commandsDir, 'base_follow_command.rules');
             if (existsSync(followPath)) {
                 const followText = readFileSync(followPath, 'utf8');
                 const followDoc = parser(lexer(followText), pathToFileURL(followPath).href).value;
-                // Reached only through the chain (its derivers root it, and it in turn roots base_command),
-                // so this is what the fixpoint buys — it must pass more than one pass.
-                expect(ReverseIncludeIndex.instance.memberType(followDoc.uri, 'BaseFollowCommand')).toMatchObject({
-                    ref: 'Cosmoteer.Ships.Commands.BaseFollowCommandRules',
-                });
+                // base_follow_command is reached only through the chain — its own derivers (the follow
+                // commands) root it, and it in turn roots base_command — so this is what the fixpoint buys.
+                expect(ReverseIncludeIndex.instance.inheritanceBaseMembers(followDoc.uri)).toContain('BaseFollowCommand');
                 expect(ReverseIncludeIndex.instance.passesUsed).toBeGreaterThan(1);
+                // It roots for real (completion/validation), and validates clean.
+                const followGroup = findEnclosingGroup(followDoc, followText.indexOf('{') + 2);
+                expect(resolveGroupClass(followGroup!)).toBeTruthy();
+                expect(await validateSchema(followDoc, token)).toEqual([]);
             }
         } finally {
             ReverseIncludeIndex.instance.reset();
@@ -381,7 +439,8 @@ describe('reverse-include rooting', () => {
                 const text = readFileSync(baseCmdPath, 'utf8');
                 const doc = parser(lexer(text), pathToFileURL(baseCmdPath).href).value;
                 const base = findEnclosingGroup(doc, text.indexOf('AvoidRadiusBuffer'));
-                expect(resolveGroupClass(base!)).toBe('Cosmoteer.Ships.Commands.BaseCommandRules');
+                const cls = resolveGroupClass(base!);
+                expect(cls && fieldOf(cls, 'MoverWidget')).toBeTruthy();
             }
         } finally {
             ReverseIncludeIndex.instance.reset();

@@ -1,11 +1,13 @@
 import { Range } from 'vscode-languageserver';
 import {
     AbstractNode,
+    GroupNode,
     isAssignmentNode,
     isDocumentNode,
     isGroupNode,
     isListNode,
     isValueNode,
+    ListNode,
     ValueNode,
 } from '../../core/ast/ast';
 import { classOfGroup, registryForContainer } from '../../document/schema/schema-context';
@@ -53,9 +55,14 @@ export const resolveSchemaSiblingReference = (node: AbstractNode | null | undefi
     }
 
     // The value text is a sibling component's identifier — find that group in the same container.
+    // Case-folded with exact preference, matching the game's case-insensitive node lookup.
     const targetName = String((node as ValueNode).valueType.value);
-    return container.elements.find(
-        (element) => (isGroupNode(element) || isListNode(element)) && element.identifier?.name === targetName
+    const named = container.elements.filter(
+        (element): element is GroupNode | ListNode => (isGroupNode(element) || isListNode(element)) && !!element.identifier
+    );
+    return (
+        named.find((element) => element.identifier!.name === targetName) ??
+        named.find((element) => element.identifier!.name.toLowerCase() === targetName.toLowerCase())
     );
 };
 

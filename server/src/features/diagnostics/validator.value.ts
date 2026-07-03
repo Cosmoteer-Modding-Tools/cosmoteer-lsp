@@ -18,7 +18,7 @@ import { isValidReference } from '../../utils/reference.utils';
 import { isModRules } from '../../document/document-kind';
 import { Validation } from './validator';
 import { extractSubstrings } from '../navigation/navigation-strategy';
-import { TARGET_FIELDS } from '../../mod/action';
+import { isTargetField } from '../../mod/action';
 import { findModRoot } from '../../mod/mod-root';
 import { resolveFromModContextOnly } from '../../mod/mod-context';
 import { isStringsFile } from '../../mod/strings-folder';
@@ -187,10 +187,10 @@ const checkReference = async (node: ValueNode, cancellationToken: CancellationTo
 const isModActionTargetNode = (node: ValueNode): boolean => {
     const parent = node.parent;
     if (!parent) return false;
-    if (isListNode(parent)) return !!parent.identifier && TARGET_FIELDS.has(parent.identifier.name);
+    if (isListNode(parent)) return !!parent.identifier && isTargetField(parent.identifier.name);
     if (isGroupNode(parent)) {
         return parent.elements.some(
-            (element) => isAssignmentNode(element) && element.right === node && TARGET_FIELDS.has(element.left.name)
+            (element) => isAssignmentNode(element) && element.right === node && isTargetField(element.left.name)
         );
     }
     return false;

@@ -7,6 +7,7 @@ interface ShaderPreviewData {
     shaderName: string;
     shaderUri: string | null;
     glsl: string | null;
+    vertexStage: { glsl: string; fragment: string; kind: 'sprite' | 'particle' | 'beam' } | null;
     translationOk: boolean;
     reason?: string;
     constants: Array<{
@@ -16,11 +17,38 @@ interface ShaderPreviewData {
         default?: string;
         value?: string;
         components?: number[];
+        isColor?: boolean;
     }>;
-    textureUri: string | null;
-    blendMode: string | null;
+    textures: Array<{
+        name: string;
+        uri: string | null;
+        sampler: { sampleMode: string; uMode: string; vMode: string; mips: boolean };
+    }>;
+    blend: {
+        label: string;
+        srcRgb: string;
+        dstRgb: string;
+        rgbOp: string;
+        srcAlpha: string;
+        dstAlpha: string;
+        alphaOp: string;
+    };
     tint: string | null;
+    tintComponents: number[] | null;
     isParticle: boolean;
+    isBeam: boolean;
+    particleColor: { lifetime: number; invert: boolean; colors: number[][] } | null;
+    spriteSheet: {
+        textureSize: number[];
+        spriteSize: number[];
+        count: number;
+        perRow: number;
+        offset: number[];
+        animated: boolean;
+    } | null;
+    particleLifetime: number | null;
+    baseSize: number[] | null;
+    size: string | null;
 }
 
 /**
@@ -120,10 +148,14 @@ export class ShaderPreviewPanel {
         }
         this.previewedShaderPath = data.shaderUri ? Uri.parse(data.shaderUri).fsPath.toLowerCase() : undefined;
         this.panel.title = `Shader Preview — ${data.shaderName}`;
+        // Every bound texture is inlined as a data URI keyed by its sampler uniform, so noise and ramp
+        // textures load in the webview the same way the base texture does.
+        const textureData: Record<string, string | null> = {};
+        for (const texture of data.textures) textureData[texture.name] = textureDataUri(texture.uri);
         await this.panel.webview.postMessage({
             type: 'render',
             data,
-            textureUri: textureDataUri(data.textureUri),
+            textureData,
         });
     }
 

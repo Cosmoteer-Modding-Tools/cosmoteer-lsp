@@ -12,7 +12,7 @@ import {
 } from '../../core/ast/ast';
 import { getStartOfAstNode, namedMembersOf } from '../../utils/ast.utils';
 import { isModRules } from '../../document/document-kind';
-import { ACTION_VERBS, ActionVerb, FLAG_FIELDS, isActionVerb, TARGET_FIELDS, VERB_SCHEMA } from '../../mod/action';
+import { ACTION_VERBS, ActionVerb, FLAG_FIELDS, isActionVerb, isTargetField, TARGET_FIELDS, VERB_SCHEMA } from '../../mod/action';
 import { normalizeTargetPath } from '../../mod/action-target-resolver';
 import { AutoCompletion, Completion, CompletionSuggestion } from './autocompletion.service';
 import { ReferenceAutoCompletionStrategy } from './strategy/reference.autocompletion-strategy';
@@ -20,6 +20,8 @@ import { ReferenceAutoCompletionStrategy } from './strategy/reference.autocomple
 const referenceStrategy = new ReferenceAutoCompletionStrategy();
 
 const BOOLEAN_VALUES = ['true', 'false'];
+
+const flagFieldKeys = new Set([...FLAG_FIELDS].map((name) => name.toLowerCase()));
 
 /** A field-name suggestion, tagged `Keyword` for the `Action` verb key and `Field` for the rest. */
 const fieldSuggestion = (name: string): CompletionSuggestion => ({
@@ -96,23 +98,23 @@ const enclosingActionGroup = (node: AbstractNode): GroupNode | undefined => {
  * @param list  The list node to check
  * @returns  `true` if the list node is an `Actions` list, `false` otherwise
  */
-const isActionsList = (list: ListNode): boolean => list.identifier?.name === 'Actions';
+const isActionsList = (list: ListNode): boolean => list.identifier?.name.toLowerCase() === 'actions';
 
 const verbOf = (actionGroup: GroupNode): string | undefined => {
     for (const element of actionGroup.elements) {
-        if (isAssignmentNode(element) && element.left.name === 'Action' && isValueNode(element.right))
+        if (isAssignmentNode(element) && element.left.name.toLowerCase() === 'action' && isValueNode(element.right))
             return String(element.right.valueType.value);
     }
     return undefined;
 };
 
 /**
- *  Get the set of field names that are present in a given action group.
+ *  Get the set of lower-cased field names that are present in a given action group.
  * @param actionGroup  The action group to get the present field names from
- * @returns  A set of field names that are present in the action group
+ * @returns  A set of lower-cased field names that are present in the action group
  */
 const presentFieldNames = (actionGroup: GroupNode): Set<string> =>
-    new Set(namedMembersOf(actionGroup).map(([name]) => name));
+    new Set(namedMembersOf(actionGroup).map(([name]) => name.toLowerCase()));
 
 /** All field names valid for a verb (target/source/flags/named + the verb field itself). */
 const fieldNamesForVerb = (verb: ActionVerb): string[] => {
@@ -130,7 +132,7 @@ export const fieldCompletionsForGroup = (actionGroup: GroupNode | undefined, par
     const verb = verbOf(actionGroup);
     const candidates = isActionVerb(verb) ? fieldNamesForVerb(verb) : ['Action', ...TARGET_FIELDS];
     const present = presentFieldNames(actionGroup);
-    return candidates.filter((name) => name.startsWith(partial) && (name === partial || !present.has(name)));
+    return candidates.filter((name) => name.startsWith(partial) && (name === partial || !present.has(name.toLowerCase())));
 };
 
 const containerChildren = (node: GroupNode | ListNode | AbstractNodeDocument): (GroupNode | ListNode)[] => {
@@ -203,9 +205,11 @@ export class AutoCompletionModRules implements AutoCompletion<AbstractNode> {
 
         if (isValueNode(node)) {
             const field = owningFieldName(node);
+            // Lower-cased for the membership checks below, since the game reads names ignoring case.
+            const fieldKey = field?.toLowerCase();
             const partial = String(node.valueType.value ?? '');
 
-            if (field && FLAG_FIELDS.has(field)) {
+            if (fieldKey && flagFieldKeys.has(fieldKey)) {
                 return BOOLEAN_VALUES.filter((value) => value.startsWith(partial)).map((value) => ({
                     label: value,
                     kind: CompletionItemKind.Value,
@@ -214,13 +218,13 @@ export class AutoCompletionModRules implements AutoCompletion<AbstractNode> {
             // A non-flag boolean literal has nothing else to offer.
             if (node.valueType.type === 'Boolean') return [];
 
-            if (field === 'Action') {
+            if (fieldKey === 'action') {
                 return ACTION_VERBS.filter((verb) => verb.startsWith(partial)).map((verb) => ({
                     label: verb,
                     kind: CompletionItemKind.Keyword,
                 }));
             }
-            if (field && TARGET_FIELDS.has(field)) {
+            if (field && isTargetField(field)) {
                 if (!partial.includes('<')) return ['<./Data/', '<'];
                 return referenceStrategy
                     .completeRawPath(normalizeTargetPath(partial), node, cancellationToken)

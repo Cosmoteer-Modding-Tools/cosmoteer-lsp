@@ -19,9 +19,23 @@ describe('validateSchema — invalid enum values', () => {
         expect(errors[0].severity).toBe('warning');
     });
 
-    it('accepts a valid enum value (case-insensitive)', async () => {
+    it('accepts a valid enum value written exactly', async () => {
         expect(await validateSchema(parse(wrap('\t\t\tMode = All')), token)).toHaveLength(0);
-        expect(await validateSchema(parse(wrap('\t\t\tMode = any')), token)).toHaveLength(0);
+    });
+
+    it('flags a case-only enum mismatch with a casing quick-fix (Enum.Parse is case-sensitive in game)', async () => {
+        const errors = await validateSchema(parse(wrap('\t\t\tMode = any')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('casing');
+        expect(errors[0].data?.quickFix?.newText).toBe('Any');
+    });
+
+    it('accepts every boolean word the game parses (true/yes/y/false/no/n, any case)', async () => {
+        for (const word of ['true', 'YES', 'y', 'false', 'No', 'N']) {
+            expect(await validateSchema(parse(wrap(`\t\t\tInvert = ${word}`)), token)).toHaveLength(0);
+        }
+        const errors = await validateSchema(parse(wrap('\t\t\tInvert = maybe')), token);
+        expect(errors).toHaveLength(1);
     });
 
     it('attaches a did-you-mean quick-fix for a near-miss enum value', async () => {

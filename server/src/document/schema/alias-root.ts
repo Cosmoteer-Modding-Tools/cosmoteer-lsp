@@ -59,9 +59,9 @@ class AliasRootIndex {
         this.index.clear();
     }
 
-    /** The schema type aliased onto `member` of the file at `uri`, if any. */
+    /** The schema type aliased onto `member` of the file at `uri`, if any. The member name matches case-insensitively like the game's node lookup. */
     public memberType(uri: string, member: string): ValueType | undefined {
-        return this.index.get(normalizeUri(uri))?.get(member);
+        return this.index.get(normalizeUri(uri))?.get(member.toLowerCase());
     }
 
     /** The schema type the whole file at `uri` was aliased to (a member-less `Field = &<file>`), if any. */
@@ -79,7 +79,7 @@ class AliasRootIndex {
 
     private put(uri: string, member: string, valueType: ValueType): void {
         const norm = normalizeUri(uri);
-        (this.index.get(norm) ?? this.index.set(norm, new Map()).get(norm)!).set(member, valueType);
+        (this.index.get(norm) ?? this.index.set(norm, new Map()).get(norm)!).set(member.toLowerCase(), valueType);
     }
 
     /**
@@ -139,6 +139,9 @@ export interface AliasMemberSource {
     memberType(uri: string, member: string): ValueType | undefined;
     /** The schema type the whole file at `uri` was aliased to (member-less), if this source knows it. */
     rootType(uri: string): ValueType | undefined;
+    /** The concrete classes of every group that inherits `member` of the file at `uri` as a base, so the
+     *  schema layer can root the base to the best-fitting one. Empty when it isn't an inheritance base. */
+    inheritanceDeriverClasses?(uri: string, member: string): string[];
 }
 
 let aliasFallback: AliasMemberSource | undefined;
@@ -171,3 +174,15 @@ export const aliasedMemberType = (document: AbstractNodeDocument, memberName: st
     if (root?.kind === 'group') return fieldOf(root.ref, memberName)?.valueType;
     return undefined;
 };
+
+/**
+ * The concrete classes of every group that inherits `memberName` of `document` as a cross-file base
+ * (`Derived : <document>/memberName`), from the registered reverse-include source. The schema layer roots
+ * an inheritance-base fragment to whichever of these (or their ancestors) best fits the base's own fields.
+ *
+ * @param document the base fragment document.
+ * @param memberName the base member the derivers inherit.
+ * @returns the deriver class FullNames, or an empty array when the file is not a recorded base.
+ */
+export const inheritanceBaseCandidates = (document: AbstractNodeDocument, memberName: string): string[] =>
+    aliasFallback?.inheritanceDeriverClasses?.(document.uri, memberName) ?? [];

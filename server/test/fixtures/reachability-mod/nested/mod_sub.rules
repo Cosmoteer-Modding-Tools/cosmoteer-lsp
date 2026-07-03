@@ -1,0 +1,14 @@
+ID = Test.ReachMod.Sub
+Name = "Nested Sub-Manifest"
+CompatibleGameVersions = ["0.27.0"]
+
+Actions
+[
+	{
+		Action = Add
+		AddTo = "<cosmoteer.rules>"
+		Name = NESTED
+		ToAdd = &<extra.rules>
+		CreateIfNotExisting = true
+	}
+]

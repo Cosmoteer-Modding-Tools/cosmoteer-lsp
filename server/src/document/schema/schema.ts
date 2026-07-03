@@ -58,14 +58,37 @@ export const fieldsOf = (fullName: string): SchemaField[] => {
     return out;
 };
 
+// Per-class lookup index over fieldsOf, keyed by lower-cased name/alias. The game resolves node
+// names through a Dictionary with InvariantCultureIgnoreCase, so `maxhealth = 100` selects the
+// `MaxHealth` field. The index gives every fieldOf call that same semantics without re-walking
+// the inheritance chain per lookup. The schema is immutable after load, so the memo never goes stale.
+const fieldIndexCache = new Map<string, Map<string, SchemaField>>();
+
+const fieldIndexOf = (fullName: string): Map<string, SchemaField> => {
+    let index = fieldIndexCache.get(fullName);
+    if (!index) {
+        index = new Map();
+        for (const field of fieldsOf(fullName)) {
+            const key = field.name.toLowerCase();
+            if (!index.has(key)) index.set(key, field);
+            for (const alias of field.aliases ?? []) {
+                const aliasKey = alias.toLowerCase();
+                if (!index.has(aliasKey)) index.set(aliasKey, field);
+            }
+        }
+        fieldIndexCache.set(fullName, index);
+    }
+    return index;
+};
+
 /**
  * A single field on a class, searching the inheritance chain. Matches the field's primary OT name
  * or any of its alternate aliases — the engine accepts a field written under any of its
  * `[Serialize(AlternateAliases=…)]` spellings (e.g. `LeftEdgeEffect` for `LeftAdd`), so all are
- * recognized for validation and completion.
+ * recognized for validation and completion. The match ignores case, like the game's node lookup.
  */
 export const fieldOf = (fullName: string, fieldName: string): SchemaField | undefined =>
-    fieldsOf(fullName).find((f) => f.name === fieldName || f.aliases?.includes(fieldName));
+    fieldIndexOf(fullName).get(fieldName.toLowerCase());
 
 /**
  * Whether a value type is a Cosmoteer localization key (C# `KeyString`) — a slash-path into a
@@ -77,9 +100,10 @@ export const isLocalizationKeyType = (valueType: ValueType | undefined): boolean
 let localizationKeyFieldNameSet: Set<string> | undefined;
 
 /**
- * The names (and aliases) of every field typed as a localization key across the schema (`NameKey`,
- * `DescriptionKey`, `IconNameKey`, …). A cheap pre-filter for the existence validator: only a value
- * assigned to one of these names is worth the per-node schema resolution. Computed once and cached.
+ * The lower-cased names (and aliases) of every field typed as a localization key across the schema
+ * (`NameKey`, `DescriptionKey`, `IconNameKey`, …). A cheap pre-filter for the existence validator:
+ * only a value assigned to one of these names is worth the per-node schema resolution. Callers must
+ * lower-case the written name before membership tests. Computed once and cached.
  */
 export const localizationKeyFieldNames = (): ReadonlySet<string> => {
     if (!localizationKeyFieldNameSet) {
@@ -87,8 +111,8 @@ export const localizationKeyFieldNames = (): ReadonlySet<string> => {
         for (const type of Object.values(schema.types)) {
             for (const field of type.fields) {
                 if (!isLocalizationKeyType(field.valueType)) continue;
-                localizationKeyFieldNameSet.add(field.name);
-                for (const alias of field.aliases ?? []) localizationKeyFieldNameSet.add(alias);
+                localizationKeyFieldNameSet.add(field.name.toLowerCase());
+                for (const alias of field.aliases ?? []) localizationKeyFieldNameSet.add(alias.toLowerCase());
             }
         }
     }

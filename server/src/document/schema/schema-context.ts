@@ -19,10 +19,10 @@ import {
     isValueNode,
 } from '../../core/ast/ast';
 import { namedMembersOf } from '../../utils/ast.utils';
-import { classByDiscriminator, fieldOf, schema } from './schema';
+import { classAncestry, classByDiscriminator, commonAncestorClass, fieldOf, fieldsOf, schema } from './schema';
 import { SchemaRegistry, ValueType } from './schema.types';
 import { documentRootClass } from './document-root';
-import { aliasedMemberType } from './alias-root';
+import { aliasedMemberType, inheritanceBaseCandidates } from './alias-root';
 import { TEXTURE_GROUP_CLASS } from './schema-overlay';
 
 /**
@@ -86,12 +86,23 @@ const expectedValueType = (node: GroupNode | ListNode, depth: number): ValueType
     if (!parent) return undefined;
 
     if ((isGroupNode(parent) || isDocumentNode(parent)) && node.identifier) {
-        const ownerClass = isDocumentNode(parent)
-            ? documentRootClass(parent)
-            : resolveGroupClass(parent, depth + 1);
+        if (isDocumentNode(parent)) {
+            const rootClass = documentRootClass(parent);
+            if (rootClass) return fieldOf(rootClass, node.identifier.name)?.valueType;
+            // An unrooted top-level member: root it by how the game root aliases this fragment file in.
+            return aliasedMemberType(parent, node.identifier.name);
+        }
+        // The container's own slot is resolved ONCE here and shared between its class resolution and
+        // the map fallback below. Recursing separately for each would double the work per nesting
+        // level and blow up exponentially on deep files.
+        const containerSlot = expectedValueType(parent, depth + 1);
+        const ownerClass = inheritedBaseClassForGroup(parent) ?? classFromSlot(parent, containerSlot);
         if (ownerClass) return fieldOf(ownerClass, node.identifier.name)?.valueType;
-        // An unrooted top-level member: root it by how the game root aliases this fragment file in.
-        if (isDocumentNode(parent)) return aliasedMemberType(parent, node.identifier.name);
+        // A class-less container can still sit in a map-typed slot (a ToggledComponents part's
+        // `Components` map, a planet's `Styles`). Its members are keys, so each member takes the
+        // map's value type. Without this, such members fall back to sibling registry inference,
+        // which picks the wrong registry for an ambiguous discriminator like `Type = ArcShield`.
+        if (containerSlot?.kind === 'map') return containerSlot.value;
         return undefined;
     }
 
@@ -118,10 +129,10 @@ export const registryHintFromContainer = (group: GroupNode, depth = 0): string |
     return expected?.kind === 'polymorphicGroup' ? expected.ref : undefined;
 };
 
-/** The `Type=` discriminator value written in a group, if any. */
+/** The `Type=` discriminator value written in a group, if any. The field name matches case-insensitively like the game's node lookup. */
 export const groupDiscriminator = (group: GroupNode, typeField = 'Type'): string | undefined => {
     for (const [name, value] of namedMembersOf(group)) {
-        if (name !== typeField) continue;
+        if (name.toLowerCase() !== typeField.toLowerCase()) continue;
         // `value` can be null for an in-progress empty `Type = ` assignment.
         if (value && isValueNode(value) && (value.valueType.type === 'String' || value.valueType.type === 'Reference')) {
             return String(value.valueType.value);
@@ -165,17 +176,79 @@ export const registryForGroup = (group: GroupNode): SchemaRegistry | undefined =
     return container && isGroupNode(container) ? registryForContainer(container) : undefined;
 };
 
+/** The named members (fields, subgroups, sublists) a group declares, excluding the structural `Type=`. */
+const ownedFieldNames = (group: GroupNode): string[] =>
+    group.elements
+        .map((node) =>
+            isAssignmentNode(node)
+                ? node.left.name
+                : isGroupNode(node) || isListNode(node)
+                  ? node.identifier?.name
+                  : undefined
+        )
+        .filter((name): name is string => !!name && name.toLowerCase() !== 'type');
+
+/**
+ * Root an inheritance-base fragment group — a top-level group in an unrooted document, pulled in only as
+ * a `Derived : <file>/Base` — to the deriver class that best fits its own fields. A base file often writes
+ * fields that live on a DERIVED class (the `commands/base_command.rules` `BaseCommand` group declares the
+ * move widgets, which are on `MoveCommandRules`, not the shared `BaseCommandRules`), so the shallow common
+ * ancestor would leave those unresolved. Among every deriver class and its ancestors, this picks the
+ * most-derived (most fields) candidate that owns EVERY field the group declares — guaranteeing full
+ * completion with no new unknown-field warning — and falls back to the common ancestor when none covers
+ * the group (a base mixing unrelated derived fields stays safely shallow rather than mis-rooted).
+ *
+ * @param group the candidate base group.
+ * @returns the best-fitting class FullName, or undefined when the group isn't an inheritance base.
+ */
+const inheritedBaseClassForGroup = (group: GroupNode): string | undefined => {
+    const parent = group.parent;
+    if (!parent || !isDocumentNode(parent) || !group.identifier) return undefined;
+    const deriverClasses = inheritanceBaseCandidates(parent, group.identifier.name);
+    if (deriverClasses.length === 0 || documentRootClass(parent) !== undefined) return undefined;
+    const names = ownedFieldNames(group);
+    const candidates = new Set<string>();
+    for (const cls of deriverClasses) for (const ancestor of classAncestry(cls)) candidates.add(ancestor);
+    let best: string | undefined;
+    let bestFieldCount = -1;
+    for (const candidate of candidates) {
+        if (!names.every((name) => !!fieldOf(candidate, name))) continue;
+        const count = fieldsOf(candidate).length;
+        if (count > bestFieldCount) {
+            best = candidate;
+            bestFieldCount = count;
+        }
+    }
+    return best ?? commonAncestorClass(deriverClasses);
+};
+
 /**
  * Resolve the schema class a group represents, top-down. A class is known when the group:
  *  1. sits in a slot whose declaring field types it — a concrete `group` field gives the class
  *      directly. A `polymorphicGroup` field gives the registry, and the group's `Type=` picks the
  *      member (disambiguating collisions), or
  *  2. carries its own `Type=` discriminator with no slot hint, or
- *  3. is a known root group (e.g. `Part`).
+ *  3. is a known root group (e.g. `Part`), or
+ *  4. is a pure inheritance base rooted by the deriver class that best fits its fields.
  */
 export const resolveGroupClass = (group: GroupNode, depth = 0): string | undefined => {
     if (depth > 32) return undefined;
-    const expected = expectedValueType(group, depth);
+    // A top-level group reachable only as a cross-file inheritance base: root it to the deriver class
+    // that best fits its own fields, ahead of the shallower common-ancestor type the slot walk yields.
+    const inherited = inheritedBaseClassForGroup(group);
+    if (inherited) return inherited;
+    return classFromSlot(group, expectedValueType(group, depth));
+};
+
+/**
+ * The slot-driven part of {@link resolveGroupClass}, taking the group's already-resolved slot type so
+ * a caller that needs the slot for its own purposes does not trigger a second recursive resolution.
+ *
+ * @param group the group whose class is wanted.
+ * @param expected the group's slot type, as {@link expectedValueType} returns it.
+ * @returns the class FullName, or undefined when the group cannot be anchored.
+ */
+const classFromSlot = (group: GroupNode, expected: ValueType | undefined): string | undefined => {
     if (expected?.kind === 'group') return expected.ref;
     if (expected?.kind === 'polymorphicGroup') {
         const registry = schema.registries[expected.ref];

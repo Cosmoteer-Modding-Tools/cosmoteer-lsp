@@ -145,26 +145,27 @@ const findNodeAtPositionRecursive = (node: AbstractNode, position: Position): Ab
     return undefined;
 };
 
+/**
+ * A named child of a group/document/list, by member name or list index. Like the game's node
+ * lookup (and {@link stepIntoNode}) the name matches case-insensitively, with an exact-case match
+ * preferred so two members differing only by case still resolve precisely.
+ */
 export const findNodeByIdentifier = (node: AbstractNode, identifier: string): AbstractNode | undefined => {
-    if (isGroupNode(node) || isDocumentNode(node)) {
-        return node.elements.find((element) => {
-            if ((isListNode(element) || isGroupNode(element)) && element.identifier?.name === identifier) {
-                return element;
-            } else if (isAssignmentNode(element) && element.left.name === identifier) {
-                return element;
-            }
-        });
-    } else if (isListNode(node)) {
-        return node.elements.find((element, i) => {
-            if ((isListNode(element) || isGroupNode(element)) && element.identifier?.name === identifier) {
-                return element;
-            } else if (isAssignmentNode(element) && element.left.name === identifier) {
-                return element;
-            } else if (i.toString() === identifier) {
-                return element;
-            }
-        });
+    if (!isGroupNode(node) && !isDocumentNode(node) && !isListNode(node)) return undefined;
+    const lower = identifier.toLowerCase();
+    let caseInsensitiveMatch: AbstractNode | undefined;
+    for (const [i, element] of node.elements.entries()) {
+        const name =
+            (isListNode(element) || isGroupNode(element)) && element.identifier
+                ? element.identifier.name
+                : isAssignmentNode(element)
+                  ? element.left.name
+                  : undefined;
+        if (name === identifier) return element;
+        if (isListNode(node) && i.toString() === identifier) return element;
+        if (!caseInsensitiveMatch && name?.toLowerCase() === lower) caseInsensitiveMatch = element;
     }
+    return caseInsensitiveMatch;
 };
 
 export const getStartOfAstNode = (node: AbstractNode): AbstractNodeDocument => {

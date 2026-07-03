@@ -15,8 +15,9 @@ import {
 import { getStartOfAstNode, parseFilePath } from '../../utils/ast.utils';
 import { listElementType, memberTypeIn, resolveGroupClass } from '../../document/schema/schema-context';
 import { commonAncestorClass } from '../../document/schema/schema';
+import { documentRootClass } from '../../document/schema/document-root';
 import { ValueType } from '../../document/schema/schema.types';
-import { AliasMemberSource, parseAlias, registerAliasFallbackSource } from '../../document/schema/alias-root';
+import { aliasRootIndex, AliasMemberSource, parseAlias, registerAliasFallbackSource } from '../../document/schema/alias-root';
 import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { FullNavigationStrategy } from './full.navigation-strategy';
 import { normalizeUri } from './reference-location';
@@ -185,7 +186,10 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
     private inheritedMemberType(normalizedUri: string, member: string): ValueType | undefined {
         const derivers = this.inheritanceByTarget.get(normalizedUri)?.get(member);
         if (!derivers || derivers.size === 0) return undefined;
-        const cls = commonAncestorClass([...derivers.values()]);
+        // Blank entries are class-less derivations, recorded only to mark the file as a base.
+        const classes = [...derivers.values()].filter(Boolean);
+        if (classes.length === 0) return undefined;
+        const cls = commonAncestorClass(classes);
         if (!cls) return undefined;
         return { kind: 'group', ref: cls, name: cls.split('.').pop() ?? cls };
     }
@@ -211,6 +215,20 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
      */
     public inheritanceBaseMembers(uri: string): string[] {
         return [...(this.inheritanceByTarget.get(normalizeUri(uri))?.keys() ?? [])];
+    }
+
+    /**
+     * The concrete classes of every group that inherits the base at `member` of the file at `uri`. The
+     * schema layer picks the best-fitting one for the base node's own fields (a base whose fields include
+     * a derived-only member roots to that derived class, not the shallow common ancestor). Returns an
+     * empty array when the file is not a recorded inheritance base.
+     *
+     * @param uri the base fragment's document uri.
+     * @param member the inherited base member name, or '' for a whole-file inheritance base.
+     * @returns the deriver class FullNames, or an empty array.
+     */
+    public inheritanceDeriverClasses(uri: string, member: string): string[] {
+        return [...(this.inheritanceByTarget.get(normalizeUri(uri))?.get(member)?.values() ?? [])].filter(Boolean);
     }
 
     protected clear(): void {
@@ -383,6 +401,15 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         if (isGroupNode(container) || isListNode(container)) {
             await this.recordInheritanceBases(container, source, inherited, state, cancellationToken);
         }
+        // The inverse. A top-level group inheriting a whole-file base roots itself to that base's class.
+        // Roots the overclock shot fragments, whose macro-anchor top level blocks every other rule.
+        if (isDocumentNode(container)) {
+            for (const element of container.elements) {
+                if (isGroupNode(element) && element.identifier) {
+                    await this.recordOwnInheritanceRoot(element, source, contributed, state, cancellationToken);
+                }
+            }
+        }
         const inList = isListNode(container);
         const elements =
             isDocumentNode(container) || isGroupNode(container) || isListNode(container) ? container.elements : [];
@@ -448,19 +475,105 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             const alias = parseAlias(String(base.valueType.value));
             if (!alias) continue;
             if (deriverClass === null) deriverClass = isGroupNode(node) ? resolveGroupClass(node) : undefined;
-            if (!deriverClass) {
-                state.sawAlias = true;
-                continue;
-            }
+            // A deriver whose class can't resolve (yet) still marks the target as an inheritance base,
+            // recorded with a blank class. The rooting queries ignore blank entries, but the fact that
+            // the file is derived from at all is what the component-reference validator's template
+            // skip needs. The fixpoint retains the document, so a later pass can fill the class in.
+            if (!deriverClass) state.sawAlias = true;
             const target = await this.resolveTarget(base, alias.fileRef, cancellationToken);
             if (!target) continue;
             const member = alias.member ?? '';
             const members =
                 this.inheritanceByTarget.get(target) ?? this.inheritanceByTarget.set(target, new Map()).get(target)!;
             const derivers = members.get(member) ?? members.set(member, new Map()).get(member)!;
-            derivers.set(source, deriverClass);
-            inherited.push({ target, member, deriverClass });
+            derivers.set(source, deriverClass ?? '');
+            inherited.push({ target, member, deriverClass: deriverClass ?? '' });
         }
+    }
+
+    /**
+     * Roots a top-level group to the class of the whole-file base it inherits (`Group : <base.rules>`, or
+     * `Group : &ALIAS` naming a sibling `ALIAS = &<base.rules>`), since inheritance preserves type. Records
+     * it under this document so {@link aliasedMemberType} then resolves the group. Skips a group that
+     * already resolves natively, and handles only member-less bases. Roots the `*_overclock*` shot
+     * fragments, whose macro-anchor top level defeats every folder or `Type=` rule.
+     *
+     * @param group the top-level group whose inheritance base is followed.
+     * @param source the containing document's uri, the record's target and owner.
+     * @param contributed collects the entry so it can be removed and signature-tracked.
+     * @param state gets `sawAlias` set when the base is not rooted yet, so the fixpoint re-runs.
+     * @param cancellationToken cancels the slow-path navigation.
+     */
+    private async recordOwnInheritanceRoot(
+        group: GroupNode,
+        source: string,
+        contributed: Array<{ target: string; member: string; slot: string }>,
+        state: { sawAlias: boolean },
+        cancellationToken: CancellationToken
+    ): Promise<void> {
+        const bases = group.inheritance;
+        const member = group.identifier?.name;
+        if (!bases || bases.length === 0 || !member) return;
+        // Leave a group that already resolves on its own untouched.
+        if (resolveGroupClass(group)) return;
+        for (const base of bases) {
+            if (!isValueNode(base) || base.valueType.type !== 'Reference') continue;
+            const resolved = this.wholeFileBaseRef(String(base.valueType.value), group);
+            if (!resolved) continue;
+            state.sawAlias = true;
+            const target = await this.resolveTarget(resolved.referenceNode, resolved.fileRef, cancellationToken);
+            if (!target) continue;
+            const baseClass = await this.wholeFileBaseClass(target);
+            if (!baseClass) continue;
+            const slot: ValueType = { kind: 'group', ref: baseClass, name: baseClass.split('.').pop() ?? baseClass };
+            const members = this.byTarget.get(source) ?? this.byTarget.set(source, new Map()).get(source)!;
+            const sources = members.get(member) ?? members.set(member, new Map()).get(member)!;
+            sources.set(source, slot);
+            contributed.push({ target: source, member, slot: JSON.stringify(slot) });
+            return;
+        }
+    }
+
+    /**
+     * Resolves an inheritance base to the whole-file `<path>` it names, following one level of same-file
+     * `&ALIAS` indirection (`ALIAS = &<file>`). Returns undefined for a member-qualified or same-file-group
+     * base, which is not plain whole-file inheritance.
+     *
+     * @param raw the raw inheritance reference text, for example `<ion_beam.rules>` or `&BASE`.
+     * @param group the deriving group, used to look up a sibling alias and as the origin node.
+     * @returns the file ref and the reference node it is written on, or undefined.
+     */
+    private wholeFileBaseRef(raw: string, group: GroupNode): { fileRef: string; referenceNode: AbstractNode } | undefined {
+        const direct = parseAlias(raw);
+        if (direct) return direct.member ? undefined : { fileRef: direct.fileRef, referenceNode: group };
+        // A same-file `&NAME` with no path or member. Follow it to a sibling `NAME = &<file>`.
+        const match = /^&\s*([A-Za-z_][\w]*)\s*$/.exec(raw.trim());
+        const document = group.parent;
+        if (!match || !document || !isDocumentNode(document)) return undefined;
+        for (const element of document.elements) {
+            if (!isAssignmentNode(element) || element.left.name !== match[1]) continue;
+            const value = element.right;
+            if (!value || !isValueNode(value) || value.valueType.type !== 'Reference') return undefined;
+            const alias = parseAlias(String(value.valueType.value));
+            return alias && !alias.member ? { fileRef: alias.fileRef, referenceNode: value } : undefined;
+        }
+        return undefined;
+    }
+
+    /**
+     * The schema class the whole file at `uri` roots to, from its own `documentRootClass` or the group type
+     * a forward alias or earlier reverse-include pass recorded. Undefined when the base is not rooted yet, so
+     * a later fixpoint pass re-runs the deriver.
+     *
+     * @param uri the resolved base file's normalized uri.
+     * @returns the base file's root class, or undefined.
+     */
+    private async wholeFileBaseClass(uri: string): Promise<string | undefined> {
+        const base = await parseFilePath(uriToFsPath(uri)).catch(() => null);
+        const native = base ? documentRootClass(base) : undefined;
+        if (native) return native;
+        const rootType = this.rootType(uri) ?? aliasRootIndex.rootType(uri);
+        return rootType?.kind === 'group' ? rootType.ref : undefined;
     }
 
     /**

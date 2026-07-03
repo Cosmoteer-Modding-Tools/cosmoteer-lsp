@@ -10,12 +10,13 @@ import { clearShaderCache } from '../../../src/features/shader/shader-index';
 import { validateShaderConstants } from '../../../src/features/diagnostics/validator.shader-constants';
 
 // The shader-constant validator flags an inline `_`-key the referenced shader declares no uniform for,
-// and a value of the wrong shape for its type. The contract this guards:
-//   - ZERO type-mismatch warnings on vanilla (every vanilla value is correctly typed, so any such
+// and a value of the wrong shape for its type. The contract this guards (it runs by default, so the
+// bar is zero warnings on shipping data):
+//   - zero type-mismatch warnings on vanilla (every vanilla value is correctly typed, so any such
 //     warning is a false positive from the type check being too aggressive).
-//   - The only "unknown constant" warnings are the handful of dead keys the game itself ships (a
-//     shader declares no uniform for them). A parser regression that broke constant extraction would
-//     flag hundreds of real constants, so pinning the unknown set to those known names catches it.
+//   - zero "unknown constant" warnings: the handful of dead keys the game itself ships are skipped by
+//     the validator's VANILLA_DEAD_KEYS set. A new dead key in a game update, or a parser regression
+//     that broke constant extraction (which would flag hundreds of real constants), both surface here.
 // Needs the install, self-skips without it.
 const DATA_DIR =
     process.env.COSMOTEER_DATA_DIR ?? 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer/Data';
@@ -42,23 +43,8 @@ describe.skipIf(!HAVE_DATA)('shader-constant validation over vanilla Data', () =
         clearShaderCache();
     });
 
-    // The dead constant keys vanilla ships, which the referenced shaders declare no uniform for
-    // (some written as `_x = …`, some as group-form `_x { … }` texture/colour blocks).
-    const KNOWN_DEAD_KEYS = new Set([
-        '_color3',
-        '_color4',
-        '_color5',
-        '_colorTexture',
-        '_noiseTex2',
-        '_rampTexture',
-        '_sizePulseFactor',
-        '_sizePulseInterval',
-        '_sizePulseUOffsetFactor',
-    ]);
-
-    it('flags no type mismatches and only the known dead constant keys across vanilla', async () => {
-        const typeWarnings: string[] = [];
-        const unexpectedUnknown: string[] = [];
+    it('produces zero warnings of any kind across vanilla', async () => {
+        const warnings: string[] = [];
         for (const file of rulesFiles(DATA_DIR)) {
             let doc;
             try {
@@ -67,15 +53,10 @@ describe.skipIf(!HAVE_DATA)('shader-constant validation over vanilla Data', () =
                 continue;
             }
             for (const error of await validateShaderConstants(doc, token)) {
-                const unknown = /Unknown shader constant '(_\w+)'/.exec(error.message);
-                if (!unknown) typeWarnings.push(`${file}: ${error.message}`);
-                else if (!KNOWN_DEAD_KEYS.has(unknown[1])) unexpectedUnknown.push(`${file}: ${error.message}`);
+                warnings.push(`${file}: ${error.message}`);
             }
         }
-        // The conservative type check must never fire on correctly-typed vanilla data.
-        expect(typeWarnings.slice(0, 30)).toEqual([]);
-        // Any unknown constant beyond the known dead keys would mean the parser dropped a real uniform.
-        expect(unexpectedUnknown.slice(0, 30)).toEqual([]);
+        expect(warnings.slice(0, 30)).toEqual([]);
         // This walks and parses every vanilla `.rules` file and reads each referenced shader cold (the
         // cache is cleared in beforeAll), which is far more than the 5s default unit-test budget allows
         // on a cold file cache or under full-suite parallel load — give the whole-install scan room.

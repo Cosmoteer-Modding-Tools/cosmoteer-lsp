@@ -50,9 +50,11 @@ describe('signature help for math functions', () => {
         expect(help?.activeParameter).toBe(0);
     });
 
-    it('gives a generic signature for a valid but unmodelled mXparser function', () => {
-        const help = at('X = gamma(|');
-        expect(help?.signatures[0].label).toBe('gamma(…)');
+    it('derives a signature from the registry arity for an unmodelled mXparser function', () => {
+        // `gamma` is unary and `root` binary in the registry vocabulary, so even without curated
+        // parameter names the signature shows the real argument count.
+        expect(at('X = gamma(|')?.signatures[0].label).toBe('gamma(x)');
+        expect(at('X = root(|')?.signatures[0].label).toBe('root(a, b)');
     });
 
     it('returns null outside any function call', () => {

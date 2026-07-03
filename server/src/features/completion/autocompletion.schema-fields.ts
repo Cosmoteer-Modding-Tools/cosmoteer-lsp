@@ -15,7 +15,7 @@ import { SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { Completion } from './autocompletion.service';
 import { completeFieldValue, discriminatorCompletions } from './autocompletion.schema';
 import { resolveClassThroughInheritance } from './inheritance-resolution';
-import { shaderConstantCompletions } from './autocompletion.shader-constants';
+import { shaderConstantCompletions, shaderConstantGroupClass } from './autocompletion.shader-constants';
 
 /**
  * The snippet inserted when a field name is accepted, it scaffolds the field's structure so the user
@@ -53,9 +53,13 @@ export const schemaFieldNameCompletions = async (
 ): Promise<Completion[]> => {
     const group = findEnclosingGroup(document, offset);
     // Inheritance-aware: a `MyTurret : ^/0/Turret { … }` group inherits its class from the base.
-    const cls = group ? await resolveClassThroughInheritance(group, cancellationToken) : documentRootClass(document);
-    const present = new Set(namedMembersOf(group ?? document).map(([name]) => name));
-    const missing = cls ? fieldsOf(cls).filter((field) => !present.has(field.name)) : [];
+    let cls = group ? await resolveClassThroughInheritance(group, cancellationToken) : documentRootClass(document);
+    // A shader constant written in group form (`_waveTex { … }`) is not a schema field, so the slot
+    // walk cannot type it. Resolve its class from the material's referenced `.shader` file instead.
+    if (!cls && group) cls = await shaderConstantGroupClass(group, document.uri, cancellationToken);
+    // Lower-cased: an already-written `maxhealth` counts as `MaxHealth` (game lookup ignores case).
+    const present = new Set(namedMembersOf(group ?? document).map(([name]) => name.toLowerCase()));
+    const missing = cls ? fieldsOf(cls).filter((field) => !present.has(field.name.toLowerCase())) : [];
     const completions: Completion[] = missing.map((field) => ({
         label: field.name,
         kind: CompletionItemKind.Field,
@@ -86,7 +90,7 @@ export const schemaFieldNameCompletions = async (
     // (the serializer handles it), so inject it explicitly, sorted to the very top.
     if (group) {
         const registry = registryForGroup(group);
-        if (registry && !present.has(registry.typeField)) {
+        if (registry && !present.has(registry.typeField.toLowerCase())) {
             completions.unshift(discriminatorFieldCompletion(registry));
         }
         // A material group additionally offers its shader's `_`-prefixed uniforms, read from the

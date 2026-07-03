@@ -27,6 +27,29 @@ abstract class Parser {
     abstract parse(): void;
 }
 
+/** The source spelling of punctuation tokens, for error messages. */
+const TOKEN_DISPLAY: Partial<Record<TOKEN_TYPES, string>> = {
+    [TOKEN_TYPES.LEFT_BRACE]: '{',
+    [TOKEN_TYPES.RIGHT_BRACE]: '}',
+    [TOKEN_TYPES.LEFT_BRACKET]: '[',
+    [TOKEN_TYPES.RIGHT_BRACKET]: ']',
+    [TOKEN_TYPES.LEFT_PAREN]: '(',
+    [TOKEN_TYPES.RIGHT_PAREN]: ')',
+    [TOKEN_TYPES.SEMICOLON]: ';',
+    [TOKEN_TYPES.COLON]: ':',
+    [TOKEN_TYPES.EQUALS]: '=',
+    [TOKEN_TYPES.COMMA]: ',',
+    [TOKEN_TYPES.STRING_DELIMITER]: '"',
+};
+
+/**
+ * The text a token reads as in an error message, preferring its literal value.
+ *
+ * @param token the token to describe.
+ * @returns the token's source text, punctuation spelling, or type name.
+ */
+const tokenDisplayText = (token: Token): string => token.value ?? TOKEN_DISPLAY[token.type] ?? token.type;
+
 export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => {
     let current = 0;
     const errors: ParserError[] = [];
@@ -975,16 +998,27 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             return walk(_lastNode, parent);
         }
 
+        if (token.type === TOKEN_TYPES.UNEXPECTED) {
+            errors.push({
+                message: l10n.t('Unknown token type'),
+                token,
+                additionalInfo: [
+                    {
+                        message: l10n.t(
+                            'This could be a bug in the parser or lexer, please report this issue, if you think this is a bug'
+                        ),
+                    },
+                ],
+            } as ParserError);
+            current++;
+            return null;
+        }
+        // A known token in a position no rule accepts, e.g. the stray `=` in `X = &<a>, = &<b>`.
+        // The game's OTGroupNode.Parse throws the same way (`Unexpected "=" at position …`), so this
+        // is invalid input, not a parser bug.
         errors.push({
-            message: l10n.t('Unknown token type'),
+            message: l10n.t('Unexpected "{0}"', tokenDisplayText(token)),
             token,
-            additionalInfo: [
-                {
-                    message: l10n.t(
-                        'This could be a bug in the parser or lexer, please report this issue, if you think this is a bug'
-                    ),
-                },
-            ],
         } as ParserError);
         current++;
         return null;
@@ -1076,10 +1110,11 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
 
     let lastNode: AbstractNode | undefined = undefined;
     while (current < tokens.length) {
-        // A `;` terminates a top-level field or void entry (ObjectText `Foo;` / `Bar = 1;`). Consume
-        // it and clear `lastNode` so the completed entry is not bound to whatever follows — e.g. a
-        // void `Foo;` must not become the identifier of a subsequent `Bar { … }` group.
-        if (tokens[current].type === TOKEN_TYPES.SEMICOLON) {
+        // A `;` or `,` terminates a top-level field or void entry (ObjectText treats both as the
+        // node terminator, see OTGroupedReferenceNode: `Foo;` / `Bar = 1,`). Consume it and clear
+        // `lastNode` so the completed entry is not bound to whatever follows — e.g. a void `Foo;`
+        // must not become the identifier of a subsequent `Bar { … }` group.
+        if (tokens[current].type === TOKEN_TYPES.SEMICOLON || tokens[current].type === TOKEN_TYPES.COMMA) {
             current++;
             lastNode = undefined;
             continue;

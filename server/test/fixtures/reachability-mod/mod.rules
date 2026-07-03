@@ -1,0 +1,23 @@
+ID = Test.ReachMod
+Name = "Reachability Fixture"
+Version = 1.0
+StringsFolder = "strings"
+
+Actions
+[
+	{
+		Action = Add
+		AddTo = <cosmoteer.rules>
+		Name = WIRED
+		ToAdd = &<wired/a.rules>
+		CreateIfNotExisting = true
+	}
+	{
+		Action = Overrides
+		OverrideIn = <vanillaname.rules>
+		Overrides
+		{
+			Foo = 1
+		}
+	}
+]
