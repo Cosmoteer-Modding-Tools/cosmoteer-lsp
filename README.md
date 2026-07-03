@@ -1,110 +1,100 @@
-Based on https://github.com/microsoft/vscode-extension-samples/tree/main/lsp-sample
-
-## This is not an official extension from the Cosmoteer Team
-
 # Cosmoteer Language Server
 
-This is a language server for the game Cosmoteer. Its goal is to provide code completion, hover information, navigation, refactoring, theming and diagnostics for Cosmoteer modding files (\*.rules), including `mod.rules` manifests.
+**This is not an official extension from the Cosmoteer team.**
 
-### How to use
+A language server for Cosmoteer modding files: `.rules` (including `mod.rules` manifests) and `.shader`. It provides completion, hover, navigation, refactoring, formatting, diagnostics and a live shader preview, in VS Code and JetBrains IDEs.
 
-Set the `cosmoteerPath` setting to the path of your Cosmoteer installation. This is needed to validate references and assets; without it those features are unavailable.
-If you have custom references which can't yet be resolved by the language server, you can add them to the `ignorePaths` setting. This is an array of strings; any path that contains one of these strings is ignored.
-By default the language server only validates the file which is currently open. To validate every `.rules` file in your workspace folder(s), enable the `cosmoteerLSPRules.diagnostics.validateWholeWorkspace` setting (off by default, as it parses the whole project and uses more memory).
+Based on the [VS Code LSP sample](https://github.com/microsoft/vscode-extension-samples/tree/main/lsp-sample).
 
-## Suggestions
+## Setup
 
-Please be aware that this extension does not provide `abc`(You can see those icons or text left from the suggested text) suggestions those are by vs code itself. If you see a file icon with a `->`in the top corner of this file icon. Than this is a suggestion from the language server.
-To generate those suggestions you can use the `ctrl+space` keybinding to get the suggestions from the language server. Unless you changed it in the settings.
+The extension detects the Cosmoteer installation automatically. If that fails, set `cosmoteerLSPRules.cosmoteerPath` to your installation folder; reference and asset validation and all cross-file features need it.
 
-### Features until now
+Completion entries provided by this extension carry the language-server icon; plain `abc` entries are VS Code's own word-based suggestions. Trigger completion with `Ctrl+Space` (default keybinding).
 
-**Editing & syntax**
+## Settings
 
--   Basic syntax highlighting
--   Diagnostics for syntax errors
--   Semantic-token highlighting for `.rules` (colours references, bareword enum values, math functions and field names by what they actually are, on top of the TextMate grammar), working identically in both VS Code and JetBrains
+All settings live under the `cosmoteerLSPRules.` prefix.
 
-**Shader tooling**
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `cosmoteerPath` | `""` | Path to the Cosmoteer installation (auto-detected when empty) |
+| `ignorePaths` | `[]` | Reference paths to exclude from validation; any path containing one of these strings is ignored |
+| `maxNumberOfProblems` | `100` | Maximum number of problems reported per file |
+| `diagnostics.validateWholeWorkspace` | off | Validate every `.rules` file in the workspace, not just open files |
+| `diagnostics.workspaceValidationScope` | `allFiles` | Scope of the whole-workspace pass: all files, or only the files reachable from the `mod.rules` manifest |
+| `diagnostics.validateComponentReferences` | on | Flag a component ID reference that names no component in the part or its bases |
+| `diagnostics.validateCrossFileReferences` | on | Flag a GUI toggle/color/targeter/trigger id with no declaration in the project or game data |
+| `diagnostics.validateRequiredFields` | on | Flag a group missing a schema-required field (inherited fields count as present) |
+| `diagnostics.validateShaderConstants` | on | Flag a material shader constant the referenced `.shader` does not declare, or with a mismatched value type |
+| `diagnostics.validateShaderCode` | on | Diagnostics inside `.shader` files: missing `#include` targets, undeclared uniforms, unknown functions |
+| `diagnostics.validateLocalizationKeys` | on | Flag a localization key that no language strings file declares |
+| `rename.allowEditingVanillaFiles` | off | Allow Rename to edit files inside the game `Data` install |
+| `associateShaderFiles` | on | Open `.shader` files with the Cosmoteer Shader language when another extension claims the extension |
+| `formatting.enabled` | on | Document formatting for `.rules` and `.shader` files |
+| `formatting.formatOnSave` | off | Format before every save, independent of the editor's `formatOnSave` |
+| `trace.server` | `off` | Trace the communication between the editor and the language server |
 
-`.shader` files are a first-class language (HLSL highlighting, hover, go-to-definition following `#include`s, document outline, completion and signature help):
+The cross-file validators (component references, GUI ids, localization keys) run only once the game install is indexed.
 
--   Shader-constant completion and hover in a material's `Shader = …` block (the `_`-prefixed uniforms the referenced shader declares, typed and with defaults)
--   Live WebGL shader preview (a "Preview shader" CodeLens / `Cosmoteer: Preview Shader` command) that renders the material the way the game does, with live constant controls and backdrop / blend / pause options, updating as you edit (including unsaved edits)
--   Shader diagnostics, on by default: shader-constant checks (`cosmoteerLSPRules.diagnostics.validateShaderConstants`) and in-shader checks (`cosmoteerLSPRules.diagnostics.validateShaderCode`)
+## Features
 
-**Schema intelligence (full type safety, extracted from the Cosmoteer game data)**
+**Editing**
 
-The extension ships a schema of every `.rules` type — field names, value types, required/optional, enums and polymorphic `Type=` registries — extracted directly from the game's own `*Rules` classes. This powers type-aware editing across the board:
+-   Syntax highlighting, plus semantic tokens that color references, enum values, math functions and field names from the real parse
+-   Code formatting for `.rules` and `.shader` files: re-indents by nesting and normalizes spacing, changing whitespace only. The result must lex to the identical token stream, otherwise the file is left unchanged. Optional format on save
+-   Document outline (annotated with each group's resolved schema class) and workspace symbols
 
--   Field-name completion offering the fields valid in the current group/file (with type, required/optional, default and enum members shown as documentation), inserted as ready-to-fill snippets
--   Value completion for `Type=` discriminators, enum fields, booleans and `ID<…>` references — in groups, custom containers, typed list elements and at whole-file roots
--   `Type` suggested first in a polymorphic group that hasn't chosen its subtype yet
--   Sibling component references (`OperationalToggle = IsOperational`) and cross-file id references (`ResourceType = battery`) completed from the project's definitions
--   Validation of invalid enum values and invalid `Type=` discriminators, with "Did you mean …?" quick fixes
--   Go to definition, find all references, hover and rename for both sibling and cross-file `ID<…>` references
--   The document outline annotates each group with the schema class it resolves to (e.g. `Turret → TurretWeaponRules`)
+**Schema intelligence**
 
-**Code completion**
+A schema of every `.rules` type, extracted from the game's own classes, drives type-aware editing:
 
--   Code completion for all references (cross-file, inheritance and super-path aware)
--   Code completion for assets (image/sound/shader paths)
--   Code completion for `mod.rules` actions (verb names, fields per verb and target paths)
-
-**Validation / diagnostics**
-
--   Validation for references in `.rules` files (incl. inheritance, super-paths and case-insensitive members)
--   Validation for function calls, math expressions and assignments with references (mXparser semantics)
--   Validation for assets (e.g. images, sounds, shaders), including inheritance-relative asset paths
--   Validation for `mod.rules` actions (unknown verbs, missing required fields, target existence)
--   Duplicate-key and inheritance-cycle detection
--   "Did you mean …?" quick fixes for mistyped references and asset paths
--   Optional whole-workspace validation (validate every `.rules` file, not just the open one — opt-in via `cosmoteerLSPRules.diagnostics.validateWholeWorkspace`)
--   Component-reference validation: flag a component `ID<…>` value (`OperationalToggle = IsOperational`) that names no component in the part, its inherited bases or its include-valued components blocks (`cosmoteerLSPRules.diagnostics.validateComponentReferences`, on by default once the game install is indexed)
--   Missing-required-field validation: flag a polymorphic component group that omits a field the game requires, checking the full inheritance chain (`cosmoteerLSPRules.diagnostics.validateRequiredFields`, on by default)
--   Cross-file GUI id validation: flag a `ToggleID` / `ColorID` / `TargeterID` / `TriggerID` declared by no GUI collection in the project (`cosmoteerLSPRules.diagnostics.validateCrossFileReferences`, on by default once the game install is indexed)
--   Localization-key validation: flag a `KeyString` field (`NameKey`, …) whose key no strings file declares, with an insert-into-all-strings quick fix (`cosmoteerLSPRules.diagnostics.validateLocalizationKeys`, on by default once the game install is indexed)
+-   Field-name completion with type, default and enum documentation, inserted as ready-to-fill snippets
+-   Value completion for `Type=` discriminators, enums, booleans and `ID<…>` references, plus an "Insert N required fields" scaffold
+-   Validation of enum values, `Type=` discriminators, numeric fields and missing required fields, with "Did you mean …?" quick fixes
+-   Hover showing a field's type, default, enum members and what a reference resolves to
 
 **Navigation & refactoring**
 
--   Go to definition (cross-file, follows references and inheritance)
--   Find all references across the mod and the game `Data` tree
--   Rename / refactor a symbol across files (never writes to the read-only vanilla game files)
--   Schema-aware go-to-definition, find-references, hover and rename for `ID<…>` references (sibling components and cross-file ids such as resources)
--   Cross-file references to aggregate list-element entities — factions, GUI part toggles/colors/targeters, career techs/encounters, ship doors, … — with completion, go-to-definition, find-references and rename (the list fields and their id keys are derived from the schema)
--   Document symbols (Outline / breadcrumbs), annotated with each group's resolved schema class
--   Workspace symbols (search symbols across the project)
+-   Go to definition, find all references and rename across the mod and the game `Data` tree, including cross-file entities (factions, GUI ids, techs, buffs, resources, components, particle data channels)
+-   Rename never writes to the vanilla game files
 
-**Resolved-value intelligence**
+**Diagnostics**
 
--   Hover information showing the resolved value of a reference, with sprite image preview for assets
--   Inlay hints showing computed math/function results inline (e.g. `Damage = (&Base)/2 + ceil(17/2)  = 14`)
--   Percentage values evaluated to their decimal form in hover and inlay hints (e.g. `Chance = 50%  = 0.5`)
--   Signature help for math functions: typing inside a call (`ceil(`, `pow(`, …) shows its parameters and highlights the active argument. Every known function (the full mXparser vocabulary plus Cosmoteer's own) gets a signature with its real argument count, and calls with missing arguments are flagged
--   Localization-key completion and hover for `KeyString` fields (`NameKey`, …), showing the resolved text in every available language
+-   Syntax errors, unresolved references and assets, math expressions, duplicate keys, inheritance cycles
+-   Component references, cross-file GUI ids, localization keys, shader constants and shader code, each toggleable in the settings
+-   `mod.rules` actions: unknown verbs, missing required fields, unresolvable targets
+-   Deprecation hints for renamed types, with a quick fix
 
-**Other**
+**Resolved values**
 
--   Code formatting for `.rules` (including `mod.rules` and its actions) and `.shader` files: re-indents by nesting, normalizes spacing around `=`, `:`, commas and parentheses, trims trailing whitespace and caps blank-line runs. The `.rules` formatter is whitespace-only and self-verifying — the result must lex to the identical token stream (values, comments and `\` line continuations untouched), otherwise it changes nothing. Toggle with `cosmoteerLSPRules.formatting.enabled`, and enable `cosmoteerLSPRules.formatting.formatOnSave` to auto-format on every save (off by default; works alongside VS Code's own `editor.formatOnSave`)
--   Deprecation hints: a renamed type (e.g. `Ammo*` → `Resource*`) is flagged with its replacement and a quick fix that swaps it in
--   Part-category completion: offers every category used across the project (`Category = armor`, `TypeCategories = [ … ]`)
+-   Hover showing the resolved value of a reference, with sprite preview for assets
+-   Inlay hints with computed math results (e.g. `Damage = (&Base)/2 + ceil(17/2)  = 14`) and percentages evaluated to their decimal form
+-   Signature help for math functions, with arity checking for every known function
 
--   Full `mod.rules` manifest support (parsing, validation and completion of `Actions`)
--   Multi-root workspace support (navigation, references, rename and validation span all open folders)
--   Localisation support (en, de) so far
--   Support for JetBrains IDEs (in addition to VS Code)
--   Automatic detection of the Cosmoteer installation path
--   Cancellation-token support to avoid unnecessary work
+**Shaders**
 
-### Features in the future
+-   `.shader` is a full language: HLSL highlighting, completion, hover, signature help, go-to-definition through `#include`s, document outline
+-   Shader-constant completion and hover in a material's `Shader = …` block
+-   Live WebGL preview (CodeLens or `Cosmoteer: Preview Shader`) that renders the material the way the game does, with live constant controls, updating as you edit
 
--   Code completion for functions (Needs type checking)
+**Mod tooling**
+
+-   Full `mod.rules` manifest support: parsing, validation and completion of `Actions`
+-   Mod overview report (CodeLens or `Cosmoteer: Show Mod Overview`): what the manifest does, whether each action target resolves, and which files are unreachable by the game
+-   Localization-key completion and hover for `KeyString` fields, with an insert-into-all-strings quick fix
+-   Color swatches with an in-place picker, part-category completion
+-   Multi-root workspace support, localization (en, de)
+
+## Planned
+
+-   Code completion for functions (needs type checking)
 -   Type checking
 -   Identifier validation
--   Unit-aware value evaluation (the `.rules`/mXparser format has no unit literals today, so this is exploratory)
--   _If you have any suggestions or ideas, please open a issue on the [GitHub](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/issues)_
+-   Unit-aware value evaluation (exploratory; the format has no unit literals today)
+-   If you have suggestions or ideas, please open an issue on [GitHub](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/issues)
 
-### Showcase
+## Showcase
 
 ![Basic Syntax Highlighting Example Image](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/syntax_highlighting.png?raw=true)
 ![Diagnostics for syntax errors Example Image](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/diagnostics.png?raw=true)
