@@ -139,8 +139,8 @@ jobs:
       # credential is scoped to this environment, so only an approved release run can assume it.
       - uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
           allow-no-subscriptions: true # publishing needs no ARM subscription
       - name: Publish
         run: npx --yes @vscode/vsce publish --azure-credential --packagePath dist/cosmoteer-language-server-*.vsix
