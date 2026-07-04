@@ -4,6 +4,7 @@ import {
     isAssignmentNode,
     isDocumentNode,
     isGroupNode,
+    isIdentifierNode,
 } from '../core/ast/ast';
 import { getStartOfAstNode } from '../utils/ast.utils';
 import { isNumber } from '../utils/utils';
@@ -18,7 +19,8 @@ import { isNumber } from '../utils/utils';
  *
  * Supported segments: a number selects a list element (or inheritance entry when
  * `isInheritance`); `..` selects the node's parent; `^` selects the node's grandparent
- * (parent of parent); `~` selects the document root the node belongs to; any other
+ * (parent of parent); `~` selects the document root the node belongs to; `:` selects the
+ * most-derived inheritor (statically approximated as the node itself); any other
  * segment selects a named child (assignment value, or identified group/list).
  */
 export const stepIntoNode = (
@@ -49,6 +51,16 @@ export const stepIntoNode = (
         // container's base, so `^/0` must resolve against the container, i.e. the grandparent.)
         if (node.parent?.parent) return node.parent.parent;
         return undefined;
+    } else if (segment === ':') {
+        // `:` selects the most-derived inheritor of the current node (virtual inheritance). Which
+        // inheritor that is depends on the instantiation context, so statically we approximate with
+        // the game's no-inheritor behavior, the node itself, which resolves the parent's own
+        // (default) member. The reference validator does not flag `:` paths, since the member may
+        // legitimately exist only in an inheritor.
+        if (isGroupNode(node) || isListNode(node) || isDocumentNode(node)) return node;
+        // A value node has no members of its own; resolve against its owning group so
+        // `Sum = (&:/v_A)`-style refs land on the group the value lives in.
+        return node.parent;
     } else if (segment === '~') {
         return getStartOfAstNode(node);
     } else {
@@ -63,7 +75,12 @@ export const stepIntoNode = (
                     ? element.left.name
                     : (isGroupNode(element) || isListNode(element)) && element.identifier
                       ? element.identifier.name
-                      : undefined;
+                      : // A bare `word` line in a group parses to a lone IdentifierNode: a named
+                        // void field (vanilla: `v_Faction // VIRTUAL; must be inherited`). The
+                        // game keys children by name regardless of value, so match it too.
+                        isIdentifierNode(element)
+                        ? element.name
+                        : undefined;
                 if (name === undefined) continue;
                 const target = isAssignmentNode(element) ? element.right : element;
                 if (name === segment) return target;

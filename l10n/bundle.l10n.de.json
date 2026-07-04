@@ -4,6 +4,7 @@
     "Localization key not found": "Lokalisierungsschlüssel nicht gefunden",
     "No localization key \"{0}\" is defined in any strings file.": "Kein Lokalisierungsschlüssel \"{0}\" ist in einer Sprachdatei definiert.",
     "Add \"{0}\" to the mod's strings files": "\"{0}\" zu den Sprachdateien des Mods hinzufügen",
+    "Extract value {0} to shared root field ({1} occurrences)": "Wert {0} in gemeinsames Wurzelfeld extrahieren ({1} Vorkommen)",
     "Reference name is not known": "Referenz ist nicht bekannt",
     "Did you mean \"{0}\"?": "Meintest du \"{0}\"?",
     "Change to \"{0}\"": "Ändern zu \"{0}\"",

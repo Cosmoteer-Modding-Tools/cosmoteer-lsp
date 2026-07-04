@@ -21,7 +21,7 @@ describe('ReferenceAutoCompletionStrategy — in-file', () => {
             isInheritanceNode: false,
             cancellationToken: token,
         });
-        expect(result).toEqual(['&', '&<', '&~/', '&../', '&/', '&<./Data/']);
+        expect(result).toEqual(['&', '&<', '&~/', '&../', '&/', '&<./Data/', '&:/']);
     });
 
     it('offers inheritance-context prefixes for an empty inheritance reference', async () => {

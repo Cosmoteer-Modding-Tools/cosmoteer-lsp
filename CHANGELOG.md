@@ -41,6 +41,11 @@ All notable changes to this project will be documented in this file.
 -   Progress indicators while the project-wide indexes build
 -   Optional whole-workspace validation (`diagnostics.validateWholeWorkspace`) and multi-root workspace support
 -   JetBrains IDE support, automatic detection of the Cosmoteer installation path, cancellation-token support, inheritance-cycle and duplicate-key detection
+-   Virtual-inheritance references (the `:` path segment, e.g. `&:/v_Value`, `&../:/v_Group`): lexed and parsed like the game, resolved for go-to-definition, hover and completion (including the `&:/` starting prefix), and never falsely flagged, since the target may exist only in an inheritor
+-   Void fields (a field declared without a value, like vanilla's `v_Faction // VIRTUAL; must be inherited`) are now real named members: reference paths resolve to the declaration and completion offers them
+-   Completion for inheritance bases after `:`: sibling and root names from the inheriting group's container (never the group's own members, never the group itself), the `^/N/` extend-own-member idiom and the reference-path prefixes
+-   `&/` completion offers the convenience globals the mod itself adds to `cosmoteer.rules` (its own root file or manifest `Add` actions) alongside the vanilla ones, and a path through such a global lists the aliased target's members
+-   "Extract value to shared root field" refactoring: a number (including suffixed forms like `50%` or `45d`) repeated across several assignments can be hoisted into a root field, with every occurrence replaced by a reference to it
 
 ### Changed
 
@@ -71,6 +76,7 @@ All notable changes to this project will be documented in this file.
 -   Notifications not closing after work done
 -   `,` in group inheritance not recognized as a separator
 -   `^` rejected anywhere but the first position of a reference
+-   References containing a `:` path segment truncated at the colon (`&../:/v_Foo` lexed as `&../`), which broke navigation and completion for the virtual-inheritance idiom the vanilla data itself uses
 
 ## 0.3.1 Beta Hotfix
 

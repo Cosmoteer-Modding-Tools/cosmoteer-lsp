@@ -150,6 +150,11 @@ export class ModContext {
         return [...(this.fileOverrides.get(fileKey)?.keys() ?? [])];
     }
 
+    /** Global names the mod adds to the root `cosmoteer.rules` (for `&/` completion). */
+    cosmoteerRulesAdditionNames(): string[] {
+        return [...(this.additions.get(COSMOTEER_RULES_KEY)?.keys() ?? [])];
+    }
+
     /** Resolve a game-rooted path against the mod's additions (used only after vanilla fails). */
     async resolve(
         path: string,
@@ -371,6 +376,17 @@ export const resolveWithModContext = async (
  * or file-aliasing-global `Overrides` action — so completion of `&/INDICATORS/` etc. offers the
  * mod-added members alongside the file's own. `node` locates the owning mod; returns [] outside a mod.
  */
+/**
+ * The global names the mod adds to the root `cosmoteer.rules` (its own cosmoteer.rules globals plus
+ * manifest `Add` actions targeting `<cosmoteer.rules>`), so `&/` completion can offer them alongside
+ * the vanilla root members. `originUri` locates the owning mod; returns [] outside a mod.
+ */
+export const modAddedGlobalNames = async (originUri: string): Promise<string[]> => {
+    const modRoot = findModRoot(originUri);
+    if (!modRoot) return [];
+    return (await getModContext(modRoot)).cosmoteerRulesAdditionNames();
+};
+
 export const modOverrideMemberNamesForFile = async (
     resolved: AbstractNode | FileWithPath,
     originUri: string

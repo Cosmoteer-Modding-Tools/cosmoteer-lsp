@@ -42,7 +42,9 @@ describe.skipIf(!HAVE_DATA)('formatter over vanilla Data', () => {
         }
         expect(bailed, `equivalence guard tripped on:\n${bailed.join('\n')}`).toEqual([]);
         expect(diverged, `not idempotent on:\n${diverged.join('\n')}`).toEqual([]);
-    });
+        // Formatting ~950 files twice takes 2s alone but can exceed the default 5s timeout when the
+        // whole suite runs in parallel workers, so give the corpus walk explicit headroom.
+    }, 60000);
 
     it('formats every vanilla .shader file idempotently without changing line content', () => {
         const files = filesWithExtension(DATA_DIR, '.shader');

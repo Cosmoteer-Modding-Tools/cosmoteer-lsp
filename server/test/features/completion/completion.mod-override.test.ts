@@ -60,3 +60,49 @@ describe('ReferenceAutoCompletionStrategy — mod override members', () => {
         expect(options).not.toContain('SWNoShields');
     });
 });
+
+// The mod's own cosmoteer.rules globals (`GLOBAL_TWO = &<provider.rules>/Provider`) live in the
+// EFFECTIVE game tree, so `&/` completion must offer them alongside the vanilla root members, and a
+// deeper path through such a global must list the aliased target's members even though vanilla
+// navigation cannot see it.
+describe('ReferenceAutoCompletionStrategy: mod-added cosmoteer.rules globals', () => {
+    let modDoc: AbstractNodeDocument;
+
+    beforeAll(async () => {
+        await initWorkspace();
+        globalSettings.cosmoteerPath = WORKSPACE_DATA_DIR;
+        clearModRootCache();
+        invalidateModContext();
+        modDoc = await parseFilePath(join(MOD_DIR, 'consumer.rules'));
+    });
+
+    it('`&/` offers the mod-added globals alongside the vanilla root members', async () => {
+        const options = await complete('&/', modDoc);
+        expect(options).toContain('GLOBAL_TWO'); // the mod's own cosmoteer.rules global
+        expect(options).toContain('MERGED');
+        expect(options).toContain('Palette'); // a vanilla root member
+    });
+
+    it('`&/GLOB` filters the merged root members by the typed prefix', async () => {
+        const options = await complete('&/GLOB', modDoc);
+        expect(options).toContain('GLOBAL_TWO');
+        expect(options).not.toContain('Palette');
+    });
+
+    it('`&/GLOBAL_TWO/` lists the members of the group the mod global aliases', async () => {
+        const options = await complete('&/GLOBAL_TWO/', modDoc);
+        expect(options).toContain('Bar'); // provider.rules /Provider member
+    });
+
+    it('`&/MERGED/` lists the root members of the merged file', async () => {
+        const options = await complete('&/MERGED/', modDoc);
+        expect(options).toContain('Provider');
+    });
+
+    it('does not offer mod globals outside a mod (vanilla document origin)', async () => {
+        const vanillaDoc = await parseFilePath(join(WORKSPACE_DATA_DIR, 'cosmoteer.rules'));
+        const options = await complete('&/', vanillaDoc);
+        expect(options).toContain('Palette');
+        expect(options).not.toContain('GLOBAL_TWO');
+    });
+});

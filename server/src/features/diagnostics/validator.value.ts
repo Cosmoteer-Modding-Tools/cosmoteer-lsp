@@ -120,7 +120,11 @@ const checkReference = async (node: ValueNode, cancellationToken: CancellationTo
             !ignorePath(node.valueType.value) &&
             // `~` rooted references into a context the static file does not define are
             // resolved at runtime (template/library groups), so skip them.
-            !isRuntimeRootReference(node)
+            !isRuntimeRootReference(node) &&
+            // A `:` segment (virtual inheritance) targets the most-derived inheritor, whose
+            // members the declaring file cannot see (`Foo = &:/v_Foo` where only children
+            // define `v_Foo`), so skip those like `~` runtime refs.
+            !hasVirtualInheritanceSegment(node.valueType.value)
         ) {
             const startNode = isInheritanceInSameFile(node)
                 ? ((node.parent as AbstractNode).parent as AbstractNode)
@@ -273,6 +277,17 @@ const isRuntimeRootReference = (node: ValueNode): boolean => {
     if (typeof value !== 'string') return false;
     const withoutAmpersand = value.startsWith('&') ? value.substring(1) : value;
     return withoutAmpersand.startsWith('~');
+};
+
+/**
+ * Whether a reference path contains a `:` virtual-inheritance segment (`&:/v_A`, `&../:/v_Group1`).
+ * `:` jumps to the most-derived inheritor of the node, which is unknowable statically (the
+ * referenced member may exist only in a child), so such references are never validated.
+ */
+const hasVirtualInheritanceSegment = (value: string): boolean => {
+    if (typeof value !== 'string') return false;
+    const withoutAmpersand = value.startsWith('&') ? value.substring(1) : value;
+    return extractSubstrings(withoutAmpersand).some((segment) => segment.trim() === ':');
 };
 
 const isInheritanceInSameFile = (value: ValueNode) => {

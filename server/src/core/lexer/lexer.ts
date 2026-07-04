@@ -367,6 +367,14 @@ export const lexer = (input: string): Token[] => {
                     (char === ':' &&
                         TIME_LITERAL_PREFIX.test(input.slice(start, current)) &&
                         /\d/.test(input[current + 1] ?? '')) ||
+                    // Virtual-inheritance path segment: a `:` that is a segment of a reference
+                    // path (`&:/v_A`, `&../:/v_Foo`) stays in the value. It is recognizable by
+                    // its neighbors, followed by `/` and directly preceded by `&` or `/`, which
+                    // an inheritance colon never is (there the `:` follows the inherited name or
+                    // whitespace, e.g. `Child : Parent`, `X : /BASE/Y`).
+                    (char === ':' &&
+                        input[current + 1] === '/' &&
+                        (input[current - 1] === '&' || input[current - 1] === '/')) ||
                     // Scientific-notation exponent sign: a `+`/`-` right after `e`/`E`
                     // (e.g. `3.4028235E+38`) stays in the value rather than being lexed as a
                     // math operator. (`E-38` already works via the `-` in the value charset.)

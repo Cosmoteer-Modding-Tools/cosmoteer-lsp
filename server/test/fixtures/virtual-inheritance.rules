@@ -1,0 +1,24 @@
+// Virtual inheritance (`:` path segment) fixture, mirroring the examples in the game's
+// "Rules Syntax.md": `:` jumps to the most-derived inheritor of the current node.
+Parent
+{
+	v_Foo = 0
+	Nested1
+	{
+		Foo = &../:/v_Foo
+	}
+	v_A = 1
+	v_B = 2
+	Sum = (&:/v_A) + (&:/v_B)
+	// The referenced member exists only in the inheritor - valid in the game, unresolvable statically.
+	ChildOnly = &:/v_OnlyInChild
+	// A named void field, declared without a value like vanilla's "v_Faction // VIRTUAL".
+	v_Declared
+	Declared = &:/v_Declared
+}
+
+Child : Parent
+{
+	v_Foo = 42
+	v_OnlyInChild = 5
+}

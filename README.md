@@ -44,6 +44,7 @@ The cross-file validators (component references, GUI ids, localization keys) run
 -   Syntax highlighting, plus semantic tokens that color references, enum values, math functions and field names from the real parse
 -   Code formatting for `.rules` and `.shader` files: re-indents by nesting and normalizes spacing, changing whitespace only. The result must lex to the identical token stream, otherwise the file is left unchanged. Optional format on save
 -   Document outline (annotated with each group's resolved schema class) and workspace symbols
+-   Reference-path completion for every reference form the game accepts, including inheritance bases after `:` (siblings, the `^/N/` extend-own-member idiom), virtual-inheritance `:` segments (`&:/…`) and, inside a mod, the mod's own `cosmoteer.rules` convenience globals after `&/`
 
 **Schema intelligence**
 
@@ -57,6 +58,7 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 **Navigation & refactoring**
 
 -   Go to definition, find all references and rename across the mod and the game `Data` tree, including cross-file entities (factions, GUI ids, techs, buffs, resources, components, particle data channels)
+-   "Extract value to shared root field": a code action on a number repeated across several assignments that hoists it into a root field and replaces every occurrence with a reference, following the single-source-of-truth practice from the game's own style guide
 -   Rename never writes to the vanilla game files
 
 **Diagnostics**

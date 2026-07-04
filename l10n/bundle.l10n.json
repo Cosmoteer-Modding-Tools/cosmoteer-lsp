@@ -22,6 +22,7 @@
   "Function '{0}' expects {1} argument(s) but got {2}.": "Function '{0}' expects {1} argument(s) but got {2}.",
   "Expected a variable name after '{0}'.": "Expected a variable name after '{0}'.",
   "Cannot assign '{0}' (returned by '{1}') to '{2}'.": "Cannot assign '{0}' (returned by '{1}') to '{2}'.",
+  "Extract value {0} to shared root field ({1} occurrences)": "Extract value {0} to shared root field ({1} occurrences)",
   "localization key": "localization key",
   "not found in any strings file": "not found in any strings file",
   "Value should not be parenthesized": "Value should not be parenthesized",

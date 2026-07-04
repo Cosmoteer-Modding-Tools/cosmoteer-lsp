@@ -6,18 +6,19 @@ import {
     isAssignmentNode,
     isDocumentNode,
     isGroupNode,
+    isIdentifierNode,
     isValueNode,
     ValueNode,
 } from '../../../core/ast/ast';
 import { findNodeByIdentifier, getStartOfAstNode, parseFile, parseFilePath } from '../../../utils/ast.utils';
-import { CosmoteerWorkspaceService, FileWithPath } from '../../../workspace/cosmoteer-workspace.service';
+import { CosmoteerWorkspaceService, FileTree, FileWithPath, isFile } from '../../../workspace/cosmoteer-workspace.service';
 import { AutoCompletionStrategy } from './autocompletion.strategy';
 import { join } from 'path';
 import { CancellationError } from '../../../utils/cancellation';
 import { opendir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { FullNavigationStrategy } from '../../navigation/full.navigation-strategy';
-import { modOverrideMemberNamesForFile } from '../../../mod/mod-context';
+import { modAddedGlobalNames, modOverrideMemberNamesForFile, resolveFromModContextOnly } from '../../../mod/mod-context';
 
 const navigation = new FullNavigationStrategy();
 const EMPTY_STRING = '';
@@ -43,7 +44,7 @@ const referenceValueOf = (node: AbstractNode): ValueNode | undefined => {
  * @returns the reference-start prefix completions.
  */
 const referenceStartCompletions = (node: AbstractNode): string[] => {
-    const completions = ['&', '&<', '&~/', '&../', '&/', '&<./Data/'];
+    const completions = ['&', '&<', '&~/', '&../', '&/', '&<./Data/', '&:/'];
     let container: AbstractNode | undefined = node.parent;
     while (container && !(isGroupNode(container) || isListNode(container))) container = container.parent;
     if (container && (isGroupNode(container) || isListNode(container)) && container.inheritance) {
@@ -104,14 +105,35 @@ export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
         if (reference === EMPTY_STRING && !isInheritanceNode) {
             return referenceStartCompletions(node);
         } else if (reference === EMPTY_STRING && isInheritanceNode) {
-            return ['/', '<./Data', '..', '~', '<'];
+            // Inheritance refs conventionally omit the `&`. Offer the path prefixes plus a `^/N/`
+            // caret path per base of the enclosing container (the `X : ^/0/X` extend-own-member
+            // idiom) and the sibling names of the inheriting group.
+            const completions = ['/', '<./Data', '..', '~', '<'];
+            const container = node.parent?.parent;
+            if ((isGroupNode(container) || isListNode(container)) && container.inheritance) {
+                for (let i = 0; i < container.inheritance.length; i++) completions.push(`^/${i}/`);
+            }
+            if (container) completions.push(...getOptionsForLevel(container));
+            const inheritingName =
+                isGroupNode(node.parent) || isListNode(node.parent) ? node.parent.identifier?.name : undefined;
+            return inheritingName ? completions.filter((option) => option !== inheritingName) : completions;
         }
+        // An inheritance ref (`Child : Par…`) names a sibling of the inheriting group, so its
+        // relative lookups must resolve against the group's container, not the group's own
+        // members (mirrors `isInheritanceMember` in the navigation strategy).
+        const startNode = isInheritanceNode && node.parent?.parent ? node.parent.parent : node;
         if (this.referenceRegex.test(reference)) {
-            return getOptionsForParentLevel(reference, node);
+            const options = getOptionsForParentLevel(reference, startNode);
+            // Don't offer the inheriting group itself as its own base (self-inheritance).
+            const inheritingName =
+                isGroupNode(node.parent) || isListNode(node.parent) ? node.parent.identifier?.name : undefined;
+            return isInheritanceNode && inheritingName
+                ? options.filter((option) => option !== inheritingName)
+                : options;
         } else {
             return await traversePath(
                 reference.startsWith('&') ? reference.substring(1) : reference,
-                node,
+                startNode,
                 cancellationToken,
                 getStartOfAstNode(node).uri
             ).catch(() => []);
@@ -191,6 +213,11 @@ const getOptionsForInheritance = (node: AbstractNode, search: string = EMPTY_STR
  */
 const getOptionsForElement = (node: AbstractNode, search: string = EMPTY_STRING): string[] => {
     if (isGroupNode(node) || isListNode(node) || isDocumentNode(node)) {
+        // A bare `word` line in a group parses to a lone IdentifierNode: a named void field the
+        // game keys by name (vanilla: `v_Faction // VIRTUAL; must be inherited`), so it is
+        // offered like any member.
+        const voidFieldName = (v: AbstractNode): string | undefined =>
+            !isListNode(node) && isIdentifierNode(v) ? v.name : undefined;
         return node.elements
             .filter(
                 (v) =>
@@ -198,7 +225,8 @@ const getOptionsForElement = (node: AbstractNode, search: string = EMPTY_STRING)
                     search === EMPTY_STRING ||
                     (isListNode(v) && v.identifier === undefined) ||
                     (isGroupNode(v) && v.identifier === undefined) ||
-                    (isAssignmentNode(v) && v.left.name.startsWith(search))
+                    (isAssignmentNode(v) && v.left.name.startsWith(search)) ||
+                    voidFieldName(v)?.startsWith(search)
             )
             .map((v) => {
                 if ((isListNode(v) && v.identifier === undefined) || (isGroupNode(v) && v.identifier === undefined)) {
@@ -208,7 +236,7 @@ const getOptionsForElement = (node: AbstractNode, search: string = EMPTY_STRING)
                 } else if (isAssignmentNode(v)) {
                     return v.left.name;
                 }
-                return EMPTY_STRING;
+                return voidFieldName(v) ?? EMPTY_STRING;
             });
     }
     return [];
@@ -250,7 +278,7 @@ const traversePath = async (
     } else if (path.startsWith('<')) {
         return await traverseOwnPath(parts, node, cancellationToken, originUri).catch(() => []);
     } else if (path.startsWith('/')) {
-        return await traverseSuperPath(parts, cancellationToken, originUri).catch(() => []);
+        return await traverseSuperPath(parts, node, cancellationToken, originUri).catch(() => []);
     } else {
         return await traverseReferencePath(parts, node, cancellationToken, originUri).catch(() => []);
     }
@@ -456,6 +484,12 @@ const traverseReferencePath = async (
             currentNode = getStartOfAstNode(currentNode);
             continue;
         }
+        if (path === ':') {
+            // `:` selects the most-derived inheritor (virtual inheritance), statically approximated
+            // as the node itself (see `stepIntoNode` in semantics/reference-resolver.ts). `currentNode`
+            // has already been normalized to a container above, so keep it.
+            continue;
+        }
 
         if (isGroupNode(currentNode) && !isNaN(parseInt(path)) && currentNode.inheritance) {
             const nextNode = currentNode.inheritance.find((_, i) => i === parseInt(path));
@@ -520,17 +554,44 @@ const traverseReferencePath = async (
 /**
  *  Traverse a reference path that starts with a reference to a super entity, resolving it to the target entity and listing its members.
  * @param parts  The parts of the reference path to traverse
+ * @param node  The AST node from which the reference originates, used to resolve mod-added globals
  * @param cancellationToken  The cancellation token to abort the operation if needed
  * @param originUri  The URI of the file the user is editing, used to locate the owning mod for mod-added members
  * @returns  A promise that resolves to an array of completion options for the target entity
  */
-const traverseSuperPath = async (parts: string[], cancellationToken: CancellationToken, originUri: string) => {
+const traverseSuperPath = async (
+    parts: string[],
+    node: AbstractNode,
+    cancellationToken: CancellationToken,
+    originUri: string
+) => {
     const rules = await CosmoteerWorkspaceService.instance.getCosmoteerRules();
-    if (!rules) return [];
-    if (rules.content.parsedDocument && parts.length === 1) {
-        return getOptionsForLevel(rules.content.parsedDocument, parts[0]);
-    } else if (rules.content.parsedDocument) {
-        return await traversePath(parts.join('/'), rules.content.parsedDocument, cancellationToken, originUri);
+    if (!rules?.content.parsedDocument) return [];
+    if (parts.length === 1) {
+        // Root level of the effective game tree: the vanilla cosmoteer.rules members plus the
+        // globals the mod itself adds there (`SW_SOUNDS = &<…>` in the mod's cosmoteer.rules or
+        // manifest `Add` actions), so `&/` offers a mod's own convenience globals too.
+        const own = getOptionsForLevel(rules.content.parsedDocument, parts[0]);
+        const modAdded = (await modAddedGlobalNames(originUri).catch(() => [])).filter((name) =>
+            name.startsWith(parts[0])
+        );
+        return modAdded.length ? [...new Set([...own, ...modAdded])] : own;
     }
-    return [];
+    // A deeper path may run through a mod-added global vanilla navigation can't see (`/SW_SOUNDS/…`).
+    // Try the mod context first: it resolves only when the leading global is mod-added (null for
+    // vanilla-rooted paths), whereas the vanilla walk below never returns empty for an unknown
+    // member (it falls back to listing the current level), so it can't signal the miss itself.
+    const resolved = await resolveFromModContextOnly(
+        '/' + parts.slice(0, parts.length - 1).join('/'),
+        node,
+        cancellationToken
+    ).catch(() => null);
+    if (resolved) {
+        const target = isFile(resolved as unknown as FileTree)
+            ? await parseFile(resolved as FileWithPath)
+            : (resolved as AbstractNode);
+        const options = getOptionsForLevel(target, parts[parts.length - 1]);
+        if (options.length > 0) return options;
+    }
+    return await traversePath(parts.join('/'), rules.content.parsedDocument, cancellationToken, originUri);
 };

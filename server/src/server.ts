@@ -30,6 +30,7 @@ import { parser } from './core/parser/parser';
 import { AbstractNodeDocument } from './core/ast/ast';
 import { ParserResultRegistrar } from './registrar/parser-result-registrar';
 import { findNodeAtPosition } from './utils/ast.utils';
+import { extractValueCodeAction } from './features/refactor/extract-value';
 import { AutoCompletionService, Completion } from './features/completion/autocompletion.service';
 import { DefinitionService } from './features/navigation/definition.service';
 import { computeDocumentLinks, resolveDocumentLink } from './features/navigation/document-links';
@@ -216,7 +217,7 @@ connection.onInitialize(async (params: InitializeParams) => {
             },
             documentFormattingProvider: true,
             codeActionProvider: {
-                codeActionKinds: [CodeActionKind.QuickFix],
+                codeActionKinds: [CodeActionKind.QuickFix, CodeActionKind.RefactorExtract],
             },
             semanticTokensProvider: {
                 legend: semanticTokensLegend,
@@ -1260,9 +1261,21 @@ connection.onRenameRequest(async (params, cancellationToken) => {
 // Code actions: surface the quick fixes carried on diagnostics' `data` — the "did you mean …"
 // replacements (a typo'd reference name, asset filename, or localization key) as one-click edits of
 // the flagged range, and the "insert missing localization key" fix as a cross-file edit that adds the
-// key to every language strings file of the mod.
+// key to every language strings file of the mod, plus the extract-repeated-value refactoring.
 connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]> => {
     const actions: CodeAction[] = [];
+    // Extract-to-shared-field refactoring, offered on repeated literal values independent of any
+    // diagnostic (skipped when the client asked only for kinds that exclude refactorings).
+    const wantsRefactor =
+        !params.context.only || params.context.only.some((kind) => CodeActionKind.RefactorExtract.startsWith(kind));
+    if (wantsRefactor) {
+        const parserResult = ensureParserResult(params.textDocument.uri);
+        const text = documents.get(params.textDocument.uri)?.getText();
+        if (parserResult && text !== undefined) {
+            const extract = extractValueCodeAction(parserResult, text, params.range.start, params.textDocument.uri);
+            if (extract) actions.push(extract);
+        }
+    }
     for (const diagnostic of params.context.diagnostics) {
         const data = diagnostic.data as ValidationErrorData | undefined;
         if (data?.quickFix) {
