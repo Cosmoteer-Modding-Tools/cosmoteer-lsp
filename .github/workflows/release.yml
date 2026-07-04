@@ -70,7 +70,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
       - name: Build server bundle
@@ -133,7 +133,7 @@ jobs:
       # Publish the exact VSIX that the build job verified, not a fresh rebuild.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       # Exchange GitHub's OIDC token for a short-lived Entra access token. The federated
       # credential is scoped to this environment, so only an approved release run can assume it.
@@ -159,7 +159,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
       - name: Build server bundle
