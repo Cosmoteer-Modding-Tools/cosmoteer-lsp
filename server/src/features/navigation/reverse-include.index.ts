@@ -521,9 +521,9 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             const resolved = this.wholeFileBaseRef(String(base.valueType.value), group);
             if (!resolved) continue;
             state.sawAlias = true;
-            const target = await this.resolveTarget(resolved.referenceNode, resolved.fileRef, cancellationToken);
+            const target = await this.resolveTargetFile(resolved.referenceNode, resolved.fileRef, cancellationToken);
             if (!target) continue;
-            const baseClass = await this.wholeFileBaseClass(target);
+            const baseClass = await this.wholeFileBaseClass(target.key, target.fsPath);
             if (!baseClass) continue;
             const slot: ValueType = { kind: 'group', ref: baseClass, name: baseClass.split('.').pop() ?? baseClass };
             const members = this.byTarget.get(source) ?? this.byTarget.set(source, new Map()).get(source)!;
@@ -561,18 +561,23 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
     }
 
     /**
-     * The schema class the whole file at `uri` roots to, from its own `documentRootClass` or the group type
-     * a forward alias or earlier reverse-include pass recorded. Undefined when the base is not rooted yet, so
+     * The schema class the whole file roots to, from its own `documentRootClass` or the group type a
+     * forward alias or earlier reverse-include pass recorded. Undefined when the base is not rooted yet, so
      * a later fixpoint pass re-runs the deriver.
      *
-     * @param uri the resolved base file's normalized uri.
+     * The base is parsed from its real filesystem path, not from the normalized index key: the key is
+     * lower-cased and stripped of its leading slash for identity comparison, which is not a valid path on
+     * a case-sensitive filesystem. The key is still used for the recorded-root-type lookups below.
+     *
+     * @param key the resolved base file's normalized index key (for the recorded-type fallbacks).
+     * @param fsPath the resolved base file's real filesystem path (for parsing).
      * @returns the base file's root class, or undefined.
      */
-    private async wholeFileBaseClass(uri: string): Promise<string | undefined> {
-        const base = await parseFilePath(uriToFsPath(uri)).catch(() => null);
+    private async wholeFileBaseClass(key: string, fsPath: string): Promise<string | undefined> {
+        const base = await parseFilePath(fsPath).catch(() => null);
         const native = base ? documentRootClass(base) : undefined;
         if (native) return native;
-        const rootType = this.rootType(uri) ?? aliasRootIndex.rootType(uri);
+        const rootType = this.rootType(key) ?? aliasRootIndex.rootType(key);
         return rootType?.kind === 'group' ? rootType.ref : undefined;
     }
 
@@ -671,17 +676,41 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         fileRef: string,
         cancellationToken: CancellationToken
     ): Promise<string | undefined> {
+        return (await this.resolveTargetFile(referenceNode, fileRef, cancellationToken))?.key;
+    }
+
+    /**
+     * Resolves an include's target to both its normalized index `key` (for map storage and identity) and
+     * its real filesystem `fsPath` (for reading the file). The two must not be conflated: the key is
+     * lower-cased and slash-stripped by {@link normalizeUri}, so it is not a valid path off Windows.
+     *
+     * @param referenceNode the include's reference value node, the navigation start and origin location.
+     * @param fileRef the include's file ref, for example `<../explode_sparks_def.rules>`.
+     * @param cancellationToken cancels the slow-path navigation.
+     * @returns the target key and filesystem path, or undefined for an empty path or an unresolvable ref.
+     */
+    private async resolveTargetFile(
+        referenceNode: AbstractNode,
+        fileRef: string,
+        cancellationToken: CancellationToken
+    ): Promise<{ key: string; fsPath: string } | undefined> {
         const relative = fileRef.replace(/^</, '').replace(/>$/, '').trim();
         if (!relative) return undefined;
         const sourceUri = getStartOfAstNode(referenceNode).uri;
         const withExtension = /\.[^/\\.]+$/.test(relative) ? relative : `${relative}.rules`;
         const cheapPath = resolve(dirname(uriToFsPath(sourceUri)), withExtension);
-        if (existsSync(cheapPath)) return normalizeUri(cheapPath);
+        if (existsSync(cheapPath)) return { key: normalizeUri(cheapPath), fsPath: cheapPath };
 
         const resolved = await navigation.navigate(fileRef, referenceNode, sourceUri, cancellationToken).catch(() => null);
         if (!resolved) return undefined;
-        if (isFile(resolved as unknown as FileTree)) return normalizeUri((resolved as FileWithPath).path);
-        if (isDocumentNode(resolved as AbstractNode)) return normalizeUri((resolved as AbstractNodeDocument).uri);
+        if (isFile(resolved as unknown as FileTree)) {
+            const path = (resolved as FileWithPath).path;
+            return { key: normalizeUri(path), fsPath: path };
+        }
+        if (isDocumentNode(resolved as AbstractNode)) {
+            const uri = (resolved as AbstractNodeDocument).uri;
+            return { key: normalizeUri(uri), fsPath: uriToFsPath(uri) };
+        }
         return undefined;
     }
 }

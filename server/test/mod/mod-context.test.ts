@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { join } from 'path';
+import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode } from '../../src/core/ast/ast';
 import { lexer } from '../../src/core/lexer/lexer';
@@ -18,13 +19,13 @@ const MOD_DIR = join(FIXTURES_DIR, 'mod');
 describe('findModRoot', () => {
     it('walks up to the directory containing mod.rules', () => {
         clearModRootCache();
-        const root = findModRoot('file:///' + join(MOD_DIR, 'somefile.rules').replace(/\\/g, '/'));
+        const root = findModRoot(pathToFileURL(join(MOD_DIR, 'somefile.rules')).href);
         expect(root && root.replace(/\\/g, '/').toLowerCase()).toBe(MOD_DIR.replace(/\\/g, '/').toLowerCase());
     });
 
     it('returns null for a file not inside any mod', () => {
         clearModRootCache();
-        expect(findModRoot('file:///' + WORKSPACE_DATA_DIR.replace(/\\/g, '/') + '/a.rules')).toBeNull();
+        expect(findModRoot(pathToFileURL(join(WORKSPACE_DATA_DIR, 'a.rules')).href)).toBeNull();
     });
 });
 
