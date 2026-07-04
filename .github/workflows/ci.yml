@@ -1,0 +1,88 @@
+name: CI
+
+# Build and test both projects on every push to master and on every pull request.
+# This workflow never touches a secret and never publishes, so it is safe to run on
+# pull requests from forks. A release can only ship code that this workflow accepts.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vscode:
+    name: VS Code extension
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # postinstall installs the client/ and server/ workspaces used by the build and by vsce.
+      - run: npm ci
+
+      - name: Type-check
+        run: npm run check-types
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Server unit tests
+        run: npm run test:server
+
+      # Packaging runs vscode:prepublish (check-types + lint + production esbuild) and proves the
+      # extension is publishable. The VSIX is uploaded so it can be inspected from the run.
+      - name: Package VSIX
+        run: npx --yes @vscode/vsce package -o cosmoteer-language-server.vsix
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsix
+          path: "*.vsix"
+          if-no-files-found: error
+
+  jetbrains:
+    name: JetBrains plugin
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # The plugin sandbox bundles the esbuild server output, so build it before Gradle runs.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build server bundle
+        run: node esbuild.mjs --production
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # buildPlugin compiles and assembles the distributable zip. Full plugin verification (which
+      # downloads IntelliJ IDEA + Rider) runs in the release workflow before any publish.
+      - name: Build plugin
+        working-directory: jetbrains
+        run: ./gradlew buildPlugin
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-zip
+          path: jetbrains/build/distributions/*.zip
+          if-no-files-found: error

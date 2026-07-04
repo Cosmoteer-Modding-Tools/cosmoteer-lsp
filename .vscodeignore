@@ -1,31 +1,51 @@
+# What ships in the VSIX is the esbuild bundle in out/ plus the static contribution assets
+# (images, syntaxes, l10n, media, language configuration) and package.json/README/LICENSE/CHANGELOG.
+# Everything below is excluded because it is dev-only or already bundled.
+
+# --- Editor / tooling / CI config ---
 .vscode/**
+.vscode-test/**
 .idea/**
 .claude/**
+.github/**
+.gitignore
+.prettierignore
+.prettierrc.json5
+eslint.config.mjs
+vitest.config.ts
+esbuild.mjs
+package-lock.json
+CONTRIBUTING
+SUPPORT.md
+.travis.yml
+**/tsconfig.json
+**/tsconfig.base.json
+
+# --- Sources and build metadata (the runtime is the esbuild bundle in out/) ---
 **/*.ts
 **/*.map
+out/**/*.tsbuildinfo
 
-# Tests, fixtures and snapshots (not needed in the published extension)
+# --- Tests, fixtures, snapshots ---
 **/test/**
 **/testFixture/**
 **/__snapshots__/**
 **/*.snap
-client/out/test/**
+
+# --- Repo tooling, docs, media and the JetBrains plugin (not part of the extension) ---
+jetbrains/**
+tools/**
+docs/**
+showcase/**
 scripts/**
 
-# The server is bundled into out/server/src/server.js by esbuild,
-# so its node_modules are not needed at runtime.
-server/node_modules/**
+# --- Subpackage build outputs and manifests: bundled into out/, not loaded at runtime ---
+client/out/**
+client/package.json
+client/package-lock.json
+server/**
 
-.gitignore
-**/tsconfig.json
-**/tsconfig.base.json
-contributing.md
-.travis.yml
-jetbrains/**
-client/node_modules/**
-!client/node_modules/vscode-jsonrpc/**
-!client/node_modules/vscode-languageclient/**
-!client/node_modules/vscode-languageserver-protocol/**
-!client/node_modules/vscode-languageserver-types/**
-!client/node_modules/{minimatch,brace-expansion,concat-map,balanced-match}/**
-!client/node_modules/{semver,lru-cache,yallist}/**
+# --- node_modules: esbuild bundles every dependency (only 'vscode' is external), so the
+#     packaged bundle requires nothing from node_modules at runtime. ---
+node_modules/**
+**/node_modules/**

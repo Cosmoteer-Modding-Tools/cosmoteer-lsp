@@ -1,0 +1,183 @@
+name: Release
+
+# Deploys the VS Code extension and the JetBrains plugin.
+#
+# Safe-context design:
+#   * Only runs from this repository (never a fork) and only on a version tag or a manual dispatch.
+#   * The `build` job uses no secrets: it rebuilds, runs the full plugin verifier, and asserts the
+#     tag matches the versions in package.json and jetbrains/build.gradle.kts.
+#   * Each publish job targets a protected GitHub Environment (required reviewers). A human must
+#     approve before any marketplace call happens, and the marketplace secrets exist only inside
+#     those environments.
+#
+# Required config (per environment, see .github/DEPLOYMENT.md):
+#   vscode-marketplace:    AZURE_CLIENT_ID, AZURE_TENANT_ID (Entra ID via OIDC, no stored secret)
+#   jetbrains-marketplace: PUBLISH_TOKEN, CERTIFICATE_CHAIN, PRIVATE_KEY, PRIVATE_KEY_PASSWORD
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the leading v (e.g. 0.4.0)"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build & verify
+    # Never run on a fork that happens to push a tag.
+    if: github.repository == 'Cosmoteer-Modding-Tools/cosmoteer-lsp'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write # create the GitHub Release and attach the artifacts
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing version $VERSION"
+
+      # A mismatched tag is the classic footgun: it would publish a version whose number does not
+      # match the code. Fail loudly instead.
+      - name: Verify version matches the code
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PKG=$(node -p "require('./package.json').version")
+          GRADLE=$(grep -E '^version = ' jetbrains/build.gradle.kts | head -1 | sed -E 's/.*"(.*)".*/\1/')
+          echo "tag/input=$VERSION  package.json=$PKG  gradle=$GRADLE"
+          if [ "$PKG" != "$VERSION" ] || [ "$GRADLE" != "$VERSION" ]; then
+            echo "::error::Version mismatch. Bump package.json and jetbrains/build.gradle.kts to $VERSION before releasing."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build server bundle
+        run: node esbuild.mjs --production
+
+      - name: Package VSIX
+        run: npx --yes @vscode/vsce package -o "cosmoteer-language-server-${{ steps.version.outputs.version }}.vsix"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Full verification against IntelliJ IDEA + Rider before we let anything publish.
+      - name: Build & verify plugin
+        working-directory: jetbrains
+        run: ./gradlew buildPlugin verifyPlugin
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist
+          cp cosmoteer-language-server-*.vsix dist/
+          cp jetbrains/build/distributions/*.zip dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: dist/*
+          if-no-files-found: error
+
+      # Attach the exact verified artifacts to a GitHub Release (tag events only).
+      - name: Publish GitHub Release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag
+
+  publish-vscode:
+    name: Publish to VS Marketplace
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Protected environment: a reviewer must approve. Auth is Microsoft Entra ID via OIDC,
+    # so no marketplace secret is stored anywhere.
+    environment: vscode-marketplace
+    permissions:
+      contents: read
+      id-token: write # request GitHub's OIDC token for Entra federation
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: dist
+
+      # Publish the exact VSIX that the build job verified, not a fresh rebuild.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Exchange GitHub's OIDC token for a short-lived Entra access token. The federated
+      # credential is scoped to this environment, so only an approved release run can assume it.
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true # publishing needs no ARM subscription
+      - name: Publish
+        run: npx --yes @vscode/vsce publish --azure-credential --packagePath dist/cosmoteer-language-server-*.vsix
+
+  publish-jetbrains:
+    name: Publish to JetBrains Marketplace
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Protected environment: a reviewer must approve, and the signing/publish secrets live only here.
+    environment: jetbrains-marketplace
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build server bundle
+        run: node esbuild.mjs --production
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+
+      # publishPlugin depends on signPlugin, so the upload is a signed build. Secrets come from the
+      # environment; none are echoed.
+      - name: Sign & publish plugin
+        working-directory: jetbrains
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+        run: ./gradlew publishPlugin

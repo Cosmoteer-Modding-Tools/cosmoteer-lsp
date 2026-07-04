@@ -1,7 +1,8 @@
 {
     "name": "cosmoteer-language-server",
+    "displayName": "Cosmoteer Language Server",
     "description": "A complete language server for Cosmoteer rules",
-    "author": "TrustNoOneElse",
+    "author": "Cosmoteer Modding Tools",
     "license": "MIT",
     "version": "0.4.0",
     "repository": {

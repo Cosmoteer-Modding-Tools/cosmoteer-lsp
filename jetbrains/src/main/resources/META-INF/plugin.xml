@@ -1,36 +1,76 @@
-<idea-plugin require-restart="true">
-    <id>modding.cosmoteer.tools</id>
+<idea-plugin>
+    <id>cosmoteer-language-server</id>
     <name>Cosmoteer Language Server</name>
-    <version>0.4.0</version>
-    <vendor>Cosmoteer Modding Tools</vendor>
+    <vendor url="https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp">Cosmoteer Modding Tools</vendor>
     <description><![CDATA[
-        Cosmoteer Language Server
-
-        This plugin provides language support for Cosmoteer rules files.
+        Language support for Cosmoteer <code>.rules</code> and <code>.shader</code> files, powered by the
+        Cosmoteer Language Server: diagnostics, completion, hover, go-to-definition, find usages, rename,
+        formatting, semantic highlighting, inlay hints, color swatches, signature help, quick fixes,
+        a live WebGL shader preview and a mod overview report.
     ]]></description>
-    <depends>com.intellij.modules.ultimate</depends>
-    <depends>JavaScript</depends>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.redhat.devtools.lsp4ij</depends>
     <depends>org.jetbrains.plugins.textmate</depends>
 
-    <extensions defaultExtensionNs="com.intellij">
-        <fileType name="Rules"
-                  language="Rules"
-                  implementationClass="file.RulesFileType"
-                  extensions="rules"
-                  fieldName="INSTANCE"/>
-        <platform.lsp.serverSupportProvider implementation="lsp.CosmoteerLspServerSupportProvider"/>
-        <editorHighlighterProvider
-                filetype="Rules"
-                implementationClass="org.jetbrains.plugins.textmate.language.syntax.highlighting.TextMateEditorHighlighterProvider"
-        />
-        <lang.syntaxHighlighterFactory
-                language="Rules"
-                implementationClass="org.jetbrains.plugins.textmate.language.syntax.highlighting.TextMateSyntaxHighlighterFactory"/>
+    <extensions defaultExtensionNs="com.redhat.devtools.lsp4ij">
+        <server id="cosmoteerLanguageServer"
+                name="Cosmoteer Language Server"
+                factoryClass="cosmoteer.lsp.CosmoteerLanguageServerFactory">
+            <description><![CDATA[
+                Node.js language server for Cosmoteer mod files. Bundled with the plugin; it only
+                needs a Node.js runtime (found on PATH, or set in Settings | Tools | Cosmoteer Rules).
+            ]]></description>
+        </server>
+        <!-- Pattern mappings (instead of registered file types) keep the TextMate highlighting that
+             the bundled grammar provides; LSP semantic tokens overlay it. The languageId matches
+             what the VS Code extension sends, the server itself branches on the file extension. -->
+        <fileNamePatternMapping patterns="*.rules" serverId="cosmoteerLanguageServer" languageId="rules"/>
+        <fileNamePatternMapping patterns="*.shader" serverId="cosmoteerLanguageServer" languageId="cosmoteer-shader"/>
     </extensions>
 
-    <applicationListeners>
-        <listener
-                class="PluginListener"
-                topic="com.intellij.ide.plugins.DynamicPluginListener"/>
-    </applicationListeners>
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="cosmoteer.settings.CosmoteerSettings"/>
+        <applicationConfigurable id="cosmoteer.settings"
+                                 parentId="tools"
+                                 displayName="Cosmoteer Rules"
+                                 instance="cosmoteer.settings.CosmoteerSettingsConfigurable"/>
+        <postStartupActivity implementation="cosmoteer.textmate.TextMateBundleActivity"/>
+        <!-- TextMate-backed marker types: the TextMate plugin re-claims the files for highlighting,
+             but the registration provides the file icon and suppresses the plugin-advertiser banner. -->
+        <fileType name="Cosmoteer Rules" implementationClass="cosmoteer.file.RulesFileType"
+                  fieldName="INSTANCE" extensions="rules"/>
+        <fileType name="Cosmoteer Shader" implementationClass="cosmoteer.file.ShaderFileType"
+                  fieldName="INSTANCE" extensions="shader"/>
+        <toolWindow id="Cosmoteer Shader Preview"
+                    anchor="right"
+                    canCloseContents="false"
+                    doNotActivateOnStart="true"
+                    icon="/icons/rules.png"
+                    factoryClass="cosmoteer.preview.ShaderPreviewToolWindowFactory"/>
+        <notificationGroup id="Cosmoteer Language Server" displayType="BALLOON"/>
+        <codeInsight.lineMarkerProvider language="textmate"
+                                        implementationClass="cosmoteer.actions.CosmoteerLineMarkerProvider"/>
+        <codeInsight.lineMarkerProvider language="TEXT"
+                                        implementationClass="cosmoteer.actions.CosmoteerLineMarkerProvider"/>
+    </extensions>
+
+    <actions>
+        <action id="cosmoteer.previewShader"
+                class="cosmoteer.actions.PreviewShaderAction"
+                text="Cosmoteer: Preview Shader"
+                description="Open the live WebGL preview for the material at the caret"
+                icon="/icons/rules.png">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="cosmoteer.showModOverview"
+                class="cosmoteer.actions.ShowModOverviewAction"
+                text="Cosmoteer: Show Mod Overview"
+                description="Render what the mod manifest does as a markdown report"
+                icon="/icons/rules.png">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
 </idea-plugin>
