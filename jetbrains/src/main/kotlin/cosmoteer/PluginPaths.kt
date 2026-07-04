@@ -5,15 +5,15 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 
-/** Resolves files the build stages next to the plugin jar (server bundle, media, l10n, textmate). */
+/** Resolves file the build stages next to the plugin jar (server bundle, media, l10n, textmate). */
 object PluginPaths {
     const val PLUGIN_ID = "cosmoteer-language-server"
 
     /**
-     * A file the build staged in the plugin's install directory, addressed by its path relative to
+     * A file the build staged in the plugin's installation directory, addressed by its path relative to
      * that directory (for example `language-server/server.js`). Resolved through the sanctioned
      * public `PluginPathManager.getPluginResource`, which resolves against the plugin's dist dir
-     * (JetBrains staff recommend it, and it has existed since long before the 243 floor). The direct
+     * (JetBrains staff recommend it, and it has existed since long before the 243). The direct
      * registry lookups are all off limits: every route to a plugin's path there
      * (PluginManagerCore.getPlugin, PluginManager.findEnabledPlugin, PluginManager.getPlugins,
      * PluginAwareClassLoader, PluginDescriptor.getPluginPath) is `@ApiStatus.Internal`, and JetBrains

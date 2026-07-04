@@ -271,6 +271,11 @@ const traversePath = async (
 ): Promise<string[]> => {
     if (cancellationToken.isCancellationRequested) throw new CancellationError();
 
+    // ObjectText `<...>` file paths may use a backslash separator, which the game resolves via the
+    // .NET path APIs (see navigateRules in full.navigation-strategy.ts). Normalize to `/` so the
+    // segment split and the on-disk lookups behave identically on every OS.
+    if (path.startsWith('<')) path = path.replace(/\\/g, '/');
+
     const parts = path === EMPTY_STRING ? [EMPTY_STRING] : extractSubstrings(path);
     if (path.endsWith('/')) parts.push(EMPTY_STRING);
     if (path.startsWith('<./Data/')) {
@@ -418,6 +423,10 @@ const tarverseWorkshopPath = async (parts: string[], cancellationToken: Cancella
  */
 const getPathOptions = async (path: string) => {
     const options: string[] = [];
+    // The callers assemble the path with `join`, which uses the OS separator (`\` on Windows,
+    // where a plain `lastIndexOf('/')` would then miss every boundary). Node's fs accepts `/`
+    // on every platform, so normalize once and keep the splitting logic below platform-neutral.
+    path = path.replace(/\\/g, '/');
 
     if (existsSync(path)) {
         const dirents = await opendir(path);
@@ -427,12 +436,16 @@ const getPathOptions = async (path: string) => {
             else if (dirent.isDirectory()) options.push(dirent.name + '/');
         }
     } else {
-        const subPath = path.substring(path.lastIndexOf('/') + 1);
-        const dirents = await opendir(path.substring(0, path.lastIndexOf('/') + 1));
+        // The path names a partially typed entry, so list its parent directory filtered by the
+        // typed prefix. Compare case-insensitively, matching how Windows and the game resolve paths.
+        const lastSlash = path.lastIndexOf('/');
+        const subPath = path.substring(lastSlash + 1).toLowerCase();
+        const dirents = await opendir(path.substring(0, lastSlash + 1));
         for await (const dirent of dirents) {
-            if (dirent.isFile() && dirent.name.startsWith(subPath) && dirent.name.endsWith('.rules'))
+            if (dirent.isFile() && dirent.name.toLowerCase().startsWith(subPath) && dirent.name.endsWith('.rules'))
                 options.push(dirent.name + '>');
-            else if (dirent.isDirectory() && dirent.name.startsWith(subPath)) options.push(dirent.name + '/');
+            else if (dirent.isDirectory() && dirent.name.toLowerCase().startsWith(subPath))
+                options.push(dirent.name + '/');
         }
     }
     return options;
