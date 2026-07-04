@@ -66,16 +66,23 @@ intellijPlatform {
         }
     }
     pluginVerification {
-        // Same as the plugin's default fatal set, minus INTERNAL_API_USAGES: the only internal-API
-        // hits are Kotlin's synthetic overrides of ToolWindowFactory's default methods
-        // (getAnchor/getIcon/manage), which can't be removed from our source. Real compatibility
-        // breaks and override-only violations still fail the build.
+        // Fail on internal-API usage too: the marketplace rejects it, and now that the source is
+        // clean (the ToolWindowFactory stubs are gone via -jvm-default=no-compatibility) this makes
+        // any future internal-API creep, e.g. a churny plugin-lookup, break the build before upload.
         failureLevel = listOf(
             VerifyPluginTask.FailureLevel.COMPATIBILITY_PROBLEMS,
             VerifyPluginTask.FailureLevel.OVERRIDE_ONLY_API_USAGES,
+            VerifyPluginTask.FailureLevel.INTERNAL_API_USAGES,
         )
         ides {
             create(IntelliJPlatformType.IntellijIdeaCommunity, "2024.3.5")
+            // Also verify against the latest stable: the marketplace checks a range up to the newest
+            // EAP, and API internal/deprecated annotations shift between releases (the plugin-lookup
+            // churn kept surfacing only on builds newer than the sinceBuild floor, e.g. getPlugins()
+            // went internal in 262 but was clean in 252). EAP snapshot IDEs don't resolve through the
+            // plugin's IDE-download coordinate, so the newest EAP is only checked by the marketplace
+            // upload itself; keep anything platform-version-sensitive out of the code (see PluginPaths).
+            create(IntelliJPlatformType.IntellijIdeaCommunity, "2025.2.6")
             // Rider is the primary target audience (C# modders), verify against it explicitly.
             // Rider ships only as an installer, which the verifier can't unpack, so pull the
             // archive distribution instead (useInstaller = false). See plugin issue #1852.

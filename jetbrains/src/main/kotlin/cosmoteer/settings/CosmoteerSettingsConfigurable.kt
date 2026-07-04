@@ -2,7 +2,7 @@ package cosmoteer.settings
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
-import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
+import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.options.BoundConfigurable
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.ui.DialogPanel
@@ -28,7 +28,11 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
         group("Paths") {
             row("Cosmoteer installation path:") {
                 textFieldWithBrowseButton(
-                    FileChooserDescriptorFactory.createSingleFolderDescriptor()
+                    // Single-folder descriptor built directly, same reason as the Node.js picker
+                    // below: the FileChooserDescriptorFactory helpers are being deprecated release
+                    // by release, while this constructor is only obsolete. Args: chooseFiles,
+                    // chooseFolders, chooseJars, chooseJarsAsFiles, chooseJarContents, chooseMultiple.
+                    FileChooserDescriptor(false, true, false, false, false, false)
                         .withTitle("Select the Cosmoteer Installation Folder")
                 )
                     .align(AlignX.FILL)
@@ -37,7 +41,12 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
             }
             row("Node.js executable:") {
                 textFieldWithBrowseButton(
-                    FileChooserDescriptorFactory.createSingleFileDescriptor()
+                    // Build the single-file descriptor directly: the FileChooserDescriptorFactory
+                    // single-file helpers are all deprecated from 2025.2 on, while this constructor
+                    // is only marked obsolete (which the verifier ignores) and exists since the 243
+                    // floor. Args: chooseFiles, chooseFolders, chooseJars, chooseJarsAsFiles,
+                    // chooseJarContents, chooseMultiple.
+                    FileChooserDescriptor(true, false, false, false, false, false)
                         .withTitle("Select the Node.js Executable")
                 )
                     .align(AlignX.FILL)
