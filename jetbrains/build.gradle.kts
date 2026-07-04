@@ -34,6 +34,16 @@ dependencies {
 
 kotlin {
     jvmToolchain(21)
+    // Implementing a Java interface with default methods (ToolWindowFactory) makes Kotlin emit a
+    // synthetic override stub for every inherited default method. The plugin verifier reads those
+    // stubs as usages of deprecated/internal API (isApplicable, getAnchor, manage and so on).
+    // -jvm-default=no-compatibility relies on JVM default-method dispatch and skips the
+    // compatibility bridges, so no stubs are generated. (Plain -jvm-default=enable keeps those
+    // bridges and the verifier still flags them.) The IntelliJ platform pins the Kotlin language
+    // version below 2.2 for runtime compatibility, so this is set explicitly rather than inherited.
+    compilerOptions {
+        freeCompilerArgs.add("-jvm-default=no-compatibility")
+    }
 }
 
 intellijPlatform {

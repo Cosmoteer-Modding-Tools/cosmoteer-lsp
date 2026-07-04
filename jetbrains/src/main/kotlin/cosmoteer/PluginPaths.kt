@@ -1,6 +1,6 @@
 package cosmoteer
 
-import com.intellij.ide.plugins.PluginManagerCore
+import com.intellij.ide.plugins.PluginManager
 import com.intellij.openapi.extensions.PluginId
 import java.nio.file.Path
 
@@ -10,7 +10,7 @@ object PluginPaths {
 
     /** The plugin's installation directory, the parent of its `lib/` folder. */
     fun pluginRoot(): Path =
-        PluginManagerCore.getPlugin(PluginId.getId(PLUGIN_ID))?.pluginPath
+        PluginManager.getInstance().findEnabledPlugin(PluginId.getId(PLUGIN_ID))?.pluginPath
             ?: throw IllegalStateException("Cosmoteer plugin installation directory not found")
 
     /** The bundled language-server entry point. */
