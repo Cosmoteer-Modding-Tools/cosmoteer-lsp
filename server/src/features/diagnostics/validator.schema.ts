@@ -4,8 +4,10 @@ import {
     AbstractNodeDocument,
     isAssignmentNode,
     isDocumentNode,
+    isFunctionCallNode,
     isGroupNode,
     isListNode,
+    isMathExpressionNode,
     isValueNode,
     ValueNode,
 } from '../../core/ast/ast';
@@ -17,7 +19,7 @@ import {
     resolveGroupClass,
 } from '../../document/schema/schema-context';
 import { documentRootClass, documentRootRegistry } from '../../document/schema/document-root';
-import { discriminatorIsAmbiguous, enumDef, fieldOf, schema } from '../../document/schema/schema';
+import { discriminatorIsAmbiguous, enumDef, fieldOf, schema, valueTypeLabel } from '../../document/schema/schema';
 import { deprecatedDiscriminator } from '../../document/schema/deprecations';
 import { SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { GroupNode } from '../../core/ast/ast';
@@ -53,6 +55,12 @@ const BOOLEAN_WORDS = new Set(['true', 'yes', 'y', 'false', 'no', 'n']);
 // literals the evaluator understands.
 const NUMERIC_LITERAL_WORDS = new Set(['e', 'pi', 'true', 'false', 'infinity', 'nan']);
 
+// The schema kinds whose deserializer never evaluates math: the game reads the raw text of the
+// value (or feeds it to Enum.Parse / the boolean or reference parser), so a math expression written
+// there is a silent bug. Container kinds and numerics are excluded, as are the `int`/`float`
+// primitives with their custom name-accepting deserializers.
+const TEXTUAL_KINDS = new Set(['string', 'enum', 'bool', 'reference']);
+
 /**
  * Whether a value type requires a whole number: a CLR `int` primitive (`int` kind), or a
  * `ModifiableInt` engine scalar (`number` kind). These are the only schema types where a fractional
@@ -72,9 +80,11 @@ const requiresWholeNumber = (valueType: ValueType): boolean =>
  *     `Enum.Parse` is case-sensitive, so a case-only mismatch gets a dedicated warning with a
  *     casing quick-fix); booleans accept the game's full `true/yes/y`/`false/no/n` word set,
  *   - an invalid `Type=` **discriminator** against the registry inferred for the group,
- *   - a bare **non-numeric word** in a confirmed numeric-scalar field, and
+ *   - a bare **non-numeric word** in a confirmed numeric-scalar field,
  *   - a value in an **integer-only** field (scalar or a `Range<int>` endpoint) that resolves
- *     (through references and math) to a fraction.
+ *     (through references and math) to a fraction, and
+ *   - **math in a textual field** (string/enum/bool/reference), where the game reads the
+ *     expression as literal text instead of evaluating it.
  *
  * Range ordering is intentionally never checked: `Range<T>` endpoints are From→To interpolation
  * bounds, not min/max, and vanilla ships many descending pairs, so a `min>max` check is unsafe.
@@ -302,8 +312,28 @@ export const validateSchema = async (
 
     for (const element of document.elements) visit(element);
 
-    // Async pass: integer-constrained fields (scalar or `Range<int>`), revisiting every container
-    // whose class we resolved during the synchronous walk above.
+    // A math expression or function call written into a field whose deserializer never evaluates
+    // math: the game reads it as literal text, so it silently ships broken. Only flagged when the
+    // shared evaluator can reduce the value to a number, which is what proves it IS math. A
+    // parenthesized text value (`Name = Big Gun (Mk2)`) or an expression over unresolved references
+    // evaluates to `null` and is left alone, keeping the check false-positive-free.
+    const checkMathOnTextField = async (value: AbstractNode, fieldName: string, valueType: ValueType) => {
+        const resolved = await evaluateNumericValue(value, cancellationToken).catch(() => null);
+        if (resolved === null) return;
+        errors.push({
+            message: l10n.t(
+                "'{0}' is a {1} field; the game does not evaluate math here and reads the value as literal text.",
+                fieldName,
+                valueTypeLabel(valueType)
+            ),
+            node: value,
+            severity: 'warning',
+        });
+    };
+
+    // Async pass: integer-constrained fields (scalar or `Range<int>`) and math written into a
+    // textual field, revisiting every container whose class we resolved during the synchronous
+    // walk above.
     for (const { container, cls } of typedContainers) {
         if (cancellationToken.isCancellationRequested) break;
         for (const element of container.elements) {
@@ -314,6 +344,11 @@ export const validateSchema = async (
                 await checkInteger(element.right);
             } else if (field.valueType.kind === 'range' && requiresWholeNumber(field.valueType.element)) {
                 await checkIntegerRange(element.right);
+            } else if (
+                TEXTUAL_KINDS.has(field.valueType.kind) &&
+                (isMathExpressionNode(element.right) || isFunctionCallNode(element.right))
+            ) {
+                await checkMathOnTextField(element.right, field.name, field.valueType);
             }
         }
     }

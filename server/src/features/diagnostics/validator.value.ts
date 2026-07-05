@@ -35,8 +35,42 @@ export const ValidationForValue: Validation<ValueNode> = {
         if (node.valueType.type === 'Sprite' || node.valueType.type === 'Sound' || node.valueType.type === 'Shader') {
             return await checkAssets(node, cancellationToken);
         }
+        const missingSeparators = await checkListElementSeparators(node, cancellationToken);
+        if (missingSeparators) return missingSeparators;
         return checkParantheses(node);
     },
+};
+
+/**
+ * Flags a list element that swallowed its numeric neighbors because the separators between them are
+ * missing (`[1 2 3]`). ObjectText only ends a list element at `;`, `,`, a line break or `]`, so the
+ * game reads the whole run as ONE string element. Only fires when every whitespace-separated part is
+ * a number (optionally with a `%`/`d`/`r` expression suffix): a single string of numbers is never a
+ * plausible intended element, while unquoted multi-word TEXT elements exist legitimately. Strings
+ * files are exempt since their list values are localization text.
+ *
+ * @param node the value to inspect.
+ * @param cancellationToken cancels the strings-folder lookup.
+ * @returns a warning with an insert-separators quick-fix, or undefined when the value is fine.
+ */
+export const checkListElementSeparators = async (node: ValueNode, cancellationToken: CancellationToken) => {
+    if (node.valueType.type !== 'String' || node.quoted) return undefined;
+    const parent = node.parent;
+    if (!parent || !isListNode(parent) || !parent.elements.includes(node)) return undefined;
+    const parts = String(node.valueType.value).trim().split(/\s+/);
+    if (parts.length < 2 || !parts.every((part) => /^[-+]?(\d+(\.\d*)?|\.\d+)[%dr]?$/.test(part))) return undefined;
+    if (await isStringsFile(getStartOfAstNode(node).uri, cancellationToken)) return undefined;
+    const separated = parts.join(', ');
+    return {
+        message: l10n.t('Missing separators between list elements'),
+        node: node,
+        severity: 'warning' as const,
+        additionalInfo: l10n.t(
+            'The game reads this as ONE element, "{0}". Separate the elements with "," or ";", or put each on its own line',
+            String(node.valueType.value)
+        ),
+        data: { quickFix: { title: l10n.t('Change to "{0}"', separated), newText: separated } },
+    };
 };
 
 const checkParantheses = (node: ValueNode) => {

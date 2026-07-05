@@ -29,6 +29,7 @@ All settings live under the `cosmoteerLSPRules.` prefix.
 | `diagnostics.validateShaderConstants` | on | Flag a material shader constant the referenced `.shader` does not declare, or with a mismatched value type |
 | `diagnostics.validateShaderCode` | on | Diagnostics inside `.shader` files: missing `#include` targets, undeclared uniforms, unknown functions |
 | `diagnostics.validateLocalizationKeys` | on | Flag a localization key that no language strings file declares |
+| `diagnostics.validateRedundantSeparators` | on | Hint at a `,`/`;` separator a line break already makes redundant (shown as an editor hint, not in the Problems panel) |
 | `rename.allowEditingVanillaFiles` | off | Allow Rename to edit files inside the game `Data` install |
 | `associateShaderFiles` | on | Open `.shader` files with the Cosmoteer Shader language when another extension claims the extension |
 | `formatting.enabled` | on | Document formatting for `.rules` and `.shader` files |
@@ -64,6 +65,7 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 **Diagnostics**
 
 -   Syntax errors, unresolved references and assets, math expressions, duplicate keys, inheritance cycles
+-   Missing separators: two fields on one line with no `,`/`;` between them (the game silently reads them as ONE value) and a run of numbers read as a single list element, each with a quick fix. Conversely, a separator a line break already makes redundant is shown as a subtle hint with a remove quick fix
 -   Component references, cross-file GUI ids, localization keys, shader constants and shader code, each toggleable in the settings
 -   `mod.rules` actions: unknown verbs, missing required fields, unresolvable targets
 -   Deprecation hints for renamed types, with a quick fix
@@ -73,6 +75,7 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 -   Hover showing the resolved value of a reference, with sprite preview for assets
 -   Inlay hints with computed math results (e.g. `Damage = (&Base)/2 + ceil(17/2)  = 14`) and percentages evaluated to their decimal form
 -   Signature help for math functions, with arity checking for every known function
+-   Completion for math-function names inside expressions and on numeric fields, inserted as ready-to-fill call snippets
 
 **Shaders**
 
@@ -90,10 +93,9 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 
 ## Planned
 
--   Code completion for functions (needs type checking)
--   Type checking
--   Identifier validation
--   Unit-aware value evaluation (exploratory; the format has no unit literals today)
+-   In Depth Diagnostics
+-   More useful code actions and refactorings and quick fixes
+-   More visuals for understanding how sprites are working
 -   If you have suggestions or ideas, please open an issue on [GitHub](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/issues)
 
 ## Credits

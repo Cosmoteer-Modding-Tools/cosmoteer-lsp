@@ -54,6 +54,11 @@ export interface CosmoteerSettings {
         // case-insensitive (the game resolves keys case-folded). Only runs once the game `Data` tree is
         // indexed, since a mod's reference to a vanilla key would otherwise false-positive.
         validateLocalizationKeys: boolean;
+        // When true (the default), hint at a `,`/`;` separator that a line break already makes
+        // redundant (ObjectText ends every entry at an unsuppressed newline, so separators are only
+        // needed between entries on the same line). Hint severity keeps it out of the Problems
+        // panel; vanilla itself ships hundreds of such separators.
+        validateRedundantSeparators: boolean;
     };
     rename: {
         // When true, a rename may also edit files inside the Cosmoteer game `Data` install. Off by
@@ -90,6 +95,7 @@ export const defaultSettings: CosmoteerSettings = {
         validateShaderConstants: true,
         validateShaderCode: true,
         validateLocalizationKeys: true,
+        validateRedundantSeparators: true,
     },
     rename: {
         allowEditingVanillaFiles: false,

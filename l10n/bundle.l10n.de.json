@@ -52,5 +52,15 @@
     "{0} of these are referenced by nothing at all. {1} are referenced only from other unreachable files or from commented-out lines (shown as ←), so wiring in the root of such a chain revives every file behind it.": "{0} davon werden von nichts referenziert. {1} werden nur von anderen nicht erreichbaren Dateien oder aus auskommentierten Zeilen referenziert (als ← angezeigt), das Anbinden der Wurzel einer solchen Kette belebt also alle Dateien dahinter wieder.",
     "(mod root)": "(Mod-Wurzel)",
     "'{0}' was renamed to '{1}' in a newer game version ({2}).": "'{0}' wurde in einer neueren Spielversion in '{1}' umbenannt ({2}).",
-    "'{0}' has the wrong casing. The game's enum parsing is case-sensitive; write '{1}'.": "'{0}' hat die falsche Groß-/Kleinschreibung. Das Spiel liest Enum-Werte case-sensitiv; schreibe '{1}'."
+    "'{0}' has the wrong casing. The game's enum parsing is case-sensitive; write '{1}'.": "'{0}' hat die falsche Groß-/Kleinschreibung. Das Spiel liest Enum-Werte case-sensitiv; schreibe '{1}'.",
+    "Missing separator between fields": "Fehlendes Trennzeichen zwischen Feldern",
+    "The game reads everything up to the line end as a single value. Separate the fields with \",\" or \";\", or move the second field to its own line": "Das Spiel liest alles bis zum Zeilenende als einen einzigen Wert. Trenne die Felder mit \",\" oder \";\" oder setze das zweite Feld in eine eigene Zeile",
+    "Insert \",\"": "\",\" einfügen",
+    "Missing separators between list elements": "Fehlende Trennzeichen zwischen Listenelementen",
+    "The game reads this as ONE element, \"{0}\". Separate the elements with \",\" or \";\", or put each on its own line": "Das Spiel liest dies als EIN Element, \"{0}\". Trenne die Elemente mit \",\" oder \";\" oder setze jedes in eine eigene Zeile",
+    "Change to \"{0}\"": "Zu \"{0}\" ändern",
+    "Unnecessary separator": "Unnötiges Trennzeichen",
+    "The line break already ends this entry, so the separator has no effect. Separators are only needed between entries on the same line": "Der Zeilenumbruch beendet diesen Eintrag bereits, das Trennzeichen hat also keine Wirkung. Trennzeichen sind nur zwischen Einträgen in derselben Zeile nötig",
+    "Remove separator": "Trennzeichen entfernen",
+    "'{0}' is a {1} field; the game does not evaluate math here and reads the value as literal text.": "'{0}' ist ein {1}-Feld; das Spiel wertet hier keine Mathematik aus und liest den Wert als wörtlichen Text."
 }

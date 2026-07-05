@@ -88,6 +88,7 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
             row { checkBox("Validate shader constants").bindSelected(state::validateShaderConstants) }
             row { checkBox("Validate shader code").bindSelected(state::validateShaderCode) }
             row { checkBox("Validate localization keys").bindSelected(state::validateLocalizationKeys) }
+            row { checkBox("Hint at redundant separators").bindSelected(state::validateRedundantSeparators) }
         }
         group("Editing") {
             row { checkBox("Allow rename to edit vanilla files").bindSelected(state::allowEditingVanillaFiles) }

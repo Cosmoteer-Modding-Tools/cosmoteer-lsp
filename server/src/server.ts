@@ -48,6 +48,7 @@ import { ValidationForFunctionCall } from './features/diagnostics/validator.func
 import * as l10n from '@vscode/l10n';
 import { CosmoteerWorkspaceService } from './workspace/cosmoteer-workspace.service';
 import { ValidationForAssignment } from './features/diagnostics/validator.assignment';
+import { validateRedundantSeparators } from './features/diagnostics/validator.separator';
 import { ValidationForMath } from './features/diagnostics/validator.math';
 import { ValidationForDocumentDuplicates, ValidationForGroupDuplicates } from './features/diagnostics/validator.duplicate-key';
 import { validateInheritanceCycles } from './features/diagnostics/validator.inheritance-cycle';
@@ -63,6 +64,7 @@ import { join } from 'path';
 import { validateModActions } from './features/diagnostics/validator.mod-action';
 import { invalidateModContext } from './mod/mod-context';
 import { modRulesOffsetCompletions } from './features/completion/autocompletion.mod-rules';
+import { mathFunctionCompletionsAtLinePrefix } from './features/completion/autocompletion.math-function';
 import {
     crossFileReferenceTargetAtOffset,
     isLocalizationKeyFieldAtOffset,
@@ -695,6 +697,12 @@ async function validateTextDocument(
             ).catch(() => []);
             validationErrors = validationErrors.concat(localizationErrors);
         }
+        // Separate pass: `,`/`;` separators that a line break already makes redundant. A token-level
+        // scan, since separators never become AST nodes. Hint severity keeps the finding out of the
+        // Problems panel (vanilla itself ships hundreds of trailing separators).
+        if (settings.diagnostics?.validateRedundantSeparators) {
+            validationErrors = validationErrors.concat(validateRedundantSeparators(tokens));
+        }
         if (isModRules(textDocument.uri)) {
             // Separate pass: validate the manifest's action verbs/targets against the
             // effective game tree (the AstType-keyed Validator allows only one pass per type).
@@ -942,7 +950,14 @@ connection.onCompletion(
                         start: { line: textDocumentPosition.position.line, character: 0 },
                         end: textDocumentPosition.position,
                     });
-                    const valueCompletions = schemaValueCompletionsAtOffset(parserResult, offset, linePrefix);
+                    // Inside an unclosed function call (`Damage = ceil(sq`) the AST has no leaf and
+                    // the line is no `Key = ` value position either, so check the call context first
+                    // and offer the math-function names there instead of field names.
+                    const mathCompletions = mathFunctionCompletionsAtLinePrefix(parserResult, offset, linePrefix);
+                    const valueCompletions =
+                        mathCompletions.length > 0
+                            ? mathCompletions
+                            : schemaValueCompletionsAtOffset(parserResult, offset, linePrefix);
                     if (valueCompletions === undefined) {
                         // Not a `Key = ` value position → offer field names instead.
                         completions = await schemaFieldNameCompletions(parserResult, offset, cancellationToken);

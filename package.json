@@ -210,6 +210,12 @@
                     "default": true,
                     "description": "Flag a localization key (e.g. 'NameKey = \"Parts/Foo\"') that no language strings file declares. Only literal key paths are checked and matching is case-insensitive, like the game. Runs only once the game install is indexed. Offers a 'did you mean' fix and an insert-into-your-strings-files fix."
                 },
+                "cosmoteerLSPRules.diagnostics.validateRedundantSeparators": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Hint at a ',' or ';' separator that a line break already makes redundant. The game ends every field or list element at a line break, so separators are only needed between entries on the same line. Shown as an editor hint, not in the Problems panel."
+                },
                 "cosmoteerLSPRules.rename.allowEditingVanillaFiles": {
                     "scope": "resource",
                     "type": "boolean",

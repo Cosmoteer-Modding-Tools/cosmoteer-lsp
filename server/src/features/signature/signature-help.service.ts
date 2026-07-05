@@ -18,12 +18,13 @@ const GENERIC_PARAM_NAMES = ['a', 'b', 'c', 'd', 'e'];
 /**
  * Derive the parameter labels for a spec: curated names when present, otherwise generic names from
  * the arity (`x` for unary, `a, b` for binary, `…values` for variadic). An optional tail parameter
- * of a `[min, max]` range is rendered too, the highlight clamp below keeps it usable.
+ * of a `[min, max]` range is rendered too, the highlight clamp below keeps it usable. Shared with
+ * math-function completion, whose items show the same signature as their detail.
  *
  * @param spec the registry entry to render.
  * @returns the ordered parameter labels for the signature.
  */
-const paramsOf = (spec: MathFunctionSpec): readonly string[] => {
+export const paramsOf = (spec: MathFunctionSpec): readonly string[] => {
     if (spec.params) return spec.params;
     const [min, max] = spec.arity;
     if (!isFinite(max)) return ['…values'];

@@ -56,6 +56,41 @@ describe('validateSchema — invalid enum values', () => {
     });
 });
 
+describe('validateSchema — math in a textual field', () => {
+    // ResourceConsumer's OverridePriorityName is a schema `string` field; the game reads its value
+    // literally and never evaluates math, so a computable expression there is a silent bug.
+    const consumer = (value: string) =>
+        `Part\n{\n\tComponents\n\t{\n\t\tX\n\t\t{\n\t\t\tType = ResourceConsumer\n\t\t\tOverridePriorityName = ${value}\n\t\t}\n\t}\n}`;
+
+    it('flags a function call on a string field', async () => {
+        const errors = await validateSchema(parse(consumer('ceil(2)')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('OverridePriorityName');
+        expect(errors[0].message).toContain('literal text');
+        expect(errors[0].severity).toBe('warning');
+    });
+
+    it('flags a math expression on a string field', async () => {
+        const errors = await validateSchema(parse(consumer('2 * 3')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('literal text');
+    });
+
+    it('leaves parenthesized text alone (does not evaluate to a number)', async () => {
+        expect(await validateSchema(parse(consumer('Big (Mk2)')), token)).toHaveLength(0);
+    });
+
+    it('leaves an expression over unresolved references alone', async () => {
+        expect(await validateSchema(parse(consumer('ceil(&Nowhere/Ref)')), token)).toHaveLength(0);
+    });
+
+    it('does not flag math on a numeric field', async () => {
+        const source =
+            'Part\n{\n\tComponents\n\t{\n\t\tX\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t\tTargetingRange = ceil(2) * 3\n\t\t}\n\t}\n}';
+        expect(await validateSchema(parse(source), token)).toHaveLength(0);
+    });
+});
+
 describe('validateSchema — deprecated (renamed) discriminator', () => {
     // A component whose `Type=` is a value that was renamed in a newer game version (a mod written
     // against an older Cosmoteer). `Components` is a PartComponentRules slot, so the discriminator is
