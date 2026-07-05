@@ -63,7 +63,16 @@ const settings = {
 
 // ── LSP plumbing ─────────────────────────────────────────────────────────────────────────────────
 const nodeArgs = MAX_OLD_SPACE_MB > 0 ? [`--max-old-space-size=${MAX_OLD_SPACE_MB}`] : [];
-const server = spawn('node', [...nodeArgs, SERVER, '--stdio'], { stdio: ['pipe', 'pipe', 'inherit'] });
+// SCAN_CPU_PROF=dir makes the SERVER write one scan-scoped .cpuprofile per pass into that
+// directory (see server/src/utils/cpu-profile.ts) — analyze self-times to attribute scan cost
+// precisely; the summed per-pass counters cross-bill under concurrency.
+const serverEnv = process.env.SCAN_CPU_PROF
+    ? { ...process.env, COSMOTEER_CPU_PROF: process.env.SCAN_CPU_PROF }
+    : process.env;
+const server = spawn('node', [...nodeArgs, SERVER, '--stdio'], {
+    stdio: ['pipe', 'pipe', 'inherit'],
+    env: serverEnv,
+});
 let buf = Buffer.alloc(0);
 const waiters = new Map();
 let publishCount = 0;
@@ -150,6 +159,15 @@ const reportPass = (label, elapsedMs, stats) => {
     for (const name of [
         'scan.files',
         'scan.parse',
+        'scan.parseMs',
+        'scan.validateMs',
+        'scan.vElementsMs',
+        'scan.vCyclesMs',
+        'scan.vSchemaMs',
+        'scan.vSiblingMs',
+        'scan.vRequiredMs',
+        'scan.vCrossFileMs',
+        'scan.vLocalizationMs',
         'navigate',
         'navigate.memoHit',
         'fs.stat',

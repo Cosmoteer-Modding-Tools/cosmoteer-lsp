@@ -1,5 +1,6 @@
-import { readdir, readFile } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import { join, sep } from 'path';
+import { cachedReaddir } from '../../workspace/fs-cache';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument } from '../../core/ast/ast';
 import { parseText } from '../../utils/ast.utils';
@@ -23,9 +24,11 @@ export const uriToFsPath = (uri: string): string => {
     return path.replace(/\//g, sep);
 };
 
-/** Yield every `.rules` file path under `dir`, recursively. Unreadable dirs are skipped. */
+/** Yield every `.rules` file path under `dir`, recursively. Unreadable dirs are skipped. Listings
+ *  come from the shared readdir cache; the watcher invalidates a directory whose contents change,
+ *  so repeated walks (every scan pass, plus the index builds between them) stop re-listing disk. */
 export async function* collectRulesFiles(dir: string): AsyncGenerator<string> {
-    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    const entries = await cachedReaddir(dir).catch(() => []);
     for (const entry of entries) {
         const full = join(dir, entry.name);
         if (entry.isDirectory()) yield* collectRulesFiles(full);

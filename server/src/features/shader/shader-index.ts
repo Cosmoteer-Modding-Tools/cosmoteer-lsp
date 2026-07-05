@@ -161,11 +161,20 @@ export const shaderConstants = async (
  * @param dataDir the game's `Data` directory, for root-anchored includes.
  * @returns the set of declared uniform names, or null when the shader cannot be read.
  */
+/** Cache of {@link allShaderUniformNames} keyed by absolute shader path, mtime-validated like the
+ *  settable-constants cache above. A whole-workspace scan asks for the same few shaders' names once
+ *  per material-bearing file, which uncached re-read and re-parsed the include chain every time. */
+const uniformNamesCache = new Map<string, { mtimeMs: number; names: ReadonlySet<string> }>();
+
 export const allShaderUniformNames = async (
     shaderPath: string,
     dataDir: string = CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath
 ): Promise<ReadonlySet<string> | null> => {
-    const { parsed, mtimeMs } = await walkIncludes(resolvePath(shaderPath), dataDir);
+    const key = resolvePath(shaderPath);
+    const newest = await mtimeOf(key);
+    const cached = uniformNamesCache.get(key);
+    if (cached && cached.mtimeMs === newest && newest !== 0) return cached.names;
+    const { parsed, mtimeMs } = await walkIncludes(key, dataDir);
     if (mtimeMs === 0) return null; // nothing read, the shader does not exist on disk
     const names = new Set<string>();
     for (const shader of parsed) {
@@ -174,6 +183,7 @@ export const allShaderUniformNames = async (
             names.add(constant.name);
         }
     }
+    uniformNamesCache.set(key, { mtimeMs, names });
     return names;
 };
 

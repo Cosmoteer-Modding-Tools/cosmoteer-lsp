@@ -1,6 +1,6 @@
 import { CancellationToken } from 'vscode-languageserver';
 import { join } from 'path';
-import { readdir } from 'fs/promises';
+import { cachedReaddir } from '../../workspace/fs-cache';
 import { AbstractNode, isValueNode, ValueNode } from '../../core/ast/ast';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { AssetNavigationStrategy } from './asset.navigation-strategy';
@@ -82,7 +82,7 @@ export const suggestAssetFilename = async (
     const names = new Set<string>();
     for (const dir of targetDirs) {
         try {
-            for (const entry of await readdir(dir, { withFileTypes: true })) {
+            for (const entry of await cachedReaddir(dir)) {
                 if (entry.isFile() && extensions.some((extension) => entry.name.toLowerCase().endsWith(extension))) {
                     names.add(entry.name);
                 }

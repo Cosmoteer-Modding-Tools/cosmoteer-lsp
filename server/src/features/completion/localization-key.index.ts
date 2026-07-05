@@ -194,14 +194,47 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
         return out;
     }
 
-    /** The set of every localization key declared in the project — for existence validation. */
-    public async allKeys(folderPaths: string[], cancellationToken: CancellationToken): Promise<Set<string>> {
+    /** The merged key set (original and lowercased casing), memoized against the index revision.
+     *  The whole-workspace scan asks for all keys once per validated file, and re-merging (and
+     *  re-lowercasing) tens of thousands of keys per file dominated the localization pass. */
+    private allKeysMemo?: { revision: number; keys: Set<string>; keysLower: Set<string> };
+
+    /**
+     * The merged key sets behind {@link allKeys}/{@link allKeysLower}, rebuilt only when the index
+     * content changed since the last call. Callers must not mutate the returned sets.
+     *
+     * @param folderPaths the project folders the strings index is built from.
+     * @param cancellationToken cancellation for the index build.
+     * @returns the shared key set and its lowercased counterpart.
+     */
+    private async mergedKeys(
+        folderPaths: string[],
+        cancellationToken: CancellationToken
+    ): Promise<{ keys: Set<string>; keysLower: Set<string> }> {
         await this.ensureBuilt(folderPaths, cancellationToken);
+        if (this.allKeysMemo && this.allKeysMemo.revision === this.revision) return this.allKeysMemo;
         const keys = new Set<string>();
+        const keysLower = new Set<string>();
         for (const { keys: fileKeys } of this.bySource.values()) {
-            for (const key of fileKeys.keys()) keys.add(key);
+            for (const key of fileKeys.keys()) {
+                keys.add(key);
+                keysLower.add(key.toLowerCase());
+            }
         }
-        return keys;
+        this.allKeysMemo = { revision: this.revision, keys, keysLower };
+        return this.allKeysMemo;
+    }
+
+    /** The set of every localization key declared in the project — for existence validation. The
+     *  returned set is shared and must not be mutated. */
+    public async allKeys(folderPaths: string[], cancellationToken: CancellationToken): Promise<Set<string>> {
+        return (await this.mergedKeys(folderPaths, cancellationToken)).keys;
+    }
+
+    /** The lowercased counterpart of {@link allKeys}, for the game's case-insensitive key lookup.
+     *  The returned set is shared and must not be mutated. */
+    public async allKeysLower(folderPaths: string[], cancellationToken: CancellationToken): Promise<Set<string>> {
+        return (await this.mergedKeys(folderPaths, cancellationToken)).keysLower;
     }
 
     /**

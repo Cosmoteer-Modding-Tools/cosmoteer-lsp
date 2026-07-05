@@ -103,6 +103,7 @@ import {
 } from './workspace/fs-cache';
 import { clearNavigationMemo } from './features/navigation/full.navigation-strategy';
 import { perfCount, perfReset, perfSampleMemory, perfSnapshot } from './utils/perf-counters';
+import { startScanCpuProfile, stopScanCpuProfile } from './utils/cpu-profile';
 import { filePathToUri } from './features/navigation/navigation-strategy';
 import { normalizeUri } from './features/navigation/reference-location';
 import { computeSignatureHelp } from './features/signature/signature-help.service';
@@ -740,9 +741,11 @@ async function validateTextDocument(
         parserResult = cached.parserResult;
     } else {
         perfCount('scan.parse');
+        const parseStarted = Date.now();
         tokens = lexer(textDocument.getText());
         if (cancelToken.isCancellationRequested) return [];
         parserResult = parser(tokens, textDocument.uri);
+        perfCount('scan.parseMs', Date.now() - parseStarted);
         // Seed the fs parse cache with this parse, so other scanned files resolving references
         // into this one hit the cache instead of re-reading and re-parsing it from disk.
         await primeParsedFile(uriToFsPath(textDocument.uri), parserResult.value);
@@ -788,13 +791,24 @@ async function validateTextDocument(
     }
 
     let validationErrors: ValidationError[] = [];
+    const validateStarted = Date.now();
+    // Wall time of one validation pass, accumulated into a perf counter for the scan bench's
+    // per-pass breakdown. Only the bulk scan records (persist=false), the open-file flow doesn't.
+    const timedPass = async <T>(counter: string, run: () => Promise<T> | T): Promise<T> => {
+        if (persist) return await run();
+        const started = Date.now();
+        const result = await run();
+        perfCount(counter, Date.now() - started);
+        return result;
+    };
     try {
-        const pormises: Promise<ValidationError[]>[] = [];
-
-        for (const node of parserResult.value.elements) {
-            pormises.push(Validator.instance.validate(node, cancelToken));
-        }
-        validationErrors = (await Promise.all(pormises).catch(() => [])).flat();
+        validationErrors = await timedPass('scan.vElementsMs', async () => {
+            const pormises: Promise<ValidationError[]>[] = [];
+            for (const node of parserResult.value.elements) {
+                pormises.push(Validator.instance.validate(node, cancelToken));
+            }
+            return (await Promise.all(pormises).catch(() => [])).flat();
+        });
         // Top-level duplicate keys span sibling elements (each validated independently above), and
         // inheritance cycles span multiple nodes/files — both need a whole-document view, so they run
         // as separate passes over the root, like the mod-action pass below.
@@ -802,44 +816,47 @@ async function validateTextDocument(
             () => undefined
         );
         if (documentDuplicate) validationErrors.push(documentDuplicate);
-        const inheritanceCycleErrors = await validateInheritanceCycles(parserResult.value, cancelToken).catch(() => []);
+        const inheritanceCycleErrors = await timedPass('scan.vCyclesMs', () =>
+            validateInheritanceCycles(parserResult.value, cancelToken).catch(() => [])
+        );
         validationErrors = validationErrors.concat(inheritanceCycleErrors);
         // Separate pass: schema-driven checks (currently invalid enum values), like the duplicate /
         // inheritance-cycle passes above. Self-gates to non-mod `.rules` files.
-        const schemaErrors = await validateSchema(parserResult.value, cancelToken).catch(() => []);
+        const schemaErrors = await timedPass('scan.vSchemaMs', () =>
+            validateSchema(parserResult.value, cancelToken).catch(() => [])
+        );
         validationErrors = validationErrors.concat(schemaErrors);
         // Separate pass: schema `ID<…>` component references that name no component in the part.
         // On by default, but only once the game `Data` tree is indexed: the part-wide id union folds
         // in inherited vanilla bases, which cannot resolve without the install.
         if (settings.diagnostics?.validateComponentReferences && gameIndexAvailable()) {
-            const siblingRefErrors = await validateSchemaSiblingReferences(parserResult.value, cancelToken).catch(() => []);
+            const siblingRefErrors = await timedPass('scan.vSiblingMs', () =>
+                validateSchemaSiblingReferences(parserResult.value, cancelToken).catch(() => [])
+            );
             validationErrors = validationErrors.concat(siblingRefErrors);
         }
         // Separate pass: cross-file `ID<…>` references (GUI toggle/color/targeter/trigger ids) whose
         // id names no declaration in the project. On by default, but only once the game `Data` tree is
         // indexed: without it, a reference to a vanilla-declared id would be a false positive.
         if (settings.diagnostics?.validateCrossFileReferences && gameIndexAvailable()) {
-            const idRefErrors = await validateCrossFileIdReferences(
-                parserResult.value,
-                await searchFolderUris(),
-                cancelToken
-            ).catch(() => []);
+            const idRefErrors = await timedPass('scan.vCrossFileMs', async () =>
+                validateCrossFileIdReferences(parserResult.value, await searchFolderUris(), cancelToken).catch(() => [])
+            );
             validationErrors = validationErrors.concat(idRefErrors);
         }
         // Separate pass: groups missing a schema-required field, checked through the inheritance chain.
         // Opt-in (default off): engine-injected required fields and bases in the unindexed vanilla
         // install mean a single-project check cannot be fully false-positive-free.
         if (settings.diagnostics?.validateRequiredFields) {
-            // The project-wide set of inheritance-base names lets the check skip cross-file templates
-            // (a `BASE_*` group inherited by other files) that a single-file scan would false-positive.
-            const workspaceBaseNames = await TemplateBaseIndex.instance
-                .baseNames(await searchFolderUris(), cancelToken)
-                .catch(() => undefined);
-            const requiredFieldErrors = await validateRequiredFields(
-                parserResult.value,
-                cancelToken,
-                workspaceBaseNames
-            ).catch(() => []);
+            const requiredFieldErrors = await timedPass('scan.vRequiredMs', async () => {
+                // The project-wide set of inheritance-base names lets the check skip cross-file
+                // templates (a `BASE_*` group inherited by other files) that a single-file scan
+                // would false-positive.
+                const workspaceBaseNames = await TemplateBaseIndex.instance
+                    .baseNames(await searchFolderUris(), cancelToken)
+                    .catch(() => undefined);
+                return validateRequiredFields(parserResult.value, cancelToken, workspaceBaseNames).catch(() => []);
+            });
             validationErrors = validationErrors.concat(requiredFieldErrors);
         }
         // Separate pass: inline `_`-prefixed shader constants a material sets, checked against the
@@ -853,11 +870,9 @@ async function validateTextDocument(
         // declares. On by default, but only once the game `Data` tree is indexed: a mod referencing a
         // vanilla key would false-positive against the mod's own strings alone.
         if (settings.diagnostics?.validateLocalizationKeys && gameIndexAvailable()) {
-            const localizationErrors = await validateLocalizationKeys(
-                parserResult.value,
-                await searchFolderUris(),
-                cancelToken
-            ).catch(() => []);
+            const localizationErrors = await timedPass('scan.vLocalizationMs', async () =>
+                validateLocalizationKeys(parserResult.value, await searchFolderUris(), cancelToken).catch(() => [])
+            );
             validationErrors = validationErrors.concat(localizationErrors);
         }
         // Separate pass: `,`/`;` separators that a line break already makes redundant. A token-level
@@ -878,6 +893,7 @@ async function validateTextDocument(
     } catch (e) {
         if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
     }
+    if (!persist) perfCount('scan.validateMs', Date.now() - validateStarted);
 
     for (const error of validationErrors) {
         problems++;
@@ -983,6 +999,7 @@ async function runWorkspaceValidation(): Promise<void> {
 
     const progress = await connection.window.createWorkDoneProgress();
     progress.begin('Validating workspace', 0, '', false);
+    startScanCpuProfile();
     // Trust the fs caches for the duration of the pass: a scan re-checks the same directories and
     // base files tens of thousands of times, and the file watcher invalidates changed paths anyway.
     beginFsTrustWindow();
@@ -1029,6 +1046,7 @@ async function runWorkspaceValidation(): Promise<void> {
         await Promise.all(Array.from({ length: WORKSPACE_DIAGNOSTIC_CONCURRENCY }, worker));
     } finally {
         endFsTrustWindow();
+        await stopScanCpuProfile();
         progress.done();
         if (workspaceValidationSource === source) workspaceValidationSource = undefined;
     }

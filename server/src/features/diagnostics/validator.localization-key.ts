@@ -28,6 +28,12 @@ const namesByRight: WeakMap<object, Map<unknown, string>> = new WeakMap();
  * @param node the string value node to name.
  * @returns the assignment's field name, or undefined when `node` is not an assignment value.
  */
+/** Did-you-mean results per unknown key (lowercased, the match is case-insensitive), valid for one
+ *  strings-index revision. The same missing key typically appears in many files of a mod, and each
+ *  suggestion scans the full key set, so the scan pays that scan once per distinct key instead of
+ *  once per occurrence. */
+let suggestionMemo: { revision: number; byKey: Map<string, string | null> } | undefined;
+
 const assignmentNameOf = (node: ValueNode): string | undefined => {
     const parent = node.parent;
     if (!parent || !(isGroupNode(parent) || isDocumentNode(parent))) return undefined;
@@ -83,8 +89,9 @@ export const validateLocalizationKeys = async (
     if (keys.size === 0) return [];
     // Cosmoteer resolves keys case-insensitively — vanilla itself references `Doodads/Asteroidgold_S`
     // while the strings define `AsteroidGold_S` — so membership is checked case-folded to avoid
-    // flagging a mere case difference.
-    const keysLower = new Set([...keys].map((existing) => existing.toLowerCase()));
+    // flagging a mere case difference. The lowered set is memoized in the index; rebuilding it here
+    // per validated file dominated this pass on whole-workspace scans.
+    const keysLower = await LocalizationKeyIndex.instance.allKeysLower(folderPaths, cancellationToken);
 
     const errors: ValidationError[] = [];
     for (const { node, key } of candidates) {
@@ -95,7 +102,14 @@ export const validateLocalizationKeys = async (
         if (!isLocalizationKeyType(field?.valueType)) continue;
         if (keysLower.has(key.toLowerCase())) continue;
 
-        const suggestion = closestMatch(key, [...keys], true);
+        const revision = LocalizationKeyIndex.instance.revision;
+        if (suggestionMemo?.revision !== revision) suggestionMemo = { revision, byKey: new Map() };
+        const memoKey = key.toLowerCase();
+        let suggestion = suggestionMemo.byKey.get(memoKey);
+        if (suggestion === undefined) {
+            suggestion = closestMatch(key, keys, true);
+            suggestionMemo.byKey.set(memoKey, suggestion);
+        }
         const base = l10n.t('No localization key "{0}" is defined in any strings file.', key);
         errors.push({
             message: l10n.t('Localization key not found'),
