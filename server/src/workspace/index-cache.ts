@@ -46,16 +46,30 @@ const serverBuildId = (): string => {
 };
 
 /**
+ * The absolute path of a named cache artifact for a given game Data root, under the OS-local
+ * application data directory. Shared by the index cache and the mention cache so both key their
+ * files by the same root identity.
+ *
+ * @param dataRoot the game `Data` root the cache belongs to.
+ * @param name the artifact name (e.g. 'index-cache').
+ * @returns the absolute cache file path.
+ */
+export const cacheArtifactPath = (dataRoot: string, name: string): string => {
+    const key = createHash('sha1').update(dataRoot.replace(/\\/g, '/').toLowerCase()).digest('hex').slice(0, 16);
+    const base = process.env.LOCALAPPDATA ?? tmpdir();
+    return join(base, 'cosmoteer-lsp', `${name}-${key}.json`);
+};
+
+/** The running server build's identity, for cache invalidation across rebuilds. */
+export const currentServerBuildId = (): string => serverBuildId();
+
+/**
  * The cache file path for a given game Data root, under the OS-local application data directory.
  *
  * @param dataRoot the game `Data` root the cache belongs to.
  * @returns the absolute cache file path.
  */
-const cacheFileFor = (dataRoot: string): string => {
-    const key = createHash('sha1').update(dataRoot.replace(/\\/g, '/').toLowerCase()).digest('hex').slice(0, 16);
-    const base = process.env.LOCALAPPDATA ?? tmpdir();
-    return join(base, 'cosmoteer-lsp', `index-cache-${key}.json`);
-};
+const cacheFileFor = (dataRoot: string): string => cacheArtifactPath(dataRoot, 'index-cache');
 
 /**
  * A hash over every `.rules` file's relative path, size, and mtime under the Data root. Equal

@@ -1,7 +1,9 @@
-import { stat } from 'fs/promises';
+import { mkdir, readFile, rename, stat, writeFile } from 'fs/promises';
+import { dirname } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { CancellationError } from '../../utils/cancellation';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
+import { cacheArtifactPath, currentServerBuildId } from '../../workspace/index-cache';
 import { normalizeUri } from './reference-location';
 import { collectRulesFiles, readFilesAhead, uriToFsPath } from './workspace-files';
 
@@ -20,6 +22,17 @@ interface IndexedFile {
     size: number;
     mtimeMs: number;
     words: string[];
+}
+
+/** Bump when the serialized mention-cache shape (or the word extraction) changes. */
+const MENTION_CACHE_FORMAT_VERSION = 1;
+
+/** The on-disk shape of the persisted game-tree word index. */
+interface MentionCacheFile {
+    formatVersion: number;
+    serverBuildId: string;
+    dataRoot: string;
+    files: Array<[key: string, path: string, size: number, mtimeMs: number, words: string[]]>;
 }
 
 /**
@@ -51,6 +64,16 @@ export class MentionIndex {
     private readonly files = new Map<string, IndexedFile>();
     /** Lower-cased word → normalized keys of the files whose text contains it. */
     private readonly byWord = new Map<string, Set<string>>();
+    /**
+     * Whether the client watches `.rules` files, so disk changes arrive through {@link markDirty}.
+     * With a watcher, a query after the first full sweep only re-checks the dirtied files instead
+     * of re-walking and re-statting the whole project tree per find-all-references/rename.
+     */
+    private watcherDriven = false;
+    /** Files a watcher reported changed/created/deleted since the last sync. */
+    private readonly dirty = new Set<string>();
+    /** Whether a full walk+stat sweep has validated the current state at least once. */
+    private fullSyncDone = false;
 
     private constructor() {}
 
@@ -65,6 +88,23 @@ export class MentionIndex {
         this.syncPromise = undefined;
         this.files.clear();
         this.byWord.clear();
+        this.dirty.clear();
+        this.fullSyncDone = false;
+    }
+
+    /** Switches queries after the first full sweep to dirty-file-only syncs (watcher required). */
+    public enableWatcherDrivenSync(): void {
+        this.watcherDriven = true;
+    }
+
+    /**
+     * Records a watched-file change so the next query re-checks exactly that file. Only effective
+     * in watcher-driven mode; without a watcher every query keeps its own full stat sweep.
+     *
+     * @param fsPath the on-disk path the watcher reported.
+     */
+    public markDirty(fsPath: string): void {
+        this.dirty.add(fsPath);
     }
 
     /**
@@ -131,12 +171,61 @@ export class MentionIndex {
             this.reset();
             this.builtFor = signature;
         }
+        // With a watcher, the full walk+stat sweep runs once; afterwards only the files the
+        // watcher dirtied are re-checked. Without one (tests, minimal clients), every query
+        // keeps the stateless full sweep so external changes are still picked up.
+        if (this.watcherDriven && this.fullSyncDone) {
+            if (this.dirty.size === 0) return;
+            if (!this.syncPromise) {
+                this.syncPromise = this.syncDirtyFiles(cancellationToken).finally(() => {
+                    this.syncPromise = undefined;
+                });
+            }
+            await this.syncPromise;
+            return;
+        }
         if (!this.syncPromise) {
             this.syncPromise = this.syncWithDisk(folderPaths, cancellationToken).finally(() => {
                 this.syncPromise = undefined;
             });
         }
         await this.syncPromise;
+    }
+
+    /**
+     * Re-checks exactly the watcher-dirtied files: vanished ones are dropped, changed ones
+     * re-read. A file that fails mid-sync stays dirty for the next query.
+     *
+     * @param cancellationToken cancels the re-reads.
+     * @returns once the dirtied files are current.
+     */
+    private async syncDirtyFiles(cancellationToken: CancellationToken): Promise<void> {
+        const paths = [...this.dirty];
+        this.dirty.clear();
+        const changed: Array<{ key: string; path: string; size: number; mtimeMs: number }> = [];
+        for (const path of paths) {
+            if (cancellationToken.isCancellationRequested) {
+                for (const remaining of paths) this.dirty.add(remaining);
+                throw new CancellationError();
+            }
+            const key = normalizeUri(path);
+            try {
+                const info = await stat(path);
+                const known = this.files.get(key);
+                if (!known || known.size !== info.size || known.mtimeMs !== info.mtimeMs) {
+                    changed.push({ key, path, size: info.size, mtimeMs: info.mtimeMs });
+                }
+            } catch {
+                this.removeSource(key);
+            }
+        }
+        const metaByPath = new Map(changed.map((entry) => [entry.path, entry]));
+        for await (const { file, text } of readFilesAhead(changed.map((entry) => entry.path))) {
+            if (cancellationToken.isCancellationRequested) throw new CancellationError();
+            const meta = metaByPath.get(file)!;
+            if (text === undefined) this.removeSource(meta.key);
+            else this.indexText(meta, text);
+        }
     }
 
     /**
@@ -151,6 +240,10 @@ export class MentionIndex {
     private async syncWithDisk(folderPaths: string[], cancellationToken: CancellationToken): Promise<void> {
         const firstBuild = this.files.size === 0;
         const work = async (): Promise<void> => {
+            // Seed the game tree's words from the persisted cache before the sweep: seeded entries
+            // whose size+mtime still match are not re-read, so a warm start stats the tree but
+            // reads almost nothing. The sweep below validates every seeded entry either way.
+            if (firstBuild) await this.trySeedFromCache();
             const onDisk: Array<{ key: string; path: string }> = [];
             const seen = new Set<string>();
             for (const folder of folderPaths) {
@@ -190,6 +283,11 @@ export class MentionIndex {
                 if (text === undefined) this.removeSource(meta.key);
                 else this.indexText(meta, text);
             }
+            this.fullSyncDone = true;
+            // Persist the (rarely changing) game-tree portion so the next server start seeds
+            // instead of re-reading ~1000 files. Only worth rewriting when this sweep re-read
+            // any game file. Mod files are never cached.
+            if (changed.length > 0 || firstBuild) await this.trySaveCache();
         };
         // The first build reads the whole project, so show it as an indexing indicator. Later
         // syncs are a quick stat sweep and stay silent.
@@ -197,6 +295,64 @@ export class MentionIndex {
             await CosmoteerWorkspaceService.instance.withIndexingProgress('Indexing mentions', () => work());
         } else {
             await work();
+        }
+    }
+
+    /**
+     * Seeds the index with the persisted game-tree words when the cache matches the running build
+     * and Data root. Purely an optimization: every seeded entry is still validated by the stat
+     * sweep of the sync that follows.
+     */
+    private async trySeedFromCache(): Promise<void> {
+        const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+        const buildId = currentServerBuildId();
+        if (!dataRoot || !buildId) return;
+        try {
+            const raw = await readFile(cacheArtifactPath(dataRoot, 'mention-cache'), { encoding: 'utf-8' });
+            const cache = JSON.parse(raw) as MentionCacheFile;
+            if (cache.formatVersion !== MENTION_CACHE_FORMAT_VERSION) return;
+            if (cache.serverBuildId !== buildId) return;
+            if (cache.dataRoot !== dataRoot) return;
+            for (const [key, path, size, mtimeMs, words] of cache.files) {
+                this.files.set(key, { path, size, mtimeMs, words });
+                for (const word of words) {
+                    (this.byWord.get(word) ?? this.byWord.set(word, new Set()).get(word)!).add(key);
+                }
+            }
+        } catch {
+            /* no cache or unreadable, the full read builds it fresh */
+        }
+    }
+
+    /**
+     * Persists the game-tree portion of the index (best-effort, atomic rename). The game tree
+     * changes only on a game update, so this survives across sessions. Mod files stay out.
+     */
+    private async trySaveCache(): Promise<void> {
+        const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+        const buildId = currentServerBuildId();
+        if (!dataRoot || !buildId) return;
+        const rootPrefix = normalizeUri(dataRoot);
+        const entries: MentionCacheFile['files'] = [];
+        for (const [key, file] of this.files) {
+            if (!key.startsWith(rootPrefix)) continue;
+            entries.push([key, file.path, file.size, file.mtimeMs, file.words]);
+        }
+        if (entries.length === 0) return;
+        try {
+            const target = cacheArtifactPath(dataRoot, 'mention-cache');
+            await mkdir(dirname(target), { recursive: true });
+            const cache: MentionCacheFile = {
+                formatVersion: MENTION_CACHE_FORMAT_VERSION,
+                serverBuildId: buildId,
+                dataRoot,
+                files: entries,
+            };
+            const temp = `${target}.${process.pid}.tmp`;
+            await writeFile(temp, JSON.stringify(cache), { encoding: 'utf-8' });
+            await rename(temp, target);
+        } catch {
+            /* best-effort cache, never fail a query over it */
         }
     }
 

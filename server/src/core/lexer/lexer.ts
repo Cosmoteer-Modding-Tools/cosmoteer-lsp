@@ -230,23 +230,30 @@ export const lexer = (input: string): Token[] => {
         }
 
         // Verbatim string `@"…"` (ObjectText, C#-style): no `\` escapes, a doubled `""` is a
-        // literal quote, and it may span newlines. Ends at the first lone `"`.
+        // literal quote, and it may span newlines. Ends at the first lone `"`. The loop only
+        // counts lines and finds boundaries; the value is assembled from whole slices between
+        // `""` pairs instead of one string concatenation per character.
         if (char === '@' && input[current + 1] === '"') {
             let value = '';
             const start = current;
             const lineOffsetBefore = lineOffset;
             current += 2;
             lineOffset += 2;
+            let segmentStart = current;
+            let closed = false;
             while (current < input.length) {
                 if (input[current] === '"') {
                     if (input[current + 1] === '"') {
-                        value += '"';
+                        value += input.slice(segmentStart, current + 1);
                         current += 2;
                         lineOffset += 2;
+                        segmentStart = current;
                         continue;
                     }
+                    value += input.slice(segmentStart, current);
                     current++;
                     lineOffset++;
+                    closed = true;
                     break;
                 }
                 if (input[current] === '\n') {
@@ -255,15 +262,14 @@ export const lexer = (input: string): Token[] => {
                 } else {
                     lineOffset++;
                 }
-                value += input[current];
                 current++;
             }
+            if (!closed) value += input.slice(segmentStart, current);
             pushToken(createToken(TOKEN_TYPES.STRING, lineOffsetBefore, lineNumber, start, current, value));
             continue;
         }
 
         if (char === '"') {
-            let value = '';
             const start = current;
             const lineOffsetBefore = lineOffset;
             current++; // skip the opening quote
@@ -272,20 +278,22 @@ export const lexer = (input: string): Token[] => {
             // the quote that follows it closes the string. The old `input[current-1] === '\\'` check
             // mishandled this — a string ending in `\\` (e.g. `"\\"`) ran past its closing quote and
             // swallowed the rest of the file. Track the escape explicitly instead.
+            // The value keeps escape sequences raw, so it is exactly the input between the quotes:
+            // the loop only counts lines and finds the closing quote, and the value is sliced once.
+            let contentEnd = input.length;
             while (current < input.length) {
                 const c = input[current];
                 if (c === '\\') {
-                    value += c;
                     current++;
                     lineOffset++;
                     if (current < input.length) {
-                        value += input[current];
                         current++;
                         lineOffset++;
                     }
                     continue;
                 }
                 if (c === '"') {
+                    contentEnd = current;
                     current++;
                     lineOffset++;
                     break;
@@ -296,9 +304,9 @@ export const lexer = (input: string): Token[] => {
                 } else {
                     lineOffset++;
                 }
-                value += c;
                 current++;
             }
+            const value = input.slice(start + 1, Math.min(contentEnd, current));
             pushToken(createToken(TOKEN_TYPES.STRING, lineOffsetBefore, lineNumber, start, current, value));
             continue;
         }
@@ -364,7 +372,9 @@ export const lexer = (input: string): Token[] => {
                     // `MM:SS`/`HH:MM:SS` time literal: a `:` between digits stays in the
                     // value (e.g. `TimeLimit = 30:00`) so it is not lexed as an inheritance
                     // colon. `Child : Parent` is unaffected (the value there is not digits).
+                    // The `sawDigit` guard skips the slice+regex for the common non-time colon.
                     (char === ':' &&
+                        sawDigit &&
                         TIME_LITERAL_PREFIX.test(input.slice(start, current)) &&
                         /\d/.test(input[current + 1] ?? '')) ||
                     // Virtual-inheritance path segment: a `:` that is a segment of a reference
@@ -378,7 +388,9 @@ export const lexer = (input: string): Token[] => {
                     // Scientific-notation exponent sign: a `+`/`-` right after `e`/`E`
                     // (e.g. `3.4028235E+38`) stays in the value rather than being lexed as a
                     // math operator. (`E-38` already works via the `-` in the value charset.)
+                    // The previous-char guard skips the slice+regex unless an `e`/`E` precedes.
                     ((char === '+' || char === '-') &&
+                        (input[current - 1] === 'e' || input[current - 1] === 'E') &&
                         EXPONENT_PREFIX.test(input.slice(start, current)) &&
                         /\d/.test(input[current + 1] ?? ''))) &&
                 !isSingleLineComment(char, input, current) &&

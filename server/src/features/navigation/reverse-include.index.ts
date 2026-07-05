@@ -12,7 +12,8 @@ import {
     isListNode,
     isValueNode,
 } from '../../core/ast/ast';
-import { getStartOfAstNode, parseFilePath } from '../../utils/ast.utils';
+import { getStartOfAstNode } from '../../utils/ast.utils';
+import { cachedParseFilePath } from '../../workspace/fs-cache';
 import { listElementType, memberTypeIn, resolveGroupClass } from '../../document/schema/schema-context';
 import { commonAncestorClass } from '../../document/schema/schema';
 import { documentRootClass } from '../../document/schema/document-root';
@@ -574,7 +575,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
      * @returns the base file's root class, or undefined.
      */
     private async wholeFileBaseClass(key: string, fsPath: string): Promise<string | undefined> {
-        const base = await parseFilePath(fsPath).catch(() => null);
+        const base = await cachedParseFilePath(fsPath).catch(() => null);
         const native = base ? documentRootClass(base) : undefined;
         if (native) return native;
         const rootType = this.rootType(key) ?? aliasRootIndex.rootType(key);
@@ -629,7 +630,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             const paths = this.pendingAliasFilePaths;
             this.pendingAliasFilePaths = [];
             for (const path of paths) {
-                const document = await parseFilePath(path).catch(() => null);
+                const document = await cachedParseFilePath(path).catch(() => null);
                 if (document) this.fixpointDocuments?.push(document);
             }
         }

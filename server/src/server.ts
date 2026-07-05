@@ -21,6 +21,7 @@ import {
     CodeActionKind,
     WorkspaceFolder,
     TextEdit,
+    InlayHint,
 } from 'vscode-languageserver/node';
 
 import { readFile } from 'fs/promises';
@@ -85,9 +86,23 @@ import { collectIncludeText } from './features/shader/shader-index';
 import { validateShaderConstants } from './features/diagnostics/validator.shader-constants';
 import { particleChannelCompletionsAtOffset } from './features/navigation/particle-channel';
 import { documentColors, colorPresentations } from './features/color/document-color';
-import { findEnclosingGroup, findEnclosingList, listElementReferenceTarget } from './document/schema/schema-context';
+import {
+    findEnclosingGroup,
+    findEnclosingList,
+    invalidateSchemaContextCache,
+    listElementReferenceTarget,
+} from './document/schema/schema-context';
 import { toCompletionItem } from './features/completion/completion-item';
 import { collectRulesFiles, uriToFsPath } from './features/navigation/workspace-files';
+import {
+    beginFsTrustWindow,
+    clearFsCaches,
+    endFsTrustWindow,
+    invalidateFsPath,
+    primeParsedFile,
+} from './workspace/fs-cache';
+import { clearNavigationMemo } from './features/navigation/full.navigation-strategy';
+import { perfCount, perfReset, perfSampleMemory, perfSnapshot } from './utils/perf-counters';
 import { filePathToUri } from './features/navigation/navigation-strategy';
 import { normalizeUri } from './features/navigation/reference-location';
 import { computeSignatureHelp } from './features/signature/signature-help.service';
@@ -134,6 +149,7 @@ let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
 let hasDidChangeWatchedFilesCapability = false;
 let hasSnippetCapability = false;
+let hasPullDiagnosticsCapability = false;
 
 /** The cached `workspace/workspaceFolders` answer, `undefined` until (re)fetched. */
 let workspaceFoldersCache: WorkspaceFolder[] | null | undefined;
@@ -182,6 +198,9 @@ connection.onInitialize(async (params: InitializeParams) => {
         capabilities.textDocument.publishDiagnostics.relatedInformation
     );
     hasDidChangeWatchedFilesCapability = !!capabilities.workspace?.didChangeWatchedFiles?.dynamicRegistration;
+    // A pull-capable client requests diagnostics itself (`textDocument/diagnostic`) after each
+    // change. Pushing from `onDidChangeContent` as well would validate every edit twice.
+    hasPullDiagnosticsCapability = !!capabilities.textDocument?.diagnostic;
     const result: InitializeResult = {
         capabilities: {
             textDocumentSync: {
@@ -300,6 +319,9 @@ connection.onInitialized(async (_params) => {
         connection.client.register(DidChangeWatchedFilesNotification.type, {
             watchers: [{ globPattern: '**/*.rules' }],
         });
+        // With the watcher in place, the mention index no longer needs its per-query stat sweep
+        // over the whole tree. Disk changes arrive as dirty marks instead.
+        MentionIndex.instance.enableWatcherDrivenSync();
     }
     if (hasWorkspaceFolderCapability) {
         connection.workspace.onDidChangeWorkspaceFolders(async (_event) => {
@@ -317,6 +339,8 @@ connection.onInitialized(async (_params) => {
             LocalizationKeyIndex.instance.reset();
             ReverseIncludeIndex.instance.reset();
             MentionIndex.instance.reset();
+            clearFsCaches();
+            invalidateSchemaContextCache();
             if (wholeWorkspaceEnabled()) {
                 await clearWorkspaceDiagnostics();
                 await runWorkspaceValidation();
@@ -390,6 +414,8 @@ connection.onDidChangeConfiguration(async (change) => {
         LocalizationKeyIndex.instance.reset();
         ReverseIncludeIndex.instance.reset();
         MentionIndex.instance.reset();
+        clearFsCaches();
+        invalidateSchemaContextCache();
     }
     connection.languages.diagnostics.refresh();
 
@@ -445,9 +471,148 @@ function ensureParserResult(uri: string): AbstractNodeDocument | undefined {
     return result;
 }
 
+/** How long to sit out further keystrokes before a push-model validation runs. */
+const VALIDATION_DEBOUNCE_MS = 250;
+
+/** Per-uri debounce timers of the push-diagnostics flow (clients without pull support). */
+const pushValidationTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+
+/**
+ * The last lex+parse of each open document. {@link registerOpenDocument} fills it on every edit so
+ * the validation that follows (push or pull) reuses the parse instead of lexing and parsing the
+ * same text a second time. Entries live only as long as the document is open.
+ */
+const openParseCache: Map<string, { version: number; tokens: ReturnType<typeof lexer>; parserResult: ReturnType<typeof parser> }> =
+    new Map();
+
+/**
+ * The in-flight or settled diagnostics of each open document, keyed by uri and valid for one
+ * document version. The push flow and the pull handler share one validation per version through
+ * this map instead of racing two independent full passes over the same text.
+ */
+const diagnosticsCache: Map<string, { version: number; promise: Promise<Diagnostic[]> }> = new Map();
+
+/**
+ * Lexes and parses an open document once per version and publishes the result to every consumer:
+ * the parser-result registrar (completion/hover/navigation read the live AST back), the project
+ * indexes (marked dirty for their next query), and the mod-manifest registrar. Validation used to
+ * do all of this inline; it lives here so the AST is current the moment an edit arrives, even when
+ * a pull-model client runs the actual validation later.
+ *
+ * @param document the open document to parse and register.
+ */
+function registerOpenDocument(document: TextDocument): void {
+    // `.shader` files are HLSL, the rules lexer/parser would flag every line.
+    if (isShaderDocument(document.uri)) return;
+    const cached = openParseCache.get(document.uri);
+    if (cached && cached.version === document.version) return;
+    const tokens = lexer(document.getText());
+    const parserResult = parser(tokens, document.uri);
+    openParseCache.set(document.uri, { version: document.version, tokens, parserResult });
+    ParserResultRegistrar.instance.setResult(document.uri, parserResult.value);
+    // The edit changes what absolute references into this file resolve to, and the disk watcher
+    // never sees open-buffer edits, so drop the navigation memo here.
+    clearNavigationMemo();
+    // An edit changes which symbols this file contributes. Re-index it lazily at the next
+    // workspace-symbol query. (find-all-references is stateless, it re-reads per query.)
+    WorkspaceSymbolService.instance.markDirty(document.uri);
+    SchemaIdIndex.instance.markDirty(document.uri);
+    TemplateBaseIndex.instance.markDirty(document.uri);
+    LocalizationKeyIndex.instance.markDirty(document.uri);
+    ReverseIncludeIndex.instance.markDirty(document.uri);
+    if (isModRules(document.uri)) {
+        // Parse the manifest's actions. A mod.rules edit changes the effective game tree.
+        ModRulesRegistrar.instance.registerManifest(parserResult.value);
+        invalidateModContext();
+    } else if (basenameOf(document.uri).toLowerCase() === 'cosmoteer.rules') {
+        // The mod's own cosmoteer.rules contributes convenience globals to the effective tree.
+        invalidateModContext();
+        // Its aliases drive fragment rooting, rebuild that index on the next feature use.
+        aliasRootIndex.invalidate();
+    }
+}
+
+/**
+ * Returns the diagnostics of an open document, computing them at most once per document version.
+ * A newer version cancels the previous run through the per-uri token source; a run that was
+ * cancelled mid-way drops its (partial) cache entry so the next request recomputes.
+ *
+ * @param document the open document to validate.
+ * @returns the document's diagnostics.
+ */
+function computeDiagnosticsCached(document: TextDocument): Promise<Diagnostic[]> {
+    const uri = document.uri;
+    const cached = diagnosticsCache.get(uri);
+    if (cached && cached.version === document.version) return cached.promise;
+    const token = tokenSourceManager.createToken(uri);
+    const version = document.version;
+    const dropOwnEntry = (): void => {
+        const entry = diagnosticsCache.get(uri);
+        if (entry && entry.version === version && entry.promise === promise) diagnosticsCache.delete(uri);
+    };
+    const promise: Promise<Diagnostic[]> = validateTextDocument(document, token).then(
+        (diagnostics) => {
+            // A cancelled run resolves with partial results, never serve them to a later request.
+            if (token.isCancellationRequested) dropOwnEntry();
+            return diagnostics;
+        },
+        (e) => {
+            dropOwnEntry();
+            throw e;
+        }
+    );
+    diagnosticsCache.set(uri, { version, promise });
+    return promise;
+}
+
+/**
+ * Debounced push validation for clients without pull-diagnostics support. The first diagnostics of
+ * a freshly opened document go out immediately; while typing, each keystroke resets a short timer
+ * so only the settled text is validated.
+ *
+ * @param document the open document whose validation to schedule.
+ */
+function schedulePushValidation(document: TextDocument): void {
+    const uri = document.uri;
+    const existing = pushValidationTimers.get(uri);
+    if (existing !== undefined) clearTimeout(existing);
+    const run = async (): Promise<void> => {
+        pushValidationTimers.delete(uri);
+        const current = documents.get(uri);
+        if (!current) return;
+        try {
+            const diagnostics = await computeDiagnosticsCached(current);
+            await connection.sendDiagnostics({ uri, version: current.version, diagnostics });
+        } catch (e) {
+            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        }
+    };
+    if (!diagnosticsCache.has(uri)) {
+        void run();
+        return;
+    }
+    pushValidationTimers.set(
+        uri,
+        setTimeout(() => void run(), VALIDATION_DEBOUNCE_MS)
+    );
+}
+
 // Only keep settings for open documents
 documents.onDidClose(async (e) => {
+    // The registrar entry this drops was what resolution saw for the file; back to disk state.
+    clearNavigationMemo();
     documentSettings.delete(e.document.uri);
+    const timer = pushValidationTimers.get(e.document.uri);
+    if (timer !== undefined) {
+        clearTimeout(timer);
+        pushValidationTimers.delete(e.document.uri);
+    }
+    tokenSourceManager.cancelToken(e.document.uri);
+    openParseCache.delete(e.document.uri);
+    diagnosticsCache.delete(e.document.uri);
+    inlayHintCache.delete(e.document.uri);
+    semanticTokensCache.delete(e.document.uri);
+    ParserResultRegistrar.instance.removeResult(e.document.uri);
     if (wholeWorkspaceEnabled()) {
         // Whole-workspace mode: the file's problems should persist after closing. Clear the
         // editor-uri diagnostics, then re-validate from disk under the canonical (`filePathToUri`)
@@ -484,36 +649,26 @@ documents.onDidClose(async (e) => {
 // );
 
 documents.onDidChangeContent(
-    async (e) => {
+    (e) => {
         try {
-            const diagnostics = await validateTextDocument(e.document, tokenSourceManager.createToken(e.document.uri));
-            await connection.sendDiagnostics({
-                uri: e.document.uri,
-                version: e.document.version,
-                diagnostics: diagnostics,
-            });
-        } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            // Parse and publish the AST immediately, completion/hover/navigation read it between
+            // keystrokes. Validation is scheduled separately below.
+            registerOpenDocument(e.document);
+        } catch (err) {
+            if (globalSettings.trace.server === 'messages' && !(err instanceof CancellationError)) console.error(err);
         }
+        // A pull-capable client requests `textDocument/diagnostic` itself after the change; pushing
+        // here as well would run the whole validation twice per edit.
+        if (hasPullDiagnosticsCapability) return;
+        schedulePushValidation(e.document);
     },
     null,
     [tokenSourceManager]
 );
 
-connection.languages.diagnostics.on(async (params, cancelToken) => {
+connection.languages.diagnostics.on(async (params, _cancelToken) => {
     const document = documents.get(params.textDocument.uri);
-    tokenSourceManager.cancelToken(params.textDocument.uri);
-    await connection.sendDiagnostics({
-        uri: params.textDocument.uri,
-        version: document?.version ?? 0,
-        diagnostics: [],
-    });
-    if (document !== undefined) {
-        return {
-            kind: DocumentDiagnosticReportKind.Full,
-            items: await validateTextDocument(document, cancelToken),
-        } satisfies FullDocumentDiagnosticReport;
-    } else {
+    if (document === undefined) {
         // We don't know the document. We can either try to read it from disk
         // or we don't report problems for it.
         return {
@@ -521,6 +676,18 @@ connection.languages.diagnostics.on(async (params, cancelToken) => {
             items: [],
         } satisfies DocumentDiagnosticReport;
     }
+    // If the whole-workspace pass pushed diagnostics for this file before it was opened, retract
+    // them. The pull result replaces them, and keeping both would double every entry.
+    const norm = normalizeUri(params.textDocument.uri);
+    for (const stored of workspaceDiagnosticUris) {
+        if (normalizeUri(stored) !== norm) continue;
+        workspaceDiagnosticUris.delete(stored);
+        await connection.sendDiagnostics({ uri: stored, diagnostics: [] });
+    }
+    return {
+        kind: DocumentDiagnosticReportKind.Full,
+        items: await computeDiagnosticsCached(document),
+    } satisfies FullDocumentDiagnosticReport;
 });
 
 /** Maps a {@link ValidationError} severity (default 'error') to the LSP DiagnosticSeverity. */
@@ -561,40 +728,36 @@ async function validateTextDocument(
     // through the field that includes it. Make sure both indexes are built so schema validation and
     // resolution inside a fragment work. This is a no-op once built and when there is no game root.
     await ensureFragmentRooting(cancelToken);
-    const text = textDocument.getText();
-    const tokens = lexer(text);
-    if (cancelToken.isCancellationRequested) return [];
-    const parserResult = parser(tokens, textDocument.uri);
+    let tokens: ReturnType<typeof lexer>;
+    let parserResult: ReturnType<typeof parser>;
+    if (persist) {
+        // The open-document flow: reuse the parse {@link registerOpenDocument} already did for
+        // this version. It also published the AST and marked the project indexes dirty.
+        registerOpenDocument(textDocument);
+        const cached = openParseCache.get(textDocument.uri);
+        if (!cached) return [];
+        tokens = cached.tokens;
+        parserResult = cached.parserResult;
+    } else {
+        perfCount('scan.parse');
+        tokens = lexer(textDocument.getText());
+        if (cancelToken.isCancellationRequested) return [];
+        parserResult = parser(tokens, textDocument.uri);
+        // Seed the fs parse cache with this parse, so other scanned files resolving references
+        // into this one hit the cache instead of re-reading and re-parsing it from disk.
+        await primeParsedFile(uriToFsPath(textDocument.uri), parserResult.value);
+        if (isModRules(textDocument.uri)) {
+            // mod.rules diagnostics need the manifest's actions registered to validate them, but we do
+            // not invalidate the live mod context for an unopened file (the open buffer owns that).
+            ModRulesRegistrar.instance.registerManifest(parserResult.value);
+        }
+    }
     if (cancelToken.isCancellationRequested) return [];
     if (settings.trace.server === 'verbose') {
         console.dir(parserResult);
     }
     let problems = 0;
     const diagnostics: Diagnostic[] = [];
-    if (persist) {
-        ParserResultRegistrar.instance.setResult(textDocument.uri, parserResult.value);
-        // An edit changes which symbols this file contributes. Re-index it lazily at the next
-        // workspace-symbol query. (find-all-references is stateless — it re-reads per query.)
-        WorkspaceSymbolService.instance.markDirty(textDocument.uri);
-        SchemaIdIndex.instance.markDirty(textDocument.uri);
-        TemplateBaseIndex.instance.markDirty(textDocument.uri);
-        LocalizationKeyIndex.instance.markDirty(textDocument.uri);
-        ReverseIncludeIndex.instance.markDirty(textDocument.uri);
-        if (isModRules(textDocument.uri)) {
-            // Parse the manifest's actions. A mod.rules edit changes the effective game tree.
-            ModRulesRegistrar.instance.registerManifest(parserResult.value);
-            invalidateModContext();
-        } else if (basenameOf(textDocument.uri).toLowerCase() === 'cosmoteer.rules') {
-            // The mod's own cosmoteer.rules contributes convenience globals to the effective tree.
-            invalidateModContext();
-            // Its aliases drive fragment rooting — rebuild that index on the next feature use.
-            aliasRootIndex.invalidate();
-        }
-    } else if (isModRules(textDocument.uri)) {
-        // mod.rules diagnostics need the manifest's actions registered to validate them, but we do
-        // not invalidate the live mod context for an unopened file (the open buffer owns that).
-        ModRulesRegistrar.instance.registerManifest(parserResult.value);
-    }
 
     for (const error of parserResult.parserErrors) {
         problems++;
@@ -793,6 +956,8 @@ async function validateWorkspaceFile(file: string, openNorms: Set<string>, token
         // persist=false: don't cache this unopened file's AST (memory) — produce diagnostics and discard.
         const diagnostics = await validateTextDocument(textDocument, token, false);
         if (token.isCancellationRequested) return;
+        perfCount('scan.files');
+        perfSampleMemory();
         workspaceDiagnosticUris.add(uri);
         await connection.sendDiagnostics({ uri, diagnostics });
     } catch (e) {
@@ -818,6 +983,9 @@ async function runWorkspaceValidation(): Promise<void> {
 
     const progress = await connection.window.createWorkDoneProgress();
     progress.begin('Validating workspace', 0, '', false);
+    // Trust the fs caches for the duration of the pass: a scan re-checks the same directories and
+    // base files tens of thousands of times, and the file watcher invalidates changed paths anyway.
+    beginFsTrustWindow();
     try {
         const files: string[] = [];
         for (const folder of folderUris) {
@@ -860,6 +1028,7 @@ async function runWorkspaceValidation(): Promise<void> {
         };
         await Promise.all(Array.from({ length: WORKSPACE_DIAGNOSTIC_CONCURRENCY }, worker));
     } finally {
+        endFsTrustWindow();
         progress.done();
         if (workspaceValidationSource === source) workspaceValidationSource = undefined;
     }
@@ -1143,6 +1312,11 @@ async function ensureFragmentRooting(cancellationToken: CancellationToken): Prom
     // already-open file arrives earlier, and building then would permanently omit the game
     // `Data` root from every project index (they are one-time builds).
     await workspaceInitialized;
+    // Only the two rooting sources feed the schema-context memos: the forward alias walk and the
+    // reverse-include index. Snapshot their revisions so the epoch below is only bumped when one
+    // of them actually moved. The whole-workspace scan calls this once per file, and bumping
+    // unconditionally invalidated every memo on shared base nodes several thousand times per scan.
+    const rootingRevisionBefore = aliasRootIndex.revision + ReverseIncludeIndex.instance.revision;
     await ensureAliasRootIndex(cancellationToken).catch(() => undefined);
     const folders = await searchFolderUris();
     await WatchedDocumentIndex.buildTogether(
@@ -1156,6 +1330,11 @@ async function ensureFragmentRooting(cancellationToken: CancellationToken): Prom
         'Indexing project'
     ).catch(() => undefined);
     await ReverseIncludeIndex.instance.ensureBuilt(folders, cancellationToken).catch(() => undefined);
+    // The builds above may have (re)rooted fragments, which changes what the per-node schema
+    // resolution memos would answer, so start a fresh memo epoch for the features that follow.
+    if (aliasRootIndex.revision + ReverseIncludeIndex.instance.revision !== rootingRevisionBefore) {
+        invalidateSchemaContextCache();
+    }
 }
 
 // Disk changes the editor doesn't surface as edits (git pull/checkout, external tools,
@@ -1163,11 +1342,18 @@ async function ensureFragmentRooting(cancellationToken: CancellationToken): Prom
 // Created/externally-changed files are re-read from disk at the next workspace-symbol query.
 connection.onDidChangeWatchedFiles(async (params) => {
     const openNorms = wholeWorkspaceEnabled() ? openDocumentNorms() : undefined;
+    // Disk changes can re-root fragments and shift schema anchoring for unchanged open ASTs.
+    invalidateSchemaContextCache();
     // A cosmoteer.rules add/change/delete can alter how fragments are rooted — rebuild lazily.
     if (params.changes.some((c) => basenameOf(c.uri).toLowerCase() === 'cosmoteer.rules')) {
         aliasRootIndex.invalidate();
     }
+    const toRevalidate: string[] = [];
     for (const change of params.changes) {
+        // A disk change invalidates the parsed-document cache entry and the parent directory
+        // listing reference resolution keeps, and dirties the mention index's word entry.
+        invalidateFsPath(uriToFsPath(change.uri));
+        MentionIndex.instance.markDirty(uriToFsPath(change.uri));
         if (change.type === FileChangeType.Deleted) {
             WorkspaceSymbolService.instance.remove(change.uri);
             SchemaIdIndex.instance.remove(change.uri);
@@ -1189,12 +1375,23 @@ connection.onDidChangeWatchedFiles(async (params) => {
             TemplateBaseIndex.instance.markDirty(change.uri);
             LocalizationKeyIndex.instance.markDirty(change.uri);
             ReverseIncludeIndex.instance.markDirty(change.uri);
-            // Re-validate the created/externally-changed file so its diagnostics stay current
-            // (skips files open in the editor — the live-edit flow already covers those).
-            if (openNorms) {
-                await validateWorkspaceFile(uriToFsPath(change.uri), openNorms, CancellationToken.None);
-            }
+            if (openNorms) toRevalidate.push(uriToFsPath(change.uri));
         }
+    }
+    // Re-validate created/externally-changed files so their diagnostics stay current (files open
+    // in the editor are skipped, the live-edit flow already covers those). A git-pull-sized burst
+    // arrives as one notification with many changes, so the files run through the same bounded
+    // worker pool as the whole-workspace pass instead of strictly one after another.
+    if (openNorms && toRevalidate.length > 0) {
+        let next = 0;
+        const worker = async (): Promise<void> => {
+            while (next < toRevalidate.length) {
+                await validateWorkspaceFile(toRevalidate[next++], openNorms, CancellationToken.None);
+            }
+        };
+        await Promise.all(
+            Array.from({ length: Math.min(WORKSPACE_DIAGNOSTIC_CONCURRENCY, toRevalidate.length) }, worker)
+        );
     }
 });
 
@@ -1394,6 +1591,15 @@ connection.onRequest('cosmoteer/modOverview', async (params: { textDocument: { u
     }
 });
 
+// Performance introspection for the scan bench (server/test/perf/scan-bench.mjs): the hot-path
+// counters, the peak heap sampled during workspace scans, and the current memory usage. The
+// optional reset lets the bench isolate a warm pass from the cold one that preceded it.
+connection.onRequest('cosmoteer/perfStats', (params: { reset?: boolean } | null) => {
+    const snapshot = { ...perfSnapshot(), memory: process.memoryUsage() };
+    if (params?.reset) perfReset();
+    return snapshot;
+});
+
 // Document colours: render an inline swatch for `{ Rf Gf Bf Af }` / `{ R G B A }` colour groups.
 connection.onDocumentColor((params) => {
     const parserResult = ensureParserResult(params.textDocument.uri);
@@ -1420,12 +1626,48 @@ connection.onColorPresentation((params) => {
 });
 
 // Inlay hints: show the computed result of math/function assignments inline (`= 14`).
+// Computed once per document version over the whole document and cached; each request (the client
+// re-asks on every scroll) filters the cached hints down to its visible range.
+const inlayHintCache: Map<string, { version: number; promise: Promise<InlayHint[]> }> = new Map();
+
+/** The whole-document range, so one inlay computation covers every later scroll request. */
+const FULL_DOCUMENT_RANGE = {
+    start: { line: 0, character: 0 },
+    end: { line: Number.MAX_SAFE_INTEGER, character: 0 },
+};
+
 connection.languages.inlayHint.on(async (params, cancellationToken) => {
-    const parserResult = ensureParserResult(params.textDocument.uri);
+    const uri = params.textDocument.uri;
+    const parserResult = ensureParserResult(uri);
     if (!parserResult) return null;
     try {
-        return await InlayHintService.instance.getInlayHints(parserResult, params.range, cancellationToken);
+        const version = documents.get(uri)?.version;
+        let entry = version !== undefined ? inlayHintCache.get(uri) : undefined;
+        if (!entry || entry.version !== version) {
+            const promise = InlayHintService.instance.getInlayHints(parserResult, FULL_DOCUMENT_RANGE, cancellationToken);
+            if (version !== undefined) {
+                entry = { version, promise };
+                inlayHintCache.set(uri, entry);
+            } else {
+                entry = { version: -1, promise };
+            }
+        }
+        const hints = await entry.promise;
+        // A cancelled computation returned partial hints, drop it so the next request recomputes.
+        if (cancellationToken.isCancellationRequested) {
+            if (inlayHintCache.get(uri) === entry) inlayHintCache.delete(uri);
+            return null;
+        }
+        const { start, end } = params.range;
+        return hints.filter((hint) => {
+            const { line, character } = hint.position;
+            if (line < start.line || line > end.line) return false;
+            if (line === start.line && character < start.character) return false;
+            if (line === end.line && character > end.character) return false;
+            return true;
+        });
     } catch (e) {
+        if (inlayHintCache.get(uri)?.version === documents.get(uri)?.version) inlayHintCache.delete(uri);
         if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
         return null;
     }
@@ -1434,16 +1676,28 @@ connection.languages.inlayHint.on(async (params, cancellationToken) => {
 // Semantic tokens: colour the parsed document by meaning the TextMate grammar can't infer (a `&…`
 // reference vs a bareword enum vs a math function). The grammar stays the synchronous base layer;
 // this is the overlay. Drives both VS Code and the native IntelliJ LSP highlighter.
+// The token walk is pure CPU over the cached AST, so its result is cached per document version and
+// repeated requests for unchanged text answer from memory.
+const semanticTokensCache: Map<string, { version: number; tokens: { data: number[] } }> = new Map();
+
 connection.languages.semanticTokens.on((params, cancellationToken) => {
     if (cancellationToken.isCancellationRequested) return { data: [] };
     try {
-        // `.shader` files are HLSL — scanned lexically straight from text, no OT parse needed.
-        if (isShaderDocument(params.textDocument.uri)) {
-            const document = documents.get(params.textDocument.uri);
-            return document ? buildShaderSemanticTokens(document.getText()) : { data: [] };
+        const uri = params.textDocument.uri;
+        const version = documents.get(uri)?.version;
+        const cached = semanticTokensCache.get(uri);
+        if (cached && version !== undefined && cached.version === version) return cached.tokens;
+        let tokens: { data: number[] };
+        // `.shader` files are HLSL, scanned lexically straight from text, no OT parse needed.
+        if (isShaderDocument(uri)) {
+            const document = documents.get(uri);
+            tokens = document ? buildShaderSemanticTokens(document.getText()) : { data: [] };
+        } else {
+            const parserResult = ensureParserResult(uri);
+            tokens = parserResult ? buildSemanticTokens(parserResult) : { data: [] };
         }
-        const parserResult = ensureParserResult(params.textDocument.uri);
-        return parserResult ? buildSemanticTokens(parserResult) : { data: [] };
+        if (version !== undefined) semanticTokensCache.set(uri, { version, tokens });
+        return tokens;
     } catch (e) {
         if (globalSettings.trace.server === 'messages') console.error(e);
         return { data: [] };

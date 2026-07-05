@@ -1,7 +1,8 @@
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, ListNode, isListNode, isGroupNode, GroupNode } from '../core/ast/ast';
-import { getStartOfAstNode, parseFile } from '../utils/ast.utils';
+import { AbstractNode, ListNode, isListNode, isGroupNode, GroupNode } from '../core/ast/ast';
+import { getStartOfAstNode } from '../utils/ast.utils';
 import { FileWithPath, FileTree, isFile } from '../workspace/cosmoteer-workspace.service';
+import { getParsedFileDocument } from '../workspace/parsed-file-cache';
 import { stepIntoNode } from './reference-resolver';
 
 /**
@@ -65,10 +66,8 @@ export const findMemberThroughInheritance = async (
         // base, which left every `&<file>`-inherited member unresolvable (false "unknown reference").
         let parent = resolved as AbstractNode;
         if (isFile(resolved as unknown as FileTree)) {
-            const file = resolved as unknown as FileWithPath;
-            const document = file.content.parsedDocument ?? (await parseFile(file).catch(() => null));
+            const document = await getParsedFileDocument(resolved as unknown as FileWithPath).catch(() => null);
             if (!document) continue;
-            file.content.parsedDocument = document as AbstractNodeDocument;
             parent = document;
         }
 

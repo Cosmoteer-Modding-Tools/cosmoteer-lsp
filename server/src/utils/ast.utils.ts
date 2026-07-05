@@ -168,9 +168,31 @@ export const findNodeByIdentifier = (node: AbstractNode, identifier: string): Ab
     return caseInsensitiveMatch;
 };
 
+/** Memo of each node's owning document. Resolution calls this on essentially every step, and the
+ *  parent walk is O(depth) per call, so the walk is path-compressed: every node visited on the way
+ *  up is cached. Keyed weakly, entries die with their AST. */
+const documentOfNode: WeakMap<AbstractNode, AbstractNodeDocument> = new WeakMap();
+
+/**
+ * The document root a node belongs to, following `parent` links with path compression.
+ *
+ * @param node the node whose owning document is wanted.
+ * @returns the owning document root.
+ */
 export const getStartOfAstNode = (node: AbstractNode): AbstractNodeDocument => {
-    if (node.parent) {
-        return getStartOfAstNode(node.parent);
+    let current: AbstractNode = node;
+    const path: AbstractNode[] = [];
+    let root: AbstractNodeDocument | undefined;
+    while (current.parent) {
+        const cached = documentOfNode.get(current);
+        if (cached) {
+            root = cached;
+            break;
+        }
+        path.push(current);
+        current = current.parent;
     }
-    return node as AbstractNodeDocument;
+    root ??= current as AbstractNodeDocument;
+    for (const visited of path) documentOfNode.set(visited, root);
+    return root;
 };

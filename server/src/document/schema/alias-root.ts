@@ -49,6 +49,13 @@ class AliasRootIndex {
     /** normalized file uri → (aliased member name, or '' for the file root → its schema valueType). */
     private readonly index = new Map<string, Map<string, ValueType>>();
     private built = false;
+    private _revision = 0;
+
+    /** A counter that moves whenever the index's content may have changed (a build or an
+     *  invalidation), so rooting-dependent caches can detect change instead of assuming it. */
+    public get revision(): number {
+        return this._revision;
+    }
 
     public isReady(): boolean {
         return this.built;
@@ -56,6 +63,7 @@ class AliasRootIndex {
 
     public invalidate(): void {
         this.built = false;
+        this._revision++;
         this.index.clear();
     }
 
@@ -75,6 +83,7 @@ class AliasRootIndex {
         this.index.clear();
         await this.walk(rootDoc, ROOT_CLASS, rootDoc.uri, resolve, new Set([normalizeUri(rootDoc.uri)]), 0);
         this.built = true;
+        this._revision++;
     }
 
     private put(uri: string, member: string, valueType: ValueType): void {

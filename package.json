@@ -106,15 +106,33 @@
             {
                 "language": "rules",
                 "scopes": {
-                    "property": ["variable.name"],
-                    "variable": ["entity.name.tag"],
-                    "enumMember": ["string.unquoted"],
-                    "number": ["constant.numeric"],
-                    "keyword": ["constant.language"],
-                    "function": ["support.function"],
-                    "type": ["entity.name.type"],
-                    "operator": ["keyword.operator"],
-                    "string": ["string.quoted"]
+                    "property": [
+                        "variable.name"
+                    ],
+                    "variable": [
+                        "entity.name.tag"
+                    ],
+                    "enumMember": [
+                        "string.unquoted"
+                    ],
+                    "number": [
+                        "constant.numeric"
+                    ],
+                    "keyword": [
+                        "constant.language"
+                    ],
+                    "function": [
+                        "support.function"
+                    ],
+                    "type": [
+                        "entity.name.type"
+                    ],
+                    "operator": [
+                        "keyword.operator"
+                    ],
+                    "string": [
+                        "string.quoted"
+                    ]
                 }
             }
         ],
@@ -259,9 +277,9 @@
         "test": "sh ./scripts/e2e.sh",
         "test:server": "cd server && npm test",
         "check-types": "tsc -b --noEmit",
-    "docs:scaffold": "node tools/docsgen/docsgen.mjs scaffold",
-    "docs:compile": "node tools/docsgen/docsgen.mjs compile",
-    "docs:lint": "node tools/docsgen/docsgen.mjs lint",
+        "docs:scaffold": "node tools/docsgen/docsgen.mjs scaffold",
+        "docs:compile": "node tools/docsgen/docsgen.mjs compile",
+        "docs:lint": "node tools/docsgen/docsgen.mjs lint",
         "l10n": "npx @vscode/l10n-dev export --outDir ./l10n .\\server"
     },
     "devDependencies": {

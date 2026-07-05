@@ -23,6 +23,19 @@ export abstract class WatchedDocumentIndex {
     /** The in-flight (or completed) one-time build, shared so concurrent queries don't rebuild. */
     private buildPromise?: Promise<void>;
     private readonly dirty = new Set<string>();
+    private _revision = 0;
+
+    /**
+     * A counter that moves whenever this index's content may have changed: a completed build, a
+     * reconcile of dirty documents, a removal, or a reset. Consumers whose own caches depend on
+     * this index (the schema-context memos on fragment rooting) compare it before and after a
+     * freshness call instead of invalidating unconditionally.
+     *
+     * @returns the current revision number.
+     */
+    public get revision(): number {
+        return this._revision;
+    }
 
     /** This index's slot name in the persistent game-tree cache, or undefined when it doesn't
      *  participate (an index whose scope excludes the game tree must not, see {@link buildTogether}). */
@@ -58,6 +71,7 @@ export abstract class WatchedDocumentIndex {
     /** Drop a deleted document from the index immediately. */
     public remove(uri: string): void {
         this.dirty.delete(uri);
+        this._revision++;
         this.removeSource(normalizeUri(uri));
     }
 
@@ -66,6 +80,7 @@ export abstract class WatchedDocumentIndex {
         this.dirty.clear();
         this.built = false;
         this.buildPromise = undefined;
+        this._revision++;
         this.clear();
     }
 
@@ -99,6 +114,7 @@ export abstract class WatchedDocumentIndex {
                 this.buildPromise = run
                     .then(() => {
                         this.built = true;
+                        this._revision++;
                     })
                     .catch((error) => {
                         // Let a failed build be retried by the next query.
@@ -117,6 +133,7 @@ export abstract class WatchedDocumentIndex {
      * created files are picked up — and a file that no longer parses (deleted) is dropped.
      */
     private async reconcileDirty(cancellationToken: CancellationToken): Promise<void> {
+        if (this.dirty.size > 0) this._revision++;
         for (const uri of this.dirty) {
             if (cancellationToken.isCancellationRequested) throw new CancellationError();
             const open = ParserResultRegistrar.instance.getResult(uri);
@@ -240,6 +257,7 @@ export abstract class WatchedDocumentIndex {
                 index.buildPromise = run
                     .then(() => {
                         index.built = true;
+                        index._revision++;
                     })
                     .catch((error) => {
                         // Let a failed shared build be retried by the next query on this index.

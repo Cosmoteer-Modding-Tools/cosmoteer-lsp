@@ -1,0 +1,7 @@
+# Test fixtures and snapshots are byte-offset-sensitive: the lexer/parser golden snapshots record
+# absolute start/end offsets computed from the fixture text, so a CRLF checkout (core.autocrlf on
+# Windows) shifts every offset and fails the suite. Force LF so every platform checks out the same
+# bytes the snapshots were recorded from.
+*.rules text eol=lf
+*.shader text eol=lf
+*.snap text eol=lf

@@ -59,6 +59,35 @@ const collectComponentIds = async (
     document: AbstractNodeDocument,
     token: CancellationToken
 ): Promise<Set<string>> => {
+    // One collection per parsed document: an edit produces a new AST (a new key), and this
+    // document's diagnostics are only recomputed on its own edits anyway, so the union cannot be
+    // observed stale. Without this, every validation of a part re-ran the cross-file BFS.
+    const cached = componentIdsByDocument.get(document);
+    if (cached) return cached;
+    const collected = collectComponentIdsUncached(document, token).then((ids) => {
+        // A cancelled walk returns a partial union. Serving that to a later validation would
+        // false-positive, so drop it and let the next run collect fresh.
+        if (token.isCancellationRequested) componentIdsByDocument.delete(document);
+        return ids;
+    });
+    componentIdsByDocument.set(document, collected);
+    return collected;
+};
+
+/** Per-AST memo of the part-wide component-id union (see {@link collectComponentIds}). */
+const componentIdsByDocument: WeakMap<AbstractNodeDocument, Promise<Set<string>>> = new WeakMap();
+
+/**
+ * The uncached part-wide component-id collection behind {@link collectComponentIds}.
+ *
+ * @param document the part document whose component ids to union.
+ * @param token cancels the cross-file walk.
+ * @returns every reachable component id, lowercased.
+ */
+const collectComponentIdsUncached = async (
+    document: AbstractNodeDocument,
+    token: CancellationToken
+): Promise<Set<string>> => {
     const ids = new Set<string>();
     const seenNodes = new Set<AbstractNode>();
     const seenRefs = new Set<string>();

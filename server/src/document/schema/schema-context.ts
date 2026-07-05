@@ -19,11 +19,20 @@ import {
     isValueNode,
 } from '../../core/ast/ast';
 import { namedMembersOf } from '../../utils/ast.utils';
-import { classAncestry, classByDiscriminator, commonAncestorClass, fieldOf, fieldsOf, schema } from './schema';
+import {
+    classAncestry,
+    classByDiscriminator,
+    commonAncestorClass,
+    fieldOf,
+    fieldsOf,
+    firstRegistryDeclaring,
+    schema,
+} from './schema';
 import { SchemaRegistry, ValueType } from './schema.types';
 import { documentRootClass } from './document-root';
 import { aliasedMemberType, inheritanceBaseCandidates } from './alias-root';
 import { TEXTURE_GROUP_CLASS } from './schema-overlay';
+import { perfCount } from '../../utils/perf-counters';
 
 /**
  * Top-level group identifiers that anchor a schema root class. The engine deserializes these from
@@ -73,14 +82,53 @@ const groupFitsClass = (group: GroupNode, cls: string): boolean => {
 
 const ELEMENT_KINDS = new Set(['list', 'range', 'interpolated']);
 
+// Slot and class resolution walk the parent chain per node and re-derive the same ancestors for
+// every sibling, on every request. Both are memoized per AST node here. A node's resolution can
+// also depend on cross-file rooting state (alias roots, reverse includes), which changes without
+// the AST changing, so the memos carry an epoch that the server bumps whenever that state may have
+// moved. An edit itself needs no bump: it produces a fresh AST whose nodes are new memo keys.
+let contextEpoch = 0;
+
+/** Invalidates the per-node slot/class memos after a rooting-state change. */
+export const invalidateSchemaContextCache = (): void => {
+    contextEpoch++;
+    perfCount('schemaEpochBump');
+};
+
+/** Memo entries above this parent-chain depth are skipped so a depth-limited (truncated) walk
+ *  can never persist its partial answer for a shallower caller. */
+const MEMO_DEPTH_LIMIT = 24;
+
+const slotTypeCache: WeakMap<AbstractNode, { epoch: number; value: ValueType | undefined }> = new WeakMap();
+const groupClassCache: WeakMap<GroupNode, { epoch: number; value: string | undefined }> = new WeakMap();
+
 /**
  * The schema value type the engine expects at a group/list node's slot, derived from the field that
  * declares its container. This is what makes nested resolution and collision-disambiguation work:
  * the declaring field names the exact class/registry, so a `Perlin` under a `TextureLayer`-typed
  * `Layers` resolves to TextureLayer, not (the colliding) HeightMapLayer. Returns undefined when the
- * container chain can't be anchored to a known class.
+ * container chain can't be anchored to a known class. Memoized per node and epoch.
+ *
+ * @param node the group or list whose slot type is wanted.
+ * @param depth the current parent-chain recursion depth.
+ * @returns the slot's schema type, or undefined when unanchorable.
  */
 const expectedValueType = (node: GroupNode | ListNode, depth: number): ValueType | undefined => {
+    const cached = slotTypeCache.get(node);
+    if (cached && cached.epoch === contextEpoch) return cached.value;
+    const value = expectedValueTypeUncached(node, depth);
+    if (depth <= MEMO_DEPTH_LIMIT) slotTypeCache.set(node, { epoch: contextEpoch, value });
+    return value;
+};
+
+/**
+ * The uncached slot resolution behind {@link expectedValueType}.
+ *
+ * @param node the group or list whose slot type is wanted.
+ * @param depth the current parent-chain recursion depth.
+ * @returns the slot's schema type, or undefined when unanchorable.
+ */
+const expectedValueTypeUncached = (node: GroupNode | ListNode, depth: number): ValueType | undefined => {
     if (depth > 32) return undefined;
     const parent = node.parent;
     if (!parent) return undefined;
@@ -156,9 +204,8 @@ export const registryForContainer = (container: GroupNode): SchemaRegistry | und
         if (!isGroupNode(element)) continue;
         const disc = groupDiscriminator(element);
         if (!disc) continue;
-        for (const registry of Object.values(schema.registries)) {
-            if (disc in registry.members) return registry;
-        }
+        const registry = firstRegistryDeclaring(disc);
+        if (registry) return registry;
     }
     return undefined;
 };
@@ -233,11 +280,13 @@ const inheritedBaseClassForGroup = (group: GroupNode): string | undefined => {
  */
 export const resolveGroupClass = (group: GroupNode, depth = 0): string | undefined => {
     if (depth > 32) return undefined;
+    const cached = groupClassCache.get(group);
+    if (cached && cached.epoch === contextEpoch) return cached.value;
     // A top-level group reachable only as a cross-file inheritance base: root it to the deriver class
     // that best fits its own fields, ahead of the shallower common-ancestor type the slot walk yields.
-    const inherited = inheritedBaseClassForGroup(group);
-    if (inherited) return inherited;
-    return classFromSlot(group, expectedValueType(group, depth));
+    const value = inheritedBaseClassForGroup(group) ?? classFromSlot(group, expectedValueType(group, depth));
+    if (depth <= MEMO_DEPTH_LIMIT) groupClassCache.set(group, { epoch: contextEpoch, value });
+    return value;
 };
 
 /**

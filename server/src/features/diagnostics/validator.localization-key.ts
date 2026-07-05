@@ -16,14 +16,30 @@ import { closestMatch } from '../../utils/did-you-mean';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 
-/** The field name whose `key = value` right-hand side is `node`, from the enclosing group or document. */
+/** Per-container lookup table from an assignment's right-hand node to its field name. Built once
+ *  per group instead of rescanning the group's elements for every candidate value node, which made
+ *  string-heavy groups quadratic. Keyed weakly so tables die with their AST. */
+const namesByRight: WeakMap<object, Map<unknown, string>> = new WeakMap();
+
+/**
+ * The field name whose `key = value` right-hand side is `node`, from the enclosing group or
+ * document.
+ *
+ * @param node the string value node to name.
+ * @returns the assignment's field name, or undefined when `node` is not an assignment value.
+ */
 const assignmentNameOf = (node: ValueNode): string | undefined => {
     const parent = node.parent;
     if (!parent || !(isGroupNode(parent) || isDocumentNode(parent))) return undefined;
-    for (const element of parent.elements) {
-        if (isAssignmentNode(element) && element.right === node) return element.left.name;
+    let table = namesByRight.get(parent);
+    if (!table) {
+        table = new Map();
+        for (const element of parent.elements) {
+            if (isAssignmentNode(element)) table.set(element.right, element.left.name);
+        }
+        namesByRight.set(parent, table);
     }
-    return undefined;
+    return table.get(node);
 };
 
 /**

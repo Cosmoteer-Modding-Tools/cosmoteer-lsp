@@ -4,6 +4,20 @@ import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.s
 import { extractSubstrings, filePathToDirectoryPath, NavigationStrategy } from './navigation-strategy';
 import { access, constants, readdir, realpath } from 'fs/promises';
 import { globalSettings } from '../../settings';
+import { perfCount } from '../../utils/perf-counters';
+import { onFsInvalidation } from '../../workspace/fs-cache';
+
+// Asset existence is pure disk state, and a whole-workspace scan probes the same sprite/sound
+// paths tens of thousands of times (shared bases reference the same assets from every deriving
+// part). Resolved paths (and misses) are memoized here. Asset files themselves are not watched,
+// but the memo is dropped with the fs caches, so any watched `.rules`/`.shader` change (which is
+// also what triggers a revalidation in the first place) re-probes from disk.
+/** Upper bound of memoized asset resolutions. */
+const ASSET_MEMO_CAP = 32_768;
+
+const assetMemo: Map<string, string | null> = new Map();
+
+onFsInvalidation(() => assetMemo.clear());
 
 export class AssetNavigationStrategy extends NavigationStrategy<boolean> {
     async navigate(path: string, startNode: AbstractNode, currentLocation: string): Promise<boolean> {
@@ -38,9 +52,27 @@ export class AssetNavigationStrategy extends NavigationStrategy<boolean> {
     }
 
     private resolveByCurrentLocation = async (pathes: string[], currentLocation: string): Promise<string | null> => {
+        const memoKey = `${filePathToDirectoryPath(currentLocation).toLowerCase()} ${pathes.join('/').toLowerCase()}`;
+        const cached = assetMemo.get(memoKey);
+        if (cached !== undefined) {
+            perfCount('asset.memoHit');
+            return cached;
+        }
+        const resolved = await this.probeByCurrentLocation(pathes, currentLocation);
+        assetMemo.set(memoKey, resolved);
+        while (assetMemo.size > ASSET_MEMO_CAP) {
+            const oldest = assetMemo.keys().next().value;
+            if (oldest === undefined) break;
+            assetMemo.delete(oldest);
+        }
+        return resolved;
+    };
+
+    private probeByCurrentLocation = async (pathes: string[], currentLocation: string): Promise<string | null> => {
         try {
             const cleanedPath = join(currentLocation, '..', ...pathes);
 
+            perfCount('asset.fsProbe');
             await access(cleanedPath, constants.F_OK);
             return cleanedPath;
         } catch (error) {
@@ -61,6 +93,7 @@ export class AssetNavigationStrategy extends NavigationStrategy<boolean> {
      */
     private searchInDirForFile = async (pathes: string[], currentLocation: string): Promise<string | null> => {
         try {
+            perfCount('asset.fsProbe');
             const realPath = await realpath(
                 join(filePathToDirectoryPath(currentLocation), ...pathes.slice(0, pathes.length - 1))
             );
