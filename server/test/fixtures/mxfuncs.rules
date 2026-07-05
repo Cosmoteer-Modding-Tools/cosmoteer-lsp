@@ -1,0 +1,16 @@
+Calc
+{
+	Sine = sin(0)
+	Cosine = cos(0)
+	NatLog = ln(1)
+	Exp0 = exp(0)
+	Pow = pow(2, 10)
+	LogBase = log(2, 8)
+	RoundDec = round(3.14159, 2)
+	Sum = sum(1, 2, 3, 4)
+	Avg = avg(2, 4, 6)
+	Atan2 = atan2(0, 1)
+	Circle = pi * 2
+	EulerLn = ln(e)
+	Unknown = deg(90)
+}

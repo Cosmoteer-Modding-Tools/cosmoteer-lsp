@@ -1,0 +1,24 @@
+//SW Buffs
+
+//Overdrive Buff
+SW_Ion_Thruster_Overdrive
+{
+	CombineMode = Add
+	BaseValue = 0%
+}
+
+SW_Ion_Thruster_Overdrive_Thrust : SW_Ion_Thruster_Overdrive
+{
+
+}
+
+SW_Ion_Thruster_Boost
+{
+	CombineMode = Add
+	BaseValue = 0%
+}
+
+SW_Ion_Thruster_Boost_RampUp : SW_Ion_Thruster_Boost
+{
+	Exponent = 3
+}

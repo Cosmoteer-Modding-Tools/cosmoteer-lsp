@@ -1,0 +1,15 @@
+// Base part used by derived_part.rules to test nested `^/0/<Name>` inheritance.
+Part
+{
+	// A member of the base Part itself (like HEAT_TARGET_STORAGE in the real mod),
+	// reached from a deep descendant via `&~/Part/^/0/HeatTarget`.
+	HeatTarget = HeatStorageDistribution
+	Components
+	{
+		IsOperational
+		{
+			Type = MultiToggle
+			Mode = All
+		}
+	}
+}

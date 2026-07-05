@@ -1,0 +1,14 @@
+// Fixture for mod-action TARGET-shape validation tests: a group, a list and a leaf value
+// so AddMany (needs a list) and AddBase (needs a list or group) can be exercised.
+Group
+{
+	Leaf = 1
+}
+
+List
+[
+	1
+	2
+]
+
+Value = 5

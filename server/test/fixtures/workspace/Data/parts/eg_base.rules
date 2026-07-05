@@ -1,0 +1,9 @@
+// Base with a nested Inner (no EditorGroups, Inner has no Extras).
+EgBase
+{
+	Density = 1
+	Inner
+	{
+		Color = red
+	}
+}

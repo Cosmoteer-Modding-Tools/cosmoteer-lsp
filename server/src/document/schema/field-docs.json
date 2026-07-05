@@ -1,0 +1,1602 @@
+{
+    "Cosmoteer.Bullets.BulletRules": {
+        "ID": "Identifier that must be unique across the game.",
+        "OtherIDs": "Legacy identifiers. You shouldn't normally need these.",
+        "Range": "How far the target can be when the projectile is shot at it.",
+        "IdealRange": "The range from which the AI will try to use this weapon.",
+        "Speed": "How fast the projectile moves forward when spawned.",
+        "RandomRotation": "Whether the projectile spawns facing a random direction."
+    },
+    "Cosmoteer.Bullets.Hits.BulletPenetratingHitRules": {
+        "CalculateWorldHitNormals": "Whether the hit will calculate world-space part hit normals."
+    },
+    "Cosmoteer.Data.Rules": {
+        "IndicatorMaterial": "The material used to render indicator sprites."
+    },
+    "Cosmoteer.Game.Gui.Brushes.BlockTileBrush": {
+        "Size": "The size of the brush rectangle."
+    },
+    "Cosmoteer.Game.Gui.Build.Stats.IconTextStatWidgetRules": {
+        "StatMode": "The mode to use when collecting stat values. See StatCollectionMode values for semantics."
+    },
+    "Cosmoteer.Game.Gui.Build.Stats.StatBarMarkerRules": {
+        "TooltipKey": "The localization string key providing the marker format in tooltips.",
+        "Stat": "The stat that the value is derived from.",
+        "StatColor": "The color to use for the marker and",
+        "ShowOnTooltipOnly": "Whether to hide the marker"
+    },
+    "Cosmoteer.Game.Gui.Build.Stats.StatBarRules": {
+        "AdditionalStatMarkers": "Additional values to display in the bar tooltip, and optionally as a RecommendedStat style marker."
+    },
+    "Cosmoteer.Game.Gui.PartNetworkGuiRules": {
+        "DefaultRouteLine": "The line rendered to visualise Part Network routes.",
+        "DefaultRouteHubSprite": "The sprite rendered at the central joint between multiple route lines."
+    },
+    "Cosmoteer.Game.Gui.PartNetworkOverlayIcon": {
+        "RouteLineOffset": "The offset of the route line end position along the port's direction.",
+        "EdgeOffset": "The offset of the icon along the port's direction",
+        "DrawLineToEdgeWhenConnected": "Whether an additional line to the actual, un-offset edge should be drawn when the port is connected."
+    },
+    "Cosmoteer.Game.Gui.ToggledImageButton": {
+        "StateNormalSelectedNineSlice": "The settings for the nine-slice shown when this widget is in its \"Normal\" state and is selected.",
+        "StateHighlightedSelectedNineSlice": "The settings for the nine-slice shown when this widget is in its \"Highlighted\" state and is selected.",
+        "StatePressedSelectedNineSlice": "The settings for the nine-slice shown when this widget is in its \"Pressed\" or \"HotkeyPressed\" states and is selected.",
+        "StateDisabledSelectedNineSlice": "The settings for the nine-slice shown when this widget is in its \"Disabled\" state and is selected.",
+        "ImageRectController": "The settings for how and where the image is shown.",
+        "ImageSprite": "The settings for the image shown on this button."
+    },
+    "Cosmoteer.Generators.Ships.GeneratorStage": {
+        "Name": "The human-readable name of this GeneratorStage.",
+        "IsEnabled": "Whether this particular stage is enabled and will generate parts."
+    },
+    "Cosmoteer.Generators.Ships.ShipGenerator": {
+        "Stages": "A modifiable list of generator stages that are used to produce the random ships."
+    },
+    "Cosmoteer.Generators.Ships.Stages.AsteroidDepositsStage": {
+        "Parts": "The type of parts to place.",
+        "ReplaceableParts": "The list of part types that may be replaced by this stage.",
+        "MinPartsFraction": "The minimum number of parts to add.",
+        "MaxPartsFraction": "The maximum number of parts to add.",
+        "MinPartsPerDeposit": "The minimum number of parts to add per deposit area.",
+        "MaxPartsPerDeposit": "The maximum number of parts to add per deposit area."
+    },
+    "Cosmoteer.Generators.Ships.Stages.AsteroidStage": {
+        "Parts": "The type of parts to place.",
+        "MinParts": "The minimum number of parts to add.",
+        "MaxParts": "The maximum number of parts to add."
+    },
+    "Cosmoteer.Generators.Ships.Stages.AsteroidWedgesStage": {
+        "WedgeParts": "The type of parts to place.",
+        "ReplaceableParts": "The list of part types that may be replaced by this stage."
+    },
+    "Cosmoteer.Generators.Ships.Stages.BasePlacePartsStage": {
+        "ReplaceableParts": "The list of part types that may be replaced by this stage.",
+        "ContiguousPathSearchLength": "The maximum length to check to make sure contiguous paths won't be disconnected."
+    },
+    "Cosmoteer.Generators.Ships.Stages.ConvertTypeStage": {
+        "Conversions": "The mapping from original part type to converted part type.",
+        "ChanceAtCenter": "The chance that the conversion will happen at the center of the ship.",
+        "ChanceAtEdge": "The chance that the conversion will happen at the edge of the ship.",
+        "ChanceExponent": "The exponent applied to the chance after the base value is calculated from the part's distance to the center."
+    },
+    "Cosmoteer.Generators.Ships.Stages.EnlargeTilesStage": {
+        "ReplaceableParts": "The list of part types that may be replaced by this stage.",
+        "LargerParts": "The type of parts to place.",
+        "RandomizeReplaceOrder": "Whether the parts should be replaced in random order."
+    },
+    "Cosmoteer.Generators.Ships.Stages.FillGapsStage": {
+        "Part": "The type of part to fill the gaps with.",
+        "FillMode": "The logic used to determine which cells should be filled.",
+        "ScanRange": "The distance in each direction to scan when determining whether an empty cell should be filled.",
+        "Iterations": "The number of iterations of the algorithm to run."
+    },
+    "Cosmoteer.Generators.Ships.Stages.FillWithPartsStage": {
+        "Part": "The type of part to place.",
+        "Iterations": "The number of iterations of the algorithm to run.",
+        "FillOrder": "The order in which the cells are filled."
+    },
+    "Cosmoteer.Generators.Ships.Stages.GridStage": {
+        "Part": "The type of part to add.",
+        "MinColumns": "The minimum number of columns to generate.",
+        "MaxColumns": "The maximum number of columns to generate.",
+        "MinRows": "The minimum number of rows to generate.",
+        "MaxRows": "The maximum number of rows to generate.",
+        "MinWidth": "The minimum width of each cell.",
+        "MaxWidth": "The maximum width of each cell.",
+        "MinHeight": "The minimum height of each cell.",
+        "MaxHeight": "The maximum height of each cell.",
+        "UniformCellSize": "Whether or not each cell is of the same size."
+    },
+    "Cosmoteer.Generators.Ships.Stages.ModularStructureStage": {
+        "MinModules": "The minimum number of modules with which the create the ship.",
+        "MaxModules": "The maximum number of modules with which to create the ship.",
+        "Modules": "The modules from which the ship may be built."
+    },
+    "Cosmoteer.Generators.Ships.Stages.PlaceDoorsStage": {
+        "Door": "The type of part to place.",
+        "MinTravelDistance": "If the distance between two sides of the wall are greater than this number, then a door will be added to the wall."
+    },
+    "Cosmoteer.Generators.Ships.Stages.PlacePartInProximityStage": {
+        "SearchRange": "The maximum distance from a potential new part location that an existing part can be and still count as being \"near\" the potential location.",
+        "PlaceNear": "The parts near which the new parts should be placed.",
+        "Avoid": "Avoids putting additional parts near parts of these types."
+    },
+    "Cosmoteer.Generators.Ships.Stages.PlacePartStage": {
+        "Part": "The type of part to place.",
+        "MinParts": "The minimum number of parts to place.",
+        "MaxParts": "The maximum number of parts to place."
+    },
+    "Cosmoteer.Generators.Ships.Stages.PlacePartWithStrategyStage": {
+        "PlacementStrategy": "The strategy to use when picking an optimal location for the part.",
+        "UseWeightedRotationFlips": "Whether to pick a desired rotation based on weight.",
+        "RotationFlipWeights": "The weights by which to pick the desired rotation/flip, if UseWeightedRotationFlips is true."
+    },
+    "Cosmoteer.Generators.Ships.Stages.PlacePartsByScoreStage": {
+        "Parts": "The possible parts to place.",
+        "MinScore": "The minimum total score of parts to place.",
+        "MaxScore": "The maximum total score of parts to place."
+    },
+    "Cosmoteer.Generators.Ships.Stages.PlacePartsByScoreWithStrategyStage": {
+        "PlacementStrategy": "The strategy to use when picking an optimal location for the part.",
+        "UseWeightedRotationFlips": "Whether to pick a desired rotation based on weight.",
+        "RotationFlipWeights": "The weights by which to pick the desired rotation/flip, if UseWeightedRotationFlips is true."
+    },
+    "Cosmoteer.Generators.Ships.Stages.PlacePartsOnPerimeterStage": {
+        "Part": "The type of part to place.",
+        "Iterations": "The number of iterations of the algorithm to run."
+    },
+    "Cosmoteer.Generators.Ships.Stages.PlaceWeaponsByScoreStage": {
+        "UseWeightedRotationFlips": "Whether to pick a desired rotation based on weight.",
+        "RotationFlipWeights": "The weights by which to pick the desired rotation/flip, if UseWeightedRotationFlips is true."
+    },
+    "Cosmoteer.Generators.Ships.Stages.Structural.CircleModule": {
+        "MinRadius": "The minimum radius of the circle.",
+        "MaxRadius": "The maximum radius of the circle."
+    },
+    "Cosmoteer.Generators.Ships.Stages.Structural.RectangleModule": {
+        "MinWidth": "The minimum width of the rectangle.",
+        "MaxWidth": "The maximum width of the rectangle.",
+        "MinHeight": "The minimum height of the rectangle.",
+        "MaxHeight": "The maximum height of the rectangle."
+    },
+    "Cosmoteer.Generators.Ships.Stages.Structural.StructureModule": {
+        "RandomWeight": "The random weight that this module will be selected.",
+        "AllowedFromDirections": "The directions from which this module may be added, or null to allow from any direction.",
+        "Part": "The type of part to add."
+    },
+    "Cosmoteer.Generators.Ships.Stages.SurroundWithPartsStage": {
+        "PartToAdd": "The type of part to place.",
+        "PartToSurround": "The type of part to surround.",
+        "Layers": "The number of layers to surround the parts with."
+    },
+    "Cosmoteer.Generators.Simulation.MultiSpawnedObjectSearch": {
+        "Mode": "How the spawned objects will be searched for.",
+        "Tag": "The tag of the spawned objects to search for.",
+        "Max": "The maximum number of spawned objects to find.",
+        "LimitToBatch": "Whether only the spawned objects belonging to the same batch as the first spawned object will be found.",
+        "LimitToFleet": "Whether only the spawned objects belonging to the same fleet as the first spawned object will be found.",
+        "Distance": "The maximum distance that the spawned objects can be from the search location.",
+        "OnlyFactions": "If not null, only objects belonging to these factions will be found.",
+        "OnlyOpposingFactions": "Whether only objects with opposing factions should be returned."
+    },
+    "Cosmoteer.Generators.Simulation.SpawnedObjectSearch": {
+        "Mode": "How the spawned object will be searched for.",
+        "Tag": "The tag of the spawned object to search for.",
+        "OnlyFactions": "If not null, only objects belonging to these factions will be found.",
+        "OnlyOpposingFactions": "Whether only objects with opposing factions should be returned."
+    },
+    "Cosmoteer.Generators.Textures.HeightMapGenerator": {
+        "Name": "The name of the generated heightmap.",
+        "Enabled": "Whether the heightmap should be generated.",
+        "BaseValue": "The base value of the heightmap before the layers are applied.",
+        "Layers": "The layers that are used to generate the heightmap."
+    },
+    "Cosmoteer.Generators.Textures.HeightMapLayer": {
+        "OpacityInRange": "A range of values of the existing heightmap data in which this layer's opacity will ramp from 0 to 1.",
+        "OpacityOutRange": "A range of values of the existing heightmap data in which this layer's opacity will ramp from 1 to 0.",
+        "Name": "The name of this layer. Only used in the generator editor interface.",
+        "Enabled": "Whether this layer is enabled.",
+        "Opacity": "The opacity of this layer.",
+        "BlendMode": "Specifies how this layer will be applied to the previous layer's results.",
+        "HeightScale": "The factor applied to the values of this layer."
+    },
+    "Cosmoteer.Generators.Textures.TextureGenerator": {
+        "SampleMode": "The sample mode of the texture.",
+        "BaseColor": "The base color of the texture before the layers are applied.",
+        "Layers": "The layers that are used to generate the texture."
+    },
+    "Cosmoteer.Generators.Textures.TextureLayer": {
+        "Name": "The name of this layer. Only used in the generator editor interface.",
+        "Enabled": "Whether this layer is enabled.",
+        "Opacity": "The opacity of this layer.",
+        "BlendMode": "Specifies how this layer will be applied to the previous layer's results.",
+        "ColorScale": "The per-channel color scaling applied to this layer's color before it is blended onto the previous layer's results.",
+        "ReadClippingMask": "If true, the effects of this layer will be clipped to the alpha channel of the previous layer that has this set to false.",
+        "WriteClippingMask": "If true, this layer's alpha values will be written to the clipping mask.",
+        "WriteTexture": "If true, this layer will write to the texture."
+    },
+    "Cosmoteer.Modes.Career.CombatDifficultyRules": {
+        "StatusFactorsVsEnemies": "The chance and value factors for status types when applied to enemies.",
+        "StatusFactorsFromEnemies": "The chance and value factors for status types when applied by enemies."
+    },
+    "Cosmoteer.Resources.ResourceRules": {
+        "HitResponse": "Defines the response to the resource's containing part being hit."
+    },
+    "Cosmoteer.Resources.ResourceRules/HitResponseRules": {
+        "HitEffects": "The hit effects to perform, if any.",
+        "MediaEffects": "The media effects to play, if any.",
+        "Chance": "The default base chance to respond to a hit.",
+        "ChancePerNDamage": "The chance added per NDamage in a hit.",
+        "NDamage": "The quantity of damage in a hit that adds a response chance of ChancePerNDamage.",
+        "DamageTypeOverrides": "Per-damage-type response overrides.",
+        "RequireDirectHit": "Whether triggering a response requires a specified HitArea that includes the resource's location.",
+        "RemoveOnResponse": "Whether the responding resources should be removed on a successful response."
+    },
+    "Cosmoteer.Resources.ResourceRules/HitResponseRules/DamageTypeOverrideData": {
+        "Chance": "When set, overrides the default Chance value.",
+        "ChancePerNDamage": "When set, overrides the default ChancePerNDamage value.",
+        "NDamage": "When set, overrides the default NDamage value."
+    },
+    "Cosmoteer.Ships.Blueprints.BlueprintNetworkOverlaySignalRules": {
+        "Signal": "ID of the signal to send.",
+        "SignalThroughNode": "ID of the blueprint-available component to spread the network signal through."
+    },
+    "Cosmoteer.Ships.Blueprints.BlueprintNetworkValueOverlayRules": {
+        "ValidSignals": "The collection of signal IDs that can activate the value overlay.",
+        "AllowUpstreamSignals": "Whether signals upstream from the SignalThroughNode subnetwork are valid.",
+        "AllowDownstreamSignals": "Whether signals downstream from (visible to) the SignalThroughNode subnetwork are valid.",
+        "SignalThroughNode": "ID of the blueprint-available component to receive the network signal from.",
+        "DrawOnHover": "Whether this value overlay should be drawn regardless of signal when the part is hovered in build mode."
+    },
+    "Cosmoteer.Ships.Networks.BasePartNetworkPortRules": {
+        "BlueprintOperationalToggle": "The ID of the blueprint component to use for the blueprint port's operational checks, if any.",
+        "BlueprintConnectionMode": "The mode used to determine the validity of a connection between two blueprint ports.",
+        "RouteEndpoint": "The IPartNetworkRegistrable component ID that inbound routes should connect to. If null, inbound routes will not be created.",
+        "RouteSource": "The IPartNetworkRegistrable component ID that outbound routes should connect from. If null, outbound routes will not be created.",
+        "BlueprintRouteEndpoint": "The IPartNetworkRegistrable component ID that inbound blueprint routes should connect to. If null, inbound blueprint routes will not be created.",
+        "BlueprintRouteSource": "The IPartNetworkRegistrable component ID that outbound blueprint routes should connect from. If null, outbound blueprint routes will not be created.",
+        "Types": "The port types that the port fulfills, and, if CompatibleTypes is unset, the port types that the port accepts.",
+        "CompatibleTypes": "The port types that the port will accept connections with.",
+        "IncompatibleTypes": "The port types that the port will refuse connections with, even if they are otherwise compatible."
+    },
+    "Cosmoteer.Ships.Networks.PartNetworkFilter": {
+        "Categories": "The network categories that components must match one or more of to be considered valid. If this is null, all categories will be allowed.",
+        "AllowUncategorized": "Whether components with no network categories will be included."
+    },
+    "Cosmoteer.Ships.Networks.PartNetworkPortOverlayOptions": {
+        "OverlayIcon": "The ID of the custom overlay icon drawn to represent the port.",
+        "ConnectedEdgeIcon": "The ID of the additional icon to draw on the port's edge when connected, if any.",
+        "RouteLine": "The ID of the custom overlay route line drawn for the port's routes.",
+        "DrawRouteHub": "Whether this port wants its component to draw a 'route hub' sprite. A hub will be drawn if this is true for any connected ports.",
+        "RouteDrawMode": "The mode determining when route lines should be drawn for the port.",
+        "IconDrawMode": "The mode determining when the icon should be drawn for the port",
+        "HighlightPartOnPrimaryConnection": "Whether the port's part will be highlighted when connected to a port on a part being placed.",
+        "PartHighlightColor": "The color of the highlight drawn when HighlightPartOnPrimaryConnection is true.",
+        "SpreadHighlightThroughNetwork": "The ID of a network node provider component that the highlight should spread from to all parts in its network, if any."
+    },
+    "Cosmoteer.Ships.Networks.PartNetworkPortRules": {
+        "Location": "The location of the port.",
+        "Direction": "The orthogonal direction that the port connects in."
+    },
+    "Cosmoteer.Ships.Networks.PartNetworkResourceStoreRules": {
+        "ResourceStorage": "The backing resource storage that the store will use to provide and receive resources.",
+        "ReservedResourceLevel": "The amount of resources in the ResourceStorage that are unavailable to the store. Represents a percentage of max capacity if ResourceLevelsAreFractions is true.",
+        "MaxResourceLevel": "The resource level in the ResourceStorage that the store is able to deposit up to. Represents a percentage of max capacity if ResourceLevelsAreFractions is true.",
+        "ResourceLevelsAreFractions": "Whether the resource level values are a fraction of the ResourceStorage's capacity, or an absolute value.",
+        "AllowProviding": "Whether the store can fulfill requests for its resource from the part-network.",
+        "AllowReceiving": "Whether the store can receive resources pushed through the part-network.",
+        "Categories": "The network categories of the storage."
+    },
+    "Cosmoteer.Ships.Networks.PartNetworkRouteRules": {
+        "Start": "The ID of the route's origin component.",
+        "End": "The ID of the route's destination component.",
+        "Cost": "The path cost of traversing the route."
+    },
+    "Cosmoteer.Ships.Networks.PartNetworkToggleRules": {
+        "ToggleSource": "The ID of the IPartComponentToggle that this exposes to the network.",
+        "Categories": "The network categories of the toggle."
+    },
+    "Cosmoteer.Ships.Networks.PartNetworkValueReceiverRules": {
+        "Mode": "The combination mode for the retrieved values."
+    },
+    "Cosmoteer.Ships.Networks.PartNetworkValueRules": {
+        "ValueSource": "The ID of the IPartComponentValue that this exposes to the network.",
+        "Categories": "The network categories of the value."
+    },
+    "Cosmoteer.Ships.Parts.Buffs.BasePartBuffProviderRules": {
+        "BlueprintBuffMultiplier": "The value reference for the buff value multiplier for the BlueprintPartBuffProvider."
+    },
+    "Cosmoteer.Ships.Parts.Buffs.PartFloodBuffProviderRules": {
+        "FloodFillLimitRegion": "The region around the initial source provider that this provider can flood-fill to. Infinite if null.",
+        "ChainLengthLimit": "The maximum number of parts aside from the source that can be chained through to provide a buff, including the receiver."
+    },
+    "Cosmoteer.Ships.Parts.Colliders.BaseColliderRules": {
+        "StatusResistances": "The collider's base resistances to status types, interpolated by the current DamageFraction."
+    },
+    "Cosmoteer.Ships.Parts.Crew.PartCrewRules": {
+        "AbandonOnStatusSeverity": "The minimum JobInterruptionSeverity for abandonment of this job, if any."
+    },
+    "Cosmoteer.Ships.Parts.Graphics.PartIndicatorSpritesRules/IndicatorRules": {
+        "HidesIndicators": "The indices of other indicators in the same PartIndicatorSpritesRules that this indicator hides."
+    },
+    "Cosmoteer.Ships.Parts.Graphics.PartShieldArcsMimicRules": {
+        "MimicFadeInStartTime": "Whether the media effect fade start time should be set to the start time of Shield's effects."
+    },
+    "Cosmoteer.Ships.Parts.Logic.ComponentToggleReferenceRules": {
+        "ID": "The ID of the IPartComponentToggle to access.",
+        "ToggleID": "The ID of the toggle within the component, or the component's default toggle if null."
+    },
+    "Cosmoteer.Ships.Parts.Logic.ComponentTriggerReferenceRules": {
+        "ID": "The ID of the IPartComponentTrigger to access.",
+        "TriggerID": "The ID of the trigger within the component, or the component's default trigger if null."
+    },
+    "Cosmoteer.Ships.Parts.Logic.ComponentValueReferenceRules": {
+        "ID": "The ID of the IPartComponentValue to access.",
+        "ValueID": "The ID of the value within the component, or the component's default value if null."
+    },
+    "Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValueRules": {
+        "OcclusionCheckInterval": "The time interval between each line occlusion check and subsequent application of effects.",
+        "OccludedByShields": "Whether other ships' shield arcs occlude the line.",
+        "OcclusionHitEffects": "The hit effects applied to other ships intersecting a line.",
+        "OcclusionContinuousMediaEffects": "The media effects played when other ships intersect a line.",
+        "EffectScaleFactor": "The component providing the value that the occluded score is multiplied by to calculate the effect scale.",
+        "MediaIntensity": "The value passed to media effects as intensity. Defaults to the effect scale if null.",
+        "FractionalTextValueBasis": "If not null, the line score as a fraction of this value is passed as a secondary text value.",
+        "FractionalTextValueScaleFactor": "The value that the secondary text value is scaled by."
+    },
+    "Cosmoteer.Ships.Parts.Logic.PartTileScoreValueRules": {
+        "Region": "The region that will be included in the calculations."
+    },
+    "Cosmoteer.Ships.Parts.Logic.PartToggleTriggerRules": {
+        "AllowOperationalBypass": "Whether the component can trigger without being operational, as long as it has no operational toggle, or the toggle is already true."
+    },
+    "Cosmoteer.Ships.Parts.Logic.PartToggleValueSelectorRules": {
+        "BlueprintToggle": "The toggle to use in place of Toggle for blueprints, if any."
+    },
+    "Cosmoteer.Ships.Parts.Logic.PartValueAccumulatorRules": {
+        "AccumulatingToggle": "The IPartComponentToggle that determines the operational state of the accumulator.",
+        "BaseValue": "The value the accumulator starts at and moves towards when toggle off.",
+        "AccumulationRate": "The rate at which the value accumulates when toggled on.",
+        "DissipationRate": "The rate at which the value moves towards BaseValue when toggled off.",
+        "NonOperationalBehaviour": "The accumulator's behaviour while it is non-operational.",
+        "MinValue": "The lowest value that the accumulator can reach.",
+        "MaxValue": "The highest value that the accumulator can reach.",
+        "AccumulationTriggers": "Discrete value modification triggers."
+    },
+    "Cosmoteer.Ships.Parts.Logic.PartValueAccumulatorRules/AccumulationTriggerRules": {
+        "Trigger": "The IPartComponentTrigger that triggers this accumulation instance.",
+        "Value": "The value to use for accumulating, dissipating, or setting on being triggered.",
+        "Operation": "Whether this trigger acts as accumulation, dissipation, or directly sets the value.",
+        "AllowWhenOn": "Whether this trigger activates when the accumulator is on.",
+        "AllowWhenOff": "Whether this trigger activates when the accumulator is off.",
+        "AllowWhenOperational": "Whether this trigger activates when the accumulator is operational.",
+        "AllowWhenNonOperational": "Whether this trigger activates when the accumulator is non-operational."
+    },
+    "Cosmoteer.Ships.Parts.Logic.UIToggleModeOverrideRules": {
+        "TargetUIToggle": "The ID of the PartUIToggle to override.",
+        "TargetMode": "The mode to set the TargetUIToggle to when overridden.",
+        "OverrideTrigger": "The ID of the component that will trigger the override.",
+        "ResetTrigger": "The ID of the component that will end the override, returning the toggle to its previous value."
+    },
+    "Cosmoteer.Ships.Parts.PartComponentRules": {
+        "BlueprintSortOrder": "Specifies the ordering of DrawBlueprintData@) relative to other components on the part. Declaration order is used to break ties."
+    },
+    "Cosmoteer.Ships.Parts.PartRules": {
+        "NameKey": "The part's name, displayed when it is selected or hovered over.",
+        "IconNameKey": "The part name as it shows up in the ship editor's menus.",
+        "ID": "Game-wide unique ID of the part. Must start with the author's name.",
+        "OtherIDs": "Alternate part identifiers this part also answers to.",
+        "FlipWhenLoadingIDs": "Part IDs that trigger flipping when the ship is loaded.",
+        "EditorParentParts": "The IDs of parts that will contain this part as a 'sub-part' within the ship editor.",
+        "Resources": "Resource name and cost pairs defining what the part costs to build.",
+        "IsBuildable": "If false, the part cannot be built.",
+        "FractionalCostToRepair": "How much of the build cost, at most, is spent to repair the part to full health.",
+        "Size": "The width and height of the part, in tiles.",
+        "CellOccupancyFactor": "The value by which to multiply the calculated collider occupancy value of cells within the part.",
+        "SelectionPriority": "Determines selection ordering when parts overlap.",
+        "SelectionTypeID": "Part ID used to group parts together for selection.",
+        "SelectionTypeByRotation": "If true, double-clicking the part in-game only selects parts of the same type facing the same direction.",
+        "Density": "How much one tile of the part weighs, in tons.",
+        "MaxHealth": "How much damage the part can endure before being destroyed.",
+        "HealthType": "The part's health category. See the HealthTypes reference.",
+        "StatusResistances": "The part's base resistances to status types, interpolated by the current DamageFraction.",
+        "CrewSpeedFactor": "The speed at which crew move within the part.",
+        "CrewCongestedSpeedFactor": "The speed at which crew move within the part while passing other crew.",
+        "CrewMinimumSpeedFactor": "The minimum values to multiply crew speed by within the part.",
+        "HasNonContiguousPathing": "Set to true if some tiles of the part cannot be walked across by crew in a given direction.",
+        "IsExternal": "If false, the part must have either no doors to anything else or only doors with legal placement.",
+        "IsRotateable": "Whether the part can be rotated during placement.",
+        "IsFlippable": "Whether the part can be flipped during placement.",
+        "IsWalled": "If false, the part can only have doors to parts that are themselves not walled.",
+        "TypeCategories": "Part-category identifiers used to classify the part.",
+        "SignificanceToggle": "ID of the IPartComponentToggle that determines whether this part should be considered for determining ship 'significance'.",
+        "JobsIcon": "Sprite shown for the part's job assignments.",
+        "FlipHRotate": "The rotation mapping applied when the part is flipped horizontally.",
+        "FlipVRotate": "The rotation mapping applied when the part is flipped vertically.",
+        "AIValueFactor": "How much the AI wants to destroy this part on ships it considers enemies.",
+        "MinBuffValues": "Per-buff minimum values this part clamps received buffs to.",
+        "MaxBuffValues": "Per-buff maximum values this part clamps received buffs to.",
+        "EditorGroups": "The names of the ship-editor tabs the part appears in.",
+        "EditorGroup": "The name of the ship-editor tab the part appears in."
+    },
+    "Cosmoteer.Ships.Parts.Resources.ResourceConsumingStorageRules": {
+        "TriggerThreshold": "The resource threshold at which the storage triggers and consumes the threshold amount from its stores. If set to 0, the storage will trigger as soon as it has any resources, consuming all of them."
+    },
+    "Cosmoteer.Ships.Parts.Resources.ResourceStorageProxyRules": {
+        "QuantityScale": "The amount to scale the proxied storage's quantities by. 1 resource in the proxied storage is worth QuantityScale resources in the proxy. Any resource operations on the proxy are divided by the scale and rounded away from 0."
+    },
+    "Cosmoteer.Ships.Parts.Resources.ResourceStorageRules": {
+        "IgnoreResourcesForInitToMax": "Whether the current resource level is ignored when initializing the storage to 'max'."
+    },
+    "Cosmoteer.Ships.Parts.UI.BasePartProgressBarRules": {
+        "ShowProgressFor": "The IPartComponentValue component to use as the current bar value.",
+        "Invert": "Whether to invert the displayed progress value."
+    },
+    "Cosmoteer.Ships.Parts.UI.PartSegmentedProgressBarRules": {
+        "SegmentCount": "The number of equally sized segments the bar will be split into.",
+        "PerSegmentColor": "Whether the progress bar colors will be calculated per-segment, or for the whole bar."
+    },
+    "Cosmoteer.Ships.Parts.UI.PartUIToggleRules": {
+        "VisibilityToggle": "ID of the toggle that determines whether this UIToggle's button is shown when its part is selected. If this references another PartUIToggleRules, it additionally controls visibility in blueprint mode."
+    },
+    "Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules": {
+        "SecondaryWidth": "The width of the beam's secondary collision check. The closer hit of the two checks is used for effects, allowing for 'proximity' hits with a more narrow criteria.",
+        "SecondaryFilter": "The filter used for the beam's secondary collision check, if SecondaryWidth is greater than 0.",
+        "SecondaryOverrideFilter": "The filter, if any, that the primary collision result is checked against in order to abort the secondary collision check.",
+        "AntiPhasingRaycastDistance": "The distance backwards that the beam raycast is extended to help detect fixtures overlapping the emitter. Collisions detected within this distance will register at the beam emission location.",
+        "ColliderOverlapTest": "Whether a separate test is performed to detect overlap with a collider at the emission point."
+    },
+    "Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules/BeamHitRules": {
+        "ConditionalHitEffects": "Hit effects performed only when the ConditionalEffectToggle is true.",
+        "ConditionalMediaEffects": "Media effects played only when the ConditionalEffectToggle is true."
+    },
+    "Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules": {
+        "TriggerValueIsShotOffsetTime": "Whether the emitter fakes an emission time offset using the value from the FireTrigger."
+    },
+    "Cosmoteer.Ships.ShipFile": {
+        "FilePath": "The path of the saved ship file."
+    },
+    "Cosmoteer.Ships.ShipRules": {
+        "IndicatorAtlasParams": "Parameters for constructing the IndicatorAtlases."
+    },
+    "Cosmoteer.Ships.Statuses.StatusCustomShapeEffectRules": {
+        "StatusValueToEffectValueType": "The status value conversion type, if any, to return as the value of Rand).",
+        "RectSizeFactor": "The value that the status' rect size is multiplied by when retrieving a random point for particle spawning."
+    },
+    "Cosmoteer.Ships.Statuses.StatusType": {
+        "IndicatorSprite": "The sprite displayed over instances of this status.",
+        "Layer": "The layer that instances of this status are applied to.",
+        "StatusCombineMode": "How applications of this status are handled when another status of this type exists in the same location.",
+        "ValueCombiner": "Provides the final value when combining multiple status instances.",
+        "ValueClampRange": "The range that instances of this StatusType will have their values clamped to.",
+        "TransferToUnderlyingOnPartDestroyed": "Whether tile-based statuses will transfer to underlying parts when the part they're on is destroyed.",
+        "NegativeCombineIgnoresResistance": "Whether combinatory status applications with negative values will ignore value resistances.",
+        "CrewSpeedFactor": "The range value to multiply crew speed by, sampled by interpolated status value.",
+        "JobInterruptionSeverity": "The severity value used to determine whether certain jobs should be cancelled by this status, if any.",
+        "ResourceSink": "The rules defining the status' resource sink behaviour, if any.",
+        "SoftRepair": "The rules defining the status' soft-repair behaviour, if any.",
+        "ValueModulators": "The value modulators applied to the values of this status' instances.",
+        "ValueModulationResistanceRange": "The range that status resistance values are clamped to for ValueModulators.",
+        "TickInterval": "The interval between each call of this status' TickingEffects and TickingMediaEffects.",
+        "RequireValueRangeForTick": "The status value range that ticking effects will be performed for. Statuses with values outside this range will be ignored.",
+        "ClearPlayerSourcesOnAggressionLoss": "Whether the instances of this status should have their source player cleared on loss off aggression (e.g. truces).",
+        "ClearOnShipJunked": "Whether the instances of this status should be removed (without triggering effects) on the ship being junked.",
+        "StatusResistances": "The status resistances provided to underlying parts by instances of this status type.",
+        "DamageResistances": "The damage resistances provided to underlying parts by instances of this status type.",
+        "PenetrationResistanceModifier": "The modifier applied to the penetration resistances of parts underlying instances of this status type.",
+        "ApplicationEffects": "The hit effects performed when this status is applied.",
+        "ApplicationMediaEffects": "The media effects played when this status is applied.",
+        "TickingEffects": "The hit effects performed on each tick of this status.",
+        "TickingMediaEffects": "The media effects played on each tick of this status.",
+        "ContinuousMediaEffects": "The media effects played continuously on application of this status, and stopped on status removal.",
+        "CustomShapeEffects": "The media effects played continuously using a single effect node with an ICustomEffectShape. Supports only a subset of media effects.",
+        "RemovalEffects": "The hit effects performed on removal of this status.",
+        "RemovalMediaEffects": "The media effects played on removal of this status."
+    },
+    "Cosmoteer.Ships.Statuses.StatusType/BaseResistanceRules": {
+        "DivideByPartArea": "Whether to divide the resistance value by the tile-area of the part.",
+        "MultiplyByStatusCount": "Whether to multiply the resistance value by the instance count of this status type on the part. If this is false, this resistance is applied once, regardless of status count."
+    },
+    "Cosmoteer.Ships.Statuses.StatusType/SimpleResistanceRules": {
+        "Resistance": "The resistance value, sampled by the part's DamageFraction."
+    },
+    "Cosmoteer.Ships.Statuses.StatusType/StatusResistanceRules": {
+        "Resistance": "The resistance values, sampled by the part's DamageFraction."
+    },
+    "Cosmoteer.Ships.Statuses.StatusType/StatusResourceSinkRules": {
+        "Resource": "The requested resource type of the sink.",
+        "AssociateJobWithPart": "The PartRules to associate with the sink's delivery jobs, if any.",
+        "JobNameKey": "The key for the delivery job's priority name.",
+        "PrioritySortOrder": "The sort order for the delivery job's priority.",
+        "DefaultPriority": "The default priority for delivery jobs to this sink.",
+        "ValueChangePerResource": "The change in status value per resource delivered.",
+        "TargetValue": "The value that resources will be delivered in order to reach.",
+        "AlwaysRequestMaxResources": "Whether the status sinks will request the maximum amount of resources that crew can carry, regardless of remaining capacity.",
+        "DeliveryMediaEffects": "The continuous media effects to play while delivering resources to the sink.",
+        "DeliveryHitEffects": "The hit effects to perform on delivery of resources. EffectScale is set to the resource quantity.",
+        "ReassignmentSearchIterations": "The number of search iterations to perform when reassigning crew from removed sinks. Behaviour is disabled at 0."
+    },
+    "Cosmoteer.Ships.Statuses.StatusType/StatusSoftRepairRules": {
+        "RegistrationValueRange": "The range that a status' value must be within in order to be registered for repair.",
+        "DeregistrationValueBuffer": "How far outside the RegistrationValueRange a repair-registered status' value can be before it is deregistered."
+    },
+    "Cosmoteer.Ships.Statuses.StatusTypes": {
+        "AtlasTextureParams": "The parameters for creation of the status indicator atlases."
+    },
+    "Cosmoteer.Ships.Statuses.StatusValueRegulatorRules": {
+        "Region": "The region that the regulator affects.",
+        "TargetValue": "The value to move status values towards.",
+        "TargetValueType": "How the TargetValue is interpreted.",
+        "ValueDelta": "The amount that each status' value may be moved towards the target.",
+        "ValueDeltaPool": "The total amount of value that may be added or removed",
+        "ValueSourceStorage": "The resource storage that the regulator will draw from.",
+        "ValuePerSourceResource": "The conversion rate of ValueSourceStorage resources to status value.",
+        "LimitBySourceResources": "Whether the regulator requires available resources in the ValueSourceStorage in order to function.",
+        "ValueTargetStorage": "The resource storage that the regulator will deposit into.",
+        "ValuePerTargetResource": "The conversion rate of status value to ValueTargetStorage resources.",
+        "LimitByTargetFreeSpace": "Whether the regular requires free space in the ValueTargetStorage in order to function."
+    },
+    "Cosmoteer.Simulation.HitEffects.AreaShieldStatusApplicationEffectRules": {
+        "ScaleChanceByShieldArea": "Whether StatusChance will be scaled by the proportion of the shield's arc that is within the effect radius.",
+        "ScaleValueByShieldArea": "Whether StatusValue will be scaled by the proportion of the shield's arc that is within the effect radius.",
+        "ScaleDurationByShieldArea": "Whether StatusDuration will be scaled by the proportion of the shield's arc that is within the effect radius.",
+        "UseMaxValuesForHitShield": "Whether the maximum chance, duration, and value will be used for the directly hit shield, regardless of radius."
+    },
+    "Cosmoteer.Simulation.HitEffects.AreaStatusApplicationEffectRules": {
+        "Radius": "The radius within which targets will be affected.",
+        "ExclusionRadius": "The inner radius within which cells will be ignored.",
+        "AllowOverlappingApplications": "Whether the effect is allowed to apply a status to the same part more than once in a single hit. Only applicable to part-layer statuses.",
+        "DivideValueByPartArea": "Whether the applied value for each tile is divided by the tile area of the part. Only applicable to part-layer statuses.",
+        "AffectHitShipOnly": "Whether only the hit ship should be affected."
+    },
+    "Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules": {
+        "StatusChance": "The chance for the effect to apply a status.",
+        "StatusDuration": "The duration of applied statuses.",
+        "InitialStatusDuration": "The duration provided to newly applied status instances only.",
+        "StatusValue": "The value given to applied statuses.",
+        "ValueType": "How the status value is interpreted",
+        "Filter": "The filter a hit must pass to apply a status."
+    },
+    "Cosmoteer.Simulation.HitEffects.DamageEffectRules": {
+        "HitAreaMode": "The mode of calculating the 'direct hit area' of this effect. Used to determine reactions to the hit."
+    },
+    "Cosmoteer.Simulation.HitEffects.GridStatusApplicationEffectRules": {
+        "HitPartSourceRectType": "The type of rect from the hit part to use as the set of source cells. If null, only the hit location cell is used.",
+        "MaxCost": "The maximum path cost to a cell for it to be affected.",
+        "HitDirectionCostFactor": "The factor applied to cell cost based on the path direction's alignment with the initial hit direction. For example, a factor of 0.25 with a hit direction of (1,0) would result in 25% of the cost when pathing from cell (5,0) to (6,0), but 100% of the cost pathing from cell (5,0) to (5,1).",
+        "MaxDistance": "The maximum grid-distance to a cell for it to be affected.",
+        "MinDistance": "The minimum grid-distance to a cell for it to be affected.",
+        "UseDistanceForFalloff": "Whether cell distance instead of cost is used to calculate falloff.",
+        "FalloffPadding": "The value added to the upper limit when calculating the effect of falloff.",
+        "ChanceFalloff": "The exponent for StatusChance falloff over distance.",
+        "ValueFalloff": "The exponent for StatusValue falloff over distance.",
+        "DurationFalloff": "The exponent for StatusDuration falloff over distance.",
+        "StatusValuePool": "The value pool to split across the affected area, weighted according to falloff.",
+        "AllowOverlappingApplications": "Whether the effect is allowed to apply a status to the same part more than once in a single hit. Only applicable to part-layer statuses.",
+        "DivideValueByPartArea": "Whether the applied value for each tile is divided by the tile area of the part. Only applicable to part-layer statuses.",
+        "DefaultTileCost": "The pathing cost of non-empty tiles not otherwise included in PartIDTileCosts, PartCategoryTileCosts.",
+        "EmptyTileCost": "The pathing cost of empty tiles.",
+        "PartIDTileCosts": "The pathing costs of tiles by part ID.",
+        "PartCategoryTileCosts": "The pathing costs of tiles by part TypeCategories, not otherwise included in PartIDTileCosts. A part's categories are evaluated in order.",
+        "BlockedByWalls": "Whether pathing between tiles is blocked by walls.",
+        "AllowDiagonals": "Whether pathing across diagonals is allowed."
+    },
+    "Cosmoteer.Simulation.HitEffects.KillCrewEffect": {
+        "KillChance": "The chance to kill a hit crew member.",
+        "AffectEntireParts": "Whether entire parts are affected on hit, or just the hit cell.",
+        "ImmunityResourcesIsBlacklist": "Whether ImmunityResources should be treated as a blacklist rather than a whitelist.",
+        "ImmunityResources": "The list of resources that provide immunity from this effect when carried by a crew member. If ImmunityResourcesIsBlacklist is true, this behaviour is inverted.",
+        "ImmuneWhileEmptyHanded": "Whether a crew member is immune to this effect while not carrying any resources.",
+        "Filter": "The filter used to determine hit validity."
+    },
+    "Cosmoteer.Simulation.HitEffects.StatusApplicationEffectRules": {
+        "ApplyToAllHitPartTiles": "Whether the effect should apply to each tile of the hit part, or just the tile matching the hit location. Only applicable to tile-layer statuses.",
+        "DivideValueByPartArea": "Whether the status value will be divided by the tile-area of the hit part.",
+        "DivideValueByPartHealth": "Whether the status value will be divided by the max health of the hit part.",
+        "DivideValueByPartHealthFactor": "Whether the status value will be divided by the part's current health percentage."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleEffectRules": {
+        "EmitImmediately": "Whether the emitter should be created with 1 accumulated particle emission."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleRenderers.LitParticleQuadRenderer": {
+        "LightNormalIn": "The data that stores the particle locations.",
+        "DiffuseShader": "The shader used when rendering to the diffuse target.",
+        "NormalsShader": "The shader used when rendering to the normals target."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleRenderers.ParticleLightningRenderer": {
+        "EnableLightningShaderAnimation": "Enables animating the vertex color along the entire bolt for use by the lightning shader.",
+        "BlendLightningShaderAnimation": "If lightning shader animation is enabled, enables blending between it and the original vertex color over the lifetime of the bolt.",
+        "UseSameSeedForEntireBolt": "When not enabled (the default behavior), changes the noise seed per bolt segment so each segments motion is more random.",
+        "IgnoreBoltEndingOverride": "If lightning shader animation is enabled, disables the default behavior of overriding the animation for the bolts ending segment with values to make the bolts ending fade smoothly.",
+        "IgnoreBoltStartOverride": "If lightning shader animation is enabled, disables the default behavior of overriding the animation for the bolts starting segment with values to make the bolts start fade smoothly.",
+        "LightningShaderAnimationSegments": "If lightning shader animation is enabled, controls the number of animated slices (bright sections) the bolt should have.",
+        "TimeShiftPerSegment": "Shifts the perlin noise sample forward or backwards in time incrementally for each bolt segment.",
+        "AnimationIntensity": "If lightning shader animation and blending are enabled, controls the intensity of the lightning shader animation.",
+        "SegmentOverlap": "Shifts the endpoint of each segment forward by this amount.",
+        "SourceLocationIn": "The data that stores the particle source locations.",
+        "DestLocationIn": "The data that stores the particle destination locations.",
+        "ScaleIn": "The data, if any, that stores the particle scale factors.",
+        "ColorIn": "The data, if any, that stores the particle colors.",
+        "UVRectIn": "The data, if any, that stores the particle UVs.",
+        "TimeIn": "The data that stores the particle time.",
+        "SeedIn": "The data that stores the particle seed.",
+        "DistPerSegment": "The approximate distance per segment which will determine how many segments to use.",
+        "XOffsetPerlin": "The perlin noise to add to the lightning's point X offsets.",
+        "YOffsetPerlin": "The perlin noise to add to the lightning's point Y offsets.",
+        "BulgeExponent": "The amount that the lightning bolt will \"bulge\" near its center."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleRenderers.TwoColorParticleQuadRenderer": {
+        "Color2In": "The data that stores the 2nd set of particle colors."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleAddFrameOfReference": {
+        "VelocityInOut": "The data that stores the converted location."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleAlignToVelocity": {
+        "VelocityIn": "The data that stores the particle's velocity.",
+        "RotationInOut": "The data that stores the particle's rotation."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleAlternatingConstVector2": {
+        "Vector2A": "The first Vector2 value.",
+        "Vector2B": "The second Vector2 value.",
+        "DataOut": "The output Vector2."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleAssignIndex": {
+        "IndexOut": "The data that will be set to the particle's index."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleBarrier": {
+        "BarrierIDIn": "The index of the particle barrier.",
+        "LocationIn": "The data that stores the location of the particle."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleColorFromSource": {
+        "ColorOut": "The data that stores the particle color."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleConstructVector2": {
+        "DataXIn": "The data used for X in the output Vector2.",
+        "DataYIn": "The data used for Y in the output Vector2.",
+        "DataOut": "The output Vector2."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleCrewColor": {
+        "ColorOut": "The data that stores the particle color."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleEndPointFromCustomShape": {
+        "LocationOut": "The data that stores the end point."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleFpsCompensator": {
+        "LocationInOut": "The data that stores the particle's location.",
+        "VelocityIn": "The data that stores the particle's velocity.",
+        "Mode": "The particle location compensation mode to use.",
+        "Strength": "The strength of the FPS compensation."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleGetHitNormal": {
+        "HitNormalOut": "The data that will be set to the hit normal."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleInheritVelocity": {
+        "VelocityInOut": "The data that stores the converted location."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleLightNormal": {
+        "LocationIn": "The data that stores the particle's location.",
+        "LightNormalOut": "The data that stores the particle's light normal."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleLocalBarrier": {
+        "LocationIn": "The data that stores the location of the particle.",
+        "BarrierLocationIn": "The location of the particle barrier.",
+        "BarrierNormalIn": "The normal of the particle barrier.",
+        "InvertNormal": "Whether to invert the barrier normal."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleLocationAndValueFromCustomShape": {
+        "LocationOut": "The data that stores the particle's location.",
+        "ValueOut": "The value associated with the particle's location."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleLocationFromCustomShape": {
+        "LocationOut": "The data that stores the particle's location."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleLocationFromPartRect": {
+        "LocationOut": "The data that stores the particle's location.",
+        "RectType": "Which type of part rect to use.",
+        "Inflate": "The amount by which the part's rect is inflated.",
+        "RestrictToPartColliders": "Whether the particle locations should be restricted to the part's collision geometry.",
+        "SubtractPartCenter": "Whether the particle locations should be ship or rules relative.",
+        "RotateByDirection": "Whether the part rect should be rotated by the part direction in ship space."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleLocationFromSource": {
+        "LocationOut": "The data that stores the particle's location."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleNormalFromRotation": {
+        "RotationIn": "The data that stores the particle's rotation.",
+        "NormalOut": "The data that stores a normal representation of the input rotation."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleOffsetByIndex": {
+        "DataInOut": "The data that will be offset based upon the index.",
+        "IndexIn": "The index that will be used to offset the data.",
+        "Offset": "The offset that will be multiplied with the particle's index.",
+        "Modulus": "The value by which the index will be modulo'ed before being multiplied with Offset. Use 0 to disable."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleRandomRotationByIndex": {
+        "RotationInOut": "The particle rotation.",
+        "SafetyMargin": "The margin that is used to restrict the rotational slice to avoid similar end rotations."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleRotationFromNormal": {
+        "NormalIn": "The data that stores a normal representation of the input rotation.",
+        "RotationOut": "The data that stores the particle's rotation."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleScaleFromCamera": {
+        "ScaleOut": "The data that stores the particle's scale.",
+        "ScaleFactor": "The factor by which the zoom will be scaled.",
+        "ZoomExponent": "The exponent that will be applied to the zoom."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleScaleFromIntensity": {
+        "ScaleOut": "The data that stores the particle's scale.",
+        "ScaleFactor": "The factor by which the intensity will be scaled.",
+        "IntensityExponent": "The exponent that will be applied to the intensity."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleSetBulletBarrierID": {
+        "BarrierIDOut": "The index of the particle barrier."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleUvFlip": {
+        "FlipXYIn": "The data that stores the particle's sprite index.",
+        "UvRectInOut": "The data that stores the particle's UV rect coordinates."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleVelocityFromIntensity": {
+        "VelocityOut": "The data that stores the particle's velocity.",
+        "VelocityFactor": "The factor by which the intensity will be scaled.",
+        "IntensityExponent": "The exponent that will be applied to the intensity."
+    },
+    "Cosmoteer.Simulation.MediaEffects.ParticleUpdaters.ParticleWorldLocationFromPartRect": {
+        "LocationOut": "The data that stores the particle's location.",
+        "RectType": "Which type of part rect to use.",
+        "Inflate": "The amount by which the part's rect is inflated.",
+        "RestrictToPartColliders": "Whether the particle locations should be restricted to the part's collision geometry."
+    },
+    "Cosmoteer.Simulation.MediaEffects.TileQuadEffectRules": {
+        "Inflate": "The value to inflate the quad's rect by.",
+        "Z": "The depth coordinate of the quad.",
+        "ColorOverIntensity": "The color range to sample by the intensity.",
+        "ColorOverFade": "The color range to sample by the fade value.",
+        "DisableQuadRotation": "Whether to keep the quad rotationally aligned with the world-axes instead of the ship."
+    },
+    "Cosmoteer.Simulation.Overlays.SplitCappedLine": {
+        "SplitRelativeThickness": "Whether the line thickness and cap sizes are halved when rendering only one half of the horizontally sliced sprites."
+    },
+    "Cosmoteer.Source.Simulation.MediaEffects.ParticleUpdaters.ParticleWorldLocationFromPartCenter": {
+        "LocationOut": "The data that stores the particle's location.",
+        "CenterType": "Which type of part rect's center to use."
+    },
+    "Cosmoteer.Source.Simulation.MediaEffects.ParticleUpdaters.ParticleWorldScaleFromPartSize": {
+        "ScaleOut": "The data that stores the particle's scale.",
+        "ScaleFactor": "The factor by which the intensity will be scaled.",
+        "Inflate": "The amount by which the part's rect is inflated.",
+        "RectType": "Which type of part rect to use.",
+        "UseMinDimension": "Whether the smaller of the two part dimensions should be used instead of the larger."
+    },
+    "Cosmoteer.ValueCombination.NormalizedAddCombinerRules": {
+        "ValueRange": "The range to use for lerp and inverse-lerp operations.",
+        "InverseValueExponent": "The exponent applied to (1-normalizedBaseValue) before multiplication with the normalizedOtherValue.",
+        "ReducePositiveValues": "Whether positive input values should be reduced by the inverse value.",
+        "ReduceNegativeValues": "Whether negative input values should be reduced by the inverse value."
+    },
+    "Halfling.Audio.FilterParams": {
+        "FilterType": "Specifies whether and how frequencies of audio will be filtered.",
+        "Frequency": "Specifies the cutoff frequency used by the filter.",
+        "QFactor": "Specifies the Q factor used by the filter. This value controls how rapidly the audio will be reduced. It is not used by the LowPass or HighPass filters."
+    },
+    "Halfling.Audio.ISoundEffect": {
+        "Sounds": "A collection Sound objects from which a random Sound will be selected to play.",
+        "VolumeRange": "The range of volumes in which the actual volume of the sound effect will be chosen at random.",
+        "SpeedRange": "The range of speeds in which the actual speed of the sound effect will be chosen at random.",
+        "StartRange": "The range of possible start times in which the actual start time will be chosen at random.",
+        "Filter": "The filter, if any, to apply to the sound."
+    },
+    "Halfling.Generation.PerlinNoise1D": {
+        "Seed": "A value used to hash the input coordinates. A PerlinNoise1D with the same seed value (and other properties) will always produce the same output for a given input coordinate.",
+        "GridSize": "The size in units of the underlying Perlin noise grid.",
+        "Repeat": "If not zero, the outputted values will repeat every this number of coordinate steps.",
+        "Octaves": "The number of iterations used to generate the final noise value.",
+        "Persistence": "The factor by which the strength each further octave iteration will be multiplied.",
+        "OutputExponent": "The power to which output values are raised before they are scaled, shifted, and clamped.",
+        "OutputScale": "The factor by which output values are multiplied after they are exponentiated and before they are shifted and clamped.",
+        "OutputShift": "The amount added to the output values after they are exponentiated and scaled and before they are clamped.",
+        "ClampOutput": "The range to which output values will be clamped after they are exponentiated, scaled, and shifted."
+    },
+    "Halfling.Generation.PerlinNoise2D": {
+        "Seed": "A value used to hash the input coordinates. A PerlinNoise2D with the same seed value (and other properties) will always produce the same output for a given input coordinate.",
+        "GridSize": "The size in units of the underlying Perlin noise grid.",
+        "Repeat": "If not zero, the outputted values will repeat every this number of coordinate steps for the corresponding dimension.",
+        "Octaves": "The number of iterations used to generate the final noise value.",
+        "Persistence": "The factor by which the strength each further octave iteration will be multiplied.",
+        "OutputExponent": "The power to which output values are raised before they are scaled, shifted, and clamped.",
+        "OutputScale": "The factor by which output values are multiplied after they are exponentiated and before they are shifted and clamped.",
+        "OutputShift": "The amount added to the output values after they are exponentiated and scaled and before they are clamped.",
+        "ClampOutput": "The range to which output values will be clamped after they are exponentiated, scaled, and shifted."
+    },
+    "Halfling.Geometry.Vector2": {
+        "X": "The X (1st) component of this Vector2.",
+        "Y": "The Y (2nd) component of this Vector2."
+    },
+    "Halfling.Geometry.Vector3": {
+        "X": "The X (1st) component of this Vector3.",
+        "Y": "The Y (2nd) component of this Vector3.",
+        "Z": "The Z (3rd) component of this Vector3."
+    },
+    "Halfling.Graphics.CircleRenderer": {
+        "Shader": "The Shader used to render the circle. This must be a special shader specifically created for rendering circles.",
+        "ShaderConstants": "A collection of constant values for the Shader. This collection may be null if there is no Shader or there are no constants set.",
+        "Texture": "The Texture used to render the circle.",
+        "Color": "The shader color used to render the circle.",
+        "TargetBlendMode": "The TargetBlendMode used to render the circle.",
+        "VertexColor": "The vertex colors of both the inner and outer edges of this circle. If getting this property and the inner and outer vertex colors are now equal, an exception will be thrown. Modifying this property will force the underlying circle quads to be recomputed.",
+        "InnerVertexColor": "Vertex color of the inner edge of the circle. Modifying this property will force the underlying circle quads to be recomputed.",
+        "UVRect": "The UV coordinates on Texture from which the circle is rendered. The outer edge will equal UVRect.Top and the inner edge will equal UVRect.Bottom. The circle will loop from UVRect.Left to UVRect.Right. Modifying this property will force the underlying circle quads to be recomputed.",
+        "InnerRadius": "The distance from the center of the circle to inside edge.",
+        "Thickness": "The thickness of the circle as measured from its inner radius to its outer radius.",
+        "QuadCount": "The number of quads that will be used to form the circle. The higher this value, the smoother the circle will appear. Modifying this property will force the underlying circle quads to be recomputed.",
+        "Arc": "The angular arc of the rendered circle. Anything less than 360-degrees will result in a pie-shape. Modifying this property will force the underlying circle quads to be recomputed.",
+        "Z": "The Z depth value of the rendered circle. Modifying this property will force the underlying circle quads to be recomputed.",
+        "DashRepeat": "The number of times that the dashes will repeat. The default is 0."
+    },
+    "Halfling.Graphics.IntColor": {
+        "R": "The red component.",
+        "G": "The green component.",
+        "B": "The blue component.",
+        "A": "The alpha component."
+    },
+    "Halfling.Graphics.Material": {
+        "Shader": "The Shader property value.",
+        "ShaderConstants": "A collection of constant values for the Shader. This collection may be null if there is no Shader or there are no constants set.",
+        "Texture": "The Texture property value.",
+        "Color": "The Color property value.",
+        "TargetBlendMode": "The TargetBlendMode property value."
+    },
+    "Halfling.Graphics.Sprite": {
+        "VertexColor": "The vertex color of the Sprite.",
+        "Size": "The size of the Sprite.",
+        "UVRect": "The UV rect on Texture of the Sprite."
+    },
+    "Halfling.Graphics.TargetBlendMode": {
+        "SourceRgbFactor": "The SourceRgbFactor parameter for every RGB channel in the equation: RgbOperator([sourceRGB] * SourceRgbFactor, [destRGB] * DestRgbFactor)",
+        "DestRgbFactor": "The DestRgbFactor parameter for every RGB channel in the equation: RgbOperator([sourceRGB] * SourceRgbFactor, [destRGB] * DestRgbFactor)",
+        "RgbOperator": "The RgbOperator function for every RGB channel in the equation: RgbOperator([sourceRGB] * SourceRgbFactor, [destRGB] * DestRgbFactor)",
+        "SourceAlphaFactor": "The SourceAlphaFactor parameter for the alpha channel in the equation: AlphaOperator([sourceAlpha] * SourceAlphaFactor, [destAlpha] * DestAlphaFactor)",
+        "DestAlphaFactor": "The DestAlphaFactor parameter for the alpha channel in the equation: AlphaOperator([sourceAlpha] * SourceAlphaFactor, [destAlpha] * DestAlphaFactor)",
+        "AlphaOperator": "The AlphaOperator function for the alpha channel in the equation: AlphaOperator([sourceAlpha] * SourceAlphaFactor, [destAlpha] * DestAlphaFactor)"
+    },
+    "Halfling.Gui.Button": {
+        "StateNormalTextRenderer": "The settings for the text shown when this button is in its \"Normal\" state.",
+        "StateHighlightedTextRenderer": "The settings for the text shown when this button is in its \"Highlighted\" state.",
+        "StatePressedTextRenderer": "The settings for the text shown when this button is in its \"Pressed\" or \"HotkeyPressed\" states.",
+        "StateDisabledTextRenderer": "The settings for the text shown when this button is in its \"Disabled\" state.",
+        "ClickController": "The settings for the component that controls the firing of Clicked events.",
+        "ClickAudio": "The audio sound effect played when this button is clicked.",
+        "Text": "The text displayed on this button.",
+        "TextProvider": "An ITextProvider object that, if not null, will keep this Button's Text property updated to match the ITextProvider.",
+        "Hotkey": "The IInputButton (or combination of buttons) which will put the widget into a \"HotkeyPressed\" state."
+    },
+    "Halfling.Gui.Components.Audio.WidgetActiveStateAudio": {
+        "ActivatedSound": "The sound to play when the widget is activated.",
+        "DeactivatedSound": "The sound to play when the widget is deactivated.",
+        "AudioGroup": "The AudioGroup in which the sounds will be played. If null, the GuiRoot's DefaultAudioGroup will be used."
+    },
+    "Halfling.Gui.Components.Audio.WidgetFocusStateAudio": {
+        "FocusedSound": "The sound to play when the widget becomes focused.",
+        "DefocusedSound": "The sound to play when the widget becomes defocused.",
+        "AudioGroup": "The AudioGroup in which the sounds will be played. If null, the GuiRoot's DefaultAudioGroup will be used."
+    },
+    "Halfling.Gui.Components.Audio.WidgetInputStateAudio": {
+        "NormalSound": "The sound to play when the input state reverts to its \"Normal\" state, or null to play no sound.",
+        "HighlightedSound": "The sound to play when the input state switches from \"Normal\" to \"Highlighted\", or null to play no sound.",
+        "PressedSound": "The sound to play when the input state switches to \"Pressed\" or \"HotkeyPressed\", or null to play no sound.",
+        "AudioGroup": "The AudioGroup in which the sounds will be played. If null, the GuiRoot's DefaultAudioGroup will be used."
+    },
+    "Halfling.Gui.Components.Audio.WidgetSelectionStateAudio": {
+        "SelectedSound": "The sound to play when the widget becomes selected.",
+        "DeselectedSound": "The sound to play when the widget becomes deselected.",
+        "AudioGroup": "The AudioGroup in which the sounds will be played. If null, the GuiRoot's DefaultAudioGroup will be used."
+    },
+    "Halfling.Gui.Components.Audio.WidgetTriggeredAudio": {
+        "Sound": "The sound to play when the trigger is triggered.",
+        "AudioGroup": "The AudioGroup in which the sound will be played. If null, the GuiRoot's DefaultAudioGroup will be used."
+    },
+    "Halfling.Gui.Components.AutoSizing.WidgetAutoSizeController": {
+        "AutoWidthMode": "Whether the width of the widget is automatically sized to match its contents. The desired size of the contents is defined by the DesiredSizeProvider property.",
+        "AutoHeightMode": "Whether the height of the widget is automatically sized to match its contents. The desired size of the contents is defined by the DesiredSizeProvider property.",
+        "IgnoreForParentAutoSize": "Whether the attached widget should be skipped when computing the desired size of its parent widget.",
+        "WidthPadding": "The amount of extra pixels to add when calculating the automatic width of the widget.",
+        "HeightPadding": "The amount of extra pixels to add when calculating the automatic height of the widget.",
+        "MinWidth": "The minimum width to which the widget will be automatically set.",
+        "MaxWidth": "The maximum width to which the widget will be automatically set.",
+        "WidthValueType": "Specifies how the MinWidth and MaxWidth values should be interpreted.",
+        "MinHeight": "The minimum height to which the widget will be automatically set.",
+        "MaxHeight": "The maximum height to which the widget will be automatically set.",
+        "HeightValueType": "Specifies how the MinHeight and MaxHeight values should be interpreted.",
+        "Anchor": "The anchor point around which the widget will be scaled when automatically sizing. The anchor point is a normalized, Widget-relative location with each dimension in the range of [0,1]."
+    },
+    "Halfling.Gui.Components.Droppers.WidgetDropTargetController": {
+        "AutoParentTargetToRoot": "Whether the DropTarget should be automatically parented to the attached Widget's GuiRoot as a drop target."
+    },
+    "Halfling.Gui.Components.Droppers.WidgetRelativeRectController": {
+        "RestrictAutoSizeBounds": "Whether the attached widget's auto-size bounds will be automatically restricted to its parent's boundaries.",
+        "SourceCorner": "When AutoPosition is true, gets or sets the corner of the source rect to which the attached widget's TargetCorner will be aligned.",
+        "TargetCorner": "When AutoPosition is true, gets or sets the corner of the attached Widget that will be aligned with the source rect's SourceCorner.",
+        "PositionOffset": "When AutoPosition is true, gets or sets the offset to apply to the position of the attached widget once it is aligned with the source rect.",
+        "PreferredHorizontalSpace": "The amount of horizontal space that is preferred when positioning the attached widget. If the amount of space available is less than this value, then the target may be located on the opposite side of the source rect if there is more space there.",
+        "PreferredVerticalSpace": "The amount of vertical space that is preferred when the positioning the attached widget. If the amount of space available is less than this value, then the target may be located on the opposite side of the source rect if there is more space there.",
+        "MatchWidth": "When AutoPosition is true, gets or sets whether the width of the attached widget will be modified to match the width of the source rect.",
+        "MatchHeight": "When AutoPosition is true, gets or sets whether the height of the attached widget wwill be modified to match the height of the source rect."
+    },
+    "Halfling.Gui.Components.Focus.WidgetMouseFocusController": {
+        "EnableClickInsideToFocus": "Whether clicking the inside of the Widget will cause it to be focused.",
+        "EnableClickInsideToDefocus": "Whether clicking inside of the Widget will cause its focus to be relinquished.",
+        "EnableClickOutsideToDefocus": "Whether clicking outside of the Widget will cause its focus to be relinquished.",
+        "EnableMouseEnterToFocus": "Whether moving the mouse inside the Widget will cause it to be focused.",
+        "EnableMouseLeaveToDefocus": "Whether moving the mouse outside of the Widget will cause its focus to be relinquished.",
+        "EnableChainedWidgetChecking": "When EnableClickOutsideToDefocus is true or EnableMouseLeaveToDefocus is true, gets or sets whether clicking on or mousing-over another Widget chained to the attached Widget will prevent the attached Widget from defocusing.",
+        "MouseButton": "The IInputButton that can be used to focus and defocus the Widget."
+    },
+    "Halfling.Gui.Components.Graphics.GuiSprite": {
+        "Shader": "The Shader property value.",
+        "ShaderConstants": "A collection of constant values for the Shader. This collection may be null if there is no Shader or there are no constants set.",
+        "Texture": "The Texture property value.",
+        "Color": "The Color property value.",
+        "TargetBlendMode": "The TargetBlendMode property value.",
+        "VertexColor": "The vertex color of the sprite.",
+        "UVRect": "The UV coordinates on Texture of the sprite.",
+        "Rotation": "The rotation of the sprite.",
+        "Bleed": "The amount by which the sprite will extend passed its rect."
+    },
+    "Halfling.Gui.Components.Graphics.WidgetNineSlice": {
+        "TopLeftSprite": "The top-left corner sprite.",
+        "TopSprite": "The top edge sprite.",
+        "TopRightSprite": "The top-right corner sprite.",
+        "LeftSprite": "The left edge sprite.",
+        "CenterSprite": "The center sprite.",
+        "RightSprite": "The right edge sprite.",
+        "BottomLeftSprite": "The bottom-left corner sprite.",
+        "BottomSprite": "The bottom edge sprite.",
+        "BottomRightSprite": "The bottom-right corner sprite.",
+        "Borders": "The sizes of each of the border tiles of this nine-slice.",
+        "Bleed": "The amount which this nine-slice \"bleeds\" past the edges of the provided rect.",
+        "ProvidedRectPadding": "The amount of padding to add to the rectangle provided by this WidgetNineSlice.",
+        "Flags": "Bitwise-combinable flags that specify which sprites of this nine-slice are rendered."
+    },
+    "Halfling.Gui.Components.Graphics.WidgetSingleSprite": {
+        "DesiredSize": "The desired size of the sprite, which may then be scaled depending on the ScaleMode property.",
+        "ScaleMode": "Whether and how the sprite will be stretched or scaled to match the size of its containing rect.",
+        "Clipped": "Whether any portions of the sprite outside the container rect will be clipped.",
+        "Padding": "The empty space padding around the sprite."
+    },
+    "Halfling.Gui.Components.Graphics.WidgetSpriteUVManager": {
+        "Enabled": "Whether this WidgetSpriteUVManager will adjust the given WidgetSingleSprite's UVRect. Set this to false to not modify its UVRect.",
+        "BaseUVRect": "The UVRect that will be used when the entire sprite should be displayed.",
+        "UMode": "How the Sprite's UVRect's X and Width will be calculated.",
+        "VMode": "How the Sprite's UVRect's Y and Height will be calculated.",
+        "RepeatWidth": "Distance over which the Sprite's U coordinates will repeat when UMode is Repeat.",
+        "RepeatHeight": "The distance over which the Sprite's V coordinates will repeat when VMode is Repeat."
+    },
+    "Halfling.Gui.Components.Graphics.WidgetTextRenderer": {
+        "Text": "The text to be rendered. If the XmlFormatting property is true, then the text will be parsed for XML format tags.",
+        "TextProvider": "An ITextProvider object that, if not null, will keep this WidgetTextRenderer's Text property updated to match the ITextProvider.",
+        "XmlFormatting": "Whether the Text property will be parsed for XML format tags.",
+        "Font": "The font used to render the text.",
+        "Color": "The color of the text.",
+        "BackgroundColor": "The color of the background behind the text.",
+        "Shader": "The shader used to render the text, or null to use the default shader.",
+        "ShaderConstants": "A collection of constant values for the Shader. This collection may be null if there is no Shader or there are no constants set.",
+        "FontSize": "The pixel size of the text font.",
+        "FontStyle": "The font style of the text.",
+        "HAlignment": "How the text is aligned horizontally within its Rect.",
+        "VAlignment": "How the text is aligned vertically within its Rect.",
+        "InternalLineAlignment": "How text of different sizes within the same line are aligned within that line.",
+        "OversizeMode": "Whether and how text that is too big to fit in its rect will be modified to fit.",
+        "EllipsesText": "The text to append when OversizeMode is set to Ellipses and the main text exceeds the maximum width.",
+        "MaxRenderedChars": "The maximum number of characters to render. The text will still be positioned and formatted as if all characters were rendered.",
+        "CharacterMask": "The optional CharacterMask used to change one character into another during rendering. This can be useful for implementing password fields. If null, then the character will be rendered as-is.",
+        "Padding": "The empty space padding around the text.",
+        "Clip": "Whether the text is clipped to the rect provided by RectProvider."
+    },
+    "Halfling.Gui.Components.Input.BaseWidgetDragController": {
+        "MouseButton": "The mouse IInputButton to which the widget will respond.",
+        "DragCursor": "The Cursor to show when the mouse is over the attached Widget."
+    },
+    "Halfling.Gui.Components.Input.WidgetClickController": {
+        "Holdable": "Whether the user can click and hold on the widget to generate repeated Clicked events.",
+        "HoldInitialRepeatInterval": "The amount of time between the initial press of the widget and the first repeated Clicked event. Has no effect if Holdable is false.",
+        "HoldRepeatInterval": "The amount of time between each Clicked event when the user is holding down the widget. Has no effect if Holdable is false.",
+        "DoubleClickMaxInterval": "The maximum amount of time between clicks that will result in a DoubleClicked event being fired.",
+        "ClickMode": "Whether the player needs to press or release the input button to \"click\" the widget.",
+        "HotkeyMode": "Whether the player needs to press or release the hotkey to \"click\" the widget."
+    },
+    "Halfling.Gui.Components.Input.WidgetDragController": {
+        "MoveWhenBoundsChanged": "Whether the DragTarget will be automatically moved to stay within bounds when the BoundsProvider's bounds changes."
+    },
+    "Halfling.Gui.Components.Input.WidgetInputStateController": {
+        "BlocksInput": "Whether user input to widgets underneath will be blocked.",
+        "MouseButton": "The mouse IInputButton to which the widget will respond.",
+        "Hotkey": "The IInputButton (or combination of buttons) which will put the widget into a \"HotkeyPressed\" state.",
+        "OverrideInputActive": "If not null, overrides the attached widget's IsInputActive state for the purposes of this WidgetInputStateController.",
+        "AllowHighlighted": "Whether the widget is allowed to be in the \"Highlighted\" input state.",
+        "AllowPressed": "Whether the widget is allowed to be in the \"Pressed\" input state.",
+        "AllowHotkeyPressed": "Whether the widget is allowed to be in the \"HotkeyPressed\" input state."
+    },
+    "Halfling.Gui.Components.Input.WidgetInputStateCursors": {
+        "HighlightedCursor": "The Cursor to show when the input state is \"Highlighted\".",
+        "PressedCursor": "The Cursor to show when the input state is \"Pressed\"."
+    },
+    "Halfling.Gui.Components.Input.WidgetScrollWheelController": {
+        "IncrementAmount": "The amount by which the value will be incremented or decremented when using the scroll wheel.",
+        "EnableSmoothScrolling": "If true, scrolling will happen smoothly over multiple frames instead of instantly on every click of the scroll wheel.",
+        "SmoothVelocityFraction": "The smooth scrolling velocity (in units per second) as a fraction of the delta between the current value and target value.",
+        "MinSmoothVelocity": "The minimum smooth scrolling velocity (in units per second) regardless of the delta between the current value and target value.",
+        "DisableInputHandling": "Whether the component's input handling should be skipped."
+    },
+    "Halfling.Gui.Components.Masking.NineSlicedMask": {
+        "MaskType": "The type of masking technique to use."
+    },
+    "Halfling.Gui.Components.Rects.FilledRectProvider": {
+        "HorizontalFillMode": "How this FilledRectProvider will fill its rect horizontally as the provided value increases.",
+        "VerticalFillMode": "How this FilledRectProvider will fill its rect vertically as the provided value increases.",
+        "MinSize": "The minimum size of the provided rect."
+    },
+    "Halfling.Gui.Components.Rects.InnerRectProvider": {
+        "InnerRectSize": "The size of the provided inner rect.",
+        "InnerRectWidth": "The width of the provided inner rect.",
+        "InnerRectHeight": "The height of the provided inner rect.",
+        "InnerRectMode": "How and where the inner rect will be located inside the provided rect.",
+        "BorderPadding": "The amount of padding to apply to the borders of the outer rect.",
+        "RemainderPadding": "The amount of padding to apply to the borders of the remainder rect.",
+        "ClipInnerRect": "Whether the provided inner rect will be clipped so that it doesn't overhang the outer rect."
+    },
+    "Halfling.Gui.Components.ScrollBars.PaddleDragController": {
+        "MouseButton": "The mouse IInputButton to which the widget will respond."
+    },
+    "Halfling.Gui.Components.ScrollBars.PaddleRectController": {
+        "PaddleDirection": "The direction in which a paddle will move as the value increases.",
+        "PaddleSizeMode": "The method that will be used to determine the size of the paddle.",
+        "PaddlePixelSize": "The size (width or height) of the paddle in pixels when the PaddleSizeMode is FixedPixel.",
+        "PaddleValueSize": "The size (width or height) of the paddle in value-relative units when the PaddleSizeMode is DynamicValue.",
+        "MinPaddlePixelSize": "The minimum size (width or height) of the paddle when the PaddleSizeMode is DynamicValue."
+    },
+    "Halfling.Gui.Components.ScrollBars.ScrollBarPaddle": {
+        "RectController": "The settings for the object that controls this ScrollBarPaddle's ScreenRect.",
+        "DragController": "The settings for the object that controls how this ScrollBarPaddle is dragged.",
+        "ShowValueText": "Whether text displaying the ScrollBar's current value will be rendered on this paddle.",
+        "ValueTextFormat": "The format string to use when ShowValueText is true. If null, the text will not be formatted."
+    },
+    "Halfling.Gui.Components.ScrollBars.WidgetScrollBarController": {
+        "ShowHorizontal": "The circumstances under which the horizontal ScrollBar is shown.",
+        "ShowVertical": "The circumstances under which the vertical ScrollBar is shown."
+    },
+    "Halfling.Gui.Components.Selection.SelectionManager": {
+        "MinSelected": "The minimum number of Widgets that may be selected at a time. Calling AttemptToDeselect() will have no effect if the number of selected Widgets is not greater than this value. Modifying this property will have no immediate effect on the currently-selected Widgets.",
+        "MaxSelected": "The maximum number of Widgets that may be selected at a time. Calling AttemptToSelect() may fail or cause another Widget to become deselected depending on the value of the MaxSelectedMode property. Modifying this property will have no immediate effect on the currently-selected Widgets.",
+        "MaxSelectedMode": "The action to take when AttemptToSelect() is called but the maximum number of Widgets are already selected. Modifying this property will have no immediate effect on the currently-selected Widgets.",
+        "SelectionChangeOrder": "The order in which widgets will be selected and deselected when calling AttemptToSelect()."
+    },
+    "Halfling.Gui.Components.Selection.WidgetSelectionController": {
+        "IsSelected": "Whether the attached Widget is currently selected.",
+        "DeselectWhenDeactivated": "Whether the attached widget will be automatically deselected when it is deactivated or its input is deactivated."
+    },
+    "Halfling.Gui.Components.Selection.WidgetTriggeredSelectionController": {
+        "EnableSelect": "Whether triggering when the Widget is deselected will cause it to be selected.",
+        "EnableDeselect": "Whether triggering when the Widget is already selected will cause it to be deselected."
+    },
+    "Halfling.Gui.Components.Text.WidgetKeyboardTextSelector": {
+        "Holdable": "Whether the user can press and hold the key to generate repeated selection changes.",
+        "HoldInitialRepeatInterval": "The amount of time between the initial press of a key and the first repeated selection change. Has no effect if Holdable is false.",
+        "HoldRepeatInterval": "The amount of time between each selection change while the user is holding a key. Has no effect if Holdable is false.",
+        "PrevKey": "The IInputButton that can be pressed to move the caret to the previous text character.",
+        "NextKey": "The IInputButton that can be pressed to move the caret to the next text character.",
+        "UpKey": "The IInputButton that can be pressed to move the caret up one line of text.",
+        "DownKey": "The IInputButton that can be pressed to move the caret down one line of text.",
+        "BeginKey": "The IInputButton that can be pressed to move the caret to the beginning of the text.",
+        "EndKey": "The IInputButton that can be pressed to move the caret to the end of the text.",
+        "SelectAllKey": "The IInputButton that can be pressed to select all of the text.",
+        "AppendSelectionKey": "The IInputButton that can be held to append text to the selection instead of replacing the selection.",
+        "DisableDuringImeTextComposition": "Whether text selection will be disabled while the OS input method editor is composing text."
+    },
+    "Halfling.Gui.Components.Text.WidgetMouseTextSelector": {
+        "MouseButton": "The mouse IInputButton that can be used to select text.",
+        "AppendSelectionKey": "The IInputButton that can be held to append text to the selection instead of replacing the selection.",
+        "DoubleClickWordSelectMaxInterval": "The maximum amount of time between clicks that will result in a whole word being selected.",
+        "DisableDuringImeTextComposition": "Whether text selection will be disabled while the OS input method editor is composing text."
+    },
+    "Halfling.Gui.Components.Text.WidgetTextCaretRenderer": {
+        "CaretColor": "The color of the text caret.",
+        "CaretWidth": "The width of the text caret.",
+        "BlinkInterval": "The amount of time between each blink of the caret.",
+        "Clip": "Whether the text caret is clipped to the TextRenderer's region."
+    },
+    "Halfling.Gui.Components.Text.WidgetTextClipboardController": {
+        "AllowCopy": "Whether copying text is allowed.",
+        "AllowPaste": "Whether pasting text is allowed.",
+        "CopyHotkey": "The IInputButton that can be used to copy the selected text to the clipboard.",
+        "PasteHotkey": "The IInputButton that can be used to paste text from clipboard."
+    },
+    "Halfling.Gui.Components.Text.WidgetTextEditController": {
+        "CharFilter": "The CharFilter used to filter out or modify unwanted typed characters."
+    },
+    "Halfling.Gui.Components.Text.WidgetTextSelectionRenderer": {
+        "HighlightColor": "The color of the highlight to show behind the text.",
+        "Clip": "Whether the selection highlight is clipped to the TextRenderer's region."
+    },
+    "Halfling.Gui.Components.ToolTips.WidgetToolTipDisplayController": {
+        "ClearTextWhenSourceCleared": "Whether the text on the widget will be set to an empty string when the tool tip source is cleared.",
+        "ToggleWidgetActive": "Whether the attached widget's SelfActive property will be toggled such that the widget is only active when there is a tool tip source set.",
+        "AutoPosition": "Whether the location and (if MatchWidth or MatchHeight are set) size of the attached widget will be automatically set by this WidgetToolTipDisplayController.",
+        "AutoRaise": "Whether the attached widget will be automatically raised to the top of its parent when shown.",
+        "SourceCorner": "When AutoPosition is true, gets or sets the corner of the tool tip source to which the attached widget's ToolTipCorner will be aligned.",
+        "ToolTipCorner": "When AutoPosition is true, gets or sets the corner of the attached widget that will be aligned with tool tip source's SourceCorner.",
+        "PositionOffset": "When AutoPosition is true, gets or sets the offset to apply to the position of the attached widget once it is aligned with the tool tip source.",
+        "PreferredHorizontalSpace": "The amount of horizontal space that is preferred when positioning the attached widget. If the amount of space available is less than this value, then the widget may be located on the opposite side of the tool tip source if there is more space there.",
+        "PreferredVerticalSpace": "The amount of vertical space that is preferred when positioning the attached widget. If the amount of space available is less than this value, then the widget may be located on the opposite side of the tool tip source if there is more space there.",
+        "MatchWidth": "When AutoPosition is true, gets or sets whether the width of the attached widget will be modified to match the width of the tool tip source.",
+        "MatchHeight": "When AutoPosition is true, gets or sets whether the height of the attached widget will be modified to match the height of the tool tip source.",
+        "Delay": "The amount of time that showing a tool tip will be delayed. This property will implicitly get or set the DelayProvider property."
+    },
+    "Halfling.Gui.Components.ToolTips.WidgetToolTips": {
+        "Text": "The text displayed on mouse-over when the widget's input is enabled.",
+        "TextProvider": "An ITextProvider object that, if not null, will keep this WidgetToolTip's Text property updated to match the ITextProvider.",
+        "InputDisabledText": "The text displayed on mouse-over when the widget's input is disabled.",
+        "InputDisabledTextProvider": "An ITextProvider object that, if not null, will keep this WidgetToolTip's InputDisabledText property updated to match the ITextProvider."
+    },
+    "Halfling.Gui.Components.WidgetComponent": {
+        "Active": "Whether this component is active. This component's IsActive property will only be true if its SelfActive property is true, it has a widget, and its widget's IsActive property is true."
+    },
+    "Halfling.Gui.Components.Windows.WidgetRaiseController": {
+        "MouseButton": "The mouse IInputButton that will cause the Widget to be raised."
+    },
+    "Halfling.Gui.Components.Windows.WidgetResizeController": {
+        "MouseButton": "The mouse IInputButton to which the edge drag will respond.",
+        "AllowedEdges": "A bitfield indicating which of the Widget's edges may be dragged to resize the Widget.",
+        "MinSize": "The minimum size to which the Widget may be resized.",
+        "MaxSize": "The maximum size to which the Widget may be resized.",
+        "ForceAspectRatio": "The aspect ratio of the ResizeTarget that will be maintained while resizing. A value of 0 will allow the aspect ratio to be freely changed.",
+        "ResizeLeftCursor": "The Cursor to show when the mouse is over the left edge.",
+        "ResizeRightCursor": "The Cursor to show when the mouse is over the right edge.",
+        "ResizeTopCursor": "The Cursor to show when the mouse is over the top edge.",
+        "ResizeBottomCursor": "The Cursor to show when the mouse is over the bottom edge.",
+        "ResizeTopLeftCursor": "The Cursor to show when the mouse is over the top-left corner.",
+        "ResizeTopRightCursor": "The Cursor to show when the mouse is over the top-right corner.",
+        "ResizeBottomLeftCursor": "The Cursor to show when the mouse is over the bottom-left corner.",
+        "ResizeBottomRightCursor": "The Cursor to show when the mouse is over the bottom-right corner."
+    },
+    "Halfling.Gui.ContextMenu": {
+        "RectController": "The settings for the component that controls the position of this context menu.",
+        "FocusController": "The settings for the component that controls when this context menu is shown and hidden.",
+        "ActiveStateAudio": "The audio sound effects to play when the active state of this widget changes."
+    },
+    "Halfling.Gui.Dialogs.DialogBase": {
+        "BackgroundColor": "The color of the background behind the dialog. An alpha value of 0 will prevent the background from being rendered. An alpha value of 1 will prevent the parent state from being rendered."
+    },
+    "Halfling.Gui.Dialogs.OneButtonDialog": {
+        "OuterBox": "The settings for the outer-most LayoutBox containing all of the dialog widgets.",
+        "MessageLabel": "The settings for the Label displaying the message to the user.",
+        "ButtonBox": "The settings for the LayoutBox that contains the button.",
+        "Button": "The settings for the button that the player can press to close the dialog."
+    },
+    "Halfling.Gui.Dialogs.OneButtonTextEntryDialog": {
+        "OuterBox": "The settings for the outer-most LayoutBox containing all of the dialog widgets.",
+        "MessageLabel": "The settings for the Label displaying the message to the user.",
+        "TextEditField": "The settings for the TextEditBox in which the user can enter text.",
+        "ButtonBox": "The settings for the LayoutBox that contains the button.",
+        "Button": "The settings for the button that the player can press to close the dialog."
+    },
+    "Halfling.Gui.Dialogs.ThreeButtonDialog": {
+        "OuterBox": "The settings for the outer-most LayoutBox containing all of the dialog widgets.",
+        "MessageLabel": "The settings for the Label displaying the message to the user.",
+        "OptionButtonsBox": "The settings for the LayoutBox that contains the option buttons.",
+        "Option1Button": "The settings for the button that the player can press to select the first option.",
+        "Option2Button": "The settings for the button that the player can press to select the second option.",
+        "Option3Button": "The settings for the button that the player can press to select the third option."
+    },
+    "Halfling.Gui.Dialogs.TwoButtonDialog": {
+        "OuterBox": "The settings for the outer-most LayoutBox containing all of the dialog widgets.",
+        "MessageLabel": "The settings for the Label displaying the message to the user.",
+        "OptionButtonsBox": "The settings for the LayoutBox that contains the option buttons.",
+        "Option1Button": "The settings for the button that the player can press to select the first option.",
+        "Option2Button": "The settings for the button that the player can press to select the second option."
+    },
+    "Halfling.Gui.Dialogs.TwoButtonTextEntryDialog": {
+        "OuterBox": "The settings for the outer-most LayoutBox containing all of the dialog widgets.",
+        "MessageLabel": "The settings for the Label displaying the message to the user.",
+        "TextEditField": "The settings for the TextEditBox in which the user can enter text.",
+        "OptionButtonsBox": "The settings for the LayoutBox that contains the option buttons.",
+        "Option1Button": "The settings for the button that the player can press to select the first option.",
+        "Option2Button": "The settings for the button that the player can press to select the second option."
+    },
+    "Halfling.Gui.Dialogs.ZeroButtonDialog": {
+        "OuterBox": "The settings for the outer-most LayoutBox containing all of the dialog widgets.",
+        "MessageLabel": "The settings for the Label displaying the message to the user."
+    },
+    "Halfling.Gui.DropButton": {
+        "FocusController": "The settings for how and when the user can click to focus this widget.",
+        "FocusStateAudio": "The audio sound effects to play when the focus state of this widget changes.",
+        "ArrowRectController": "The settings for how and where the arrow sprite is shown.",
+        "TargetShownNineSlice": "The settings for the nine-slice sprite shown when the drop target is shown.",
+        "TargetHiddenNineSlice": "The settings for the nine-slice sprite shown when the drop target is hidden.",
+        "TargetHiddenDisabledNineSlice": "The settings for the nine-slice sprite shown when the this DropList is disabled.",
+        "DropTargetController": "The settings for the component that controls the visibility and position of the DropTarget.",
+        "TargetRectController": "The settings for the component that controls the position of the drop target."
+    },
+    "Halfling.Gui.DropList`1": {
+        "ListBox": "The ListBox widget that is shown underneath the button when the button is clicked.",
+        "MatchTextToSelection": "Whether the text of the Button will be automatically set to match the text of the selected item.",
+        "HideListWhenSelected": "Whether the ListBox will be hidden when one of its items is selected.",
+        "AutoCenterOnSelected": "Whether the ListBox will be automatically centered on the selected item when it is opened."
+    },
+    "Halfling.Gui.DynamicWidget": {
+        "StateNormalNineSlice": "The settings for the nine-slice shown when this widget is in its \"Normal\" state.",
+        "StateHighlightedNineSlice": "The settings for the nine-slice shown when this widget is in its \"Highlighted\" state.",
+        "StatePressedNineSlice": "The settings for the nine-slice shown when this widget is in its \"Pressed\" or \"HotkeyPressed\" states.",
+        "StateDisabledNineSlice": "The settings for the nine-slice shown when this widget is in its \"Disabled\" state.",
+        "InputStateController": "The settings that control how this widget's input state is determined.",
+        "InputStateAudio": "The audio sound effects to play when the input state of this widget changes."
+    },
+    "Halfling.Gui.Image": {
+        "Sprite": "The settings for how this widget's sprite is rendered."
+    },
+    "Halfling.Gui.ImageButton": {
+        "ImageRectController": "The settings for how and where the image is shown.",
+        "ImageSprite": "The settings for the image shown on this button."
+    },
+    "Halfling.Gui.ImageListItem": {
+        "ImageRectController": "The settings for how and where the image is shown.",
+        "ImageSprite": "The settings for the image shown on this list item."
+    },
+    "Halfling.Gui.Label": {
+        "TextRenderer": "The settings for how this label's text is rendered.",
+        "Text": "This label's text. This is a simple shortcut property for TextRenderer.Text.",
+        "TextProvider": "An ITextProvider object that, if not null, will keep this Label's Text property updated to match the ITextProvider."
+    },
+    "Halfling.Gui.LayoutBox`2": {
+        "DockedChildren": "The children docked to the edges of this widget. The remaining area will be used by the widgets in the Children collection. The children themselves will NOT be copied.",
+        "Children": "The children of this widget and options for controlling their automatic layout. The children themselves will NOT be copied.",
+        "ChildMask": "The component that masks the rendering of child components."
+    },
+    "Halfling.Gui.ListBox`1": {
+        "SelectionManager": "The SelectionManager that manages the selection states of the children in this ListBox."
+    },
+    "Halfling.Gui.ListItem": {
+        "SelectedNineSlice": "The settings for the nine-slice overlay shown when this widget is selected.",
+        "SelectedTextRenderer": "The settings for the text shown when this widget is selected."
+    },
+    "Halfling.Gui.MenuBar": {
+        "Children": "The children of this widget and options for controlling their automatic layout. The children themselves will NOT be copied."
+    },
+    "Halfling.Gui.MenuCategory": {
+        "IconRectController": "The settings for how and where the icon sprite is shown.",
+        "IconSprite": "The settings for the icon shown on this menu item.",
+        "IconBackingSprite": "The settings for the background shown behind the icon on this menu item.",
+        "FocusController": "The settings for how and when the user can click to focus this widget.",
+        "FocusStateAudio": "The audio sound effects to play when the focus state of this widget changes.",
+        "DropTargetController": "The settings for the component that controls the visibility and position of the MenuBox.",
+        "MenuBox": "The ScrollBox widget that is shown underneath the button when the button is clicked.",
+        "MenuBoxRectController": "The settings for the component that controls the position of the MenuBox widget.",
+        "FocusedWidgetManager": "The FocusedWidgetManager that manages the focus of all the widgets in ScrollBox."
+    },
+    "Halfling.Gui.MenuItem": {
+        "CloseWhenClicked": "Whether the menu hierarchy will be closed when this MenuItem is clicked.",
+        "IconRectController": "The settings for how and where the icon sprite is shown.",
+        "IconSprite": "The settings for the icon shown on this menu item.",
+        "IconBackingSprite": "The settings for the background shown behind the icon on this menu item."
+    },
+    "Halfling.Gui.MenuSubCategory": {
+        "ArrowRectController": "The settings for how and where the arrow sprite is shown.",
+        "ArrowNineSlice": "The settings for the arrow nine-slice sprite.",
+        "ArrowDisabledNineSlice": "The settings for the arrow nine-slice sprite when this MenuSubCategory's input is disabled."
+    },
+    "Halfling.Gui.MenuToggleItem": {
+        "CloseWhenClicked": "Whether the menu hierarchy will be closed when this MenuItem is clicked.",
+        "IconRectController": "The settings for how and where the icon sprite is shown.",
+        "IconSprite": "The settings for the icon shown on this menu item.",
+        "IconBackingSprite": "The settings for the background shown behind the icon on this menu item."
+    },
+    "Halfling.Gui.ProgressBar": {
+        "ProgressNineSlice": "The settings for the nine-slice that is rendered according to the value of this ProgressBar.",
+        "Fill": "The settings for how the ProgressSprite is filled as the Value property increases.",
+        "ProgressSpriteUVs": "The settings for whether and how the ProgressSprite's UVRect will be adjusted depending on the value of this Progressbar.",
+        "Value": "The current value to display on this ProgressBar.",
+        "EmptyValue": "The value at which this ProgressBar will be completely empty.",
+        "FullValue": "The value at which this ProgressBar will be completely full."
+    },
+    "Halfling.Gui.ScrollBar": {
+        "DockedChildren": "The collection containing the increment and decrement buttons docked to the edges of this widget. The children themselves will NOT be copied.",
+        "Children": "The collection containing the paddle, page up, and page down buttons. The children themselves will NOT be copied.",
+        "IncrementButton": "The Button that can be used to increment the value of this ScrollBar.",
+        "DecrementButton": "The Button that can be used to decrement the value of this ScrollBar.",
+        "IncreasePager": "The ScrollBarPager that can be used to increase the value of this ScrollBar a page at a time.",
+        "DecreasePager": "The ScrollBarPager that can be used to decrease the value of this ScrollBar a page at a time.",
+        "Paddle": "The ScrollBarPaddle that can be clicked and dragged to adjust the value of this ScrollBar.",
+        "Value": "The current value of this ScrollBar. When setting, the set value will be rounded to a multiple of the Interval property.",
+        "MinValue": "The minimum value of this ScrollBar.",
+        "MaxValue": "The value of this ScrollBar.",
+        "Interval": "The number of which Value will be rounded to a multiple. If 0, no rounding will occur.",
+        "IncrementAmount": "The amount by which the Value will be incremented or decremented when the IncrementButton or DecrementButton is pressed.",
+        "PageSize": "The amount by which the Value will be increased or decreased when the IncreasePager or DecreasePager is pressed."
+    },
+    "Halfling.Gui.ScrollBox`1": {
+        "HorizontalScrollBar": "The ScrollBar that can be used to pan the contents of this ScrollBox horizontally.",
+        "VerticalScrollBar": "The ScrollBar that can be used to pan the contents of this ScrollBox vertically.",
+        "CornerWidget": "The widget that sits in the corner when both ScrollBars are active.",
+        "ScrollBarController": "The settings for the component that controls the ScrollBars.",
+        "ScrollWheelController": "The settings for the component that controls how the user can use the mouse scroll wheel to scroll the view."
+    },
+    "Halfling.Gui.SelectableButton": {
+        "SelectionController": "The settings for how and when the user can click to select this widget.",
+        "SelectionStateAudio": "The audio sound effects to play when the selection state of this widget changes.",
+        "IsSelected": "Whether this Widget is currently selected. Getting this property is a simple shortcut for SelectionController.IsSelected. Setting this property will call SelectionController.AttemptToSelect or AttemptToDeselect and throw an InvalidOperationException if the attempt fails."
+    },
+    "Halfling.Gui.SimpleBox`1": {
+        "Children": "The children of this widget. The children themselves will NOT be copied.",
+        "ChildMask": "The component that masks the rendering of child components."
+    },
+    "Halfling.Gui.StaticWidget": {
+        "NineSlice": "The settings for how this widget's nine-slice is rendered."
+    },
+    "Halfling.Gui.TabBox`1": {
+        "TabsListBox": "The ListBox that contains the tab buttons."
+    },
+    "Halfling.Gui.TextEditField": {
+        "InternalTextField": "The settings for the underlying TextEditField that contains the actual editable text."
+    },
+    "Halfling.Gui.TextEditField/TextFieldWidget": {
+        "StateEnabledTextRenderer": "The settings for the text shown when this button is not in its \"Disabled\" state.",
+        "StateDisabledTextRenderer": "The settings for the text shown when this button is in its \"Disabled\" state.",
+        "Cursors": "The settings for the mouse-over and mouse-pressed cursors.",
+        "FocusController": "The settings for how and when the user can click to focus this widget.",
+        "FocusStateAudio": "The audio sound effects to play when the focus state of this widget changes.",
+        "TextSelection": "The current state of the text selection.",
+        "MouseTextSelector": "The settings for how text can be selected using the mouse.",
+        "KeyboardTextSelector": "The settings for how text can be selected using the keyboard.",
+        "TextSelectionRenderer": "The settings for the text selection highlight.",
+        "TextCaretRenderer": "The settings for the text caret.",
+        "TextEditController": "The settings for how text can be edited.",
+        "ClipboardController": "The settings for copying and pasting to and from the operating system's clipboard.",
+        "Text": "The text displayed on this TextFieldWidget.",
+        "MaxTextLength": "The maximum length of the text."
+    },
+    "Halfling.Gui.ToggleButton": {
+        "ToggleRectController": "The settings for how and where the toggle sprite is shown.",
+        "SelectedNineSlice": "The settings for the nine-slice sprite shown when this widget is selected.",
+        "DeselectedNineSlice": "The settings for the nine-slice sprite shown when this widget is deselected.",
+        "SelectedDisabledNineSlice": "The settings for the nine-slice sprite shown when this widget is selected and its input is disabled.",
+        "DeselectedDisabledNineSlice": "The settings for the nine-slice sprite shown when this widget is deselected and its input is disabled."
+    },
+    "Halfling.Gui.ToolTipBox": {
+        "TooltipLabel": "The label that displays the tooltip text.",
+        "ScrollBindingLabel": "The label displayed when the tooltip can be scrolled via the ScrollBinding."
+    },
+    "Halfling.Gui.ToolTipLabel": {
+        "ToolTipDisplayController": "The settings for how this ToolTipLabel will display tool tips."
+    },
+    "Halfling.Gui.Widget": {
+        "Name": "The name of this Widget. This property has no effect within the Halfling GUI library, but may be useful to the user program or for debugging purposes.",
+        "AnchorRect": "The rect in the parent to which this Widget is anchored. Use the AnchorPresets static class for a list of pre-defined anchor rects.",
+        "Rect": "The rectangular position of this Widget relative to AnchorRect in pixel coordinates.",
+        "Location": "The location of the upper-left of this Widget relative to the upper-left corner of AnchorRect in pixel coordinates.",
+        "Size": "The size of this Widget assuming that the size of AnchorRect is zero.",
+        "X": "The x-coordinate of the left edge of this Widget relative to the left edge of AnchorRect in pixel coordinates.",
+        "Y": "The y-coordinate of the top of this Widget relative to the top edge of AnchorRect in pixel coordinates.",
+        "Width": "The width of this Widget in pixel coordinates assuming that the widget of AnchorRect is zero.",
+        "Height": "The height of this Widget in pixel coordinates assuming that the height of AnchorRect is zero.",
+        "Left": "The left edge of this widget relative to the left edge of AnchorRect in pixel coordinates. The position of the right edge will remain unmodified.",
+        "Right": "The right edge of this widget relative to the right edge of AnchorRect in pixel coordinates. The position of the left edge will remain unmodified.",
+        "Top": "The top edge of this widget relative to the top edge of AnchorRect in pixel coordinates. The position of the bottom edge will remain unmodified.",
+        "Bottom": "The bottom edge of this widget relative to the bottom edge of AnchorRect in pixel coordinates. The position of the top edge will remain unmodified.",
+        "PercentileRect": "Sets the rectangular position of this Widget as a 0-100 percentage of its parent. Modifies the Rect and AnchorRect properties as needed.",
+        "PercentileLocation": "Sets the upper-left corner of this Widget as a 0-100 percentage of its parent. Modifies the Rect and AnchorRect properties as needed.",
+        "PercentileSize": "Sets the size of this Widget as a 0-100 percentage of its parent. Modifies the Rect and AnchorRect properties as needed.",
+        "PercentileX": "Sets the x-coordinate of the left edge of this Widget as a 0-100 percentage of its parent. Modifies the Rect and AnchorRect properties as needed.",
+        "PercentileY": "Sets the y-coordinate of the top edge of this Widget as a 0-100 percentage of its parent. Modifies the Rect and AnchorRect properties as needed.",
+        "PercentileWidth": "Sets the width of this Widget as a 0-100 percentage of its parent. Modifies the Rect and AnchorRect properties as needed.",
+        "PercentileHeight": "Sets the height of this Widget as a 0-100 percentage of its parent. Modifies the Rect and AnchorRect properties as needed.",
+        "PercentileLeft": "Sets the left edge of this Widget as a 0-100 percentage of its parent without modifying the right edge. Modifies the Rect and AnchorRect properties as needed.",
+        "PercentileRight": "Sets the left edge of this Widget as a 0-100 percentage of its parent without modifying the left edge. Modifies the Rect and AnchorRect properties as needed.",
+        "PercentileTop": "Sets the top edge of this Widget as a 0-100 percentage of its parent without modifying the bottom edge. Modifies the Rect and AnchorRect properties as needed.",
+        "PercentileBottom": "Sets the bottom edge of this Widget as a 0-100 percentage of its parent without modifying the top edge. Modifies the Rect and AnchorRect properties as needed.",
+        "Active": "Whether this particular Widget is active. This Widget's IsActive property will only be true if its SelfActive property is true, it has a parent, and its parent's IsActive property is true.",
+        "SelfInputActive": "Whether this particular Widget is itself set to respond to user input. This Widget's IsInputActive property will only be true its SelfInputActive property is true, it has a parent, and its parent's IsInputActive property is true.",
+        "DockMode": "Which edge of its parent this widget will be docked to when placed in a WidgetDockedChildren list.",
+        "IgnoreInLayout": "Whether this widget will be ignored during automatic widget layout.",
+        "InputBlockMode": "Whether this widget blocks user input to widgets underneath it.",
+        "RenderSettings": "The settings that control how this Widget will be rendered. Settings specified here will be inherited by all child components and widgets.",
+        "Animator": "The object that controls how this widget is animated.",
+        "Triggers": "The collection of triggers attached to this widget.",
+        "ToolTips": "The settings for displaying mouse-over tool tips for this widget.",
+        "ToolTipDisplay": "The object that displays tool tips for this widget and any child widgets that don't themselves have a ToolTipDisplay set.",
+        "AutoSize": "The settings for how this widget is automatically sized.",
+        "CustomShapeFunc": "The function used to determine whether a mouse cursor is \"inside of\" this Widget. A null value will simply check against this Widget's ScreenRect.",
+        "UserData": "An arbitrary data object attached to this Widget. The user application can attach anything it likes to this property."
+    },
+    "Halfling.Gui.WindowBox`1": {
+        "TitleBox": "The LayoutBox that contains the title bar, title, and window buttons.",
+        "TitleLabel": "The Label that displays the title text in the TitleBox.",
+        "CloseButton": "The Button that can be used to close this WindowBox.",
+        "DragController": "The settings for the component that controls dragging this WindowBox via its title bar.",
+        "ResizeController": "The settings for the component that controls resizing this WindowBox via its edges.",
+        "RaiseController": "The settings for the component that controls when and whether this WindowBox is raised to the front of its parent.",
+        "TitleText": "The text to display on the TitleLabel in the TitleBox. This is synonymous with TitleLabel.TextRenderer.Text.",
+        "TitleTextProvider": "An ITextProvider object that, if not null, will keep this WindowBox's TitleText property updated to match the ITextProvider.",
+        "AutoClose": "Whether this WindowBox should be automatically closed when its CloseButton is clicked."
+    },
+    "Halfling.Particles.ParticleEmitterDef": {
+        "EmitPerSecond": "The number of particles that are spawned every second.",
+        "EmitPerOneShot": "The number of particles that are spawned every time EmitOneShot() is called.",
+        "PreInitializers": "A modifiable list containing the objects used to initialize particle data. These initializers will be run *before* the particle system's own initializers.",
+        "PostInitializers": "A modifiable list containing the objects used to initialize particle data. These initializers will be run *after* the particle system's own initializers."
+    },
+    "Halfling.Particles.ParticleSystemDef": {
+        "EmitPerSecond": "The number of particles that are spawned every second.",
+        "EmitPerOneShot": "The number of particles that are spawned every time EmitOneShot() is called.",
+        "Initializers": "A modifiable list containing the objects used to initialize particle data.",
+        "Updaters": "A modifiable list containing the objects used to update particle data.",
+        "Renderer": "The object that renders the actual particles.",
+        "Material": "The material used to render the particles.",
+        "DeleteMode": "The method used to delete particles.",
+        "FpsCompensation": "The method used to compensate for FPS during emission.",
+        "FpsCompensationStrength": "The strength of the FPS compensation.",
+        "EnableMultithreading": "Whether the particle system will run on multiple threads.",
+        "InitCapacity": "The initial number of particle that the particle system can store before needing to be resized."
+    },
+    "Halfling.Particles.Renderers.BaseParticleRenderer`1": {
+        "Name": "The human-readable name of this object."
+    },
+    "Halfling.Particles.Renderers.StandardParticleQuadRenderer`1": {
+        "LocationIn": "The data that stores the particle locations.",
+        "ScaleIn": "The data, if any, that stores the particle scale factors.",
+        "Scale2In": "The data, if any, that stores the particle scale factors.",
+        "RotationIn": "The data, if any, that stores the particle rotations.",
+        "ColorIn": "The data, if any, that stores the particle colors.",
+        "UvRectIn": "The data, if any, that stores the UV rects.",
+        "BaseSize": "The base size of the particle quads.",
+        "Offset": "The how much the quad is offset relative to its size. The quad will scale and rotate around the quad's *original* center, not its post-offset center."
+    },
+    "Halfling.Particles.Updaters.BaseParticleDataUpdater": {
+        "Name": "The human-readable name of this object.",
+        "Enabled": "Whether this particle updater is currently enabled.",
+        "UpdateAfterInit": "Whether this IParticleDataUpdater should be executed immediately after a new particle is initialized."
+    },
+    "Halfling.Particles.Updaters.ParticleColorRamp": {
+        "LerpIn": "The data that stores the T values used for the lerp.",
+        "ColorOut": "The data that will received the lerped colors.",
+        "Invert": "Whether the LerpIn value should be inverted.",
+        "Colors": "The array of colors from which the output color will be interpolated."
+    },
+    "Halfling.Particles.Updaters.ParticleLerp": {
+        "LerpIn": "The data that stores the T values used for the lerp.",
+        "DataOut": "The data that will received the lerped values.",
+        "Invert": "Whether the LerpIn value should be inverted."
+    },
+    "Halfling.Particles.Updaters.ParticleLifetime": {
+        "LifeInOut": "The data that stores the particle's energy. This data should be initialized to 1.0.",
+        "Lifetime": "The lifetime of a single particle."
+    },
+    "Halfling.Particles.Updaters.ParticleOperator": {
+        "DataType": "The type of data being operated on.",
+        "AIn": "The data that will be used as the \"A\" (left-hand) operand.",
+        "BIn": "The data that will be used as the \"B\" (right-hand) operand. This data will not be modified.",
+        "ResultOut": "The data that will be set to the result of the operation.",
+        "Operator": "The mathematical operator used on DataAInOut and DataBIn."
+    },
+    "Halfling.Particles.Updaters.ParticleOperatorConst": {
+        "AIn": "The data that will be used as the \"A\" (left-hand) operand.",
+        "ResultOut": "The data that will be set to the result of the operation.",
+        "Operator": "The mathematical operator used on DataAInOut and DataBIn."
+    },
+    "Halfling.Particles.Updaters.ParticleScalarOperator": {
+        "AIn": "The data that will be used as the \"A\" (left-hand) operand.",
+        "DataType": "The type of data being operated on.",
+        "BIn": "The data that will be used as the \"B\" (right-hand) operand. This data will not be modified.",
+        "ResultOut": "The data that will be set to the result of the operation.",
+        "Operator": "The mathematical operator used on DataAInOut and DataBIn."
+    },
+    "Halfling.Particles.Updaters.ParticleSetRandom": {
+        "DataOut": "The data that will received the lerped values."
+    },
+    "Halfling.Particles.Updaters.ParticleSetRandomCircle": {
+        "LocationOut": "The data that stores the particle velocities. This data will be modified.",
+        "Circle": "The circle in which particles locations will be randomly chosen.",
+        "Perimeter": "Whether locations will be chosen on the circle's perimeter instead of inside it."
+    },
+    "Halfling.Particles.Updaters.ParticleSetRandomHsvColor": {
+        "ColorOut": "The data that will store the particle colors.",
+        "HueRange": "The possible range of color hues.",
+        "SaturationRange": "The possible range of color saturations.",
+        "ValueRange": "The possible range of color values.",
+        "AlphaRange": "The possible range of color alpha values."
+    },
+    "Halfling.Particles.Updaters.ParticleSetRandomVelocity": {
+        "VelocityOut": "The data that stores the particle velocities. This data will be modified.",
+        "Speed": "The initial speed of particles as a random range.",
+        "Direction": "The initial direction of the particles as a random arc."
+    },
+    "Halfling.Particles.Updaters.ParticleSetRandomVelocityFromPoint": {
+        "LocationIn": "The data that stores the particle locations.",
+        "VelocityOut": "The data that stores the particle velocities. This data will be modified.",
+        "Speed": "The initial speed of particles as a random range.",
+        "AwayFromPoint": "The point away from which particles will fly.",
+        "ConvertPointToWorldSpace": "Whether the AwayFromPoint should be converted to world-space before the velocity is calculated."
+    },
+    "Halfling.Particles.Updaters.ParticleSetValue": {
+        "DataOut": "The data that will be initialized to the value."
+    },
+    "Halfling.Particles.Updaters.ParticleUvAnimation": {
+        "TimeIn": "The data that stores the particle's elapsed time.",
+        "UvRectOut": "The data that stores the particle's UV rect coordinates.",
+        "Framerate": "The number of frames displayed every second.",
+        "TextureSize": "The size of the texture containing the frames of animation.",
+        "FrameSize": "The size of an individual sprite frame in the texture.",
+        "FrameCount": "The number of sprite frames in the animation.",
+        "FramesPerRow": "The number of sprite frames in a single row in the texture.",
+        "PixelOffset": "The offset in pixels of the animation frames in the texture.",
+        "Looping": "Whether the animation should loop after reaching the end. If false, the last frame of animation will be held."
+    },
+    "Halfling.Particles.Updaters.ParticleUvSprites": {
+        "SpriteIndexIn": "The data that stores the particle's sprite index.",
+        "UvRectOut": "The data that stores the particle's UV rect coordinates.",
+        "TextureSize": "The size of the texture containing the sprites.",
+        "SpriteSize": "The size of an individual sprite in the texture.",
+        "SpriteCount": "The number of sprites in the animation.",
+        "SpritesPerRow": "The number of sprites in a single row in the texture.",
+        "PixelOffset": "The offset in pixels of the sprites in the texture.",
+        "Looping": "Whether the index should loop after reaching the end. If false, the index will be clamped by the sprite count."
+    },
+    "Halfling.Particles.Updaters.ParticleValueCurve": {
+        "MinValue": "The minimum output value.",
+        "MaxValue": "The maximum output value.",
+        "LerpIn": "The data that stores the T values used for the lerp.",
+        "CurveOut": "The data that will received the lerped colors.",
+        "Invert": "Whether the LerpIn value should be inverted.",
+        "Points": "The array of points from which the output value will be interpolated."
+    },
+    "Halfling.Particles.Updaters.ParticleVariableLifetime": {
+        "LifeInOut": "The data that stores the particle's energy. This data should be initialized to 1.0.",
+        "LifetimeIn": "The data that stores the particle's full lifetime."
+    },
+    "Halfling.Physics2D.Dynamics.Drag.ExponentialAngularDragSolver/ExponentialAngularDragSolverRules": {
+        "Coefficient": "The drag velocity coefficient. 'a' in '-av^b'.",
+        "Exponent": "The drag velocity exponent. 'b' in '-av^b'.",
+        "MinDampingCoefficient": "The minimum amount of damping applied as a factor of the relative velocity."
+    },
+    "Halfling.Physics2D.Dynamics.Drag.ExponentialLinearDragSolver/ExponentialLinearDragSolverRules": {
+        "Coefficient": "The drag velocity coefficient. 'a' in '-av^b'.",
+        "Exponent": "The drag velocity exponent. 'b' in '-av^b'.",
+        "MinDampingCoefficient": "The minimum amount of damping applied as a factor of the relative velocity."
+    },
+    "Halfling.Physics2D.Dynamics.Drag.ViscousAngularDragSolver/ViscousAngularDragSolverRules": {
+        "Coefficient": "The drag velocity coefficient. 'a' in '-av'."
+    },
+    "Halfling.Physics2D.Dynamics.Drag.ViscousLinearDragSolver/ViscousLinearDragSolverRules": {
+        "Coefficient": "The drag velocity coefficient. 'a' in '-av'."
+    },
+    "Halfling.Scene2D.Particles.ParticleLocationToWorldSpace": {
+        "LocationIn": "The data that stores the location that should be converted to world space.",
+        "LocationOut": "The data that stores the converted location."
+    },
+    "Halfling.Scene2D.Particles.ParticleRotationToWorldSpace": {
+        "RotationIn": "The data that stores the rotation that should be converted to world space.",
+        "RotationOut": "The data that stores the converted rotation."
+    },
+    "Halfling.Scene2D.Particles.ParticleScaleToWorldSpace": {
+        "ScaleIn": "The data that stores the location that should be converted to world space.",
+        "ScaleOut": "The data that stores the converted location."
+    },
+    "Halfling.Scene2D.Particles.ParticleSetWorldSpaceLocation": {
+        "LocationOut": "The data that stores the converted location.",
+        "LocalLocation": "The local location that will be converted to a world location."
+    },
+    "Halfling.Scene2D.Particles.ParticleSetWorldSpaceRotation": {
+        "RotationOut": "The data that stores the converted rotation.",
+        "LocalRotation": "The local rotation that will be converted to a world rotation."
+    },
+    "Halfling.Scene2D.Particles.ParticleSetWorldSpaceScale": {
+        "ScaleOut": "The data that stores the converted location.",
+        "LocalScale": "The the local scale that will be converted to a world scale."
+    },
+    "Halfling.Scene2D.Particles.ParticleSetWorldSpaceVelocity": {
+        "VelocityOut": "The data that stores the converted velocity.",
+        "LocalVelocity": "The local velocity that will be converted to a world velocity."
+    },
+    "Halfling.Scene2D.Particles.ParticleVelocityToWorldSpace": {
+        "VelocityIn": "The data that stores the velocity that should be converted to world space.",
+        "VelocityOut": "The data that stores the converted velocity."
+    }
+}

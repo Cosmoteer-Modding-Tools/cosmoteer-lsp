@@ -1,0 +1,8 @@
+// In-file reference-to-reference chain (the user's case):
+// Test1 aliases TestBase; Test2 drills through Test1 into TestBase's member.
+TestBase
+{
+	TestValue = 1
+}
+Test1 = &TestBase
+Test2 = &Test1/TestValue

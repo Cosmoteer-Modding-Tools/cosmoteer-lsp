@@ -1,0 +1,95 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "Cosmoteer Shader",
+    "scopeName": "source.cosmoteer-shader",
+    "fileTypes": ["shader"],
+    "patterns": [
+        { "include": "#comments" },
+        { "include": "#preprocessor" },
+        { "include": "#strings" },
+        { "include": "#keywords" },
+        { "include": "#types" },
+        { "include": "#numbers" },
+        { "include": "#semantics" },
+        { "include": "#uniforms" },
+        { "include": "#functions" }
+    ],
+    "repository": {
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.block.cosmoteer-shader",
+                    "begin": "/\\*",
+                    "end": "\\*/"
+                },
+                {
+                    "name": "comment.line.double-slash.cosmoteer-shader",
+                    "begin": "//",
+                    "end": "$"
+                }
+            ]
+        },
+        "preprocessor": {
+            "patterns": [
+                {
+                    "name": "meta.preprocessor.include.cosmoteer-shader",
+                    "match": "^\\s*(#\\s*include)\\s+(\"[^\"]*\")",
+                    "captures": {
+                        "1": { "name": "keyword.control.directive.include.cosmoteer-shader" },
+                        "2": { "name": "string.quoted.double.include.cosmoteer-shader" }
+                    }
+                },
+                {
+                    "name": "keyword.control.directive.cosmoteer-shader",
+                    "match": "^\\s*#\\s*(include|define|undef|if|ifdef|ifndef|elif|else|endif|pragma|error|line)\\b"
+                }
+            ]
+        },
+        "strings": {
+            "name": "string.quoted.double.cosmoteer-shader",
+            "begin": "\"",
+            "end": "\"",
+            "patterns": [{ "name": "constant.character.escape.cosmoteer-shader", "match": "\\\\." }]
+        },
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "keyword.control.cosmoteer-shader",
+                    "match": "\\b(if|else|for|while|do|switch|case|default|break|continue|return|discard)\\b"
+                },
+                {
+                    "name": "storage.modifier.cosmoteer-shader",
+                    "match": "\\b(in|out|inout|static|const|uniform|register|packoffset|typedef|namespace)\\b"
+                },
+                {
+                    "name": "storage.type.structure.cosmoteer-shader",
+                    "match": "\\b(struct|cbuffer)\\b"
+                },
+                {
+                    "name": "constant.language.cosmoteer-shader",
+                    "match": "\\b(true|false)\\b"
+                }
+            ]
+        },
+        "types": {
+            "name": "storage.type.cosmoteer-shader",
+            "match": "\\b(void|bool|int|uint|half|float|double|(?:bool|int|uint|half|float|double)[1-4](?:x[1-4])?|matrix|vector|Texture2D|Texture3D|TextureCube|Texture2DArray|SamplerState|SamplerComparisonState)\\b"
+        },
+        "numbers": {
+            "name": "constant.numeric.cosmoteer-shader",
+            "match": "\\b\\d+\\.?\\d*(?:[eE][+-]?\\d+)?[fFhHuU]?\\b|\\.\\d+(?:[eE][+-]?\\d+)?[fFhHuU]?\\b"
+        },
+        "semantics": {
+            "name": "entity.other.attribute-name.cosmoteer-shader",
+            "match": "(?<=:)\\s*(SV_\\w+|POSITION\\d*|TEXCOORD\\d*|COLOR\\d*|NORMAL\\d*|TANGENT\\d*|BINORMAL\\d*|DEPTH\\d*|VPOS|VFACE)\\b"
+        },
+        "uniforms": {
+            "name": "variable.other.uniform.cosmoteer-shader",
+            "match": "\\b_[A-Za-z0-9_]+\\b"
+        },
+        "functions": {
+            "name": "entity.name.function.cosmoteer-shader",
+            "match": "\\b([A-Za-z_]\\w*)\\s*(?=\\()"
+        }
+    }
+}

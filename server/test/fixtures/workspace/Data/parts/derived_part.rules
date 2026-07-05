@@ -1,0 +1,22 @@
+// Mirrors the real factory pattern (factory_durasteel.rules): nested objects
+// re-declare their inheritance with `^/0/<Name>` so each level inherits from the
+// matching node in the base file. `^` here climbs from the inheritance value node
+// to its grandparent, `0` picks the parent's first inheritance, then the name is
+// resolved on the cross-file base.
+Part : &<./Data/parts/base_part.rules>/Part
+{
+	Components : ^/0/Components
+	{
+		IsOperational : ^/0/IsOperational
+		{
+			Mode = Any
+		}
+
+		// Deep descendant referencing a member of the inherited base Part via
+		// `&~/Part/^/0/HeatTarget` (like factory_durasteel.rules lines 401/420).
+		HeatProducer
+		{
+			ResourceStorage = &~/Part/^/0/HeatTarget
+		}
+	}
+}

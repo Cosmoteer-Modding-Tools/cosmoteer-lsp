@@ -8,23 +8,16 @@ import * as assert from 'assert';
 import { getDocUri, activate } from './helper';
 
 suite('Should do completion', () => {
-    const docUri = getDocUri('completion.txt');
+    const docUri = getDocUri('completion.rules');
 
-    test('Completes JS/TS in txt file', async () => {
-        await testCompletion(docUri, new vscode.Position(0, 0), {
-            items: [
-                { label: 'JavaScript', kind: vscode.CompletionItemKind.Text },
-                { label: 'TypeScript', kind: vscode.CompletionItemKind.Text },
-            ],
-        });
+    // `Ref = &TestBase/Value` references into `TestBase`, whose members are
+    // `ValueOne`/`ValueTwo`. Completing the partial `Value` segment must offer both.
+    test('Completes reference members in a rules file', async () => {
+        await testCompletion(docUri, new vscode.Position(4, 10), ['ValueOne', 'ValueTwo']);
     });
 });
 
-async function testCompletion(
-    docUri: vscode.Uri,
-    position: vscode.Position,
-    expectedCompletionList: vscode.CompletionList
-) {
+async function testCompletion(docUri: vscode.Uri, position: vscode.Position, expectedLabels: string[]) {
     await activate(docUri);
 
     // Executing the command `vscode.executeCompletionItemProvider` to simulate triggering completion
@@ -34,10 +27,17 @@ async function testCompletion(
         position
     )) as vscode.CompletionList;
 
-    assert.ok(actualCompletionList.items.length >= 2);
-    expectedCompletionList.items.forEach((expectedItem, i) => {
-        const actualItem = actualCompletionList.items[i];
-        assert.equal(actualItem.label, expectedItem.label);
-        assert.equal(actualItem.kind, expectedItem.kind);
+    const actualLabels = actualCompletionList.items.map((item) =>
+        typeof item.label === 'string' ? item.label : item.label.label
+    );
+    expectedLabels.forEach((label) => {
+        assert.ok(
+            actualLabels.includes(label),
+            `expected completion '${label}' in [${actualLabels.join(', ')}]`
+        );
+        const item = actualCompletionList.items.find(
+            (i) => (typeof i.label === 'string' ? i.label : i.label.label) === label
+        )!;
+        assert.equal(item.kind, vscode.CompletionItemKind.Reference);
     });
 }

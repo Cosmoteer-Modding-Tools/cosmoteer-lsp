@@ -1,0 +1,8 @@
+// Base whose members live at the FILE ROOT (no wrapping group). Consumed via whole-file
+// inheritance (`Comp : <./Data/whole_file_base.rules>`) in whole_file_consumer.rules — the
+// inheriting group must see these root-level members.
+WFRootLeaf = 42
+WFRootGroup
+{
+	Inner = 7
+}

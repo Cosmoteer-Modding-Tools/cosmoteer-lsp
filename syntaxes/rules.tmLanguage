@@ -81,7 +81,7 @@
             <key>name</key>
             <string>entity.name.tag</string>
             <key>match</key>
-            <string>[&amp;|&lt;|^|/|..][&lt;&gt;~./\w_]+</string>
+            <string>[&amp;|&lt;|^|/|..][&lt;&gt;~./\w_\-\^]+</string>
           </dict>
         </array>
       </dict>
@@ -165,7 +165,7 @@
                 <key>name</key>
                 <string>entity.name.tag</string>
                 <key>match</key>
-                <string>[&amp;|&lt;|^][&lt;&gt;.\/\w_]+</string>
+                <string>[&amp;|&lt;|^][&lt;&gt;.\/\w_\-]+</string>
               </dict>
               <dict>
                 <key>name</key>

@@ -1,0 +1,22 @@
+// `~` denotes the runtime root of wherever a rule is instantiated. Library/template
+// objects (like the shared tractor-beam sounds in mod-sounds.rules) reference members
+// of that runtime root which don't exist in the static file, e.g.
+// `Volume = 1 / (&~/EMITTER/BeamCount)`. Those must NOT be flagged as unknown.
+RealRoot
+{
+	Inner = 1
+}
+
+TractorBeamSound
+{
+	// EMITTER is not defined in this file — it belongs to the consuming weapon part.
+	// Runtime-root reference: must not be reported.
+	Volume = 1 / (&~/EMITTER/BeamCount)
+
+	// `~`-reference whose first segment IS a real root member resolves fine.
+	Ok = &~/RealRoot/Inner
+
+	// Control: first segment IS a real root member, but the rest is a typo — this is
+	// a genuine error and must still be reported.
+	Bad = &~/RealRoot/Missing
+}

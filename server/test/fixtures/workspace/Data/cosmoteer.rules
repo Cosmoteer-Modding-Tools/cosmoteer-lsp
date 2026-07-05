@@ -1,0 +1,19 @@
+// Workspace root file, resolved by super-path references ("/...").
+
+// Language string files live here; actions may not target anything under it.
+StringsFolder = "strings"
+
+RootMarker = 7
+Palette
+{
+	Main = 8
+}
+
+// Whole-file reference (no member after `>`) — `/BASE_AUDIO/<X>` must deref into
+// this file's document and continue. Mirrors the game's `BASE_SOUNDS = &<…>`.
+BASE_AUDIO = &<sounds/base_audio.rules>
+
+// A vanilla global aliasing a whole file. A mod merges extra members into that file via a
+// whole-file `Overrides` action; refs like `&/INDICATORS/<modMember>` must reach them THROUGH
+// this global. Mirrors the game's `INDICATORS = &<gui/game/indicators/indicators.rules>`.
+INDICATORS = &<indicators/indicators.rules>

@@ -1,0 +1,4 @@
+// mod convenience globals overlay the game cosmoteer.rules
+GLOBAL_TWO = &<provider.rules>/Provider
+// Cosmoteer group-merge: MERGED concatenates two whole files; `Baz` lives only in the SECOND.
+MERGED = &<provider.rules>, &<provider2.rules>

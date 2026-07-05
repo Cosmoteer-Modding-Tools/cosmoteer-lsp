@@ -1,0 +1,15 @@
+// Same-file inheritance by bare name (no `&`, no `<…>`), as used throughout the
+// real mods (e.g. `BatteryStorageRight : BatteryStorageLeft`). Must parse without
+// errors and resolve inherited members through the sibling.
+Components
+{
+	BatteryStorageLeft
+	{
+		Type = ResourceStorage
+		MaxResources = 100
+	}
+	BatteryStorageRight : BatteryStorageLeft
+	{
+		MaxResources = 50
+	}
+}

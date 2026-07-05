@@ -6,21 +6,25 @@
     "engines": {
         "node": "*"
     },
-    "version": "0.2.1",
+    "version": "0.4.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
     },
     "dependencies": {
         "@vscode/l10n": "^0.0.18",
-        "vscode-languageserver": "^9.0.1",
-        "vscode-languageserver-textdocument": "^1.0.12",
+        "vscode-languageserver": "^10.0.1",
+        "vscode-languageserver-textdocument": "^1.0.13",
         "winreg": "^1.2.5"
     },
     "scripts": {
-        "fix": "eslint --fix ."
+        "fix": "eslint --fix .",
+        "test": "vitest run",
+        "test:watch": "vitest"
     },
     "devDependencies": {
-        "@types/winreg": "^1.2.36"
+        "@types/node": "^24",
+        "@types/winreg": "^1.2.36",
+        "vitest": "^4.1.9"
     }
 }

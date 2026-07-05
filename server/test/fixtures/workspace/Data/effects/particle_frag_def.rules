@@ -1,0 +1,6 @@
+EmitPerSecond = 0
+Material
+{
+	Shader = "particle_light_emissive.shader"
+	_z = 0.2
+}

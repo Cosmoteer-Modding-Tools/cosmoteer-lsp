@@ -1,0 +1,7 @@
+// Vanilla indicators file, reached by the cosmoteer.rules `INDICATORS = &<indicators/indicators.rules>`
+// global. A mod merges extra members into it via a whole-file `Overrides` action (see mod/mod.rules),
+// mirroring the real Star-Wars mod's `OverrideIn=<…/indicators.rules> Overrides=&<modfile>`.
+Scorched
+{
+	X = 5
+}

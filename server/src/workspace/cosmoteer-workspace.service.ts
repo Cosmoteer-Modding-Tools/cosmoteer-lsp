@@ -1,13 +1,38 @@
 import { Connection, WorkDoneProgressReporter } from 'vscode-languageserver';
-import { AbstractNodeDocument } from '../parser/ast';
+import { AbstractNodeDocument } from '../core/ast/ast';
 import { readdir } from 'fs/promises';
 import { sep } from 'path';
 import { Dirent } from 'fs';
 import { parseFile } from '../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
 import * as path from 'path';
-import { globalSettings } from '../server';
+import { globalSettings } from '../settings';
 import Registry from 'winreg';
+
+/**
+ * Normalize a user-supplied game path to its `Data` root: a path ending in `Data`, `Cosmoteer`, or
+ * `common` (the common install-tree tails) maps to the corresponding `.../Data` directory. Returns
+ * `undefined` when the path ends in none of them, which the caller treats as an invalid path.
+ */
+const toDataRoot = (cosmoteerPath: string): string | undefined => {
+    if (cosmoteerPath.endsWith('Data') || cosmoteerPath.endsWith(`Data${sep}`)) {
+        return path.join(cosmoteerPath.replace(/Data$/, ''), 'Data');
+    }
+    if (cosmoteerPath.endsWith('Cosmoteer') || cosmoteerPath.endsWith(`Cosmoteer${sep}`)) {
+        return path.join(cosmoteerPath, 'Data');
+    }
+    if (cosmoteerPath.endsWith('common') || cosmoteerPath.endsWith(`common${sep}`)) {
+        return path.join(cosmoteerPath, 'Cosmoteer', 'Data');
+    }
+    return undefined;
+};
+
+/** A reporter that drops every call, used when there is no connection (unit tests) so work still runs. */
+const NOOP_PROGRESS: WorkDoneProgressReporter = {
+    begin: () => undefined,
+    report: () => undefined,
+    done: () => undefined,
+};
 
 export class CosmoteerWorkspaceService {
     private _fileWorkspaceTree!: FileTree;
@@ -28,17 +53,45 @@ export class CosmoteerWorkspaceService {
         this._connection = connection;
     }
 
-    get CosmoteerWorkspacePath(): string {
-        let cosmoteerPath = globalSettings.cosmoteerPath;
-        if (cosmoteerPath.endsWith('Data') || cosmoteerPath.endsWith(`Data${sep}`)) {
-            cosmoteerPath = cosmoteerPath.replace(/Data$/, '');
-            cosmoteerPath = path.join(cosmoteerPath, 'Data');
-        } else if (cosmoteerPath.endsWith('Cosmoteer') || cosmoteerPath.endsWith(`Cosmoteer${sep}`)) {
-            cosmoteerPath = path.join(cosmoteerPath, 'Data');
-        } else if (cosmoteerPath.endsWith('common') || cosmoteerPath.endsWith(`common${sep}`)) {
-            cosmoteerPath = path.join(cosmoteerPath, 'Cosmoteer', 'Data');
+    /**
+     * Runs a long index build under an LSP work-done progress notification, so the user sees an
+     * "indexing" indicator instead of an unexplained pause while a project-wide scan runs. The work
+     * receives the reporter to post a running count (`report('123 files')`). When the connection is
+     * not set (unit tests) the work still runs, against a no-op reporter.
+     *
+     * @param title the progress title shown to the user (e.g. `Indexing symbols`).
+     * @param work the build to run, given a reporter to post incremental progress.
+     * @returns whatever the work resolves to.
+     */
+    public async withIndexingProgress<T>(
+        title: string,
+        work: (progress: WorkDoneProgressReporter) => Promise<T>
+    ): Promise<T> {
+        // No connection, or a client/mock without work-done progress support — run against a no-op
+        // reporter so the build still happens, just without a visible indicator.
+        if (typeof this._connection?.window?.createWorkDoneProgress !== 'function') return work(NOOP_PROGRESS);
+        const progress = await this._connection.window.createWorkDoneProgress();
+        progress.begin(title, undefined, undefined, false);
+        try {
+            return await work(progress);
+        } finally {
+            progress.done();
         }
-        return cosmoteerPath;
+    }
+
+    /**
+     * The Data root the workspace was actually initialized against (the scanned file tree's
+     * own path), or `undefined` if not initialized. Unlike {@link CosmoteerWorkspacePath} this
+     * doesn't re-derive from `globalSettings.cosmoteerPath` (which a `didChangeConfiguration`
+     * event can transiently blank), so it's the reliable source for "where the game files are".
+     */
+    get dataRootPath(): string | undefined {
+        return this.isInitalized && this._fileWorkspaceTree ? this._fileWorkspaceTree.path : undefined;
+    }
+
+    get CosmoteerWorkspacePath(): string {
+        const cosmoteerPath = globalSettings.cosmoteerPath;
+        return toDataRoot(cosmoteerPath) ?? cosmoteerPath;
     }
 
     public findFile(pathes: string[]):
@@ -125,20 +178,15 @@ export class CosmoteerWorkspaceService {
 
     public async initialize(cosmoteerWorkspacePath: string, workDoneProgress: WorkDoneProgressReporter) {
         if (this.isInitalized) return;
-        if (cosmoteerWorkspacePath.endsWith('Data') || cosmoteerWorkspacePath.endsWith(`Data${sep}`)) {
-            cosmoteerWorkspacePath = cosmoteerWorkspacePath.replace(/Data$/, '');
-            cosmoteerWorkspacePath = path.join(cosmoteerWorkspacePath, 'Data');
-        } else if (cosmoteerWorkspacePath.endsWith('Cosmoteer') || cosmoteerWorkspacePath.endsWith(`Cosmoteer${sep}`)) {
-            cosmoteerWorkspacePath = path.join(cosmoteerWorkspacePath, 'Data');
-        } else if (cosmoteerWorkspacePath.endsWith('common') || cosmoteerWorkspacePath.endsWith(`common${sep}`)) {
-            cosmoteerWorkspacePath = path.join(cosmoteerWorkspacePath, 'Cosmoteer', 'Data');
-        } else {
+        const dataRoot = toDataRoot(cosmoteerWorkspacePath);
+        if (!dataRoot) {
             this._connection.window.showWarningMessage(
                 l10n.t('Invalid cosmoteer path, the path should end with common or Cosmoteer or Data')
             );
             workDoneProgress.done();
             return;
         }
+        cosmoteerWorkspacePath = dataRoot;
         const dirents = await this.iterateFiles(cosmoteerWorkspacePath);
         this._fileWorkspaceTree = {
             type: 'Dir',
@@ -159,34 +207,46 @@ export class CosmoteerWorkspaceService {
         return readdir(workspacePath, { withFileTypes: true });
     };
 
+    /**
+     * Builds the file tree under `parentTree` from its directory entries. Subdirectories are scanned
+     * concurrently (the game `Data` tree holds thousands of directories, so a sequential walk pays
+     * one disk round-trip per directory), while children are appended in the original entry order so
+     * the resulting tree is deterministic.
+     *
+     * @param parentTree the directory node the built children are appended to.
+     * @param dirents the directory's entries, as read by `readdir`.
+     * @returns once the whole subtree below `parentTree` is built.
+     */
     private buildFileStructure = async (parentTree: FileTree, dirents: Dirent[]) => {
-        for (const dirent of dirents) {
-            if (dirent.isDirectory()) {
-                const nextDirents = await this.iterateFiles(`${dirent.parentPath + sep + dirent.name}`);
-                if (nextDirents.length === 0) continue;
-                const parent: FileTree = {
-                    type: 'Dir',
-                    name: dirent.name,
-                    children: [],
-                    path: dirent.parentPath + sep + dirent.name,
-                };
-                await this.buildFileStructure(parent, nextDirents);
-                if (isDirectory(parentTree)) parentTree.children?.push(parent);
-            } else if (dirent.isFile()) {
-                if (dirent.name.endsWith('.rules')) {
-                    const dataContent: FileTree = {
-                        type: 'File',
+        if (!isDirectory(parentTree)) return;
+        const children = await Promise.all(
+            dirents.map(async (dirent): Promise<FileTree | undefined> => {
+                if (dirent.isDirectory()) {
+                    const nextDirents = await this.iterateFiles(`${dirent.parentPath + sep + dirent.name}`);
+                    if (nextDirents.length === 0) return undefined;
+                    const parent: FileTree = {
+                        type: 'Dir',
                         name: dirent.name,
-                        content: {
-                            name: dirent.name.substring(0, dirent.name.lastIndexOf('.')),
-                        },
+                        children: [],
                         path: dirent.parentPath + sep + dirent.name,
-                        parent: parentTree,
                     };
-                    if (isDirectory(parentTree)) parentTree.children.push(dataContent);
-                } else if (dirent.name.endsWith('.png') || dirent.name.endsWith('.shader')) {
-                    if (isDirectory(parentTree)) {
-                        parentTree.children.push({
+                    await this.buildFileStructure(parent, nextDirents);
+                    return parent;
+                }
+                if (dirent.isFile()) {
+                    if (dirent.name.endsWith('.rules')) {
+                        return {
+                            type: 'File',
+                            name: dirent.name,
+                            content: {
+                                name: dirent.name.substring(0, dirent.name.lastIndexOf('.')),
+                            },
+                            path: dirent.parentPath + sep + dirent.name,
+                            parent: parentTree,
+                        };
+                    }
+                    if (dirent.name.endsWith('.png') || dirent.name.endsWith('.shader')) {
+                        return {
                             type: 'File',
                             name: dirent.name,
                             content: {
@@ -195,10 +255,14 @@ export class CosmoteerWorkspaceService {
                             },
                             path: dirent.parentPath + sep + dirent.name,
                             parent: parentTree,
-                        });
+                        };
                     }
                 }
-            }
+                return undefined;
+            })
+        );
+        for (const child of children) {
+            if (child) parentTree.children.push(child);
         }
     };
 }

@@ -1,9 +1,10 @@
 {
     "name": "cosmoteer-language-server",
+    "displayName": "Cosmoteer Language Server",
     "description": "A complete language server for Cosmoteer rules",
-    "author": "TrustNoOneElse",
+    "author": "Cosmoteer Modding Tools",
     "license": "MIT",
-    "version": "0.3.1",
+    "version": "0.4.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
@@ -17,10 +18,12 @@
         "multi-root ready"
     ],
     "engines": {
-        "vscode": "^1.90.0"
+        "vscode": "^1.100.0"
     },
     "activationEvents": [
-        "onLanguage:rules"
+        "onLanguage:rules",
+        "onLanguage:cosmoteer-shader",
+        "workspaceContains:**/*.rules"
     ],
     "pricing": "Free",
     "icon": "./images/Language_Server_Icon.png",
@@ -31,6 +34,37 @@
     },
     "l10n": "./l10n",
     "contributes": {
+        "commands": [
+            {
+                "command": "cosmoteer.previewShader",
+                "title": "Cosmoteer: Preview Shader",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.showModOverview",
+                "title": "Cosmoteer: Show Mod Overview",
+                "category": "Cosmoteer"
+            }
+        ],
+        "menus": {
+            "commandPalette": [
+                {
+                    "command": "cosmoteer.previewShader",
+                    "when": "editorLangId == rules"
+                },
+                {
+                    "command": "cosmoteer.showModOverview",
+                    "when": "editorLangId == rules"
+                }
+            ],
+            "editor/context": [
+                {
+                    "command": "cosmoteer.previewShader",
+                    "when": "editorLangId == rules",
+                    "group": "navigation@9"
+                }
+            ]
+        },
         "languages": [
             {
                 "icon": {
@@ -44,6 +78,16 @@
                 "aliases": [
                     "Cosmoteer Rules"
                 ]
+            },
+            {
+                "id": "cosmoteer-shader",
+                "extensions": [
+                    ".shader"
+                ],
+                "aliases": [
+                    "Cosmoteer Shader"
+                ],
+                "configuration": "./language-configuration.shader.json"
             }
         ],
         "grammars": [
@@ -51,6 +95,27 @@
                 "language": "rules",
                 "scopeName": "source.rules",
                 "path": "./syntaxes/rules.tmLanguage.json"
+            },
+            {
+                "language": "cosmoteer-shader",
+                "scopeName": "source.cosmoteer-shader",
+                "path": "./syntaxes/shader.tmLanguage.json"
+            }
+        ],
+        "semanticTokenScopes": [
+            {
+                "language": "rules",
+                "scopes": {
+                    "property": ["variable.name"],
+                    "variable": ["entity.name.tag"],
+                    "enumMember": ["string.unquoted"],
+                    "number": ["constant.numeric"],
+                    "keyword": ["constant.language"],
+                    "function": ["support.function"],
+                    "type": ["entity.name.type"],
+                    "operator": ["keyword.operator"],
+                    "string": ["string.quoted"]
+                }
             }
         ],
         "configuration": {
@@ -88,6 +153,92 @@
                     },
                     "default": [],
                     "description": "Paths to ignore when validating references. Example: [\"SW_\"]"
+                },
+                "cosmoteerLSPRules.diagnostics.validateWholeWorkspace": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Validate every .rules file in the open workspace folder(s), not just the files open in the editor. Uses more memory and CPU on large projects."
+                },
+                "cosmoteerLSPRules.diagnostics.workspaceValidationScope": {
+                    "scope": "resource",
+                    "type": "string",
+                    "enum": [
+                        "allFiles",
+                        "modRulesReachable"
+                    ],
+                    "enumDescriptions": [
+                        "Validate every .rules file under the workspace folder(s).",
+                        "Validate only the files reachable from the mod.rules manifest: its action sources, their includes and inheritance, and the strings folder. Files open in the editor always validate."
+                    ],
+                    "default": "allFiles",
+                    "description": "Which files the whole-workspace validation pass covers (only relevant when 'validateWholeWorkspace' is on)."
+                },
+                "cosmoteerLSPRules.diagnostics.validateComponentReferences": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Flag a component ID reference (e.g. 'OperationalToggle = IsOperational') whose id names no component in the part, its inherited bases, or its include-valued components blocks. Runs only once the game install is indexed."
+                },
+                "cosmoteerLSPRules.diagnostics.validateCrossFileReferences": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Flag a cross-file ID reference (a GUI toggle/color/targeter/trigger id) whose id names no declaration of that kind in the project or the game data. Runs only once the game install is indexed."
+                },
+                "cosmoteerLSPRules.diagnostics.validateRequiredFields": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Flag a group that is missing a schema-required field. Fields supplied through the inheritance chain count as present."
+                },
+                "cosmoteerLSPRules.diagnostics.validateShaderConstants": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Flag an inline shader constant a material sets (e.g. '_hotColor = ...') that the referenced .shader declares no uniform for, or whose value does not match the uniform's type. Runs only when the shader file resolves on disk."
+                },
+                "cosmoteerLSPRules.diagnostics.validateShaderCode": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Run diagnostics on .shader files: an #include whose target does not exist, a '_'-prefixed uniform that no file in the include chain declares, and a call to a function that is neither an HLSL intrinsic nor defined in scope. The undeclared-symbol checks run only when the whole include chain is readable."
+                },
+                "cosmoteerLSPRules.diagnostics.validateLocalizationKeys": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Flag a localization key (e.g. 'NameKey = \"Parts/Foo\"') that no language strings file declares. Only literal key paths are checked and matching is case-insensitive, like the game. Runs only once the game install is indexed. Offers a 'did you mean' fix and an insert-into-your-strings-files fix."
+                },
+                "cosmoteerLSPRules.diagnostics.validateRedundantSeparators": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Hint at a ',' or ';' separator that a line break already makes redundant. The game ends every field or list element at a line break, so separators are only needed between entries on the same line. Shown as an editor hint, not in the Problems panel."
+                },
+                "cosmoteerLSPRules.rename.allowEditingVanillaFiles": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Allow Rename to edit files inside the Cosmoteer game Data install. When off, a rename only edits files in your workspace."
+                },
+                "cosmoteerLSPRules.associateShaderFiles": {
+                    "scope": "window",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Open .shader files with the Cosmoteer Shader language (HLSL) even when another extension, such as the built-in Unity ShaderLab support, also claims the .shader extension. Only reassigns files opened as ShaderLab or plain text, never a language you chose yourself."
+                },
+                "cosmoteerLSPRules.formatting.enabled": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable document formatting (Format Document) for .rules and .shader files. Formatting changes whitespace only; if the result would not lex to the identical token stream, the file is left unchanged."
+                },
+                "cosmoteerLSPRules.formatting.formatOnSave": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Format .rules and .shader files before every save, independent of the editor's own 'editor.formatOnSave'. On-save formatting indents with tabs."
                 }
             }
         }
@@ -95,27 +246,36 @@
     "scripts": {
         "vscode:prepublish": "npm run package",
         "package": "npm run check-types && npm run lint && node esbuild.mjs --production",
+        "compile": "node esbuild.mjs",
+        "esbuild": "node esbuild.mjs",
+        "esbuild-watch": "node esbuild.mjs --watch",
+        "watch": "node esbuild.mjs --watch",
         "compile:tsc": "tsc -b",
-        "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+        "watch:tsc": "tsc -b --noEmit --watch",
         "watch:esbuild": "node esbuild.mjs --watch",
+        "watch:esbuild-test": "node esbuild.mjs --watch --test",
         "lint": "eslint ./client/src ./server/src",
         "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
         "test": "sh ./scripts/e2e.sh",
-        "check-types": "tsc --noEmit",
+        "test:server": "cd server && npm test",
+        "check-types": "tsc -b --noEmit",
+    "docs:scaffold": "node tools/docsgen/docsgen.mjs scaffold",
+    "docs:compile": "node tools/docsgen/docsgen.mjs compile",
+    "docs:lint": "node tools/docsgen/docsgen.mjs lint",
         "l10n": "npx @vscode/l10n-dev export --outDir ./l10n .\\server"
     },
     "devDependencies": {
-        "@types/mocha": "^10.0.6",
-        "@types/node": "^20.15.0",
-        "@typescript-eslint/eslint-plugin": "^8.8.0",
-        "@typescript-eslint/parser": "^8.8.0",
+        "@eslint/js": "^10.0.1",
+        "@types/mocha": "^10.0.10",
+        "@types/node": "^24",
         "@vscode/l10n-dev": "^0.0.35",
-        "esbuild": "^0.24.0",
-        "eslint": "^9.12.0",
-        "eslint-config-prettier": "^9.1.0",
-        "mocha": "^10.3.0",
+        "esbuild": "^0.28.1",
+        "eslint": "^10.6.0",
+        "eslint-config-prettier": "^10.1.8",
+        "mocha": "^11.7.6",
         "npm-run-all": "^4.1.5",
-        "prettier": "3.3.3",
-        "typescript": "^5.5.4"
+        "prettier": "3.9.0",
+        "typescript": "^6.0.3",
+        "typescript-eslint": "^8.62.0"
     }
 }

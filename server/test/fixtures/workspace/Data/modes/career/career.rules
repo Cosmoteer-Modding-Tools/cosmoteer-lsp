@@ -1,0 +1,12 @@
+// Mirrors cosmoteer's modes/career/career.rules shape so mod-action targets with
+// numeric array indices (e.g. `<modes/career/career.rules>/EconDifficultyLevels/1/StartingMoney`)
+// can be resolved end-to-end against the game tree.
+EconDifficultyLevels
+[
+	{
+		StartingMoney = 100000
+	}
+	{
+		StartingMoney = 150000
+	}
+]

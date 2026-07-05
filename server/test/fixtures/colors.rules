@@ -1,0 +1,19 @@
+// = SW_COLORS
+
+//SETTERS
+_Black =	[  0,   0,   0, 255]
+_White =	[255, 255, 255, 255]
+
+//CONSTRUCTERS
+Black
+{
+	RGBA = [&~/_Black/0,&~/_Black/1,&~/_Black/2,&~/_Black/3]
+	RGB = [&../RGBA/0,&../RGBA/1,&../RGBA/2]
+	Float
+	{
+		Rf = (&../RGBA/0) /255
+		Gf = (&../RGBA/1) /255
+		Bf = (&../RGBA/2) /255
+		Af = (&../RGBA/3) /255
+	}
+}

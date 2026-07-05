@@ -1,0 +1,943 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parser > parses inheritance and assignments into an AST 1`] = `
+{
+  "parserErrors": [],
+  "value": {
+    "elements": [
+      {
+        "elements": [
+          {
+            "assignmentType": "Equals",
+            "left": {
+              "name": "CombineMode",
+              "position": {
+                "characterEnd": 12,
+                "characterStart": 1,
+                "end": 69,
+                "line": 5,
+                "start": 58,
+              },
+              "type": "Identifier",
+            },
+            "right": {
+              "position": {
+                "characterEnd": 18,
+                "characterStart": 15,
+                "end": 75,
+                "line": 5,
+                "start": 72,
+              },
+              "type": "Value",
+              "valueType": {
+                "type": "String",
+                "value": "Add",
+              },
+            },
+            "type": "Assignment",
+          },
+          {
+            "assignmentType": "Equals",
+            "left": {
+              "name": "BaseValue",
+              "position": {
+                "characterEnd": 10,
+                "characterStart": 1,
+                "end": 86,
+                "line": 6,
+                "start": 77,
+              },
+              "type": "Identifier",
+            },
+            "right": {
+              "position": {
+                "characterEnd": 15,
+                "characterStart": 13,
+                "end": 91,
+                "line": 6,
+                "start": 89,
+              },
+              "type": "Value",
+              "valueType": {
+                "type": "String",
+                "value": "0%",
+              },
+            },
+            "type": "Assignment",
+          },
+        ],
+        "identifier": {
+          "name": "SW_Ion_Thruster_Overdrive",
+          "position": {
+            "characterEnd": 25,
+            "characterStart": 0,
+            "end": 54,
+            "line": 3,
+            "start": 29,
+          },
+          "type": "Identifier",
+        },
+        "position": {
+          "characterEnd": 0,
+          "characterStart": 0,
+          "end": 93,
+          "line": 4,
+          "start": 55,
+        },
+        "type": "Group",
+      },
+      {
+        "elements": [],
+        "identifier": {
+          "name": "SW_Ion_Thruster_Overdrive_Thrust",
+          "position": {
+            "characterEnd": 32,
+            "characterStart": 0,
+            "end": 127,
+            "line": 9,
+            "start": 95,
+          },
+          "type": "Identifier",
+        },
+        "inheritance": [
+          {
+            "position": {
+              "characterEnd": 60,
+              "characterStart": 35,
+              "end": 155,
+              "line": 9,
+              "start": 130,
+            },
+            "type": "Value",
+            "valueType": {
+              "type": "Reference",
+              "value": "&SW_Ion_Thruster_Overdrive",
+            },
+          },
+        ],
+        "position": {
+          "characterEnd": 0,
+          "characterStart": 0,
+          "end": 160,
+          "line": 10,
+          "start": 156,
+        },
+        "type": "Group",
+      },
+      {
+        "elements": [
+          {
+            "assignmentType": "Equals",
+            "left": {
+              "name": "CombineMode",
+              "position": {
+                "characterEnd": 12,
+                "characterStart": 1,
+                "end": 198,
+                "line": 16,
+                "start": 187,
+              },
+              "type": "Identifier",
+            },
+            "right": {
+              "position": {
+                "characterEnd": 18,
+                "characterStart": 15,
+                "end": 204,
+                "line": 16,
+                "start": 201,
+              },
+              "type": "Value",
+              "valueType": {
+                "type": "String",
+                "value": "Add",
+              },
+            },
+            "type": "Assignment",
+          },
+          {
+            "assignmentType": "Equals",
+            "left": {
+              "name": "BaseValue",
+              "position": {
+                "characterEnd": 10,
+                "characterStart": 1,
+                "end": 215,
+                "line": 17,
+                "start": 206,
+              },
+              "type": "Identifier",
+            },
+            "right": {
+              "position": {
+                "characterEnd": 15,
+                "characterStart": 13,
+                "end": 220,
+                "line": 17,
+                "start": 218,
+              },
+              "type": "Value",
+              "valueType": {
+                "type": "String",
+                "value": "0%",
+              },
+            },
+            "type": "Assignment",
+          },
+        ],
+        "identifier": {
+          "name": "SW_Ion_Thruster_Boost",
+          "position": {
+            "characterEnd": 21,
+            "characterStart": 0,
+            "end": 183,
+            "line": 14,
+            "start": 162,
+          },
+          "type": "Identifier",
+        },
+        "position": {
+          "characterEnd": 0,
+          "characterStart": 0,
+          "end": 222,
+          "line": 15,
+          "start": 184,
+        },
+        "type": "Group",
+      },
+      {
+        "elements": [
+          {
+            "assignmentType": "Equals",
+            "left": {
+              "name": "Exponent",
+              "position": {
+                "characterEnd": 9,
+                "characterStart": 1,
+                "end": 288,
+                "line": 22,
+                "start": 280,
+              },
+              "type": "Identifier",
+            },
+            "right": {
+              "position": {
+                "characterEnd": 13,
+                "characterStart": 12,
+                "end": 292,
+                "line": 22,
+                "start": 291,
+              },
+              "type": "Value",
+              "valueType": {
+                "type": "Number",
+                "value": 3,
+              },
+            },
+            "type": "Assignment",
+          },
+        ],
+        "identifier": {
+          "name": "SW_Ion_Thruster_Boost_RampUp",
+          "position": {
+            "characterEnd": 28,
+            "characterStart": 0,
+            "end": 252,
+            "line": 20,
+            "start": 224,
+          },
+          "type": "Identifier",
+        },
+        "inheritance": [
+          {
+            "position": {
+              "characterEnd": 52,
+              "characterStart": 31,
+              "end": 276,
+              "line": 20,
+              "start": 255,
+            },
+            "type": "Value",
+            "valueType": {
+              "type": "Reference",
+              "value": "&SW_Ion_Thruster_Boost",
+            },
+          },
+        ],
+        "position": {
+          "characterEnd": 0,
+          "characterStart": 0,
+          "end": 294,
+          "line": 21,
+          "start": 277,
+        },
+        "type": "Group",
+      },
+    ],
+    "position": {
+      "characterEnd": 0,
+      "characterStart": 0,
+      "end": 0,
+      "line": 0,
+      "start": 0,
+    },
+    "type": "Document",
+    "uri": "file:///test.rules",
+  },
+}
+`;
+
+exports[`parser > parses internal references (~/ and ../) and math expressions 1`] = `
+{
+  "parserErrors": [],
+  "value": {
+    "elements": [
+      {
+        "assignmentType": "Equals",
+        "left": {
+          "name": "_Black",
+          "position": {
+            "characterEnd": 6,
+            "characterStart": 0,
+            "end": 32,
+            "line": 3,
+            "start": 26,
+          },
+          "type": "Identifier",
+        },
+        "right": {
+          "elements": [
+            {
+              "position": {
+                "characterEnd": 13,
+                "characterStart": 12,
+                "end": 39,
+                "line": 3,
+                "start": 38,
+              },
+              "type": "Value",
+              "valueType": {
+                "type": "Number",
+                "value": 0,
+              },
+            },
+            {
+              "position": {
+                "characterEnd": 18,
+                "characterStart": 17,
+                "end": 44,
+                "line": 3,
+                "start": 43,
+              },
+              "type": "Value",
+              "valueType": {
+                "type": "Number",
+                "value": 0,
+              },
+            },
+            {
+              "position": {
+                "characterEnd": 23,
+                "characterStart": 22,
+                "end": 49,
+                "line": 3,
+                "start": 48,
+              },
+              "type": "Value",
+              "valueType": {
+                "type": "Number",
+                "value": 0,
+              },
+            },
+            {
+              "position": {
+                "characterEnd": 28,
+                "characterStart": 25,
+                "end": 54,
+                "line": 3,
+                "start": 51,
+              },
+              "type": "Value",
+              "valueType": {
+                "type": "Number",
+                "value": 255,
+              },
+            },
+          ],
+          "identifier": undefined,
+          "position": {
+            "characterEnd": 28,
+            "characterStart": 9,
+            "end": 55,
+            "line": 3,
+            "start": 35,
+          },
+          "type": "List",
+        },
+        "type": "Assignment",
+      },
+      {
+        "assignmentType": "Equals",
+        "left": {
+          "name": "_White",
+          "position": {
+            "characterEnd": 6,
+            "characterStart": 0,
+            "end": 62,
+            "line": 4,
+            "start": 56,
+          },
+          "type": "Identifier",
+        },
+        "right": {
+          "elements": [
+            {
+              "position": {
+                "characterEnd": 13,
+                "characterStart": 10,
+                "end": 69,
+                "line": 4,
+                "start": 66,
+              },
+              "type": "Value",
+              "valueType": {
+                "type": "Number",
+                "value": 255,
+              },
+            },
+            {
+              "position": {
+                "characterEnd": 18,
+                "characterStart": 15,
+                "end": 74,
+                "line": 4,
+                "start": 71,
+              },
+              "type": "Value",
+              "valueType": {
+                "type": "Number",
+                "value": 255,
+              },
+            },
+            {
+              "position": {
+                "characterEnd": 23,
+                "characterStart": 20,
+                "end": 79,
+                "line": 4,
+                "start": 76,
+              },
+              "type": "Value",
+              "valueType": {
+                "type": "Number",
+                "value": 255,
+              },
+            },
+            {
+              "position": {
+                "characterEnd": 28,
+                "characterStart": 25,
+                "end": 84,
+                "line": 4,
+                "start": 81,
+              },
+              "type": "Value",
+              "valueType": {
+                "type": "Number",
+                "value": 255,
+              },
+            },
+          ],
+          "identifier": undefined,
+          "position": {
+            "characterEnd": 28,
+            "characterStart": 9,
+            "end": 85,
+            "line": 4,
+            "start": 65,
+          },
+          "type": "List",
+        },
+        "type": "Assignment",
+      },
+      {
+        "elements": [
+          {
+            "assignmentType": "Equals",
+            "left": {
+              "name": "RGBA",
+              "position": {
+                "characterEnd": 5,
+                "characterStart": 1,
+                "end": 115,
+                "line": 9,
+                "start": 111,
+              },
+              "type": "Identifier",
+            },
+            "right": {
+              "elements": [
+                {
+                  "position": {
+                    "characterEnd": 20,
+                    "characterStart": 9,
+                    "end": 130,
+                    "line": 9,
+                    "start": 119,
+                  },
+                  "type": "Value",
+                  "valueType": {
+                    "type": "Reference",
+                    "value": "&~/_Black/0",
+                  },
+                },
+                {
+                  "position": {
+                    "characterEnd": 32,
+                    "characterStart": 21,
+                    "end": 142,
+                    "line": 9,
+                    "start": 131,
+                  },
+                  "type": "Value",
+                  "valueType": {
+                    "type": "Reference",
+                    "value": "&~/_Black/1",
+                  },
+                },
+                {
+                  "position": {
+                    "characterEnd": 44,
+                    "characterStart": 33,
+                    "end": 154,
+                    "line": 9,
+                    "start": 143,
+                  },
+                  "type": "Value",
+                  "valueType": {
+                    "type": "Reference",
+                    "value": "&~/_Black/2",
+                  },
+                },
+                {
+                  "position": {
+                    "characterEnd": 56,
+                    "characterStart": 45,
+                    "end": 166,
+                    "line": 9,
+                    "start": 155,
+                  },
+                  "type": "Value",
+                  "valueType": {
+                    "type": "Reference",
+                    "value": "&~/_Black/3",
+                  },
+                },
+              ],
+              "identifier": undefined,
+              "position": {
+                "characterEnd": 56,
+                "characterStart": 8,
+                "end": 167,
+                "line": 9,
+                "start": 118,
+              },
+              "type": "List",
+            },
+            "type": "Assignment",
+          },
+          {
+            "assignmentType": "Equals",
+            "left": {
+              "name": "RGB",
+              "position": {
+                "characterEnd": 4,
+                "characterStart": 1,
+                "end": 172,
+                "line": 10,
+                "start": 169,
+              },
+              "type": "Identifier",
+            },
+            "right": {
+              "elements": [
+                {
+                  "position": {
+                    "characterEnd": 18,
+                    "characterStart": 8,
+                    "end": 186,
+                    "line": 10,
+                    "start": 176,
+                  },
+                  "type": "Value",
+                  "valueType": {
+                    "type": "Reference",
+                    "value": "&../RGBA/0",
+                  },
+                },
+                {
+                  "position": {
+                    "characterEnd": 29,
+                    "characterStart": 19,
+                    "end": 197,
+                    "line": 10,
+                    "start": 187,
+                  },
+                  "type": "Value",
+                  "valueType": {
+                    "type": "Reference",
+                    "value": "&../RGBA/1",
+                  },
+                },
+                {
+                  "position": {
+                    "characterEnd": 40,
+                    "characterStart": 30,
+                    "end": 208,
+                    "line": 10,
+                    "start": 198,
+                  },
+                  "type": "Value",
+                  "valueType": {
+                    "type": "Reference",
+                    "value": "&../RGBA/2",
+                  },
+                },
+              ],
+              "identifier": undefined,
+              "position": {
+                "characterEnd": 40,
+                "characterStart": 7,
+                "end": 209,
+                "line": 10,
+                "start": 175,
+              },
+              "type": "List",
+            },
+            "type": "Assignment",
+          },
+          {
+            "elements": [
+              {
+                "assignmentType": "Equals",
+                "left": {
+                  "name": "Rf",
+                  "position": {
+                    "characterEnd": 4,
+                    "characterStart": 2,
+                    "end": 224,
+                    "line": 13,
+                    "start": 222,
+                  },
+                  "type": "Identifier",
+                },
+                "right": {
+                  "elements": [
+                    {
+                      "parenthesized": true,
+                      "position": {
+                        "characterEnd": 19,
+                        "characterStart": 8,
+                        "end": 239,
+                        "line": 13,
+                        "start": 228,
+                      },
+                      "type": "Value",
+                      "valueType": {
+                        "type": "Reference",
+                        "value": "&../RGBA/0",
+                      },
+                    },
+                    {
+                      "expressionType": "/",
+                      "position": {
+                        "characterEnd": 21,
+                        "characterStart": 20,
+                        "end": 241,
+                        "line": 13,
+                        "start": 240,
+                      },
+                      "type": "Expression",
+                    },
+                    {
+                      "position": {
+                        "characterEnd": 24,
+                        "characterStart": 21,
+                        "end": 244,
+                        "line": 13,
+                        "start": 241,
+                      },
+                      "type": "Value",
+                      "valueType": {
+                        "type": "Number",
+                        "value": 255,
+                      },
+                    },
+                  ],
+                  "position": {
+                    "characterEnd": 24,
+                    "characterStart": 8,
+                    "end": 244,
+                    "line": 13,
+                    "start": 228,
+                  },
+                  "type": "MathExpression",
+                },
+                "type": "Assignment",
+              },
+              {
+                "assignmentType": "Equals",
+                "left": {
+                  "name": "Gf",
+                  "position": {
+                    "characterEnd": 4,
+                    "characterStart": 2,
+                    "end": 249,
+                    "line": 14,
+                    "start": 247,
+                  },
+                  "type": "Identifier",
+                },
+                "right": {
+                  "elements": [
+                    {
+                      "parenthesized": true,
+                      "position": {
+                        "characterEnd": 19,
+                        "characterStart": 8,
+                        "end": 264,
+                        "line": 14,
+                        "start": 253,
+                      },
+                      "type": "Value",
+                      "valueType": {
+                        "type": "Reference",
+                        "value": "&../RGBA/1",
+                      },
+                    },
+                    {
+                      "expressionType": "/",
+                      "position": {
+                        "characterEnd": 21,
+                        "characterStart": 20,
+                        "end": 266,
+                        "line": 14,
+                        "start": 265,
+                      },
+                      "type": "Expression",
+                    },
+                    {
+                      "position": {
+                        "characterEnd": 24,
+                        "characterStart": 21,
+                        "end": 269,
+                        "line": 14,
+                        "start": 266,
+                      },
+                      "type": "Value",
+                      "valueType": {
+                        "type": "Number",
+                        "value": 255,
+                      },
+                    },
+                  ],
+                  "position": {
+                    "characterEnd": 24,
+                    "characterStart": 8,
+                    "end": 269,
+                    "line": 14,
+                    "start": 253,
+                  },
+                  "type": "MathExpression",
+                },
+                "type": "Assignment",
+              },
+              {
+                "assignmentType": "Equals",
+                "left": {
+                  "name": "Bf",
+                  "position": {
+                    "characterEnd": 4,
+                    "characterStart": 2,
+                    "end": 274,
+                    "line": 15,
+                    "start": 272,
+                  },
+                  "type": "Identifier",
+                },
+                "right": {
+                  "elements": [
+                    {
+                      "parenthesized": true,
+                      "position": {
+                        "characterEnd": 19,
+                        "characterStart": 8,
+                        "end": 289,
+                        "line": 15,
+                        "start": 278,
+                      },
+                      "type": "Value",
+                      "valueType": {
+                        "type": "Reference",
+                        "value": "&../RGBA/2",
+                      },
+                    },
+                    {
+                      "expressionType": "/",
+                      "position": {
+                        "characterEnd": 21,
+                        "characterStart": 20,
+                        "end": 291,
+                        "line": 15,
+                        "start": 290,
+                      },
+                      "type": "Expression",
+                    },
+                    {
+                      "position": {
+                        "characterEnd": 24,
+                        "characterStart": 21,
+                        "end": 294,
+                        "line": 15,
+                        "start": 291,
+                      },
+                      "type": "Value",
+                      "valueType": {
+                        "type": "Number",
+                        "value": 255,
+                      },
+                    },
+                  ],
+                  "position": {
+                    "characterEnd": 24,
+                    "characterStart": 8,
+                    "end": 294,
+                    "line": 15,
+                    "start": 278,
+                  },
+                  "type": "MathExpression",
+                },
+                "type": "Assignment",
+              },
+              {
+                "assignmentType": "Equals",
+                "left": {
+                  "name": "Af",
+                  "position": {
+                    "characterEnd": 4,
+                    "characterStart": 2,
+                    "end": 299,
+                    "line": 16,
+                    "start": 297,
+                  },
+                  "type": "Identifier",
+                },
+                "right": {
+                  "elements": [
+                    {
+                      "parenthesized": true,
+                      "position": {
+                        "characterEnd": 19,
+                        "characterStart": 8,
+                        "end": 314,
+                        "line": 16,
+                        "start": 303,
+                      },
+                      "type": "Value",
+                      "valueType": {
+                        "type": "Reference",
+                        "value": "&../RGBA/3",
+                      },
+                    },
+                    {
+                      "expressionType": "/",
+                      "position": {
+                        "characterEnd": 21,
+                        "characterStart": 20,
+                        "end": 316,
+                        "line": 16,
+                        "start": 315,
+                      },
+                      "type": "Expression",
+                    },
+                    {
+                      "position": {
+                        "characterEnd": 24,
+                        "characterStart": 21,
+                        "end": 319,
+                        "line": 16,
+                        "start": 316,
+                      },
+                      "type": "Value",
+                      "valueType": {
+                        "type": "Number",
+                        "value": 255,
+                      },
+                    },
+                  ],
+                  "position": {
+                    "characterEnd": 24,
+                    "characterStart": 8,
+                    "end": 319,
+                    "line": 16,
+                    "start": 303,
+                  },
+                  "type": "MathExpression",
+                },
+                "type": "Assignment",
+              },
+            ],
+            "identifier": {
+              "name": "Float",
+              "position": {
+                "characterEnd": 6,
+                "characterStart": 1,
+                "end": 216,
+                "line": 11,
+                "start": 211,
+              },
+              "type": "Identifier",
+            },
+            "position": {
+              "characterEnd": 1,
+              "characterStart": 1,
+              "end": 322,
+              "line": 12,
+              "start": 218,
+            },
+            "type": "Group",
+          },
+        ],
+        "identifier": {
+          "name": "Black",
+          "position": {
+            "characterEnd": 5,
+            "characterStart": 0,
+            "end": 107,
+            "line": 7,
+            "start": 102,
+          },
+          "type": "Identifier",
+        },
+        "position": {
+          "characterEnd": 0,
+          "characterStart": 0,
+          "end": 324,
+          "line": 8,
+          "start": 108,
+        },
+        "type": "Group",
+      },
+    ],
+    "position": {
+      "characterEnd": 0,
+      "characterStart": 0,
+      "end": 0,
+      "line": 0,
+      "start": 0,
+    },
+    "type": "Document",
+    "uri": "file:///test.rules",
+  },
+}
+`;

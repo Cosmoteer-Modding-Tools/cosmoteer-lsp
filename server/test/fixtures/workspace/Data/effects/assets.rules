@@ -1,0 +1,8 @@
+// Fixture for asset autocompletion / go-to-definition / hover / did-you-mean.
+// Paths resolve against the real fixture filesystem: spark.png lives next to this file,
+// beep.wav lives at ../sounds/fx/beep.wav.
+Effect {
+	Icon = "spark.png"
+	Beep = "../sounds/fx/beep.wav"
+	Missing = "sparkk.png"
+}

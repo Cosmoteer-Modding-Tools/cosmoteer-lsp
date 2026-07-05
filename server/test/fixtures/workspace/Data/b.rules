@@ -1,0 +1,13 @@
+B
+{
+	InnerValue = 100
+	// file -> file hop onward to c.rules.
+	ToC = &<./Data/c.rules>/C/Leaf
+	Nested
+	{
+		Deep
+		{
+			Leaf = 200
+		}
+	}
+}

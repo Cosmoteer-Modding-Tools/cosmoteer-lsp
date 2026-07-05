@@ -1,0 +1,5 @@
+TestBase {
+	ValueOne = 1
+	ValueTwo = 2
+}
+Ref = &TestBase/Value
