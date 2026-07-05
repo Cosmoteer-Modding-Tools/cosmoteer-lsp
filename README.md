@@ -96,6 +96,12 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 -   Unit-aware value evaluation (exploratory; the format has no unit literals today)
 -   If you have suggestions or ideas, please open an issue on [GitHub](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/issues)
 
+## Credits
+
+Thanks to the Cosmoteer team for beeing that open and allow to have the schema public available without the modders first need to generate it, and to the modders who have contributed to the community and provided feedback on this extension. 
+
+Especial thanks to Walt for the open communication and allowance. As Celeste for helping with laying the ground for Jetbrains IDE Support and providing valuable input. Same for Rojamahorse which provided valuable feedback and testing and a very complex mod for testing the extension. And also SkipperWraith who brought me back to this project.
+
 ## Showcase
 
 ![Basic Syntax Highlighting Example Image](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/syntax_highlighting.png?raw=true)
