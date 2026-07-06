@@ -55,6 +55,8 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
     private readonly counts = new Map<string, number>();
     /** normalized source uri → the distinct base names that file contributed. */
     private readonly bySource = new Map<string, string[]>();
+    /** Snapshot handed out by {@link baseNames}, rebuilt only after the counts changed. */
+    private namesSnapshot: ReadonlySet<string> | null = null;
 
     private constructor() {
         super();
@@ -71,6 +73,7 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
     protected clear(): void {
         this.counts.clear();
         this.bySource.clear();
+        this.namesSnapshot = null;
     }
 
     /**
@@ -104,6 +107,7 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
     protected removeSource(source: string): void {
         const prior = this.bySource.get(source);
         if (!prior) return;
+        this.namesSnapshot = null;
         for (const name of prior) {
             const next = (this.counts.get(name) ?? 0) - 1;
             if (next <= 0) this.counts.delete(name);
@@ -117,6 +121,7 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
         this.removeSource(source);
         const names = baseNamesOf(document);
         if (!names.length) return;
+        this.namesSnapshot = null;
         this.bySource.set(source, names);
         for (const name of names) this.counts.set(name, (this.counts.get(name) ?? 0) + 1);
     }
@@ -128,6 +133,7 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
             cancellationToken,
             'Indexing inheritance bases'
         );
-        return new Set(this.counts.keys());
+        if (!this.namesSnapshot) this.namesSnapshot = new Set(this.counts.keys());
+        return this.namesSnapshot;
     }
 }

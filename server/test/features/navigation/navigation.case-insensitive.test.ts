@@ -24,14 +24,14 @@ describe('reference navigation ignores case like the game', () => {
         const node = findReferenceNode(doc, '&base/value');
         const result = await nav.navigate(String(node.valueType.value), node, doc.uri, token);
         expect(result).toBeTruthy();
-        expect(isValueNode(result as never) && (result as { valueType: { value: unknown } }).valueType.value).toBe(5);
+        expect(isValueNode(result as never) && (result as unknown as { valueType: { value: unknown } }).valueType.value).toBe(5);
     });
 
     it('prefers the exact-case member when two differ only by case', async () => {
         const doc = parse('foo = 1\nFoo = 2\nUse = &Foo\n');
         const node = findReferenceNode(doc, '&Foo');
         const result = await nav.navigate('&Foo', node, doc.uri, token);
-        expect(isValueNode(result as never) && (result as { valueType: { value: unknown } }).valueType.value).toBe(2);
+        expect(isValueNode(result as never) && (result as unknown as { valueType: { value: unknown } }).valueType.value).toBe(2);
     });
 });
 

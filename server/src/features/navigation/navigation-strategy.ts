@@ -12,7 +12,16 @@ export abstract class NavigationStrategy<T> {
     ): Promise<T>;
 }
 
+// The same file uris and paths are converted over and over (every reference resolution and memo
+// key derivation goes through here), so the pure computation is memoized. Bounded by wholesale
+// reset, matching the normalizeUri memo.
+const directoryPathMemo = new Map<string, string>();
+const DIRECTORY_PATH_MEMO_CAP = 16384;
+
 export const filePathToDirectoryPath = (path: string) => {
+    const cached = directoryPathMemo.get(path);
+    if (cached !== undefined) return cached;
+    let result: string;
     if (path.startsWith('file://')) {
         let cleaned = path.slice('file://'.length);
         try {
@@ -24,12 +33,15 @@ export const filePathToDirectoryPath = (path: string) => {
         // OS path, and upper-case the drive for consistency with the rest of the code base.
         const drive = cleaned.match(/^\/([a-zA-Z]):/);
         if (drive) cleaned = drive[1].toUpperCase() + cleaned.slice(2);
-        return cleaned.substring(0, cleaned.lastIndexOf('/') + 1);
+        result = cleaned.substring(0, cleaned.lastIndexOf('/') + 1);
+    } else if (path.endsWith('.rules')) {
+        result = path.substring(0, (path.includes('/') ? path.lastIndexOf('/') : path.lastIndexOf('\\') - 1) + 1);
+    } else {
+        result = path;
     }
-    if (path.endsWith('.rules')) {
-        return path.substring(0, (path.includes('/') ? path.lastIndexOf('/') : path.lastIndexOf('\\') - 1) + 1);
-    }
-    return path;
+    if (directoryPathMemo.size >= DIRECTORY_PATH_MEMO_CAP) directoryPathMemo.clear();
+    directoryPathMemo.set(path, result);
+    return result;
 };
 
 /**
@@ -52,9 +64,23 @@ export const filePathToUri = (path: string): string => {
 };
 
 export const extractSubstrings = (input: string): string[] => {
-    const regex = /([^/]+)/g;
-    const matches = input.matchAll(regex);
-    return Array.from(matches, (match) => match[1]);
+    // A manual scan of the slash-separated segments. The previous matchAll form allocated a
+    // regex iterator and match arrays per call, and this runs for every reference and asset
+    // path a scan resolves.
+    const out: string[] = [];
+    let start = -1;
+    for (let i = 0; i < input.length; i++) {
+        if (input.charCodeAt(i) === 47) {
+            if (start !== -1) {
+                out.push(input.slice(start, i));
+                start = -1;
+            }
+        } else if (start === -1) {
+            start = i;
+        }
+    }
+    if (start !== -1) out.push(input.slice(start));
+    return out;
 };
 
 /**

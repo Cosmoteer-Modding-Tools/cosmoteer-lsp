@@ -4,6 +4,7 @@ import {
     isDocumentNode,
     isGroupNode,
     isIdentifierNode,
+    isListNode,
     isValueNode,
 } from '../../core/ast/ast';
 import { registryForGroup, resolveGroupClass } from '../../document/schema/schema-context';
@@ -29,9 +30,11 @@ export const schemaFieldHover = (node: AbstractNode): string | null => {
     if (!container || !(isGroupNode(container) || isDocumentNode(container))) return null;
 
     let fieldName: string | undefined;
-    // A group-form field (`_centerColor { … }`, a nested group such as a shader-constant colour group):
-    // hovering its key resolves to the group node itself, whose name is its identifier.
-    if (isGroupNode(node) && node.identifier) {
+    // A group- or list-form field (`_centerColor { … }`, `TypeCategories [ … ]`, `Resources [ … ]`,
+    // or an overriding `TypeCategories : ^/0/TypeCategories [ … ]`): these are written without an
+    // `=`, so hovering the key resolves to the container node itself, whose name is its identifier.
+    // There is no sibling assignment to match below.
+    if ((isGroupNode(node) || isListNode(node)) && node.identifier) {
         fieldName = node.identifier.name;
     }
     // A valueless field written as a bare key (`Scale2In` with no `= value`, common for optional

@@ -24,7 +24,7 @@ describe('listElementReferenceTarget', () => {
         let list: AbstractNode | undefined;
         const walk = (n: any) => {
             if (isListNode(n)) list = n;
-            for (const k of (n.elements ?? (n.type === 'Assignment' ? [n.left, n.right] : []) ?? [])) walk(k);
+            for (const k of (n.elements ?? (n.type === 'Assignment' ? [n.left, n.right] : []))) walk(k);
         };
         walk(doc);
         expect(listElementReferenceTarget(list as any)).toBe('Cosmoteer.Ships.Parts.PartCategory');

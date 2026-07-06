@@ -1,6 +1,5 @@
 import { CancellationToken, WorkDoneProgressReporter } from 'vscode-languageserver';
-import { existsSync } from 'fs';
-import { dirname, resolve } from 'path';
+import { basename, dirname, resolve } from 'path';
 import {
     AbstractNode,
     AbstractNodeDocument,
@@ -13,7 +12,7 @@ import {
     isValueNode,
 } from '../../core/ast/ast';
 import { getStartOfAstNode } from '../../utils/ast.utils';
-import { cachedParseFilePath } from '../../workspace/fs-cache';
+import { cachedDirLookup, cachedParseFilePath } from '../../workspace/fs-cache';
 import { listElementType, memberTypeIn, resolveGroupClass } from '../../document/schema/schema-context';
 import { commonAncestorClass } from '../../document/schema/schema';
 import { documentRootClass } from '../../document/schema/document-root';
@@ -315,6 +314,17 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         // game fragments is picked up (and a stale entry self-heals).
         this.changedSinceLastPass = true;
         return true;
+    }
+
+    /**
+     * Drops the fixpoint reparse {@link loadState} scheduled. The combined project cache saved a
+     * state that already converged over game and workspace files together, so re-deriving it from
+     * the alias files would only reproduce what was just loaded. Changed files re-enter through
+     * the normal dirty reconcile instead.
+     */
+    public override stateLoadedConverged(): void {
+        this.pendingAliasFilePaths = [];
+        this.changedSinceLastPass = false;
     }
 
     protected removeSource(source: string): void {
@@ -700,7 +710,12 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         const sourceUri = getStartOfAstNode(referenceNode).uri;
         const withExtension = /\.[^/\\.]+$/.test(relative) ? relative : `${relative}.rules`;
         const cheapPath = resolve(dirname(uriToFsPath(sourceUri)), withExtension);
-        if (existsSync(cheapPath)) return { key: normalizeUri(cheapPath), fsPath: cheapPath };
+        // Membership through the cached parent listing instead of a per-include existsSync: the
+        // same directories are probed for every include in every file of a scan.
+        const cheapDir = await cachedDirLookup(dirname(cheapPath)).catch(() => undefined);
+        if (cheapDir?.has(basename(cheapPath).toLowerCase())) {
+            return { key: normalizeUri(cheapPath), fsPath: cheapPath };
+        }
 
         const resolved = await navigation.navigate(fileRef, referenceNode, sourceUri, cancellationToken).catch(() => null);
         if (!resolved) return undefined;

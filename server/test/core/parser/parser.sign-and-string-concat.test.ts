@@ -122,7 +122,7 @@ describe('parser: `: <ref>; { body }` inheritance-override list element', () => 
             expect(isGroupNode(el)).toBe(true);
             // Each element is an override group with one member and one inheritance ref.
             expect((el as { inheritance?: unknown[] }).inheritance?.length).toBe(1);
-            expect(memberNames(el as { elements: AbstractNode[] })).toEqual(['ComponentID']);
+            expect(memberNames(el as unknown as { elements: AbstractNode[] })).toEqual(['ComponentID']);
         }
     });
 });

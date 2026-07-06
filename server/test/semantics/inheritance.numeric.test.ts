@@ -21,7 +21,7 @@ describe('numeric inheritance (`: N`)', () => {
     it('captures the numeric inheritance as a relative `&N` reference', () => {
         const doc = parseFixture('numeric-inheritance.rules');
         const effects = doc.elements.find((e) => isListNode(e) && e.identifier?.name === 'Effects')!;
-        const inheritingElement = (effects as { elements: AbstractNode[] }).elements[2];
+        const inheritingElement = (effects as unknown as { elements: AbstractNode[] }).elements[2];
         const inheritance = (inheritingElement as { inheritance?: { valueType: { value: string } }[] }).inheritance;
         expect(inheritance).toHaveLength(1);
         expect(inheritance![0].valueType.value).toBe('&1');
@@ -31,7 +31,7 @@ describe('numeric inheritance (`: N`)', () => {
         const doc = parseFixture('numeric-inheritance.rules');
         const nav = new FullNavigationStrategy();
         const effects = doc.elements.find((e) => isListNode(e) && e.identifier?.name === 'Effects')!;
-        const inheritingElement = (effects as { elements: AbstractNode[] }).elements[2];
+        const inheritingElement = (effects as unknown as { elements: AbstractNode[] }).elements[2];
         // `Color` is defined only on index 1; it must be reachable via `: 1`.
         const result = await nav.navigate('Color', inheritingElement, doc.uri, token);
         expect(result && 'valueType' in result && (result as { valueType: { value: unknown } }).valueType.value).toBe(

@@ -24,7 +24,7 @@ const refNode = (value: string, parent: AbstractNode): ValueNode => ({
     type: 'Value',
     valueType: { type: 'Reference', value },
     position: pos,
-    parent,
+    parent: parent as unknown as AbstractNodeDocument,
 });
 
 const complete = (value: string, parent: AbstractNode) =>

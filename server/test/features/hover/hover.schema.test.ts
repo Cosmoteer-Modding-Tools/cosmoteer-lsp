@@ -35,6 +35,17 @@ const findIdentifier = (node: AbstractNode, name: string): AbstractNode | undefi
     return undefined;
 };
 
+/** Find a named container (a `Foo { … }` group or `Foo [ … ]` list). */
+const findNamedContainer = (node: AbstractNode, name: string): AbstractNode | undefined => {
+    if ((isGroupNode(node) || isListNode(node)) && node.identifier?.name === name) return node;
+    const kids = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) ? [node.right] : [];
+    for (const k of kids) {
+        const f = findNamedContainer(k, name);
+        if (f) return f;
+    }
+    return undefined;
+};
+
 const PART = `Part
 {
 	Components
@@ -105,6 +116,27 @@ describe('schemaFieldHover', () => {
         const hover = schemaFieldHover(scale2In!);
         expect(hover).toContain('Scale2In');
         expect(hover).toContain('ParticleDataID');
+    });
+
+    // A list-form field is written without an `=` (`Resources [ … ]`), so hovering its key resolves
+    // to the list node itself, not a sibling assignment. It must still document the field.
+    it('documents a list-form field hovered on its key (`Resources [ … ]`)', () => {
+        const doc = parse('Part\n{\n\tResources\n\t[\n\t\t[steel, 84]\n\t]\n}');
+        const resources = doc.elements.map((n) => findNamedContainer(n, 'Resources')).find(Boolean);
+        expect(resources).toBeDefined();
+        const hover = schemaFieldHover(resources!);
+        expect(hover).toContain('Resources');
+    });
+
+    // An overriding field written as `Name : ^/0/Name [ … ]` parses to a named list with inheritance;
+    // hovering the key previously lost the schema entirely.
+    it('documents an overriding list field (`TypeCategories : ^/0/TypeCategories [ … ]`)', () => {
+        const doc = parse('Part\n{\n\tTypeCategories : ^/0/TypeCategories [command, uses_power]\n}');
+        const typeCats = doc.elements.map((n) => findNamedContainer(n, 'TypeCategories')).find(Boolean);
+        expect(typeCats).toBeDefined();
+        const hover = schemaFieldHover(typeCats!);
+        expect(hover).toContain('TypeCategories');
+        expect(hover).toContain('PartCategory');
     });
 });
 

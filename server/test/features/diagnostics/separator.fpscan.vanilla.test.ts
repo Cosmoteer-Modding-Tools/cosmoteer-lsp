@@ -44,7 +44,7 @@ const filesUnder = (root: string): string[] => {
 const collect = (node: AbstractNode, out: AbstractNode[] = []): AbstractNode[] => {
     out.push(node);
     if (isGroupNode(node) || isListNode(node) || node.type === 'Document') {
-        for (const child of (node as { elements: AbstractNode[] }).elements) collect(child, out);
+        for (const child of (node as unknown as { elements: AbstractNode[] }).elements) collect(child, out);
     }
     if (isAssignmentNode(node)) {
         collect(node.left, out);

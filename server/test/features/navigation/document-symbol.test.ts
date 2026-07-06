@@ -13,11 +13,22 @@ const byName = (symbols: DocumentSymbol[], name: string): DocumentSymbol => {
     return found;
 };
 
-/** selectionRange must sit within range — an LSP invariant the editor relies on. */
+/** True when (line, char) is at or before (oLine, oChar). */
+const atOrBefore = (line: number, char: number, oLine: number, oChar: number): boolean =>
+    line < oLine || (line === oLine && char <= oChar);
+
+/**
+ * selectionRange must sit within range, an LSP invariant the editor relies on. The client
+ * swap-normalizes any reversed range before checking containment, so mirror that here (char-level,
+ * not just line-level) to catch the malformed-input case the editor would actually reject.
+ */
 const assertSelectionWithinRange = (symbol: DocumentSymbol): void => {
-    const { range, selectionRange: sel } = symbol;
-    expect(sel.start.line).toBeGreaterThanOrEqual(range.start.line);
-    expect(sel.end.line).toBeLessThanOrEqual(range.end.line);
+    const order = (r: DocumentSymbol['range']) =>
+        atOrBefore(r.start.line, r.start.character, r.end.line, r.end.character) ? r : { start: r.end, end: r.start };
+    const range = order(symbol.range);
+    const sel = order(symbol.selectionRange);
+    expect(atOrBefore(range.start.line, range.start.character, sel.start.line, sel.start.character)).toBe(true);
+    expect(atOrBefore(sel.end.line, sel.end.character, range.end.line, range.end.character)).toBe(true);
     symbol.children?.forEach(assertSelectionWithinRange);
 };
 
@@ -74,5 +85,15 @@ describe('DocumentSymbolService — outline', () => {
 
     it('keeps selectionRange within range for every symbol', () => {
         service.getDocumentSymbols(parseFixture('colors.rules')).forEach(assertSelectionWithinRange);
+    });
+
+    it('keeps selectionRange within range even when a stray `[` malforms a container', () => {
+        // A stray `[` right before a group (`[{ … }`) leaves the recovered group's end column at
+        // its `0` default while its start column is `1`, producing a reversed one-line range whose
+        // true start escaped the union. The editor then rejected the whole outline with
+        // "selectionRange must be contained in fullRange".
+        const src = 'Part\n[{\n\tResources\n\t[\n\t\t[steel, 84]\n\t]\n}';
+        const doc = parser(lexer(src), 'file:///t.rules').value;
+        service.getDocumentSymbols(doc).forEach(assertSelectionWithinRange);
     });
 });

@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { mkdir, readFile, rename, stat, writeFile } from 'fs/promises';
 import { dirname } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
@@ -16,6 +17,11 @@ const IS_WORD_NAME = /^[A-Za-z0-9_]+$/;
 /** How many `stat` calls run concurrently during a disk sync. */
 const STAT_CONCURRENCY = 64;
 
+/** How long the watcher-driven mode may go without a full walk+stat sweep. The watcher only covers
+ *  the workspace folders, so this bounds how stale the game Data tree (Steam updates, external
+ *  edits) can get. One sweep per interval is far cheaper than the per-query sweep it replaced. */
+const FULL_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+
 /** One indexed file: its on-disk identity (to detect changes) and its distinct lower-cased words. */
 interface IndexedFile {
     path: string;
@@ -25,9 +31,9 @@ interface IndexedFile {
 }
 
 /** Bump when the serialized mention-cache shape (or the word extraction) changes. */
-const MENTION_CACHE_FORMAT_VERSION = 1;
+const MENTION_CACHE_FORMAT_VERSION = 2;
 
-/** The on-disk shape of the persisted game-tree word index. */
+/** The on-disk shape of the persisted word index (game tree plus workspace files). */
 interface MentionCacheFile {
     formatVersion: number;
     serverBuildId: string;
@@ -74,6 +80,8 @@ export class MentionIndex {
     private readonly dirty = new Set<string>();
     /** Whether a full walk+stat sweep has validated the current state at least once. */
     private fullSyncDone = false;
+    /** When the last full walk+stat sweep completed, for the periodic re-sweep below. */
+    private lastFullSweepMs = 0;
 
     private constructor() {}
 
@@ -90,6 +98,7 @@ export class MentionIndex {
         this.byWord.clear();
         this.dirty.clear();
         this.fullSyncDone = false;
+        this.lastFullSweepMs = 0;
     }
 
     /** Switches queries after the first full sweep to dirty-file-only syncs (watcher required). */
@@ -173,8 +182,15 @@ export class MentionIndex {
         }
         // With a watcher, the full walk+stat sweep runs once; afterwards only the files the
         // watcher dirtied are re-checked. Without one (tests, minimal clients), every query
-        // keeps the stateless full sweep so external changes are still picked up.
-        if (this.watcherDriven && this.fullSyncDone) {
+        // keeps the stateless full sweep so external changes are still picked up. The watcher
+        // only covers the workspace folders, so files outside them (the game Data tree) are
+        // re-swept on a timer: a Steam update or an external edit of a vanilla file is picked
+        // up within the interval instead of never.
+        const fullSweepDue = Date.now() - this.lastFullSweepMs > FULL_SWEEP_INTERVAL_MS;
+        if (this.watcherDriven && this.fullSyncDone && !fullSweepDue) {
+            // A running sync empties the dirty set before its updates are applied, so an empty
+            // set alone does not mean the index is current: wait out the in-flight sync first.
+            if (this.syncPromise) await this.syncPromise.catch(() => undefined);
             if (this.dirty.size === 0) return;
             if (!this.syncPromise) {
                 this.syncPromise = this.syncDirtyFiles(cancellationToken).finally(() => {
@@ -220,8 +236,16 @@ export class MentionIndex {
             }
         }
         const metaByPath = new Map(changed.map((entry) => [entry.path, entry]));
+        // Files whose new text has not been ingested yet. On cancellation they return to the
+        // dirty set (like the pre-read check above does). Otherwise their stale entries would
+        // look synced forever, since the dirty set was already cleared.
+        const pending = new Set(changed.map((entry) => entry.path));
         for await (const { file, text } of readFilesAhead(changed.map((entry) => entry.path))) {
-            if (cancellationToken.isCancellationRequested) throw new CancellationError();
+            if (cancellationToken.isCancellationRequested) {
+                for (const remaining of pending) this.dirty.add(remaining);
+                throw new CancellationError();
+            }
+            pending.delete(file);
             const meta = metaByPath.get(file)!;
             if (text === undefined) this.removeSource(meta.key);
             else this.indexText(meta, text);
@@ -240,10 +264,10 @@ export class MentionIndex {
     private async syncWithDisk(folderPaths: string[], cancellationToken: CancellationToken): Promise<void> {
         const firstBuild = this.files.size === 0;
         const work = async (): Promise<void> => {
-            // Seed the game tree's words from the persisted cache before the sweep: seeded entries
-            // whose size+mtime still match are not re-read, so a warm start stats the tree but
+            // Seed the words from the persisted cache before the sweep: seeded entries whose
+            // size+mtime still match are not re-read, so a warm start stats everything but
             // reads almost nothing. The sweep below validates every seeded entry either way.
-            if (firstBuild) await this.trySeedFromCache();
+            if (firstBuild) await this.trySeedFromCache(folderPaths);
             const onDisk: Array<{ key: string; path: string }> = [];
             const seen = new Set<string>();
             for (const folder of folderPaths) {
@@ -284,10 +308,12 @@ export class MentionIndex {
                 else this.indexText(meta, text);
             }
             this.fullSyncDone = true;
-            // Persist the (rarely changing) game-tree portion so the next server start seeds
-            // instead of re-reading ~1000 files. Only worth rewriting when this sweep re-read
-            // any game file. Mod files are never cached.
-            if (changed.length > 0 || firstBuild) await this.trySaveCache();
+            this.lastFullSweepMs = Date.now();
+            // Persist the whole index (game tree plus workspace) so the next server start seeds
+            // instead of re-reading everything. Safe for workspace files because every seeded
+            // entry is stat-validated above before it is trusted. Only worth rewriting when this
+            // sweep re-read anything.
+            if (changed.length > 0 || firstBuild) await this.trySaveCache(folderPaths);
         };
         // The first build reads the whole project, so show it as an indexing indicator. Later
         // syncs are a quick stat sweep and stay silent.
@@ -299,16 +325,34 @@ export class MentionIndex {
     }
 
     /**
-     * Seeds the index with the persisted game-tree words when the cache matches the running build
-     * and Data root. Purely an optimization: every seeded entry is still validated by the stat
-     * sweep of the sync that follows.
+     * The cache artifact name for a folder set. Keyed by the folders (like the project index
+     * cache), so two workspaces over the same game install keep separate word caches instead of
+     * overwriting each other's on every save.
+     *
+     * @param folderPaths the project folders the sync covers.
+     * @returns the artifact name.
      */
-    private async trySeedFromCache(): Promise<void> {
+    private cacheNameFor(folderPaths: string[]): string {
+        const folderKey = createHash('sha1')
+            .update([...folderPaths].map((folder) => normalizeUri(folder)).sort().join('\n'))
+            .digest('hex')
+            .slice(0, 16);
+        return `mention-cache-${folderKey}`;
+    }
+
+    /**
+     * Seeds the index with the persisted words when the cache matches the running build and Data
+     * root. Purely an optimization: every seeded entry is still validated by the stat sweep of
+     * the sync that follows.
+     *
+     * @param folderPaths the project folders the sync covers, for the cache identity.
+     */
+    private async trySeedFromCache(folderPaths: string[]): Promise<void> {
         const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
         const buildId = currentServerBuildId();
         if (!dataRoot || !buildId) return;
         try {
-            const raw = await readFile(cacheArtifactPath(dataRoot, 'mention-cache'), { encoding: 'utf-8' });
+            const raw = await readFile(cacheArtifactPath(dataRoot, this.cacheNameFor(folderPaths)), { encoding: 'utf-8' });
             const cache = JSON.parse(raw) as MentionCacheFile;
             if (cache.formatVersion !== MENTION_CACHE_FORMAT_VERSION) return;
             if (cache.serverBuildId !== buildId) return;
@@ -325,22 +369,23 @@ export class MentionIndex {
     }
 
     /**
-     * Persists the game-tree portion of the index (best-effort, atomic rename). The game tree
-     * changes only on a game update, so this survives across sessions. Mod files stay out.
+     * Persists the whole index, workspace files included (best-effort, atomic rename). Workspace
+     * entries are safe to reuse across sessions because the sweep stat-validates every seeded
+     * entry before trusting it, exactly like the game-tree entries.
+     *
+     * @param folderPaths the project folders the sync covers, for the cache identity.
      */
-    private async trySaveCache(): Promise<void> {
+    private async trySaveCache(folderPaths: string[]): Promise<void> {
         const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
         const buildId = currentServerBuildId();
         if (!dataRoot || !buildId) return;
-        const rootPrefix = normalizeUri(dataRoot);
         const entries: MentionCacheFile['files'] = [];
         for (const [key, file] of this.files) {
-            if (!key.startsWith(rootPrefix)) continue;
             entries.push([key, file.path, file.size, file.mtimeMs, file.words]);
         }
         if (entries.length === 0) return;
         try {
-            const target = cacheArtifactPath(dataRoot, 'mention-cache');
+            const target = cacheArtifactPath(dataRoot, this.cacheNameFor(folderPaths));
             await mkdir(dirname(target), { recursive: true });
             const cache: MentionCacheFile = {
                 formatVersion: MENTION_CACHE_FORMAT_VERSION,

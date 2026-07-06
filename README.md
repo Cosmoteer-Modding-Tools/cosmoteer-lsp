@@ -38,6 +38,15 @@ All settings live under the `cosmoteerLSPRules.` prefix.
 
 The cross-file validators (component references, GUI ids, localization keys) run only once the game install is indexed.
 
+## Index cache on disk
+
+To make server starts fast, the language server persists its project indexes (schema ids, includes, localization keys, word index) between sessions:
+
+-   Location: `%LOCALAPPDATA%\cosmoteer-lsp\` on Windows (the system temp directory on other platforms)
+-   Size: roughly 10-25 MB per game install plus per workspace, depending on mod size
+-   Validity: every cache is keyed to the exact server build and game install, and each workspace file is verified by size and modification time on load, so edits made while the server was not running are always picked up
+-   Cleanup: files unused for 30 days are deleted automatically. The folder is safe to delete manually at any time; the only cost is one slower start while the caches rebuild
+
 ## Features
 
 **Editing**

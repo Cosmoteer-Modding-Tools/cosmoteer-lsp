@@ -4,7 +4,14 @@ import { parseFilePath } from '../../utils/ast.utils';
 import { CancellationError } from '../../utils/cancellation';
 import { ParserResultRegistrar } from '../../registrar/parser-result-registrar';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
-import { saveIndexCache, tryLoadIndexCache } from '../../workspace/index-cache';
+import {
+    saveIndexCache,
+    saveProjectCache,
+    statProjectFiles,
+    tryLoadIndexCache,
+    tryLoadProjectCache,
+} from '../../workspace/index-cache';
+import { filePathToUri } from './navigation-strategy';
 import { normalizeUri } from './reference-location';
 import { projectDocuments, uriToFsPath } from './workspace-files';
 
@@ -62,6 +69,14 @@ export abstract class WatchedDocumentIndex {
         void state;
         return false;
     }
+
+    /**
+     * Tells the index its loaded state is already converged over the whole project, so any
+     * work {@link loadState} deferred to the next build (the reverse-include fixpoint reparse)
+     * can be dropped. Only the combined project cache may call this: the game-tree cache loads
+     * a partial state that the workspace walk still has to converge. A no-op by default.
+     */
+    public stateLoadedConverged(): void {}
 
     /** Mark a document changed so it is re-indexed before the next query. */
     public markDirty(uri: string): void {
@@ -127,25 +142,50 @@ export abstract class WatchedDocumentIndex {
         await this.reconcileDirty(cancellationToken);
     }
 
+    /** Serializes reconciles: two concurrent scan workers must not iterate and clear the dirty
+     *  set at the same time, or one worker's iteration ends early when the other clears. */
+    private reconcilePromise: Promise<void> = Promise.resolve();
+
     /**
      * Re-index documents marked changed since the last query. An open buffer is used as-is;
      * otherwise the file is re-read from disk — so external edits, `git pull`, and newly
      * created files are picked up — and a file that no longer parses (deleted) is dropped.
+     * Runs are serialized, and the revision moves only after the changed documents are actually
+     * ingested, so a revision-keyed consumer memo can never capture a pre-ingest state under the
+     * final revision number. A cancelled run returns the not-yet-ingested documents to the dirty
+     * set (they would otherwise look reconciled forever) and still bumps the revision for the
+     * documents it did ingest.
      */
     private async reconcileDirty(cancellationToken: CancellationToken): Promise<void> {
-        if (this.dirty.size > 0) this._revision++;
-        for (const uri of this.dirty) {
-            if (cancellationToken.isCancellationRequested) throw new CancellationError();
-            const open = ParserResultRegistrar.instance.getResult(uri);
-            if (open) {
-                await this.indexDocument(open, cancellationToken);
-                continue;
-            }
-            const fromDisk = await parseFilePath(uriToFsPath(uri), cancellationToken).catch(() => null);
-            if (fromDisk) await this.indexDocument(fromDisk, cancellationToken);
-            else this.removeSource(normalizeUri(uri));
-        }
+        const run = this.reconcilePromise.then(() => this.reconcileDirtySerialized(cancellationToken));
+        this.reconcilePromise = run.catch(() => undefined);
+        await run;
+    }
+
+    private async reconcileDirtySerialized(cancellationToken: CancellationToken): Promise<void> {
+        if (this.dirty.size === 0) return;
+        const uris = [...this.dirty];
         this.dirty.clear();
+        let ingested = 0;
+        try {
+            for (const uri of uris) {
+                if (cancellationToken.isCancellationRequested) {
+                    for (const remaining of uris.slice(ingested)) this.dirty.add(remaining);
+                    throw new CancellationError();
+                }
+                const open = ParserResultRegistrar.instance.getResult(uri);
+                if (open) {
+                    await this.indexDocument(open, cancellationToken);
+                } else {
+                    const fromDisk = await parseFilePath(uriToFsPath(uri), cancellationToken).catch(() => null);
+                    if (fromDisk) await this.indexDocument(fromDisk, cancellationToken);
+                    else this.removeSource(normalizeUri(uri));
+                }
+                ingested++;
+            }
+        } finally {
+            if (ingested > 0) this._revision++;
+        }
     }
 
     /**
@@ -218,6 +258,7 @@ export abstract class WatchedDocumentIndex {
                     !!dataRoot && normalizeUri(uriToFsPath(folder)) === normalizeUri(dataRoot);
                 const gameFolders = folderPaths.filter(isDataRoot);
                 const liveFolders = folderPaths.filter((folder) => !isDataRoot(folder));
+                const liveFolderPaths = liveFolders.map((folder) => uriToFsPath(folder));
                 let count = 0;
                 const indexAll = async (folders: string[], diskOnly: boolean): Promise<void> => {
                     if (folders.length === 0 && diskOnly) return;
@@ -226,31 +267,79 @@ export abstract class WatchedDocumentIndex {
                         progress.report(`${++count} files`);
                     }
                 };
-                if (gameFolders.length === 1 && dataRoot && pending.every((index) => index.cacheId)) {
-                    const cached = await tryLoadIndexCache(dataRoot);
-                    const loaded = !!cached && pending.every((index) => {
-                        const state = cached[index.cacheId!];
+                const cacheable = gameFolders.length === 1 && !!dataRoot && pending.every((index) => index.cacheId);
+                // Whether the workspace files were served from the project cache, so the disk walk
+                // of the live folders can be skipped (their changed files are dirty-marked instead).
+                let liveFromCache = false;
+                if (cacheable) {
+                    // The combined project cache first: game plus workspace state in one load, with
+                    // a per-workspace-file stamp diff standing in for the walk.
+                    const project = liveFolders.length > 0 ? await tryLoadProjectCache(dataRoot!, liveFolderPaths) : undefined;
+                    const projectLoaded = !!project && pending.every((index) => {
+                        const state = project.states[index.cacheId!];
                         return state !== undefined && index.loadState(state);
                     });
-                    if (loaded) {
-                        progress.report('game data from cache');
+                    if (projectLoaded) {
+                        const current = await statProjectFiles(liveFolderPaths);
+                        const savedByKey = new Map(project!.stamps.map((stamp) => [normalizeUri(stamp[0]), stamp]));
+                        const currentKeys = new Set<string>();
+                        let changed = 0;
+                        for (const [path, size, mtimeMs] of current) {
+                            const key = normalizeUri(path);
+                            currentKeys.add(key);
+                            const saved = savedByKey.get(key);
+                            if (saved && saved[1] === size && saved[2] === mtimeMs) continue;
+                            for (const index of pending) index.markDirty(filePathToUri(path));
+                            changed++;
+                        }
+                        for (const [key, saved] of savedByKey) {
+                            if (currentKeys.has(key)) continue;
+                            for (const index of pending) index.remove(filePathToUri(saved[0]));
+                            changed++;
+                        }
+                        for (const index of pending) index.stateLoadedConverged();
+                        progress.report(changed === 0 ? 'project from cache' : `project from cache, ${changed} changed`);
+                        liveFromCache = true;
                     } else {
-                        // A partially accepted cache would leave mixed state, so start clean, walk
-                        // the game tree from disk, converge it, and save that pure state.
-                        for (const index of pending) index.clear();
-                        await indexAll(gameFolders, true);
-                        for (const index of pending) await index.finishBuild(progress);
-                        const states: Record<string, unknown> = {};
-                        for (const index of pending) states[index.cacheId!] = index.saveState();
-                        await saveIndexCache(dataRoot, states);
+                        // A partially accepted cache would leave mixed state, so start clean. The
+                        // game-tree cache still applies on its own.
+                        if (project) for (const index of pending) index.clear();
+                        const cached = await tryLoadIndexCache(dataRoot!);
+                        const loaded = !!cached && pending.every((index) => {
+                            const state = cached[index.cacheId!];
+                            return state !== undefined && index.loadState(state);
+                        });
+                        if (loaded) {
+                            progress.report('game data from cache');
+                        } else {
+                            for (const index of pending) index.clear();
+                            await indexAll(gameFolders, true);
+                            for (const index of pending) await index.finishBuild(progress);
+                            const states: Record<string, unknown> = {};
+                            for (const index of pending) states[index.cacheId!] = index.saveState();
+                            await saveIndexCache(dataRoot!, states);
+                        }
                     }
                 } else {
                     // No recognizable game root in the folder set (or a non-cacheable index in the
                     // group): plain uncached walk of those folders.
                     await indexAll(gameFolders, true);
                 }
-                await indexAll(liveFolders, false);
+                // With the workspace served from the cache, an empty non-diskOnly walk still runs
+                // so open editor buffers re-ingest over the loaded disk state (buffers win).
+                await indexAll(liveFromCache ? [] : liveFolders, false);
                 for (const index of pending) await index.finishBuild(progress);
+                if (cacheable && !liveFromCache && liveFolders.length > 0) {
+                    // Persist the converged combined state for the next start. A file currently
+                    // open in the editor is saved without its stamp: its indexed content may be
+                    // the buffer, and a missing stamp makes the next start re-ingest it from disk.
+                    const stamps = (await statProjectFiles(liveFolderPaths)).filter(
+                        ([path]) => !ParserResultRegistrar.instance.getResultByPath(path)
+                    );
+                    const states: Record<string, unknown> = {};
+                    for (const index of pending) states[index.cacheId!] = index.saveState();
+                    await saveProjectCache(dataRoot!, liveFolderPaths, stamps, states);
+                }
                 for (const index of pending) index.buildCompleted();
             });
             for (const index of pending) {

@@ -1,0 +1,21 @@
+{
+    // Editor-only project for the `test/` tree. The build's tsconfig.json deliberately excludes tests
+    // (`include: ["src"]`), so without a config covering them the TS server resolves tests in an inferred
+    // project with no `@types/node` — `fs`, `path`, `__dirname` surface as "Cannot find name".
+    //
+    // This file MUST live in `test/` and be named `tsconfig.json`: the editor's TS server only
+    // auto-discovers configs named `tsconfig.json` by walking up from the opened file. A sibling
+    // `tsconfig.test.json` in `server/` is never picked up (that was the bug). Opening any file under
+    // `test/` now finds this config first, inheriting `types: ["node"]` from the base.
+    //
+    // It is NOT referenced by `tsc -b`, so it has no effect on `check-types` or the emitted build —
+    // `vitest` compiles tests with esbuild independently.
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "rootDir": "..",
+        "noEmit": true,
+        "incremental": false,
+        "tsBuildInfoFile": null
+    },
+    "include": ["../src", "."]
+}

@@ -36,7 +36,7 @@ describe('inheritance-relative asset resolution', () => {
         doc = await parseFilePath(workspaceFile('effects', 'inherits_audio.rules'));
         const mySound = findNodeByIdentifier(doc, 'MySound')!;
         // the `Sound = "fx/beep.wav"` value node
-        soundNode = (mySound as { elements: { type: string; left?: { name: string }; right: AbstractNode }[] }).elements.find(
+        soundNode = (mySound as unknown as { elements: { type: string; left?: { name: string }; right: AbstractNode }[] }).elements.find(
             (e) => e.type === 'Assignment' && e.left?.name === 'Sound'
         )!.right;
     });
@@ -79,7 +79,7 @@ describe('inheritance-relative asset resolution', () => {
 
     it('resolves a whole-file reference INTO the file and continues the path (/BASE_AUDIO/BaseAudio)', async () => {
         const base = await nav.navigate('/BASE_AUDIO/BaseAudio', doc, doc.uri, token);
-        expect(base && 'identifier' in base && base.identifier?.name).toBe('BaseAudio');
+        expect(base && 'identifier' in base && (base.identifier as { name?: string })?.name).toBe('BaseAudio');
         expect(getStartOfAstNode(base as AbstractNode).uri.endsWith('base_audio.rules')).toBe(true);
     });
 });

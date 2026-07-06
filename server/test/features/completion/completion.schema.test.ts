@@ -401,7 +401,7 @@ describe('schemaValueCompletionsAtOffset — value completion at an empty `Key =
     const valuesAt = (src: string, marker: string) => {
         const doc = parse(src);
         const offset = src.indexOf(marker) + marker.length;
-        return schemaValueCompletionsAtOffset(doc, offset, linePrefixAt(src, offset)).map((c) =>
+        return schemaValueCompletionsAtOffset(doc, offset, linePrefixAt(src, offset))!.map((c) =>
             typeof c === 'string' ? c : c.label
         );
     };

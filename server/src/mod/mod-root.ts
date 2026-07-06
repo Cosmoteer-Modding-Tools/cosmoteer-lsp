@@ -15,23 +15,32 @@ const parentDir = (dir: string): string => {
 /**
  * Find the mod root for a document: the nearest ancestor directory containing a
  * `mod.rules`/`mod_*.rules` manifest. Returns the directory path (slash-normalized),
- * or null if the file is not inside a mod. Cached per directory.
+ * or null if the file is not inside a mod. Every directory visited on the walk is
+ * cached with the outcome, negatives included, so repeated lookups from deep files
+ * cost one map hit instead of a readdir per ancestor.
  */
 export const findModRoot = (uri: string): string | null => {
     let dir = filePathToDirectoryPath(uri).replace(/\\/g, '/').replace(/\/+$/, '');
+    const visited: string[] = [];
+    let result: string | null = null;
     while (dir) {
         const cached = rootCache.get(dir);
-        if (cached !== undefined) return cached;
+        if (cached !== undefined) {
+            result = cached;
+            break;
+        }
+        visited.push(dir);
         if (dirHasManifest(dir)) {
-            rootCache.set(dir, dir);
-            return dir;
+            result = dir;
+            break;
         }
         const parent = parentDir(dir);
         if (parent === dir) break;
         dir = parent;
     }
-    return null;
+    for (const seen of visited) rootCache.set(seen, result);
+    return result;
 };
 
-/** Test-only: clear the memoized roots. */
+/** Drop the memoized roots (call when a manifest file is created or deleted). */
 export const clearModRootCache = (): void => rootCache.clear();

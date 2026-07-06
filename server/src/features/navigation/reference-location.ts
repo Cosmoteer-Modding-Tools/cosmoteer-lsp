@@ -46,15 +46,26 @@ export const definitionNameOf = (node: AbstractNode): string | null => {
     return null;
 };
 
+// The same uri strings are normalized over and over during a workspace scan (every diagnostic,
+// index entry, and reference resolution keys by the canonical form), so the pure computation is
+// memoized. Bounded by wholesale reset: uri variety is low, an LRU is not worth the bookkeeping.
+const normalizeUriMemo = new Map<string, string>();
+const NORMALIZE_URI_MEMO_CAP = 16384;
+
 /** Canonicalize a `file://` URI or OS path for identity comparison (decode, slashes, case). */
 export const normalizeUri = (uriOrPath: string): string => {
+    const cached = normalizeUriMemo.get(uriOrPath);
+    if (cached !== undefined) return cached;
     let path = uriOrPath.startsWith('file://') ? uriOrPath.slice('file://'.length) : uriOrPath;
     try {
         path = decodeURIComponent(path);
     } catch {
         /* leave as-is on malformed escapes */
     }
-    return path.replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase();
+    const normalized = path.replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase();
+    if (normalizeUriMemo.size >= NORMALIZE_URI_MEMO_CAP) normalizeUriMemo.clear();
+    normalizeUriMemo.set(uriOrPath, normalized);
+    return normalized;
 };
 
 /**

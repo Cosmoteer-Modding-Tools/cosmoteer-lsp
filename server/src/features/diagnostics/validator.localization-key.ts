@@ -107,7 +107,8 @@ export const validateLocalizationKeys = async (
         const memoKey = key.toLowerCase();
         let suggestion = suggestionMemo.byKey.get(memoKey);
         if (suggestion === undefined) {
-            suggestion = closestMatch(key, keys, true);
+            const pool = await LocalizationKeyIndex.instance.allKeysMatchPool(folderPaths, cancellationToken);
+            suggestion = closestMatch(key, pool, true);
             suggestionMemo.byKey.set(memoKey, suggestion);
         }
         const base = l10n.t('No localization key "{0}" is defined in any strings file.', key);

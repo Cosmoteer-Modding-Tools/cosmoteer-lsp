@@ -61,13 +61,41 @@ export const onFsInvalidation = (listener: () => void): void => {
     invalidationListeners.push(listener);
 };
 
+/** Whether the platform's default filesystem resolves paths case-insensitively. On Linux two
+ *  paths differing only in case are distinct files, so folding keys there would let one file's
+ *  cache entry answer for the other. */
+const CASE_INSENSITIVE_PATHS = process.platform === 'win32' || process.platform === 'darwin';
+
 /**
- * Canonical cache key for an OS path (Windows paths are case-insensitive).
+ * Case-folds a path-derived cache key only where the filesystem is case-insensitive, so derived
+ * caches (the navigation and asset memos) share the same collision-safety as the fs caches here.
+ *
+ * @param pathKey the path or path-derived string to fold.
+ * @returns the folded key on Windows/macOS, the unchanged string elsewhere.
+ */
+export const foldPathCase = (pathKey: string): string =>
+    CASE_INSENSITIVE_PATHS ? pathKey.toLowerCase() : pathKey;
+
+// The same paths are canonicalized on every cache lookup (one per stat-validated hit), and
+// path.resolve plus two string passes per call showed up in scan profiles. Bounded by wholesale
+// reset, mirroring the derived-string memos elsewhere.
+const keyMemo = new Map<string, string>();
+const KEY_MEMO_CAP = 16384;
+
+/**
+ * Canonical cache key for an OS path (case-folded only where the filesystem is case-insensitive).
  *
  * @param fsPath the path to canonicalize.
- * @returns the resolved, forward-slashed, lower-cased key.
+ * @returns the resolved, forward-slashed key.
  */
-const keyOf = (fsPath: string): string => path.resolve(fsPath).replace(/\\/g, '/').toLowerCase();
+const keyOf = (fsPath: string): string => {
+    const cached = keyMemo.get(fsPath);
+    if (cached !== undefined) return cached;
+    const key = foldPathCase(path.resolve(fsPath).replace(/\\/g, '/'));
+    if (keyMemo.size >= KEY_MEMO_CAP) keyMemo.clear();
+    keyMemo.set(fsPath, key);
+    return key;
+};
 
 /**
  * Deletes the oldest entries of a cache until it is back under its cap.
@@ -112,6 +140,33 @@ export const cachedReaddir = async (dirPath: string): Promise<Dirent[]> => {
     readdirCache.set(key, { mtimeMs: stats.mtimeMs, entries, seenGen: trustDepth > 0 ? trustGen : undefined });
     enforceCap(readdirCache, READDIR_CAP);
     return entries;
+};
+
+// Case-insensitive name lookup per directory listing, memoized on the listing array's identity so
+// invalidation is inherited from the readdir cache: a refreshed listing is a new array, and the
+// map for the old one becomes unreachable with it.
+const dirLookupMemo = new WeakMap<Dirent[], Map<string, string>>();
+
+/**
+ * The case-insensitive membership map of a directory: lowercased entry name → real entry name
+ * (first occurrence wins, matching a linear scan of the listing). Backed by {@link cachedReaddir},
+ * so probing many candidate names in one directory costs one listing instead of a stat each.
+ *
+ * @param dirPath the directory to index.
+ * @returns the lookup map for the directory's current listing.
+ */
+export const cachedDirLookup = async (dirPath: string): Promise<Map<string, string>> => {
+    const entries = await cachedReaddir(dirPath);
+    let lookup = dirLookupMemo.get(entries);
+    if (!lookup) {
+        lookup = new Map();
+        for (const entry of entries) {
+            const lower = entry.name.toLowerCase();
+            if (!lookup.has(lower)) lookup.set(lower, entry.name);
+        }
+        dirLookupMemo.set(entries, lookup);
+    }
+    return lookup;
 };
 
 /**

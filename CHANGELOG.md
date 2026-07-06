@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.4.1 Beta
+
+### Added
+- Performance improvments for both cold and warm starts. We are caching now a lot more data to avoid re-computation and re-parsing of files, while still keeping the data up to date when files change.
+
+### Changed
+- Per-file scan result reuse
+- Shared Validation implemented
+- lexer token allocation reduction
+
+### Fixed
+
+- A Crash when a from a "[" in the document-symbols
+- Parser had a problem with continuing a math expression
+- Whole-workspace validation with the `modRulesReachable` scope no longer leaks problems from out-of-scope files (for example `_backup` copies) into the Problems panel when such files are closed after viewing or touched on disk by git or other tools. Leftover leaked problems are cleaned up on the next validation pass.
+- Reference false positives from files validated while the game data was still loading (restored editor tabs) no longer stick until the next edit. The caches are dropped and diagnostics recomputed once loading settles.
+- GC Spikes were reduced which were coming from allocations like extractSubstrings
+
 ## 0.4.0 Beta
 
 ### Added

@@ -114,7 +114,10 @@ const memberIndexOf = (node: AbstractNode & { elements: AbstractNode[] }): Membe
         const target = isAssignmentNode(element) ? element.right : element;
         if (!index.exact.has(name)) index.exact.set(name, target);
         const lower = name.toLowerCase();
-        if (!index.lower.has(lower)) index.lower.set(lower, target);
+        // First non-null wins, like the original in-order scan: a null target (an in-progress
+        // empty `key = ` assignment) never blocked a later differently-cased member with a real
+        // value from matching case-insensitively, so a null placeholder stays replaceable here.
+        if (!index.lower.get(lower)) index.lower.set(lower, target);
     }
     memberIndexCache.set(node, index);
     return index;

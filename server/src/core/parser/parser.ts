@@ -1089,8 +1089,12 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             const operand = walk(undefined, parent);
             if (!operand) break;
             mathNode.elements.push(operand as ValueNode | MathExpressionNode | ExpressionNode);
-            mathNode.position.end = operand.position.end;
-            mathNode.position.characterEnd = operand.position.characterEnd;
+            // Some recovered operands carry no own `position` (e.g. an Assignment parsed out of
+            // malformed input). Keep the operand but leave the math node's span as-is.
+            if (operand.position) {
+                mathNode.position.end = operand.position.end;
+                mathNode.position.characterEnd = operand.position.characterEnd;
+            }
         }
         return mathNode;
     };
@@ -1158,13 +1162,16 @@ function inferValueType(IS_NUMBER: RegExp, token: Token): ValueNodeTypes {
     if (typeof token.value === 'undefined') throw new Error('Token value is undefined');
     let value: ValueNodeTypes['value'] = token.value;
     let valueType: ValueNodeTypes['type'] = IS_NUMBER.test(token.value) ? 'Number' : 'String';
-    if (valueType === 'String' && token.value.includes('.png')) {
+    // Every asset form below contains a dot, so one indexOf spares most strings the two regex
+    // tests and the suffix check. Hot: this runs for every string value of every parse.
+    const hasDot = token.value.includes('.');
+    if (valueType === 'String' && hasDot && token.value.includes('.png')) {
         valueType = 'Sprite';
         value = value as string;
-    } else if (valueType === 'String' && IS_SOUND.test(token.value)) {
+    } else if (valueType === 'String' && hasDot && IS_SOUND.test(token.value)) {
         valueType = 'Sound';
         value = value as string;
-    } else if (valueType === 'String' && token.value.endsWith('.shader')) {
+    } else if (valueType === 'String' && hasDot && token.value.endsWith('.shader')) {
         valueType = 'Shader';
         value = value as string;
     } else if (

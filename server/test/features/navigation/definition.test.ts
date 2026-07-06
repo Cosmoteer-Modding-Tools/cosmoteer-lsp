@@ -33,7 +33,7 @@ describe('DefinitionService — go-to-definition', () => {
 
     it('in-file: jumps through the alias chain (&Test1/TestValue) to TestValue = 1', async () => {
         const ref = findReferenceNode(refChain, '&Test1/TestValue');
-        const target = await navigation.navigate(ref.valueType.value, ref, refChain.uri, token);
+        const target = await navigation.navigate(String(ref.valueType.value), ref, refChain.uri, token);
 
         const location = await service.getDefinition(refChain, cursorOn(ref), token);
 
@@ -50,7 +50,7 @@ describe('DefinitionService — go-to-definition', () => {
         // expression (not stop at the whole value) so go-to-definition lands on the `B = 2` sibling.
         const mathDoc = parseFixture('math.rules', 'file:///math.rules');
         const ref = findReferenceNode(mathDoc, '&B'); // appears only inside the Result expression
-        const target = await navigation.navigate(ref.valueType.value, ref, mathDoc.uri, token);
+        const target = await navigation.navigate(String(ref.valueType.value), ref, mathDoc.uri, token);
 
         const location = await service.getDefinition(mathDoc, cursorOn(ref), token);
 
@@ -62,7 +62,7 @@ describe('DefinitionService — go-to-definition', () => {
 
     it('cross-file: jumps into b.rules for &<./Data/b.rules>/B/InnerValue', async () => {
         const ref = findReferenceNode(docA, '&<./Data/b.rules>/B/InnerValue');
-        const target = await navigation.navigate(ref.valueType.value, ref, docA.uri, token);
+        const target = await navigation.navigate(String(ref.valueType.value), ref, docA.uri, token);
 
         const location = await service.getDefinition(docA, cursorOn(ref), token);
 
@@ -90,7 +90,7 @@ describe('DefinitionService — go-to-definition', () => {
         const thing = findNodeByIdentifier(derived, 'Thing')! as AbstractNode & { elements: AbstractNode[] };
         const editorGroups = thing.elements.find(
             (e) => 'identifier' in e && (e as { identifier?: { name?: string } }).identifier?.name === 'EditorGroups'
-        ) as { inheritance: AbstractNode[] };
+        ) as unknown as { inheritance: AbstractNode[] };
         const inh = editorGroups.inheritance[0];
 
         const location = await service.getDefinition(derived, cursorOn(inh), token);

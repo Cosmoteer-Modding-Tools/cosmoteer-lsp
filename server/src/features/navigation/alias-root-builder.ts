@@ -16,10 +16,15 @@ let buildInFlight: Promise<void> | undefined;
  * once built, shares an already-running build, and silently does nothing when there is no game root
  * (e.g. an unconfigured workspace).
  *
- * @param cancellationToken cancels the file navigation of the walk this call starts.
+ * @param cancellationToken unused, kept for call-site symmetry. The walk itself is deliberately
+ * request-independent: it runs once and its result is pinned by `isReady()`, so a cancelled
+ * triggering request must not be able to null out individual aliases (a half-built index would
+ * permanently unroot fragments like `buffs.rules`, and every dependent one-time index such as
+ * schema ids and localization keys would pin that state too).
  * @returns once the index is built (or determined unbuildable for now).
  */
 export const ensureAliasRootIndex = async (cancellationToken: CancellationToken): Promise<void> => {
+    void cancellationToken;
     if (aliasRootIndex.isReady()) return;
     if (buildInFlight) return buildInFlight;
     buildInFlight = (async () => {
@@ -30,7 +35,9 @@ export const ensureAliasRootIndex = async (cancellationToken: CancellationToken)
         // tree this follows many fragment files, so it can take a moment on the first schema-resolving call.
         await CosmoteerWorkspaceService.instance.withIndexingProgress('Indexing game data', () =>
             aliasRootIndex.build(rootDoc, async (fileRef, fromUri) => {
-                const target = await navigation.navigate(fileRef, rootDoc, fromUri, cancellationToken).catch(() => null);
+                const target = await navigation
+                    .navigate(fileRef, rootDoc, fromUri, CancellationToken.None)
+                    .catch(() => null);
                 return target && isDocumentNode(target as AbstractNodeDocument)
                     ? (target as AbstractNodeDocument)
                     : undefined;

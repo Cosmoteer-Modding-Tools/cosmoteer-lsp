@@ -16,7 +16,7 @@ const assign = (right: ValueNode, uri = 'file:///parts.rules'): AssignmentNode =
         position: pos(),
         parent: doc,
     };
-    right.parent = node;
+    right.parent = node as unknown as AbstractNodeDocument;
     return node;
 };
 const refValue = (value: string, quoted = false): ValueNode => ({

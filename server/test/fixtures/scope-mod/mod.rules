@@ -1,0 +1,14 @@
+ID = Test.ScopeMod
+Name = "Scope Fixture"
+Version = 1.0
+
+Actions
+[
+	{
+		Action = Add
+		AddTo = <cosmoteer.rules>
+		Name = WIRED
+		ToAdd = &<wired/good.rules>
+		CreateIfNotExisting = true
+	}
+]

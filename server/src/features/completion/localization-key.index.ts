@@ -2,6 +2,7 @@ import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
 import { namedMembersOf } from '../../utils/ast.utils';
 import { isLocalizationKeyType } from '../../document/schema/schema';
+import { buildMatchPool, MatchPool } from '../../utils/did-you-mean';
 import { normalizeUri } from '../navigation/reference-location';
 import { WatchedDocumentIndex } from '../navigation/watched-document-index';
 import { Completion } from './autocompletion.service';
@@ -194,23 +195,25 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
         return out;
     }
 
-    /** The merged key set (original and lowercased casing), memoized against the index revision.
-     *  The whole-workspace scan asks for all keys once per validated file, and re-merging (and
-     *  re-lowercasing) tens of thousands of keys per file dominated the localization pass. */
-    private allKeysMemo?: { revision: number; keys: Set<string>; keysLower: Set<string> };
+    /** The merged key set (original and lowercased casing, plus the index-aligned suggestion pool),
+     *  memoized against the index revision. The whole-workspace scan asks for all keys once per
+     *  validated file, and re-merging (and re-lowercasing) tens of thousands of keys per file
+     *  dominated the localization pass. */
+    private allKeysMemo?: { revision: number; keys: Set<string>; keysLower: Set<string>; pool: MatchPool };
 
     /**
-     * The merged key sets behind {@link allKeys}/{@link allKeysLower}, rebuilt only when the index
-     * content changed since the last call. Callers must not mutate the returned sets.
+     * The merged key sets behind {@link allKeys}/{@link allKeysLower}/{@link allKeysMatchPool},
+     * rebuilt only when the index content changed since the last call. Callers must not mutate
+     * the returned sets.
      *
      * @param folderPaths the project folders the strings index is built from.
      * @param cancellationToken cancellation for the index build.
-     * @returns the shared key set and its lowercased counterpart.
+     * @returns the shared key set, its lowercased counterpart, and the suggestion pool.
      */
     private async mergedKeys(
         folderPaths: string[],
         cancellationToken: CancellationToken
-    ): Promise<{ keys: Set<string>; keysLower: Set<string> }> {
+    ): Promise<{ keys: Set<string>; keysLower: Set<string>; pool: MatchPool }> {
         await this.ensureBuilt(folderPaths, cancellationToken);
         if (this.allKeysMemo && this.allKeysMemo.revision === this.revision) return this.allKeysMemo;
         const keys = new Set<string>();
@@ -221,7 +224,7 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
                 keysLower.add(key.toLowerCase());
             }
         }
-        this.allKeysMemo = { revision: this.revision, keys, keysLower };
+        this.allKeysMemo = { revision: this.revision, keys, keysLower, pool: buildMatchPool(keys) };
         return this.allKeysMemo;
     }
 
@@ -235,6 +238,12 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
      *  The returned set is shared and must not be mutated. */
     public async allKeysLower(folderPaths: string[], cancellationToken: CancellationToken): Promise<Set<string>> {
         return (await this.mergedKeys(folderPaths, cancellationToken)).keysLower;
+    }
+
+    /** The prepared did-you-mean pool over {@link allKeys}, in the same iteration order, so
+     *  suggestion queries skip re-lowercasing the whole key set per broken key. */
+    public async allKeysMatchPool(folderPaths: string[], cancellationToken: CancellationToken): Promise<MatchPool> {
+        return (await this.mergedKeys(folderPaths, cancellationToken)).pool;
     }
 
     /**

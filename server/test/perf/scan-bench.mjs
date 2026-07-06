@@ -14,7 +14,7 @@
 // Optional: SCAN_SCOPE=modRulesReachable (default allFiles), SCAN_MAX_OLD_SPACE_MB=4096.
 
 import { spawn } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, writeFileSync } from 'fs';
 import * as path from 'path';
 
 const SERVER = 'out/server/src/server.js';
@@ -63,9 +63,9 @@ const settings = {
 
 // ── LSP plumbing ─────────────────────────────────────────────────────────────────────────────────
 const nodeArgs = MAX_OLD_SPACE_MB > 0 ? [`--max-old-space-size=${MAX_OLD_SPACE_MB}`] : [];
-// SCAN_CPU_PROF=dir makes the SERVER write one scan-scoped .cpuprofile per pass into that
-// directory (see server/src/utils/cpu-profile.ts) — analyze self-times to attribute scan cost
-// precisely; the summed per-pass counters cross-bill under concurrency.
+// SCAN_CPU_PROF=dir makes the server write one scan-scoped .cpuprofile per pass into that
+// directory (see server/src/utils/cpu-profile.ts). Analyze self-times to attribute scan cost
+// precisely. The summed per-pass counters cross-bill under concurrency.
 const serverEnv = process.env.SCAN_CPU_PROF
     ? { ...process.env, COSMOTEER_CPU_PROF: process.env.SCAN_CPU_PROF }
     : process.env;
@@ -77,6 +77,9 @@ let buf = Buffer.alloc(0);
 const waiters = new Map();
 let publishCount = 0;
 let diagnosticTotal = 0;
+// SCAN_DUMP=path collects every published diagnostic of the cold pass into a sorted JSON, for
+// diffing two runs (parity check across a perf change: same list = no behavior change).
+const dumped = new Map();
 const progressByToken = new Map();
 let scanEndResolvers = [];
 
@@ -129,6 +132,14 @@ function onServerNotification(msg) {
     if (msg.method === 'textDocument/publishDiagnostics') {
         publishCount++;
         diagnosticTotal += msg.params.diagnostics.length;
+        if (process.env.SCAN_DUMP) {
+            dumped.set(
+                msg.params.uri.toLowerCase(),
+                msg.params.diagnostics.map(
+                    (d) => `${d.range.start.line + 1}:${d.range.start.character + 1} [${d.severity}] ${d.message}`
+                )
+            );
+        }
         return;
     }
     if (msg.method === '$/progress') {
@@ -158,6 +169,7 @@ const reportPass = (label, elapsedMs, stats) => {
     const row = (name) => console.log(`${name.padEnd(20)} ${c[name] ?? 0}`);
     for (const name of [
         'scan.files',
+        'scan.cacheHit',
         'scan.parse',
         'scan.parseMs',
         'scan.validateMs',
@@ -205,29 +217,44 @@ const reportPass = (label, elapsedMs, stats) => {
     const coldPublishes = publishCount;
     reportPass(`COLD scan  (${MOD_DIR})`, coldMs, coldStats);
     console.log(`published            ${coldPublishes} files, ${diagnosticTotal} diagnostics`);
+    if (process.env.SCAN_DUMP) {
+        const sorted = Object.fromEntries([...dumped.entries()].sort(([a], [b]) => a.localeCompare(b)));
+        writeFileSync(process.env.SCAN_DUMP, JSON.stringify(sorted, null, 1));
+        console.log(`dumped diagnostics to ${process.env.SCAN_DUMP}`);
+    }
 
-    // Warm pass: toggle the feature off (clears published diagnostics) and back on. The server
+    // Warm passes: toggle the feature off (clears published diagnostics) and back on. The server
     // re-pulls configuration on every didChangeConfiguration, so flip the reply it will receive.
-    settings.diagnostics.validateWholeWorkspace = false;
-    send('workspace/didChangeConfiguration', { settings: null });
-    // Wait for the clear to settle: the next config change re-triggers the scan.
-    await new Promise((r) => setTimeout(r, 2000));
-    publishCount = 0;
-    diagnosticTotal = 0;
-    settings.diagnostics.validateWholeWorkspace = true;
-    const warmDone = nextScanEnd();
-    const warmStart = Date.now();
-    send('workspace/didChangeConfiguration', { settings: null });
-    await warmDone;
-    const warmMs = Date.now() - warmStart;
-    const warmStats = (await request('cosmoteer/perfStats', { reset: false })).result;
-    reportPass('WARM scan  (same server, populated caches)', warmMs, warmStats);
-    console.log(`published            ${publishCount} files, ${diagnosticTotal} diagnostics`);
+    // Two warm passes, because a cache-poisoning bug (a miss pinned by the first warm pass, an
+    // entry invalidated but never repopulated) only shows up on the pass after the one that
+    // populated everything.
+    const runWarmPass = async (label) => {
+        settings.diagnostics.validateWholeWorkspace = false;
+        send('workspace/didChangeConfiguration', { settings: null });
+        // Wait for the clear to settle: the next config change re-triggers the scan.
+        await new Promise((r) => setTimeout(r, 2000));
+        publishCount = 0;
+        diagnosticTotal = 0;
+        settings.diagnostics.validateWholeWorkspace = true;
+        const done = nextScanEnd();
+        const start = Date.now();
+        send('workspace/didChangeConfiguration', { settings: null });
+        await done;
+        const elapsedMs = Date.now() - start;
+        const stats = (await request('cosmoteer/perfStats', { reset: true })).result;
+        reportPass(label, elapsedMs, stats);
+        console.log(`published            ${publishCount} files, ${diagnosticTotal} diagnostics`);
+        return elapsedMs;
+    };
+    const warmMs = await runWarmPass('WARM scan  (same server, populated caches)');
+    const warm2Ms = await runWarmPass('WARM scan #2  (must match warm #1: catches cache poisoning)');
 
     await request('shutdown', {});
     send('exit', {});
     setTimeout(() => server.kill(), 200);
-    console.log(`\ncold ${(coldMs / 1000).toFixed(1)}s | warm ${(warmMs / 1000).toFixed(1)}s`);
+    console.log(
+        `\ncold ${(coldMs / 1000).toFixed(1)}s | warm ${(warmMs / 1000).toFixed(1)}s | warm2 ${(warm2Ms / 1000).toFixed(1)}s`
+    );
     process.exit(0);
 })().catch((e) => {
     console.error(e);

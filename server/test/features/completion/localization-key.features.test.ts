@@ -44,7 +44,7 @@ const findValue = (node: AbstractNode, field: string): ValueNode | undefined => 
 /** Every leaf key path a parsed strings document declares (mirrors the index harvest, for assertions). */
 const keyPaths = (container: { elements: AbstractNode[] }, prefix = ''): string[] => {
     const out: string[] = [];
-    if (isAssignmentNode(container as AbstractNode) || isValueNode(container as AbstractNode)) return out;
+    if (isAssignmentNode(container as unknown as AbstractNode) || isValueNode(container as unknown as AbstractNode)) return out;
     for (const element of container.elements) {
         let name: string | undefined;
         let value: AbstractNode | undefined;

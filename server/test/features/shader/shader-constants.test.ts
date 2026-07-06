@@ -62,7 +62,7 @@ describe('shader-constant completion + hover', () => {
         const group = findGroup(doc, 'BlueprintArcSprite')!;
         expect(resolveGroupClass(group)).toBe('Halfling.Graphics.Sprite');
         const present = new Set(['Shader']);
-        const labels = (await shaderConstantCompletions(group, DOC_URI, present, token)).map((c) => c.label);
+        const labels = (await shaderConstantCompletions(group, DOC_URI, present, token)).map((c) => (c as { label: string }).label);
         expect(labels).toContain('_z');
         expect(labels).toContain('_litReflectiveStrength');
         // Engine-bound and already-present constants are not offered.
@@ -76,7 +76,7 @@ describe('shader-constant completion + hover', () => {
         const doc = parse(partSprite('\t\t\t\tShader = "particle_light_emissive.shader"\n\t\t\t\t_z = 0.2'));
         const group = findGroup(doc, 'BlueprintArcSprite')!;
         const present = new Set(['Shader', '_z']);
-        const labels = (await shaderConstantCompletions(group, DOC_URI, present, token)).map((c) => c.label);
+        const labels = (await shaderConstantCompletions(group, DOC_URI, present, token)).map((c) => (c as { label: string }).label);
         expect(labels).not.toContain('_z');
         expect(labels).toContain('_litReflectiveStrength');
     });
@@ -86,7 +86,7 @@ describe('shader-constant completion + hover', () => {
         const doc = parse(partSprite('\t\t\t\tShader = "particle_light_emissive.shader"\n\t\t\t\t_z = 0.2'));
         const group = findGroup(doc, 'BlueprintArcSprite')!;
         const assignment = group.elements.find((e) => isAssignmentNode(e) && e.left.name === '_z');
-        const hover = await shaderConstantHover((assignment as { right: AbstractNode }).right, DOC_URI, token);
+        const hover = await shaderConstantHover((assignment as unknown as { right: AbstractNode }).right, DOC_URI, token);
         expect(hover).toContain('_z');
         expect(hover).toContain('shader constant');
         expect(hover).toContain('float');
@@ -208,7 +208,7 @@ describe('shader-constant group form', () => {
         clearShaderCache();
         const SRC = shieldSprite('\t\t\t\t_waveTex\n\t\t\t\t{\n\t\t\t\t\t\n\t\t\t\t}');
         const gapOffset = SRC.indexOf('{', SRC.indexOf('_waveTex')) + 2;
-        const labels = (await schemaFieldNameCompletions(parseShield(SRC), gapOffset, token)).map((c) => c.label);
+        const labels = (await schemaFieldNameCompletions(parseShield(SRC), gapOffset, token)).map((c) => (c as { label: string }).label);
         expect(labels).toContain('File');
         expect(labels).toContain('UVMode');
         expect(labels).toContain('SampleMode');

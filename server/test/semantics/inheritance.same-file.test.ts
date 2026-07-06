@@ -45,9 +45,11 @@ describe('same-file inheritance by bare name', () => {
         const doc = parseFixture('sibling-inheritance.rules');
         const nav = new FullNavigationStrategy();
         const right = findGroup(doc, 'BatteryStorageRight')!;
-        const inhNode = (right as { inheritance: AbstractNode[] }).inheritance[0];
+        const inhNode = (right as unknown as { inheritance: AbstractNode[] }).inheritance[0];
         const result = await nav.navigate('&BatteryStorageLeft', inhNode, doc.uri, token);
-        expect(result && isGroupNode(result) && result.identifier?.name).toBe('BatteryStorageLeft');
+        expect(
+            result && isGroupNode(result as AbstractNode) && (result as { identifier?: { name: string } }).identifier?.name
+        ).toBe('BatteryStorageLeft');
     });
 
     it('resolves an inherited member through the sibling (BatteryStorageRight -> Type)', async () => {
@@ -107,7 +109,7 @@ describe('list-element `: ../^/0/List/N` inheritance (game `^` = own inheritance
         const effects = derived.elements.find(
             (e) => isListNode(e) && e.identifier?.name === 'Effects'
         )! as AbstractNode & { elements: AbstractNode[] };
-        const element = effects.elements[0] as { inheritance: AbstractNode[] };
+        const element = effects.elements[0] as unknown as { inheritance: AbstractNode[] };
         return element.inheritance[0] as AbstractNode & { valueType: { value: string } };
     };
 
@@ -121,7 +123,7 @@ describe('list-element `: ../^/0/List/N` inheritance (game `^` = own inheritance
         // matching the game's `OTInheritanceReferenceNode.GetFindRoot` (`Parent.Parent.Parent`).
         const start = (inhNode.parent as AbstractNode).parent as AbstractNode;
         const result = await nav.navigate(inhNode.valueType.value, start, doc.value.uri, token);
-        expect(result && isGroupNode(result)).toBe(true);
+        expect(result && isGroupNode(result as AbstractNode)).toBe(true);
     });
 
     it('reaches a member defined only on the base element through the `^/0` inheritance', async () => {
