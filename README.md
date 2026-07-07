@@ -70,12 +70,14 @@ The cross-file validators (component references, GUI ids, localization keys) run
 
 ## Index cache on disk
 
-To make server starts fast, the language server persists its project indexes (schema ids, includes, localization keys, word index) between sessions:
+To make server starts fast, the language server persists its project indexes (schema ids, includes, localization keys, word index) and, when whole-workspace validation is enabled, the per-file validation results between sessions. Reopening an unchanged mod restores everything, Problems panel included, in about a second.
 
 -   Location: `%LOCALAPPDATA%\cosmoteer-lsp\` on Windows (the system temp directory on other platforms)
--   Size: roughly 10-25 MB per game install plus per workspace, depending on mod size
--   Validity: every cache is keyed to the exact server build and game install, and each workspace file is verified by size and modification time on load, so edits made while the server was not running are always picked up
+-   Size: roughly 10-30 MB per game install plus per workspace, depending on mod size
+-   Validity: every cache is keyed to the exact server build and game install, and each workspace file is verified by size and modification time on load, so edits made while the server was not running are always picked up. Persisted validation results are stricter still: they are only restored when nothing at all (files, game data, settings) changed since they were saved
 -   Cleanup: files unused for 30 days are deleted automatically. The folder is safe to delete manually at any time; the only cost is one slower start while the caches rebuild
+
+The server logs its startup and validation timings to the output channel, useful when a start feels slow.
 
 ## Features
 
@@ -104,6 +106,7 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 **Diagnostics**
 
 -   Syntax errors, unresolved references and assets, math expressions, duplicate keys, inheritance cycles
+-   Values the game silently never reads: bare valueless fields, unknown members inside a group-typed field's list form, extra list elements and value shapes the field cannot read
 -   Missing separators: two fields on one line with no `,`/`;` between them (the game silently reads them as ONE value) and a run of numbers read as a single list element, each with a quick fix. Conversely, a separator a line break already makes redundant is shown as a subtle hint with a remove quick fix
 -   Component references, cross-file GUI ids, localization keys, shader constants and shader code, each toggleable in the settings
 -   `mod.rules` actions: unknown verbs, missing required fields, unresolvable targets
