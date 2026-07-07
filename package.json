@@ -21,8 +21,6 @@
         "vscode": "^1.100.0"
     },
     "activationEvents": [
-        "onLanguage:rules",
-        "onLanguage:cosmoteer-shader",
         "workspaceContains:**/*.rules"
     ],
     "pricing": "Free",

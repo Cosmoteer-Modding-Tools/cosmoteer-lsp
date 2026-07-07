@@ -42,7 +42,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Resolve version
         id: version
@@ -68,7 +68,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -79,11 +79,11 @@ jobs:
       - name: Package VSIX
         run: npx --yes @vscode/vsce package -o "cosmoteer-language-server-${{ steps.version.outputs.version }}.vsix"
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
 
       # Full verification against IntelliJ IDEA + Rider before we let anything publish.
       - name: Build & verify plugin
@@ -96,7 +96,7 @@ jobs:
           cp cosmoteer-language-server-*.vsix dist/
           cp jetbrains/build/distributions/*.zip dist/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: release-artifacts
           path: dist/*
@@ -125,19 +125,19 @@ jobs:
       contents: read
       id-token: write # request GitHub's OIDC token for Entra federation
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: release-artifacts
           path: dist
 
       # Publish the exact VSIX that the build job verified, not a fresh rebuild.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
 
       # Exchange GitHub's OIDC token for a short-lived Entra access token. The federated
       # credential is scoped to this environment, so only an approved release run can assume it.
-      - uses: azure/login@v2
+      - uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -155,9 +155,9 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -165,11 +165,11 @@ jobs:
       - name: Build server bundle
         run: node esbuild.mjs --production
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
 
       # publishPlugin depends on signPlugin, so the upload is a signed build. Secrets come from the
       # environment; none are echoed.
