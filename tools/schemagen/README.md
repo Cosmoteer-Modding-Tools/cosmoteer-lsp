@@ -22,6 +22,21 @@ implements (so registry-base resolution probes implemented interfaces, not just 
 and a few enums accept an OT spelling beyond their C# member names (e.g. `ParticleDataType` accepts
 `Vector2D`), curated in the `enumAliases` table and kept honest by the vanilla scan.
 
+The extractor also inspects each type's deserialization hooks and emits the value forms the engine
+reads beyond `{ … }`, all consumed by the validator's form checks so they follow a game update
+through a normal schema regeneration with no curation:
+
+- `scalarForm` (type): the `[ObjectTextConstructor]` constructor or the
+  `ReadContentFrom(ObjectTextSerializer, …)` body branches on `OTFieldNode`, so a plain scalar is
+  read directly (`Time = 10`, `Default = White`).
+- `valueForm` (type): a `[Serialize(Alias = "")]` member binds to the node itself (the empty OT
+  path resolves to the node), so the type reads every shape its member type reads — `ShipFile`'s
+  path string, `MultiHitEffectRules`' effect list, a proxy's group-only `ProxyRules`. Emitted as
+  the member's mapped value type.
+- `scalarStringForm` (type or field): a name-lookup wrapper serializer (global
+  `[DefaultSerializer]` + `CanRead`, or a per-field `[Serialize(OverrideDeserializer = …)]` like
+  Widget's `AnchorRect = TopLeft` presets). The word is looked up by name, so strings only.
+
 See the bundle's shape in [`server/src/document/schema/schema.types.ts`](../../server/src/document/schema/schema.types.ts)
 and the consumer in [`server/src/document/schema/README.md`](../../server/src/document/schema/README.md).
 

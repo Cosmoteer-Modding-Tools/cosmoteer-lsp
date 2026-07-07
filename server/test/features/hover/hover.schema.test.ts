@@ -128,6 +128,47 @@ describe('schemaFieldHover', () => {
         expect(hover).toContain('Resources');
     });
 
+    // A group-typed field written in its positional list form: hovering an element documents the
+    // digit field the game reads it through (`[1.5, 2]` in a Vector2 slot → element 0 = field "0").
+    it('documents a positional element of a Vector2 written in list form', () => {
+        const doc = parse(
+            'Part\n{\n\tComponents\n\t{\n\t\tDoor\n\t\t{\n\t\t\tType = Airlock\n\t\t\tEnterExitPoint = [1.5, 2]\n\t\t}\n\t}\n}'
+        );
+        const findList = (node: AbstractNode): AbstractNode | undefined => {
+            if (isAssignmentNode(node) && node.left.name === 'EnterExitPoint' && isListNode(node.right))
+                return node.right;
+            const kids = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) ? [node.right] : [];
+            for (const k of kids) {
+                const f = findList(k);
+                if (f) return f;
+            }
+            return undefined;
+        };
+        const list = doc.elements.map((n) => findList(n)).find(Boolean);
+        expect(list).toBeDefined();
+        const hover = schemaFieldHover((list as { elements: AbstractNode[] }).elements[0]);
+        expect(hover).toContain('**0**');
+        expect(hover).toContain('float');
+    });
+
+    // A positional entry list nested in a `list<group>` field: the element index resolves through
+    // the entry class's digit field, here EditorParentPart's `"0"` (a PartRules reference).
+    it('documents an element of a nested positional entry (EditorParentParts)', () => {
+        const src = 'Part\n{\n\tEditorParentParts = [ [other_part, 0] ]\n}';
+        const doc = parse(src);
+        const lists: AbstractNode[] = [];
+        const walk = (n: AbstractNode) => {
+            if (isListNode(n)) lists.push(n);
+            const kids = isGroupNode(n) || isListNode(n) ? n.elements : isAssignmentNode(n) ? [n.right] : [];
+            for (const k of kids) walk(k);
+        };
+        for (const e of doc.elements) walk(e);
+        const inner = lists[1] as { elements: AbstractNode[] };
+        const hover = schemaFieldHover(inner.elements[0]);
+        expect(hover).toContain('**0**');
+        expect(hover).toContain('PartRules');
+    });
+
     // An overriding field written as `Name : ^/0/Name [ … ]` parses to a named list with inheritance;
     // hovering the key previously lost the schema entirely.
     it('documents an overriding list field (`TypeCategories : ^/0/TypeCategories [ … ]`)', () => {

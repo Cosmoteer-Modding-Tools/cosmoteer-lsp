@@ -4,6 +4,7 @@ import { resolveAssetPath, suggestAssetFilename } from '../navigation/asset-reso
 import { suggestReferenceName } from '../navigation/reference-suggestion';
 import {
     AbstractNode,
+    IdentifierNode,
     isListNode,
     isAssignmentNode,
     isDocumentNode,
@@ -16,7 +17,7 @@ import { globalSettings } from '../../settings';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { isValidReference } from '../../utils/reference.utils';
 import { isModRules } from '../../document/document-kind';
-import { Validation } from './validator';
+import { Validation, ValidationError } from './validator';
 import { extractSubstrings } from '../navigation/navigation-strategy';
 import { isTargetField } from '../../mod/action';
 import { findModRoot } from '../../mod/mod-root';
@@ -35,10 +36,91 @@ export const ValidationForValue: Validation<ValueNode> = {
         if (node.valueType.type === 'Sprite' || node.valueType.type === 'Sound' || node.valueType.type === 'Shader') {
             return await checkAssets(node, cancellationToken);
         }
+        if (node.valueType.type === 'String' && !node.quoted) {
+            const joinedWithBody = checkListNameJoinedWithBody(node, String(node.valueType.value));
+            if (joinedWithBody) return joinedWithBody;
+        }
         const missingSeparators = await checkListElementSeparators(node, cancellationToken);
         if (missingSeparators) return missingSeparators;
         return checkParantheses(node);
     },
+};
+
+export const ValidationForIdentifier: Validation<IdentifierNode> = {
+    type: 'Identifier',
+    callback: async (node: IdentifierNode, cancellationToken) => {
+        const reference = await checkStandaloneReference(node, cancellationToken);
+        if (reference) return reference;
+        if (typeof node.name === 'string' && !node.name.startsWith('&')) {
+            return checkListNameJoinedWithBody(node, node.name);
+        }
+        return undefined;
+    },
+};
+
+/**
+ * Flags a list element name written on the same line as its `{`/`[` body (`Foo { X = 1 }`
+ * inside a list). The game never names list children, and a listed value does not even stop at
+ * `{`: it reads the WHOLE line as one text element, so neither the name nor the body exists in
+ * game (verified against Halfling.ObjectText). Fires only when the very next sibling is an
+ * anonymous container opening on the same line. Offers removing the name, which turns the line
+ * into a legal anonymous element.
+ *
+ * @param node the plain name element (a String value or an identifier, depending on how the parser classified it).
+ * @param name the name's text, for the message and quick fix.
+ * @returns a warning with a remove-the-name quick fix, or undefined when the shape is fine.
+ */
+const checkListNameJoinedWithBody = (node: ValueNode | IdentifierNode, name: string): ValidationError | undefined => {
+    // A `,`/`;` after the name ends the element, so name and body are two legal elements
+    // (`Toggles = [ IsOperational, { Toggle=… } ]`, everywhere in vanilla).
+    if (node.delimiter) return undefined;
+    const parent = node.parent;
+    if (!parent || !isListNode(parent)) return undefined;
+    const index = parent.elements.indexOf(node);
+    if (index < 0 || index + 1 >= parent.elements.length) return undefined;
+    const next = parent.elements[index + 1];
+    if (!(isGroupNode(next) || isListNode(next)) || next.identifier) return undefined;
+    if (next.position.line !== node.position.line) return undefined;
+    return {
+        message: l10n.t('The game reads this whole line as one text element'),
+        node: node,
+        severity: 'warning',
+        additionalInfo: l10n.t(
+            "In a list, a value runs to the end of the line and '{0}' does not end it, so '{1}' and the body become a single text element. List elements cannot have names; remove '{1}' to make this an anonymous element.",
+            isGroupNode(next) ? '{' : '[',
+            name
+        ),
+        data: { quickFix: { title: l10n.t("Remove '{0}'", name), newText: '' } },
+    };
+};
+
+/**
+ * Validates a bare `&…` reference standing alone as a list element (`&/PARTICLES/Foo` inside
+ * `MediaEffects [ … ]`). The parser produces an IdentifierNode for such an element rather than
+ * a ValueNode whenever the preceding sibling is not a value (e.g. right after a `}`), so the
+ * regular value check never sees it. Wraps the identifier in a synthetic reference ValueNode
+ * with the same parent and position and runs it through the shared reference check, then
+ * re-anchors any finding on the real node. Group and document positions are not checked here:
+ * the game rejects a bare reference there outright, which the parser reports as a parse error.
+ *
+ * @param node the identifier to inspect.
+ * @param cancellationToken cancels the cross file navigation.
+ * @returns the reference finding, or undefined when the identifier is not a bare list reference or it resolves.
+ */
+const checkStandaloneReference = async (node: IdentifierNode, cancellationToken: CancellationToken) => {
+    if (typeof node.name !== 'string' || !node.name.startsWith('&')) return undefined;
+    const parent = node.parent;
+    if (!parent || !isListNode(parent) || !parent.elements.includes(node)) {
+        return undefined;
+    }
+    const wrapped: ValueNode = {
+        type: 'Value',
+        valueType: { type: 'Reference', value: node.name },
+        parent,
+        position: node.position,
+    };
+    const error = await checkReference(wrapped, cancellationToken);
+    return error ? { ...error, node } : undefined;
 };
 
 /**
@@ -135,7 +217,10 @@ const checkAssets = async (node: ValueNode, cancellationToken: CancellationToken
     }
 };
 
-const checkReference = async (node: ValueNode, cancellationToken: CancellationToken) => {
+const checkReference = async (
+    node: ValueNode,
+    cancellationToken: CancellationToken
+): Promise<ValidationError | undefined> => {
     if (node.valueType.type === 'Reference' && node.valueType.value.length > 1) {
         const uri = getStartOfAstNode(node).uri;
         if (!isValidReference(node.valueType.value)) {

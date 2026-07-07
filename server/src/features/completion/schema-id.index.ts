@@ -96,8 +96,9 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         }
     }
 
-    protected indexDocument(document: AbstractNodeDocument): void {
+    protected indexDocument(document: AbstractNodeDocument): boolean {
         const source = normalizeUri(document.uri);
+        const prior = this.bySource.get(source);
         this.removeSource(source);
         const entries: Array<{ cls: string; id: string }> = [];
         // Whole-file root: the document's own top-level `ID` as an instance of its root class.
@@ -109,11 +110,16 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         // Usage-defined targets: part categories have no declaration, so each used category name
         // (`Category = armor`, `TypeCategories = [armor, …]`) is itself an entry to complete.
         for (const category of categoryUsagesOf(document)) entries.push({ cls: PART_CATEGORY_CLASS, id: category });
-        if (!entries.length) return;
+        const changed = prior
+            ? prior.length !== entries.length ||
+              prior.some((entry, index) => entry.cls !== entries[index].cls || entry.id !== entries[index].id)
+            : entries.length > 0;
+        if (!entries.length) return changed;
         this.bySource.set(source, entries);
         for (const { cls, id: entryId } of entries) {
             (this.byClass.get(cls) ?? this.byClass.set(cls, new Map()).get(cls)!).set(entryId, source);
         }
+        return changed;
     }
 
     /**

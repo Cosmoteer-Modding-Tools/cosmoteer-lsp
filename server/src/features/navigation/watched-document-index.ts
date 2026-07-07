@@ -147,14 +147,20 @@ export abstract class WatchedDocumentIndex {
     private reconcilePromise: Promise<void> = Promise.resolve();
 
     /**
-     * Re-index documents marked changed since the last query. An open buffer is used as-is;
-     * otherwise the file is re-read from disk — so external edits, `git pull`, and newly
-     * created files are picked up — and a file that no longer parses (deleted) is dropped.
-     * Runs are serialized, and the revision moves only after the changed documents are actually
-     * ingested, so a revision-keyed consumer memo can never capture a pre-ingest state under the
-     * final revision number. A cancelled run returns the not-yet-ingested documents to the dirty
-     * set (they would otherwise look reconciled forever) and still bumps the revision for the
-     * documents it did ingest.
+     * Re-index documents marked changed since the last query. An open buffer is used as-is,
+     * otherwise the file is re-read from disk (so external edits, `git pull`, and newly created
+     * files are picked up), and a file that no longer parses (deleted) is dropped. Runs are
+     * serialized, and the revision moves only after the changed documents are actually ingested,
+     * so a revision-keyed consumer memo can never capture a pre-ingest state under the final
+     * revision number. A re-ingest whose contribution came out identical (an `indexDocument`
+     * returning `false`) does not move the revision: every open-buffer keystroke dirties every
+     * index, and bumping unconditionally wiped the revision-keyed consumer memos (the
+     * schema-context memos, the merged localization key set) once per edit even though nothing
+     * those consumers read had changed. A cancelled run returns the not-yet-ingested documents to
+     * the dirty set (they would otherwise look reconciled forever) and still bumps the revision
+     * for the documents it did ingest.
+     *
+     * @param cancellationToken cancels the re-ingest between documents.
      */
     private async reconcileDirty(cancellationToken: CancellationToken): Promise<void> {
         const run = this.reconcilePromise.then(() => this.reconcileDirtySerialized(cancellationToken));
@@ -167,6 +173,7 @@ export abstract class WatchedDocumentIndex {
         const uris = [...this.dirty];
         this.dirty.clear();
         let ingested = 0;
+        let changed = false;
         try {
             for (const uri of uris) {
                 if (cancellationToken.isCancellationRequested) {
@@ -175,16 +182,20 @@ export abstract class WatchedDocumentIndex {
                 }
                 const open = ParserResultRegistrar.instance.getResult(uri);
                 if (open) {
-                    await this.indexDocument(open, cancellationToken);
+                    if ((await this.indexDocument(open, cancellationToken)) !== false) changed = true;
                 } else {
                     const fromDisk = await parseFilePath(uriToFsPath(uri), cancellationToken).catch(() => null);
-                    if (fromDisk) await this.indexDocument(fromDisk, cancellationToken);
-                    else this.removeSource(normalizeUri(uri));
+                    if (fromDisk) {
+                        if ((await this.indexDocument(fromDisk, cancellationToken)) !== false) changed = true;
+                    } else {
+                        this.removeSource(normalizeUri(uri));
+                        changed = true;
+                    }
                 }
                 ingested++;
             }
         } finally {
-            if (ingested > 0) this._revision++;
+            if (ingested > 0 && changed) this._revision++;
         }
     }
 
@@ -358,11 +369,18 @@ export abstract class WatchedDocumentIndex {
         await Promise.all(indexes.map((index) => index.buildPromise?.catch(() => undefined)));
     }
 
-    /** (Re)index one document, replacing any prior contribution from the same source. */
+    /**
+     * (Re)index one document, replacing any prior contribution from the same source.
+     *
+     * @param document the parsed document to ingest.
+     * @param cancellationToken cancels slow ingest work.
+     * @returns `false` when the document's contribution is identical to what was already indexed
+     * (so a reconcile need not move the revision), anything else counts as a change.
+     */
     protected abstract indexDocument(
         document: AbstractNodeDocument,
         cancellationToken: CancellationToken
-    ): Promise<void> | void;
+    ): Promise<void | boolean> | void | boolean;
 
     /** Remove everything a source document (by canonical uri) previously contributed. */
     protected abstract removeSource(source: string): void;

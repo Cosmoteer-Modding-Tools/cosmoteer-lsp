@@ -22,6 +22,7 @@ import { stepIntoNode } from '../../semantics/reference-resolver';
 import { findMemberThroughInheritance, ResolveReferenceFn } from '../../semantics/inheritance-resolver';
 import { CancellationToken } from 'vscode-languageserver';
 import { CancellationError } from '../../utils/cancellation';
+import { activeNavigationDeps, collectNavigationDeps, navigationDepKey } from '../../utils/navigation-deps';
 import { perfCount } from '../../utils/perf-counters';
 
 // Absolute references (`&<file>/…` file-relative, `&/…` super-path) resolve to the same target no
@@ -37,14 +38,68 @@ import { perfCount } from '../../utils/perf-counters';
 /** Upper bound of memoized resolutions, a plain insertion-ordered cap like the fs caches. */
 const NAVIGATION_MEMO_CAP = 65_536;
 
-type NavigationMemoEntry = { ref: WeakRef<object> } | { miss: true };
+type NavigationMemoEntry = { ref: WeakRef<object>; deps: readonly string[] } | { miss: true };
 
 const navigationMemo: Map<string, NavigationMemoEntry> = new Map();
 
-/** Empties the resolution memo. Registered on fs-cache invalidation and called by the server when
- *  an open buffer changes (edits bypass the disk watcher but change what references resolve to). */
+/** Memo keys of the miss entries, so an edit can drop every miss without scanning the map. A miss
+ *  may flip to a hit through whatever the edit introduced, and its own read set is not stored, so
+ *  all misses go on any buffer edit. */
+const navigationMissKeys: Set<string> = new Set();
+
+/** Dependency key (see {@link navigationDepKey}) → memo keys of the hit entries whose resolution
+ *  read that file. An edit to one file invalidates exactly these entries. */
+const navigationDepIndex: Map<string, Set<string>> = new Map();
+
+/** The synthetic dependency of an entry whose resolution consumed a memoized miss. The miss's own
+ *  read set is unknown, so such entries are dropped on any buffer edit, like the misses. */
+const VOLATILE_NAVIGATION_DEP = '\0miss';
+
+/**
+ * Removes one memo entry and its dependency-index registrations.
+ *
+ * @param key the memo key to drop.
+ */
+const deleteNavigationMemoEntry = (key: string): void => {
+    const entry = navigationMemo.get(key);
+    if (!entry) return;
+    navigationMemo.delete(key);
+    if ('miss' in entry) {
+        navigationMissKeys.delete(key);
+        return;
+    }
+    for (const dep of entry.deps) {
+        const keys = navigationDepIndex.get(dep);
+        keys?.delete(key);
+        if (keys && keys.size === 0) navigationDepIndex.delete(dep);
+    }
+};
+
+/** Empties the resolution memo. Registered on fs-cache invalidation (disk changes arrive with no
+ *  per-entry read information worth trusting) and on mod-context changes. */
 export const clearNavigationMemo = (): void => {
     navigationMemo.clear();
+    navigationMissKeys.clear();
+    navigationDepIndex.clear();
+};
+
+/**
+ * Drops the memo entries an open-buffer edit of one file can affect: every miss (the edit may
+ * introduce what a miss was missing), every entry whose resolution consumed a memoized miss, and
+ * every hit whose resolution read the edited file. Hits that never read it (the vanilla-tree bulk
+ * of the memo) survive the keystroke. Buffer edits bypass the disk watcher, so the server calls
+ * this from its change handler.
+ *
+ * @param uriOrPath the edited document's uri or OS path.
+ */
+export const invalidateNavigationMemoForFile = (uriOrPath: string): void => {
+    for (const key of navigationMissKeys) navigationMemo.delete(key);
+    navigationMissKeys.clear();
+    for (const dep of [VOLATILE_NAVIGATION_DEP, navigationDepKey(uriOrPath)]) {
+        const keys = navigationDepIndex.get(dep);
+        if (!keys) continue;
+        for (const key of [...keys]) deleteNavigationMemoEntry(key);
+    }
 };
 
 onFsInvalidation(clearNavigationMemo);
@@ -125,59 +180,71 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         // branches below never read `startNode`/`visited`), so the memo applies to nested
         // dereferences as much as to entry calls.
         const memoKey = navigationMemoKey(path, currentLocation);
+        // The enclosing resolution's dependency collector, when one is running. A memoized result
+        // (fresh or cached) contributes its recorded reads to it, so the outer entry is invalidated
+        // whenever one of the files its nested resolutions read is edited.
+        const outerDeps = activeNavigationDeps();
         if (memoKey) {
             const cached = navigationMemo.get(memoKey);
             if (cached) {
                 if ('miss' in cached) {
                     perfCount('navigate.memoHit');
+                    // The miss's own read set was not stored, so the enclosing entry cannot be
+                    // invalidated precisely. Mark it volatile, it drops on any buffer edit.
+                    outerDeps?.add(VOLATILE_NAVIGATION_DEP);
                     return null;
                 }
                 const target = cached.ref.deref();
                 if (target) {
                     perfCount('navigate.memoHit');
+                    if (outerDeps) for (const dep of cached.deps) outerDeps.add(dep);
                     return target as AbstractNode | FileWithPath;
                 }
-                navigationMemo.delete(memoKey);
+                deleteNavigationMemoEntry(memoKey);
             }
         }
-        let promise;
-        if (path.startsWith('&<') || path.startsWith('<')) {
-            promise = this.navigateRules(
-                path.substring(path.startsWith('&') ? 2 : 1),
-                currentLocation,
-                cancellationToken
-            );
-        } else if (path.startsWith('&/') || path.startsWith('/')) {
-            promise = this.navigateSuperPath(path, cancellationToken);
-        } else if (path.startsWith('&') && startNode.parent) {
-            // A relative `&Name` is resolved one scope up from the bearer node. When
-            // the bearer is itself an inheritance reference (`Child : Parent`), the
-            // name is a sibling of the inheriting group, so resolve against the
-            // group's container (grandparent) instead of the group's own members.
-            let scope: AbstractNode | undefined = isInheritanceMember(startNode)
-                ? startNode.parent.parent
-                : startNode.parent;
-            // A bare relative `&Name` names a field in the nearest enclosing named scope. List
-            // containers are positional (their elements have no names), so a name reference
-            // sitting inside a list e.g., `Costs = [&BaseCost * 2]` must resolve against
-            // the list's enclosing group, not the list itself. Climb out of any lists.
-            // This does not apply to a positional `&N` (a numeric index, e.g. the `&1` of a
-            // `: 1` numeric-inheritance) nor to the explicit traversal operators (`..`, `~`,
-            // `^`) — those address the list as a real level, so leave their scope alone.
-            const leadingSegment = path.substring(1).split('/')[0];
-            const isNamedLookup = /^[A-Za-z_]/.test(leadingSegment);
-            if (isNamedLookup) while (scope && isListNode(scope)) scope = scope.parent;
-            if (!scope) return null;
-            promise = this.navigateReference(path.substring(1), scope, cancellationToken, visited, inheritanceVisited);
-        } else {
-            promise = this.navigateReference(path, startNode, cancellationToken, visited, inheritanceVisited);
-        }
+        const resolve = (): Promise<AbstractNode | null | FileWithPath> => {
+            if (path.startsWith('&<') || path.startsWith('<')) {
+                return this.navigateRules(path.substring(path.startsWith('&') ? 2 : 1), currentLocation, cancellationToken);
+            }
+            if (path.startsWith('&/') || path.startsWith('/')) {
+                return this.navigateSuperPath(path, cancellationToken);
+            }
+            if (path.startsWith('&') && startNode.parent) {
+                // A relative `&Name` is resolved one scope up from the bearer node. When
+                // the bearer is itself an inheritance reference (`Child : Parent`), the
+                // name is a sibling of the inheriting group, so resolve against the
+                // group's container (grandparent) instead of the group's own members.
+                let scope: AbstractNode | undefined = isInheritanceMember(startNode)
+                    ? startNode.parent.parent
+                    : startNode.parent;
+                // A bare relative `&Name` names a field in the nearest enclosing named scope. List
+                // containers are positional (their elements have no names), so a name reference
+                // sitting inside a list e.g., `Costs = [&BaseCost * 2]` must resolve against
+                // the list's enclosing group, not the list itself. Climb out of any lists.
+                // This does not apply to a positional `&N` (a numeric index, e.g. the `&1` of a
+                // `: 1` numeric-inheritance) nor to the explicit traversal operators (`..`, `~`,
+                // `^`). Those address the list as a real level, so leave their scope alone.
+                const leadingSegment = path.substring(1).split('/')[0];
+                const isNamedLookup = /^[A-Za-z_]/.test(leadingSegment);
+                if (isNamedLookup) while (scope && isListNode(scope)) scope = scope.parent;
+                if (!scope) return Promise.resolve(null);
+                return this.navigateReference(path.substring(1), scope, cancellationToken, visited, inheritanceVisited);
+            }
+            return this.navigateReference(path, startNode, cancellationToken, visited, inheritanceVisited);
+        };
+        // A memoized form collects the files its resolution reads, so the stored entry can be
+        // invalidated by exactly those files' buffer edits. Non-memoized (bearer-relative) forms
+        // run under the enclosing collector as-is and record their reads straight into it.
+        const deps = memoKey ? new Set<string>() : undefined;
+        const promise = deps ? collectNavigationDeps(deps, resolve) : resolve();
         // The rejection handler must attach before any throw below: a bare `throw` here would leave
         // `promise` dangling, and its later CancellationError rejection would take the process down
         // as an unhandled rejection.
         const caught = promise.catch(() => null);
         if (cancellationToken.isCancellationRequested) throw new CancellationError();
         const result = await caught;
+        if (deps && outerDeps) for (const dep of deps) outerDeps.add(dep);
         // A cancelled resolution yields null through the catch above, which must not be recorded
         // as a genuine miss, so a cancelled token skips the store entirely.
         if (memoKey && !cancellationToken.isCancellationRequested) {
@@ -186,16 +253,28 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
             // returns null meaning "not ready yet", not "no such target". A validation of an
             // already-open file arrives before that init settles, so pinning that transient null as
             // a miss would outlive initialization (nothing re-validates the memo until an unrelated
-            // fs change) and permanently flag a valid reference. Skip storing it — like the
+            // fs change) and permanently flag a valid reference. Skip storing it, like the
             // cancelled case above. Genuine hits, and misses of bearer-independent file paths, stay.
             const superPathBeforeGameRoot =
                 !result && (path.startsWith('&/') || path.startsWith('/')) && !CosmoteerWorkspaceService.instance.dataRootPath;
             if (!superPathBeforeGameRoot) {
-                navigationMemo.set(memoKey, result ? { ref: new WeakRef(result as object) } : { miss: true });
+                // Replace any concurrent store of the same key first, so its dep-index
+                // registrations don't linger as orphans.
+                deleteNavigationMemoEntry(memoKey);
+                if (result) {
+                    const entryDeps = [...deps!];
+                    navigationMemo.set(memoKey, { ref: new WeakRef(result as object), deps: entryDeps });
+                    for (const dep of entryDeps) {
+                        (navigationDepIndex.get(dep) ?? navigationDepIndex.set(dep, new Set()).get(dep)!).add(memoKey);
+                    }
+                } else {
+                    navigationMemo.set(memoKey, { miss: true });
+                    navigationMissKeys.add(memoKey);
+                }
                 while (navigationMemo.size > NAVIGATION_MEMO_CAP) {
                     const oldest = navigationMemo.keys().next().value;
                     if (oldest === undefined) break;
-                    navigationMemo.delete(oldest);
+                    deleteNavigationMemoEntry(oldest);
                 }
             }
         }

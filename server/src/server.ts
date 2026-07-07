@@ -17,6 +17,13 @@ import {
     CancellationToken,
     CancellationTokenSource,
     FullDocumentDiagnosticReport,
+    UnchangedDocumentDiagnosticReport,
+    ResponseError,
+    LSPErrorCodes,
+    CompletionList,
+    SemanticTokens,
+    SemanticTokensDelta,
+    MarkupKind,
     CodeAction,
     CodeActionKind,
     WorkspaceFolder,
@@ -43,7 +50,7 @@ import { RenameService, dropEditsUnderRoot } from './features/navigation/rename.
 import { InlayHintService } from './features/inlay/inlay-hint.service';
 import { HoverService } from './features/hover/hover.service';
 import { ValidationError, ValidationErrorData, Validator } from './features/diagnostics/validator';
-import { ValidationForValue } from './features/diagnostics/validator.value';
+import { ValidationForIdentifier, ValidationForValue } from './features/diagnostics/validator.value';
 import { ValidationForFunctionCall } from './features/diagnostics/validator.functioncall';
 
 import * as l10n from '@vscode/l10n';
@@ -102,7 +109,7 @@ import {
     invalidateFsPath,
     primeParsedFile,
 } from './workspace/fs-cache';
-import { clearNavigationMemo } from './features/navigation/full.navigation-strategy';
+import { clearNavigationMemo, invalidateNavigationMemoForFile } from './features/navigation/full.navigation-strategy';
 import { perfCount, perfReset, perfSampleMemory, perfSnapshot } from './utils/perf-counters';
 import { startScanCpuProfile, stopScanCpuProfile } from './utils/cpu-profile';
 import { filePathToUri } from './features/navigation/navigation-strategy';
@@ -152,6 +159,7 @@ let hasDiagnosticRelatedInformationCapability = false;
 let hasDidChangeWatchedFilesCapability = false;
 let hasSnippetCapability = false;
 let hasPullDiagnosticsCapability = false;
+let hasCompletionDocResolveCapability = false;
 
 /** The cached `workspace/workspaceFolders` answer, `undefined` until (re)fetched. */
 let workspaceFoldersCache: WorkspaceFolder[] | null | undefined;
@@ -203,11 +211,16 @@ connection.onInitialize(async (params: InitializeParams) => {
     // A pull-capable client requests diagnostics itself (`textDocument/diagnostic`) after each
     // change. Pushing from `onDidChangeContent` as well would validate every edit twice.
     hasPullDiagnosticsCapability = !!capabilities.textDocument?.diagnostic;
+    // A client that resolves completion documentation lazily (`completionItem/resolve` with
+    // `documentation` in `resolveSupport`) gets the Markdown docs deferred out of the list payload.
+    hasCompletionDocResolveCapability = !!capabilities.textDocument?.completion?.completionItem?.resolveSupport?.properties?.includes('documentation');
     const result: InitializeResult = {
         capabilities: {
             textDocumentSync: {
                 openClose: true,
-                change: TextDocumentSyncKind.Full,
+                // Clients send range-scoped deltas instead of the whole text per keystroke. The
+                // TextDocuments manager applies them, so the server still sees full documents.
+                change: TextDocumentSyncKind.Incremental,
                 // Lets the format-on-save setting return edits right before the client writes the file.
                 willSaveWaitUntil: true,
             },
@@ -244,7 +257,10 @@ connection.onInitialize(async (params: InitializeParams) => {
             },
             semanticTokensProvider: {
                 legend: semanticTokensLegend,
-                full: true,
+                // Delta lets an edit answer with the changed slice of the token array instead of
+                // re-shipping the whole thing, and range serves the viewport before the full pass.
+                full: { delta: true },
+                range: true,
             },
         },
     };
@@ -261,6 +277,7 @@ connection.onInitialize(async (params: InitializeParams) => {
 
 connection.onInitialized(async (_params) => {
     Validator.instance.registerValidation(ValidationForValue);
+    Validator.instance.registerValidation(ValidationForIdentifier);
     Validator.instance.registerValidation(ValidationForFunctionCall);
     Validator.instance.registerValidation(ValidationForAssignment);
     Validator.instance.registerValidation(ValidationForMath);
@@ -529,9 +546,16 @@ const openParseCache: Map<string, { version: number; tokens: ReturnType<typeof l
 /**
  * The in-flight or settled diagnostics of each open document, keyed by uri and valid for one
  * document version. The push flow and the pull handler share one validation per version through
- * this map instead of racing two independent full passes over the same text.
+ * this map instead of racing two independent full passes over the same text. Each entry carries a
+ * unique `resultId` for the pull protocol: a pull whose `previousResultId` still matches the live
+ * entry answers "unchanged" instead of re-serializing the same diagnostic set. Every path that
+ * invalidates diagnostics (a new version, a cross-file edit, a config change) drops or replaces
+ * the entry, so a matching id is proof the client's copy is current.
  */
-const diagnosticsCache: Map<string, { version: number; promise: Promise<Diagnostic[]> }> = new Map();
+const diagnosticsCache: Map<string, { version: number; promise: Promise<Diagnostic[]>; resultId: string }> = new Map();
+
+/** Source of the pull-diagnostics `resultId`s, unique across the whole session. */
+let diagnosticsResultIdCounter = 0;
 
 /**
  * Lexes and parses an open document once per version and publishes the result to every consumer:
@@ -551,9 +575,10 @@ function registerOpenDocument(document: TextDocument): void {
     const parserResult = parser(tokens, document.uri);
     openParseCache.set(document.uri, { version: document.version, tokens, parserResult });
     ParserResultRegistrar.instance.setResult(document.uri, parserResult.value);
-    // The edit changes what absolute references into this file resolve to, and the disk watcher
-    // never sees open-buffer edits, so drop the navigation memo here.
-    clearNavigationMemo();
+    // The edit changes what references touching this file resolve to, and the disk watcher never
+    // sees open-buffer edits, so drop the navigation memo entries whose resolution read this file.
+    // Entries that never read it (the vanilla-tree bulk) survive the keystroke.
+    invalidateNavigationMemoForFile(document.uri);
     // Scanned files may derive diagnostics from this buffer (registrar-first parse reads), so
     // their cached scan results are stale from this edit on.
     bumpWorkspaceScanEpoch();
@@ -579,9 +604,13 @@ function registerOpenDocument(document: TextDocument): void {
         // Parse the manifest's actions. A mod.rules edit changes the effective game tree.
         ModRulesRegistrar.instance.registerManifest(parserResult.value);
         invalidateModContext();
+        // The effective tree changed under every memoized super-path, so scoped invalidation
+        // isn't enough here.
+        clearNavigationMemo();
     } else if (basenameOf(document.uri).toLowerCase() === 'cosmoteer.rules') {
         // The mod's own cosmoteer.rules contributes convenience globals to the effective tree.
         invalidateModContext();
+        clearNavigationMemo();
         // Its aliases drive fragment rooting, rebuild that index on the next feature use.
         aliasRootIndex.invalidate();
     }
@@ -616,7 +645,7 @@ function computeDiagnosticsCached(document: TextDocument): Promise<Diagnostic[]>
             throw e;
         }
     );
-    diagnosticsCache.set(uri, { version, promise });
+    diagnosticsCache.set(uri, { version, promise, resultId: String(++diagnosticsResultIdCounter) });
     return promise;
 }
 
@@ -654,8 +683,9 @@ function schedulePushValidation(document: TextDocument): void {
 
 // Only keep settings for open documents
 documents.onDidClose(async (e) => {
-    // The registrar entry this drops was what resolution saw for the file; back to disk state.
-    clearNavigationMemo();
+    // The registrar entry this drops was what resolution saw for the file, back to disk state.
+    // Only entries whose resolution read the buffer can differ from disk.
+    invalidateNavigationMemoForFile(e.document.uri);
     // Scanned files may have derived diagnostics from the discarded buffer.
     bumpWorkspaceScanEpoch();
     documentSettings.delete(e.document.uri);
@@ -737,7 +767,7 @@ documents.onDidChangeContent(
     [tokenSourceManager]
 );
 
-connection.languages.diagnostics.on(async (params, _cancelToken) => {
+connection.languages.diagnostics.on(async (params, cancelToken) => {
     const document = documents.get(params.textDocument.uri);
     if (document === undefined) {
         // We don't know the document. We can either try to read it from disk
@@ -755,9 +785,25 @@ connection.languages.diagnostics.on(async (params, _cancelToken) => {
         workspaceDiagnosticUris.delete(stored);
         await connection.sendDiagnostics({ uri: stored, diagnostics: [] });
     }
+    const items = await computeDiagnosticsCached(document);
+    if (cancelToken.isCancellationRequested) {
+        throw new ResponseError(LSPErrorCodes.RequestCancelled, 'diagnostic pull cancelled');
+    }
+    // The cache entry outlives the computation exactly as long as its result stays valid: every
+    // invalidation path (new version, cross-file edit, watched-file change, config change) drops
+    // or replaces it. So a client whose `previousResultId` still names the live entry already has
+    // these diagnostics and only needs an "unchanged" confirmation.
+    const entry = diagnosticsCache.get(document.uri);
+    if (entry && params.previousResultId !== undefined && params.previousResultId === entry.resultId) {
+        return {
+            kind: DocumentDiagnosticReportKind.Unchanged,
+            resultId: entry.resultId,
+        } satisfies UnchangedDocumentDiagnosticReport;
+    }
     return {
         kind: DocumentDiagnosticReportKind.Full,
-        items: await computeDiagnosticsCached(document),
+        resultId: entry?.resultId,
+        items,
     } satisfies FullDocumentDiagnosticReport;
 });
 
@@ -1269,8 +1315,78 @@ function openBufferReadOverride(): (absPath: string) => string | undefined {
 }
 
 // This handler provides the initial list of the completion items.
+/** Upper bound of completion items shipped in one response. Larger lists (every localization key,
+ *  every project id) are prefix-filtered and truncated, and marked incomplete so the client
+ *  re-requests as the user types instead of holding a huge stale list. */
+const COMPLETION_ITEM_CAP = 500;
+
+/** Markdown documentation deferred out of recent completion responses, keyed by request id and
+ *  item index, until the client resolves the selected item. Only the latest few requests are kept,
+ *  a resolve only ever targets the list the client is currently showing. */
+const completionDocStores: Map<number, Array<string | undefined>> = new Map();
+
+/** Source of the completion request ids the deferred-documentation store is keyed by. */
+let completionRequestCounter = 0;
+
+/** How many recent completion responses keep their deferred documentation resolvable. */
+const COMPLETION_DOC_STORES_KEPT = 4;
+
+/**
+ * Strips the Markdown documentation out of completion items and parks it in
+ * {@link completionDocStores}, marking each stripped item with the store key in `item.data` so
+ * `completionItem/resolve` can reattach it. Documentation is the bulk of a list's payload and the
+ * client only ever shows one item's docs at a time, so shipping it lazily keeps the per-keystroke
+ * response small. Only called when the client declared `resolveSupport` for `documentation`.
+ *
+ * @param items the completion items about to be returned.
+ */
+const deferCompletionDocumentation = (items: CompletionItem[]): void => {
+    if (!items.some((item) => item.documentation !== undefined)) return;
+    const requestId = ++completionRequestCounter;
+    const docs: Array<string | undefined> = [];
+    items.forEach((item, index) => {
+        const documentation = item.documentation;
+        if (documentation === undefined) return;
+        docs[index] = typeof documentation === 'string' ? documentation : documentation.value;
+        delete item.documentation;
+        item.data = { docRequest: requestId, docIndex: index };
+    });
+    completionDocStores.set(requestId, docs);
+    for (const key of completionDocStores.keys()) {
+        if (completionDocStores.size <= COMPLETION_DOC_STORES_KEPT) break;
+        completionDocStores.delete(key);
+    }
+};
+
+/**
+ * Packs raw completions into the LSP response list. Lists over {@link COMPLETION_ITEM_CAP} are
+ * narrowed to the word prefix at the cursor and truncated, and flagged `isIncomplete` so the
+ * client asks again on the next keystroke with the narrower prefix.
+ *
+ * @param completions the raw completions of the matched strategy.
+ * @param wordPrefix the identifier-like text immediately left of the cursor.
+ * @returns the completion list to return to the client.
+ */
+const finishCompletionList = (completions: Completion[], wordPrefix: string): CompletionList => {
+    let isIncomplete = false;
+    if (completions.length > COMPLETION_ITEM_CAP) {
+        const prefix = wordPrefix.toLowerCase();
+        const filtered = prefix
+            ? completions.filter((completion) =>
+                  (typeof completion === 'string' ? completion : completion.label).toLowerCase().includes(prefix)
+              )
+            : completions;
+        completions = filtered.slice(0, COMPLETION_ITEM_CAP);
+        // The served set depends on the typed prefix, so the client must re-request as it changes.
+        isIncomplete = true;
+    }
+    const items = completions.map<CompletionItem>((completion) => toCompletionItem(completion, hasSnippetCapability));
+    if (hasCompletionDocResolveCapability) deferCompletionDocumentation(items);
+    return { isIncomplete, items };
+};
+
 connection.onCompletion(
-    async (textDocumentPosition: TextDocumentPositionParams, cancellationToken): Promise<CompletionItem[]> => {
+    async (textDocumentPosition: TextDocumentPositionParams, cancellationToken): Promise<CompletionItem[] | CompletionList> => {
         // `.shader` files get HLSL completion (builtins plus the uniforms/functions/structs the file and
         // its `#include` chain declare), not the OT schema completion below.
         if (isShaderDocument(textDocumentPosition.textDocument.uri)) {
@@ -1383,7 +1499,7 @@ connection.onCompletion(
                         const enclosingList = findEnclosingList(parserResult, offset);
                         const target =
                             (enclosingGroup ? mapKeyTargetOf(enclosingGroup) : undefined) ??
-                            (enclosingList ? listElementReferenceTarget(enclosingList) : undefined) ??
+                            (enclosingList ? listElementReferenceTarget(enclosingList, offset) : undefined) ??
                             crossFileReferenceTargetAtOffset(parserResult, offset, linePrefix);
                         if (target) {
                             completions = await SchemaIdIndex.instance
@@ -1396,13 +1512,30 @@ connection.onCompletion(
         } catch (e) {
             if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
         }
-        return completions.map<CompletionItem>((completion) => toCompletionItem(completion, hasSnippetCapability));
+        const document = documents.get(textDocumentPosition.textDocument.uri);
+        const linePrefix = document
+            ? document.getText({
+                  start: { line: textDocumentPosition.position.line, character: 0 },
+                  end: textDocumentPosition.position,
+              })
+            : '';
+        // `/` stays in the prefix: localization keys and reference paths are slash-segmented, and
+        // narrowing an over-cap list on just the last segment leaves it over-cap.
+        const wordPrefix = /[A-Za-z0-9_./-]*$/.exec(linePrefix)?.[0] ?? '';
+        return finishCompletionList(completions, wordPrefix);
     }
 );
 
-// This handler resolves additional information for the item selected in
-// the completion list.
+// Reattach the documentation deferred out of the completion response for the item the client is
+// about to show. An item without deferred documentation resolves to itself.
 connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
+    const data = item.data as { docRequest?: number; docIndex?: number } | undefined;
+    if (data?.docRequest !== undefined && data.docIndex !== undefined) {
+        const documentation = completionDocStores.get(data.docRequest)?.[data.docIndex];
+        if (documentation !== undefined) {
+            item.documentation = { kind: MarkupKind.Markdown, value: documentation };
+        }
+    }
     return item;
 });
 
@@ -1944,27 +2077,138 @@ connection.languages.inlayHint.on(async (params, cancellationToken) => {
 // reference vs a bareword enum vs a math function). The grammar stays the synchronous base layer;
 // this is the overlay. Drives both VS Code and the native IntelliJ LSP highlighter.
 // The token walk is pure CPU over the cached AST, so its result is cached per document version and
-// repeated requests for unchanged text answer from memory.
-const semanticTokensCache: Map<string, { version: number; tokens: { data: number[] } }> = new Map();
+// repeated requests for unchanged text answer from memory. Each result carries a `resultId` so a
+// delta-capable client can request just the changed slice of the array after an edit instead of
+// the whole thing, and a range request serves the viewport from the same cached array.
+const semanticTokensCache: Map<string, { version: number; resultId: string; data: number[] }> = new Map();
 
-connection.languages.semanticTokens.on((params, cancellationToken) => {
+/** Source of the semantic-tokens `resultId`s, unique across the whole session. */
+let semanticTokensResultIdCounter = 0;
+
+/**
+ * The full token array of a document, served from the per-version cache when current.
+ *
+ * @param uri the document to tokenize.
+ * @returns the token data and the result id identifying this computation.
+ */
+const computeSemanticTokens = (uri: string): { resultId: string; data: number[] } => {
+    const version = documents.get(uri)?.version;
+    const cached = semanticTokensCache.get(uri);
+    if (cached && version !== undefined && cached.version === version) return cached;
+    let data: number[];
+    // `.shader` files are HLSL, scanned lexically straight from text, no OT parse needed.
+    if (isShaderDocument(uri)) {
+        const document = documents.get(uri);
+        data = document ? buildShaderSemanticTokens(document.getText()).data : [];
+    } else {
+        const parserResult = ensureParserResult(uri);
+        data = parserResult ? buildSemanticTokens(parserResult).data : [];
+    }
+    const entry = { version: version ?? -1, resultId: String(++semanticTokensResultIdCounter), data };
+    if (version !== undefined) semanticTokensCache.set(uri, entry);
+    return entry;
+};
+
+/**
+ * The minimal single-edit diff between two token arrays: the differing middle after trimming the
+ * common prefix and suffix. What an edit changes is almost always one contiguous run of tokens, so
+ * one edit covers it and the client patches its copy in place.
+ *
+ * @param before the token data the client currently holds.
+ * @param after the token data of the current document version.
+ * @returns zero edits for identical arrays, otherwise the one covering edit.
+ */
+const semanticTokensEdits = (before: number[], after: number[]): Array<{ start: number; deleteCount: number; data?: number[] }> => {
+    let start = 0;
+    const minLength = Math.min(before.length, after.length);
+    while (start < minLength && before[start] === after[start]) start++;
+    let beforeEnd = before.length;
+    let afterEnd = after.length;
+    while (beforeEnd > start && afterEnd > start && before[beforeEnd - 1] === after[afterEnd - 1]) {
+        beforeEnd--;
+        afterEnd--;
+    }
+    if (start === beforeEnd && start === afterEnd) return [];
+    return [{ start, deleteCount: beforeEnd - start, data: after.slice(start, afterEnd) }];
+};
+
+/**
+ * The tokens of `data` whose line falls inside `[startLine, endLine]`, re-encoded so the first
+ * kept token's deltas are absolute (its implicit predecessor is the document start). Serving a
+ * superset of the requested range is allowed, so the line bounds are inclusive.
+ *
+ * @param data the full document's delta-encoded token quintuples.
+ * @param startLine the first line to include.
+ * @param endLine the last line to include.
+ * @returns the delta-encoded tokens of the requested lines.
+ */
+const sliceSemanticTokens = (data: number[], startLine: number, endLine: number): number[] => {
+    const out: number[] = [];
+    let line = 0;
+    let character = 0;
+    let previousLine = 0;
+    let previousCharacter = 0;
+    let first = true;
+    for (let i = 0; i + 4 < data.length; i += 5) {
+        line += data[i];
+        if (data[i] > 0) character = 0;
+        character += data[i + 1];
+        if (line < startLine) continue;
+        if (line > endLine) break;
+        if (first) {
+            out.push(line, character, data[i + 2], data[i + 3], data[i + 4]);
+            first = false;
+        } else {
+            out.push(
+                line - previousLine,
+                line === previousLine ? character - previousCharacter : character,
+                data[i + 2],
+                data[i + 3],
+                data[i + 4]
+            );
+        }
+        previousLine = line;
+        previousCharacter = character;
+    }
+    return out;
+};
+
+connection.languages.semanticTokens.on((params, cancellationToken): SemanticTokens => {
+    if (cancellationToken.isCancellationRequested) return { data: [] };
+    try {
+        const { resultId, data } = computeSemanticTokens(params.textDocument.uri);
+        return { resultId, data };
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages') console.error(e);
+        return { data: [] };
+    }
+});
+
+connection.languages.semanticTokens.onDelta((params, cancellationToken): SemanticTokens | SemanticTokensDelta => {
     if (cancellationToken.isCancellationRequested) return { data: [] };
     try {
         const uri = params.textDocument.uri;
-        const version = documents.get(uri)?.version;
-        const cached = semanticTokensCache.get(uri);
-        if (cached && version !== undefined && cached.version === version) return cached.tokens;
-        let tokens: { data: number[] };
-        // `.shader` files are HLSL, scanned lexically straight from text, no OT parse needed.
-        if (isShaderDocument(uri)) {
-            const document = documents.get(uri);
-            tokens = document ? buildShaderSemanticTokens(document.getText()) : { data: [] };
-        } else {
-            const parserResult = ensureParserResult(uri);
-            tokens = parserResult ? buildSemanticTokens(parserResult) : { data: [] };
+        // Snapshot the entry the client's `previousResultId` may name before computing the current
+        // version replaces it in the cache. When it is gone (document closed and reopened) or the
+        // id doesn't match, answer with a full result, which the delta response type allows.
+        const previous = semanticTokensCache.get(uri);
+        const current = computeSemanticTokens(uri);
+        if (!previous || previous.resultId !== params.previousResultId) {
+            return { resultId: current.resultId, data: current.data };
         }
-        if (version !== undefined) semanticTokensCache.set(uri, { version, tokens });
-        return tokens;
+        if (current.resultId === previous.resultId) return { resultId: current.resultId, edits: [] };
+        return { resultId: current.resultId, edits: semanticTokensEdits(previous.data, current.data) };
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages') console.error(e);
+        return { data: [] };
+    }
+});
+
+connection.languages.semanticTokens.onRange((params, cancellationToken): SemanticTokens => {
+    if (cancellationToken.isCancellationRequested) return { data: [] };
+    try {
+        const { data } = computeSemanticTokens(params.textDocument.uri);
+        return { data: sliceSemanticTokens(data, params.range.start.line, params.range.end.line) };
     } catch (e) {
         if (globalSettings.trace.server === 'messages') console.error(e);
         return { data: [] };

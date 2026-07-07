@@ -6,7 +6,7 @@ import { CancellationToken, Connection, WorkDoneProgressReporter } from 'vscode-
 import { lexer } from '../src/core/lexer/lexer';
 import { parser } from '../src/core/parser/parser';
 import { Validator, ValidationError } from '../src/features/diagnostics/validator';
-import { ValidationForValue } from '../src/features/diagnostics/validator.value';
+import { ValidationForIdentifier, ValidationForValue } from '../src/features/diagnostics/validator.value';
 import { ValidationForFunctionCall } from '../src/features/diagnostics/validator.functioncall';
 import { ValidationForAssignment } from '../src/features/diagnostics/validator.assignment';
 import { ValidationForMath } from '../src/features/diagnostics/validator.math';
@@ -104,6 +104,7 @@ describe.skipIf(!HAVE)('full validation scan over a local mod', () => {
         await ReverseIncludeIndex.instance.ensureBuilt([DATA_DIR, MOD_DIR], token);
 
         Validator.instance.registerValidation(ValidationForValue);
+        Validator.instance.registerValidation(ValidationForIdentifier);
         Validator.instance.registerValidation(ValidationForFunctionCall);
         Validator.instance.registerValidation(ValidationForAssignment);
         Validator.instance.registerValidation(ValidationForMath);

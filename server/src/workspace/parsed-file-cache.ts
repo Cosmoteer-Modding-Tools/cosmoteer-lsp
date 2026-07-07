@@ -1,5 +1,6 @@
 import { AbstractNodeDocument } from '../core/ast/ast';
 import { parseFile } from '../utils/ast.utils';
+import { recordNavigationDep } from '../utils/navigation-deps';
 import { FileWithPath } from './cosmoteer-workspace.service';
 
 // Navigation, inheritance resolution, and completion lazily parse game-tree files and pin the AST
@@ -32,6 +33,8 @@ const isEvictionExempt = (file: FileWithPath): boolean => file.path.toLowerCase(
  * @returns the file's parsed document.
  */
 export const getParsedFileDocument = async (file: FileWithPath): Promise<AbstractNodeDocument> => {
+    // A running navigation memoizes its result against the files it read, this read included.
+    recordNavigationDep(file.path);
     const existing = file.content.parsedDocument;
     if (existing) {
         pinned.delete(file);

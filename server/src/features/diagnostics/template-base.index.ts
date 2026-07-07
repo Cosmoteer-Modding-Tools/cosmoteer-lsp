@@ -116,14 +116,19 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
         this.bySource.delete(source);
     }
 
-    protected indexDocument(document: AbstractNodeDocument): void {
+    protected indexDocument(document: AbstractNodeDocument): boolean {
         const source = normalizeUri(document.uri);
-        this.removeSource(source);
+        const prior = this.bySource.get(source);
         const names = baseNamesOf(document);
-        if (!names.length) return;
+        const changed = prior
+            ? prior.length !== names.length || prior.some((name, index) => name !== names[index])
+            : names.length > 0;
+        this.removeSource(source);
+        if (!names.length) return changed;
         this.namesSnapshot = null;
         this.bySource.set(source, names);
         for (const name of names) this.counts.set(name, (this.counts.get(name) ?? 0) + 1);
+        return changed;
     }
 
     /** The set of names used as an inheritance base anywhere in the project, after refreshing the index. */

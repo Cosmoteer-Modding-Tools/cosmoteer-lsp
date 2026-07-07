@@ -143,13 +143,21 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
         this.bySource.delete(source);
     }
 
-    protected indexDocument(document: AbstractNodeDocument): void {
+    protected indexDocument(document: AbstractNodeDocument): boolean {
         const source = normalizeUri(document.uri);
+        const prior = this.bySource.get(source);
         this.bySource.delete(source);
-        if (!isStringsDocument(document)) return;
+        if (!isStringsDocument(document)) return prior !== undefined;
         const keys = new Map<string, string>();
         collectKeys(document, '', keys);
-        if (keys.size) this.bySource.set(source, { language: languageOf(document), keys });
+        const language = languageOf(document);
+        if (keys.size) this.bySource.set(source, { language, keys });
+        if (!prior) return keys.size > 0;
+        if (prior.language !== language || prior.keys.size !== keys.size) return true;
+        for (const [key, text] of keys) {
+            if (prior.keys.get(key) !== text) return true;
+        }
+        return false;
     }
 
     private async ensureBuilt(folderPaths: string[], cancellationToken: CancellationToken): Promise<void> {

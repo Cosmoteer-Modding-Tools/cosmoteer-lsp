@@ -196,6 +196,31 @@ describe('schemaFieldNameCompletions — field-NAME completion inside a typed gr
         expect(labels.length).toBeGreaterThan(20);
     });
 
+    it('excludes a bare valueless field (`FiringArc` on its own line) like an assigned one', async () => {
+        // Vanilla particle files write valueless members (`ScaleIn` with no `=`), which the game
+        // reads as present. They parse as lone identifiers, and must still count as present.
+        const src = SRC.replace('Type = TurretWeapon\n\t\t\t', 'Type = TurretWeapon\n\t\t\tFiringArc\n\t\t\t');
+        const offset = src.indexOf('\n', src.indexOf('FiringArc')) + 4; // blank line after the bare field
+        const doc = parse(src);
+        const labels = (await schemaFieldNameCompletions(doc, offset, token)).map((c) => (typeof c === 'string' ? c : c.label));
+        expect(labels).toContain('RotateSpeed');
+        expect(labels).not.toContain('FiringArc'); // present as a bare valueless member
+    });
+
+    it('omits positional digit fields (`0`/`1`) inside a Vector2-typed group', async () => {
+        // Vector2 (and Color, Rect, …) carry schema fields `0`/`1` so list-form `[7.2, 7.2]`
+        // elements type-resolve. Inside `{}` only the named components are useful suggestions.
+        const src =
+            'Part\n{\n\tComponents\n\t{\n\t\tDoor\n\t\t{\n\t\t\tType = Airlock\n\t\t\tEnterExitPoint\n\t\t\t{\n\t\t\t\t\n\t\t\t}\n\t\t}\n\t}\n}';
+        const offset = src.indexOf('\t\t\t\t\n') + 4; // inside the blank line of EnterExitPoint's body
+        const doc = parse(src);
+        const labels = (await schemaFieldNameCompletions(doc, offset, token)).map((c) => (typeof c === 'string' ? c : c.label));
+        expect(labels).toContain('X');
+        expect(labels).toContain('Y');
+        expect(labels).not.toContain('0');
+        expect(labels).not.toContain('1');
+    });
+
     it('attaches schema signature documentation to each field-name completion', async () => {
         const doc = parse(SRC);
         const items = (await schemaFieldNameCompletions(doc, gapOffset, token)).filter(
@@ -440,5 +465,75 @@ describe('collision disambiguation', () => {
         expect(heightMap).toContain('HeightMapLayer');
         expect(texture).toContain('TextureLayer');
         expect(heightMap).not.toBe(texture);
+    });
+});
+
+describe('schemaFieldNameCompletions — list-element positions (no outer-group leak)', () => {
+    const airlockList =
+        'Part\n{\n\tComponents\n\t{\n\t\tDoor\n\t\t{\n\t\t\tType = Airlock\n\t\t\tEnterExitPoint\n\t\t\t[\n\t\t\t\t\n\t\t\t]\n\t\t}\n\t}\n}';
+
+    it('offers no field names inside a group-typed field written in list form', async () => {
+        // Before the fix `findEnclosingGroup` skipped the list, so a cursor inside
+        // `EnterExitPoint [ ]` offered the Airlock component's own fields, scaffolding members the
+        // game never reads (the `Offset [Scale2In = offset]` trap in particle renderers).
+        const doc = parse(airlockList);
+        const offset = airlockList.indexOf('[\n\t\t\t\t') + '[\n\t\t\t\t'.length;
+        expect(await schemaFieldNameCompletions(doc, offset, token)).toEqual([]);
+    });
+
+    it('offers a `{ Type = … }` element scaffold inside a list of polymorphic groups', async () => {
+        const src =
+            'Part\n{\n\tComponents\n\t{\n\t\tRouter\n\t\t{\n\t\t\tType = NetworkRouter\n\t\t\tRouteGenerators\n\t\t\t[\n\t\t\t\t\n\t\t\t]\n\t\t}\n\t}\n}';
+        const doc = parse(src);
+        const offset = src.indexOf('[\n\t\t\t\t') + '[\n\t\t\t\t'.length;
+        const items = (await schemaFieldNameCompletions(doc, offset, token)).filter(
+            (c): c is Exclude<typeof c, string> => typeof c !== 'string'
+        );
+        expect(items).toHaveLength(1);
+        expect(items[0].label).toContain('IRouteGenerator');
+        expect(items[0].insertText).toBe('{\n\tType = $0\n}');
+        expect(items[0].isSnippet).toBe(true);
+    });
+
+    it('value completion inside brackets resolves against the list class, not the outer group', () => {
+        // `EntryToggle` is an Airlock reference field; the old outer-group resolution offered its
+        // sibling-component ids inside the brackets, where the game never reads the assignment.
+        const marker = 'EnterExitPoint [EntryToggle = ';
+        const src =
+            'Part\n{\n\tComponents\n\t{\n\t\tDoor\n\t\t{\n\t\t\tType = Airlock\n\t\t\t' + marker + '\n\t\t}\n\t}\n}';
+        const doc = parse(src);
+        const offset = src.indexOf(marker) + marker.length;
+        expect(schemaValueCompletionsAtOffset(doc, offset, '\t\t\t' + marker)).toEqual([]);
+    });
+});
+
+describe('value-form delegation — schema intelligence inside HitEffects-style lists', () => {
+    // StatusType.ApplicationEffects is group-typed (MultiHitEffectRules) but its value form
+    // delegates to an effect array, so the list spelling carries typed polymorphic elements.
+    const status = (body: string) =>
+        parseUri(
+            `ID = cosmoteer.test\nLayer = Part\nStatusCombineMode = ApplyNewInstance\n${body}\n`,
+            'file:///c%3A/mod/statuses/test.rules'
+        );
+
+    it('offers a `{ Type = … }` element scaffold inside the list', async () => {
+        const body = 'ApplicationEffects\n[\n\t\n]';
+        const doc = status(body);
+        const src = `ID = cosmoteer.test\nLayer = Part\nStatusCombineMode = ApplyNewInstance\n${body}\n`;
+        const offset = src.indexOf('[\n\t') + '[\n\t'.length;
+        const items = (await schemaFieldNameCompletions(doc, offset, token)).filter(
+            (c): c is Exclude<typeof c, string> => typeof c !== 'string'
+        );
+        expect(items).toHaveLength(1);
+        expect(items[0].label).toContain('HitEffectRules');
+        expect(items[0].insertText).toBe('{\n\tType = $0\n}');
+    });
+
+    it('completes the element Type= with the hit-effect discriminators', async () => {
+        const doc = status('ApplicationEffects\n[\n\t{\n\t\tType = x\n\t}\n]');
+        const type = doc.elements.map((n) => findValue(n, 'Type')).find(Boolean);
+        const result = await labels(type);
+        expect(result).toContain('Damage');
+        expect(result).toContain('ExplosiveDamage');
     });
 });

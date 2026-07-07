@@ -8,6 +8,7 @@ import * as l10n from '@vscode/l10n';
 import * as path from 'path';
 import { globalSettings } from '../settings';
 import Registry from 'winreg';
+import { defaultSteamInstallPaths, findCosmoteerDataPath } from './steam-library';
 
 /**
  * Normalize a user-supplied game path to its `Data` root: a path ending in `Data`, `Cosmoteer`, or
@@ -142,7 +143,7 @@ export class CosmoteerWorkspaceService {
 
     public async initializeWithoutPath(workDoneProgress: WorkDoneProgressReporter): Promise<boolean> {
         workDoneProgress.begin('Initializing workspace', 0, 'Initializing workspace', false);
-        const cosmoteerPath = await this.getCosmoteerPathFromRegistry();
+        const cosmoteerPath = await this.detectCosmoteerPath();
         if (!cosmoteerPath) {
             this._connection.window.showWarningMessage(
                 l10n.t('Could not find Cosmoteer installation automatically, please set the path manually')
@@ -153,25 +154,40 @@ export class CosmoteerWorkspaceService {
         workDoneProgress.report(50, 'Found Cosmoteer installation');
         globalSettings.cosmoteerPath = cosmoteerPath;
         await this.initialize(cosmoteerPath, workDoneProgress);
-        return true;
+        return this.isInitalized;
     }
 
-    private async getCosmoteerPathFromRegistry(): Promise<string | undefined> {
+    /**
+     * Auto-detects the Cosmoteer `Data` directory. Resolves the Steam client install dir first,
+     * from the registry on Windows and from the known install locations on Linux and macOS, then
+     * searches every Steam library folder (the game is often installed on a different drive than
+     * the client) and only returns a path that exists on disk.
+     *
+     * @returns the verified Cosmoteer `Data` path, or `undefined` when detection fails.
+     */
+    private async detectCosmoteerPath(): Promise<string | undefined> {
+        for (const steamInstallPath of await this.getSteamInstallPaths()) {
+            const dataPath = await findCosmoteerDataPath(steamInstallPath);
+            if (dataPath) return dataPath;
+        }
+        return undefined;
+    }
+
+    /**
+     * Resolves the Steam client install dir candidates for the current platform. On Windows this
+     * is the registry's `InstallPath` value, elsewhere the conventional install locations.
+     *
+     * @returns the candidate Steam client dirs, empty when none could be resolved.
+     */
+    private async getSteamInstallPaths(): Promise<string[]> {
+        if (process.platform !== 'win32') return defaultSteamInstallPaths();
         const reg = new Registry({
             hive: Registry.HKLM,
             key: '\\SOFTWARE\\WOW6432Node\\Valve\\Steam',
         });
-        return new Promise<string | undefined>((resolve, reject) => {
+        return new Promise<string[]>((resolve) => {
             reg.get('InstallPath', (err, item) => {
-                if (err) {
-                    this._connection.window.showWarningMessage(
-                        l10n.t('Could not find Cosmoteer installation, please set the path manually')
-                    );
-                    reject(err);
-                    return;
-                }
-                const cosmoteerPath = path.join(item.value, '\\steamapps\\common\\Cosmoteer\\Data');
-                resolve(cosmoteerPath);
+                resolve(err ? [] : [item.value]);
             });
         });
     }
@@ -187,20 +203,30 @@ export class CosmoteerWorkspaceService {
             return;
         }
         cosmoteerWorkspacePath = dataRoot;
-        const dirents = await this.iterateFiles(cosmoteerWorkspacePath);
-        this._fileWorkspaceTree = {
-            type: 'Dir',
-            name: 'Data',
-            path: cosmoteerWorkspacePath,
-            children: [],
-        };
+        try {
+            const dirents = await this.iterateFiles(cosmoteerWorkspacePath);
+            this._fileWorkspaceTree = {
+                type: 'Dir',
+                name: 'Data',
+                path: cosmoteerWorkspacePath,
+                children: [],
+            };
 
-        await this.buildFileStructure(this._fileWorkspaceTree, dirents);
-        if (this._fileWorkspaceTree.children && this._fileWorkspaceTree.children.length > 0) {
-            this.isInitalized = true;
-            this._connection.languages.diagnostics.refresh();
+            await this.buildFileStructure(this._fileWorkspaceTree, dirents);
+            if (this._fileWorkspaceTree.children && this._fileWorkspaceTree.children.length > 0) {
+                this.isInitalized = true;
+                this._connection.languages.diagnostics.refresh();
+            }
+        } catch {
+            this._connection?.window?.showWarningMessage(
+                l10n.t(
+                    'Could not read the Cosmoteer installation at {0}, please set the path manually',
+                    cosmoteerWorkspacePath
+                )
+            );
+        } finally {
+            workDoneProgress.done();
         }
-        workDoneProgress.done();
     }
 
     private iterateFiles = (workspacePath: string) => {

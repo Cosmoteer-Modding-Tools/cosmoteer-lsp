@@ -12,6 +12,36 @@ The extension detects the Cosmoteer installation automatically. If that fails, s
 
 Completion entries provided by this extension carry the language-server icon; plain `abc` entries are VS Code's own word-based suggestions. Trigger completion with `Ctrl+Space` (default keybinding).
 
+## Recommended VS Code settings
+
+The extension works out of the box, but a few VS Code settings gate whole feature groups. If something from the feature list below seems missing, check these first:
+
+```jsonc
+{
+    // Inlay hints: computed math results and percentage values shown inline.
+    // If this is "off" you see no inline hints at all; "offUnlessPressed" shows
+    // them only while holding Ctrl+Alt.
+    "editor.inlayHints.enabled": "on",
+
+    // CodeLens: the "Preview Shader" and "Mod Overview" links above the code.
+    "editor.codeLens": true,
+
+    // Semantic highlighting: the parse-aware coloring of references, enums,
+    // math functions and field names. The default "configuredByTheme" lets some
+    // themes turn it off silently.
+    "editor.semanticHighlighting.enabled": true,
+
+    // Suggestions while typing inside quoted strings (asset paths and
+    // localization keys). Without this, completion inside a string only appears
+    // after a trigger character like "/" or via Ctrl+Space.
+    "editor.quickSuggestions": {
+        "strings": "on"
+    }
+}
+```
+
+All values except `editor.quickSuggestions.strings` are the VS Code defaults, so this matters mostly when a personal profile or another extension changed them.
+
 ## Settings
 
 All settings live under the `cosmoteerLSPRules.` prefix.

@@ -3,6 +3,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { validateSchema } from '../../../src/features/diagnostics/validator.schema';
+import { fieldOf, schema } from '../../../src/document/schema/schema';
 
 const token = CancellationToken.None;
 const parse = (src: string, uri = 'file:///t.rules') => parser(lexer(src), uri).value;
@@ -53,6 +54,92 @@ describe('validateSchema — invalid enum values', () => {
     it('ignores mod.rules documents', async () => {
         const doc = parse(wrap('\t\t\tMode = Nonsense'), 'file:///mod.rules');
         expect(await validateSchema(doc, token)).toHaveLength(0);
+    });
+});
+
+const comp = (type: string, body: string) =>
+    `Part\n{\n\tComponents\n\t{\n\t\tX\n\t\t{\n\t\t\tType = ${type}\n${body}\n\t\t}\n\t}\n}`;
+
+describe('validateSchema — bare valueless fields (void = null)', () => {
+    it('flags a bare field whose C# type is a non-nullable value type (bool)', async () => {
+        const errors = await validateSchema(parse(comp('MultiToggle', '\t\t\tInvert')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('no value');
+        expect(errors[0].severity).toBe('warning');
+    });
+
+    it('flags a bare non-nullable struct group field (Vector2)', async () => {
+        const errors = await validateSchema(parse(comp('Airlock', '\t\t\tEnterExitPoint')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('EnterExitPoint');
+    });
+
+    it('accepts a bare field whose type tolerates null (nullable member)', async () => {
+        expect(await validateSchema(parse(comp('TurretWeapon', '\t\t\tFiringArc')), token)).toHaveLength(0);
+    });
+
+    it('stays silent for a bare name the schema does not know', async () => {
+        expect(await validateSchema(parse(comp('MultiToggle', '\t\t\tNotAField')), token)).toHaveLength(0);
+    });
+});
+
+describe('validateSchema — positional elements of a group-typed field in list form', () => {
+    it('flags a fractional element in an IntVector2 written as a list', async () => {
+        const errors = await validateSchema(parse(comp('DoorPresenceToggle', '\t\t\tAdjacentCell = [1.5, 2]')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('whole number');
+    });
+
+    it('checks the identifier-list spelling the same way', async () => {
+        const errors = await validateSchema(
+            parse(comp('DoorPresenceToggle', '\t\t\tAdjacentCell\n\t\t\t[\n\t\t\t\t1.5\n\t\t\t\t2\n\t\t\t]')),
+            token
+        );
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('whole number');
+    });
+
+    it('accepts whole-number elements', async () => {
+        expect(
+            await validateSchema(parse(comp('DoorPresenceToggle', '\t\t\tAdjacentCell = [1, 2]')), token)
+        ).toHaveLength(0);
+    });
+
+    it('leaves float components (Vector2) alone', async () => {
+        expect(await validateSchema(parse(comp('Airlock', '\t\t\tEnterExitPoint = [1.5, 2]')), token)).toHaveLength(0);
+    });
+
+    // `EditorParentParts` is a `list<EditorParentPart>` whose entries are positional lists
+    // (`[part, sortOrder]`), so the sort order reads through the entry class's int digit field `"1"`.
+    it('checks positional entries of a list<group> field (EditorParentParts sort order)', async () => {
+        const errors = await validateSchema(parse('Part\n{\n\tEditorParentParts = [ [other_part, 1.5] ]\n}'), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('whole number');
+        expect(await validateSchema(parse('Part\n{\n\tEditorParentParts = [ [other_part, 1] ]\n}'), token)).toHaveLength(0);
+    });
+
+    // An inheriting list appends its local elements after the inherited ones, so local index 0 is
+    // not game index 0 and the check must stay silent rather than guess.
+    it('skips an inheriting positional list (indexes are shifted by the base)', async () => {
+        const src = comp('DoorPresenceToggle', '\t\t\tAdjacentCell : ../SomeBase\n\t\t\t[\n\t\t\t\t1.5\n\t\t\t]');
+        expect(await validateSchema(parse(src), token)).toHaveLength(0);
+    });
+
+    it('flags extra elements beyond the class’s digit fields as never read (not as fractions)', async () => {
+        const src = comp('DoorPresenceToggle', '\t\t\tAdjacentCell = [1, 2, 3.5]');
+        const errors = await validateSchema(parse(src), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('never reads');
+        expect(errors[0].message).not.toContain('whole number');
+    });
+
+    it('leaves percentages and unresolvable references alone', async () => {
+        expect(
+            await validateSchema(parse(comp('DoorPresenceToggle', '\t\t\tAdjacentCell = [50%, 2]')), token)
+        ).toHaveLength(0);
+        expect(
+            await validateSchema(parse(comp('DoorPresenceToggle', '\t\t\tAdjacentCell = [&/UNKNOWN/REF, 2]')), token)
+        ).toHaveLength(0);
     });
 });
 
@@ -309,7 +396,213 @@ describe('validateSchema — whole-file-root top-level Type=', () => {
     });
 
     it('does not flag an effect file living under /doodads/ (content pins MediaEffect, not DoodadRules)', async () => {
-        const doc = parse('Type = Particles\nDef = "x"\nBucket = Normal\n', 'file:///c%3A/mod/doodads/particles/p.rules');
+        // Def is written in its real group form: a scalar there would now (correctly) trip the
+        // structural form check, and this test is about root disambiguation only.
+        const doc = parse(
+            'Type = Particles\nDef\n{\n}\nBucket = Normal\n',
+            'file:///c%3A/mod/doodads/particles/p.rules'
+        );
         expect(await validateSchema(doc, token)).toHaveLength(0);
+    });
+});
+
+describe('validateSchema — named members inside a group-typed list form', () => {
+    // EnterExitPoint/UITileRect are group-typed (Vector2/Rect) fields of the Airlock component, so a
+    // list value reads through the class's digit or member names; anything else is silently dead.
+    const airlock = (body: string) => comp('Airlock', body);
+
+    it('flags a field of the enclosing group written inside the brackets (identified-list spelling)', async () => {
+        // The real-world trap this guards: `Offset [Scale2In = offset]` in a particle renderer,
+        // where the channel binding belongs one level up and the game never reads it.
+        const errors = await validateSchema(parse(airlock('\t\t\tEnterExitPoint [EntryToggle = x]')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('EntryToggle');
+        expect(errors[0].message).toContain('Vector2');
+        expect(errors[0].message).toContain('outside');
+        expect(errors[0].message).toContain('EnterExitPoint');
+        expect(errors[0].severity).toBe('warning');
+    });
+
+    it('flags the assignment spelling (`Field = [ … ]`) the same way', async () => {
+        const errors = await validateSchema(parse(airlock('\t\t\tEnterExitPoint = [EntryToggle = x]')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('outside');
+    });
+
+    it('attaches a did-you-mean quick-fix for a near-miss member name', async () => {
+        const errors = await validateSchema(parse(airlock('\t\t\tUITileRect [Widht = 1]')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].data?.quickFix?.newText).toBe('Width');
+    });
+
+    it('accepts positional elements and the class’s own members written by name', async () => {
+        expect(await validateSchema(parse(airlock('\t\t\tEnterExitPoint [0.5, 1]')), token)).toHaveLength(0);
+        expect(await validateSchema(parse(airlock('\t\t\tEnterExitPoint [X = 0.5, Y = 1]')), token)).toHaveLength(0);
+    });
+
+    it('stays silent when the field itself is unknown to the schema', async () => {
+        expect(await validateSchema(parse(airlock('\t\t\tNotAField [Whatever = 1]')), token)).toHaveLength(0);
+    });
+});
+
+describe('validateSchema — extra positional elements in a group-typed list form', () => {
+    const airlock = (body: string) => comp('Airlock', body);
+
+    it('flags every element past the class digit fields (Vector2 reads two)', async () => {
+        const errors = await validateSchema(
+            parse(airlock('\t\t\tEnterExitPoint [0, 1, 2, 3, 4, 5, 6, 7]')),
+            token
+        );
+        expect(errors).toHaveLength(6);
+        expect(errors[0].message).toContain('Vector2');
+        expect(errors[0].message).toContain('first 2');
+        expect(errors[0].severity).toBe('warning');
+    });
+
+    it('accepts a list that exactly fills the digit fields (Rect reads four)', async () => {
+        expect(await validateSchema(parse(airlock('\t\t\tUITileRect [1, 2, 3, 4]')), token)).toHaveLength(0);
+        expect(await validateSchema(parse(airlock('\t\t\tUITileRect [1, 2, 3, 4, 5]')), token)).toHaveLength(1);
+    });
+
+    it('stays silent on an inheriting list, whose local indices are not the game indices', async () => {
+        const doc = parse(airlock('\t\t\tBase = [1, 2]\n\t\t\tEnterExitPoint : ~/Base [3, 4, 5]'));
+        const errors = await validateSchema(doc, token);
+        expect(errors.filter((e) => e.message.includes('list elements'))).toHaveLength(0);
+    });
+});
+
+describe('validateSchema — structural form mismatches (value shape the deserializer never reads)', () => {
+    const airlock = (body: string) => comp('Airlock', body);
+
+    it('flags a list written into a bool field', async () => {
+        const errors = await validateSchema(parse(comp('MultiToggle', '\t\t\tInvert = [true]')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('cannot read a list');
+        expect(errors[0].severity).toBe('warning');
+    });
+
+    it('flags a list written into a string field, in the identified-list spelling too', async () => {
+        const errors = await validateSchema(parse('Part\n{\n\tID [a, b]\n}'), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('cannot read a list');
+    });
+
+    it('flags a list written into a reference field', async () => {
+        const errors = await validateSchema(parse(airlock('\t\t\tEntryToggle = [a, b]')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('cannot read a list');
+    });
+
+    it('flags a group written into a plain float field', async () => {
+        const errors = await validateSchema(
+            parse(airlock('\t\t\tUITileRect\n\t\t\t{\n\t\t\t\tWidth\n\t\t\t\t{\n\t\t\t\t}\n\t\t\t}')),
+            token
+        );
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('cannot read a group');
+    });
+
+    it('accepts a Modifiable scalar written in its group form', async () => {
+        const src = `Part\n{\n\tComponents\n\t{\n\t\tT\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t\tTargetingRange\n\t\t\t{\n\t\t\t\tBaseValue = 5\n\t\t\t}\n\t\t}\n\t}\n}`;
+        expect(await validateSchema(parse(src), token)).toHaveLength(0);
+    });
+
+    it('accepts enum lists (flags enums) and map entry lists, which the game reads', async () => {
+        expect(await validateSchema(parse('Part\n{\n\tExternalWalls = [Left, Right]\n}'), token)).toHaveLength(0);
+        expect(
+            await validateSchema(parse('Part\n{\n\tExternalWallsByCell\n\t[\n\t\t[0, 0]\n\t]\n}'), token)
+        ).toHaveLength(0);
+    });
+
+    it('flags the extra endpoint of a range written with three elements', async () => {
+        const errors = await validateSchema(parse(airlock('\t\t\tNuggetEjectVelocity = [1, 2, 3]')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('only 2');
+    });
+
+    it('leaves a range with a math element alone (parser sees more elements than the game)', async () => {
+        expect(
+            await validateSchema(parse(airlock('\t\t\tNuggetEjectVelocity = [1, (7 / 2), 3]')), token)
+        ).toHaveLength(0);
+    });
+});
+
+describe('validateSchema — scalar written into a group-typed field', () => {
+    const airlock = (body: string) => comp('Airlock', body);
+
+    it('flags a plain value on a group field without a scalar form (Vector2)', async () => {
+        const errors = await validateSchema(parse(airlock('\t\t\tEnterExitPoint = 5')), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('cannot read a plain value');
+        expect(errors[0].severity).toBe('warning');
+    });
+
+    it('flags a plain value on a map field', async () => {
+        const errors = await validateSchema(parse('Part\n{\n\tExternalWallsByCell = 5\n}'), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('cannot read a plain value');
+    });
+
+    it('accepts the harvested scalar-form classes (Time reads plain seconds)', async () => {
+        expect(
+            await validateSchema(parse(airlock('\t\t\tNuggetEjectDoorOpenDuration = 0.5')), token)
+        ).toHaveLength(0);
+    });
+
+    it('accepts a reference value on any group field', async () => {
+        expect(await validateSchema(parse(airlock('\t\t\tEnterExitPoint = &SomeRef')), token)).toHaveLength(0);
+    });
+});
+
+describe('validateSchema — engine value forms extracted by schemagen', () => {
+    it('flags any scalar on a plain Rect field (anchor presets are a per-field override, not a Rect form)', async () => {
+        // AnchorPresets.Serializer is attached via [Serialize(OverrideDeserializer = …)] on
+        // Widget.AnchorRect only, so a preset name on any other Rect field throws in game.
+        expect(await validateSchema(parse(comp('Airlock', '\t\t\tUITileRect = TopLeft')), token)).toHaveLength(1);
+        expect(await validateSchema(parse(comp('Airlock', '\t\t\tUITileRect = 5')), token)).toHaveLength(1);
+    });
+
+    it('carries the field-level preset form on Widget.AnchorRect in the schema', () => {
+        expect(fieldOf('Halfling.Gui.Widget', 'AnchorRect')?.scalarStringForm).toBe(true);
+    });
+
+    it('accepts the list spelling of a list-delegating value form and still flags its scalar', async () => {
+        // StatusType.ApplicationEffects is a MultiHitEffectRules, whose [Serialize(Alias = "")]
+        // member is an effect array: the list spelling is read directly (its members are not the
+        // class's fields), while a plain scalar still has nothing to bind to.
+        const status = (body: string) =>
+            parse(`ID = cosmoteer.test\nLayer = Part\nStatusCombineMode = ApplyNewInstance\n${body}\n`, 'file:///c%3A/mod/statuses/test.rules');
+        expect(await validateSchema(status('ApplicationEffects [ Foo = 1 ]'), token)).toHaveLength(0);
+        const errors = await validateSchema(status('ApplicationEffects = 5'), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('cannot read a plain value');
+    });
+
+    it('flags a scalar on a group-delegating value form (a proxy reads only a ProxyRules group)', () => {
+        // PartChainableProxyRules delegates its value form to the group-only ProxyRules, so the
+        // scalar resolution must follow the delegation and still refuse.
+        expect(schema.types['Cosmoteer.Ships.Parts.Logic.PartChainableProxyRules']?.valueForm?.kind).toBe('group');
+        expect(schema.types['Cosmoteer.Ships.ShipFile']?.valueForm?.kind).toBe('string');
+    });
+});
+
+describe('validateSchema — value-form list elements resolve their registry', () => {
+    const status = (body: string) =>
+        parse(
+            `ID = cosmoteer.test\nLayer = Part\nStatusCombineMode = ApplyNewInstance\n${body}\n`,
+            'file:///c%3A/mod/statuses/test.rules'
+        );
+
+    it('flags an invalid Type inside a delegated effect list', async () => {
+        const errors = await validateSchema(status('ApplicationEffects\n[\n\t{\n\t\tType = Nonsense\n\t}\n]'), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('Nonsense');
+        expect(errors[0].message).toContain('HitEffectRules');
+    });
+
+    it('accepts a valid element type', async () => {
+        expect(
+            await validateSchema(status('ApplicationEffects\n[\n\t{\n\t\tType = ExplosiveDamage\n\t}\n]'), token)
+        ).toHaveLength(0);
     });
 });

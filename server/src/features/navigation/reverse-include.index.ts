@@ -365,7 +365,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
      * @param document the including document to index.
      * @param cancellationToken cancels the slow-path navigation used for game-root and overlay includes.
      */
-    protected async indexDocument(document: AbstractNodeDocument, cancellationToken: CancellationToken): Promise<void> {
+    protected async indexDocument(document: AbstractNodeDocument, cancellationToken: CancellationToken): Promise<boolean> {
         const source = normalizeUri(document.uri);
         const previousSignature = this.sourceSignatures.get(source) ?? '';
         this.removeSource(source);
@@ -384,6 +384,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             .join('\n');
         if (signature !== previousSignature) this.changedSinceLastPass = true;
         if (signature) this.sourceSignatures.set(source, signature);
+        return signature !== previousSignature;
     }
 
     /**

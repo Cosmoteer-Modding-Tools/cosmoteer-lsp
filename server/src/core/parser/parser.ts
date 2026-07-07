@@ -50,6 +50,18 @@ const TOKEN_DISPLAY: Partial<Record<TOKEN_TYPES, string>> = {
  */
 const tokenDisplayText = (token: Token): string => token.value ?? TOKEN_DISPLAY[token.type] ?? token.type;
 
+/**
+ * True when an identifier read in `parent` is a list element. The game never names list
+ * children: an identifier there is its own element (a text value, or a reference node for
+ * `&…`), and a following `{`/`[`/`:` opens a separate anonymous element. The parser must
+ * therefore neither turn a list identifier into the head of the next container nor let that
+ * container pick it up as its name.
+ *
+ * @param parent the container the identifier was read in.
+ * @returns whether identifiers in this container stand alone.
+ */
+const isListElementIdentifier = (parent: AbstractNode | undefined): boolean => parent?.type === 'List';
+
 export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => {
     let current = 0;
     const errors: ParserError[] = [];
@@ -78,7 +90,13 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             const node: GroupNode = {
                 type: 'Group',
                 elements: [],
-                identifier: _lastNode ? (isIdentifierNode(_lastNode) ? _lastNode : undefined) : undefined,
+                // An identifier element in a list never names the container that follows it
+                // (the game keeps it a standalone element and the body opens a separate
+                // anonymous element), so it must not be consumed as this group's identifier.
+                identifier:
+                    _lastNode && isIdentifierNode(_lastNode) && !isListElementIdentifier(parent)
+                        ? _lastNode
+                        : undefined,
                 parent,
                 position: {
                     line: token.lineNumber,
@@ -141,7 +159,10 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             const node = {
                 type: 'List',
                 parent,
-                identifier: _lastNode ? (isIdentifierNode(_lastNode) ? _lastNode : undefined) : undefined,
+                identifier:
+                    _lastNode && isIdentifierNode(_lastNode) && !isListElementIdentifier(parent)
+                        ? _lastNode
+                        : undefined,
                 elements: [],
                 position: {
                     line: token.lineNumber,
@@ -167,6 +188,11 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 lastNode = nextNode;
                 node.elements.push(nextNode);
                 if (tokens[current]?.type === TOKEN_TYPES.COMMA || tokens[current]?.type === TOKEN_TYPES.SEMICOLON) {
+                    // Record the terminator on the element: a separated name before a `{`/`[` body
+                    // is two legal elements, only an unseparated one merges into the body's line.
+                    if (isValueNode(nextNode) || isIdentifierNode(nextNode)) {
+                        nextNode.delimiter = tokens[current].type === TOKEN_TYPES.COMMA ? ',' : ';';
+                    }
                     current++;
                     // A comma/semicolon ends the entry, so the next element starts fresh. Clearing
                     // `lastNode` lets a leading `-N` read as a negative literal (`[0, -1]` is the pair
@@ -524,11 +550,11 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                             valueType: inferValueType(IS_NUMBER, currentToken),
                             parent,
                             position: {
-                                characterEnd: token.lineOffset + (tokens[current].value as string).length,
-                                characterStart: token.lineOffset,
-                                end: tokens[current].end ?? 0,
-                                line: token.lineNumber,
-                                start: tokens[current].start,
+                                characterEnd: currentToken.lineOffset + (currentToken.value as string).length,
+                                characterStart: currentToken.lineOffset,
+                                end: currentToken.end ?? 0,
+                                line: currentToken.lineNumber,
+                                start: currentToken.start,
                             },
                         });
                         current++;
@@ -837,11 +863,35 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                         start: token.start,
                     },
                 } as IdentifierNode;
+                // The game accepts a bare `&…` reference only as a list element or a field
+                // value. In group or document position it throws `Unexpected "&"` and the whole
+                // file fails to load (verified against Halfling.ObjectText), so report it as a
+                // parse error while keeping the node for navigation.
+                if (typeof token.value === 'string' && token.value.startsWith('&') && parent?.type !== 'List') {
+                    errors.push({
+                        message: l10n.t('The game cannot read a standalone reference here'),
+                        token,
+                        additionalInfo: [
+                            {
+                                message: l10n.t(
+                                    'A bare reference is only allowed as a list element or as a field value (Field = &/Path). The game fails to load the whole file on this.'
+                                ),
+                            },
+                        ],
+                    } as ParserError);
+                }
                 if (
                     tokens[current]?.type === TOKEN_TYPES.LEFT_BRACE ||
                     tokens[current]?.type === TOKEN_TYPES.LEFT_BRACKET ||
                     tokens[current]?.type === TOKEN_TYPES.COLON
                 ) {
+                    // Inside a list the game never attaches a following `{`/`[`/`:` to an
+                    // identifier element (verified against Halfling.ObjectText: the identifier
+                    // stays its own element and the `{`/`:` opens a separate anonymous element),
+                    // so keep it standalone instead of making it a head.
+                    if (isListElementIdentifier(parent)) {
+                        return node;
+                    }
                     return walk(node, parent);
                 }
             }

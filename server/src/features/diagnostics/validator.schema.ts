@@ -6,9 +6,11 @@ import {
     isDocumentNode,
     isFunctionCallNode,
     isGroupNode,
+    isIdentifierNode,
     isListNode,
     isMathExpressionNode,
     isValueNode,
+    ListNode,
     ValueNode,
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
@@ -19,9 +21,16 @@ import {
     resolveGroupClass,
 } from '../../document/schema/schema-context';
 import { documentRootClass, documentRootRegistry } from '../../document/schema/document-root';
-import { discriminatorIsAmbiguous, enumDef, fieldOf, schema, valueTypeLabel } from '../../document/schema/schema';
+import {
+    discriminatorIsAmbiguous,
+    enumDef,
+    fieldOf,
+    fieldsOf,
+    schema,
+    valueTypeLabel,
+} from '../../document/schema/schema';
 import { deprecatedDiscriminator } from '../../document/schema/deprecations';
-import { SchemaRegistry, ValueType } from '../../document/schema/schema.types';
+import { SchemaField, SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { GroupNode } from '../../core/ast/ast';
 import { ValidationError } from './validator';
 import { closestMatch } from '../../utils/did-you-mean';
@@ -61,6 +70,38 @@ const NUMERIC_LITERAL_WORDS = new Set(['e', 'pi', 'true', 'false', 'infinity', '
 // primitives with their custom name-accepting deserializers.
 const TEXTUAL_KINDS = new Set(['string', 'enum', 'bool', 'reference']);
 
+// The container kinds a `valueForm` delegation cannot read a scalar through.
+const CONTAINER_KINDS = new Set(['group', 'polymorphicGroup', 'map', 'list', 'range', 'interpolated', 'tuple']);
+
+// Whether a group-kind class reads a plain scalar value: its own deserialization hook
+// (`scalarForm`), a name-lookup wrapper (`scalarStringForm`, strings only), or its
+// `[Serialize(Alias = "")]` value-form delegation when the delegated kind is itself scalar,
+// followed through group delegations (a proxy delegates to the group-only ProxyRules and stays
+// flagged). All three flags are extracted from the engine's own deserializers by schemagen, so a
+// game update refreshes them through the normal schema regeneration. Polymorphic registries are
+// exempt in {@link checkValueForm} itself (their `valueField` mechanism gives every registry a
+// legal scalar shorthand, `ValueCombiner = Add`).
+const classReadsScalar = (classRef: string, isString: boolean, depth = 0): boolean => {
+    const def = schema.types[classRef];
+    if (!def || depth > 4) return false;
+    if (def.scalarForm) return true;
+    if (def.scalarStringForm && isString) return true;
+    const form = def.valueForm;
+    if (!form) return false;
+    if (form.kind === 'group') return classReadsScalar(form.ref, isString, depth + 1);
+    return !CONTAINER_KINDS.has(form.kind);
+};
+
+// Whether a group-kind class legally reads a list value through its value-form delegation
+// (`MultiHitEffectRules` binds a `HitEffectRules[]` member to the node itself), which makes its
+// list spelling something the game reads rather than a positional group form to second-guess.
+const classReadsList = (classRef: string, depth = 0): boolean => {
+    const form = schema.types[classRef]?.valueForm;
+    if (!form || depth > 4) return false;
+    if (form.kind === 'group') return classReadsList(form.ref, depth + 1);
+    return form.kind === 'list' || form.kind === 'range' || form.kind === 'interpolated';
+};
+
 /**
  * Whether a value type requires a whole number: a CLR `int` primitive (`int` kind), or a
  * `ModifiableInt` engine scalar (`number` kind). These are the only schema types where a fractional
@@ -82,9 +123,11 @@ const requiresWholeNumber = (valueType: ValueType): boolean =>
  *   - an invalid `Type=` **discriminator** against the registry inferred for the group,
  *   - a bare **non-numeric word** in a confirmed numeric-scalar field,
  *   - a value in an **integer-only** field (scalar or a `Range<int>` endpoint) that resolves
- *     (through references and math) to a fraction, and
+ *     (through references and math) to a fraction,
  *   - **math in a textual field** (string/enum/bool/reference), where the game reads the
- *     expression as literal text instead of evaluating it.
+ *     expression as literal text instead of evaluating it, and
+ *   - a **named member inside a group-typed field's list form** that the class does not own
+ *     (`Offset [Scale2In = offset]` on a renderer), which the game silently never reads.
  *
  * Range ordering is intentionally never checked: `Range<T>` endpoints are From→To interpolation
  * bounds, not min/max, and vanilla ships many descending pairs, so a `min>max` check is unsafe.
@@ -104,6 +147,25 @@ export const validateSchema = async (
     const checkEnums = (container: { elements: AbstractNode[] }, cls: string): void => {
         typedContainers.push({ container, cls });
         for (const element of container.elements) {
+            // A bare valueless field (`ScaleIn` alone on a line) deserializes as null, which the
+            // game only tolerates for nullable member types. On a non-nullable one it throws a
+            // DeserializeException at load. Only flagged when the schema knows the field is
+            // non-nullable, so partially-modelled classes stay silent.
+            if (isIdentifierNode(element)) {
+                const field = fieldOf(cls, element.name);
+                if (field?.nullable === false) {
+                    errors.push({
+                        message: l10n.t(
+                            "'{0}' has no value. The game reads a valueless field as null and fails to load it into a non-nullable {1}.",
+                            element.name,
+                            valueTypeLabel(field.valueType)
+                        ),
+                        node: element,
+                        severity: 'warning',
+                    });
+                }
+                continue;
+            }
             if (!isAssignmentNode(element)) continue;
             const value = element.right;
             if (!isValueNode(value) || value.valueType.type !== 'String') continue;
@@ -265,11 +327,18 @@ export const validateSchema = async (
             // container's field type). Only skip when the discriminator is ambiguous and the
             // container gives no hint, where we can't trust the class, so we'd risk a false positive.
             const disc = groupDiscriminator(node);
-            const unresolvableAmbiguity = disc && discriminatorIsAmbiguous(disc) && !registryHintFromContainer(node);
+            const slotRegistry = registryHintFromContainer(node);
+            const unresolvableAmbiguity = disc && discriminatorIsAmbiguous(disc) && !slotRegistry;
             const cls = unresolvableAmbiguity ? undefined : resolveGroupClass(node);
             if (cls) checkEnums(node, cls);
-            // A `Type=` that resolves to no class (typo) is caught here against the inferred registry.
-            if (disc && !cls) checkDiscriminator(node);
+            // A `Type=` that resolves to no class (typo) is caught here against the inferred
+            // registry. A polymorphic slot needs one more case: it resolves the group to the
+            // registry base itself when the discriminator matches no member (that fallback keeps
+            // the base's fields working), so a slot-typed group whose class is exactly that
+            // fallback validates its discriminator too. A concrete resolution (including the
+            // sector spawners whose `Type = Doodads` dispatches beyond the slot registry's own
+            // member map) is proof the game reads it and stays silent.
+            if (disc && (!cls || cls === slotRegistry)) checkDiscriminator(node);
         }
         const children: AbstractNode[] =
             isGroupNode(node) || isListNode(node) || isDocumentNode(node)
@@ -310,6 +379,130 @@ export const validateSchema = async (
         }
     };
 
+    // A group-typed field written in its positional list form (`GridSize = [1, 2]`): the game
+    // deserializer reads element N through the class's digit field `"N"` (the same fallback that
+    // makes `[7.2, 7.2]` a legal Vector2), so an integer-constrained component (IntVector2,
+    // IntRect, …) is checked exactly like its group-form counterpart. Classes without digit
+    // fields simply have no positional field to check against.
+    const checkPositionalElements = async (list: ListNode, classRef: string): Promise<void> => {
+        // An inheriting list (`X : base [ … ]`) appends its local elements after the inherited
+        // ones, so the local index is not the game index and the check must stay silent. A class
+        // with a list-reading value form has no positional digit semantics either.
+        if (list.inheritance?.length || classReadsList(classRef)) return;
+        for (const [index, element] of list.elements.entries()) {
+            const positional = fieldOf(classRef, String(index));
+            if (positional && requiresWholeNumber(positional.valueType)) await checkInteger(element);
+        }
+    };
+
+    // Whether an AST list element maps one-to-one onto a game list element. The game only ends a
+    // list element at `,`, `;`, a line break or `]`, while the parser splits a math run like
+    // `[.25 +4/64, 0]` into more nodes than the game reads, so any math/call/parenthesized element
+    // makes every index in the list unreliable. Plain value nodes are safe: the lexer merges a
+    // separator-less run (`[1 2 3]`) into one string node, so multiple value nodes prove real
+    // separators. Vanilla ships many math-in-vector lists (`Location = [-11/64, -.15]`), which is
+    // exactly the shape this predicate exempts.
+    const isAtomicListElement = (element: AbstractNode): boolean =>
+        isGroupNode(element) ||
+        isListNode(element) ||
+        isAssignmentNode(element) ||
+        (isValueNode(element) &&
+            !element.parenthesized &&
+            (element.valueType.type === 'Number' || element.valueType.type === 'String'));
+
+    // A named member inside a group-typed field's list form (`Offset [Scale2In = offset]`): the
+    // game reads list-form members positionally through the class's digit fields or by the class's
+    // own member names, so a name the class does not own is silently ignored. The classic trap is
+    // a field of the enclosing group written inside the brackets, where the author meant it one
+    // level up, and that case gets its own move-it-out message. Everything else gets a did-you-mean
+    // against the class's members when one is close. Unnamed elements past the class's digit fields
+    // (`Offset [0, 1, 2, 3]` on a Vector2, which reads only elements 0 and 1) are dead the same
+    // way, flagged per element so every unread value shows, but only when every element is atomic
+    // (see {@link isAtomicListElement}) so the AST indices are the game indices. Both checks stay
+    // silent on an inheriting list (local indices are not the game indices) and the positional one
+    // also needs the class to declare digit fields at all, so a custom-deserialized list form is
+    // never second-guessed.
+    const checkListFormMembers = (
+        list: ListNode,
+        classRef: string,
+        containerCls?: string,
+        declaredName?: string
+    ): void => {
+        if (list.inheritance?.length) return;
+        // A class whose value-form delegation is itself a list (`HitEffects [ … ]` binds an
+        // effect array) reads its list spelling directly, so there is no positional group form
+        // to hold the elements against.
+        if (classReadsList(classRef)) return;
+        const digitFieldCount = list.elements.every(isAtomicListElement)
+            ? fieldsOf(classRef).filter((member) => /^\d+$/.test(member.name)).length
+            : 0;
+        for (const [index, element] of list.elements.entries()) {
+            const nameNode = isAssignmentNode(element)
+                ? element.left
+                : isGroupNode(element) || isListNode(element)
+                  ? element.identifier
+                  : undefined;
+            const classLabel = schema.types[classRef]?.name ?? classRef;
+            if (!nameNode) {
+                if (digitFieldCount > 0 && !fieldOf(classRef, String(index))) {
+                    errors.push({
+                        message: l10n.t(
+                            '{0} reads only the first {1} list elements, so the game never reads this one.',
+                            classLabel,
+                            String(digitFieldCount)
+                        ),
+                        node: element,
+                        severity: 'warning',
+                    });
+                }
+                continue;
+            }
+            if (/^\d+$/.test(nameNode.name) || fieldOf(classRef, nameNode.name)) continue;
+            if (containerCls && declaredName && fieldOf(containerCls, nameNode.name)) {
+                errors.push({
+                    message: l10n.t(
+                        "'{0}' is not a member of {1}, so the game never reads it here. It is a field of the enclosing group and belongs outside the '{2}' brackets.",
+                        nameNode.name,
+                        classLabel,
+                        declaredName
+                    ),
+                    node: nameNode,
+                    severity: 'warning',
+                });
+                continue;
+            }
+            const members = fieldsOf(classRef)
+                .map((member) => member.name)
+                .filter((name) => !/^\d+$/.test(name));
+            const suggestion = closestMatch(nameNode.name, members, true);
+            errors.push({
+                message: l10n.t(
+                    "'{0}' is not a member of {1}, so the game never reads it here.",
+                    nameNode.name,
+                    classLabel
+                ),
+                node: nameNode,
+                severity: 'warning',
+                ...(suggestion
+                    ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
+                    : {}),
+            });
+        }
+    };
+
+    // A `list<group>` field whose entries are positional lists themselves (`EditorParentParts =
+    // [ [hull_part, 1] ]`, a route generator's `Routes`): each entry checks like a directly-written
+    // positional group value.
+    const checkPositionalEntries = async (value: AbstractNode, elementClassRef: string): Promise<void> => {
+        if (!isListNode(value)) return;
+        for (const entry of value.elements) {
+            if (isListNode(entry)) {
+                checkListFormMembers(entry, elementClassRef);
+                await checkPositionalElements(entry, elementClassRef);
+            }
+        }
+    };
+
     for (const element of document.elements) visit(element);
 
     // A math expression or function call written into a field whose deserializer never evaluates
@@ -331,19 +524,122 @@ export const validateSchema = async (
         });
     };
 
+    // A value written in a structural shape the field's deserializer never reads. The game loads
+    // such a file without error and silently misreads or drops the value, so the mismatch gets a
+    // warning: a list on a scalar/map/polymorphic field, a group on a textual or plain numeric
+    // field, and elements past what a range (two endpoints) or tuple (fixed arity) reads. The
+    // table errs on silence to honor the zero-false-positive contract: scalar values are never
+    // flagged (many group types also read an uncaptured scalar form, `Time` being the canonical
+    // case), asset fields accept groups (the `Texture` dual form), list-kind fields accept groups
+    // (custom collection deserializers), extras only count when every element is atomic, and
+    // opaque/constructed/generic kinds are skipped entirely.
+    const checkValueForm = (field: SchemaField, value: AbstractNode, writtenName: string): void => {
+        const vt = field.valueType;
+        const flagForm = (form: string): void => {
+            errors.push({
+                message: l10n.t(
+                    "'{0}' is a {1} field. The game cannot read a {2} value here.",
+                    writtenName,
+                    valueTypeLabel(vt),
+                    form
+                ),
+                node: value,
+                severity: 'warning',
+            });
+        };
+        if (isListNode(value) && !value.inheritance?.length) {
+            const arity = vt.kind === 'range' ? 2 : vt.kind === 'tuple' ? vt.elements.length : undefined;
+            if (arity !== undefined && value.elements.every(isAtomicListElement)) {
+                for (const extra of value.elements.slice(arity)) {
+                    errors.push({
+                        message: l10n.t(
+                            "'{0}' reads only {1} list elements, so the game never reads this one.",
+                            writtenName,
+                            String(arity)
+                        ),
+                        node: extra,
+                        severity: 'warning',
+                    });
+                }
+            } else if (
+                vt.kind === 'polymorphicGroup' ||
+                vt.kind === 'bool' ||
+                vt.kind === 'string' ||
+                vt.kind === 'reference' ||
+                vt.kind === 'int' ||
+                vt.kind === 'float' ||
+                vt.kind === 'number' ||
+                vt.kind === 'asset' ||
+                vt.kind === 'code'
+            ) {
+                // Enum fields are exempt: a `[Flags]` enum reads a list of members
+                // (`ExternalWalls = [Left, Right]` all over vanilla) and the schema does not
+                // capture which enums are flags. Map fields are exempt too: the game's map
+                // deserializer also accepts a list of entries (`RenderLayers`, `…ByCell`).
+                flagForm(l10n.t('list'));
+            }
+        } else if (isGroupNode(value) && !value.inheritance?.length) {
+            const groupFormless =
+                (vt.kind === 'int' || vt.kind === 'float' || vt.kind === 'number') && !vt.groupForm;
+            if (TEXTUAL_KINDS.has(vt.kind) || groupFormless) flagForm(l10n.t('group'));
+        } else if (isValueNode(value)) {
+            // A literal scalar in a group/map slot (`Offset = 5`), which only the custom-serialized
+            // classes in {@link SCALAR_FORM_GROUP_CLASSES} can read. References stay silent (any
+            // group field legally takes `&ref`), as do asset-typed values, whose classes read paths.
+            const literal =
+                value.valueType.type === 'String' ||
+                value.valueType.type === 'Number' ||
+                value.valueType.type === 'Boolean';
+            const isString = value.valueType.type === 'String';
+            const scalarLegal =
+                vt.kind === 'group' &&
+                (classReadsScalar(vt.ref, isString) || (field.scalarStringForm === true && isString));
+            if (literal && !scalarLegal && (vt.kind === 'map' || vt.kind === 'group')) {
+                flagForm(l10n.t('plain'));
+            }
+        }
+    };
+
     // Async pass: integer-constrained fields (scalar or `Range<int>`) and math written into a
     // textual field, revisiting every container whose class we resolved during the synchronous
     // walk above.
     for (const { container, cls } of typedContainers) {
         if (cancellationToken.isCancellationRequested) break;
         for (const element of container.elements) {
+            // An identified list member (`GridSize [1, 2]`) is the assignment-less spelling of the
+            // positional list form, so it takes the same per-element check.
+            if (isListNode(element) && element.identifier) {
+                const field = fieldOf(cls, element.identifier.name);
+                if (field?.valueType.kind === 'group') {
+                    checkListFormMembers(element, field.valueType.ref, cls, element.identifier.name);
+                    await checkPositionalElements(element, field.valueType.ref);
+                } else if (field?.valueType.kind === 'list' && field.valueType.element.kind === 'group') {
+                    await checkPositionalEntries(element, field.valueType.element.ref);
+                } else if (field) {
+                    checkValueForm(field, element, element.identifier.name);
+                }
+                continue;
+            }
+            // An identified group member (`Mode { … }` where the field is scalar-kind) takes the
+            // same structural check as its assignment spelling.
+            if (isGroupNode(element) && element.identifier) {
+                const field = fieldOf(cls, element.identifier.name);
+                if (field) checkValueForm(field, element, element.identifier.name);
+                continue;
+            }
             if (!isAssignmentNode(element)) continue;
             const field = fieldOf(cls, element.left.name);
             if (!field) continue;
+            if (element.right) checkValueForm(field, element.right, element.left.name);
             if (requiresWholeNumber(field.valueType)) {
                 await checkInteger(element.right);
             } else if (field.valueType.kind === 'range' && requiresWholeNumber(field.valueType.element)) {
                 await checkIntegerRange(element.right);
+            } else if (field.valueType.kind === 'group' && isListNode(element.right)) {
+                checkListFormMembers(element.right, field.valueType.ref, cls, element.left.name);
+                await checkPositionalElements(element.right, field.valueType.ref);
+            } else if (field.valueType.kind === 'list' && field.valueType.element.kind === 'group') {
+                await checkPositionalEntries(element.right, field.valueType.element.ref);
             } else if (
                 TEXTUAL_KINDS.has(field.valueType.kind) &&
                 (isMathExpressionNode(element.right) || isFunctionCallNode(element.right))

@@ -7,6 +7,7 @@ import { lexer } from '../core/lexer/lexer';
 import { parser } from '../core/parser/parser';
 import { ParserResultRegistrar } from '../registrar/parser-result-registrar';
 import { CancellationError } from '../utils/cancellation';
+import { recordNavigationDep } from '../utils/navigation-deps';
 import { perfCount } from '../utils/perf-counters';
 
 // Reference resolution and reference completion walk `<…>` file paths segment by segment. Before
@@ -183,6 +184,8 @@ export const cachedParseFilePath = async (
     fsPath: string,
     cancellationToken?: CancellationToken
 ): Promise<AbstractNodeDocument> => {
+    // A running navigation memoizes its result against the files it read, this read included.
+    recordNavigationDep(fsPath);
     const open = ParserResultRegistrar.instance.getResultByPath(fsPath);
     if (open) return open;
     const key = keyOf(fsPath);
