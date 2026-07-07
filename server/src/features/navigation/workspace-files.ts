@@ -1,5 +1,6 @@
-import { readdir, readFile } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import { join, sep } from 'path';
+import { cachedReaddir } from '../../workspace/fs-cache';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument } from '../../core/ast/ast';
 import { parseText } from '../../utils/ast.utils';
@@ -23,9 +24,11 @@ export const uriToFsPath = (uri: string): string => {
     return path.replace(/\//g, sep);
 };
 
-/** Yield every `.rules` file path under `dir`, recursively. Unreadable dirs are skipped. */
+/** Yield every `.rules` file path under `dir`, recursively. Unreadable dirs are skipped. Listings
+ *  come from the shared readdir cache; the watcher invalidates a directory whose contents change,
+ *  so repeated walks (every scan pass, plus the index builds between them) stop re-listing disk. */
 export async function* collectRulesFiles(dir: string): AsyncGenerator<string> {
-    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    const entries = await cachedReaddir(dir).catch(() => []);
     for (const entry of entries) {
         const full = join(dir, entry.name);
         if (entry.isDirectory()) yield* collectRulesFiles(full);
@@ -73,12 +76,14 @@ export async function* readFilesAhead(files: string[]): AsyncGenerator<{ file: s
  * through the {@link readFilesAhead} pipeline so disk latency overlaps parsing. With
  * `options.diskOnly` the walk reads purely from disk — no open-buffer preference and no
  * out-of-folder buffers — which the persistent index cache needs so the state it saves
- * reflects only the files on disk.
+ * reflects only the files on disk. `options.onDiskText` observes every disk-read file's raw
+ * text (parseable or not, open buffers excluded), so a consumer of raw text (the mention
+ * index) rides along instead of re-reading the same files.
  */
 export async function* projectDocuments(
     folderPaths: string[],
     cancellationToken: CancellationToken,
-    options?: { diskOnly?: boolean }
+    options?: { diskOnly?: boolean; onDiskText?: (file: string, text: string) => void }
 ): AsyncGenerator<AbstractNodeDocument> {
     const seen = new Set<string>();
     const toRead: string[] = [];
@@ -101,6 +106,7 @@ export async function* projectDocuments(
     for await (const { file, text } of readFilesAhead(toRead)) {
         if (cancellationToken.isCancellationRequested) throw new CancellationError();
         if (text === undefined) continue;
+        options?.onDiskText?.(file, text);
         try {
             yield parseText(text, file);
         } catch (e) {

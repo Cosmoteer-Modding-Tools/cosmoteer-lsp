@@ -29,6 +29,7 @@ export interface ListNode extends AbstractNode {
 export interface IdentifierNode extends AbstractNode {
     type: 'Identifier';
     name: string;
+    delimiter?: ';' | ',';
 }
 
 export interface ValueNode extends AbstractNode {

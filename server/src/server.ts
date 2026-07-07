@@ -17,13 +17,21 @@ import {
     CancellationToken,
     CancellationTokenSource,
     FullDocumentDiagnosticReport,
+    UnchangedDocumentDiagnosticReport,
+    ResponseError,
+    LSPErrorCodes,
+    CompletionList,
+    SemanticTokens,
+    SemanticTokensDelta,
+    MarkupKind,
     CodeAction,
     CodeActionKind,
     WorkspaceFolder,
     TextEdit,
+    InlayHint,
 } from 'vscode-languageserver/node';
 
-import { readFile } from 'fs/promises';
+import { readFile, stat } from 'fs/promises';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { lexer } from './core/lexer/lexer';
 import { parser } from './core/parser/parser';
@@ -42,7 +50,7 @@ import { RenameService, dropEditsUnderRoot } from './features/navigation/rename.
 import { InlayHintService } from './features/inlay/inlay-hint.service';
 import { HoverService } from './features/hover/hover.service';
 import { ValidationError, ValidationErrorData, Validator } from './features/diagnostics/validator';
-import { ValidationForValue } from './features/diagnostics/validator.value';
+import { ValidationForIdentifier, ValidationForValue } from './features/diagnostics/validator.value';
 import { ValidationForFunctionCall } from './features/diagnostics/validator.functioncall';
 
 import * as l10n from '@vscode/l10n';
@@ -55,11 +63,11 @@ import { validateInheritanceCycles } from './features/diagnostics/validator.inhe
 import { CancellationError } from './utils/cancellation';
 import { WorkspaceTokenManager } from './workspace/token-manager';
 import { CosmoteerSettings, defaultSettings, globalSettings, setGlobalSettings } from './settings';
-import { basenameOf, isModRules } from './document/document-kind';
+import { basenameOf, isManifestBasename, isModRules } from './document/document-kind';
 import { ModRulesRegistrar } from './mod/mod-rules.registrar';
 import { computeModReachability, reachabilityKey } from './mod/mod-reachability';
 import { generateModOverview } from './mod/mod-overview';
-import { findModRoot } from './mod/mod-root';
+import { clearModRootCache, findModRoot } from './mod/mod-root';
 import { join } from 'path';
 import { validateModActions } from './features/diagnostics/validator.mod-action';
 import { invalidateModContext } from './mod/mod-context';
@@ -75,7 +83,7 @@ import { LocalizationKeyIndex } from './features/completion/localization-key.ind
 import { validateSchema } from './features/diagnostics/validator.schema';
 import { validateRequiredFields } from './features/diagnostics/validator.required-fields';
 import { TemplateBaseIndex } from './features/diagnostics/template-base.index';
-import { validateSchemaSiblingReferences } from './features/diagnostics/validator.schema-sibling';
+import { invalidateComponentIdCache, validateSchemaSiblingReferences } from './features/diagnostics/validator.schema-sibling';
 import { validateCrossFileIdReferences } from './features/diagnostics/validator.schema-id-reference';
 import { validateLocalizationKeys } from './features/diagnostics/validator.localization-key';
 import { buildInsertLocalizationKeyEdit } from './features/diagnostics/localization-key-insert';
@@ -85,9 +93,25 @@ import { collectIncludeText } from './features/shader/shader-index';
 import { validateShaderConstants } from './features/diagnostics/validator.shader-constants';
 import { particleChannelCompletionsAtOffset } from './features/navigation/particle-channel';
 import { documentColors, colorPresentations } from './features/color/document-color';
-import { findEnclosingGroup, findEnclosingList, listElementReferenceTarget } from './document/schema/schema-context';
+import {
+    findEnclosingGroup,
+    findEnclosingList,
+    invalidateSchemaContextCache,
+    listElementReferenceTarget,
+} from './document/schema/schema-context';
 import { toCompletionItem } from './features/completion/completion-item';
 import { collectRulesFiles, uriToFsPath } from './features/navigation/workspace-files';
+import {
+    beginFsTrustWindow,
+    clearFsCaches,
+    endFsTrustWindow,
+    foldPathCase,
+    invalidateFsPath,
+    primeParsedFile,
+} from './workspace/fs-cache';
+import { clearNavigationMemo, invalidateNavigationMemoForFile } from './features/navigation/full.navigation-strategy';
+import { perfCount, perfReset, perfSampleMemory, perfSnapshot } from './utils/perf-counters';
+import { startScanCpuProfile, stopScanCpuProfile } from './utils/cpu-profile';
 import { filePathToUri } from './features/navigation/navigation-strategy';
 import { normalizeUri } from './features/navigation/reference-location';
 import { computeSignatureHelp } from './features/signature/signature-help.service';
@@ -96,6 +120,13 @@ import { WatchedDocumentIndex } from './features/navigation/watched-document-ind
 import { aliasRootIndex } from './document/schema/alias-root';
 import { ReverseIncludeIndex } from './features/navigation/reverse-include.index';
 import { MentionIndex } from './features/navigation/mention.index';
+import {
+    beginStatSweepWindow,
+    endStatSweepWindow,
+    saveScanCache,
+    ScanCacheEntry,
+    tryLoadScanCache,
+} from './workspace/index-cache';
 import { buildSemanticTokens } from './features/semantic/semantic-tokens.service';
 import { buildShaderSemanticTokens } from './features/semantic/shader-semantic-tokens';
 import { semanticTokensLegend } from './features/semantic/legend';
@@ -134,6 +165,8 @@ let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
 let hasDidChangeWatchedFilesCapability = false;
 let hasSnippetCapability = false;
+let hasPullDiagnosticsCapability = false;
+let hasCompletionDocResolveCapability = false;
 
 /** The cached `workspace/workspaceFolders` answer, `undefined` until (re)fetched. */
 let workspaceFoldersCache: WorkspaceFolder[] | null | undefined;
@@ -182,11 +215,19 @@ connection.onInitialize(async (params: InitializeParams) => {
         capabilities.textDocument.publishDiagnostics.relatedInformation
     );
     hasDidChangeWatchedFilesCapability = !!capabilities.workspace?.didChangeWatchedFiles?.dynamicRegistration;
+    // A pull-capable client requests diagnostics itself (`textDocument/diagnostic`) after each
+    // change. Pushing from `onDidChangeContent` as well would validate every edit twice.
+    hasPullDiagnosticsCapability = !!capabilities.textDocument?.diagnostic;
+    // A client that resolves completion documentation lazily (`completionItem/resolve` with
+    // `documentation` in `resolveSupport`) gets the Markdown docs deferred out of the list payload.
+    hasCompletionDocResolveCapability = !!capabilities.textDocument?.completion?.completionItem?.resolveSupport?.properties?.includes('documentation');
     const result: InitializeResult = {
         capabilities: {
             textDocumentSync: {
                 openClose: true,
-                change: TextDocumentSyncKind.Full,
+                // Clients send range-scoped deltas instead of the whole text per keystroke. The
+                // TextDocuments manager applies them, so the server still sees full documents.
+                change: TextDocumentSyncKind.Incremental,
                 // Lets the format-on-save setting return edits right before the client writes the file.
                 willSaveWaitUntil: true,
             },
@@ -223,7 +264,10 @@ connection.onInitialize(async (params: InitializeParams) => {
             },
             semanticTokensProvider: {
                 legend: semanticTokensLegend,
-                full: true,
+                // Delta lets an edit answer with the changed slice of the token array instead of
+                // re-shipping the whole thing, and range serves the viewport before the full pass.
+                full: { delta: true },
+                range: true,
             },
         },
     };
@@ -240,6 +284,7 @@ connection.onInitialize(async (params: InitializeParams) => {
 
 connection.onInitialized(async (_params) => {
     Validator.instance.registerValidation(ValidationForValue);
+    Validator.instance.registerValidation(ValidationForIdentifier);
     Validator.instance.registerValidation(ValidationForFunctionCall);
     Validator.instance.registerValidation(ValidationForAssignment);
     Validator.instance.registerValidation(ValidationForMath);
@@ -297,9 +342,15 @@ connection.onInitialized(async (_params) => {
         // Let the client watch `.rules` files on disk so the reference index stays correct
         // across changes it can't see as editor edits — git pull/checkout, external tools,
         // file creation/deletion. This is the cache-safe alternative to re-walking the tree.
+        // Asset files are watched too: their existence is memoized (asset.navigation-strategy),
+        // and without a watcher event a created or deleted sprite/sound/shader would never drop
+        // its memo entry, pinning a stale "asset not found" (or a stale hit) indefinitely.
         connection.client.register(DidChangeWatchedFilesNotification.type, {
-            watchers: [{ globPattern: '**/*.rules' }],
+            watchers: [{ globPattern: '**/*.rules' }, { globPattern: '**/*.{png,mp3,wav,ogg,shader}' }],
         });
+        // With the watcher in place, the mention index no longer needs its per-query stat sweep
+        // over the whole tree. Disk changes arrive as dirty marks instead.
+        MentionIndex.instance.enableWatcherDrivenSync();
     }
     if (hasWorkspaceFolderCapability) {
         connection.workspace.onDidChangeWorkspaceFolders(async (_event) => {
@@ -311,12 +362,15 @@ connection.onInitialized(async (_params) => {
             // over the new folder set — clearing first so diagnostics for removed folders don't
             // linger.
             workspaceFoldersCache = undefined;
+            validationScopeEpoch++;
             WorkspaceSymbolService.instance.reset();
             SchemaIdIndex.instance.reset();
             TemplateBaseIndex.instance.reset();
             LocalizationKeyIndex.instance.reset();
             ReverseIncludeIndex.instance.reset();
             MentionIndex.instance.reset();
+            clearFsCaches();
+            invalidateSchemaContextCache();
             if (wholeWorkspaceEnabled()) {
                 await clearWorkspaceDiagnostics();
                 await runWorkspaceValidation();
@@ -330,15 +384,36 @@ connection.onInitialized(async (_params) => {
     // never recovers (every `&/INDICATORS/SWX`-style override ref then false-flags). Drop it now that
     // the scan is done so the next resolve rebuilds against the fully-loaded tree.
     invalidateModContext();
+    // The same race can already have validated restored-tab files against the not-yet-loaded tree.
+    // Their reference false flags sit in the version-keyed caches now, and the versions never move
+    // without an edit, so the results would pin. Drop them and have the client recompute.
+    diagnosticsCache.clear();
+    inlayHintCache.clear();
+    invalidateComponentIdCache();
+    if (hasPullDiagnosticsCapability) {
+        connection.languages.diagnostics.refresh();
+    } else {
+        for (const document of documents.all()) schedulePushValidation(document);
+    }
 
     // Warm the project indexes in the background so the first completion, hover, or validation
     // finds them already built instead of paying the whole-project walk itself. Deliberately not
     // awaited, since the first feature request would coalesce onto the same in-flight build anyway.
     // The mention index (find-all-references pre-filter) warms afterwards so the two builds don't
-    // compete for the disk.
+    // compete for the disk. The sweep window spans both builds, so the mention sync reuses the
+    // walk+stat sweeps the project build (and its cache manifest checks) already paid.
+    beginStatSweepWindow();
+    const warmupStartedMs = Date.now();
     void ensureFragmentRooting(CancellationToken.None)
-        .then(async () => MentionIndex.instance.ensureBuilt(await searchFolderUris(), CancellationToken.None))
-        .catch(() => undefined);
+        .then(async () => {
+            const projectMs = Date.now() - warmupStartedMs;
+            await MentionIndex.instance.ensureBuilt(await searchFolderUris(), CancellationToken.None);
+            connection.console.info(
+                `Startup: project indexes ready in ${projectMs}ms, mention index in ${Date.now() - warmupStartedMs}ms`
+            );
+        })
+        .catch(() => undefined)
+        .finally(() => endStatSweepWindow());
 
     // Opt-in: validate every file in the workspace, not just the open ones.
     await runWorkspaceValidation();
@@ -390,6 +465,21 @@ connection.onDidChangeConfiguration(async (change) => {
         LocalizationKeyIndex.instance.reset();
         ReverseIncludeIndex.instance.reset();
         MentionIndex.instance.reset();
+        clearFsCaches();
+        invalidateSchemaContextCache();
+    }
+    // Changed settings change what a validation would produce (validators toggled, ignore paths,
+    // problem limits), but open documents' versions are unchanged. The version-keyed caches
+    // would keep serving results computed under the old settings to the refresh's re-pull.
+    diagnosticsCache.clear();
+    inlayHintCache.clear();
+    invalidateComponentIdCache();
+    const scanSettingsKey = scanSettingsKeyOf();
+    if (lastScanSettingsKey === undefined) {
+        lastScanSettingsKey = scanSettingsKey;
+    } else if (scanSettingsKey !== lastScanSettingsKey) {
+        lastScanSettingsKey = scanSettingsKey;
+        bumpWorkspaceScanEpoch();
     }
     connection.languages.diagnostics.refresh();
 
@@ -445,15 +535,197 @@ function ensureParserResult(uri: string): AbstractNodeDocument | undefined {
     return result;
 }
 
+/** How long to sit out further keystrokes before a push-model validation runs. */
+const VALIDATION_DEBOUNCE_MS = 250;
+
+/** Per-uri debounce timers of the push-diagnostics flow (clients without pull support). */
+const pushValidationTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+
+/**
+ * The last lex+parse of each open document. {@link registerOpenDocument} fills it on every edit so
+ * the validation that follows (push or pull) reuses the parse instead of lexing and parsing the
+ * same text a second time. Entries live only as long as the document is open.
+ */
+const openParseCache: Map<string, { version: number; tokens: ReturnType<typeof lexer>; parserResult: ReturnType<typeof parser> }> =
+    new Map();
+
+/**
+ * The in-flight or settled diagnostics of each open document, keyed by uri and valid for one
+ * document version. The push flow and the pull handler share one validation per version through
+ * this map instead of racing two independent full passes over the same text. Each entry carries a
+ * unique `resultId` for the pull protocol: a pull whose `previousResultId` still matches the live
+ * entry answers "unchanged" instead of re-serializing the same diagnostic set. Every path that
+ * invalidates diagnostics (a new version, a cross-file edit, a config change) drops or replaces
+ * the entry, so a matching id is proof the client's copy is current.
+ */
+const diagnosticsCache: Map<string, { version: number; promise: Promise<Diagnostic[]>; resultId: string }> = new Map();
+
+/** Source of the pull-diagnostics `resultId`s, unique across the whole session. */
+let diagnosticsResultIdCounter = 0;
+
+/**
+ * Lexes and parses an open document once per version and publishes the result to every consumer:
+ * the parser-result registrar (completion/hover/navigation read the live AST back), the project
+ * indexes (marked dirty for their next query), and the mod-manifest registrar. Validation used to
+ * do all of this inline; it lives here so the AST is current the moment an edit arrives, even when
+ * a pull-model client runs the actual validation later.
+ *
+ * @param document the open document to parse and register.
+ */
+function registerOpenDocument(document: TextDocument): void {
+    // `.shader` files are HLSL, the rules lexer/parser would flag every line.
+    if (isShaderDocument(document.uri)) return;
+    const cached = openParseCache.get(document.uri);
+    if (cached && cached.version === document.version) return;
+    const tokens = lexer(document.getText());
+    const parserResult = parser(tokens, document.uri);
+    openParseCache.set(document.uri, { version: document.version, tokens, parserResult });
+    ParserResultRegistrar.instance.setResult(document.uri, parserResult.value);
+    // The edit changes what references touching this file resolve to, and the disk watcher never
+    // sees open-buffer edits, so drop the navigation memo entries whose resolution read this file.
+    // Entries that never read it (the vanilla-tree bulk) survive the keystroke.
+    invalidateNavigationMemoForFile(document.uri);
+    // Scanned files may derive diagnostics from this buffer (registrar-first parse reads), so
+    // their cached scan results are stale from this edit on.
+    bumpWorkspaceScanEpoch();
+    // Other open documents may derive diagnostics and inlay values from this document (an
+    // inherited base, a strings file, a component provider), so their version-keyed caches are
+    // stale now even though their own versions did not change. Drop everyone else's entries.
+    // The client's next pull recomputes them against the fresh AST.
+    for (const uri of [...diagnosticsCache.keys()]) {
+        if (uri !== document.uri) diagnosticsCache.delete(uri);
+    }
+    for (const uri of [...inlayHintCache.keys()]) {
+        if (uri !== document.uri) inlayHintCache.delete(uri);
+    }
+    invalidateComponentIdCache();
+    // An edit changes which symbols this file contributes. Re-index it lazily at the next
+    // workspace-symbol query. (find-all-references is stateless, it re-reads per query.)
+    WorkspaceSymbolService.instance.markDirty(document.uri);
+    SchemaIdIndex.instance.markDirty(document.uri);
+    TemplateBaseIndex.instance.markDirty(document.uri);
+    LocalizationKeyIndex.instance.markDirty(document.uri);
+    ReverseIncludeIndex.instance.markDirty(document.uri);
+    if (isModRules(document.uri)) {
+        // Parse the manifest's actions. A mod.rules edit changes the effective game tree.
+        ModRulesRegistrar.instance.registerManifest(parserResult.value);
+        invalidateModContext();
+        // The effective tree changed under every memoized super-path, so scoped invalidation
+        // isn't enough here.
+        clearNavigationMemo();
+    } else if (basenameOf(document.uri).toLowerCase() === 'cosmoteer.rules') {
+        // The mod's own cosmoteer.rules contributes convenience globals to the effective tree.
+        invalidateModContext();
+        clearNavigationMemo();
+        // Its aliases drive fragment rooting, rebuild that index on the next feature use.
+        aliasRootIndex.invalidate();
+    }
+}
+
+/**
+ * Returns the diagnostics of an open document, computing them at most once per document version.
+ * A newer version cancels the previous run through the per-uri token source; a run that was
+ * cancelled mid-way drops its (partial) cache entry so the next request recomputes.
+ *
+ * @param document the open document to validate.
+ * @returns the document's diagnostics.
+ */
+function computeDiagnosticsCached(document: TextDocument): Promise<Diagnostic[]> {
+    const uri = document.uri;
+    const cached = diagnosticsCache.get(uri);
+    if (cached && cached.version === document.version) return cached.promise;
+    const token = tokenSourceManager.createToken(uri);
+    const version = document.version;
+    const dropOwnEntry = (): void => {
+        const entry = diagnosticsCache.get(uri);
+        if (entry && entry.version === version && entry.promise === promise) diagnosticsCache.delete(uri);
+    };
+    const promise: Promise<Diagnostic[]> = validateTextDocument(document, token).then(
+        (diagnostics) => {
+            // A cancelled run resolves with partial results, never serve them to a later request.
+            if (token.isCancellationRequested) dropOwnEntry();
+            return diagnostics;
+        },
+        (e) => {
+            dropOwnEntry();
+            throw e;
+        }
+    );
+    diagnosticsCache.set(uri, { version, promise, resultId: String(++diagnosticsResultIdCounter) });
+    return promise;
+}
+
+/**
+ * Debounced push validation for clients without pull-diagnostics support. The first diagnostics of
+ * a freshly opened document go out immediately; while typing, each keystroke resets a short timer
+ * so only the settled text is validated.
+ *
+ * @param document the open document whose validation to schedule.
+ */
+function schedulePushValidation(document: TextDocument): void {
+    const uri = document.uri;
+    const existing = pushValidationTimers.get(uri);
+    if (existing !== undefined) clearTimeout(existing);
+    const run = async (): Promise<void> => {
+        pushValidationTimers.delete(uri);
+        const current = documents.get(uri);
+        if (!current) return;
+        try {
+            const diagnostics = await computeDiagnosticsCached(current);
+            await connection.sendDiagnostics({ uri, version: current.version, diagnostics });
+        } catch (e) {
+            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        }
+    };
+    if (!diagnosticsCache.has(uri)) {
+        void run();
+        return;
+    }
+    pushValidationTimers.set(
+        uri,
+        setTimeout(() => void run(), VALIDATION_DEBOUNCE_MS)
+    );
+}
+
 // Only keep settings for open documents
 documents.onDidClose(async (e) => {
+    // The registrar entry this drops was what resolution saw for the file, back to disk state.
+    // Only entries whose resolution read the buffer can differ from disk.
+    invalidateNavigationMemoForFile(e.document.uri);
+    // Scanned files may have derived diagnostics from the discarded buffer.
+    bumpWorkspaceScanEpoch();
     documentSettings.delete(e.document.uri);
+    const timer = pushValidationTimers.get(e.document.uri);
+    if (timer !== undefined) {
+        clearTimeout(timer);
+        pushValidationTimers.delete(e.document.uri);
+    }
+    tokenSourceManager.cancelToken(e.document.uri);
+    openParseCache.delete(e.document.uri);
+    diagnosticsCache.delete(e.document.uri);
+    inlayHintCache.delete(e.document.uri);
+    semanticTokensCache.delete(e.document.uri);
+    ParserResultRegistrar.instance.removeResult(e.document.uri);
     if (wholeWorkspaceEnabled()) {
         // Whole-workspace mode: the file's problems should persist after closing. Clear the
         // editor-uri diagnostics, then re-validate from disk under the canonical (`filePathToUri`)
         // uri the full pass uses — so the file isn't tracked twice under different uri encodings.
         const path = uriToFsPath(e.document.uri);
         const canonicalUri = filePathToUri(path);
+        const scopeKeys = await validationScopeKeys(CancellationToken.None);
+        if (scopeKeys && !scopeKeys.has(reachabilityKey(path))) {
+            // The file is outside the reachable validation scope. It validated while it was open
+            // (open files always validate), but its problems leave the panel with the tab instead
+            // of persisting the way scanned files' problems do.
+            await connection.sendDiagnostics({ uri: e.document.uri, diagnostics: [] });
+            const closedNorm = normalizeUri(canonicalUri);
+            for (const stored of [...workspaceDiagnosticUris]) {
+                if (normalizeUri(stored) !== closedNorm) continue;
+                workspaceDiagnosticUris.delete(stored);
+                await connection.sendDiagnostics({ uri: stored, diagnostics: [] });
+            }
+            return;
+        }
         if (normalizeUri(canonicalUri) !== normalizeUri(e.document.uri)) {
             await connection.sendDiagnostics({ uri: e.document.uri, diagnostics: [] });
         }
@@ -484,17 +756,18 @@ documents.onDidClose(async (e) => {
 // );
 
 documents.onDidChangeContent(
-    async (e) => {
+    (e) => {
         try {
-            const diagnostics = await validateTextDocument(e.document, tokenSourceManager.createToken(e.document.uri));
-            await connection.sendDiagnostics({
-                uri: e.document.uri,
-                version: e.document.version,
-                diagnostics: diagnostics,
-            });
-        } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            // Parse and publish the AST immediately, completion/hover/navigation read it between
+            // keystrokes. Validation is scheduled separately below.
+            registerOpenDocument(e.document);
+        } catch (err) {
+            if (globalSettings.trace.server === 'messages' && !(err instanceof CancellationError)) console.error(err);
         }
+        // A pull-capable client requests `textDocument/diagnostic` itself after the change; pushing
+        // here as well would run the whole validation twice per edit.
+        if (hasPullDiagnosticsCapability) return;
+        schedulePushValidation(e.document);
     },
     null,
     [tokenSourceManager]
@@ -502,18 +775,7 @@ documents.onDidChangeContent(
 
 connection.languages.diagnostics.on(async (params, cancelToken) => {
     const document = documents.get(params.textDocument.uri);
-    tokenSourceManager.cancelToken(params.textDocument.uri);
-    await connection.sendDiagnostics({
-        uri: params.textDocument.uri,
-        version: document?.version ?? 0,
-        diagnostics: [],
-    });
-    if (document !== undefined) {
-        return {
-            kind: DocumentDiagnosticReportKind.Full,
-            items: await validateTextDocument(document, cancelToken),
-        } satisfies FullDocumentDiagnosticReport;
-    } else {
+    if (document === undefined) {
         // We don't know the document. We can either try to read it from disk
         // or we don't report problems for it.
         return {
@@ -521,6 +783,34 @@ connection.languages.diagnostics.on(async (params, cancelToken) => {
             items: [],
         } satisfies DocumentDiagnosticReport;
     }
+    // If the whole-workspace pass pushed diagnostics for this file before it was opened, retract
+    // them. The pull result replaces them, and keeping both would double every entry.
+    const norm = normalizeUri(params.textDocument.uri);
+    for (const stored of workspaceDiagnosticUris) {
+        if (normalizeUri(stored) !== norm) continue;
+        workspaceDiagnosticUris.delete(stored);
+        await connection.sendDiagnostics({ uri: stored, diagnostics: [] });
+    }
+    const items = await computeDiagnosticsCached(document);
+    if (cancelToken.isCancellationRequested) {
+        throw new ResponseError(LSPErrorCodes.RequestCancelled, 'diagnostic pull cancelled');
+    }
+    // The cache entry outlives the computation exactly as long as its result stays valid: every
+    // invalidation path (new version, cross-file edit, watched-file change, config change) drops
+    // or replaces it. So a client whose `previousResultId` still names the live entry already has
+    // these diagnostics and only needs an "unchanged" confirmation.
+    const entry = diagnosticsCache.get(document.uri);
+    if (entry && params.previousResultId !== undefined && params.previousResultId === entry.resultId) {
+        return {
+            kind: DocumentDiagnosticReportKind.Unchanged,
+            resultId: entry.resultId,
+        } satisfies UnchangedDocumentDiagnosticReport;
+    }
+    return {
+        kind: DocumentDiagnosticReportKind.Full,
+        resultId: entry?.resultId,
+        items,
+    } satisfies FullDocumentDiagnosticReport;
 });
 
 /** Maps a {@link ValidationError} severity (default 'error') to the LSP DiagnosticSeverity. */
@@ -561,40 +851,38 @@ async function validateTextDocument(
     // through the field that includes it. Make sure both indexes are built so schema validation and
     // resolution inside a fragment work. This is a no-op once built and when there is no game root.
     await ensureFragmentRooting(cancelToken);
-    const text = textDocument.getText();
-    const tokens = lexer(text);
-    if (cancelToken.isCancellationRequested) return [];
-    const parserResult = parser(tokens, textDocument.uri);
+    let tokens: ReturnType<typeof lexer>;
+    let parserResult: ReturnType<typeof parser>;
+    if (persist) {
+        // The open-document flow: reuse the parse {@link registerOpenDocument} already did for
+        // this version. It also published the AST and marked the project indexes dirty.
+        registerOpenDocument(textDocument);
+        const cached = openParseCache.get(textDocument.uri);
+        if (!cached) return [];
+        tokens = cached.tokens;
+        parserResult = cached.parserResult;
+    } else {
+        perfCount('scan.parse');
+        const parseStarted = Date.now();
+        tokens = lexer(textDocument.getText());
+        if (cancelToken.isCancellationRequested) return [];
+        parserResult = parser(tokens, textDocument.uri);
+        perfCount('scan.parseMs', Date.now() - parseStarted);
+        // Seed the fs parse cache with this parse, so other scanned files resolving references
+        // into this one hit the cache instead of re-reading and re-parsing it from disk.
+        await primeParsedFile(uriToFsPath(textDocument.uri), parserResult.value);
+        if (isModRules(textDocument.uri)) {
+            // mod.rules diagnostics need the manifest's actions registered to validate them, but we do
+            // not invalidate the live mod context for an unopened file (the open buffer owns that).
+            ModRulesRegistrar.instance.registerManifest(parserResult.value);
+        }
+    }
     if (cancelToken.isCancellationRequested) return [];
     if (settings.trace.server === 'verbose') {
         console.dir(parserResult);
     }
     let problems = 0;
     const diagnostics: Diagnostic[] = [];
-    if (persist) {
-        ParserResultRegistrar.instance.setResult(textDocument.uri, parserResult.value);
-        // An edit changes which symbols this file contributes. Re-index it lazily at the next
-        // workspace-symbol query. (find-all-references is stateless — it re-reads per query.)
-        WorkspaceSymbolService.instance.markDirty(textDocument.uri);
-        SchemaIdIndex.instance.markDirty(textDocument.uri);
-        TemplateBaseIndex.instance.markDirty(textDocument.uri);
-        LocalizationKeyIndex.instance.markDirty(textDocument.uri);
-        ReverseIncludeIndex.instance.markDirty(textDocument.uri);
-        if (isModRules(textDocument.uri)) {
-            // Parse the manifest's actions. A mod.rules edit changes the effective game tree.
-            ModRulesRegistrar.instance.registerManifest(parserResult.value);
-            invalidateModContext();
-        } else if (basenameOf(textDocument.uri).toLowerCase() === 'cosmoteer.rules') {
-            // The mod's own cosmoteer.rules contributes convenience globals to the effective tree.
-            invalidateModContext();
-            // Its aliases drive fragment rooting — rebuild that index on the next feature use.
-            aliasRootIndex.invalidate();
-        }
-    } else if (isModRules(textDocument.uri)) {
-        // mod.rules diagnostics need the manifest's actions registered to validate them, but we do
-        // not invalidate the live mod context for an unopened file (the open buffer owns that).
-        ModRulesRegistrar.instance.registerManifest(parserResult.value);
-    }
 
     for (const error of parserResult.parserErrors) {
         problems++;
@@ -625,13 +913,24 @@ async function validateTextDocument(
     }
 
     let validationErrors: ValidationError[] = [];
+    const validateStarted = Date.now();
+    // Wall time of one validation pass, accumulated into a perf counter for the scan bench's
+    // per-pass breakdown. Only the bulk scan records (persist=false), the open-file flow doesn't.
+    const timedPass = async <T>(counter: string, run: () => Promise<T> | T): Promise<T> => {
+        if (persist) return await run();
+        const started = Date.now();
+        const result = await run();
+        perfCount(counter, Date.now() - started);
+        return result;
+    };
     try {
-        const pormises: Promise<ValidationError[]>[] = [];
-
-        for (const node of parserResult.value.elements) {
-            pormises.push(Validator.instance.validate(node, cancelToken));
-        }
-        validationErrors = (await Promise.all(pormises).catch(() => [])).flat();
+        validationErrors = await timedPass('scan.vElementsMs', async () => {
+            const pormises: Promise<ValidationError[]>[] = [];
+            for (const node of parserResult.value.elements) {
+                pormises.push(Validator.instance.validate(node, cancelToken));
+            }
+            return (await Promise.all(pormises).catch(() => [])).flat();
+        });
         // Top-level duplicate keys span sibling elements (each validated independently above), and
         // inheritance cycles span multiple nodes/files — both need a whole-document view, so they run
         // as separate passes over the root, like the mod-action pass below.
@@ -639,44 +938,47 @@ async function validateTextDocument(
             () => undefined
         );
         if (documentDuplicate) validationErrors.push(documentDuplicate);
-        const inheritanceCycleErrors = await validateInheritanceCycles(parserResult.value, cancelToken).catch(() => []);
+        const inheritanceCycleErrors = await timedPass('scan.vCyclesMs', () =>
+            validateInheritanceCycles(parserResult.value, cancelToken).catch(() => [])
+        );
         validationErrors = validationErrors.concat(inheritanceCycleErrors);
         // Separate pass: schema-driven checks (currently invalid enum values), like the duplicate /
         // inheritance-cycle passes above. Self-gates to non-mod `.rules` files.
-        const schemaErrors = await validateSchema(parserResult.value, cancelToken).catch(() => []);
+        const schemaErrors = await timedPass('scan.vSchemaMs', () =>
+            validateSchema(parserResult.value, cancelToken).catch(() => [])
+        );
         validationErrors = validationErrors.concat(schemaErrors);
         // Separate pass: schema `ID<…>` component references that name no component in the part.
         // On by default, but only once the game `Data` tree is indexed: the part-wide id union folds
         // in inherited vanilla bases, which cannot resolve without the install.
         if (settings.diagnostics?.validateComponentReferences && gameIndexAvailable()) {
-            const siblingRefErrors = await validateSchemaSiblingReferences(parserResult.value, cancelToken).catch(() => []);
+            const siblingRefErrors = await timedPass('scan.vSiblingMs', () =>
+                validateSchemaSiblingReferences(parserResult.value, cancelToken).catch(() => [])
+            );
             validationErrors = validationErrors.concat(siblingRefErrors);
         }
         // Separate pass: cross-file `ID<…>` references (GUI toggle/color/targeter/trigger ids) whose
         // id names no declaration in the project. On by default, but only once the game `Data` tree is
         // indexed: without it, a reference to a vanilla-declared id would be a false positive.
         if (settings.diagnostics?.validateCrossFileReferences && gameIndexAvailable()) {
-            const idRefErrors = await validateCrossFileIdReferences(
-                parserResult.value,
-                await searchFolderUris(),
-                cancelToken
-            ).catch(() => []);
+            const idRefErrors = await timedPass('scan.vCrossFileMs', async () =>
+                validateCrossFileIdReferences(parserResult.value, await searchFolderUris(), cancelToken).catch(() => [])
+            );
             validationErrors = validationErrors.concat(idRefErrors);
         }
         // Separate pass: groups missing a schema-required field, checked through the inheritance chain.
         // Opt-in (default off): engine-injected required fields and bases in the unindexed vanilla
         // install mean a single-project check cannot be fully false-positive-free.
         if (settings.diagnostics?.validateRequiredFields) {
-            // The project-wide set of inheritance-base names lets the check skip cross-file templates
-            // (a `BASE_*` group inherited by other files) that a single-file scan would false-positive.
-            const workspaceBaseNames = await TemplateBaseIndex.instance
-                .baseNames(await searchFolderUris(), cancelToken)
-                .catch(() => undefined);
-            const requiredFieldErrors = await validateRequiredFields(
-                parserResult.value,
-                cancelToken,
-                workspaceBaseNames
-            ).catch(() => []);
+            const requiredFieldErrors = await timedPass('scan.vRequiredMs', async () => {
+                // The project-wide set of inheritance-base names lets the check skip cross-file
+                // templates (a `BASE_*` group inherited by other files) that a single-file scan
+                // would false-positive.
+                const workspaceBaseNames = await TemplateBaseIndex.instance
+                    .baseNames(await searchFolderUris(), cancelToken)
+                    .catch(() => undefined);
+                return validateRequiredFields(parserResult.value, cancelToken, workspaceBaseNames).catch(() => []);
+            });
             validationErrors = validationErrors.concat(requiredFieldErrors);
         }
         // Separate pass: inline `_`-prefixed shader constants a material sets, checked against the
@@ -690,11 +992,9 @@ async function validateTextDocument(
         // declares. On by default, but only once the game `Data` tree is indexed: a mod referencing a
         // vanilla key would false-positive against the mod's own strings alone.
         if (settings.diagnostics?.validateLocalizationKeys && gameIndexAvailable()) {
-            const localizationErrors = await validateLocalizationKeys(
-                parserResult.value,
-                await searchFolderUris(),
-                cancelToken
-            ).catch(() => []);
+            const localizationErrors = await timedPass('scan.vLocalizationMs', async () =>
+                validateLocalizationKeys(parserResult.value, await searchFolderUris(), cancelToken).catch(() => [])
+            );
             validationErrors = validationErrors.concat(localizationErrors);
         }
         // Separate pass: `,`/`;` separators that a line break already makes redundant. A token-level
@@ -715,6 +1015,7 @@ async function validateTextDocument(
     } catch (e) {
         if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
     }
+    if (!persist) perfCount('scan.validateMs', Date.now() - validateStarted);
 
     for (const error of validationErrors) {
         problems++;
@@ -756,8 +1057,10 @@ async function validateTextDocument(
 
 /** How many workspace files to validate concurrently — bounded so a big mod can't exhaust memory.
  *  Each in-flight validation holds an AST plus its cross-file resolution working set, so keep this
- *  low. The parsed ASTs are discarded after each file (validateTextDocument `persist: false`). */
-const WORKSPACE_DIAGNOSTIC_CONCURRENCY = 4;
+ *  low. The parsed ASTs are discarded after each file (validateTextDocument `persist: false`).
+ *  Six measured best on the reference mod: four left the pass idle on read IO for ~6% of the cold
+ *  wall time, eight bought nothing further while raising peak heap. */
+const WORKSPACE_DIAGNOSTIC_CONCURRENCY = 6;
 /** URIs we have published whole-workspace diagnostics for, so we can clear them when disabled. */
 const workspaceDiagnosticUris = new Set<string>();
 /** Cancels an in-flight whole-workspace pass when settings or folders change again. */
@@ -766,8 +1069,139 @@ let workspaceValidationSource: CancellationTokenSource | undefined;
 /** Whether the whole-workspace diagnostics feature is currently enabled. */
 const wholeWorkspaceEnabled = (): boolean => globalSettings.diagnostics?.validateWholeWorkspace ?? false;
 
+/** Bumped whenever the on-disk `.rules` state or the folder set changes, staling the scope cache. */
+let validationScopeEpoch = 0;
+/** The cached result of {@link validationScopeKeys}, valid while its epoch is current. */
+let validationScopeCache: { epoch: number; keys: Set<string> | undefined } | undefined;
+
+/**
+ * The reachability keys the 'modRulesReachable' validation scope allows, or undefined when every
+ * file is in scope (allFiles scope, or no workspace folder carries a mod manifest to scope by).
+ * The closure walk parses every manifest and reached file, so the result is cached until a disk
+ * or folder change bumps {@link validationScopeEpoch}.
+ *
+ * @param token cancels the closure walk. A cancelled (possibly partial) walk is not cached.
+ * @returns the allowed reachability keys, or undefined when unrestricted.
+ */
+async function validationScopeKeys(token: CancellationToken): Promise<Set<string> | undefined> {
+    if (globalSettings.diagnostics?.workspaceValidationScope !== 'modRulesReachable') return undefined;
+    if (validationScopeCache?.epoch === validationScopeEpoch) return validationScopeCache.keys;
+    const epoch = validationScopeEpoch;
+    const folders = await getWorkspaceFoldersCached();
+    const reachableKeys = new Set<string>();
+    let anyManifest = false;
+    for (const folder of folders ?? []) {
+        const folderPath = uriToFsPath(folder.uri);
+        const modRoot = findModRoot(join(folderPath, 'probe.rules'));
+        if (!modRoot) continue;
+        const reachability = await computeModReachability(modRoot, token);
+        if (!reachability) continue;
+        anyManifest = true;
+        for (const key of reachability.reachable) reachableKeys.add(key);
+    }
+    const keys = anyManifest ? reachableKeys : undefined;
+    if (!token.isCancellationRequested) validationScopeCache = { epoch, keys };
+    return keys;
+}
+
 /** Normalized URIs of every document currently open in the editor (they get diagnostics via the normal flow). */
 const openDocumentNorms = (): Set<string> => new Set(documents.all().map((d) => normalizeUri(d.uri)));
+
+// A scanned file's diagnostics are a pure function of its on-disk content plus the shared state
+// the validators consult (settings, open buffers, the rooting and declaration indexes). The cache
+// below keys on all of them, so a repeat scan skips the lex, parse, and validate work for every
+// file whose inputs are unchanged. That skip is what removes the re-parse allocation churn the
+// garbage collector otherwise pays for on each warm pass.
+
+/** Bumped whenever shared validator input outside the scanned files changes: an open-buffer edit
+ *  or close, a watched disk change, a configuration change, or a workspace-folder change. Any bump
+ *  invalidates every cached scan result, which trades fine-grained tracking for the guarantee that
+ *  a cross-file dependency can never pin a stale result. */
+let workspaceScanEpoch = 0;
+/** The last seen scan-relevant settings serialization, so only a real change bumps the epoch
+ *  (the whole-workspace toggle itself re-pulls configuration twice per flip). Undefined until
+ *  the first configuration change establishes the baseline. */
+let lastScanSettingsKey: string | undefined;
+
+const bumpWorkspaceScanEpoch = (): void => {
+    workspaceScanEpoch++;
+};
+
+/**
+ * The scan-relevant settings serialization. Only settings that change what a file's validation
+ * produces participate: the whole-workspace toggle and scope select which files are scanned, not
+ * what a file yields, and flipping the toggle is exactly the repeat-scan case the caches exist
+ * for. The l10n bundle path rides along because persisted diagnostics carry localized messages.
+ *
+ * @returns the serialized key.
+ */
+const scanSettingsKeyOf = (): string =>
+    JSON.stringify({
+        ...globalSettings,
+        diagnostics: {
+            ...globalSettings.diagnostics,
+            validateWholeWorkspace: undefined,
+            workspaceValidationScope: undefined,
+        },
+        l10nBundle: process.env['EXTENSION_BUNDLE_PATH'] ?? '',
+    });
+
+interface ScanResultEntry {
+    size: number;
+    mtimeMs: number;
+    epoch: number;
+    revisions: number;
+    diagnostics: Diagnostic[];
+}
+
+/** Per-file scan results, keyed by case-folded fs path. */
+const scanResultCache = new Map<string, ScanResultEntry>();
+/** Upper bound of cached scan results, above one full pass over the largest known mods. */
+const SCAN_RESULT_CAP = 16384;
+
+/** Whether the persisted scan cache was already offered to this session (it seeds at most once). */
+let persistedScanAttempted = false;
+/** How many files any scan pass validated fresh (not served from a cache), for the save gate. */
+let scanFreshValidations = 0;
+
+/**
+ * Seeds the in-memory scan cache from the persisted one, once per session. Only called after the
+ * shared indexes converged, so the seeded entries carry the epoch and revision sum the per-file
+ * check will compare against for the rest of the pass. The persisted cache is gated on nothing
+ * having moved since it was saved (see `index-cache.ts`), which makes the seeded results exactly
+ * what re-validating would produce.
+ *
+ * @param folderUris the workspace folder uris being scanned.
+ * @returns once seeding finished (or was skipped).
+ */
+async function seedPersistedScanResults(folderUris: string[]): Promise<void> {
+    if (persistedScanAttempted) return;
+    persistedScanAttempted = true;
+    const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+    if (!dataRoot) return;
+    const entries = await tryLoadScanCache(dataRoot, folderUris.map(uriToFsPath), scanSettingsKeyOf());
+    if (!entries) return;
+    const epoch = workspaceScanEpoch;
+    const revisions = scanRevisionSum();
+    for (const [path, size, mtimeMs, diagnostics] of entries) {
+        scanResultCache.set(foldPathCase(path), { size, mtimeMs, epoch, revisions, diagnostics });
+    }
+    connection.console.info(`Workspace scan: ${entries.length} file results restored from cache`);
+}
+
+/**
+ * The combined revision of every index whose content feeds scanned diagnostics. Captured before a
+ * file validates and compared after: a result computed while an index was still ingesting must not
+ * be stored, and a stored result is only served while every index is where it was.
+ *
+ * @returns the sum of the participating index revisions.
+ */
+const scanRevisionSum = (): number =>
+    aliasRootIndex.revision +
+    ReverseIncludeIndex.instance.revision +
+    SchemaIdIndex.instance.revision +
+    TemplateBaseIndex.instance.revision +
+    LocalizationKeyIndex.instance.revision;
 
 /**
  * Validate a single `.rules` file from disk and publish its diagnostics. Skips files open in the
@@ -781,6 +1215,29 @@ const openDocumentNorms = (): Set<string> => new Set(documents.all().map((d) => 
 async function validateWorkspaceFile(file: string, openNorms: Set<string>, token: CancellationToken): Promise<void> {
     const uri = filePathToUri(file);
     if (openNorms.has(normalizeUri(uri))) return;
+    let stats: Awaited<ReturnType<typeof stat>>;
+    try {
+        stats = await stat(file);
+    } catch {
+        return;
+    }
+    const cacheKey = foldPathCase(file);
+    const epochBefore = workspaceScanEpoch;
+    const revisionsBefore = scanRevisionSum();
+    const cached = scanResultCache.get(cacheKey);
+    if (
+        cached &&
+        cached.size === stats.size &&
+        cached.mtimeMs === stats.mtimeMs &&
+        cached.epoch === epochBefore &&
+        cached.revisions === revisionsBefore
+    ) {
+        perfCount('scan.files');
+        perfCount('scan.cacheHit');
+        workspaceDiagnosticUris.add(uri);
+        await connection.sendDiagnostics({ uri, diagnostics: cached.diagnostics });
+        return;
+    }
     let text: string;
     try {
         text = await readFile(file, { encoding: 'utf-8' });
@@ -793,6 +1250,26 @@ async function validateWorkspaceFile(file: string, openNorms: Set<string>, token
         // persist=false: don't cache this unopened file's AST (memory) — produce diagnostics and discard.
         const diagnostics = await validateTextDocument(textDocument, token, false);
         if (token.isCancellationRequested) return;
+        // Only a result whose shared inputs did not move while it computed may be cached: a file
+        // validated while an index was still ingesting (the cold pass builds them mid-flight)
+        // reflects a state the next pass will not see.
+        if (workspaceScanEpoch === epochBefore && scanRevisionSum() === revisionsBefore) {
+            scanResultCache.set(cacheKey, {
+                size: stats.size,
+                mtimeMs: stats.mtimeMs,
+                epoch: epochBefore,
+                revisions: revisionsBefore,
+                diagnostics,
+            });
+            while (scanResultCache.size > SCAN_RESULT_CAP) {
+                const oldest = scanResultCache.keys().next().value;
+                if (oldest === undefined) break;
+                scanResultCache.delete(oldest);
+            }
+        }
+        perfCount('scan.files');
+        perfSampleMemory();
+        scanFreshValidations++;
         workspaceDiagnosticUris.add(uri);
         await connection.sendDiagnostics({ uri, diagnostics });
     } catch (e) {
@@ -818,6 +1295,10 @@ async function runWorkspaceValidation(): Promise<void> {
 
     const progress = await connection.window.createWorkDoneProgress();
     progress.begin('Validating workspace', 0, '', false);
+    startScanCpuProfile();
+    // Trust the fs caches for the duration of the pass: a scan re-checks the same directories and
+    // base files tens of thousands of times, and the file watcher invalidates changed paths anyway.
+    beginFsTrustWindow();
     try {
         const files: string[] = [];
         for (const folder of folderUris) {
@@ -829,25 +1310,31 @@ async function runWorkspaceValidation(): Promise<void> {
         // In 'modRulesReachable' scope, restrict the pass to files the game can actually load (the
         // manifest's reachability closure), so dead backups and templates stay out of the Problems
         // panel. A folder without a manifest keeps every file (nothing to scope by).
-        if (globalSettings.diagnostics?.workspaceValidationScope === 'modRulesReachable') {
-            const reachableKeys = new Set<string>();
-            let anyManifest = false;
-            for (const folder of folderUris) {
-                const folderPath = uriToFsPath(folder);
-                const modRoot = findModRoot(join(folderPath, 'probe.rules'));
-                if (!modRoot) continue;
-                const reachability = await computeModReachability(modRoot, token);
-                if (!reachability) continue;
-                anyManifest = true;
-                for (const key of reachability.reachable) reachableKeys.add(key);
-            }
-            if (anyManifest) {
-                const scoped = files.filter((file) => reachableKeys.has(reachabilityKey(file)));
-                files.length = 0;
-                files.push(...scoped);
-            }
+        const scopeKeys = await validationScopeKeys(token);
+        if (scopeKeys) {
+            const scoped = files.filter((file) => scopeKeys.has(reachabilityKey(file)));
+            files.length = 0;
+            files.push(...scoped);
         }
         const openNorms = openDocumentNorms();
+        // Problems published for files that are no longer in scope (the closure shrank, or a tab
+        // close or watcher event validated them before the scope gates existed) are not refreshed
+        // by this pass, so they would stick in the panel forever. Clear them instead.
+        if (scopeKeys) {
+            for (const stored of [...workspaceDiagnosticUris]) {
+                if (scopeKeys.has(reachabilityKey(uriToFsPath(stored)))) continue;
+                if (openNorms.has(normalizeUri(stored))) continue;
+                workspaceDiagnosticUris.delete(stored);
+                await connection.sendDiagnostics({ uri: stored, diagnostics: [] });
+            }
+        }
+        // Converge the shared indexes before the pass, then seed the persisted scan results: the
+        // seeded entries carry the converged epoch and revision sum, so the per-file check can
+        // serve them for the whole pass instead of re-validating everything after a restart.
+        await ensureFragmentRooting(token).catch(() => undefined);
+        await seedPersistedScanResults(folderUris);
+        const startedMs = Date.now();
+        const freshBefore = scanFreshValidations;
         let next = 0;
         let done = 0;
         const worker = async (): Promise<void> => {
@@ -859,7 +1346,32 @@ async function runWorkspaceValidation(): Promise<void> {
             }
         };
         await Promise.all(Array.from({ length: WORKSPACE_DIAGNOSTIC_CONCURRENCY }, worker));
+        const fresh = scanFreshValidations - freshBefore;
+        if (!token.isCancellationRequested) {
+            connection.console.info(
+                `Workspace validation: ${files.length} files in ${Date.now() - startedMs}ms (${fresh} validated, rest cached or open)`
+            );
+            // Persist the results computed under the pass's final shared state, so the next
+            // session's scan can restore them instead of re-validating an unchanged project.
+            // Only worth rewriting when this pass validated anything fresh.
+            if (fresh > 0) {
+                const epoch = workspaceScanEpoch;
+                const revisions = scanRevisionSum();
+                const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+                if (dataRoot) {
+                    const entries: ScanCacheEntry[] = [];
+                    for (const [key, entry] of scanResultCache) {
+                        if (entry.epoch !== epoch || entry.revisions !== revisions) continue;
+                        entries.push([key, entry.size, entry.mtimeMs, entry.diagnostics]);
+                    }
+                    // Awaited, so a server shutdown right after the pass cannot tear the write.
+                    await saveScanCache(dataRoot, folderUris.map(uriToFsPath), scanSettingsKeyOf(), entries);
+                }
+            }
+        }
     } finally {
+        endFsTrustWindow();
+        await stopScanCpuProfile();
         progress.done();
         if (workspaceValidationSource === source) workspaceValidationSource = undefined;
     }
@@ -889,8 +1401,78 @@ function openBufferReadOverride(): (absPath: string) => string | undefined {
 }
 
 // This handler provides the initial list of the completion items.
+/** Upper bound of completion items shipped in one response. Larger lists (every localization key,
+ *  every project id) are prefix-filtered and truncated, and marked incomplete so the client
+ *  re-requests as the user types instead of holding a huge stale list. */
+const COMPLETION_ITEM_CAP = 500;
+
+/** Markdown documentation deferred out of recent completion responses, keyed by request id and
+ *  item index, until the client resolves the selected item. Only the latest few requests are kept,
+ *  a resolve only ever targets the list the client is currently showing. */
+const completionDocStores: Map<number, Array<string | undefined>> = new Map();
+
+/** Source of the completion request ids the deferred-documentation store is keyed by. */
+let completionRequestCounter = 0;
+
+/** How many recent completion responses keep their deferred documentation resolvable. */
+const COMPLETION_DOC_STORES_KEPT = 4;
+
+/**
+ * Strips the Markdown documentation out of completion items and parks it in
+ * {@link completionDocStores}, marking each stripped item with the store key in `item.data` so
+ * `completionItem/resolve` can reattach it. Documentation is the bulk of a list's payload and the
+ * client only ever shows one item's docs at a time, so shipping it lazily keeps the per-keystroke
+ * response small. Only called when the client declared `resolveSupport` for `documentation`.
+ *
+ * @param items the completion items about to be returned.
+ */
+const deferCompletionDocumentation = (items: CompletionItem[]): void => {
+    if (!items.some((item) => item.documentation !== undefined)) return;
+    const requestId = ++completionRequestCounter;
+    const docs: Array<string | undefined> = [];
+    items.forEach((item, index) => {
+        const documentation = item.documentation;
+        if (documentation === undefined) return;
+        docs[index] = typeof documentation === 'string' ? documentation : documentation.value;
+        delete item.documentation;
+        item.data = { docRequest: requestId, docIndex: index };
+    });
+    completionDocStores.set(requestId, docs);
+    for (const key of completionDocStores.keys()) {
+        if (completionDocStores.size <= COMPLETION_DOC_STORES_KEPT) break;
+        completionDocStores.delete(key);
+    }
+};
+
+/**
+ * Packs raw completions into the LSP response list. Lists over {@link COMPLETION_ITEM_CAP} are
+ * narrowed to the word prefix at the cursor and truncated, and flagged `isIncomplete` so the
+ * client asks again on the next keystroke with the narrower prefix.
+ *
+ * @param completions the raw completions of the matched strategy.
+ * @param wordPrefix the identifier-like text immediately left of the cursor.
+ * @returns the completion list to return to the client.
+ */
+const finishCompletionList = (completions: Completion[], wordPrefix: string): CompletionList => {
+    let isIncomplete = false;
+    if (completions.length > COMPLETION_ITEM_CAP) {
+        const prefix = wordPrefix.toLowerCase();
+        const filtered = prefix
+            ? completions.filter((completion) =>
+                  (typeof completion === 'string' ? completion : completion.label).toLowerCase().includes(prefix)
+              )
+            : completions;
+        completions = filtered.slice(0, COMPLETION_ITEM_CAP);
+        // The served set depends on the typed prefix, so the client must re-request as it changes.
+        isIncomplete = true;
+    }
+    const items = completions.map<CompletionItem>((completion) => toCompletionItem(completion, hasSnippetCapability));
+    if (hasCompletionDocResolveCapability) deferCompletionDocumentation(items);
+    return { isIncomplete, items };
+};
+
 connection.onCompletion(
-    async (textDocumentPosition: TextDocumentPositionParams, cancellationToken): Promise<CompletionItem[]> => {
+    async (textDocumentPosition: TextDocumentPositionParams, cancellationToken): Promise<CompletionItem[] | CompletionList> => {
         // `.shader` files get HLSL completion (builtins plus the uniforms/functions/structs the file and
         // its `#include` chain declare), not the OT schema completion below.
         if (isShaderDocument(textDocumentPosition.textDocument.uri)) {
@@ -1003,7 +1585,7 @@ connection.onCompletion(
                         const enclosingList = findEnclosingList(parserResult, offset);
                         const target =
                             (enclosingGroup ? mapKeyTargetOf(enclosingGroup) : undefined) ??
-                            (enclosingList ? listElementReferenceTarget(enclosingList) : undefined) ??
+                            (enclosingList ? listElementReferenceTarget(enclosingList, offset) : undefined) ??
                             crossFileReferenceTargetAtOffset(parserResult, offset, linePrefix);
                         if (target) {
                             completions = await SchemaIdIndex.instance
@@ -1016,13 +1598,30 @@ connection.onCompletion(
         } catch (e) {
             if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
         }
-        return completions.map<CompletionItem>((completion) => toCompletionItem(completion, hasSnippetCapability));
+        const document = documents.get(textDocumentPosition.textDocument.uri);
+        const linePrefix = document
+            ? document.getText({
+                  start: { line: textDocumentPosition.position.line, character: 0 },
+                  end: textDocumentPosition.position,
+              })
+            : '';
+        // `/` stays in the prefix: localization keys and reference paths are slash-segmented, and
+        // narrowing an over-cap list on just the last segment leaves it over-cap.
+        const wordPrefix = /[A-Za-z0-9_./-]*$/.exec(linePrefix)?.[0] ?? '';
+        return finishCompletionList(completions, wordPrefix);
     }
 );
 
-// This handler resolves additional information for the item selected in
-// the completion list.
+// Reattach the documentation deferred out of the completion response for the item the client is
+// about to show. An item without deferred documentation resolves to itself.
 connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
+    const data = item.data as { docRequest?: number; docIndex?: number } | undefined;
+    if (data?.docRequest !== undefined && data.docIndex !== undefined) {
+        const documentation = completionDocStores.get(data.docRequest)?.[data.docIndex];
+        if (documentation !== undefined) {
+            item.documentation = { kind: MarkupKind.Markdown, value: documentation };
+        }
+    }
     return item;
 });
 
@@ -1143,6 +1742,11 @@ async function ensureFragmentRooting(cancellationToken: CancellationToken): Prom
     // already-open file arrives earlier, and building then would permanently omit the game
     // `Data` root from every project index (they are one-time builds).
     await workspaceInitialized;
+    // Only the two rooting sources feed the schema-context memos: the forward alias walk and the
+    // reverse-include index. Snapshot their revisions so the epoch below is only bumped when one
+    // of them actually moved. The whole-workspace scan calls this once per file, and bumping
+    // unconditionally invalidated every memo on shared base nodes several thousand times per scan.
+    const rootingRevisionBefore = aliasRootIndex.revision + ReverseIncludeIndex.instance.revision;
     await ensureAliasRootIndex(cancellationToken).catch(() => undefined);
     const folders = await searchFolderUris();
     await WatchedDocumentIndex.buildTogether(
@@ -1156,6 +1760,11 @@ async function ensureFragmentRooting(cancellationToken: CancellationToken): Prom
         'Indexing project'
     ).catch(() => undefined);
     await ReverseIncludeIndex.instance.ensureBuilt(folders, cancellationToken).catch(() => undefined);
+    // The builds above may have (re)rooted fragments, which changes what the per-node schema
+    // resolution memos would answer, so start a fresh memo epoch for the features that follow.
+    if (aliasRootIndex.revision + ReverseIncludeIndex.instance.revision !== rootingRevisionBefore) {
+        invalidateSchemaContextCache();
+    }
 }
 
 // Disk changes the editor doesn't surface as edits (git pull/checkout, external tools,
@@ -1163,11 +1772,37 @@ async function ensureFragmentRooting(cancellationToken: CancellationToken): Prom
 // Created/externally-changed files are re-read from disk at the next workspace-symbol query.
 connection.onDidChangeWatchedFiles(async (params) => {
     const openNorms = wholeWorkspaceEnabled() ? openDocumentNorms() : undefined;
+    const rulesChanges = params.changes.filter((change) => basenameOf(change.uri).toLowerCase().endsWith('.rules'));
+    const assetChanges = params.changes.filter((change) => !basenameOf(change.uri).toLowerCase().endsWith('.rules'));
+    // Asset (sprite/sound/shader) changes only affect the fs-derived caches: dropping the path
+    // entry also fires the invalidation listeners that clear the asset and navigation memos, so
+    // a created or deleted asset stops being answered from a stale memo. They must not dirty the
+    // `.rules` indexes, which would try to re-parse a binary file as rules on the next reconcile.
+    for (const change of assetChanges) {
+        invalidateFsPath(uriToFsPath(change.uri));
+    }
+    if (rulesChanges.length > 0) {
+        // Disk changes can re-root fragments and shift schema anchoring for unchanged open ASTs.
+        invalidateSchemaContextCache();
+        // They can also grow or shrink the manifest's reachability closure.
+        validationScopeEpoch++;
+    }
     // A cosmoteer.rules add/change/delete can alter how fragments are rooted — rebuild lazily.
-    if (params.changes.some((c) => basenameOf(c.uri).toLowerCase() === 'cosmoteer.rules')) {
+    if (rulesChanges.some((c) => basenameOf(c.uri).toLowerCase() === 'cosmoteer.rules')) {
         aliasRootIndex.invalidate();
     }
-    for (const change of params.changes) {
+    // A created or deleted manifest moves mod-root boundaries, so the per-directory root memo
+    // (negatives included) and the mod contexts built on top of it are stale.
+    if (rulesChanges.some((c) => c.type !== FileChangeType.Changed && isManifestBasename(basenameOf(c.uri)))) {
+        clearModRootCache();
+        invalidateModContext();
+    }
+    const toRevalidate: string[] = [];
+    for (const change of rulesChanges) {
+        // A disk change invalidates the parsed-document cache entry and the parent directory
+        // listing reference resolution keeps, and dirties the mention index's word entry.
+        invalidateFsPath(uriToFsPath(change.uri));
+        MentionIndex.instance.markDirty(uriToFsPath(change.uri));
         if (change.type === FileChangeType.Deleted) {
             WorkspaceSymbolService.instance.remove(change.uri);
             SchemaIdIndex.instance.remove(change.uri);
@@ -1189,12 +1824,50 @@ connection.onDidChangeWatchedFiles(async (params) => {
             TemplateBaseIndex.instance.markDirty(change.uri);
             LocalizationKeyIndex.instance.markDirty(change.uri);
             ReverseIncludeIndex.instance.markDirty(change.uri);
-            // Re-validate the created/externally-changed file so its diagnostics stay current
-            // (skips files open in the editor — the live-edit flow already covers those).
-            if (openNorms) {
-                await validateWorkspaceFile(uriToFsPath(change.uri), openNorms, CancellationToken.None);
+            if (openNorms) toRevalidate.push(uriToFsPath(change.uri));
+        }
+    }
+    // Open documents may show diagnostics and inlay values that were derived from the changed
+    // files (an inherited base, a strings file, a referenced asset), so their version-keyed
+    // caches are stale even though their own versions are unchanged. Drop them and ask a
+    // pull-capable client to re-pull, which recomputes against the new disk state. Cached scan
+    // results of unchanged files can derive from the changed ones the same way.
+    if (params.changes.length > 0) {
+        diagnosticsCache.clear();
+        inlayHintCache.clear();
+        invalidateComponentIdCache();
+        bumpWorkspaceScanEpoch();
+        if (hasPullDiagnosticsCapability) connection.languages.diagnostics.refresh();
+    }
+    // Re-validate created/externally-changed files so their diagnostics stay current (files open
+    // in the editor are skipped, the live-edit flow already covers those). A git-pull-sized burst
+    // arrives as one notification with many changes, so the files run through the same bounded
+    // worker pool as the whole-workspace pass instead of strictly one after another.
+    if (openNorms && toRevalidate.length > 0) {
+        // Only files inside the validation scope get their problems published. An out-of-scope
+        // file (a dead backup a git operation touched, say) must not enter the panel, and any
+        // entry it still holds from an earlier closure is cleared instead.
+        const scopeKeys = await validationScopeKeys(CancellationToken.None);
+        const inScope: string[] = [];
+        for (const file of toRevalidate) {
+            if (!scopeKeys || scopeKeys.has(reachabilityKey(file))) {
+                inScope.push(file);
+                continue;
+            }
+            const staleNorm = normalizeUri(filePathToUri(file));
+            for (const stored of [...workspaceDiagnosticUris]) {
+                if (normalizeUri(stored) !== staleNorm) continue;
+                workspaceDiagnosticUris.delete(stored);
+                await connection.sendDiagnostics({ uri: stored, diagnostics: [] });
             }
         }
+        let next = 0;
+        const worker = async (): Promise<void> => {
+            while (next < inScope.length) {
+                await validateWorkspaceFile(inScope[next++], openNorms, CancellationToken.None);
+            }
+        };
+        await Promise.all(Array.from({ length: Math.min(WORKSPACE_DIAGNOSTIC_CONCURRENCY, inScope.length) }, worker));
     }
 });
 
@@ -1394,6 +2067,15 @@ connection.onRequest('cosmoteer/modOverview', async (params: { textDocument: { u
     }
 });
 
+// Performance introspection for the scan bench (server/test/perf/scan-bench.mjs): the hot-path
+// counters, the peak heap sampled during workspace scans, and the current memory usage. The
+// optional reset lets the bench isolate a warm pass from the cold one that preceded it.
+connection.onRequest('cosmoteer/perfStats', (params: { reset?: boolean } | null) => {
+    const snapshot = { ...perfSnapshot(), memory: process.memoryUsage() };
+    if (params?.reset) perfReset();
+    return snapshot;
+});
+
 // Document colours: render an inline swatch for `{ Rf Gf Bf Af }` / `{ R G B A }` colour groups.
 connection.onDocumentColor((params) => {
     const parserResult = ensureParserResult(params.textDocument.uri);
@@ -1420,12 +2102,58 @@ connection.onColorPresentation((params) => {
 });
 
 // Inlay hints: show the computed result of math/function assignments inline (`= 14`).
+// Computed once per document version over the whole document and cached; each request (the client
+// re-asks on every scroll) filters the cached hints down to its visible range.
+const inlayHintCache: Map<
+    string,
+    { version: number; promise: Promise<InlayHint[]>; source: CancellationTokenSource }
+> = new Map();
+
+/** The whole-document range, so one inlay computation covers every later scroll request. */
+const FULL_DOCUMENT_RANGE = {
+    start: { line: 0, character: 0 },
+    end: { line: Number.MAX_SAFE_INTEGER, character: 0 },
+};
+
 connection.languages.inlayHint.on(async (params, cancellationToken) => {
-    const parserResult = ensureParserResult(params.textDocument.uri);
+    const uri = params.textDocument.uri;
+    const parserResult = ensureParserResult(uri);
     if (!parserResult) return null;
     try {
-        return await InlayHintService.instance.getInlayHints(parserResult, params.range, cancellationToken);
+        const version = documents.get(uri)?.version;
+        let entry = version !== undefined ? inlayHintCache.get(uri) : undefined;
+        if (!entry || entry.version !== version) {
+            // The shared computation runs under its own token, cancelled only when a newer
+            // version supersedes the entry. Binding it to the first request's token let that
+            // request's cancellation truncate the hints every later same-version request served.
+            const source = new CancellationTokenSource();
+            const promise = InlayHintService.instance.getInlayHints(parserResult, FULL_DOCUMENT_RANGE, source.token);
+            if (version !== undefined) {
+                inlayHintCache.get(uri)?.source.cancel();
+                entry = { version, promise, source };
+                inlayHintCache.set(uri, entry);
+            } else {
+                entry = { version: -1, promise, source };
+            }
+        }
+        const hints = await entry.promise;
+        // A superseded computation returned partial hints, drop it so the next request recomputes.
+        if (entry.source.token.isCancellationRequested) {
+            if (inlayHintCache.get(uri) === entry) inlayHintCache.delete(uri);
+            return null;
+        }
+        // The requester going away does not invalidate the shared result, so the entry stays.
+        if (cancellationToken.isCancellationRequested) return null;
+        const { start, end } = params.range;
+        return hints.filter((hint) => {
+            const { line, character } = hint.position;
+            if (line < start.line || line > end.line) return false;
+            if (line === start.line && character < start.character) return false;
+            if (line === end.line && character > end.character) return false;
+            return true;
+        });
     } catch (e) {
+        if (inlayHintCache.get(uri)?.version === documents.get(uri)?.version) inlayHintCache.delete(uri);
         if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
         return null;
     }
@@ -1434,16 +2162,139 @@ connection.languages.inlayHint.on(async (params, cancellationToken) => {
 // Semantic tokens: colour the parsed document by meaning the TextMate grammar can't infer (a `&…`
 // reference vs a bareword enum vs a math function). The grammar stays the synchronous base layer;
 // this is the overlay. Drives both VS Code and the native IntelliJ LSP highlighter.
-connection.languages.semanticTokens.on((params, cancellationToken) => {
+// The token walk is pure CPU over the cached AST, so its result is cached per document version and
+// repeated requests for unchanged text answer from memory. Each result carries a `resultId` so a
+// delta-capable client can request just the changed slice of the array after an edit instead of
+// the whole thing, and a range request serves the viewport from the same cached array.
+const semanticTokensCache: Map<string, { version: number; resultId: string; data: number[] }> = new Map();
+
+/** Source of the semantic-tokens `resultId`s, unique across the whole session. */
+let semanticTokensResultIdCounter = 0;
+
+/**
+ * The full token array of a document, served from the per-version cache when current.
+ *
+ * @param uri the document to tokenize.
+ * @returns the token data and the result id identifying this computation.
+ */
+const computeSemanticTokens = (uri: string): { resultId: string; data: number[] } => {
+    const version = documents.get(uri)?.version;
+    const cached = semanticTokensCache.get(uri);
+    if (cached && version !== undefined && cached.version === version) return cached;
+    let data: number[];
+    // `.shader` files are HLSL, scanned lexically straight from text, no OT parse needed.
+    if (isShaderDocument(uri)) {
+        const document = documents.get(uri);
+        data = document ? buildShaderSemanticTokens(document.getText()).data : [];
+    } else {
+        const parserResult = ensureParserResult(uri);
+        data = parserResult ? buildSemanticTokens(parserResult).data : [];
+    }
+    const entry = { version: version ?? -1, resultId: String(++semanticTokensResultIdCounter), data };
+    if (version !== undefined) semanticTokensCache.set(uri, entry);
+    return entry;
+};
+
+/**
+ * The minimal single-edit diff between two token arrays: the differing middle after trimming the
+ * common prefix and suffix. What an edit changes is almost always one contiguous run of tokens, so
+ * one edit covers it and the client patches its copy in place.
+ *
+ * @param before the token data the client currently holds.
+ * @param after the token data of the current document version.
+ * @returns zero edits for identical arrays, otherwise the one covering edit.
+ */
+const semanticTokensEdits = (before: number[], after: number[]): Array<{ start: number; deleteCount: number; data?: number[] }> => {
+    let start = 0;
+    const minLength = Math.min(before.length, after.length);
+    while (start < minLength && before[start] === after[start]) start++;
+    let beforeEnd = before.length;
+    let afterEnd = after.length;
+    while (beforeEnd > start && afterEnd > start && before[beforeEnd - 1] === after[afterEnd - 1]) {
+        beforeEnd--;
+        afterEnd--;
+    }
+    if (start === beforeEnd && start === afterEnd) return [];
+    return [{ start, deleteCount: beforeEnd - start, data: after.slice(start, afterEnd) }];
+};
+
+/**
+ * The tokens of `data` whose line falls inside `[startLine, endLine]`, re-encoded so the first
+ * kept token's deltas are absolute (its implicit predecessor is the document start). Serving a
+ * superset of the requested range is allowed, so the line bounds are inclusive.
+ *
+ * @param data the full document's delta-encoded token quintuples.
+ * @param startLine the first line to include.
+ * @param endLine the last line to include.
+ * @returns the delta-encoded tokens of the requested lines.
+ */
+const sliceSemanticTokens = (data: number[], startLine: number, endLine: number): number[] => {
+    const out: number[] = [];
+    let line = 0;
+    let character = 0;
+    let previousLine = 0;
+    let previousCharacter = 0;
+    let first = true;
+    for (let i = 0; i + 4 < data.length; i += 5) {
+        line += data[i];
+        if (data[i] > 0) character = 0;
+        character += data[i + 1];
+        if (line < startLine) continue;
+        if (line > endLine) break;
+        if (first) {
+            out.push(line, character, data[i + 2], data[i + 3], data[i + 4]);
+            first = false;
+        } else {
+            out.push(
+                line - previousLine,
+                line === previousLine ? character - previousCharacter : character,
+                data[i + 2],
+                data[i + 3],
+                data[i + 4]
+            );
+        }
+        previousLine = line;
+        previousCharacter = character;
+    }
+    return out;
+};
+
+connection.languages.semanticTokens.on((params, cancellationToken): SemanticTokens => {
     if (cancellationToken.isCancellationRequested) return { data: [] };
     try {
-        // `.shader` files are HLSL — scanned lexically straight from text, no OT parse needed.
-        if (isShaderDocument(params.textDocument.uri)) {
-            const document = documents.get(params.textDocument.uri);
-            return document ? buildShaderSemanticTokens(document.getText()) : { data: [] };
+        const { resultId, data } = computeSemanticTokens(params.textDocument.uri);
+        return { resultId, data };
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages') console.error(e);
+        return { data: [] };
+    }
+});
+
+connection.languages.semanticTokens.onDelta((params, cancellationToken): SemanticTokens | SemanticTokensDelta => {
+    if (cancellationToken.isCancellationRequested) return { data: [] };
+    try {
+        const uri = params.textDocument.uri;
+        // Snapshot the entry the client's `previousResultId` may name before computing the current
+        // version replaces it in the cache. When it is gone (document closed and reopened) or the
+        // id doesn't match, answer with a full result, which the delta response type allows.
+        const previous = semanticTokensCache.get(uri);
+        const current = computeSemanticTokens(uri);
+        if (!previous || previous.resultId !== params.previousResultId) {
+            return { resultId: current.resultId, data: current.data };
         }
-        const parserResult = ensureParserResult(params.textDocument.uri);
-        return parserResult ? buildSemanticTokens(parserResult) : { data: [] };
+        if (current.resultId === previous.resultId) return { resultId: current.resultId, edits: [] };
+        return { resultId: current.resultId, edits: semanticTokensEdits(previous.data, current.data) };
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages') console.error(e);
+        return { data: [] };
+    }
+});
+
+connection.languages.semanticTokens.onRange((params, cancellationToken): SemanticTokens => {
+    if (cancellationToken.isCancellationRequested) return { data: [] };
+    try {
+        const { data } = computeSemanticTokens(params.textDocument.uri);
+        return { data: sliceSemanticTokens(data, params.range.start.line, params.range.end.line) };
     } catch (e) {
         if (globalSettings.trace.server === 'messages') console.error(e);
         return { data: [] };

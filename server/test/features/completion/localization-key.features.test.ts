@@ -44,7 +44,7 @@ const findValue = (node: AbstractNode, field: string): ValueNode | undefined => 
 /** Every leaf key path a parsed strings document declares (mirrors the index harvest, for assertions). */
 const keyPaths = (container: { elements: AbstractNode[] }, prefix = ''): string[] => {
     const out: string[] = [];
-    if (isAssignmentNode(container as AbstractNode) || isValueNode(container as AbstractNode)) return out;
+    if (isAssignmentNode(container as unknown as AbstractNode) || isValueNode(container as unknown as AbstractNode)) return out;
     for (const element of container.elements) {
         let name: string | undefined;
         let value: AbstractNode | undefined;
@@ -105,6 +105,28 @@ describe('localization key hover and validation', () => {
         expect(hover).toContain('Foo Part');
         expect(hover).toContain('Foo-Teil');
         expect(await localizationKeyHover(findValue(doc, 'QuantityDisplayFormat')!, folders, token)).toBeNull();
+    });
+
+    it('shows one hover line per language when a second English strings file redeclares a key', async () => {
+        // The base game splits English strings across files, and a mod can redeclare a vanilla key.
+        // Hover must show one line per language, not one per source file.
+        writeFileSync(join(dir, 'strings', 'en-extra.rules'), `__Name = "English"\nParts { Foo = "Foo Part" }\n`);
+        LocalizationKeyIndex.instance.reset();
+        const doc = resourceDoc('NameKey = "Parts/Foo"');
+        const hover = await localizationKeyHover(findValue(doc, 'NameKey')!, [pathToFileURL(dir).href], token);
+        expect(hover!.match(/Foo Part/g)).toHaveLength(1);
+        expect(hover).toContain('Foo-Teil');
+    });
+
+    it('shows the later (mod) value for a language that overrides a key, as the game renders it', async () => {
+        // A later strings file wins in-game (the mod loads after the game Data tree). The texts iterate
+        // in that order, so the overriding value is the one hover shows, one English line, not two.
+        writeFileSync(join(dir, 'strings', 'zz-override.rules'), `__Name = "English"\nParts { Foo = "Foo Part (modded)" }\n`);
+        LocalizationKeyIndex.instance.reset();
+        const doc = resourceDoc('NameKey = "Parts/Foo"');
+        const hover = await localizationKeyHover(findValue(doc, 'NameKey')!, [pathToFileURL(dir).href], token);
+        expect(hover).toContain('Foo Part (modded)');
+        expect(hover!.match(/English/g)).toHaveLength(1);
     });
 
     it('hover reports a key that no strings file declares', async () => {

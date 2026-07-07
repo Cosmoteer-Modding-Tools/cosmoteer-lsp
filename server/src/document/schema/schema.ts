@@ -29,16 +29,42 @@ export const typeDef = (fullName: string): SchemaTypeDef | undefined => schema.t
 /** An enum (its members) by C# FullName. */
 export const enumDef = (fullName: string): SchemaEnum | undefined => schema.enums[fullName];
 
+/** Short registry `name` → registry, so a name lookup is not a scan over all registries. */
+const registryByShortName = new Map<string, SchemaRegistry>();
+for (const registry of Object.values(schema.registries)) {
+    if (!registryByShortName.has(registry.name)) registryByShortName.set(registry.name, registry);
+}
+
 /** A registry by FullName, or by its short `name`. */
 export const registryOf = (fullNameOrName: string): SchemaRegistry | undefined =>
-    schema.registries[fullNameOrName] ??
-    Object.values(schema.registries).find((r) => r.name === fullNameOrName);
+    schema.registries[fullNameOrName] ?? registryByShortName.get(fullNameOrName);
+
+/**
+ * The first registry (in schema order) whose members declare a discriminator. The sibling-based
+ * registry inference resolves one discriminator against all registries per group, so this answers
+ * from the prebuilt discriminator index instead of scanning every registry's member table.
+ *
+ * @param disc the `Type=` discriminator value.
+ * @returns the first declaring registry, or undefined when none declares it.
+ */
+export const firstRegistryDeclaring = (disc: string): SchemaRegistry | undefined => {
+    const candidates = discriminatorIndex.get(disc);
+    return candidates && candidates.length > 0 ? schema.registries[candidates[0].registryKey] : undefined;
+};
+
+/** Memo of {@link fieldsOf} per class. The schema is immutable after load, so it never goes stale. */
+const fieldsOfCache = new Map<string, SchemaField[]>();
 
 /**
  * The full field set of a class: own fields plus inherited ones, walking `extends`.
- * The most-derived definition of a duplicated field name wins.
+ * The most-derived definition of a duplicated field name wins. Memoized per class.
+ *
+ * @param fullName the class FullName.
+ * @returns the class's own and inherited fields.
  */
 export const fieldsOf = (fullName: string): SchemaField[] => {
+    const cached = fieldsOfCache.get(fullName);
+    if (cached) return cached;
     const out: SchemaField[] = [];
     const seen = new Set<string>();
     let cur: string | undefined = fullName;
@@ -55,6 +81,7 @@ export const fieldsOf = (fullName: string): SchemaField[] => {
         }
         cur = t.extends;
     }
+    fieldsOfCache.set(fullName, out);
     return out;
 };
 
@@ -119,14 +146,24 @@ export const localizationKeyFieldNames = (): ReadonlySet<string> => {
     return localizationKeyFieldNameSet;
 };
 
+/** Memo of {@link acceptsShaderConstants} per class, checked for every `_`-prefixed field. */
+const acceptsShaderConstantsCache = new Map<string, boolean>();
+
 /**
- * Whether a class deserializes inline **shader constants** — a material/sprite whose `Shader`'s
+ * Whether a class deserializes inline shader constants, a material/sprite whose `Shader`'s
  * uniforms are written as sibling keys in the group (`_hotColor = …`, `_z = …`). True when the class
  * (or a base) carries a `ShaderConstantCollection` field. The exact constant names come from the
  * referenced `.shader`, so they cannot be enumerated from the schema. They follow the `_` convention.
  */
-export const acceptsShaderConstants = (fullName: string): boolean =>
-    fieldsOf(fullName).some((f) => f.valueType.kind === 'opaque' && f.valueType.type === 'ShaderConstantCollection');
+export const acceptsShaderConstants = (fullName: string): boolean => {
+    const cached = acceptsShaderConstantsCache.get(fullName);
+    if (cached !== undefined) return cached;
+    const accepts = fieldsOf(fullName).some(
+        (f) => f.valueType.kind === 'opaque' && f.valueType.type === 'ShaderConstantCollection'
+    );
+    acceptsShaderConstantsCache.set(fullName, accepts);
+    return accepts;
+};
 
 /**
  * Whether `fieldName` is a valid inline shader-constant key on `cls`: the class accepts shader

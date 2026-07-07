@@ -72,21 +72,33 @@ export const valueTextRange = (node: ValueNode): Range => {
     return Range.create(line, characterStart, line, characterEnd);
 };
 
+// Several validators and index builders walk the same document for its string values within one
+// validation pass, so the collected list is memoized per AST node. A re-parse produces new node
+// identities, which keeps stale entries unreachable without any explicit invalidation.
+const stringValueNodesMemo = new WeakMap<AbstractNode, readonly ValueNode[]>();
+
 /**
  * Every bare-string value node in a document — the candidate sites for a schema `ID<>` sibling
  * reference. Callers pre-filter by text (cheap) then confirm with {@link resolveSchemaSiblingReference}.
  * Schema sibling refs are always same-file (a sibling lives in the same container), so scanning the
  * one document is complete — no cross-file/workspace walk needed.
  */
-export function* stringValueNodesOf(node: AbstractNode | null | undefined): Generator<ValueNode> {
-    if (!node) return;
-    if (isGroupNode(node) || isListNode(node)) {
-        for (const child of node.elements) yield* stringValueNodesOf(child);
-    } else if (isDocumentNode(node)) {
-        for (const child of node.elements) yield* stringValueNodesOf(child);
-    } else if (isAssignmentNode(node)) {
-        yield* stringValueNodesOf(node.right);
-    } else if (isValueNode(node) && node.valueType.type === 'String') {
-        yield node;
+export function stringValueNodesOf(node: AbstractNode | null | undefined): readonly ValueNode[] {
+    if (!node) return [];
+    const cached = stringValueNodesMemo.get(node);
+    if (cached) return cached;
+    const values: ValueNode[] = [];
+    const stack: AbstractNode[] = [node];
+    while (stack.length) {
+        const current = stack.pop()!;
+        if (isGroupNode(current) || isListNode(current) || isDocumentNode(current)) {
+            for (let i = current.elements.length - 1; i >= 0; i--) stack.push(current.elements[i]);
+        } else if (isAssignmentNode(current)) {
+            stack.push(current.right);
+        } else if (isValueNode(current) && current.valueType.type === 'String') {
+            values.push(current);
+        }
     }
+    stringValueNodesMemo.set(node, values);
+    return values;
 }

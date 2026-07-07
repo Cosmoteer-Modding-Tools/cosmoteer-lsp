@@ -308,6 +308,7 @@ exports[`parser > parses internal references (~/ and ../) and math expressions 1
         "right": {
           "elements": [
             {
+              "delimiter": ",",
               "position": {
                 "characterEnd": 13,
                 "characterStart": 12,
@@ -322,6 +323,7 @@ exports[`parser > parses internal references (~/ and ../) and math expressions 1
               },
             },
             {
+              "delimiter": ",",
               "position": {
                 "characterEnd": 18,
                 "characterStart": 17,
@@ -336,6 +338,7 @@ exports[`parser > parses internal references (~/ and ../) and math expressions 1
               },
             },
             {
+              "delimiter": ",",
               "position": {
                 "characterEnd": 23,
                 "characterStart": 22,
@@ -392,6 +395,7 @@ exports[`parser > parses internal references (~/ and ../) and math expressions 1
         "right": {
           "elements": [
             {
+              "delimiter": ",",
               "position": {
                 "characterEnd": 13,
                 "characterStart": 10,
@@ -406,6 +410,7 @@ exports[`parser > parses internal references (~/ and ../) and math expressions 1
               },
             },
             {
+              "delimiter": ",",
               "position": {
                 "characterEnd": 18,
                 "characterStart": 15,
@@ -420,6 +425,7 @@ exports[`parser > parses internal references (~/ and ../) and math expressions 1
               },
             },
             {
+              "delimiter": ",",
               "position": {
                 "characterEnd": 23,
                 "characterStart": 20,
@@ -478,6 +484,7 @@ exports[`parser > parses internal references (~/ and ../) and math expressions 1
             "right": {
               "elements": [
                 {
+                  "delimiter": ",",
                   "position": {
                     "characterEnd": 20,
                     "characterStart": 9,
@@ -492,6 +499,7 @@ exports[`parser > parses internal references (~/ and ../) and math expressions 1
                   },
                 },
                 {
+                  "delimiter": ",",
                   "position": {
                     "characterEnd": 32,
                     "characterStart": 21,
@@ -506,6 +514,7 @@ exports[`parser > parses internal references (~/ and ../) and math expressions 1
                   },
                 },
                 {
+                  "delimiter": ",",
                   "position": {
                     "characterEnd": 44,
                     "characterStart": 33,
@@ -562,6 +571,7 @@ exports[`parser > parses internal references (~/ and ../) and math expressions 1
             "right": {
               "elements": [
                 {
+                  "delimiter": ",",
                   "position": {
                     "characterEnd": 18,
                     "characterStart": 8,
@@ -576,6 +586,7 @@ exports[`parser > parses internal references (~/ and ../) and math expressions 1
                   },
                 },
                 {
+                  "delimiter": ",",
                   "position": {
                     "characterEnd": 29,
                     "characterStart": 19,

@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.4.1 Beta
+
+### Added
+
+- Incremental text synchronization. Only the changed range of a document is sent per keystroke.
+- Pull diagnostics answer with `unchanged` when nothing was edited since the last request.
+- Semantic token deltas and range requests, so only the changed slice of the token array is sent after an edit.
+- Large completion lists are narrowed to the typed prefix, and documentation is resolved lazily per selected item.
+- Validation of bare valueless fields (`ScaleIn` with no `=`) when the game cannot read them as null.
+- Positional list-form values (`BaseSize = [7.2, 7.2]`) now get validation, hover and completion, including nested entry lists like `EditorParentParts`.
+- Validation of values the game silently never reads: unknown members inside a group-typed field's list form, extra list elements and value shapes the field cannot read. Legal dual forms stay silent.
+- Bare `&…` reference list elements are now validated like any other reference.
+- A bare `&…` reference in group or document position is now a parse error, like in the game.
+- A warning when a list element name and its body share a line without a separator, since the game reads the whole line as one text element. A quick fix removes the name.
+
+### Changed
+
+- The extension and language server now ship as native ES module bundles (`.mjs`). No functional change, unlocks ESM-only dependencies going forward.
+- Faster cold and warm starts through more caching and less re-parsing, while keeping everything up to date when files change.
+- Startup no longer reads the whole project twice: the find-all-references word index is built during the main project walk instead of its own read pass.
+- Startup index builds share one file-system sweep instead of each walking and statting the same folders.
+- The persisted word index is about half as large and loads faster.
+- Whole-workspace validation results are persisted across restarts. Reopening an unchanged project restores all problems in under a second instead of re-validating every file.
+- Reinstalling or rebuilding an identical server no longer invalidates the startup caches.
+- The server logs startup and validation timings to the output channel.
+- Whole-workspace scans reuse per-file results and skip unchanged files.
+- On-disk files are validated through the same path as open documents.
+- Fewer lexer token allocations and reduced GC spikes.
+- Typing only invalidates the caches that actually read the edited file, instead of wiping them on every keystroke.
+
+### Fixed
+
+- Automatic Cosmoteer detection now finds installations in secondary Steam library folders.
+- Automatic detection now also works on Linux and macOS, including Flatpak and Snap installs.
+- A wrong or unreadable detected path now shows a warning instead of a stuck progress notification.
+- Field-name completion no longer re-offers fields already written in their bare form and no longer suggests positional digit fields inside `{ }` group form.
+- Completions inside `[ … ]` no longer offer the outer group's field names. A list position now completes as what its elements are.
+- Effect lists on group-typed fields (`HitEffects [ … ]`) now carry full schema intelligence, with completion and validation inside each element.
+- A crash in the document symbols caused by a `[`.
+- A parser problem when continuing a math expression.
+- Whole-workspace validation no longer leaks problems from out-of-scope files into the Problems panel.
+- Reference false positives from files validated while the game data was still loading no longer stick until the next edit.
+- Go-to-definition on the inheritance reference of an empty group (`Components : ^/0/Components { }`) did nothing.
+- An identifier element in a list followed by a body or inheritance on a later line was wrongly glued into one named container, deviating from the game.
+
 ## 0.4.0 Beta
 
 ### Added

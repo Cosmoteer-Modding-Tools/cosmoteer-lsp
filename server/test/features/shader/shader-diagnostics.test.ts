@@ -5,7 +5,7 @@ import { validateShaderDocument } from '../../../src/features/shader/shader-diag
 const validate = (text: string, override?: (p: string) => string | undefined) =>
     validateShaderDocument(text, 'C:/proj/main.shader', 'C:/data', override);
 const messages = async (text: string, override?: (p: string) => string | undefined): Promise<string[]> =>
-    (await validate(text, override)).map((d) => d.message);
+    (await validate(text, override)).map((d) => d.message as string);
 
 describe('shader diagnostics', () => {
     it('reports nothing on a clean shader', async () => {

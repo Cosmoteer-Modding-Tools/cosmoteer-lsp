@@ -15,7 +15,7 @@ const valueNode = (id: string) => {
     let found: any;
     const walk = (n: any) => {
         if (isValueNode(n) && String(n.valueType.value) === id) found = n;
-        const kids = n.elements ?? (n.type === 'Assignment' ? [n.left, n.right] : []) ?? [];
+        const kids = n.elements ?? (n.type === 'Assignment' ? [n.left, n.right] : []);
         for (const k of kids) walk(k);
     };
     walk(doc);
@@ -34,7 +34,7 @@ describe('schemaReferenceFieldOf: list-element references', () => {
         // `MinConnections = [2]` would not be a reference; a non-entity bare value is not a ref.
         const doc = parser(lexer('StartingNodePicker\n{\n\tType = StartingNodePicker\n\tFoo = [bar]\n}'), 'file:///t.rules').value;
         let v: any;
-        const walk = (n: any) => { if (isValueNode(n) && String(n.valueType.value) === 'bar') v = n; for (const k of (n.elements ?? (n.type === 'Assignment' ? [n.left, n.right] : []) ?? [])) walk(k); };
+        const walk = (n: any) => { if (isValueNode(n) && String(n.valueType.value) === 'bar') v = n; for (const k of (n.elements ?? (n.type === 'Assignment' ? [n.left, n.right] : []))) walk(k); };
         walk(doc);
         expect(schemaReferenceFieldOf(v)).toBeUndefined();
     });

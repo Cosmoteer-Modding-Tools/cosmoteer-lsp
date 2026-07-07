@@ -38,6 +38,29 @@ const KNOWN_MOD_BUGS = new Set<string>([
     "3119349707/sw_effects/shots/laser_shot_blue_pd.rules :: 'AntiBullet' is not a valid BulletComponentRules type.",
     "3119349707/sw_effects/shots/laser_shot_green_pd.rules :: 'AntiBullet' is not a valid BulletComponentRules type.",
     "3119349707/sw_effects/shots/laser_shot_red_pd.rules :: 'AntiBullet' is not a valid BulletComponentRules type.",
+    // Surfaced when hit-effect list elements started resolving through the value-form delegation:
+    // `Fire`/`AreaFires` hit effects and the `Ammo*` drains were removed or renamed by newer game
+    // versions (verified absent in the current Cosmoteer.dll), so these mods target an older game.
+    // `DestroyShips` is an alias of the DefeatShips objective class only; the spawner the
+    // ObjectiveSpawner registry dispatches accepts just `DefeatShips`, so these two backup files
+    // wrote a spelling the game cannot dispatch.
+    "3093774017/career/merchantraiders - BAK.rules :: 'DestroyShips' is not a valid ObjectiveSpawner type.",
+    "3093774017/career/merchantraiders.ffweg.rules :: 'DestroyShips' is not a valid ObjectiveSpawner type.",
+    "2880017812/Parts/Weapons/CRAM megacannon/Bullet0.rules :: 'Fire' is not a valid HitEffectRules type.",
+    "2946411143/cannons/dpmcannon_med/bullet_med/dpmbullet_medt.rules :: 'Fire' is not a valid HitEffectRules type.",
+    "2946411143/missile_launcher/mine/projectile/dpmmine_shrapnel.rules :: 'Fire' is not a valid HitEffectRules type.",
+    "3119349707/ships/terran/weapons/dev_code_sketches/Graphics_TestWeapon/dual_laser_cannon_switchable_test.rules :: 'AreaFires' is not a valid HitEffectRules type.",
+    "3119349707/ships/terran/weapons/dev_code_sketches/Graphics_Weapons/dual_laser_cannon_switchable.rules :: 'AreaFires' is not a valid HitEffectRules type.",
+    "3119349707/ships/terran/weapons/turbolasers/Turbolasers_Spinal_Turret/turbolaser_spinal_turret_2x3.rules :: 'AreaFires' is not a valid HitEffectRules type.",
+    "3119349707/ships/terran/weapons/super/gravity_well_projector/FTL_jammer_energy_shot.rules :: 'ExplosiveAmmoDrain' was renamed to 'ExplosiveResourceDrain' in a newer game version (ammo was generalized into the resource system).",
+    "3119349707/ships/terran/weapons/super/gravity_well_projector/FTL_jammer_shot.rules :: 'ExplosiveAmmoDrain' was renamed to 'ExplosiveResourceDrain' in a newer game version (ammo was generalized into the resource system).",
+    "3119349707/ships/terran/weapons/super/gravity_well_projector/manual.rules :: 'ExplosiveAmmoDrain' was renamed to 'ExplosiveResourceDrain' in a newer game version (ammo was generalized into the resource system).",
+    "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot.rules :: 'AmmoDrain' was renamed to 'ResourceDrain' in a newer game version (ammo was generalized into the resource system).",
+    "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot.rules :: 'ExplosiveAmmoDrain' was renamed to 'ExplosiveResourceDrain' in a newer game version (ammo was generalized into the resource system).",
+    "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot02.rules :: 'AmmoDrain' was renamed to 'ResourceDrain' in a newer game version (ammo was generalized into the resource system).",
+    "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot02.rules :: 'ExplosiveAmmoDrain' was renamed to 'ExplosiveResourceDrain' in a newer game version (ammo was generalized into the resource system).",
+    "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot03.rules :: 'AmmoDrain' was renamed to 'ResourceDrain' in a newer game version (ammo was generalized into the resource system).",
+    "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot03.rules :: 'ExplosiveAmmoDrain' was renamed to 'ExplosiveResourceDrain' in a newer game version (ammo was generalized into the resource system).",
 ]);
 
 const rulesFiles = (root: string): string[] => {

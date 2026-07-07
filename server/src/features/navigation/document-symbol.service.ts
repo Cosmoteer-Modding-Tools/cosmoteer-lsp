@@ -161,7 +161,20 @@ export class DocumentSymbolService {
 const atOrBefore = (line: number, char: number, oLine: number, oChar: number): boolean =>
     line < oLine || (line === oLine && char <= oChar);
 
-/** The smallest range covering both inputs. */
+/**
+ * Return `range` with `start`/`end` swapped if they are inverted. A single AST
+ * {@link AstPosition} can carry `characterEnd < characterStart` when the parser recovers from
+ * malformed input (an unclosed `[` leaves the node's end column at its `0` default), which
+ * produces a reversed one-line range. {@link unionRange} keys off the stored `start`/`end`, so
+ * a reversed input would let the true leftmost/rightmost column escape the union. Ordering
+ * first keeps the union honest.
+ */
+const orderRange = (range: Range): Range =>
+    atOrBefore(range.start.line, range.start.character, range.end.line, range.end.character)
+        ? range
+        : { start: range.end, end: range.start };
+
+/** The smallest range covering both inputs. Assumes each input is ordered ({@link orderRange}). */
 const unionRange = (a: Range, b: Range): Range => ({
     start: atOrBefore(a.start.line, a.start.character, b.start.line, b.start.character) ? a.start : b.start,
     end: atOrBefore(a.end.line, a.end.character, b.end.line, b.end.character) ? b.end : a.end,
@@ -171,12 +184,14 @@ const unionRange = (a: Range, b: Range): Range => ({
  * Guarantee the LSP invariant that a symbol's `range` encloses its `selectionRange` and every child
  * range. Our `range` is derived from a node's descendant positions, but the particle/effect files
  * carry bare keys and empty values whose positions are missing or degenerate, so the envelope can
- * fall short of the name range — which makes the client reject the whole outline. Expanding `range`
- * to the union (depth-first, children first) keeps it valid without losing any node.
+ * fall short of the name range, which makes the client reject the whole outline. Ordering each
+ * range (malformed input can leave a reversed selectionRange) and then expanding `range` to the
+ * union (depth-first, children first) keeps it valid without losing any node.
  */
 const normalizeSymbol = (symbol: DocumentSymbol): DocumentSymbol => {
     symbol.children = symbol.children?.map(normalizeSymbol);
-    let range = unionRange(symbol.range, symbol.selectionRange);
+    symbol.selectionRange = orderRange(symbol.selectionRange);
+    let range = unionRange(orderRange(symbol.range), symbol.selectionRange);
     for (const child of symbol.children ?? []) range = unionRange(range, child.range);
     symbol.range = range;
     return symbol;

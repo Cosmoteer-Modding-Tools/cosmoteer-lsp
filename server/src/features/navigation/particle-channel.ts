@@ -8,7 +8,7 @@ import {
     ValueNode,
 } from '../../core/ast/ast';
 import { fieldOf } from '../../document/schema/schema';
-import { findEnclosingGroup, resolveGroupClass } from '../../document/schema/schema-context';
+import { memberScopeClassAt, resolveGroupClass } from '../../document/schema/schema-context';
 import { Completion } from '../completion/autocompletion.service';
 import { stringValueNodesOf, valueTextRange } from './schema-reference.navigation';
 
@@ -137,9 +137,10 @@ export const particleChannelCompletionsAtOffset = (
 ): Completion[] | undefined => {
     const match = CHANNEL_VALUE_POSITION.exec(linePrefix);
     if (!match) return undefined;
-    const group = findEnclosingGroup(document, offset);
-    if (!group) return undefined;
-    const cls = resolveGroupClass(group);
+    // Scope-aware class lookup: inside `Offset [Scale2In = <cursor>]` the scope is the list slot's
+    // Vector2 (which has no channel fields), not the outer renderer, so no channels are offered
+    // for a binding the game never reads.
+    const cls = memberScopeClassAt(document, offset);
     const valueType = cls ? fieldOf(cls, match[1])?.valueType : undefined;
     if (valueType?.kind !== 'opaque' || valueType.type !== PARTICLE_DATA_ID) return undefined;
 

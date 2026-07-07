@@ -9,7 +9,23 @@ async function main() {
         const ctx = await context({
             entryPoints: ['client/src/extension.ts', 'server/src/server.ts'],
             bundle: true,
-            format: 'cjs',
+            // Native ESM bundles. The `.mjs` suffix makes Node (and the VS Code extension host,
+            // 1.100+) load them as ESM without a `type: module` package.json, which would flip
+            // the CJS test build under out/test too. The banner restores the CJS globals that
+            // bundled CommonJS dependencies (winreg, jszip) and our __filename use rely on,
+            // since esbuild does not polyfill them in ESM output.
+            format: 'esm',
+            outExtension: { '.js': '.mjs' },
+            banner: {
+                js: [
+                    "import { createRequire as __cjsCreateRequire } from 'node:module';",
+                    "import { fileURLToPath as __cjsFileURLToPath } from 'node:url';",
+                    "import { dirname as __cjsDirname } from 'node:path';",
+                    'const require = __cjsCreateRequire(import.meta.url);',
+                    'const __filename = __cjsFileURLToPath(import.meta.url);',
+                    'const __dirname = __cjsDirname(__filename);',
+                ].join('\n'),
+            },
             minify: production,
             sourcemap: !production,
             sourcesContent: false,

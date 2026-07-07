@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "modding.cosmoteer.tools"
-version = "0.4.0"
+version = "0.4.1"
 
 repositories {
     mavenCentral()
@@ -125,7 +125,7 @@ val runRider = intellijPlatformTesting.runIde.register("runRider") {
 // withType covers every sandbox variant (buildPlugin, runIde, runRider, tests).
 tasks.withType<PrepareSandboxTask>().configureEach {
     val repoRoot = project.projectDir.parentFile
-    from(File(repoRoot, "out/server/src/server.js")) {
+    from(File(repoRoot, "out/server/src/server.mjs")) {
         into("${project.name}/language-server")
     }
     from(File(repoRoot, "l10n")) {

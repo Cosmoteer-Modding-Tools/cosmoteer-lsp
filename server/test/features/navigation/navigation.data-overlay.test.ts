@@ -12,7 +12,7 @@ const token = CancellationToken.None;
 
 // A node "inside a mod" whose ./data reference points into the merged game tree (NOT the mod dir).
 const refNode = (ref: string): AbstractNode =>
-    (parser(lexer(`X = ${ref}\n`), 'file:///c%3A/mod/sub/file.rules').value.elements[0] as { right: AbstractNode }).right;
+    (parser(lexer(`X = ${ref}\n`), 'file:///c%3A/mod/sub/file.rules').value.elements[0] as unknown as { right: AbstractNode }).right;
 
 // `&<./Data/...>` addresses the merged game `Data` tree. Mods write it lowercase (`./data/...`)
 // too; the resolver used to match only the capital `Data`, so a mod referencing vanilla via a

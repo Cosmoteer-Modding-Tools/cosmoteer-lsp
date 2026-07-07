@@ -55,6 +55,8 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
     private readonly counts = new Map<string, number>();
     /** normalized source uri → the distinct base names that file contributed. */
     private readonly bySource = new Map<string, string[]>();
+    /** Snapshot handed out by {@link baseNames}, rebuilt only after the counts changed. */
+    private namesSnapshot: ReadonlySet<string> | null = null;
 
     private constructor() {
         super();
@@ -71,6 +73,7 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
     protected clear(): void {
         this.counts.clear();
         this.bySource.clear();
+        this.namesSnapshot = null;
     }
 
     /**
@@ -104,6 +107,7 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
     protected removeSource(source: string): void {
         const prior = this.bySource.get(source);
         if (!prior) return;
+        this.namesSnapshot = null;
         for (const name of prior) {
             const next = (this.counts.get(name) ?? 0) - 1;
             if (next <= 0) this.counts.delete(name);
@@ -112,13 +116,19 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
         this.bySource.delete(source);
     }
 
-    protected indexDocument(document: AbstractNodeDocument): void {
+    protected indexDocument(document: AbstractNodeDocument): boolean {
         const source = normalizeUri(document.uri);
-        this.removeSource(source);
+        const prior = this.bySource.get(source);
         const names = baseNamesOf(document);
-        if (!names.length) return;
+        const changed = prior
+            ? prior.length !== names.length || prior.some((name, index) => name !== names[index])
+            : names.length > 0;
+        this.removeSource(source);
+        if (!names.length) return changed;
+        this.namesSnapshot = null;
         this.bySource.set(source, names);
         for (const name of names) this.counts.set(name, (this.counts.get(name) ?? 0) + 1);
+        return changed;
     }
 
     /** The set of names used as an inheritance base anywhere in the project, after refreshing the index. */
@@ -128,6 +138,7 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
             cancellationToken,
             'Indexing inheritance bases'
         );
-        return new Set(this.counts.keys());
+        if (!this.namesSnapshot) this.namesSnapshot = new Set(this.counts.keys());
+        return this.namesSnapshot;
     }
 }

@@ -191,10 +191,20 @@ TypeDefinition? InterfaceRegistry(TypeDefinition t)
 }
 TypeDefinition? NearestRegistryBase(TypeDefinition t)
 {
+    // The class chain wins over implemented interfaces: a member can extend a class registry
+    // while also implementing an orthogonal registry interface (RepeatingEffectRules extends the
+    // HitEffectRules registry but implements IResumableHitEffectRules, the save-resume registry),
+    // and its `Type=` dispatches within the class registry. Interface probing remains the
+    // fallback for the registries that exist only as interfaces (particle updaters/renderers).
     var cur = t;
     while (cur != null && cur.FullName != "System.Object")
     {
         if (Attr(cur, BASETYPE) != null) return cur;
+        cur = cur.BaseType?.Resolve();
+    }
+    cur = t;
+    while (cur != null && cur.FullName != "System.Object")
+    {
         if (InterfaceRegistry(cur) is { } iface) return iface;
         cur = cur.BaseType?.Resolve();
     }
@@ -497,6 +507,24 @@ bool IsNullableReference(ICustomAttributeProvider cap)
     return false;
 }
 
+// True when deserializing a void (valueless) OT node into this declared type is legal at runtime.
+// The serializer treats a void source as null (`ObjectTextSerializer.SourceIsNull`) and
+// `BaseSerializer.Read` throws a DeserializeException for any non-nullable value type. A type
+// carrying `[DisableNullSerialization]` skips that check and handles the void itself, so it is
+// treated as tolerant. Unresolvable references stay tolerant to avoid false `nullable = false`.
+bool VoidAssignable(TypeReference tr)
+{
+    // An array is itself a reference type, and `Resolve()` on it would resolve the element type,
+    // misreading a struct-element array (`EditorGroupRules[]`) as a non-nullable struct.
+    if (tr.IsArray) return true;
+    if (tr is GenericInstanceType git && git.ElementType.Name == "Nullable`1") return true;
+    TypeDefinition? def;
+    try { def = tr.Resolve(); } catch { def = null; }
+    if (def == null) return !tr.IsValueType;
+    if (!def.IsValueType) return true;
+    return def.CustomAttributes.Any(a => a.AttributeType.FullName == "Halfling.Serialization.DisableNullSerializationAttribute");
+}
+
 // Fields a custom deserializer reads through the generic reader rather than as reflected `[Serialize]`
 // members. Many `Rules` classes have a `[GenericConstructor]`/`Read` method that pulls extra OT keys
 // with `reader.TryReadFromPath<T>("Name")` / `ReadFromPath<T>` / `ReadOptionalFromPath<T>`. Because the
@@ -581,6 +609,18 @@ JsonArray OwnFields(TypeDefinition t)
             || type.Name == "Nullable`1"
             || vtKind == "list"
             || vtKind == "map";
+        // A bare valueless field (`ScaleIn` with no `=`) deserializes as null, so mark the fields
+        // where that is a game load error and the language server can flag them.
+        if (!VoidAssignable(type)) fo["nullable"] = false;
+        // A per-field deserializer override whose Read body branches on OTFieldNode grants only
+        // this field a scalar string form: the written word is looked up by name (a Widget
+        // Anchor's `TopLeft` preset), so a number still throws in game.
+        if (Named(sa, "OverrideDeserializer") is TypeReference overrideDeserializer)
+        {
+            TypeDefinition? wrapperDef = null;
+            try { wrapperDef = overrideDeserializer.Resolve(); } catch { }
+            if (WrapperReadsScalar(wrapperDef)) fo["scalarStringForm"] = true;
+        }
         if (aliasNames.Count > 0)
             fo["aliases"] = new JsonArray(aliasNames.Select(a => (JsonNode)JsonValue.Create(a)).ToArray());
         var dv = Named(sa, "DefaultValue");
@@ -610,7 +650,11 @@ JsonArray OwnFields(TypeDefinition t)
     foreach (var (cname, ctype) in CustomReadCalls(t))
     {
         if (cname == "Type" || !emitted.Add(cname)) continue;
-        arr.Add(new JsonObject { ["name"] = cname, ["valueType"] = MapType(ctype), ["optional"] = true });
+        var co = new JsonObject { ["name"] = cname, ["valueType"] = MapType(ctype), ["optional"] = true };
+        // `TryReadFromPath` only tolerates an absent node. A present-but-void one still throws for a
+        // non-nullable generic argument, so the same nullability marking applies.
+        if (!VoidAssignable(ctype)) co["nullable"] = false;
+        arr.Add(co);
     }
     return arr;
 }
@@ -624,10 +668,14 @@ foreach (var t in allTypes)
     var members = new JsonObject();
     foreach (var d in allTypes)
     {
-        if (d == t) continue;
-        var da = Attr(d, DERIVED);
-        if (da == null || NearestRegistryBase(d)?.FullName != t.FullName) continue;
-        members[(Named(da, "TypeName") as string) ?? d.Name] = d.FullName;
+        if (d == t || NearestRegistryBase(d)?.FullName != t.FullName) continue;
+        // A type can carry several [SerialDerivedType] attributes, one per accepted `Type=`
+        // spelling (DefeatShipsObjective answers to both `DefeatShips` and `DestroyShips`), so
+        // every attribute registers its name.
+        foreach (var da in d.CustomAttributes.Where(a => a.AttributeType.FullName == DERIVED))
+        {
+            members[(Named(da, "TypeName") as string) ?? d.Name] = d.FullName;
+        }
     }
     // Some registries dispatch on the plain subclass name with no `[SerialDerivedType]` attribute —
     // the engine discovers members by reflection and `Type=` is the class name (e.g. ship-generator
@@ -650,6 +698,73 @@ foreach (var t in allTypes)
     };
 }
 
+// ---- value-form detection ----
+// The engine's structured mechanisms that let a group type read shapes beyond `{ … }`, each
+// extracted so the validator follows a game update through a schema regeneration:
+//   1. `scalarForm` (type): the [ObjectTextConstructor] constructor or the
+//      ReadContentFrom(ObjectTextSerializer, …) implementation (the
+//      IObjectTextContentDeserializable hook, explicit or named) branches on OTFieldNode, so a
+//      plain scalar value is read directly (`Time = 10`, `Default = White`).
+//   2. `valueForm` (type): a `[Serialize(Alias = "")]` member. The empty OT path resolves to the
+//      node itself (`OTNode.TryFindAtPath("")`), so the type reads every written shape its
+//      member type reads: ShipFile's AbsolutePath makes `File = x.ship.png` legal, a
+//      MultiHitEffectRules' `HitEffectRules[]` makes the list form legal, and a proxy's
+//      group-only ProxyRules keeps a scalar illegal. Emitted as the member's mapped value type;
+//      the validator derives the legal shapes from the kind, following group delegations.
+//   3. `scalarStringForm` (type or field): a name-lookup wrapper serializer whose Read body
+//      branches on OTFieldNode. Registered globally via [DefaultSerializer] + CanRead (emitted
+//      on the target type), or per field via `[Serialize(OverrideDeserializer = …)]` (emitted on
+//      that field, a Widget Anchor's `TopLeft`). The word is looked up by name, so only strings
+//      are legal.
+// Verified against the decompiled engine (2026-07): every scalar-capable engine type follows one
+// of these patterns, and the Vector2 family, Material and Sprite (which throw on a scalar) match
+// none.
+bool BodyMentionsFieldNode(MethodDefinition? m) =>
+    m?.HasBody == true && m.Body.Instructions.Any(i =>
+        (i.Operand is TypeReference tr && tr.FullName == "Halfling.ObjectText.OTFieldNode")
+        || (i.Operand is MemberReference mr && mr.DeclaringType?.FullName == "Halfling.ObjectText.OTFieldNode"));
+
+TypeReference? EmptyAliasMemberType(TypeDefinition t)
+{
+    foreach (var f in t.Fields)
+        if (Attr(f, SERIALIZE) is { } fa && Named(fa, "Alias") as string == "") return f.FieldType;
+    foreach (var p in t.Properties)
+        if (Attr(p, SERIALIZE) is { } pa && Named(pa, "Alias") as string == "") return p.PropertyType;
+    return null;
+}
+
+bool HasScalarForm(TypeDefinition t) =>
+    BodyMentionsFieldNode(t.Methods.FirstOrDefault(m => m.IsConstructor && Attr(m, OTCTOR) != null))
+    || BodyMentionsFieldNode(t.Methods.FirstOrDefault(m =>
+        m.Name.EndsWith("ReadContentFrom")
+        && m.Parameters.Any(p => p.ParameterType.FullName == "Halfling.Serialization.ObjectText.ObjectTextSerializer")));
+
+// Whether a wrapper serializer type reads a scalar (its Read(ObjectTextSerializer, …) branches
+// on OTFieldNode). Shared by both registration paths of mechanism 3.
+bool WrapperReadsScalar(TypeDefinition? wrapper) =>
+    wrapper != null && BodyMentionsFieldNode(wrapper.Methods.FirstOrDefault(m =>
+        m.Name == "Read"
+        && m.Parameters.FirstOrDefault()?.ParameterType.FullName
+            == "Halfling.Serialization.ObjectText.ObjectTextSerializer"));
+
+// Globally registered wrappers: collect the CanRead targets of scalar-reading [DefaultSerializer]
+// classes. Only the simple `type == typeof(X)` shape (exactly one ldtoken) is taken; a wrapper
+// with a complex CanRead (the generic ID-dictionary serializer) yields no unambiguous target and
+// is skipped.
+var scalarStringTargets = new HashSet<string>();
+foreach (var t in allTypes)
+{
+    if (Attr(t, "Halfling.Serialization.DefaultSerializerAttribute") == null) continue;
+    var canRead = t.Methods.FirstOrDefault(m => m.Name == "CanRead" && m.HasBody);
+    if (canRead == null || !WrapperReadsScalar(t)) continue;
+    var targets = canRead.Body.Instructions
+        .Where(i => i.OpCode == OpCodes.Ldtoken && i.Operand is TypeReference)
+        .Select(i => ((TypeReference)i.Operand).FullName)
+        .Distinct()
+        .ToList();
+    if (targets.Count == 1) scalarStringTargets.Add(targets[0]);
+}
+
 var types = new JsonObject();
 foreach (var t in allTypes)
 {
@@ -664,6 +779,9 @@ foreach (var t in allTypes)
         if (NearestRegistryBase(t) is { } reg) o["registry"] = reg.FullName;
     }
     if (Attr(t, BASETYPE) != null) o["isRegistry"] = true;
+    if (HasScalarForm(t)) o["scalarForm"] = true;
+    else if (scalarStringTargets.Contains(t.FullName)) o["scalarStringForm"] = true;
+    if (EmptyAliasMemberType(t) is { } valueMember) o["valueForm"] = MapType(valueMember);
     o["fields"] = OwnFields(t);
     types[t.FullName] = o;
 }

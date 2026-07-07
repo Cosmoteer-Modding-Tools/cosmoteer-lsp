@@ -10,6 +10,7 @@
 import {
     AbstractNode,
     AbstractNodeDocument,
+    AssignmentNode,
     GroupNode,
     ListNode,
     isAssignmentNode,
@@ -19,11 +20,20 @@ import {
     isValueNode,
 } from '../../core/ast/ast';
 import { namedMembersOf } from '../../utils/ast.utils';
-import { classAncestry, classByDiscriminator, commonAncestorClass, fieldOf, fieldsOf, schema } from './schema';
-import { SchemaRegistry, ValueType } from './schema.types';
+import {
+    classAncestry,
+    classByDiscriminator,
+    commonAncestorClass,
+    fieldOf,
+    fieldsOf,
+    firstRegistryDeclaring,
+    schema,
+} from './schema';
+import { SchemaField, SchemaRegistry, ValueType } from './schema.types';
 import { documentRootClass } from './document-root';
 import { aliasedMemberType, inheritanceBaseCandidates } from './alias-root';
 import { TEXTURE_GROUP_CLASS } from './schema-overlay';
+import { perfCount } from '../../utils/perf-counters';
 
 /**
  * Top-level group identifiers that anchor a schema root class. The engine deserializes these from
@@ -73,31 +83,99 @@ const groupFitsClass = (group: GroupNode, cls: string): boolean => {
 
 const ELEMENT_KINDS = new Set(['list', 'range', 'interpolated']);
 
+// Slot and class resolution walk the parent chain per node and re-derive the same ancestors for
+// every sibling, on every request. Both are memoized per AST node here. A node's resolution can
+// also depend on cross-file rooting state (alias roots, reverse includes), which changes without
+// the AST changing, so the memos carry an epoch that the server bumps whenever that state may have
+// moved. An edit itself needs no bump: it produces a fresh AST whose nodes are new memo keys.
+let contextEpoch = 0;
+
+/** Invalidates the per-node slot/class memos after a rooting-state change. */
+export const invalidateSchemaContextCache = (): void => {
+    contextEpoch++;
+    perfCount('schemaEpochBump');
+};
+
+/** Memo entries above this parent-chain depth are skipped so a depth-limited (truncated) walk
+ *  can never persist its partial answer for a shallower caller. */
+const MEMO_DEPTH_LIMIT = 24;
+
+const slotTypeCache: WeakMap<AbstractNode, { epoch: number; value: ValueType | undefined }> = new WeakMap();
+const groupClassCache: WeakMap<GroupNode, { epoch: number; value: string | undefined }> = new WeakMap();
+
 /**
  * The schema value type the engine expects at a group/list node's slot, derived from the field that
  * declares its container. This is what makes nested resolution and collision-disambiguation work:
  * the declaring field names the exact class/registry, so a `Perlin` under a `TextureLayer`-typed
  * `Layers` resolves to TextureLayer, not (the colliding) HeightMapLayer. Returns undefined when the
- * container chain can't be anchored to a known class.
+ * container chain can't be anchored to a known class. Memoized per node and epoch.
+ *
+ * @param node the group or list whose slot type is wanted.
+ * @param depth the current parent-chain recursion depth.
+ * @returns the slot's schema type, or undefined when unanchorable.
  */
 const expectedValueType = (node: GroupNode | ListNode, depth: number): ValueType | undefined => {
+    const cached = slotTypeCache.get(node);
+    if (cached && cached.epoch === contextEpoch) return cached.value;
+    let value = expectedValueTypeUncached(node, depth);
+    // A list written into a group-kind slot whose class delegates its value form to a collection
+    // (`HitEffects [ … ]` on a MultiHitEffectRules) is read as that collection, so the list takes
+    // the delegated type and its elements resolve (a typed hit-effect group, not a positional
+    // digit field). The group spelling is untouched: it still reads the class's own fields.
+    if (isListNode(node)) value = listValueFormOf(value) ?? value;
+    if (depth <= MEMO_DEPTH_LIMIT) slotTypeCache.set(node, { epoch: contextEpoch, value });
+    return value;
+};
+
+/**
+ * The list-reading value form behind a group-kind slot, when its class carries one: a
+ * `[Serialize(Alias = "")]` member typed as a collection binds the node itself to that member,
+ * extracted by schemagen as the type's `valueForm`.
+ *
+ * @param slot the resolved slot type of a list node.
+ * @returns the delegated element-carrying type, or undefined when the slot doesn't delegate.
+ */
+const listValueFormOf = (slot: ValueType | undefined): ValueType | undefined => {
+    if (slot?.kind !== 'group') return undefined;
+    const form = schema.types[slot.ref]?.valueForm;
+    return form && ELEMENT_KINDS.has(form.kind) ? form : undefined;
+};
+
+/**
+ * The uncached slot resolution behind {@link expectedValueType}.
+ *
+ * @param node the group or list whose slot type is wanted.
+ * @param depth the current parent-chain recursion depth.
+ * @returns the slot's schema type, or undefined when unanchorable.
+ */
+const expectedValueTypeUncached = (node: GroupNode | ListNode, depth: number): ValueType | undefined => {
     if (depth > 32) return undefined;
     const parent = node.parent;
     if (!parent) return undefined;
 
-    if ((isGroupNode(parent) || isDocumentNode(parent)) && node.identifier) {
+    // The member name a container is declared under: its own identifier (`Foo { … }`, `Foo [ … ]`)
+    // or, for the assignment spelling (`Foo = [ … ]`), the assignment naming it among the siblings.
+    const memberName =
+        node.identifier?.name ??
+        ((isGroupNode(parent) || isDocumentNode(parent))
+            ? parent.elements.find(
+                  (element): element is AssignmentNode => isAssignmentNode(element) && element.right === node
+              )?.left.name
+            : undefined);
+
+    if ((isGroupNode(parent) || isDocumentNode(parent)) && memberName) {
         if (isDocumentNode(parent)) {
             const rootClass = documentRootClass(parent);
-            if (rootClass) return fieldOf(rootClass, node.identifier.name)?.valueType;
+            if (rootClass) return fieldOf(rootClass, memberName)?.valueType;
             // An unrooted top-level member: root it by how the game root aliases this fragment file in.
-            return aliasedMemberType(parent, node.identifier.name);
+            return aliasedMemberType(parent, memberName);
         }
         // The container's own slot is resolved ONCE here and shared between its class resolution and
         // the map fallback below. Recursing separately for each would double the work per nesting
         // level and blow up exponentially on deep files.
         const containerSlot = expectedValueType(parent, depth + 1);
         const ownerClass = inheritedBaseClassForGroup(parent) ?? classFromSlot(parent, containerSlot);
-        if (ownerClass) return fieldOf(ownerClass, node.identifier.name)?.valueType;
+        if (ownerClass) return fieldOf(ownerClass, memberName)?.valueType;
         // A class-less container can still sit in a map-typed slot (a ToggledComponents part's
         // `Components` map, a planet's `Styles`). Its members are keys, so each member takes the
         // map's value type. Without this, such members fall back to sibling registry inference,
@@ -116,9 +194,22 @@ const expectedValueType = (node: GroupNode | ListNode, depth: number): ValueType
             listType = ownerClass ? fieldOf(ownerClass, parent.identifier.name)?.valueType : undefined;
             if (!listType && isDocumentNode(grandparent)) listType = aliasedMemberType(grandparent, parent.identifier.name);
         } else {
-            listType = expectedValueType(parent, depth + 1); // nested / inline list
+            listType = expectedValueType(parent, depth + 1); // nested / assignment-form / inline list
         }
-        return listType && ELEMENT_KINDS.has(listType.kind) && 'element' in listType ? listType.element : undefined;
+        // The identified-list fast path above reads the field type directly, bypassing the
+        // central value-form substitution, so a delegating slot substitutes here too.
+        listType = listValueFormOf(listType) ?? listType;
+        if (listType && ELEMENT_KINDS.has(listType.kind) && 'element' in listType) return listType.element;
+        // A group-typed slot written in its positional list form (`BaseSize = [7.2, 7.2]`): the game
+        // deserializer reads element N through the class's digit field `"N"`, so the element's slot
+        // is that field's type. Classes without a field for the index resolve to nothing. An
+        // inheriting list (`X : base [ … ]`) appends its local elements after the inherited ones,
+        // so the local index is not the game index and positional typing must stay silent.
+        if (listType?.kind === 'group' && !parent.inheritance?.length) {
+            const index = parent.elements.indexOf(node);
+            if (index >= 0) return fieldOf(listType.ref, String(index))?.valueType;
+        }
+        return undefined;
     }
     return undefined;
 };
@@ -156,9 +247,8 @@ export const registryForContainer = (container: GroupNode): SchemaRegistry | und
         if (!isGroupNode(element)) continue;
         const disc = groupDiscriminator(element);
         if (!disc) continue;
-        for (const registry of Object.values(schema.registries)) {
-            if (disc in registry.members) return registry;
-        }
+        const registry = firstRegistryDeclaring(disc);
+        if (registry) return registry;
     }
     return undefined;
 };
@@ -233,11 +323,13 @@ const inheritedBaseClassForGroup = (group: GroupNode): string | undefined => {
  */
 export const resolveGroupClass = (group: GroupNode, depth = 0): string | undefined => {
     if (depth > 32) return undefined;
+    const cached = groupClassCache.get(group);
+    if (cached && cached.epoch === contextEpoch) return cached.value;
     // A top-level group reachable only as a cross-file inheritance base: root it to the deriver class
     // that best fits its own fields, ahead of the shallower common-ancestor type the slot walk yields.
-    const inherited = inheritedBaseClassForGroup(group);
-    if (inherited) return inherited;
-    return classFromSlot(group, expectedValueType(group, depth));
+    const value = inheritedBaseClassForGroup(group) ?? classFromSlot(group, expectedValueType(group, depth));
+    if (depth <= MEMO_DEPTH_LIMIT) groupClassCache.set(group, { epoch: contextEpoch, value });
+    return value;
 };
 
 /**
@@ -331,6 +423,38 @@ export const listElementType = (list: ListNode): ValueType | undefined => {
 };
 
 /**
+ * The schema field a positional list element reads through, when the list sits in a group-typed
+ * slot: `BaseSize = [7.2, 7.2]` → index 1 is Vector2's `"1"` field, and an `EditorParentParts`
+ * entry `[part, 0]` → index 0 is EditorParentPart's `"0"` reference field.
+ *
+ * @param list the list whose element is asked about.
+ * @param index the element's position in the list.
+ * @returns the digit field for that index, or undefined when the list's slot is not a group class
+ *          or the class has no field for the index.
+ */
+export const positionalElementField = (list: ListNode, index: number): SchemaField | undefined => {
+    // An inheriting list appends local elements after the inherited ones, shifting every index.
+    if (list.inheritance?.length) return undefined;
+    const slot = expectedValueType(list, 0);
+    return slot?.kind === 'group' ? fieldOf(slot.ref, String(index)) : undefined;
+};
+
+/**
+ * The element index the byte offset falls in: the element containing it, else how many elements
+ * end before it (the slot a newly typed element would take).
+ *
+ * @param list the list containing the offset.
+ * @param offset the cursor byte offset.
+ * @returns the positional index at the offset.
+ */
+const positionalIndexAt = (list: ListNode, offset: number): number => {
+    for (const [index, element] of list.elements.entries()) {
+        if (offset >= element.position.start && offset <= element.position.end) return index;
+    }
+    return list.elements.filter((element) => element.position.end < offset).length;
+};
+
+/**
  * The deepest node satisfying `matches` whose byte-offset range contains `offset` (where a new child
  * would be typed). A pre-order DFS, so deeper containing nodes overwrite shallower ones.
  */
@@ -373,13 +497,73 @@ export const findEnclosingList = (document: AbstractNodeDocument, offset: number
     findEnclosing(document, offset, isListNode);
 
 /**
+ * The deepest group or list whose byte-offset range contains a position, which is the container a
+ * member typed at the offset actually lands in. Distinguishes a list-element position
+ * (`Offset [ <cursor> ]`) from a group-member position, which {@link findEnclosingGroup} alone
+ * cannot (it skips lists, so a cursor inside brackets would resolve to the outer group).
+ *
+ * @param document the parsed document.
+ * @param offset the cursor byte offset.
+ * @returns the innermost group or list containing the offset, or undefined at the top level.
+ */
+export const findEnclosingContainer = (
+    document: AbstractNodeDocument,
+    offset: number
+): GroupNode | ListNode | undefined =>
+    findEnclosing(
+        document,
+        offset,
+        (node): node is GroupNode | ListNode => isGroupNode(node) || isListNode(node)
+    );
+
+/**
+ * The schema type of the slot a list node fills, resolved from the field that declares it (an
+ * `Offset [ … ]` under a StandardQuadRenderer resolves to the Vector2 `group` type). The public
+ * face of the internal slot resolution for callers that hold a list and need to know what the
+ * engine reads it as.
+ *
+ * @param list the list node whose declared slot type is wanted.
+ * @returns the slot's schema type, or undefined when the list can't be anchored.
+ */
+export const listSlotType = (list: ListNode): ValueType | undefined => expectedValueType(list, 0);
+
+/**
+ * The class whose members are in scope at a byte offset, which is what field-name lookup, value
+ * completion and channel completion must resolve names against. Usually this is the innermost
+ * group's class (or the document root class at the top level). When the innermost container is a
+ * list, the scope is the list's slot instead: a group-typed field written in list form (an
+ * `Offset [ … ]` reading as Vector2) scopes to that class, and any other list (references,
+ * scalars, group elements) has no member scope at all, so the enclosing group's fields never leak
+ * through the brackets.
+ *
+ * @param document the parsed document.
+ * @param offset the cursor byte offset.
+ * @returns the class FullName in scope, or undefined when the position has none.
+ */
+export const memberScopeClassAt = (document: AbstractNodeDocument, offset: number): string | undefined => {
+    const container = findEnclosingContainer(document, offset);
+    if (!container) return documentRootClass(document);
+    if (isListNode(container)) {
+        const slot = listSlotType(container);
+        return slot?.kind === 'group' ? slot.ref : undefined;
+    }
+    return resolveGroupClass(container);
+};
+
+/**
  * Resolves the reference target class of a list's elements when the list is declared as a
  * `list<reference X>` field, so completion can offer X ids at a list element position.
  *
  * @param list the list node whose element type is wanted.
- * @returns the element reference target class FullName, or undefined when the list is not a list of references.
+ * When `offset` is given, a positional element of a group-typed slot also resolves: inside an
+ * `EditorParentParts` entry (`[<cursor>, 0]`) the index at the cursor selects the class's digit
+ * field, whose reference target is offered.
+ *
+ * @param list the list node whose element is being completed.
+ * @param offset the cursor byte offset, enabling positional (index-dependent) resolution.
+ * @returns the element reference target class FullName, or undefined when the position is not reference-typed.
  */
-export const listElementReferenceTarget = (list: ListNode): string | undefined => {
+export const listElementReferenceTarget = (list: ListNode, offset?: number): string | undefined => {
     const owner = list.parent;
     if (!owner) return undefined;
     let fieldName = list.identifier?.name;
@@ -391,18 +575,23 @@ export const listElementReferenceTarget = (list: ListNode): string | undefined =
             }
         }
     }
-    if (!fieldName) return undefined;
-    const ownerClass = isDocumentNode(owner)
-        ? documentRootClass(owner)
-        : isGroupNode(owner)
-          ? resolveGroupClass(owner)
-          : undefined;
-    const valueType = ownerClass ? fieldOf(ownerClass, fieldName)?.valueType : undefined;
-    if (
-        (valueType?.kind === 'list' || valueType?.kind === 'range' || valueType?.kind === 'interpolated') &&
-        valueType.element.kind === 'reference'
-    ) {
-        return valueType.element.target;
+    if (fieldName) {
+        const ownerClass = isDocumentNode(owner)
+            ? documentRootClass(owner)
+            : isGroupNode(owner)
+              ? resolveGroupClass(owner)
+              : undefined;
+        const valueType = ownerClass ? fieldOf(ownerClass, fieldName)?.valueType : undefined;
+        if (
+            (valueType?.kind === 'list' || valueType?.kind === 'range' || valueType?.kind === 'interpolated') &&
+            valueType.element.kind === 'reference'
+        ) {
+            return valueType.element.target;
+        }
+    }
+    if (offset !== undefined) {
+        const positional = positionalElementField(list, positionalIndexAt(list, offset));
+        if (positional?.valueType.kind === 'reference') return positional.valueType.target;
     }
     return undefined;
 };

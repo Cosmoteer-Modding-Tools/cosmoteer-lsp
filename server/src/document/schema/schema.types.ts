@@ -37,8 +37,20 @@ export interface SchemaField {
     name: string;
     valueType: ValueType;
     optional: boolean;
+    /**
+     * False when the C# member is a non-nullable value type, so a bare valueless field (`ScaleIn`
+     * with no `=`) is a game load error: the deserializer reads a void node as null and throws.
+     * Absent means null-tolerant (reference type, `Nullable<T>`, or curated without the flag).
+     */
+    nullable?: boolean;
     default?: string | number | boolean;
     aliases?: string[];
+    /**
+     * True when this field carries a `[Serialize(OverrideDeserializer = …)]` whose wrapper reads
+     * a bare word looked up by name (a Widget `AnchorRect = TopLeft` preset). Strings only, a
+     * number still throws in game.
+     */
+    scalarStringForm?: boolean;
     /**
      * Human-readable prose description of the field, shown in hover and completion. Not extracted by
      * schemagen; merged in at load from the community-maintained docs (see `field-docs.ts` and
@@ -58,6 +70,24 @@ export interface SchemaTypeDef {
     /** FullName of the registry base this type is a member of. */
     registry?: string;
     isRegistry?: boolean;
+    /**
+     * True when the type's OT deserializer also reads a plain scalar value (`Time = 10`,
+     * `Default = White`). Detected by schemagen from the engine's own deserialization hooks
+     * (an `[ObjectTextConstructor]` or `ReadContentFrom` body branching on `OTFieldNode`), so it
+     * tracks game updates through schema regeneration.
+     */
+    scalarForm?: boolean;
+    /**
+     * True when a globally registered wrapper serializer reads the type from a bare word looked
+     * up by name (`ValueCombiner = Add`). Strings only, a number still throws in game.
+     */
+    scalarStringForm?: boolean;
+    /**
+     * The value type of the member a `[Serialize(Alias = "")]` declaration binds to the node
+     * itself, making the type read every shape that member type reads (ShipFile's path string,
+     * MultiHitEffectRules' effect list, a proxy's group-only ProxyRules). Extracted by schemagen.
+     */
+    valueForm?: ValueType;
     fields: SchemaField[];
 }
 

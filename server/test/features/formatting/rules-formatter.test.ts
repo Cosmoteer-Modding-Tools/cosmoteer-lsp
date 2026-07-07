@@ -29,6 +29,14 @@ describe('.rules formatter', () => {
         expect(format('G { A = 1;B = 2 }\n')).toBe('G { A = 1; B = 2 }\n');
     });
 
+    it('normalizes a line mixing semicolons and commas', () => {
+        expect(format('G { A = 1;B = 2 , C = 3 }\n')).toBe('G { A = 1; B = 2, C = 3 }\n');
+    });
+
+    it('normalizes an inline group inside a list whose members are semicolon-separated', () => {
+        expect(format('L = [ G{A=1;B=2} , H{C=3} ]\n')).toBe('L = [G { A = 1; B = 2 }, H { C = 3 }]\n');
+    });
+
     it('removes padding inside parentheses and brackets but keeps inline brace padding', () => {
         expect(format('X = ( &A ) / ( &B )\n')).toBe('X = (&A) / (&B)\n');
         expect(format('L = [ 1, 2 ]\n')).toBe('L = [1, 2]\n');

@@ -21,15 +21,19 @@ import { findModRoot } from './mod-root';
 import { safeReaddir } from '../utils/fs.utils';
 import { isManifestBasename } from '../document/document-kind';
 import { ParserResultRegistrar } from '../registrar/parser-result-registrar';
+import { recordNavigationDep } from '../utils/navigation-deps';
 
 const navigation = new FullNavigationStrategy();
 
 /** The canonical game-root key for the root `cosmoteer.rules` (where super-paths `/X` resolve). */
 const COSMOTEER_RULES_KEY = normalizeTargetPath('<cosmoteer.rules>');
 
-/** Load a mod file, preferring the live in-editor (possibly unsaved) buffer over disk. */
-const loadDocument = async (osPath: string): Promise<AbstractNodeDocument | null> =>
-    ParserResultRegistrar.instance.getResultByPath(osPath) ?? (await parseFilePath(osPath).catch(() => null));
+/** Load a mod file, preferring the live in-editor (possibly unsaved) buffer over disk. The read
+ *  is recorded for a running navigation's dependency set, like the fs parse cache does. */
+const loadDocument = async (osPath: string): Promise<AbstractNodeDocument | null> => {
+    recordNavigationDep(osPath);
+    return ParserResultRegistrar.instance.getResultByPath(osPath) ?? (await parseFilePath(osPath).catch(() => null));
+};
 
 /** Split a target `<file...>/container...` path into its normalized file key and container segments. */
 const fileKeyAndContainer = (rawTarget: string): { fileKey: string; container: string[] } | null => {

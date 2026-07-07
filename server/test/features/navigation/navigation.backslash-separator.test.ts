@@ -18,7 +18,7 @@ const currentLocation = WORKSPACE_DATA_DIR.replace(/\\/g, '/') + '/somefile.rule
 // Parse `X = <ref>` through the REAL lexer+parser and return the reference value node. Going through
 // the lexer is the point: the bug was the lexer treating `\` as whitespace and SPLITTING the path.
 const refNode = (ref: string): ValueNode =>
-    (parser(lexer(`X = ${ref}\n`), currentLocation).value.elements[0] as { right: ValueNode }).right;
+    (parser(lexer(`X = ${ref}\n`), currentLocation).value.elements[0] as unknown as { right: ValueNode }).right;
 
 // ObjectText `<...>` file paths accept a Windows backslash separator (`<hit_effects\foo.rules>`):
 // `\` is not an invalid path char, so the game's PATH_RE accepts it and .NET resolves it on Windows.

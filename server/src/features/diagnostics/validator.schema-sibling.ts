@@ -59,6 +59,47 @@ const collectComponentIds = async (
     document: AbstractNodeDocument,
     token: CancellationToken
 ): Promise<Set<string>> => {
+    // One collection per parsed document per epoch: an edit to this document produces a new AST
+    // (a new key), and an edit to another file the union folds in (an inherited base, an included
+    // components block) bumps the epoch through the server's cross-file invalidation. Without the
+    // memo, every validation of a part re-ran the cross-file BFS.
+    const cached = componentIdsByDocument.get(document);
+    if (cached && cached.epoch === componentIdEpoch) return cached.ids;
+    const epoch = componentIdEpoch;
+    const collected = collectComponentIdsUncached(document, token).then((ids) => {
+        // A cancelled walk returns a partial union. Serving that to a later validation would
+        // false-positive, so drop it and let the next run collect fresh.
+        if (token.isCancellationRequested) componentIdsByDocument.delete(document);
+        return ids;
+    });
+    componentIdsByDocument.set(document, { epoch, ids: collected });
+    return collected;
+};
+
+/** Per-AST memo of the part-wide component-id union (see {@link collectComponentIds}). */
+const componentIdsByDocument: WeakMap<AbstractNodeDocument, { epoch: number; ids: Promise<Set<string>> }> =
+    new WeakMap();
+
+/** Cross-file edits change what the union would collect without changing this document's AST, so
+ *  the memo carries an epoch the server bumps whenever any other file may have changed. */
+let componentIdEpoch = 0;
+
+/** Starts a fresh memo epoch for the part-wide component-id unions after a cross-file change. */
+export const invalidateComponentIdCache = (): void => {
+    componentIdEpoch++;
+};
+
+/**
+ * The uncached part-wide component-id collection behind {@link collectComponentIds}.
+ *
+ * @param document the part document whose component ids to union.
+ * @param token cancels the cross-file walk.
+ * @returns every reachable component id, lowercased.
+ */
+const collectComponentIdsUncached = async (
+    document: AbstractNodeDocument,
+    token: CancellationToken
+): Promise<Set<string>> => {
     const ids = new Set<string>();
     const seenNodes = new Set<AbstractNode>();
     const seenRefs = new Set<string>();

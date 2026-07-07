@@ -38,7 +38,7 @@ describe('parser', () => {
         expect(parserErrors).toEqual([]);
         const mission = value.elements.find(
             (e) => 'identifier' in e && (e as { identifier?: { name?: string } }).identifier?.name === 'Mission'
-        ) as { elements: { left?: { name: string }; right?: { valueType?: { value: unknown } } }[] };
+        ) as unknown as { elements: { left?: { name: string }; right?: { valueType?: { value: unknown } } }[] };
         const timeLimit = mission.elements.find((e) => e.left?.name === 'TimeLimit');
         expect(timeLimit?.right?.valueType?.value).toBe('30:00');
         // `Child : Parent` inheritance must still work (the value there is not all digits).
@@ -76,7 +76,7 @@ describe('parser', () => {
         expect(parserErrors).toEqual([]);
         const kinds = value.elements.map((e) =>
             e.type === 'Assignment'
-                ? 'Assign:' + (e as { left: { name: string } }).left.name
+                ? 'Assign:' + (e as unknown as { left: { name: string } }).left.name
                 : e.type === 'List'
                   ? 'List:' + (e as { identifier?: { name?: string } }).identifier?.name
                   : e.type
@@ -124,7 +124,7 @@ describe('parser', () => {
         expect(result.parserErrors).toEqual([]);
         const keys = result.value.elements.find(
             (e) => 'identifier' in e && (e as { identifier?: { name?: string } }).identifier?.name === 'Keys'
-        ) as { elements: { left?: { name: string } }[] };
+        ) as unknown as { elements: { left?: { name: string } }[] };
         // All three fields survived (the `(` did not swallow `M` and `N`).
         expect(keys.elements.map((e) => e.left?.name)).toEqual(['LeftBracket', 'M', 'N']);
     });
@@ -145,7 +145,7 @@ describe('parser', () => {
         expect(parserErrors).toEqual([]);
         const keys = value.elements.find(
             (e) => 'identifier' in e && (e as { identifier?: { name?: string } }).identifier?.name === 'Keys'
-        ) as { elements: { left?: { name: string } }[] };
+        ) as unknown as { elements: { left?: { name: string } }[] };
         expect(keys.elements.map((e) => e.left?.name)).toEqual(['SlashQuestion', 'Space']);
         // A genuine same-line super-path reference still parses as a Reference.
         const refDoc = parse('X = /SW_SOUNDS/Click\n');

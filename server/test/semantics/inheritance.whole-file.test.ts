@@ -30,8 +30,8 @@ describe('whole-file inheritance', () => {
         const comp = findNodeByIdentifier(consumer, 'WFComp')! as AbstractNode & { elements: AbstractNode[] };
         // `&WFRootLeaf` from inside WFComp must reach WFRootLeaf at the base FILE root (value 42).
         const usesRoot = comp.elements.find(
-            (e) => e.type === 'Assignment' && (e as { left: { name: string } }).left.name === 'UsesRoot'
-        )! as { right: AbstractNode };
+            (e) => e.type === 'Assignment' && (e as unknown as { left: { name: string } }).left.name === 'UsesRoot'
+        )! as unknown as { right: AbstractNode };
         const result = await nav.navigate('&WFRootLeaf', usesRoot.right, consumer.uri, token);
         expect(valueOf(result)).toBe(42);
     });

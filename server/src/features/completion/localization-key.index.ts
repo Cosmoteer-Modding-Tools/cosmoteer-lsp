@@ -2,6 +2,7 @@ import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
 import { namedMembersOf } from '../../utils/ast.utils';
 import { isLocalizationKeyType } from '../../document/schema/schema';
+import { buildMatchPool, MatchPool } from '../../utils/did-you-mean';
 import { normalizeUri } from '../navigation/reference-location';
 import { WatchedDocumentIndex } from '../navigation/watched-document-index';
 import { Completion } from './autocompletion.service';
@@ -142,13 +143,21 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
         this.bySource.delete(source);
     }
 
-    protected indexDocument(document: AbstractNodeDocument): void {
+    protected indexDocument(document: AbstractNodeDocument): boolean {
         const source = normalizeUri(document.uri);
+        const prior = this.bySource.get(source);
         this.bySource.delete(source);
-        if (!isStringsDocument(document)) return;
+        if (!isStringsDocument(document)) return prior !== undefined;
         const keys = new Map<string, string>();
         collectKeys(document, '', keys);
-        if (keys.size) this.bySource.set(source, { language: languageOf(document), keys });
+        const language = languageOf(document);
+        if (keys.size) this.bySource.set(source, { language, keys });
+        if (!prior) return keys.size > 0;
+        if (prior.language !== language || prior.keys.size !== keys.size) return true;
+        for (const [key, text] of keys) {
+            if (prior.keys.get(key) !== text) return true;
+        }
+        return false;
     }
 
     private async ensureBuilt(folderPaths: string[], cancellationToken: CancellationToken): Promise<void> {
@@ -194,19 +203,64 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
         return out;
     }
 
-    /** The set of every localization key declared in the project — for existence validation. */
-    public async allKeys(folderPaths: string[], cancellationToken: CancellationToken): Promise<Set<string>> {
+    /** The merged key set (original and lowercased casing, plus the index-aligned suggestion pool),
+     *  memoized against the index revision. The whole-workspace scan asks for all keys once per
+     *  validated file, and re-merging (and re-lowercasing) tens of thousands of keys per file
+     *  dominated the localization pass. */
+    private allKeysMemo?: { revision: number; keys: Set<string>; keysLower: Set<string>; pool: MatchPool };
+
+    /**
+     * The merged key sets behind {@link allKeys}/{@link allKeysLower}/{@link allKeysMatchPool},
+     * rebuilt only when the index content changed since the last call. Callers must not mutate
+     * the returned sets.
+     *
+     * @param folderPaths the project folders the strings index is built from.
+     * @param cancellationToken cancellation for the index build.
+     * @returns the shared key set, its lowercased counterpart, and the suggestion pool.
+     */
+    private async mergedKeys(
+        folderPaths: string[],
+        cancellationToken: CancellationToken
+    ): Promise<{ keys: Set<string>; keysLower: Set<string>; pool: MatchPool }> {
         await this.ensureBuilt(folderPaths, cancellationToken);
+        if (this.allKeysMemo && this.allKeysMemo.revision === this.revision) return this.allKeysMemo;
         const keys = new Set<string>();
+        const keysLower = new Set<string>();
         for (const { keys: fileKeys } of this.bySource.values()) {
-            for (const key of fileKeys.keys()) keys.add(key);
+            for (const key of fileKeys.keys()) {
+                keys.add(key);
+                keysLower.add(key.toLowerCase());
+            }
         }
-        return keys;
+        this.allKeysMemo = { revision: this.revision, keys, keysLower, pool: buildMatchPool(keys) };
+        return this.allKeysMemo;
+    }
+
+    /** The set of every localization key declared in the project — for existence validation. The
+     *  returned set is shared and must not be mutated. */
+    public async allKeys(folderPaths: string[], cancellationToken: CancellationToken): Promise<Set<string>> {
+        return (await this.mergedKeys(folderPaths, cancellationToken)).keys;
+    }
+
+    /** The lowercased counterpart of {@link allKeys}, for the game's case-insensitive key lookup.
+     *  The returned set is shared and must not be mutated. */
+    public async allKeysLower(folderPaths: string[], cancellationToken: CancellationToken): Promise<Set<string>> {
+        return (await this.mergedKeys(folderPaths, cancellationToken)).keysLower;
+    }
+
+    /** The prepared did-you-mean pool over {@link allKeys}, in the same iteration order, so
+     *  suggestion queries skip re-lowercasing the whole key set per broken key. */
+    public async allKeysMatchPool(folderPaths: string[], cancellationToken: CancellationToken): Promise<MatchPool> {
+        return (await this.mergedKeys(folderPaths, cancellationToken)).pool;
     }
 
     /**
-     * The text of `key` in each language that declares it, English first — for hover. Empty when the
-     * key is undeclared.
+     * The text of `key` in each language that declares it, one line per language, English first, for
+     * hover. Empty when the key is undeclared. A language can declare a key in several strings files
+     * (the base game splits English across files, and a mod can redeclare a vanilla key). The game
+     * loads the game `Data` tree before the mod, so a later declaration overrides an earlier one.
+     * {@link bySource} iterates in that same order, so keeping the last value seen per language makes
+     * hover show the string the game actually renders, not the shadowed vanilla one.
      */
     public async textsForKey(
         key: string,
@@ -214,11 +268,12 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
         cancellationToken: CancellationToken
     ): Promise<LocalizationText[]> {
         await this.ensureBuilt(folderPaths, cancellationToken);
-        const texts: LocalizationText[] = [];
+        const byLanguage = new Map<string, string>();
         for (const { language, keys } of this.bySource.values()) {
             const text = keys.get(key);
-            if (text !== undefined) texts.push({ language, text });
+            if (text !== undefined) byLanguage.set(language, text);
         }
+        const texts = [...byLanguage].map(([language, text]) => ({ language, text }));
         texts.sort((a, b) => Number(isEnglish(b.language)) - Number(isEnglish(a.language)));
         return texts;
     }

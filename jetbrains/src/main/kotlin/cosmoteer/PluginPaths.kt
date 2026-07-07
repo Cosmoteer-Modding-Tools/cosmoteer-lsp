@@ -11,7 +11,7 @@ object PluginPaths {
 
     /**
      * A file the build staged in the plugin's installation directory, addressed by its path relative to
-     * that directory (for example `language-server/server.js`). Resolved through the sanctioned
+     * that directory (for example `language-server/server.mjs`). Resolved through the sanctioned
      * public `PluginPathManager.getPluginResource`, which resolves against the plugin's dist dir
      * (JetBrains staff recommend it, and it has existed since long before the 243). The direct
      * registry lookups are all off limits: every route to a plugin's path there
@@ -24,8 +24,8 @@ object PluginPaths {
         PluginPathManager.getPluginResource(PluginPaths::class.java, relative)?.toPath()
             ?: pluginRoot().resolve(relative)
 
-    /** The bundled language-server entry point. */
-    fun serverJs(): Path = staged("language-server/server.js")
+    /** The bundled language-server entry point (an ESM bundle, hence the `.mjs` suffix). */
+    fun serverJs(): Path = staged("language-server/server.mjs")
 
     /** A file inside the bundled webview assets folder. */
     fun media(name: String): Path = staged("media/$name")

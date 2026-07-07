@@ -1,7 +1,15 @@
 import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
-import { AbstractNodeDocument } from '../../core/ast/ast';
+import { AbstractNodeDocument, ListNode, isGroupNode, isListNode } from '../../core/ast/ast';
 import { namedMembersOf } from '../../utils/ast.utils';
-import { findEnclosingGroup, registryForGroup, resolveGroupClass } from '../../document/schema/schema-context';
+import {
+    findEnclosingContainer,
+    findEnclosingGroup,
+    listElementType,
+    listSlotType,
+    memberScopeClassAt,
+    registryForGroup,
+    resolveGroupClass,
+} from '../../document/schema/schema-context';
 import { documentRootClass, documentRootRegistry } from '../../document/schema/document-root';
 import {
     enumDef,
@@ -9,6 +17,7 @@ import {
     fieldSignatureMarkdown,
     fieldsOf,
     isLocalizationKeyType,
+    schema,
     valueTypeLabel,
 } from '../../document/schema/schema';
 import { SchemaRegistry, ValueType } from '../../document/schema/schema.types';
@@ -41,6 +50,62 @@ const fieldSnippet = (name: string, valueType: ValueType, stop = '$0'): string =
 };
 
 /**
+ * Enum members or booleans a scalar-kind slot accepts, empty for every other kind.
+ *
+ * @param valueType the schema type of the slot being filled.
+ * @returns the legal value completions for that slot.
+ */
+const scalarValueCompletions = (valueType: ValueType): Completion[] => {
+    if (valueType.kind === 'enum') {
+        return (enumDef(valueType.ref)?.members ?? []).map((member) => ({
+            label: member,
+            kind: CompletionItemKind.EnumMember,
+            detail: valueType.name,
+        }));
+    }
+    if (valueType.kind === 'bool') {
+        return [
+            { label: 'true', kind: CompletionItemKind.Value },
+            { label: 'false', kind: CompletionItemKind.Value },
+        ];
+    }
+    return [];
+};
+
+/**
+ * What a fresh element of a list actually is, offered instead of field names: a `{ … }` scaffold
+ * for a list of groups (with `Type = ` primed when the element is polymorphic), enum members or
+ * booleans for scalar element kinds, nothing otherwise. This replaces the earlier behavior where a
+ * cursor inside `[ … ]` leaked the outer group's field names (typing inside a renderer's
+ * `Offset [ ]` suggested the renderer's own `Scale2In`, scaffolding a member the game never
+ * reads). An empty result lets the caller's cross-file id fallback complete `list<reference>`
+ * elements.
+ *
+ * @param list the list node the cursor sits in.
+ * @returns the element completions for that list, possibly empty.
+ */
+const listElementCompletions = (list: ListNode): Completion[] => {
+    const slot = listSlotType(list);
+    // A group-typed field written in positional list form (`BaseSize = [7.2, 7.2]`): the elements
+    // are the class's digit fields — plain values with nothing to name-complete.
+    if (!slot || slot.kind !== 'list') return [];
+    const element = slot.element;
+    if (element.kind === 'polymorphicGroup' || element.kind === 'group') {
+        const scaffold = element.kind === 'polymorphicGroup' ? '{\n\tType = $0\n}' : '{\n\t$0\n}';
+        return [
+            {
+                label: `New ${element.name} element`,
+                kind: CompletionItemKind.Snippet,
+                detail: valueTypeLabel(element),
+                insertText: scaffold,
+                isSnippet: true,
+            },
+        ];
+    }
+    return scalarValueCompletions(element);
+};
+
+/**
  * Field-name completion: at an empty insertion point whose schema class is known, offer that class's
  * not-yet-present fields. The scope is the enclosing group, or at a whole-file-root document's top
  * level the document's root class (e.g. a shot file → `BulletRules`). Offset-based (like the
@@ -51,6 +116,10 @@ export const schemaFieldNameCompletions = async (
     offset: number,
     cancellationToken: CancellationToken
 ): Promise<Completion[]> => {
+    // A cursor inside `[ … ]` is a list-element position, not a field-name position, and the outer
+    // group's fields must not leak through the brackets. Offer what an element of this list is.
+    const container = findEnclosingContainer(document, offset);
+    if (container && isListNode(container)) return listElementCompletions(container);
     const group = findEnclosingGroup(document, offset);
     // Inheritance-aware: a `MyTurret : ^/0/Turret { … }` group inherits its class from the base.
     let cls = group ? await resolveClassThroughInheritance(group, cancellationToken) : documentRootClass(document);
@@ -59,7 +128,12 @@ export const schemaFieldNameCompletions = async (
     if (!cls && group) cls = await shaderConstantGroupClass(group, document.uri, cancellationToken);
     // Lower-cased: an already-written `maxhealth` counts as `MaxHealth` (game lookup ignores case).
     const present = new Set(namedMembersOf(group ?? document).map(([name]) => name.toLowerCase()));
-    const missing = cls ? fieldsOf(cls).filter((field) => !present.has(field.name.toLowerCase())) : [];
+    // All-digit fields (Vector2's `0`/`1`, Color's `0`-`3`, …) are the positional names the game
+    // deserializer reads when the value is written in list form (`[7.2, 7.2]`). They stay in the
+    // schema so list elements type-resolve, but offering them as field names inside `{}` is noise.
+    const missing = cls
+        ? fieldsOf(cls).filter((field) => !present.has(field.name.toLowerCase()) && !/^\d+$/.test(field.name))
+        : [];
     const completions: Completion[] = missing.map((field) => ({
         label: field.name,
         kind: CompletionItemKind.Field,
@@ -122,33 +196,35 @@ export const schemaValueCompletionsAtOffset = (
     const fieldName = fieldNameAtValuePosition(linePrefix);
     if (!fieldName) return undefined;
 
-    const group = findEnclosingGroup(document, offset);
-    if (group) return completeFieldValue(group, fieldName, resolveGroupClass(group));
+    const container = findEnclosingContainer(document, offset);
+    if (container && isGroupNode(container)) {
+        return completeFieldValue(container, fieldName, resolveGroupClass(container));
+    }
+    if (container) {
+        // A `Name = <cursor>` inside `[ … ]` resolves against the list's own scope, never the outer
+        // group. A group-typed slot written in list form types the name through that class
+        // (`Offset [X = <cursor>]` reads Vector2's `X`), and a `Type = ` written as a direct list
+        // element of a polymorphic list offers that registry's discriminators.
+        const element = listElementType(container);
+        if (element?.kind === 'polymorphicGroup' && fieldName === schema.registries[element.ref]?.typeField) {
+            return discriminatorCompletions(schema.registries[element.ref]);
+        }
+        const cls = memberScopeClassAt(document, offset);
+        const field = cls ? fieldOf(cls, fieldName) : undefined;
+        return field ? scalarValueCompletions(field.valueType) : [];
+    }
 
     // Document top level (whole-file root): `Type` → root registry discriminators, else enum/bool field.
     const registry = documentRootRegistry(document);
     if (registry && fieldName === registry.typeField) return discriminatorCompletions(registry);
     const field = fieldAtOffset(document, offset, fieldName);
-    if (field?.valueType.kind === 'enum') {
-        return (enumDef(field.valueType.ref)?.members ?? []).map((member) => ({
-            label: member,
-            kind: CompletionItemKind.EnumMember,
-            detail: field.valueType.kind === 'enum' ? field.valueType.name : undefined,
-        }));
-    }
-    if (field?.valueType.kind === 'bool') {
-        return [
-            { label: 'true', kind: CompletionItemKind.Value },
-            { label: 'false', kind: CompletionItemKind.Value },
-        ];
-    }
-    return [];
+    return field ? scalarValueCompletions(field.valueType) : [];
 };
 
-/** The schema field of the `Key = ` being assigned at `offset` (group member or whole-file root). */
+/** The schema field of the `Key = ` being assigned at `offset`, resolved against the member scope
+ *  there (the enclosing group's class, a list slot's class inside `[ … ]`, or the whole-file root). */
 const fieldAtOffset = (document: AbstractNodeDocument, offset: number, fieldName: string) => {
-    const group = findEnclosingGroup(document, offset);
-    const cls = group ? resolveGroupClass(group) : documentRootClass(document);
+    const cls = memberScopeClassAt(document, offset);
     return cls ? fieldOf(cls, fieldName) : undefined;
 };
 

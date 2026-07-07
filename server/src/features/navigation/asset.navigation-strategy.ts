@@ -2,8 +2,21 @@ import { join } from 'path';
 import { AbstractNode } from '../../core/ast/ast';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { extractSubstrings, filePathToDirectoryPath, NavigationStrategy } from './navigation-strategy';
-import { access, constants, readdir, realpath } from 'fs/promises';
 import { globalSettings } from '../../settings';
+import { perfCount } from '../../utils/perf-counters';
+import { cachedDirLookup, foldPathCase, onFsInvalidation } from '../../workspace/fs-cache';
+
+// Asset existence is pure disk state, and a whole-workspace scan probes the same sprite/sound
+// paths tens of thousands of times (shared bases reference the same assets from every deriving
+// part). Resolved paths (and misses) are memoized here. Asset files themselves are not watched,
+// but the memo is dropped with the fs caches, so any watched `.rules`/`.shader` change (which is
+// also what triggers a revalidation in the first place) re-probes from disk.
+/** Upper bound of memoized asset resolutions. */
+const ASSET_MEMO_CAP = 32_768;
+
+const assetMemo: Map<string, string | null> = new Map();
+
+onFsInvalidation(() => assetMemo.clear());
 
 export class AssetNavigationStrategy extends NavigationStrategy<boolean> {
     async navigate(path: string, startNode: AbstractNode, currentLocation: string): Promise<boolean> {
@@ -27,9 +40,11 @@ export class AssetNavigationStrategy extends NavigationStrategy<boolean> {
 
     private resolveTroughCosmoteerFiles(path: string): Promise<string | null> {
         const pathWithoutData = path.replace(/^\.\/data/i, '');
+        // The probe strips the last segment of a non-URI location (callers pass file paths), so
+        // anchor the game root itself with a sentinel segment for the strip to consume.
         return this.resolveByCurrentLocation(
             extractSubstrings(pathWithoutData),
-            CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath
+            join(CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath ?? '', '_')
         );
     }
 
@@ -38,40 +53,64 @@ export class AssetNavigationStrategy extends NavigationStrategy<boolean> {
     }
 
     private resolveByCurrentLocation = async (pathes: string[], currentLocation: string): Promise<string | null> => {
-        try {
-            const cleanedPath = join(currentLocation, '..', ...pathes);
-
-            await access(cleanedPath, constants.F_OK);
-            return cleanedPath;
-        } catch (error) {
-            // This first access "will fail most of the times" (see below) and falls
-            // back to a dir scan — so only surface it under 'verbose', else it floods when the
-            // whole game tree is validated/searched.
-            if (globalSettings.trace.server === 'verbose') {
-                console.error(error);
-            }
-
-            return await this.searchInDirForFile(pathes, currentLocation);
+        const memoKey = `${foldPathCase(filePathToDirectoryPath(currentLocation))} ${pathes.join('/').toLowerCase()}`;
+        const cached = assetMemo.get(memoKey);
+        if (cached !== undefined) {
+            perfCount('asset.memoHit');
+            return cached;
         }
+        const resolved = await this.probeByCurrentLocation(pathes, currentLocation);
+        assetMemo.set(memoKey, resolved);
+        while (assetMemo.size > ASSET_MEMO_CAP) {
+            const oldest = assetMemo.keys().next().value;
+            if (oldest === undefined) break;
+            assetMemo.delete(oldest);
+        }
+        return resolved;
+    };
+
+    private probeByCurrentLocation = async (pathes: string[], currentLocation: string): Promise<string | null> => {
+        if (pathes.length === 0) return null;
+        perfCount('asset.fsProbe');
+        if (currentLocation.startsWith('file://')) {
+            return this.walkFrom(filePathToDirectoryPath(currentLocation), pathes);
+        }
+        // A plain-path location may be a file (strip its last segment) or a directory a caller
+        // anchored with a sentinel segment. The historical probe accepted both readings, and real
+        // mods contain references that resolve only under the second (a leading `..` consumed by
+        // the sentinel instead of ascending), so a miss on the stripped form retries whole.
+        const stripped = await this.walkFrom(join(currentLocation, '..'), pathes);
+        if (stripped !== null) return stripped;
+        return this.walkFrom(currentLocation, pathes);
     };
 
     /**
-     * Searches for a file in the directory incasesensitive which {access} will fail most of the times.
-     * Returns the resolved absolute path (with the directory's real casing) or `null`.
+     * Walks the path segment by segment through cached directory lookups, matching each segment
+     * case-insensitively (the game resolves asset paths that way, and mods rely on it). Compared
+     * to a per-candidate `access`/`realpath` probe this costs one cached listing per directory,
+     * which is what makes whole-workspace asset validation cheap.
      */
-    private searchInDirForFile = async (pathes: string[], currentLocation: string): Promise<string | null> => {
+    private walkFrom = async (startDir: string, pathes: string[]): Promise<string | null> => {
+        let current = startDir;
         try {
-            const realPath = await realpath(
-                join(filePathToDirectoryPath(currentLocation), ...pathes.slice(0, pathes.length - 1))
-            );
-            const dir = await readdir(realPath);
-            const file = dir.find((f) => f.toLowerCase() === pathes[pathes.length - 1].toLowerCase());
-            return file ? join(realPath, file) : null;
+            for (const segment of pathes) {
+                if (segment === '.') continue;
+                if (segment === '..') {
+                    current = join(current, '..');
+                    continue;
+                }
+                const real = (await cachedDirLookup(current)).get(segment.toLowerCase());
+                if (real === undefined) return null;
+                current = join(current, real);
+            }
+            return current;
         } catch (error) {
+            // The walk left the tree or crossed a non-directory, so this is not a resolvable
+            // asset. Only surface it under 'verbose', else it floods on whole-game-tree passes.
             if (globalSettings.trace.server === 'verbose') {
                 console.error(error);
             }
+            return null;
         }
-        return null;
     };
 }

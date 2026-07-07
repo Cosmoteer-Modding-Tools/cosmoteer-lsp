@@ -3,7 +3,7 @@
     "tasks": [
         {
             // The default build: an esbuild watch that rebuilds the bundle the extension
-            // actually loads (out/server/src/server.js) on every save. The background
+            // actually loads (out/server/src/server.mjs) on every save. The background
             // problemMatcher keys off the `[watch] build started/finished` lines esbuild.mjs
             // prints, so VS Code knows when the FIRST build is done and never launches the
             // debugger against a stale bundle (the gap that previously broke live changes).

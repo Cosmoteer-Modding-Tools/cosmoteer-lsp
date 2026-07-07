@@ -1,9 +1,12 @@
-import { stat } from 'fs/promises';
+import { createHash } from 'crypto';
+import { mkdir, readFile, rename, stat, writeFile } from 'fs/promises';
+import { dirname } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { CancellationError } from '../../utils/cancellation';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
+import { cacheArtifactPath, currentServerBuildId, sweepRulesFiles } from '../../workspace/index-cache';
 import { normalizeUri } from './reference-location';
-import { collectRulesFiles, readFilesAhead, uriToFsPath } from './workspace-files';
+import { readFilesAhead, uriToFsPath } from './workspace-files';
 
 /** The word tokens a file's raw text is split into (contiguous identifier characters). */
 const WORD_RE = /[A-Za-z0-9_]+/g;
@@ -14,12 +17,32 @@ const IS_WORD_NAME = /^[A-Za-z0-9_]+$/;
 /** How many `stat` calls run concurrently during a disk sync. */
 const STAT_CONCURRENCY = 64;
 
+/** How long the watcher-driven mode may go without a full walk+stat sweep. The watcher only covers
+ *  the workspace folders, so this bounds how stale the game Data tree (Steam updates, external
+ *  edits) can get. One sweep per interval is far cheaper than the per-query sweep it replaced. */
+const FULL_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+
 /** One indexed file: its on-disk identity (to detect changes) and its distinct lower-cased words. */
 interface IndexedFile {
     path: string;
     size: number;
     mtimeMs: number;
     words: string[];
+}
+
+/** Bump when the serialized mention-cache shape (or the word extraction) changes. */
+const MENTION_CACHE_FORMAT_VERSION = 3;
+
+/** The on-disk shape of the persisted word index (game tree plus workspace files). Words live in
+ *  one global table and each file lists indices into it: the same identifiers recur across
+ *  thousands of files, so the table roughly halves the artifact and its parse time, and seeding
+ *  shares one string instance per distinct word instead of one per file it occurs in. */
+interface MentionCacheFile {
+    formatVersion: number;
+    serverBuildId: string;
+    dataRoot: string;
+    words: string[];
+    files: Array<[key: string, path: string, size: number, mtimeMs: number, wordIds: number[]]>;
 }
 
 /**
@@ -51,6 +74,23 @@ export class MentionIndex {
     private readonly files = new Map<string, IndexedFile>();
     /** Lower-cased word → normalized keys of the files whose text contains it. */
     private readonly byWord = new Map<string, Set<string>>();
+    /**
+     * Whether the client watches `.rules` files, so disk changes arrive through {@link markDirty}.
+     * With a watcher, a query after the first full sweep only re-checks the dirtied files instead
+     * of re-walking and re-statting the whole project tree per find-all-references/rename.
+     */
+    private watcherDriven = false;
+    /** Files a watcher reported changed/created/deleted since the last sync. */
+    private readonly dirty = new Set<string>();
+    /** Whether a full walk+stat sweep has validated the current state at least once. */
+    private fullSyncDone = false;
+    /** When the last full walk+stat sweep completed, for the periodic re-sweep below. */
+    private lastFullSweepMs = 0;
+    /** Whether the persisted cache was already offered to this build (it seeds at most once). */
+    private seedAttempted = false;
+    /** Entries fed by {@link ingestDiskText} since the last cache write, so a sweep that re-read
+     *  nothing itself still persists what the project walk fed. */
+    private unsavedFeeds = 0;
 
     private constructor() {}
 
@@ -65,6 +105,42 @@ export class MentionIndex {
         this.syncPromise = undefined;
         this.files.clear();
         this.byWord.clear();
+        this.dirty.clear();
+        this.fullSyncDone = false;
+        this.lastFullSweepMs = 0;
+        this.seedAttempted = false;
+        this.unsavedFeeds = 0;
+    }
+
+    /** Switches queries after the first full sweep to dirty-file-only syncs (watcher required). */
+    public enableWatcherDrivenSync(): void {
+        this.watcherDriven = true;
+    }
+
+    /**
+     * Records a watched-file change so the next query re-checks exactly that file. Only effective
+     * in watcher-driven mode; without a watcher every query keeps its own full stat sweep.
+     *
+     * @param fsPath the on-disk path the watcher reported.
+     */
+    public markDirty(fsPath: string): void {
+        this.dirty.add(fsPath);
+    }
+
+    /**
+     * Indexes one file's just-read disk text directly, so a project walk that has the text in
+     * hand anyway (the startup index build) spares the mention build its own read of the same
+     * file. Purely a pre-feed: the next sync still stat-validates the entry like any other, so a
+     * feed with a stale identity is re-read, never trusted.
+     *
+     * @param path the file's on-disk path.
+     * @param size the file's size at read time.
+     * @param mtimeMs the file's mtime at read time.
+     * @param text the file's raw text.
+     */
+    public ingestDiskText(path: string, size: number, mtimeMs: number, text: string): void {
+        this.indexText({ key: normalizeUri(path), path, size, mtimeMs }, text);
+        this.unsavedFeeds++;
     }
 
     /**
@@ -128,8 +204,31 @@ export class MentionIndex {
             // Never drop state under a running sync. The folder set only changes on multi-root
             // updates and between test fixtures, so waiting out the in-flight sync is fine.
             if (this.syncPromise) await this.syncPromise.catch(() => undefined);
-            this.reset();
+            // The first bind keeps what {@link ingestDiskText} pre-fed, since the walk of the
+            // same startup feeds it. The full sweep below validates every entry and drops the
+            // ones outside the folder set, so nothing stale survives the bind.
+            if (this.builtFor !== undefined) this.reset();
             this.builtFor = signature;
+        }
+        // With a watcher, the full walk+stat sweep runs once; afterwards only the files the
+        // watcher dirtied are re-checked. Without one (tests, minimal clients), every query
+        // keeps the stateless full sweep so external changes are still picked up. The watcher
+        // only covers the workspace folders, so files outside them (the game Data tree) are
+        // re-swept on a timer: a Steam update or an external edit of a vanilla file is picked
+        // up within the interval instead of never.
+        const fullSweepDue = Date.now() - this.lastFullSweepMs > FULL_SWEEP_INTERVAL_MS;
+        if (this.watcherDriven && this.fullSyncDone && !fullSweepDue) {
+            // A running sync empties the dirty set before its updates are applied, so an empty
+            // set alone does not mean the index is current: wait out the in-flight sync first.
+            if (this.syncPromise) await this.syncPromise.catch(() => undefined);
+            if (this.dirty.size === 0) return;
+            if (!this.syncPromise) {
+                this.syncPromise = this.syncDirtyFiles(cancellationToken).finally(() => {
+                    this.syncPromise = undefined;
+                });
+            }
+            await this.syncPromise;
+            return;
         }
         if (!this.syncPromise) {
             this.syncPromise = this.syncWithDisk(folderPaths, cancellationToken).finally(() => {
@@ -137,6 +236,50 @@ export class MentionIndex {
             });
         }
         await this.syncPromise;
+    }
+
+    /**
+     * Re-checks exactly the watcher-dirtied files: vanished ones are dropped, changed ones
+     * re-read. A file that fails mid-sync stays dirty for the next query.
+     *
+     * @param cancellationToken cancels the re-reads.
+     * @returns once the dirtied files are current.
+     */
+    private async syncDirtyFiles(cancellationToken: CancellationToken): Promise<void> {
+        const paths = [...this.dirty];
+        this.dirty.clear();
+        const changed: Array<{ key: string; path: string; size: number; mtimeMs: number }> = [];
+        for (const path of paths) {
+            if (cancellationToken.isCancellationRequested) {
+                for (const remaining of paths) this.dirty.add(remaining);
+                throw new CancellationError();
+            }
+            const key = normalizeUri(path);
+            try {
+                const info = await stat(path);
+                const known = this.files.get(key);
+                if (!known || known.size !== info.size || known.mtimeMs !== info.mtimeMs) {
+                    changed.push({ key, path, size: info.size, mtimeMs: info.mtimeMs });
+                }
+            } catch {
+                this.removeSource(key);
+            }
+        }
+        const metaByPath = new Map(changed.map((entry) => [entry.path, entry]));
+        // Files whose new text has not been ingested yet. On cancellation they return to the
+        // dirty set (like the pre-read check above does). Otherwise their stale entries would
+        // look synced forever, since the dirty set was already cleared.
+        const pending = new Set(changed.map((entry) => entry.path));
+        for await (const { file, text } of readFilesAhead(changed.map((entry) => entry.path))) {
+            if (cancellationToken.isCancellationRequested) {
+                for (const remaining of pending) this.dirty.add(remaining);
+                throw new CancellationError();
+            }
+            pending.delete(file);
+            const meta = metaByPath.get(file)!;
+            if (text === undefined) this.removeSource(meta.key);
+            else this.indexText(meta, text);
+        }
     }
 
     /**
@@ -151,38 +294,36 @@ export class MentionIndex {
     private async syncWithDisk(folderPaths: string[], cancellationToken: CancellationToken): Promise<void> {
         const firstBuild = this.files.size === 0;
         const work = async (): Promise<void> => {
-            const onDisk: Array<{ key: string; path: string }> = [];
+            // Seed the words from the persisted cache before the sweep: seeded entries whose
+            // size+mtime still match are not re-read, so a warm start stats everything but
+            // reads almost nothing. The sweep below validates every seeded entry either way.
+            // Entries the project walk already fed are fresher than the cache and are kept.
+            if (!this.seedAttempted) {
+                this.seedAttempted = true;
+                await this.trySeedFromCache(folderPaths);
+            }
+            const feedsBefore = this.unsavedFeeds;
+            const onDisk: Array<{ key: string; path: string; size: number; mtimeMs: number }> = [];
             const seen = new Set<string>();
             for (const folder of folderPaths) {
-                for await (const path of collectRulesFiles(uriToFsPath(folder))) {
-                    if (cancellationToken.isCancellationRequested) throw new CancellationError();
+                // The shared startup sweep: inside a sweep window this reuses the walk+stat the
+                // cache manifest and stamp diff already paid over the same folders.
+                const swept = await sweepRulesFiles(uriToFsPath(folder));
+                if (cancellationToken.isCancellationRequested) throw new CancellationError();
+                for (const { path, size, mtimeMs } of swept) {
                     const key = normalizeUri(path);
                     if (seen.has(key)) continue;
                     seen.add(key);
-                    onDisk.push({ key, path });
+                    onDisk.push({ key, path, size, mtimeMs });
                 }
             }
             for (const key of [...this.files.keys()]) {
                 if (!seen.has(key)) this.removeSource(key);
             }
-            const changed: Array<{ key: string; path: string; size: number; mtimeMs: number }> = [];
-            let next = 0;
-            const statWorker = async (): Promise<void> => {
-                while (next < onDisk.length) {
-                    if (cancellationToken.isCancellationRequested) throw new CancellationError();
-                    const { key, path } = onDisk[next++];
-                    try {
-                        const info = await stat(path);
-                        const known = this.files.get(key);
-                        if (!known || known.size !== info.size || known.mtimeMs !== info.mtimeMs) {
-                            changed.push({ key, path, size: info.size, mtimeMs: info.mtimeMs });
-                        }
-                    } catch {
-                        this.removeSource(key);
-                    }
-                }
-            };
-            await Promise.all(Array.from({ length: Math.min(STAT_CONCURRENCY, onDisk.length || 1) }, statWorker));
+            const changed = onDisk.filter(({ key, size, mtimeMs }) => {
+                const known = this.files.get(key);
+                return !known || known.size !== size || known.mtimeMs !== mtimeMs;
+            });
             const metaByPath = new Map(changed.map((entry) => [entry.path, entry]));
             for await (const { file, text } of readFilesAhead(changed.map((entry) => entry.path))) {
                 if (cancellationToken.isCancellationRequested) throw new CancellationError();
@@ -190,13 +331,122 @@ export class MentionIndex {
                 if (text === undefined) this.removeSource(meta.key);
                 else this.indexText(meta, text);
             }
+            this.fullSyncDone = true;
+            this.lastFullSweepMs = Date.now();
+            // Persist the whole index (game tree plus workspace) so the next server start seeds
+            // instead of re-reading everything. Safe for workspace files because every seeded
+            // entry is stat-validated above before it is trusted. Only worth rewriting when this
+            // sweep re-read anything or unpersisted fed entries exist.
+            if (changed.length > 0 || feedsBefore > 0 || firstBuild) {
+                await this.trySaveCache(folderPaths);
+                // Feeds that arrived during this sync stay counted for the next save.
+                this.unsavedFeeds -= feedsBefore;
+            }
         };
-        // The first build reads the whole project, so show it as an indexing indicator. Later
-        // syncs are a quick stat sweep and stay silent.
+        // A build that must read the whole project shows an indexing indicator. Later syncs (and
+        // a first sync the project walk already fed) are a quick stat sweep and stay silent.
         if (firstBuild) {
             await CosmoteerWorkspaceService.instance.withIndexingProgress('Indexing mentions', () => work());
         } else {
             await work();
+        }
+    }
+
+    /**
+     * The cache artifact name for a folder set. Keyed by the folders (like the project index
+     * cache), so two workspaces over the same game install keep separate word caches instead of
+     * overwriting each other's on every save.
+     *
+     * @param folderPaths the project folders the sync covers.
+     * @returns the artifact name.
+     */
+    private cacheNameFor(folderPaths: string[]): string {
+        const folderKey = createHash('sha1')
+            .update([...folderPaths].map((folder) => normalizeUri(folder)).sort().join('\n'))
+            .digest('hex')
+            .slice(0, 16);
+        return `mention-cache-${folderKey}`;
+    }
+
+    /**
+     * Seeds the index with the persisted words when the cache matches the running build and Data
+     * root. Purely an optimization: every seeded entry is still validated by the stat sweep of
+     * the sync that follows.
+     *
+     * @param folderPaths the project folders the sync covers, for the cache identity.
+     */
+    private async trySeedFromCache(folderPaths: string[]): Promise<void> {
+        const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+        const buildId = currentServerBuildId();
+        if (!dataRoot || !buildId) return;
+        try {
+            const raw = await readFile(cacheArtifactPath(dataRoot, this.cacheNameFor(folderPaths)), { encoding: 'utf-8' });
+            const cache = JSON.parse(raw) as MentionCacheFile;
+            if (cache.formatVersion !== MENTION_CACHE_FORMAT_VERSION) return;
+            if (cache.serverBuildId !== buildId) return;
+            if (cache.dataRoot !== dataRoot) return;
+            if (!Array.isArray(cache.words)) return;
+            const table = cache.words;
+            for (const [key, path, size, mtimeMs, wordIds] of cache.files) {
+                // An entry the project walk fed is fresher than the persisted one, keep it.
+                if (this.files.has(key)) continue;
+                const words: string[] = [];
+                for (const id of wordIds) {
+                    const word = table[id];
+                    if (word !== undefined) words.push(word);
+                }
+                this.files.set(key, { path, size, mtimeMs, words });
+                for (const word of words) {
+                    (this.byWord.get(word) ?? this.byWord.set(word, new Set()).get(word)!).add(key);
+                }
+            }
+        } catch {
+            /* no cache or unreadable, the full read builds it fresh */
+        }
+    }
+
+    /**
+     * Persists the whole index, workspace files included (best-effort, atomic rename). Workspace
+     * entries are safe to reuse across sessions because the sweep stat-validates every seeded
+     * entry before trusting it, exactly like the game-tree entries.
+     *
+     * @param folderPaths the project folders the sync covers, for the cache identity.
+     */
+    private async trySaveCache(folderPaths: string[]): Promise<void> {
+        const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+        const buildId = currentServerBuildId();
+        if (!dataRoot || !buildId) return;
+        const words: string[] = [];
+        const idByWord = new Map<string, number>();
+        const idOf = (word: string): number => {
+            let id = idByWord.get(word);
+            if (id === undefined) {
+                id = words.length;
+                words.push(word);
+                idByWord.set(word, id);
+            }
+            return id;
+        };
+        const entries: MentionCacheFile['files'] = [];
+        for (const [key, file] of this.files) {
+            entries.push([key, file.path, file.size, file.mtimeMs, file.words.map(idOf)]);
+        }
+        if (entries.length === 0) return;
+        try {
+            const target = cacheArtifactPath(dataRoot, this.cacheNameFor(folderPaths));
+            await mkdir(dirname(target), { recursive: true });
+            const cache: MentionCacheFile = {
+                formatVersion: MENTION_CACHE_FORMAT_VERSION,
+                serverBuildId: buildId,
+                dataRoot,
+                words,
+                files: entries,
+            };
+            const temp = `${target}.${process.pid}.tmp`;
+            await writeFile(temp, JSON.stringify(cache), { encoding: 'utf-8' });
+            await rename(temp, target);
+        } catch {
+            /* best-effort cache, never fail a query over it */
         }
     }
 

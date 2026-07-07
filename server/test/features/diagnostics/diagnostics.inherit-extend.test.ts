@@ -21,7 +21,7 @@ describe('inheritance that extends a missing base member', () => {
     const inhOf = (container: AbstractNode & { elements: AbstractNode[] }, name: string) => {
         const member = container.elements.find(
             (e) => (isListNode(e) || isGroupNode(e)) && e.identifier?.name === name
-        ) as { inheritance: ValueNode[] };
+        ) as unknown as { inheritance: ValueNode[] };
         return member.inheritance[0];
     };
 

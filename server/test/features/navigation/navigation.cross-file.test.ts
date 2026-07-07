@@ -109,14 +109,14 @@ describe('FullNavigationStrategy — cross-file references', () => {
             const isOperational = findNodeByIdentifier(components, 'IsOperational')!;
 
             type InhNode = AbstractNode & { valueType: { value: string } };
-            const compInh = (components as { inheritance: InhNode[] }).inheritance[0];
-            const isoInh = (isOperational as { inheritance: InhNode[] }).inheritance[0];
+            const compInh = (components as unknown as { inheritance: InhNode[] }).inheritance[0];
+            const isoInh = (isOperational as unknown as { inheritance: InhNode[] }).inheritance[0];
 
             const resolvedComp = await nav.navigate(compInh.valueType.value, compInh, derived.uri, token);
             const resolvedIso = await nav.navigate(isoInh.valueType.value, isoInh, derived.uri, token);
 
-            expect(resolvedComp && 'identifier' in resolvedComp && resolvedComp.identifier?.name).toBe('Components');
-            expect(resolvedIso && 'identifier' in resolvedIso && resolvedIso.identifier?.name).toBe('IsOperational');
+            expect(resolvedComp && 'identifier' in resolvedComp && (resolvedComp.identifier as { name?: string })?.name).toBe('Components');
+            expect(resolvedIso && 'identifier' in resolvedIso && (resolvedIso.identifier as { name?: string })?.name).toBe('IsOperational');
         });
 
         it('reaches a member defined only on the cross-file base through nested inheritance', async () => {
@@ -139,7 +139,7 @@ describe('FullNavigationStrategy — cross-file references', () => {
             const part = findNodeByIdentifier(derived, 'Part')!;
             const components = findNodeByIdentifier(part, 'Components')!;
             const heatProducer = findNodeByIdentifier(components, 'HeatProducer')!;
-            const valueNode = (heatProducer as { elements: { type: string; left?: { name: string }; right: AbstractNode }[] })
+            const valueNode = (heatProducer as unknown as { elements: { type: string; left?: { name: string }; right: AbstractNode }[] })
                 .elements.find((e) => e.type === 'Assignment' && e.left?.name === 'ResourceStorage')!.right;
 
             const result = await nav.navigate('&~/Part/^/0/HeatTarget', valueNode, derived.uri, token);

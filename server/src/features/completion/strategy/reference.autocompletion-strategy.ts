@@ -10,13 +10,13 @@ import {
     isValueNode,
     ValueNode,
 } from '../../../core/ast/ast';
-import { findNodeByIdentifier, getStartOfAstNode, parseFile, parseFilePath } from '../../../utils/ast.utils';
+import { findNodeByIdentifier, getStartOfAstNode, parseFile } from '../../../utils/ast.utils';
+import { cachedParseFilePath, cachedReaddir } from '../../../workspace/fs-cache';
+import { getParsedFileDocument } from '../../../workspace/parsed-file-cache';
 import { CosmoteerWorkspaceService, FileTree, FileWithPath, isFile } from '../../../workspace/cosmoteer-workspace.service';
 import { AutoCompletionStrategy } from './autocompletion.strategy';
 import { join } from 'path';
 import { CancellationError } from '../../../utils/cancellation';
-import { opendir } from 'fs/promises';
-import { existsSync } from 'fs';
 import { FullNavigationStrategy } from '../../navigation/full.navigation-strategy';
 import { modAddedGlobalNames, modOverrideMemberNamesForFile, resolveFromModContextOnly } from '../../../mod/mod-context';
 
@@ -317,7 +317,7 @@ const traverseOwnPath = async (
                 .replaceAll(/[<>]/g, EMPTY_STRING)
         );
         if (cancellationToken.isCancellationRequested) throw new CancellationError();
-        const nextNode = await parseFilePath(filePath, cancellationToken);
+        const nextNode = await cachedParseFilePath(filePath, cancellationToken);
         return await optionsInFile(parts.slice(indexOfRules + 1), nextNode, cancellationToken, originUri);
     } else {
         const ownPath = join(
@@ -371,16 +371,8 @@ const traverseCosmoteerPath = async (
         const cosmoteerRules = CosmoteerWorkspaceService.instance.findFile(fileSegments);
         if (!cosmoteerRules) return [];
 
-        if (!cosmoteerRules.content.parsedDocument) {
-            cosmoteerRules.content.parsedDocument = await parseFile(cosmoteerRules);
-        }
-
-        return await optionsInFile(
-            parts.slice(indexOfRules + 1),
-            cosmoteerRules.content.parsedDocument,
-            cancellationToken,
-            originUri
-        );
+        const document = await getParsedFileDocument(cosmoteerRules);
+        return await optionsInFile(parts.slice(indexOfRules + 1), document, cancellationToken, originUri);
     } else if (isWorkshopPath) {
         return await tarverseWorkshopPath(parts, cancellationToken, originUri);
     } else {
@@ -401,10 +393,10 @@ const tarverseWorkshopPath = async (parts: string[], cancellationToken: Cancella
     const pathWithoutData = parts.slice(parts.findIndex((part) => part.startsWith('..')));
     const workshopPath = join(CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath, pathWithoutData.join('/'));
     if (parts[parts.length - 1].endsWith('.rules>')) {
-        const cosmoteerRules = await parseFilePath(workshopPath, cancellationToken);
+        const cosmoteerRules = await cachedParseFilePath(workshopPath, cancellationToken);
         return getOptionsForLevel(cosmoteerRules);
     } else if (parts.some((part) => part.endsWith('.rules>'))) {
-        const cosmoteerRules = await parseFilePath(workshopPath, cancellationToken);
+        const cosmoteerRules = await cachedParseFilePath(workshopPath, cancellationToken);
         return await traversePath(
             parts.slice(parts.findIndex((part) => part.endsWith('.rules'))).join('/'),
             cosmoteerRules,
@@ -428,20 +420,23 @@ const getPathOptions = async (path: string) => {
     // on every platform, so normalize once and keep the splitting logic below platform-neutral.
     path = path.replace(/\\/g, '/');
 
-    if (existsSync(path)) {
-        const dirents = await opendir(path);
-
-        for await (const dirent of dirents) {
+    // One cached listing serves both cases: the typed path as a directory, or, when that listing
+    // fails, a partially typed entry whose parent is listed filtered by the typed prefix. The
+    // cache bounds this to at most one real `readdir` per directory per TTL window instead of one
+    // `existsSync` + `opendir` per keystroke.
+    const dirents = await cachedReaddir(path).catch(() => null);
+    if (dirents) {
+        for (const dirent of dirents) {
             if (dirent.isFile() && dirent.name.endsWith('.rules')) options.push(dirent.name + '>');
             else if (dirent.isDirectory()) options.push(dirent.name + '/');
         }
     } else {
-        // The path names a partially typed entry, so list its parent directory filtered by the
-        // typed prefix. Compare case-insensitively, matching how Windows and the game resolve paths.
+        // Compare case-insensitively, matching how Windows and the game resolve paths.
         const lastSlash = path.lastIndexOf('/');
         const subPath = path.substring(lastSlash + 1).toLowerCase();
-        const dirents = await opendir(path.substring(0, lastSlash + 1));
-        for await (const dirent of dirents) {
+        const parentDirents = await cachedReaddir(path.substring(0, lastSlash + 1)).catch(() => null);
+        if (!parentDirents) return options;
+        for (const dirent of parentDirents) {
             if (dirent.isFile() && dirent.name.toLowerCase().startsWith(subPath) && dirent.name.endsWith('.rules'))
                 options.push(dirent.name + '>');
             else if (dirent.isDirectory() && dirent.name.toLowerCase().startsWith(subPath))

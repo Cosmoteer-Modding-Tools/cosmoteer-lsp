@@ -67,27 +67,58 @@ export const stepIntoNode = (
         if (isGroupNode(node) || isDocumentNode(node)) {
             // Member lookup is case-insensitive in Cosmoteer (like its file paths), but an
             // exact-case match is always preferred so two members differing only by case
-            // still resolve precisely.
-            const lower = segment.toLowerCase();
-            let caseInsensitiveMatch: AbstractNode | null = null;
-            for (const element of node.elements) {
-                const name = isAssignmentNode(element)
-                    ? element.left.name
-                    : (isGroupNode(element) || isListNode(element)) && element.identifier
-                      ? element.identifier.name
-                      : // A bare `word` line in a group parses to a lone IdentifierNode: a named
-                        // void field (vanilla: `v_Faction // VIRTUAL; must be inherited`). The
-                        // game keys children by name regardless of value, so match it too.
-                        isIdentifierNode(element)
-                        ? element.name
-                        : undefined;
-                if (name === undefined) continue;
-                const target = isAssignmentNode(element) ? element.right : element;
-                if (name === segment) return target;
-                if (!caseInsensitiveMatch && name.toLowerCase() === lower) caseInsensitiveMatch = target;
-            }
-            return caseInsensitiveMatch;
+            // still resolve precisely. Reference paths look members up per segment, per
+            // reference, so the per-container name tables are built once and reused.
+            const index = memberIndexOf(node);
+            if (index.exact.has(segment)) return index.exact.get(segment);
+            return index.lower.get(segment.toLowerCase()) ?? null;
         }
     }
     return null;
+};
+
+/** One container's member lookup tables: first exact-cased name and first case-folded name. A
+ *  member's target can be null (an in-progress empty `Key = ` assignment), preserved so an exact
+ *  match on it stays unresolved like the original in-order scan. */
+interface MemberIndex {
+    exact: Map<string, AbstractNode | null>;
+    lower: Map<string, AbstractNode | null>;
+}
+
+/** Per-container member tables, keyed weakly so they die with their AST. */
+const memberIndexCache: WeakMap<AbstractNode, MemberIndex> = new WeakMap();
+
+/**
+ * The member lookup tables of a group/document, built on first use. The first element declaring a
+ * name wins in each table, matching the original in-order scan.
+ *
+ * @param node the group or document whose members to index.
+ * @returns the container's member tables.
+ */
+const memberIndexOf = (node: AbstractNode & { elements: AbstractNode[] }): MemberIndex => {
+    const cached = memberIndexCache.get(node);
+    if (cached) return cached;
+    const index: MemberIndex = { exact: new Map(), lower: new Map() };
+    for (const element of node.elements) {
+        const name = isAssignmentNode(element)
+            ? element.left.name
+            : (isGroupNode(element) || isListNode(element)) && element.identifier
+              ? element.identifier.name
+              : // A bare `word` line in a group parses to a lone IdentifierNode: a named
+                // void field (vanilla: `v_Faction // VIRTUAL; must be inherited`). The
+                // game keys children by name regardless of value, so match it too.
+                isIdentifierNode(element)
+                ? element.name
+                : undefined;
+        if (name === undefined) continue;
+        const target = isAssignmentNode(element) ? element.right : element;
+        if (!index.exact.has(name)) index.exact.set(name, target);
+        const lower = name.toLowerCase();
+        // First non-null wins, like the original in-order scan: a null target (an in-progress
+        // empty `key = ` assignment) never blocked a later differently-cased member with a real
+        // value from matching case-insensitively, so a null placeholder stays replaceable here.
+        if (!index.lower.get(lower)) index.lower.set(lower, target);
+    }
+    memberIndexCache.set(node, index);
+    return index;
 };

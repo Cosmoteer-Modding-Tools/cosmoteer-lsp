@@ -40,7 +40,7 @@ One intentional difference: format-on-save is not a plugin setting (LSP4IJ has n
 ## Building
 
 ```bash
-npm run compile          # at the repo root: esbuild produces out/server/src/server.js
+npm run compile          # at the repo root: esbuild produces out/server/src/server.mjs
 cd jetbrains
 ./gradlew buildPlugin    # zip in build/distributions/
 ```

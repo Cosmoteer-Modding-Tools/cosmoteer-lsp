@@ -1,0 +1,263 @@
+// Whole-mod scan benchmark for the Cosmoteer language server.
+//
+// Drives the BUILT server over stdio exactly like VS Code does, turns on whole-workspace
+// validation, and times the scan end-to-end: once cold (fresh server, empty caches) and once warm
+// (same server, caches populated by the cold pass). After each pass it pulls the server's hot-path
+// counters through the custom `cosmoteer/perfStats` request, so a wall-clock regression can be
+// attributed: stat syscalls, readdir/parse cache hits, reference resolutions, schema memo epoch
+// bumps, and the peak heap the scan reached.
+//
+// Usage (from repo root, after `node esbuild.mjs`):
+//   node server/test/perf/scan-bench.mjs
+// Override the install/mod via env:
+//   COSMOTEER_GAME="…/Cosmoteer" SCAN_MOD_DIR="C:\path\to\mod" node server/test/perf/scan-bench.mjs
+// Optional: SCAN_SCOPE=modRulesReachable (default allFiles), SCAN_MAX_OLD_SPACE_MB=4096.
+
+import { spawn } from 'child_process';
+import { existsSync, writeFileSync } from 'fs';
+import * as path from 'path';
+
+const SERVER = 'out/server/src/server.mjs';
+if (!existsSync(SERVER)) {
+    console.error(`Server bundle not found at ${SERVER}. Build it first: node esbuild.mjs`);
+    process.exit(2);
+}
+
+const GAME = process.env.COSMOTEER_GAME || 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Cosmoteer';
+const MOD_DIR = process.env.SCAN_MOD_DIR || '';
+const SCOPE = process.env.SCAN_SCOPE || 'allFiles';
+const MAX_OLD_SPACE_MB = Number(process.env.SCAN_MAX_OLD_SPACE_MB || 0);
+if (!existsSync(MOD_DIR)) {
+    console.error(`Mod folder not found: ${MOD_DIR} (set SCAN_MOD_DIR)`);
+    process.exit(2);
+}
+
+// VS Code URI form: lowercase drive letter, %3A for the drive colon, forward slashes.
+const toVsCodeUri = (fsPath) => {
+    const resolved = path.resolve(fsPath).replace(/\\/g, '/');
+    return 'file:///' + resolved.replace(/^([A-Za-z]):/, (_, d) => `${d.toLowerCase()}%3A`);
+};
+const MOD_URI = toVsCodeUri(MOD_DIR);
+
+// Full settings object (the server takes the configuration reply verbatim, no deep merge), with
+// the whole-workspace scan on and every default-on validator active, matching a real session.
+const settings = {
+    maxNumberOfProblems: 1000,
+    cosmoteerPath: GAME,
+    trace: { server: 'off' },
+    ignorePaths: [],
+    diagnostics: {
+        validateWholeWorkspace: true,
+        workspaceValidationScope: SCOPE,
+        validateComponentReferences: true,
+        validateCrossFileReferences: true,
+        validateRequiredFields: true,
+        validateShaderConstants: true,
+        validateShaderCode: true,
+        validateLocalizationKeys: true,
+        validateRedundantSeparators: true,
+    },
+    rename: { allowEditingVanillaFiles: false },
+    formatting: { enabled: true, formatOnSave: false },
+};
+
+// ── LSP plumbing ─────────────────────────────────────────────────────────────────────────────────
+const nodeArgs = MAX_OLD_SPACE_MB > 0 ? [`--max-old-space-size=${MAX_OLD_SPACE_MB}`] : [];
+// SCAN_CPU_PROF=dir makes the server write one scan-scoped .cpuprofile per pass into that
+// directory (see server/src/utils/cpu-profile.ts). Analyze self-times to attribute scan cost
+// precisely. The summed per-pass counters cross-bill under concurrency.
+const serverEnv = process.env.SCAN_CPU_PROF
+    ? { ...process.env, COSMOTEER_CPU_PROF: process.env.SCAN_CPU_PROF }
+    : process.env;
+const server = spawn('node', [...nodeArgs, SERVER, '--stdio'], {
+    stdio: ['pipe', 'pipe', 'inherit'],
+    env: serverEnv,
+});
+let buf = Buffer.alloc(0);
+const waiters = new Map();
+let publishCount = 0;
+let diagnosticTotal = 0;
+// SCAN_DUMP=path collects every published diagnostic of the cold pass into a sorted JSON, for
+// diffing two runs (parity check across a perf change: same list = no behavior change).
+const dumped = new Map();
+const progressByToken = new Map();
+let scanEndResolvers = [];
+
+server.stdout.on('data', (chunk) => {
+    buf = Buffer.concat([buf, chunk]);
+    for (;;) {
+        const headerEnd = buf.indexOf('\r\n\r\n');
+        if (headerEnd === -1) return;
+        const len = Number(buf.slice(0, headerEnd).toString().match(/Content-Length: (\d+)/i)[1]);
+        const start = headerEnd + 4;
+        if (buf.length < start + len) return;
+        const msg = JSON.parse(buf.slice(start, start + len).toString());
+        buf = buf.slice(start + len);
+        if (msg.method && msg.id !== undefined) onServerRequest(msg);
+        else if (msg.method) onServerNotification(msg);
+        else if (msg.id !== undefined && waiters.has(msg.id)) {
+            waiters.get(msg.id)(msg);
+            waiters.delete(msg.id);
+        }
+    }
+});
+
+let nextId = 1;
+const fr = (o) => {
+    const j = JSON.stringify(o);
+    server.stdin.write(`Content-Length: ${Buffer.byteLength(j)}\r\n\r\n${j}`);
+};
+const send = (method, params) => fr({ jsonrpc: '2.0', method, params });
+const reply = (id, result) => fr({ jsonrpc: '2.0', id, result });
+const request = (method, params) => {
+    const id = nextId++;
+    fr({ jsonrpc: '2.0', id, method, params });
+    return new Promise((r) => waiters.set(id, r));
+};
+
+function onServerRequest(msg) {
+    switch (msg.method) {
+        case 'workspace/configuration':
+            reply(msg.id, (msg.params.items ?? [{}]).map(() => settings));
+            break;
+        case 'workspace/workspaceFolders':
+            reply(msg.id, [{ uri: MOD_URI, name: 'mod' }]);
+            break;
+        default:
+            reply(msg.id, null); // registerCapability / workDoneProgress/create / …
+    }
+}
+
+function onServerNotification(msg) {
+    if (msg.method === 'textDocument/publishDiagnostics') {
+        publishCount++;
+        diagnosticTotal += msg.params.diagnostics.length;
+        if (process.env.SCAN_DUMP) {
+            dumped.set(
+                msg.params.uri.toLowerCase(),
+                msg.params.diagnostics.map(
+                    (d) => `${d.range.start.line + 1}:${d.range.start.character + 1} [${d.severity}] ${d.message}`
+                )
+            );
+        }
+        return;
+    }
+    if (msg.method === '$/progress') {
+        const { token, value } = msg.params;
+        if (value.kind === 'begin') progressByToken.set(token, value.title);
+        if (value.kind === 'end') {
+            const title = progressByToken.get(token);
+            progressByToken.delete(token);
+            if (title === 'Validating workspace') {
+                const resolvers = scanEndResolvers;
+                scanEndResolvers = [];
+                resolvers.forEach((r) => r());
+            }
+        }
+    }
+}
+
+const nextScanEnd = () => new Promise((r) => scanEndResolvers.push(r));
+
+const mb = (bytes) => (bytes / 1024 / 1024).toFixed(0) + ' MB';
+const reportPass = (label, elapsedMs, stats) => {
+    console.log(`\n=== ${label} ===`);
+    console.log(`wall time            ${(elapsedMs / 1000).toFixed(1)} s`);
+    console.log(`peak heap (scan)     ${mb(stats.peakHeapBytes)}`);
+    console.log(`heap now / rss       ${mb(stats.memory.heapUsed)} / ${mb(stats.memory.rss)}`);
+    const c = stats.counters;
+    const row = (name) => console.log(`${name.padEnd(20)} ${c[name] ?? 0}`);
+    for (const name of [
+        'scan.files',
+        'scan.cacheHit',
+        'scan.parse',
+        'scan.parseMs',
+        'scan.validateMs',
+        'scan.vElementsMs',
+        'scan.vCyclesMs',
+        'scan.vSchemaMs',
+        'scan.vSiblingMs',
+        'scan.vRequiredMs',
+        'scan.vCrossFileMs',
+        'scan.vLocalizationMs',
+        'navigate',
+        'navigate.memoHit',
+        'fs.stat',
+        'fs.readdir',
+        'fs.readdirHit',
+        'fs.parse',
+        'fs.parseHit',
+        'asset.fsProbe',
+        'asset.memoHit',
+        'schemaEpochBump',
+    ])
+        row(name);
+};
+
+(async () => {
+    await request('initialize', {
+        processId: process.pid,
+        rootUri: MOD_URI,
+        workspaceFolders: [{ uri: MOD_URI, name: 'mod' }],
+        capabilities: {
+            workspace: { workspaceFolders: true, configuration: true },
+            textDocument: { publishDiagnostics: { relatedInformation: true } },
+            window: { workDoneProgress: true },
+        },
+    });
+
+    // The initial scan starts inside onInitialized (validateWholeWorkspace is on from the first
+    // configuration pull), so arm the end-listener before announcing initialized.
+    const coldDone = nextScanEnd();
+    const coldStart = Date.now();
+    send('initialized', {});
+    await coldDone;
+    const coldMs = Date.now() - coldStart;
+    const coldStats = (await request('cosmoteer/perfStats', { reset: true })).result;
+    const coldPublishes = publishCount;
+    reportPass(`COLD scan  (${MOD_DIR})`, coldMs, coldStats);
+    console.log(`published            ${coldPublishes} files, ${diagnosticTotal} diagnostics`);
+    if (process.env.SCAN_DUMP) {
+        const sorted = Object.fromEntries([...dumped.entries()].sort(([a], [b]) => a.localeCompare(b)));
+        writeFileSync(process.env.SCAN_DUMP, JSON.stringify(sorted, null, 1));
+        console.log(`dumped diagnostics to ${process.env.SCAN_DUMP}`);
+    }
+
+    // Warm passes: toggle the feature off (clears published diagnostics) and back on. The server
+    // re-pulls configuration on every didChangeConfiguration, so flip the reply it will receive.
+    // Two warm passes, because a cache-poisoning bug (a miss pinned by the first warm pass, an
+    // entry invalidated but never repopulated) only shows up on the pass after the one that
+    // populated everything.
+    const runWarmPass = async (label) => {
+        settings.diagnostics.validateWholeWorkspace = false;
+        send('workspace/didChangeConfiguration', { settings: null });
+        // Wait for the clear to settle: the next config change re-triggers the scan.
+        await new Promise((r) => setTimeout(r, 2000));
+        publishCount = 0;
+        diagnosticTotal = 0;
+        settings.diagnostics.validateWholeWorkspace = true;
+        const done = nextScanEnd();
+        const start = Date.now();
+        send('workspace/didChangeConfiguration', { settings: null });
+        await done;
+        const elapsedMs = Date.now() - start;
+        const stats = (await request('cosmoteer/perfStats', { reset: true })).result;
+        reportPass(label, elapsedMs, stats);
+        console.log(`published            ${publishCount} files, ${diagnosticTotal} diagnostics`);
+        return elapsedMs;
+    };
+    const warmMs = await runWarmPass('WARM scan  (same server, populated caches)');
+    const warm2Ms = await runWarmPass('WARM scan #2  (must match warm #1: catches cache poisoning)');
+
+    await request('shutdown', {});
+    send('exit', {});
+    setTimeout(() => server.kill(), 200);
+    console.log(
+        `\ncold ${(coldMs / 1000).toFixed(1)}s | warm ${(warmMs / 1000).toFixed(1)}s | warm2 ${(warm2Ms / 1000).toFixed(1)}s`
+    );
+    process.exit(0);
+})().catch((e) => {
+    console.error(e);
+    server.kill();
+    process.exit(1);
+});

@@ -15,7 +15,7 @@ let client: LanguageClient;
 
 export async function activate(context: ExtensionContext) {
     // The server is implemented in node
-    const serverModule = context.asAbsolutePath(path.join('out', 'server', 'src', 'server.js'));
+    const serverModule = context.asAbsolutePath(path.join('out', 'server', 'src', 'server.mjs'));
 
     const bundle = l10n.uri ? { EXTENSION_BUNDLE_PATH: l10n.uri?.fsPath } : undefined;
 

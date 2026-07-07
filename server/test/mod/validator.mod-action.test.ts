@@ -69,7 +69,7 @@ describe('validateModActions', () => {
             'Actions\n[\n\t{\n\t\tAction = RemoveMany\n\t\tRemoveMany\n\t\t[\n\t\t\t"<a.rules>/A/Direct"\n\t\t\t"<a.rules>/A/Nope"\n\t\t]\n\t}\n]\n';
         const errors = await validate(src);
         expect(errors).toHaveLength(1);
-        expect(String((errors[0].node as { valueType: { value: unknown } }).valueType.value)).toBe('<a.rules>/A/Nope');
+        expect(String((errors[0].node as unknown as { valueType: { value: unknown } }).valueType.value)).toBe('<a.rules>/A/Nope');
     });
 
     it('does not flag Overrides whose source is a group', async () => {

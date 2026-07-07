@@ -61,10 +61,13 @@ const readText = async (path: string, readOverride?: ReadOverride): Promise<stri
     }
 };
 
+/** The on-disk identity of every file an include walk read, for later freshness checks. */
+type ChainStamp = ReadonlyArray<{ readonly path: string; readonly mtimeMs: number }>;
+
 /** A cache entry keyed by absolute shader path, invalidated when any file in the chain changes. */
 interface CacheEntry {
-    /** The newest mtime across the shader and every file it includes, in milliseconds. */
-    readonly mtimeMs: number;
+    /** The identity of every file the result was derived from. */
+    readonly chain: ChainStamp;
     /** The resolved settable constants, ready to serve. */
     readonly constants: readonly ShaderConstant[];
 }
@@ -81,21 +84,37 @@ const mtimeOf = async (path: string): Promise<number> => {
 };
 
 /**
+ * Whether every file a cached result was derived from is unchanged on disk. The whole chain is
+ * checked, not just the root shader: an edit to an included file must invalidate the result even
+ * when the root file is untouched.
+ *
+ * @param chain the file identities recorded when the result was computed.
+ * @returns true when every chain file still has its recorded mtime.
+ */
+const chainIsFresh = async (chain: ChainStamp): Promise<boolean> => {
+    if (chain.length === 0) return false;
+    for (const file of chain) {
+        if ((await mtimeOf(file.path)) !== file.mtimeMs) return false;
+    }
+    return true;
+};
+
+/**
  * Walks a shader and its include chain, parsing each file once and merging the results. Returns the
- * parsed files in resolution order along with the newest mtime seen, so the caller can both build the
- * constant set and decide whether a cached result is still fresh.
+ * parsed files in resolution order along with each read file's identity, so the caller can both
+ * build the constant set and later decide whether a cached result is still fresh.
  *
  * @param entryPath the absolute path of the shader the material references.
- * @returns the parsed files visited and the newest mtime across all of them.
+ * @returns the parsed files visited and the identity of every file read.
  */
 const walkIncludes = async (
     entryPath: string,
     dataDir?: string,
     readOverride?: ReadOverride
-): Promise<{ parsed: ParsedShader[]; mtimeMs: number }> => {
+): Promise<{ parsed: ParsedShader[]; chain: ChainStamp }> => {
     const parsed: ParsedShader[] = [];
     const visited = new Set<string>();
-    let newest = 0;
+    const chain: Array<{ path: string; mtimeMs: number }> = [];
 
     const visit = async (path: string): Promise<void> => {
         const key = resolvePath(path);
@@ -103,7 +122,7 @@ const walkIncludes = async (
         visited.add(key);
         const text = await readText(key, readOverride);
         if (text === null) return;
-        newest = Math.max(newest, await mtimeOf(key));
+        chain.push({ path: key, mtimeMs: await mtimeOf(key) });
         const shader = parseShader(text);
         parsed.push(shader);
         for (const include of shader.includes) {
@@ -112,7 +131,7 @@ const walkIncludes = async (
     };
 
     await visit(entryPath);
-    return { parsed, mtimeMs: newest };
+    return { parsed, chain };
 };
 
 /**
@@ -133,11 +152,10 @@ export const shaderConstants = async (
     // The mtime cache tracks the on-disk files only. When an open-buffer override is in play (a live
     // preview reading unsaved edits) skip the cache entirely and recompute, since the buffer content is
     // not reflected by any file mtime.
-    const newest = await mtimeOf(key);
     const cached = readOverride ? undefined : cache.get(key);
-    if (cached && cached.mtimeMs === newest && newest !== 0) return cached.constants;
+    if (cached && (await chainIsFresh(cached.chain))) return cached.constants;
 
-    const { parsed, mtimeMs } = await walkIncludes(key, dataDir, readOverride);
+    const { parsed, chain } = await walkIncludes(key, dataDir, readOverride);
     const byName = new Map<string, ShaderConstant>();
     for (const shader of parsed) {
         for (const constant of shader.constants) {
@@ -146,7 +164,7 @@ export const shaderConstants = async (
         }
     }
     const constants = [...byName.values()];
-    if (!readOverride) cache.set(key, { mtimeMs, constants });
+    if (!readOverride && chain.length > 0) cache.set(key, { chain, constants });
     return constants;
 };
 
@@ -161,12 +179,20 @@ export const shaderConstants = async (
  * @param dataDir the game's `Data` directory, for root-anchored includes.
  * @returns the set of declared uniform names, or null when the shader cannot be read.
  */
+/** Cache of {@link allShaderUniformNames} keyed by absolute shader path, chain-validated like the
+ *  settable-constants cache above. A whole-workspace scan asks for the same few shaders' names once
+ *  per material-bearing file, which uncached re-read and re-parsed the include chain every time. */
+const uniformNamesCache = new Map<string, { chain: ChainStamp; names: ReadonlySet<string> }>();
+
 export const allShaderUniformNames = async (
     shaderPath: string,
     dataDir: string = CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath
 ): Promise<ReadonlySet<string> | null> => {
-    const { parsed, mtimeMs } = await walkIncludes(resolvePath(shaderPath), dataDir);
-    if (mtimeMs === 0) return null; // nothing read, the shader does not exist on disk
+    const key = resolvePath(shaderPath);
+    const cached = uniformNamesCache.get(key);
+    if (cached && (await chainIsFresh(cached.chain))) return cached.names;
+    const { parsed, chain } = await walkIncludes(key, dataDir);
+    if (chain.length === 0) return null; // nothing read, the shader does not exist on disk
     const names = new Set<string>();
     for (const shader of parsed) {
         for (const constant of shader.constants) {
@@ -174,6 +200,7 @@ export const allShaderUniformNames = async (
             names.add(constant.name);
         }
     }
+    uniformNamesCache.set(key, { chain, names });
     return names;
 };
 

@@ -4,9 +4,11 @@ import {
     isDocumentNode,
     isGroupNode,
     isIdentifierNode,
+    isListNode,
     isValueNode,
+    ListNode,
 } from '../../core/ast/ast';
-import { registryForGroup, resolveGroupClass } from '../../document/schema/schema-context';
+import { positionalElementField, registryForGroup, resolveGroupClass } from '../../document/schema/schema-context';
 import { documentRootClass } from '../../document/schema/document-root';
 import {
     classByDiscriminator,
@@ -26,12 +28,17 @@ import { deprecatedDiscriminator } from '../../document/schema/deprecations';
  */
 export const schemaFieldHover = (node: AbstractNode): string | null => {
     const container = node.parent;
+    // A positional element of a group-typed field written in list form (`BaseSize = [7.2, 7.2]`):
+    // the game deserializer reads element N through the class's digit field `"N"`, so show that.
+    if (container && isListNode(container)) return positionalElementHover(node, container);
     if (!container || !(isGroupNode(container) || isDocumentNode(container))) return null;
 
     let fieldName: string | undefined;
-    // A group-form field (`_centerColor { … }`, a nested group such as a shader-constant colour group):
-    // hovering its key resolves to the group node itself, whose name is its identifier.
-    if (isGroupNode(node) && node.identifier) {
+    // A group- or list-form field (`_centerColor { … }`, `TypeCategories [ … ]`, `Resources [ … ]`,
+    // or an overriding `TypeCategories : ^/0/TypeCategories [ … ]`): these are written without an
+    // `=`, so hovering the key resolves to the container node itself, whose name is its identifier.
+    // There is no sibling assignment to match below.
+    if ((isGroupNode(node) || isListNode(node)) && node.identifier) {
         fieldName = node.identifier.name;
     }
     // A valueless field written as a bare key (`Scale2In` with no `= value`, common for optional
@@ -61,6 +68,23 @@ export const schemaFieldHover = (node: AbstractNode): string | null => {
         return null;
     }
     return fieldSignatureMarkdown(field, cls);
+};
+
+/**
+ * Markdown for an element of a group-typed slot's positional list form, resolved through the
+ * class's digit field (`[7.2, 7.2]` in a Vector2 slot → element 0 is Vector2's `"0"` field).
+ * The slot walk types the list wherever it sits, so nested entry lists (an `EditorParentParts`
+ * `[part, 0]`) document too. Returns null when the position resolves to no field.
+ *
+ * @param node the hovered list element.
+ * @param list the list containing it.
+ * @returns the positional field's signature markdown, or null.
+ */
+const positionalElementHover = (node: AbstractNode, list: ListNode): string | null => {
+    const index = list.elements.indexOf(node);
+    if (index < 0) return null;
+    const positional = positionalElementField(list, index);
+    return positional ? fieldSignatureMarkdown(positional) : null;
 };
 
 /**

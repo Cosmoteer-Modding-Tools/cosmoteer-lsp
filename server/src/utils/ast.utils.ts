@@ -7,6 +7,7 @@ import {
     isDocumentNode,
     isFunctionCallNode,
     isGroupNode,
+    isIdentifierNode,
     isMathExpressionNode,
 } from '../core/ast/ast';
 import { FileWithPath } from '../workspace/cosmoteer-workspace.service';
@@ -17,9 +18,11 @@ import { CancellationError } from './cancellation';
 
 /**
  * The named members of a group/list/document: each `key = value` assignment
- * (name -> its right-hand value) and each identified `{}`/`[]` (identifier -> itself).
- * The single definition of "named member" shared by the action parser, mod-context,
- * and completion.
+ * (name -> its right-hand value), each identified `{}`/`[]` (identifier -> itself), and each
+ * bare valueless field (`ScaleIn` on its own line, a legal ObjectText member the game reads as
+ * present with an empty value, which the parser leaves as a lone identifier). Bare words inside a
+ * list are values, not identifiers, so list elements are unaffected. The single definition of
+ * "named member" shared by the action parser, mod-context, and completion.
  * @param node the group, list, or document whose elements are scanned
  * @returns the name/node pairs for each named member, in document order
  */
@@ -29,6 +32,7 @@ export const namedMembersOf = (node: { elements: AbstractNode[] }): [string, Abs
         if (isAssignmentNode(element)) members.push([element.left.name, element.right]);
         else if ((isGroupNode(element) || isListNode(element)) && element.identifier)
             members.push([element.identifier.name, element]);
+        else if (isIdentifierNode(element)) members.push([element.name, element]);
     }
     return members;
 };
@@ -59,15 +63,18 @@ export const findNodeAtPosition = (document: AbstractNodeDocument, position: Pos
 
 const findNodeAtPositionRecursive = (node: AbstractNode, position: Position): AbstractNode | undefined => {
     if (isGroupNode(node)) {
-        for (const property of node.elements) {
-            if (node.inheritance) {
-                for (const inheritance of node.inheritance) {
-                    const foundNode = findNodeAtPositionRecursive(inheritance, position);
-                    if (foundNode) {
-                        return foundNode;
-                    }
+        // Inheritance is checked before (and independently of) the members: an empty inheriting
+        // group (`Components : ^/0/Components { }`) has no elements, so a check nested in the
+        // member loop would never see the cursor on the inheritance reference.
+        if (node.inheritance) {
+            for (const inheritance of node.inheritance) {
+                const foundNode = findNodeAtPositionRecursive(inheritance, position);
+                if (foundNode) {
+                    return foundNode;
                 }
             }
+        }
+        for (const property of node.elements) {
             const foundNode = findNodeAtPositionRecursive(property, position);
             if (foundNode) {
                 return foundNode;
@@ -168,9 +175,31 @@ export const findNodeByIdentifier = (node: AbstractNode, identifier: string): Ab
     return caseInsensitiveMatch;
 };
 
+/** Memo of each node's owning document. Resolution calls this on essentially every step, and the
+ *  parent walk is O(depth) per call, so the walk is path-compressed: every node visited on the way
+ *  up is cached. Keyed weakly, entries die with their AST. */
+const documentOfNode: WeakMap<AbstractNode, AbstractNodeDocument> = new WeakMap();
+
+/**
+ * The document root a node belongs to, following `parent` links with path compression.
+ *
+ * @param node the node whose owning document is wanted.
+ * @returns the owning document root.
+ */
 export const getStartOfAstNode = (node: AbstractNode): AbstractNodeDocument => {
-    if (node.parent) {
-        return getStartOfAstNode(node.parent);
+    let current: AbstractNode = node;
+    const path: AbstractNode[] = [];
+    let root: AbstractNodeDocument | undefined;
+    while (current.parent) {
+        const cached = documentOfNode.get(current);
+        if (cached) {
+            root = cached;
+            break;
+        }
+        path.push(current);
+        current = current.parent;
     }
-    return node as AbstractNodeDocument;
+    root ??= current as AbstractNodeDocument;
+    for (const visited of path) documentOfNode.set(visited, root);
+    return root;
 };

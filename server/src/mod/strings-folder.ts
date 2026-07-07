@@ -3,7 +3,7 @@ import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, isValueNode } from '../core/ast/ast';
 import { namedMembersOf, parseFilePath } from '../utils/ast.utils';
-import { safeReaddir } from '../utils/fs.utils';
+import { cachedReaddir } from '../workspace/fs-cache';
 import { globalSettings } from '../settings';
 import { findModRoot } from './mod-root';
 import { isManifestBasename } from '../document/document-kind';
@@ -95,8 +95,10 @@ export const resolveStringsFolders = async (
 
     const modRoot = documentUri ? findModRoot(documentUri) : null;
     if (modRoot) {
-        for (const manifest of safeReaddir(modRoot).filter(isManifestBasename)) {
-            folders.push(...(await stringsFoldersIn(join(modRoot, manifest), modRoot, cancellationToken)));
+        const entries = await cachedReaddir(modRoot).catch(() => []);
+        for (const entry of entries) {
+            if (!isManifestBasename(entry.name)) continue;
+            folders.push(...(await stringsFoldersIn(join(modRoot, entry.name), modRoot, cancellationToken)));
         }
     }
 

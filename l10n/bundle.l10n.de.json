@@ -1,4 +1,5 @@
 {
+    "Could not read the Cosmoteer installation at {0}, please set the path manually": "Die Cosmoteer-Installation unter {0} konnte nicht gelesen werden, bitte setze den Pfad manuell",
     "localization key": "Lokalisierungsschlüssel",
     "not found in any strings file": "in keiner Sprachdatei gefunden",
     "Localization key not found": "Lokalisierungsschlüssel nicht gefunden",
@@ -30,6 +31,11 @@
     "Values can be a number or a reference, expressions can be +, -, *, /": "Werte können eine Zahl oder eine Referenz sein, Ausdrücke können +, -, *, / sein",
     "Expected value after left paren": "Erwartetet wurde ein Wert nach der linken Klammer",
     "Expected value after equals": "Erwartetet wurde ein Wert nach dem Gleichheitszeichen",
+    "The game cannot read a standalone reference here": "Das Spiel kann eine alleinstehende Referenz hier nicht lesen",
+    "The game reads this whole line as one text element": "Das Spiel liest diese gesamte Zeile als ein einziges Textelement",
+    "In a list, a value runs to the end of the line and '{0}' does not end it, so '{1}' and the body become a single text element. List elements cannot have names; remove '{1}' to make this an anonymous element.": "In einer Liste läuft ein Wert bis zum Zeilenende und '{0}' beendet ihn nicht, daher werden '{1}' und der Rumpf zu einem einzigen Textelement. Listenelemente können keine Namen haben; entferne '{1}', um ein anonymes Element daraus zu machen.",
+    "Remove '{0}'": "Entferne '{0}'",
+    "A bare reference is only allowed as a list element or as a field value (Field = &/Path). The game fails to load the whole file on this.": "Eine alleinstehende Referenz ist nur als Listenelement oder als Feldwert (Field = &/Path) erlaubt. Das Spiel kann die gesamte Datei deswegen nicht laden.",
     "If you want to assign a value to an identifier, you need to provide a value after the equals sign": "Wenn Sie einem Bezeichner einen Wert zuweisen möchten, müssen Sie einen Wert nach dem Gleichheitszeichen angeben",
     "If you want to not assign a value to an identifier, you need to remove the equals sign": "Wenn Sie einem Bezeichner keinen Wert zuweisen möchten, müssen Sie das Gleichheitszeichen entfernen",
     "Expected value in colon": "Erwartetet wurde ein Wert im Doppelpunkt",
