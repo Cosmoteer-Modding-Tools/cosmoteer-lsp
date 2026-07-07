@@ -120,6 +120,13 @@ import { WatchedDocumentIndex } from './features/navigation/watched-document-ind
 import { aliasRootIndex } from './document/schema/alias-root';
 import { ReverseIncludeIndex } from './features/navigation/reverse-include.index';
 import { MentionIndex } from './features/navigation/mention.index';
+import {
+    beginStatSweepWindow,
+    endStatSweepWindow,
+    saveScanCache,
+    ScanCacheEntry,
+    tryLoadScanCache,
+} from './workspace/index-cache';
 import { buildSemanticTokens } from './features/semantic/semantic-tokens.service';
 import { buildShaderSemanticTokens } from './features/semantic/shader-semantic-tokens';
 import { semanticTokensLegend } from './features/semantic/legend';
@@ -393,10 +400,20 @@ connection.onInitialized(async (_params) => {
     // finds them already built instead of paying the whole-project walk itself. Deliberately not
     // awaited, since the first feature request would coalesce onto the same in-flight build anyway.
     // The mention index (find-all-references pre-filter) warms afterwards so the two builds don't
-    // compete for the disk.
+    // compete for the disk. The sweep window spans both builds, so the mention sync reuses the
+    // walk+stat sweeps the project build (and its cache manifest checks) already paid.
+    beginStatSweepWindow();
+    const warmupStartedMs = Date.now();
     void ensureFragmentRooting(CancellationToken.None)
-        .then(async () => MentionIndex.instance.ensureBuilt(await searchFolderUris(), CancellationToken.None))
-        .catch(() => undefined);
+        .then(async () => {
+            const projectMs = Date.now() - warmupStartedMs;
+            await MentionIndex.instance.ensureBuilt(await searchFolderUris(), CancellationToken.None);
+            connection.console.info(
+                `Startup: project indexes ready in ${projectMs}ms, mention index in ${Date.now() - warmupStartedMs}ms`
+            );
+        })
+        .catch(() => undefined)
+        .finally(() => endStatSweepWindow());
 
     // Opt-in: validate every file in the workspace, not just the open ones.
     await runWorkspaceValidation();
@@ -457,18 +474,7 @@ connection.onDidChangeConfiguration(async (change) => {
     diagnosticsCache.clear();
     inlayHintCache.clear();
     invalidateComponentIdCache();
-    // The scan cache only cares about settings that change a file's diagnostics. The whole-
-    // workspace toggle and scope are excluded: they select which files are scanned, not what a
-    // file's validation produces, and flipping the toggle is exactly the repeat-scan case the
-    // cache exists for.
-    const scanSettingsKey = JSON.stringify({
-        ...globalSettings,
-        diagnostics: {
-            ...globalSettings.diagnostics,
-            validateWholeWorkspace: undefined,
-            workspaceValidationScope: undefined,
-        },
-    });
+    const scanSettingsKey = scanSettingsKeyOf();
     if (lastScanSettingsKey === undefined) {
         lastScanSettingsKey = scanSettingsKey;
     } else if (scanSettingsKey !== lastScanSettingsKey) {
@@ -1121,6 +1127,25 @@ const bumpWorkspaceScanEpoch = (): void => {
     workspaceScanEpoch++;
 };
 
+/**
+ * The scan-relevant settings serialization. Only settings that change what a file's validation
+ * produces participate: the whole-workspace toggle and scope select which files are scanned, not
+ * what a file yields, and flipping the toggle is exactly the repeat-scan case the caches exist
+ * for. The l10n bundle path rides along because persisted diagnostics carry localized messages.
+ *
+ * @returns the serialized key.
+ */
+const scanSettingsKeyOf = (): string =>
+    JSON.stringify({
+        ...globalSettings,
+        diagnostics: {
+            ...globalSettings.diagnostics,
+            validateWholeWorkspace: undefined,
+            workspaceValidationScope: undefined,
+        },
+        l10nBundle: process.env['EXTENSION_BUNDLE_PATH'] ?? '',
+    });
+
 interface ScanResultEntry {
     size: number;
     mtimeMs: number;
@@ -1133,6 +1158,36 @@ interface ScanResultEntry {
 const scanResultCache = new Map<string, ScanResultEntry>();
 /** Upper bound of cached scan results, above one full pass over the largest known mods. */
 const SCAN_RESULT_CAP = 16384;
+
+/** Whether the persisted scan cache was already offered to this session (it seeds at most once). */
+let persistedScanAttempted = false;
+/** How many files any scan pass validated fresh (not served from a cache), for the save gate. */
+let scanFreshValidations = 0;
+
+/**
+ * Seeds the in-memory scan cache from the persisted one, once per session. Only called after the
+ * shared indexes converged, so the seeded entries carry the epoch and revision sum the per-file
+ * check will compare against for the rest of the pass. The persisted cache is gated on nothing
+ * having moved since it was saved (see `index-cache.ts`), which makes the seeded results exactly
+ * what re-validating would produce.
+ *
+ * @param folderUris the workspace folder uris being scanned.
+ * @returns once seeding finished (or was skipped).
+ */
+async function seedPersistedScanResults(folderUris: string[]): Promise<void> {
+    if (persistedScanAttempted) return;
+    persistedScanAttempted = true;
+    const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+    if (!dataRoot) return;
+    const entries = await tryLoadScanCache(dataRoot, folderUris.map(uriToFsPath), scanSettingsKeyOf());
+    if (!entries) return;
+    const epoch = workspaceScanEpoch;
+    const revisions = scanRevisionSum();
+    for (const [path, size, mtimeMs, diagnostics] of entries) {
+        scanResultCache.set(foldPathCase(path), { size, mtimeMs, epoch, revisions, diagnostics });
+    }
+    connection.console.info(`Workspace scan: ${entries.length} file results restored from cache`);
+}
 
 /**
  * The combined revision of every index whose content feeds scanned diagnostics. Captured before a
@@ -1214,6 +1269,7 @@ async function validateWorkspaceFile(file: string, openNorms: Set<string>, token
         }
         perfCount('scan.files');
         perfSampleMemory();
+        scanFreshValidations++;
         workspaceDiagnosticUris.add(uri);
         await connection.sendDiagnostics({ uri, diagnostics });
     } catch (e) {
@@ -1272,6 +1328,13 @@ async function runWorkspaceValidation(): Promise<void> {
                 await connection.sendDiagnostics({ uri: stored, diagnostics: [] });
             }
         }
+        // Converge the shared indexes before the pass, then seed the persisted scan results: the
+        // seeded entries carry the converged epoch and revision sum, so the per-file check can
+        // serve them for the whole pass instead of re-validating everything after a restart.
+        await ensureFragmentRooting(token).catch(() => undefined);
+        await seedPersistedScanResults(folderUris);
+        const startedMs = Date.now();
+        const freshBefore = scanFreshValidations;
         let next = 0;
         let done = 0;
         const worker = async (): Promise<void> => {
@@ -1283,6 +1346,29 @@ async function runWorkspaceValidation(): Promise<void> {
             }
         };
         await Promise.all(Array.from({ length: WORKSPACE_DIAGNOSTIC_CONCURRENCY }, worker));
+        const fresh = scanFreshValidations - freshBefore;
+        if (!token.isCancellationRequested) {
+            connection.console.info(
+                `Workspace validation: ${files.length} files in ${Date.now() - startedMs}ms (${fresh} validated, rest cached or open)`
+            );
+            // Persist the results computed under the pass's final shared state, so the next
+            // session's scan can restore them instead of re-validating an unchanged project.
+            // Only worth rewriting when this pass validated anything fresh.
+            if (fresh > 0) {
+                const epoch = workspaceScanEpoch;
+                const revisions = scanRevisionSum();
+                const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+                if (dataRoot) {
+                    const entries: ScanCacheEntry[] = [];
+                    for (const [key, entry] of scanResultCache) {
+                        if (entry.epoch !== epoch || entry.revisions !== revisions) continue;
+                        entries.push([key, entry.size, entry.mtimeMs, entry.diagnostics]);
+                    }
+                    // Awaited, so a server shutdown right after the pass cannot tear the write.
+                    await saveScanCache(dataRoot, folderUris.map(uriToFsPath), scanSettingsKeyOf(), entries);
+                }
+            }
+        }
     } finally {
         endFsTrustWindow();
         await stopScanCpuProfile();

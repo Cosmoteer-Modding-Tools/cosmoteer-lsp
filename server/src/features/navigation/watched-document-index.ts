@@ -5,12 +5,16 @@ import { CancellationError } from '../../utils/cancellation';
 import { ParserResultRegistrar } from '../../registrar/parser-result-registrar';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import {
+    beginStatSweepWindow,
+    endStatSweepWindow,
     saveIndexCache,
     saveProjectCache,
     statProjectFiles,
+    sweepRulesFiles,
     tryLoadIndexCache,
     tryLoadProjectCache,
 } from '../../workspace/index-cache';
+import { MentionIndex } from './mention.index';
 import { filePathToUri } from './navigation-strategy';
 import { normalizeUri } from './reference-location';
 import { projectDocuments, uriToFsPath } from './workspace-files';
@@ -264,94 +268,14 @@ export abstract class WatchedDocumentIndex {
         const pending = indexes.filter((index) => !index.built && !index.buildPromise);
         if (pending.length > 0) {
             const run = CosmoteerWorkspaceService.instance.withIndexingProgress(indexLabel, async (progress) => {
-                const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
-                const isDataRoot = (folder: string): boolean =>
-                    !!dataRoot && normalizeUri(uriToFsPath(folder)) === normalizeUri(dataRoot);
-                const gameFolders = folderPaths.filter(isDataRoot);
-                const liveFolders = folderPaths.filter((folder) => !isDataRoot(folder));
-                const liveFolderPaths = liveFolders.map((folder) => uriToFsPath(folder));
-                let count = 0;
-                const indexAll = async (folders: string[], diskOnly: boolean): Promise<void> => {
-                    if (folders.length === 0 && diskOnly) return;
-                    for await (const document of projectDocuments(folders, CancellationToken.None, { diskOnly })) {
-                        for (const index of pending) await index.indexDocument(document, CancellationToken.None);
-                        progress.report(`${++count} files`);
-                    }
-                };
-                const cacheable = gameFolders.length === 1 && !!dataRoot && pending.every((index) => index.cacheId);
-                // Whether the workspace files were served from the project cache, so the disk walk
-                // of the live folders can be skipped (their changed files are dirty-marked instead).
-                let liveFromCache = false;
-                if (cacheable) {
-                    // The combined project cache first: game plus workspace state in one load, with
-                    // a per-workspace-file stamp diff standing in for the walk.
-                    const project = liveFolders.length > 0 ? await tryLoadProjectCache(dataRoot!, liveFolderPaths) : undefined;
-                    const projectLoaded = !!project && pending.every((index) => {
-                        const state = project.states[index.cacheId!];
-                        return state !== undefined && index.loadState(state);
-                    });
-                    if (projectLoaded) {
-                        const current = await statProjectFiles(liveFolderPaths);
-                        const savedByKey = new Map(project!.stamps.map((stamp) => [normalizeUri(stamp[0]), stamp]));
-                        const currentKeys = new Set<string>();
-                        let changed = 0;
-                        for (const [path, size, mtimeMs] of current) {
-                            const key = normalizeUri(path);
-                            currentKeys.add(key);
-                            const saved = savedByKey.get(key);
-                            if (saved && saved[1] === size && saved[2] === mtimeMs) continue;
-                            for (const index of pending) index.markDirty(filePathToUri(path));
-                            changed++;
-                        }
-                        for (const [key, saved] of savedByKey) {
-                            if (currentKeys.has(key)) continue;
-                            for (const index of pending) index.remove(filePathToUri(saved[0]));
-                            changed++;
-                        }
-                        for (const index of pending) index.stateLoadedConverged();
-                        progress.report(changed === 0 ? 'project from cache' : `project from cache, ${changed} changed`);
-                        liveFromCache = true;
-                    } else {
-                        // A partially accepted cache would leave mixed state, so start clean. The
-                        // game-tree cache still applies on its own.
-                        if (project) for (const index of pending) index.clear();
-                        const cached = await tryLoadIndexCache(dataRoot!);
-                        const loaded = !!cached && pending.every((index) => {
-                            const state = cached[index.cacheId!];
-                            return state !== undefined && index.loadState(state);
-                        });
-                        if (loaded) {
-                            progress.report('game data from cache');
-                        } else {
-                            for (const index of pending) index.clear();
-                            await indexAll(gameFolders, true);
-                            for (const index of pending) await index.finishBuild(progress);
-                            const states: Record<string, unknown> = {};
-                            for (const index of pending) states[index.cacheId!] = index.saveState();
-                            await saveIndexCache(dataRoot!, states);
-                        }
-                    }
-                } else {
-                    // No recognizable game root in the folder set (or a non-cacheable index in the
-                    // group): plain uncached walk of those folders.
-                    await indexAll(gameFolders, true);
+                // One walk+stat sweep per folder serves the cache manifest checks, the stamp
+                // diffs, and (through the startup chain's outer window) the mention index sync.
+                beginStatSweepWindow();
+                try {
+                    await WatchedDocumentIndex.buildAll(pending, folderPaths, progress);
+                } finally {
+                    endStatSweepWindow();
                 }
-                // With the workspace served from the cache, an empty non-diskOnly walk still runs
-                // so open editor buffers re-ingest over the loaded disk state (buffers win).
-                await indexAll(liveFromCache ? [] : liveFolders, false);
-                for (const index of pending) await index.finishBuild(progress);
-                if (cacheable && !liveFromCache && liveFolders.length > 0) {
-                    // Persist the converged combined state for the next start. A file currently
-                    // open in the editor is saved without its stamp: its indexed content may be
-                    // the buffer, and a missing stamp makes the next start re-ingest it from disk.
-                    const stamps = (await statProjectFiles(liveFolderPaths)).filter(
-                        ([path]) => !ParserResultRegistrar.instance.getResultByPath(path)
-                    );
-                    const states: Record<string, unknown> = {};
-                    for (const index of pending) states[index.cacheId!] = index.saveState();
-                    await saveProjectCache(dataRoot!, liveFolderPaths, stamps, states);
-                }
-                for (const index of pending) index.buildCompleted();
             });
             for (const index of pending) {
                 index.buildPromise = run
@@ -367,6 +291,124 @@ export abstract class WatchedDocumentIndex {
             }
         }
         await Promise.all(indexes.map((index) => index.buildPromise?.catch(() => undefined)));
+    }
+
+    /**
+     * The body of one shared build run: cache loads, the disk walks, and the cache saves. Runs
+     * inside a stat-sweep window, so the manifest checks, the stamp diffs, and the mention feed
+     * below all share one walk+stat per folder.
+     *
+     * @param pending the indexes being built.
+     * @param folderPaths the project folders to walk.
+     * @param progress the indexing progress reporter.
+     * @returns once every pending index is converged.
+     */
+    private static async buildAll(
+        pending: WatchedDocumentIndex[],
+        folderPaths: string[],
+        progress: WorkDoneProgressReporter
+    ): Promise<void> {
+        const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+        const isDataRoot = (folder: string): boolean =>
+            !!dataRoot && normalizeUri(uriToFsPath(folder)) === normalizeUri(dataRoot);
+        const gameFolders = folderPaths.filter(isDataRoot);
+        const liveFolders = folderPaths.filter((folder) => !isDataRoot(folder));
+        const liveFolderPaths = liveFolders.map((folder) => uriToFsPath(folder));
+        let count = 0;
+        const indexAll = async (folders: string[], diskOnly: boolean): Promise<void> => {
+            if (folders.length === 0 && diskOnly) return;
+            // The walk has every disk file's raw text in hand anyway. Feeding it to the mention
+            // index (with the identity from the shared sweep) spares the mention build that
+            // follows the project build a re-read of the same files.
+            const identityByKey = new Map<string, { size: number; mtimeMs: number }>();
+            for (const folder of folders) {
+                for (const { path, size, mtimeMs } of await sweepRulesFiles(uriToFsPath(folder))) {
+                    identityByKey.set(normalizeUri(path), { size, mtimeMs });
+                }
+            }
+            const onDiskText = (file: string, text: string): void => {
+                const identity = identityByKey.get(normalizeUri(file));
+                if (identity) MentionIndex.instance.ingestDiskText(file, identity.size, identity.mtimeMs, text);
+            };
+            for await (const document of projectDocuments(folders, CancellationToken.None, { diskOnly, onDiskText })) {
+                for (const index of pending) await index.indexDocument(document, CancellationToken.None);
+                progress.report(`${++count} files`);
+            }
+        };
+        const cacheable = gameFolders.length === 1 && !!dataRoot && pending.every((index) => index.cacheId);
+        // Whether the workspace files were served from the project cache, so the disk walk
+        // of the live folders can be skipped (their changed files are dirty-marked instead).
+        let liveFromCache = false;
+        if (cacheable) {
+            // The combined project cache first: game plus workspace state in one load, with
+            // a per-workspace-file stamp diff standing in for the walk.
+            const project = liveFolders.length > 0 ? await tryLoadProjectCache(dataRoot!, liveFolderPaths) : undefined;
+            const projectLoaded = !!project && pending.every((index) => {
+                const state = project.states[index.cacheId!];
+                return state !== undefined && index.loadState(state);
+            });
+            if (projectLoaded) {
+                const current = await statProjectFiles(liveFolderPaths);
+                const savedByKey = new Map(project!.stamps.map((stamp) => [normalizeUri(stamp[0]), stamp]));
+                const currentKeys = new Set<string>();
+                let changed = 0;
+                for (const [path, size, mtimeMs] of current) {
+                    const key = normalizeUri(path);
+                    currentKeys.add(key);
+                    const saved = savedByKey.get(key);
+                    if (saved && saved[1] === size && saved[2] === mtimeMs) continue;
+                    for (const index of pending) index.markDirty(filePathToUri(path));
+                    changed++;
+                }
+                for (const [key, saved] of savedByKey) {
+                    if (currentKeys.has(key)) continue;
+                    for (const index of pending) index.remove(filePathToUri(saved[0]));
+                    changed++;
+                }
+                for (const index of pending) index.stateLoadedConverged();
+                progress.report(changed === 0 ? 'project from cache' : `project from cache, ${changed} changed`);
+                liveFromCache = true;
+            } else {
+                // A partially accepted cache would leave mixed state, so start clean. The
+                // game-tree cache still applies on its own.
+                if (project) for (const index of pending) index.clear();
+                const cached = await tryLoadIndexCache(dataRoot!);
+                const loaded = !!cached && pending.every((index) => {
+                    const state = cached[index.cacheId!];
+                    return state !== undefined && index.loadState(state);
+                });
+                if (loaded) {
+                    progress.report('game data from cache');
+                } else {
+                    for (const index of pending) index.clear();
+                    await indexAll(gameFolders, true);
+                    for (const index of pending) await index.finishBuild(progress);
+                    const states: Record<string, unknown> = {};
+                    for (const index of pending) states[index.cacheId!] = index.saveState();
+                    await saveIndexCache(dataRoot!, states);
+                }
+            }
+        } else {
+            // No recognizable game root in the folder set (or a non-cacheable index in the
+            // group): plain uncached walk of those folders.
+            await indexAll(gameFolders, true);
+        }
+        // With the workspace served from the cache, an empty non-diskOnly walk still runs
+        // so open editor buffers re-ingest over the loaded disk state (buffers win).
+        await indexAll(liveFromCache ? [] : liveFolders, false);
+        for (const index of pending) await index.finishBuild(progress);
+        if (cacheable && !liveFromCache && liveFolders.length > 0) {
+            // Persist the converged combined state for the next start. A file currently
+            // open in the editor is saved without its stamp: its indexed content may be
+            // the buffer, and a missing stamp makes the next start re-ingest it from disk.
+            const stamps = (await statProjectFiles(liveFolderPaths)).filter(
+                ([path]) => !ParserResultRegistrar.instance.getResultByPath(path)
+            );
+            const states: Record<string, unknown> = {};
+            for (const index of pending) states[index.cacheId!] = index.saveState();
+            await saveProjectCache(dataRoot!, liveFolderPaths, stamps, states);
+        }
+        for (const index of pending) index.buildCompleted();
     }
 
     /**

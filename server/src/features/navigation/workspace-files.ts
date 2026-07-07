@@ -76,12 +76,14 @@ export async function* readFilesAhead(files: string[]): AsyncGenerator<{ file: s
  * through the {@link readFilesAhead} pipeline so disk latency overlaps parsing. With
  * `options.diskOnly` the walk reads purely from disk — no open-buffer preference and no
  * out-of-folder buffers — which the persistent index cache needs so the state it saves
- * reflects only the files on disk.
+ * reflects only the files on disk. `options.onDiskText` observes every disk-read file's raw
+ * text (parseable or not, open buffers excluded), so a consumer of raw text (the mention
+ * index) rides along instead of re-reading the same files.
  */
 export async function* projectDocuments(
     folderPaths: string[],
     cancellationToken: CancellationToken,
-    options?: { diskOnly?: boolean }
+    options?: { diskOnly?: boolean; onDiskText?: (file: string, text: string) => void }
 ): AsyncGenerator<AbstractNodeDocument> {
     const seen = new Set<string>();
     const toRead: string[] = [];
@@ -104,6 +106,7 @@ export async function* projectDocuments(
     for await (const { file, text } of readFilesAhead(toRead)) {
         if (cancellationToken.isCancellationRequested) throw new CancellationError();
         if (text === undefined) continue;
+        options?.onDiskText?.(file, text);
         try {
             yield parseText(text, file);
         } catch (e) {

@@ -255,8 +255,12 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
     }
 
     /**
-     * The text of `key` in each language that declares it, English first — for hover. Empty when the
-     * key is undeclared.
+     * The text of `key` in each language that declares it, one line per language, English first, for
+     * hover. Empty when the key is undeclared. A language can declare a key in several strings files
+     * (the base game splits English across files, and a mod can redeclare a vanilla key). The game
+     * loads the game `Data` tree before the mod, so a later declaration overrides an earlier one.
+     * {@link bySource} iterates in that same order, so keeping the last value seen per language makes
+     * hover show the string the game actually renders, not the shadowed vanilla one.
      */
     public async textsForKey(
         key: string,
@@ -264,11 +268,12 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
         cancellationToken: CancellationToken
     ): Promise<LocalizationText[]> {
         await this.ensureBuilt(folderPaths, cancellationToken);
-        const texts: LocalizationText[] = [];
+        const byLanguage = new Map<string, string>();
         for (const { language, keys } of this.bySource.values()) {
             const text = keys.get(key);
-            if (text !== undefined) texts.push({ language, text });
+            if (text !== undefined) byLanguage.set(language, text);
         }
+        const texts = [...byLanguage].map(([language, text]) => ({ language, text }));
         texts.sort((a, b) => Number(isEnglish(b.language)) - Number(isEnglish(a.language)));
         return texts;
     }

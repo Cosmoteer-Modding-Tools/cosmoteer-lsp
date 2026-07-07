@@ -21,6 +21,12 @@ All notable changes to this project will be documented in this file.
 
 - The extension and language server now ship as native ES module bundles (`.mjs`). No functional change, unlocks ESM-only dependencies going forward.
 - Faster cold and warm starts through more caching and less re-parsing, while keeping everything up to date when files change.
+- Startup no longer reads the whole project twice: the find-all-references word index is built during the main project walk instead of its own read pass.
+- Startup index builds share one file-system sweep instead of each walking and statting the same folders.
+- The persisted word index is about half as large and loads faster.
+- Whole-workspace validation results are persisted across restarts. Reopening an unchanged project restores all problems in under a second instead of re-validating every file.
+- Reinstalling or rebuilding an identical server no longer invalidates the startup caches.
+- The server logs startup and validation timings to the output channel.
 - Whole-workspace scans reuse per-file results and skip unchanged files.
 - On-disk files are validated through the same path as open documents.
 - Fewer lexer token allocations and reduced GC spikes.

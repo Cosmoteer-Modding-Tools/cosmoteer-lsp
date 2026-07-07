@@ -4,9 +4,9 @@ import { dirname } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { CancellationError } from '../../utils/cancellation';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
-import { cacheArtifactPath, currentServerBuildId } from '../../workspace/index-cache';
+import { cacheArtifactPath, currentServerBuildId, sweepRulesFiles } from '../../workspace/index-cache';
 import { normalizeUri } from './reference-location';
-import { collectRulesFiles, readFilesAhead, uriToFsPath } from './workspace-files';
+import { readFilesAhead, uriToFsPath } from './workspace-files';
 
 /** The word tokens a file's raw text is split into (contiguous identifier characters). */
 const WORD_RE = /[A-Za-z0-9_]+/g;
@@ -31,14 +31,18 @@ interface IndexedFile {
 }
 
 /** Bump when the serialized mention-cache shape (or the word extraction) changes. */
-const MENTION_CACHE_FORMAT_VERSION = 2;
+const MENTION_CACHE_FORMAT_VERSION = 3;
 
-/** The on-disk shape of the persisted word index (game tree plus workspace files). */
+/** The on-disk shape of the persisted word index (game tree plus workspace files). Words live in
+ *  one global table and each file lists indices into it: the same identifiers recur across
+ *  thousands of files, so the table roughly halves the artifact and its parse time, and seeding
+ *  shares one string instance per distinct word instead of one per file it occurs in. */
 interface MentionCacheFile {
     formatVersion: number;
     serverBuildId: string;
     dataRoot: string;
-    files: Array<[key: string, path: string, size: number, mtimeMs: number, words: string[]]>;
+    words: string[];
+    files: Array<[key: string, path: string, size: number, mtimeMs: number, wordIds: number[]]>;
 }
 
 /**
@@ -82,6 +86,11 @@ export class MentionIndex {
     private fullSyncDone = false;
     /** When the last full walk+stat sweep completed, for the periodic re-sweep below. */
     private lastFullSweepMs = 0;
+    /** Whether the persisted cache was already offered to this build (it seeds at most once). */
+    private seedAttempted = false;
+    /** Entries fed by {@link ingestDiskText} since the last cache write, so a sweep that re-read
+     *  nothing itself still persists what the project walk fed. */
+    private unsavedFeeds = 0;
 
     private constructor() {}
 
@@ -99,6 +108,8 @@ export class MentionIndex {
         this.dirty.clear();
         this.fullSyncDone = false;
         this.lastFullSweepMs = 0;
+        this.seedAttempted = false;
+        this.unsavedFeeds = 0;
     }
 
     /** Switches queries after the first full sweep to dirty-file-only syncs (watcher required). */
@@ -114,6 +125,22 @@ export class MentionIndex {
      */
     public markDirty(fsPath: string): void {
         this.dirty.add(fsPath);
+    }
+
+    /**
+     * Indexes one file's just-read disk text directly, so a project walk that has the text in
+     * hand anyway (the startup index build) spares the mention build its own read of the same
+     * file. Purely a pre-feed: the next sync still stat-validates the entry like any other, so a
+     * feed with a stale identity is re-read, never trusted.
+     *
+     * @param path the file's on-disk path.
+     * @param size the file's size at read time.
+     * @param mtimeMs the file's mtime at read time.
+     * @param text the file's raw text.
+     */
+    public ingestDiskText(path: string, size: number, mtimeMs: number, text: string): void {
+        this.indexText({ key: normalizeUri(path), path, size, mtimeMs }, text);
+        this.unsavedFeeds++;
     }
 
     /**
@@ -177,7 +204,10 @@ export class MentionIndex {
             // Never drop state under a running sync. The folder set only changes on multi-root
             // updates and between test fixtures, so waiting out the in-flight sync is fine.
             if (this.syncPromise) await this.syncPromise.catch(() => undefined);
-            this.reset();
+            // The first bind keeps what {@link ingestDiskText} pre-fed, since the walk of the
+            // same startup feeds it. The full sweep below validates every entry and drops the
+            // ones outside the folder set, so nothing stale survives the bind.
+            if (this.builtFor !== undefined) this.reset();
             this.builtFor = signature;
         }
         // With a watcher, the full walk+stat sweep runs once; afterwards only the files the
@@ -267,39 +297,33 @@ export class MentionIndex {
             // Seed the words from the persisted cache before the sweep: seeded entries whose
             // size+mtime still match are not re-read, so a warm start stats everything but
             // reads almost nothing. The sweep below validates every seeded entry either way.
-            if (firstBuild) await this.trySeedFromCache(folderPaths);
-            const onDisk: Array<{ key: string; path: string }> = [];
+            // Entries the project walk already fed are fresher than the cache and are kept.
+            if (!this.seedAttempted) {
+                this.seedAttempted = true;
+                await this.trySeedFromCache(folderPaths);
+            }
+            const feedsBefore = this.unsavedFeeds;
+            const onDisk: Array<{ key: string; path: string; size: number; mtimeMs: number }> = [];
             const seen = new Set<string>();
             for (const folder of folderPaths) {
-                for await (const path of collectRulesFiles(uriToFsPath(folder))) {
-                    if (cancellationToken.isCancellationRequested) throw new CancellationError();
+                // The shared startup sweep: inside a sweep window this reuses the walk+stat the
+                // cache manifest and stamp diff already paid over the same folders.
+                const swept = await sweepRulesFiles(uriToFsPath(folder));
+                if (cancellationToken.isCancellationRequested) throw new CancellationError();
+                for (const { path, size, mtimeMs } of swept) {
                     const key = normalizeUri(path);
                     if (seen.has(key)) continue;
                     seen.add(key);
-                    onDisk.push({ key, path });
+                    onDisk.push({ key, path, size, mtimeMs });
                 }
             }
             for (const key of [...this.files.keys()]) {
                 if (!seen.has(key)) this.removeSource(key);
             }
-            const changed: Array<{ key: string; path: string; size: number; mtimeMs: number }> = [];
-            let next = 0;
-            const statWorker = async (): Promise<void> => {
-                while (next < onDisk.length) {
-                    if (cancellationToken.isCancellationRequested) throw new CancellationError();
-                    const { key, path } = onDisk[next++];
-                    try {
-                        const info = await stat(path);
-                        const known = this.files.get(key);
-                        if (!known || known.size !== info.size || known.mtimeMs !== info.mtimeMs) {
-                            changed.push({ key, path, size: info.size, mtimeMs: info.mtimeMs });
-                        }
-                    } catch {
-                        this.removeSource(key);
-                    }
-                }
-            };
-            await Promise.all(Array.from({ length: Math.min(STAT_CONCURRENCY, onDisk.length || 1) }, statWorker));
+            const changed = onDisk.filter(({ key, size, mtimeMs }) => {
+                const known = this.files.get(key);
+                return !known || known.size !== size || known.mtimeMs !== mtimeMs;
+            });
             const metaByPath = new Map(changed.map((entry) => [entry.path, entry]));
             for await (const { file, text } of readFilesAhead(changed.map((entry) => entry.path))) {
                 if (cancellationToken.isCancellationRequested) throw new CancellationError();
@@ -312,11 +336,15 @@ export class MentionIndex {
             // Persist the whole index (game tree plus workspace) so the next server start seeds
             // instead of re-reading everything. Safe for workspace files because every seeded
             // entry is stat-validated above before it is trusted. Only worth rewriting when this
-            // sweep re-read anything.
-            if (changed.length > 0 || firstBuild) await this.trySaveCache(folderPaths);
+            // sweep re-read anything or unpersisted fed entries exist.
+            if (changed.length > 0 || feedsBefore > 0 || firstBuild) {
+                await this.trySaveCache(folderPaths);
+                // Feeds that arrived during this sync stay counted for the next save.
+                this.unsavedFeeds -= feedsBefore;
+            }
         };
-        // The first build reads the whole project, so show it as an indexing indicator. Later
-        // syncs are a quick stat sweep and stay silent.
+        // A build that must read the whole project shows an indexing indicator. Later syncs (and
+        // a first sync the project walk already fed) are a quick stat sweep and stay silent.
         if (firstBuild) {
             await CosmoteerWorkspaceService.instance.withIndexingProgress('Indexing mentions', () => work());
         } else {
@@ -357,7 +385,16 @@ export class MentionIndex {
             if (cache.formatVersion !== MENTION_CACHE_FORMAT_VERSION) return;
             if (cache.serverBuildId !== buildId) return;
             if (cache.dataRoot !== dataRoot) return;
-            for (const [key, path, size, mtimeMs, words] of cache.files) {
+            if (!Array.isArray(cache.words)) return;
+            const table = cache.words;
+            for (const [key, path, size, mtimeMs, wordIds] of cache.files) {
+                // An entry the project walk fed is fresher than the persisted one, keep it.
+                if (this.files.has(key)) continue;
+                const words: string[] = [];
+                for (const id of wordIds) {
+                    const word = table[id];
+                    if (word !== undefined) words.push(word);
+                }
                 this.files.set(key, { path, size, mtimeMs, words });
                 for (const word of words) {
                     (this.byWord.get(word) ?? this.byWord.set(word, new Set()).get(word)!).add(key);
@@ -379,9 +416,20 @@ export class MentionIndex {
         const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
         const buildId = currentServerBuildId();
         if (!dataRoot || !buildId) return;
+        const words: string[] = [];
+        const idByWord = new Map<string, number>();
+        const idOf = (word: string): number => {
+            let id = idByWord.get(word);
+            if (id === undefined) {
+                id = words.length;
+                words.push(word);
+                idByWord.set(word, id);
+            }
+            return id;
+        };
         const entries: MentionCacheFile['files'] = [];
         for (const [key, file] of this.files) {
-            entries.push([key, file.path, file.size, file.mtimeMs, file.words]);
+            entries.push([key, file.path, file.size, file.mtimeMs, file.words.map(idOf)]);
         }
         if (entries.length === 0) return;
         try {
@@ -391,6 +439,7 @@ export class MentionIndex {
                 formatVersion: MENTION_CACHE_FORMAT_VERSION,
                 serverBuildId: buildId,
                 dataRoot,
+                words,
                 files: entries,
             };
             const temp = `${target}.${process.pid}.tmp`;
