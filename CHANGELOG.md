@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- The extension and language server now ship as native ES module bundles (`.mjs`). No functional change, unlocks ESM-only dependencies going forward.
 - Faster cold and warm starts through more caching and less re-parsing, while keeping everything up to date when files change.
 - Whole-workspace scans reuse per-file results and skip unchanged files.
 - On-disk files are validated through the same path as open documents.

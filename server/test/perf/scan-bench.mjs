@@ -17,14 +17,14 @@ import { spawn } from 'child_process';
 import { existsSync, writeFileSync } from 'fs';
 import * as path from 'path';
 
-const SERVER = 'out/server/src/server.js';
+const SERVER = 'out/server/src/server.mjs';
 if (!existsSync(SERVER)) {
     console.error(`Server bundle not found at ${SERVER}. Build it first: node esbuild.mjs`);
     process.exit(2);
 }
 
 const GAME = process.env.COSMOTEER_GAME || 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Cosmoteer';
-const MOD_DIR = process.env.SCAN_MOD_DIR || 'C:\\Users\\fpabs\\Documents\\Projekte\\Star-Wars-A-Cosmos-Divided';
+const MOD_DIR = process.env.SCAN_MOD_DIR || '';
 const SCOPE = process.env.SCAN_SCOPE || 'allFiles';
 const MAX_OLD_SPACE_MB = Number(process.env.SCAN_MAX_OLD_SPACE_MB || 0);
 if (!existsSync(MOD_DIR)) {

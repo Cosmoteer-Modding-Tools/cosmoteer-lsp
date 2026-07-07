@@ -27,7 +27,7 @@
     ],
     "pricing": "Free",
     "icon": "./images/Language_Server_Icon.png",
-    "main": "./out/client/src/extension",
+    "main": "./out/client/src/extension.mjs",
     "galleryBanner": {
         "color": "#007ACC",
         "theme": "dark"

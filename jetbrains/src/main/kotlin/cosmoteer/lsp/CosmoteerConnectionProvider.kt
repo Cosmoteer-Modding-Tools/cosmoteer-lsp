@@ -13,7 +13,7 @@ import cosmoteer.node.ManagedNodeRuntime
 import cosmoteer.settings.CosmoteerSettings
 
 /**
- * Launches the bundled `server.js` over stdio with a Node.js runtime. Node is taken from the
+ * Launches the bundled `server.mjs` over stdio with a Node.js runtime. Node is taken from the
  * plugin settings when set, then from PATH, then from the runtime the plugin downloaded itself.
  * With none of those, a notification offers the download. The l10n bundle path is passed the same
  * way the VS Code client does it, so server messages follow the IDE language.

@@ -9,7 +9,7 @@ import { join, resolve } from 'path';
 // and file-watcher validation paths, and stale results pinning because no refresh was requested
 // after initialization settles. Requires the bundle, build it first with `node esbuild.mjs`.
 const REPO_ROOT = resolve(__dirname, '..', '..');
-const SERVER_BUNDLE = join(REPO_ROOT, 'out', 'server', 'src', 'server.js');
+const SERVER_BUNDLE = join(REPO_ROOT, 'out', 'server', 'src', 'server.mjs');
 const MOD_DIR = join(__dirname, 'fixtures', 'scope-mod');
 const GAME_DIR = join(__dirname, 'fixtures', 'workspace');
 
