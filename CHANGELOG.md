@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- Interactive part grid editor. An "Edit part grid" CodeLens on every `Part` opens a visual editor that shows the part's sprites split into the in-game cell grid, with an extra ring for the door and virtual cells around it.
+- Clicking the grid authors the per-cell fields instead of hand-typing coordinates: allowed door locations, blocked travel cells and their directions, external/internal/blueprint walls per cell edge, crew destinations with sub-cell snapping, virtual internal cell pairs, `PhysicalRect`/`SaveRect` and `Size`.
+- Every click writes the change to the `.rules` file immediately and undoes with the normal editor undo. Values inherited from a base part render as ghosts, and the first edit creates the local override carrying them along.
+- The editor view can be rotated and flipped to preview other orientations (coordinates stay rotation-0), and the rotation fields themselves (`IsRotateable`, `IsFlippable`, flip mappings) are editable from the sidebar.
+- The editor also covers the component geometry: a gizmo for every component's `Location` and `Rotation` (chained components resolve their transform), polygon collider vertex editing, network port cells with their facing, resource grid rects with disable cells, prohibit rects, buff areas and circles, tile score lines, storage pick-up and delivery points, airlock and toggle button positions, resource sprite offsets, railgun segment endpoints, and the `AllowedContiguity` flags.
+- The part grid editor is also available in the JetBrains plugin as a tool window, with a gutter marker on `Part` lines.
+- References into other workshop mods now recommend the `<./Data/../../../workshop/…>` game-root form. A relative path that resolves gets an informational hint, one written from the wrong depth gets the working rewrite, both with a quick fix.
+
+### Fixed
+
+- Enum field hovers show the default as the member name instead of its raw number (`AllowedContiguity` default `Sides`, not `170`), decomposing flag combinations without a single name (`Ships, Parts`).
+- A handful of schema defaults declared via attributes rendered as `Mono.Cecil.CustomAttributeArgument` in hovers; they now show their real values.
+
 ## 0.4.1 Beta
 
 ### Added

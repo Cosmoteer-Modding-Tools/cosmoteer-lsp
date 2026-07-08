@@ -465,6 +465,27 @@ Dictionary<string, JsonNode?> InlineDefaults(TypeDefinition t)
     return res;
 }
 
+// The enum member name(s) a raw numeric default stands for. An exact member wins (170 → `Sides`);
+// a [Flags] value with no exact member decomposes into its set bits (`Top, Left`). Returns null
+// when the value has no name or the type is not a real C# enum (enum-like structs have no
+// constants), in which case the default stays numeric.
+string? EnumDefaultName(TypeReference tr, long value)
+{
+    if (tr is GenericInstanceType g && tr.Name == "Nullable`1") tr = g.GenericArguments[0];
+    TypeDefinition? def = null;
+    try { def = tr.Resolve(); } catch { }
+    if (def is not { IsEnum: true }) return null;
+    var members = def.Fields.Where(f => f.IsStatic && f.HasConstant)
+        .Select(f => (f.Name, Value: Convert.ToInt64(f.Constant))).ToList();
+    foreach (var m in members) if (m.Value == value) return m.Name;
+    if (!def.CustomAttributes.Any(a => a.AttributeType.FullName == "System.FlagsAttribute")) return null;
+    var parts = new List<string>();
+    var rest = value;
+    foreach (var m in members)
+        if (m.Value != 0 && (rest & m.Value) == m.Value) { parts.Add(m.Name); rest &= ~m.Value; }
+    return rest == 0 && parts.Count > 0 ? string.Join(", ", parts) : null;
+}
+
 // Member names the type's constructor assigns ANY value to (a constant, or `new …()` / another
 // object), with auto-property backing fields normalized to the property name. A field the class
 // initializes has a default, so the ObjectText deserializer tolerates its absence — i.e. it is
@@ -623,13 +644,33 @@ JsonArray OwnFields(TypeDefinition t)
         }
         if (aliasNames.Count > 0)
             fo["aliases"] = new JsonArray(aliasNames.Select(a => (JsonNode)JsonValue.Create(a)).ToArray());
+        // `DefaultValue` is an object-typed attribute property, so Cecil boxes the constant in a
+        // CustomAttributeArgument; unwrap it before emitting or ToString() prints the wrapper's
+        // class name instead of the value.
         var dv = Named(sa, "DefaultValue");
-        if (dv != null) fo["default"] = JsonValue.Create(dv.ToString());
+        while (dv is CustomAttributeArgument boxed) dv = boxed.Value;
+        if (dv != null) fo["default"] = dv switch
+        {
+            bool b => b,
+            byte or sbyte or short or ushort or int or uint or long =>
+                vtKind == "bool" ? Convert.ToInt64(dv) != 0 : JsonValue.Create(Convert.ToInt64(dv)),
+            float f => float.IsFinite(f) ? f : (JsonNode)f.ToString(),
+            double d => double.IsFinite(d) ? d : (JsonNode)d.ToString(),
+            _ => dv.ToString(),
+        };
         else if (inl.TryGetValue(mem.Name, out var idv) && idv != null)
         {
-            if (vt["kind"]?.GetValue<string>() == "bool" && idv is JsonValue jv && jv.TryGetValue<int>(out var bi))
+            if (vtKind == "bool" && idv is JsonValue jv && jv.TryGetValue<int>(out var bi))
                 fo["default"] = bi != 0;
             else fo["default"] = idv;
+        }
+        // A numeric enum default is the C# constant's raw value (`AllowedContiguity = 170`), useless
+        // in a hover; translate it to the member name(s) — exact member first (170 → `Sides`), else
+        // the [Flags] decomposition. Untranslatable values stay numeric.
+        if (vtKind == "enum" && fo["default"] is JsonValue defVal)
+        {
+            long? raw = defVal.TryGetValue<long>(out var dl) ? dl : defVal.TryGetValue<int>(out var di) ? di : null;
+            if (raw != null && EnumDefaultName(type, raw.Value) is string named) fo["default"] = named;
         }
         // Attach the member's XML <summary>, if any, keyed by the SERIALIZED name (post alias/override)
         // so it lines up with the schema field the scaffolder documents. A field's doc-ID uses `F:` when

@@ -42,6 +42,11 @@
                 "command": "cosmoteer.showModOverview",
                 "title": "Cosmoteer: Show Mod Overview",
                 "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.editPartGrid",
+                "title": "Cosmoteer: Edit Part Grid",
+                "category": "Cosmoteer"
             }
         ],
         "menus": {
@@ -53,6 +58,10 @@
                 {
                     "command": "cosmoteer.showModOverview",
                     "when": "editorLangId == rules"
+                },
+                {
+                    "command": "cosmoteer.editPartGrid",
+                    "when": "editorLangId == rules"
                 }
             ],
             "editor/context": [
@@ -60,6 +69,11 @@
                     "command": "cosmoteer.previewShader",
                     "when": "editorLangId == rules",
                     "group": "navigation@9"
+                },
+                {
+                    "command": "cosmoteer.editPartGrid",
+                    "when": "editorLangId == rules",
+                    "group": "navigation@10"
                 }
             ]
         },

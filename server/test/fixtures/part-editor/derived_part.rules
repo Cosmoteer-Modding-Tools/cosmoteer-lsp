@@ -1,0 +1,4 @@
+Part : <./base_part.rules>/Part
+{
+	BlockedTravelCells = [ [0, 0] ]
+}

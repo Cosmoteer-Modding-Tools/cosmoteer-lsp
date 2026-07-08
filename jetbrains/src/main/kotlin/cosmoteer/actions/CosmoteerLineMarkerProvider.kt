@@ -6,6 +6,7 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.editor.markup.GutterIconRenderer
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
+import cosmoteer.grid.PartGridEditorService
 import cosmoteer.preview.ShaderPreviewService
 
 /**
@@ -35,10 +36,22 @@ class CosmoteerLineMarkerProvider : LineMarkerProvider {
         val line = document.getLineNumber(range.startOffset)
         val lineStart = document.getLineStartOffset(line)
         val lineText = document.getText(TextRange(lineStart, document.getLineEndOffset(line)))
-        if (!SHADER_LINE.containsMatchIn(lineText)) return null
-        // Only the line's first non-whitespace leaf carries the marker, so it appears once per line.
+        // Only the line's first non-whitespace leaf carries a marker, so it appears once per line.
         val contentStart = lineStart + (lineText.length - lineText.trimStart().length)
         if (range.startOffset != contentStart) return null
+
+        if (PART_LINE.containsMatchIn(lineText)) {
+            return LineMarkerInfo(
+                element,
+                TextRange(contentStart, contentStart + 1),
+                AllIcons.Actions.Edit,
+                { "Edit part grid" },
+                { _, marked -> PartGridEditorService.getInstance(marked.project).edit(file, contentStart) },
+                GutterIconRenderer.Alignment.LEFT
+            ) { "Edit part grid" }
+        }
+
+        if (!SHADER_LINE.containsMatchIn(lineText)) return null
         return LineMarkerInfo(
             element,
             TextRange(contentStart, contentStart + 1),
@@ -52,5 +65,8 @@ class CosmoteerLineMarkerProvider : LineMarkerProvider {
     companion object {
         /** Matches a `Shader = "x.shader"` assignment line, same as the VS Code lens provider. */
         private val SHADER_LINE = Regex("^\\s*Shader\\s*=\\s*\"?[^\"\\n]+\\.shader")
+
+        /** Matches an unindented root `Part` declaration line, same as the VS Code lens provider. */
+        private val PART_LINE = Regex("^Part\\s*($|:|\\{)")
     }
 }

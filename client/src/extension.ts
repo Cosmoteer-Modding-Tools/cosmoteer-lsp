@@ -4,6 +4,8 @@ import { workspace, ExtensionContext, l10n, commands, languages, window, Positio
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { ShaderPreviewCodeLensProvider } from './shader-preview/codelens';
 import { ShaderPreviewPanel } from './shader-preview/preview-panel';
+import { PartGridCodeLensProvider } from './part-editor/codelens';
+import { PartGridEditorPanel } from './part-editor/editor-panel';
 import {
     MOD_OVERVIEW_SCHEME,
     ModOverviewCodeLensProvider,
@@ -72,6 +74,20 @@ export async function activate(context: ExtensionContext) {
             const targetPosition = position ?? editor?.selection.active;
             if (!targetUri || !targetPosition) return;
             await ShaderPreviewPanel.show(context, client, targetUri, targetPosition);
+        })
+    );
+
+    // Part grid editor: a CodeLens above each root `Part` group and a command that opens the
+    // interactive grid editor for the part at a position (the lens passes it, the palette uses the
+    // cursor).
+    context.subscriptions.push(
+        languages.registerCodeLensProvider({ scheme: 'file', language: 'rules' }, new PartGridCodeLensProvider()),
+        commands.registerCommand('cosmoteer.editPartGrid', async (uri?: Uri, position?: Position) => {
+            const editor = window.activeTextEditor;
+            const targetUri = uri ?? editor?.document.uri;
+            const targetPosition = position ?? editor?.selection.active;
+            if (!targetUri || !targetPosition) return;
+            await PartGridEditorPanel.show(context, client, targetUri, targetPosition);
         })
     );
 

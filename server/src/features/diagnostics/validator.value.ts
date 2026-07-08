@@ -23,6 +23,7 @@ import { isTargetField } from '../../mod/action';
 import { findModRoot } from '../../mod/mod-root';
 import { resolveFromModContextOnly } from '../../mod/mod-context';
 import { isStringsFile } from '../../mod/strings-folder';
+import { canonicalWorkshopEscape, intendedWorkshopEscape } from './workshop-escape';
 import * as l10n from '@vscode/l10n';
 
 const rulesNavigationStrategy = new FullNavigationStrategy();
@@ -267,6 +268,27 @@ const checkReference = async (
                 // tolerates inheriting from a missing base member.
                 !(await inheritanceExtendsMissingMember(node, startNode, uri, cancellationToken))
             ) {
+                // A `<../../../workshop/...>` written from the wrong depth resolves nowhere, but
+                // its intent is clear. When the game-root form of the same target resolves, offer
+                // that rewrite instead of a name suggestion. Action targets are exempt even outside
+                // mod.rules (manifests include action lists from other files): the game resolves
+                // them against the Data root, where the bare `../` form is already correct.
+                const rewrite = isModActionTargetNode(node) ? null : intendedWorkshopEscape(node.valueType.value, uri);
+                if (
+                    rewrite &&
+                    (await rulesNavigationStrategy.navigate(rewrite, startNode, uri, cancellationToken).catch(() => null))
+                ) {
+                    return {
+                        message: l10n.t('Reference name is not known'),
+                        node: node,
+                        severity: 'warning',
+                        additionalInfo: l10n.t(
+                            'The relative path does not resolve from this file. "{0}" resolves from the game folder and works from any file.',
+                            rewrite
+                        ),
+                        data: { quickFix: { title: l10n.t('Change to "{0}"', rewrite), newText: rewrite } },
+                    };
+                }
                 const suggestion = await suggestReferenceName(
                     node,
                     startNode,
@@ -295,6 +317,28 @@ const checkReference = async (
                               },
                           }
                         : undefined,
+                };
+            }
+            // The reference resolves, but a file-relative escape into another workshop mod breaks
+            // whenever this file moves to a different depth. Recommend the game-root form, which
+            // resolves from any file, once it is confirmed to reach the same kind of target.
+            // Action targets are exempt even outside mod.rules (manifests include action lists
+            // from other files): the game resolves them against the Data root, where the bare
+            // `../` form is already correct.
+            const canonical = isModActionTargetNode(node) ? null : canonicalWorkshopEscape(node.valueType.value, uri);
+            if (
+                canonical &&
+                (await rulesNavigationStrategy.navigate(canonical, startNode, uri, cancellationToken).catch(() => null))
+            ) {
+                return {
+                    message: l10n.t('Fragile relative path into the workshop folder'),
+                    node: node,
+                    severity: 'information',
+                    additionalInfo: l10n.t(
+                        'This path resolves relative to this file and breaks when the file moves. "{0}" resolves from the game folder and works from any file.',
+                        canonical
+                    ),
+                    data: { quickFix: { title: l10n.t('Change to "{0}"', canonical), newText: canonical } },
                 };
             }
         }

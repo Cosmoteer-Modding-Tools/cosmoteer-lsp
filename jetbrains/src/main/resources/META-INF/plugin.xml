@@ -48,6 +48,12 @@
                     doNotActivateOnStart="true"
                     icon="/icons/rules.png"
                     factoryClass="cosmoteer.preview.ShaderPreviewToolWindowFactory"/>
+        <toolWindow id="Cosmoteer Part Grid Editor"
+                    anchor="right"
+                    canCloseContents="false"
+                    doNotActivateOnStart="true"
+                    icon="/icons/rules.png"
+                    factoryClass="cosmoteer.grid.PartGridEditorToolWindowFactory"/>
         <notificationGroup id="Cosmoteer Language Server" displayType="BALLOON"/>
         <codeInsight.lineMarkerProvider language="textmate"
                                         implementationClass="cosmoteer.actions.CosmoteerLineMarkerProvider"/>
@@ -60,6 +66,14 @@
                 class="cosmoteer.actions.PreviewShaderAction"
                 text="Cosmoteer: Preview Shader"
                 description="Open the live WebGL preview for the material at the caret"
+                icon="/icons/rules.png">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="cosmoteer.editPartGrid"
+                class="cosmoteer.actions.EditPartGridAction"
+                text="Cosmoteer: Edit Part Grid"
+                description="Open the interactive grid editor for the part at the caret"
                 icon="/icons/rules.png">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <add-to-group group-id="ToolsMenu" anchor="last"/>

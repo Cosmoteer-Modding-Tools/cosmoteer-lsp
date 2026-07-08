@@ -4926,7 +4926,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 1
+          "default": "Physical"
         },
         {
           "name": "Falloff",
@@ -5842,7 +5842,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 1
+          "default": "HitPoint"
         }
       ]
     },
@@ -8747,7 +8747,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": 0
         },
         {
           "name": "Max",
@@ -8756,7 +8756,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": 2147483647
         }
       ]
     },
@@ -10240,7 +10240,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 1
+          "default": "Add"
         }
       ]
     },
@@ -10348,7 +10348,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": 1
         },
         {
           "name": "Empty",
@@ -10357,7 +10357,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": 1
         }
       ]
     },
@@ -10574,7 +10574,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 2
+          "default": "Any"
         },
         {
           "name": "MediaEffectsOnIncrease",
@@ -11411,7 +11411,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 2
+          "default": "Always"
         },
         {
           "name": "IconDrawMode",
@@ -11422,7 +11422,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 3
+          "default": "Always"
         },
         {
           "name": "HighlightPartOnPrimaryConnection",
@@ -11578,7 +11578,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 6
+          "default": "DistributeEvenly"
         },
         {
           "name": "NetworkFilter",
@@ -11612,7 +11612,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 6
+          "default": "DistributeEvenly"
         },
         {
           "name": "NetworkFilter",
@@ -14191,7 +14191,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 170
+          "default": "Sides"
         },
         {
           "name": "GenerateRectCollider",
@@ -14211,7 +14211,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 1
+          "default": "Physical"
         },
         {
           "name": "BoundingRectType",
@@ -14781,7 +14781,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 2
+          "default": "Strong"
         },
         {
           "name": "ExternalWalls",
@@ -18313,7 +18313,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 2
+          "default": "Strong"
         }
       ]
     },
@@ -18459,7 +18459,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 2
+          "default": "Strong"
         }
       ]
     },
@@ -18565,7 +18565,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 1
+          "default": "InReverseOrder"
         },
         {
           "name": "CycleStorageOnAdd",
@@ -18744,7 +18744,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 2
+          "default": "Strong"
         }
       ]
     },
@@ -20823,7 +20823,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 0
+          "default": "Right"
         },
         {
           "name": "MaxTiles",
@@ -20841,7 +20841,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": 2147483647
         }
       ]
     },
@@ -22579,7 +22579,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": 0
         },
         {
           "name": "MaxDamageFraction",
@@ -22588,7 +22588,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": 1
         }
       ]
     },
@@ -22711,7 +22711,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 1
+          "default": "Multiply"
         },
         {
           "name": "AMode",
@@ -22722,7 +22722,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 1
+          "default": "Multiply"
         },
         {
           "name": "InvertRGB",
@@ -23957,7 +23957,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": true
         }
       ]
     },
@@ -24144,7 +24144,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 2
+          "default": "Strong"
         }
       ]
     },
@@ -27843,7 +27843,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": 1
         },
         {
           "name": "Value",
@@ -27852,7 +27852,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": 1
         },
         {
           "name": "0",
@@ -30764,7 +30764,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 3
+          "default": "CrewResources"
         },
         {
           "name": "DisabledInIronmanMode",
@@ -33565,7 +33565,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 3
+          "default": "None"
         },
         {
           "name": "TierOffset",
@@ -33786,7 +33786,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 3
+          "default": "None"
         },
         {
           "name": "TierOffset",
@@ -38433,7 +38433,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 1
+          "default": "Neutral"
         },
         {
           "name": "InitToMax",
@@ -39533,7 +39533,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": true
         }
       ]
     },
@@ -40549,7 +40549,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 31
+          "default": "All"
         },
         {
           "name": "Part",
@@ -43341,7 +43341,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": 3
+          "default": "Ships, Parts"
         },
         {
           "name": "TargetPartCategories",
@@ -58309,7 +58309,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": "SourceAlpha"
         },
         {
           "name": "DestRgbFactor",
@@ -58320,7 +58320,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": "InverseSourceAlpha"
         },
         {
           "name": "RgbOperator",
@@ -58331,7 +58331,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": "Add"
         },
         {
           "name": "SourceAlphaFactor",
@@ -58342,7 +58342,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": "InverseDestAlpha"
         },
         {
           "name": "DestAlphaFactor",
@@ -58353,7 +58353,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": "One"
         },
         {
           "name": "AlphaOperator",
@@ -58364,7 +58364,7 @@
           },
           "optional": true,
           "nullable": false,
-          "default": "Mono.Cecil.CustomAttributeArgument"
+          "default": "Add"
         }
       ]
     },

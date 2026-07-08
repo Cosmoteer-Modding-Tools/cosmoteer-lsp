@@ -89,6 +89,9 @@ import { validateLocalizationKeys } from './features/diagnostics/validator.local
 import { buildInsertLocalizationKeyEdit } from './features/diagnostics/localization-key-insert';
 import { mapKeyTargetOf } from './features/navigation/schema-id-reference.navigation';
 import { buildShaderPreview } from './features/shader/shader-preview.service';
+import { buildPartGridData } from './features/part-editor/part-grid-data.service';
+import { buildPartGridEdit } from './features/part-editor/grid-edit.service';
+import { PartGridEditParams } from './features/part-editor/part-grid.types';
 import { collectIncludeText } from './features/shader/shader-index';
 import { validateShaderConstants } from './features/diagnostics/validator.shader-constants';
 import { particleChannelCompletionsAtOffset } from './features/navigation/particle-channel';
@@ -2050,6 +2053,53 @@ connection.onRequest('cosmoteer/shaderPreview', async (params: TextDocumentPosit
     } catch (e) {
         if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
         return null;
+    }
+});
+
+// Part grid editor: build the payload (effective size, sprites, per-cell field layers, rotation
+// fields) for the part at a position, consumed by the client's interactive grid editor webview.
+connection.onRequest('cosmoteer/partGridData', async (params: TextDocumentPositionParams, cancellationToken) => {
+    const parserResult = ensureParserResult(params.textDocument.uri);
+    const document = documents.get(params.textDocument.uri);
+    if (!parserResult || !document) return null;
+    try {
+        // Root a standalone fragment first so the part group's schema class (and its components')
+        // resolves even when the part file is only reachable through an `&<includes>` field.
+        await ensureFragmentRooting(cancellationToken);
+        return await buildPartGridData(
+            parserResult,
+            document.offsetAt(params.position),
+            document.version,
+            cancellationToken
+        );
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        return null;
+    }
+});
+
+// Part grid editor write-back: turn one webview mutation into a minimal WorkspaceEdit. The client
+// applies the edit (keeping undo native) and the resulting change event re-renders the webview. A
+// version mismatch means the click was aimed at stale geometry, so it is refused and the client
+// resyncs instead.
+connection.onRequest('cosmoteer/partGridEdit', async (params: PartGridEditParams, cancellationToken) => {
+    const parserResult = ensureParserResult(params.textDocument.uri);
+    const document = documents.get(params.textDocument.uri);
+    if (!parserResult || !document) return { status: 'notFound' };
+    if (params.dataVersion !== document.version) return { status: 'stale' };
+    try {
+        await ensureFragmentRooting(cancellationToken);
+        return await buildPartGridEdit(
+            parserResult,
+            document.getText(),
+            params.textDocument.uri,
+            document.offsetAt(params.anchor),
+            params.mutation,
+            cancellationToken
+        );
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        return { status: 'error' };
     }
 });
 
