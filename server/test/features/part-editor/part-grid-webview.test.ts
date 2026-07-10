@@ -16,6 +16,7 @@ const webview = require(join(REPO_ROOT, 'media', 'part-grid-editor.js')) as {
     directionOffset(name: string): [number, number];
     inverseOf(mutation: object, data: object): { op: string } & Record<string, unknown>;
     doorEdgeFor(cell: { x: number; y: number }, rect: { x: number; y: number; width: number; height: number }): string | null;
+    edgeRegionDistanceAt(rect: { x: number; y: number; width: number; height: number }, point: { x: number; y: number }): number;
 };
 
 describe('part grid webview geometry', () => {
@@ -93,6 +94,16 @@ describe('part grid webview geometry', () => {
         expect(webview.doorEdgeFor({ x: -1, y: 0 }, thruster)).toBe('Right');
     });
 
+    it('measures the edge-distance region contour as the rect grown outward on every side', () => {
+        // A 2x2 part at the origin. The contour value is the largest orthogonal gap to the rect, so
+        // the level set = d is exactly the rect expanded by d, and the corner reads the same as edges.
+        const rect = { x: 0, y: 0, width: 2, height: 2 };
+        expect(webview.edgeRegionDistanceAt(rect, { x: 1, y: 1 })).toBe(0); // inside
+        expect(webview.edgeRegionDistanceAt(rect, { x: 3, y: 1 })).toBe(1); // one cell right of the edge
+        expect(webview.edgeRegionDistanceAt(rect, { x: 1, y: -2 })).toBe(2); // two cells above
+        expect(webview.edgeRegionDistanceAt(rect, { x: 5, y: -5 })).toBe(5); // beyond a corner, still chebyshev
+    });
+
     it('computes exact inverses for the undo command pattern', () => {
         const data = {
             size: { width: 1, height: 2 },
@@ -108,6 +119,7 @@ describe('part grid webview geometry', () => {
                 },
                 { id: 'rect', kind: 'rect', rect: { x: 0, y: 0, width: 1, height: 2 } },
                 { id: 'ray', kind: 'cellRay', direction: null, maxTiles: 10 },
+                { id: 'region', kind: 'edgeRegion', distance: 5, distanceField: 'Distance' },
             ],
         };
         expect(webview.inverseOf({ op: 'addCell', layerId: 'doors', cell: { x: 1, y: 0 } }, data)).toEqual({
@@ -148,6 +160,13 @@ describe('part grid webview geometry', () => {
             op: 'setIntList',
             field: 'FlipHRotate',
             values: [0, 2],
+        });
+        // A region distance change undoes by restoring the previous distance.
+        expect(webview.inverseOf({ op: 'setNumber', layerId: 'region', field: 'Distance', value: 8 }, data)).toEqual({
+            op: 'setNumber',
+            layerId: 'region',
+            field: 'Distance',
+            value: 5,
         });
     });
 });

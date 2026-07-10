@@ -26,7 +26,7 @@ import { perfCount } from '../utils/perf-counters';
 // as disk state on a later start.
 
 /** Bump when an index's serialized shape changes, so an old cache is discarded, not misread. */
-const CACHE_FORMAT_VERSION = 1;
+const CACHE_FORMAT_VERSION = 2;
 
 /** How many `stat` calls run concurrently while building the manifest. */
 const STAT_CONCURRENCY = 64;

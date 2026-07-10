@@ -215,7 +215,14 @@
                     : { op: 'setNumber', layerId: mutation.layerId, field: 'Direction', value: null };
             case 'setNumber': {
                 if (!layer) return null;
-                const old = layer.kind === 'circle' ? layer.radius : layer.kind === 'cellRay' ? layer.maxTiles : null;
+                const old =
+                    layer.kind === 'circle'
+                        ? layer.radius
+                        : layer.kind === 'cellRay'
+                          ? layer.maxTiles
+                          : layer.kind === 'edgeRegion'
+                            ? layer.distance
+                            : null;
                 return { op: 'setNumber', layerId: mutation.layerId, field: mutation.field, value: old };
             }
             case 'moveVertex': {
@@ -284,6 +291,17 @@
         }
     }
 
+    /**
+     * The edge-distance region contour value at a point: the largest orthogonal gap between the
+     * point and the part rect, so the level set `= d` is exactly the rect grown outward by `d` on
+     * every side. Used to hit-test and drag the region halo boundary.
+     */
+    function edgeRegionDistanceAt(rect, point) {
+        const dx = Math.max(rect.x - point.x, point.x - (rect.x + rect.width), 0);
+        const dy = Math.max(rect.y - point.y, point.y - (rect.y + rect.height), 0);
+        return Math.max(dx, dy);
+    }
+
     if (typeof module !== 'undefined' && typeof acquireVsCodeApi === 'undefined') {
         module.exports = {
             rotateQuarter,
@@ -296,6 +314,7 @@
             chainParentTransform,
             inverseOf,
             doorEdgeFor,
+            edgeRegionDistanceAt,
         };
         return;
     }
@@ -443,6 +462,7 @@
         } else if (mutation.op === 'setNumber' && layer) {
             if (layer.kind === 'circle') layer.radius = mutation.value;
             else if (layer.kind === 'cellRay') layer.maxTiles = mutation.value;
+            else if (layer.kind === 'edgeRegion') layer.distance = mutation.value;
         } else if (mutation.op === 'moveVertex' && layer && layer.vertices[mutation.index]) {
             layer.vertices[mutation.index] = { point: mutation.point, origin: localOrigin };
         } else if (mutation.op === 'insertVertex' && layer) {
@@ -553,6 +573,7 @@
         cellRay: '#56b6c2',
         polygon: '#e5c07b',
         circle: '#98c379',
+        edgeRegion: '#c678dd',
         rectList: '#e06c75',
         componentPoints: '#ff79c6',
     };
@@ -665,6 +686,8 @@
             drawPolygon(layer, color, active, ghost);
         } else if (layer.kind === 'circle') {
             drawCircle(layer, color, active, ghost);
+        } else if (layer.kind === 'edgeRegion') {
+            drawEdgeRegion(layer, color, active, ghost);
         } else if (layer.kind === 'rectList') {
             drawRectList(layer, color, active, ghost);
         } else if (layer.kind === 'componentPoints') {
@@ -1014,6 +1037,43 @@
         ctx.setLineDash([]);
     }
 
+    /**
+     * The part rect the edge-distance region grows from, matching the game's physical rect (the
+     * area the region measures its edge distance against).
+     */
+    function edgeRegionBaseRect() {
+        return physicalRectOf();
+    }
+
+    function drawEdgeRegion(layer, color, active, ghost) {
+        const dragging = state.dragging && state.dragging.type === 'edgeRegion' && state.dragging.layerId === layer.id;
+        const distance = dragging ? state.dragging.distance : layer.distance;
+        const modifier = setGhost(ghost || layer.distance === null);
+        const rect = edgeRegionBaseRect();
+        const d = distance || 0;
+        const outer = { x: rect.x - d, y: rect.y - d, width: rect.width + 2 * d, height: rect.height + 2 * d };
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = (active ? 3 : 2) / state.view.scale;
+        if (d > 0) {
+            // Fill only the ring between the part rect and the outer halo, so the part stays legible.
+            ctx.globalAlpha = 0.12 * modifier;
+            ctx.beginPath();
+            ctx.rect(outer.x, outer.y, outer.width, outer.height);
+            ctx.rect(rect.x, rect.y, rect.width, rect.height);
+            ctx.fill('evenodd');
+        }
+        ctx.globalAlpha = 0.8 * modifier;
+        ctx.strokeRect(outer.x, outer.y, outer.width, outer.height);
+        if (active) {
+            // A grab handle at the right edge midpoint, mirroring the circle's radius handle.
+            ctx.globalAlpha = 0.95;
+            ctx.fillRect(outer.x + outer.width - 0.08, outer.y + outer.height / 2 - 0.08, 0.16, 0.16);
+        }
+        ctx.globalAlpha = 1;
+        ctx.setLineDash([]);
+    }
+
     function drawRectList(layer, color, active, ghost) {
         const modifier = setGhost(ghost);
         ctx.lineWidth = (active ? 3 : 2) / state.view.scale;
@@ -1266,6 +1326,28 @@
                 layerId: layer.id,
                 point: { x: snapTo(point.x, state.snapStep), y: snapTo(point.y, state.snapStep) },
             });
+        } else if (layer.kind === 'edgeRegion') {
+            if (event.button === 2) {
+                if (layer.distance !== null) {
+                    sendMutation({ op: 'setNumber', layerId: layer.id, field: layer.distanceField, value: null });
+                }
+                return;
+            }
+            const rect = edgeRegionBaseRect();
+            const onEdge =
+                layer.distance !== null &&
+                Math.abs(edgeRegionDistanceAt(rect, point) - layer.distance) <= 12 / state.view.scale;
+            // Dragging the boundary resizes the halo. When no distance is set yet, any click seeds the
+            // drag so a first value can be authored.
+            if (onEdge || layer.distance === null) {
+                state.dragging = {
+                    type: 'edgeRegion',
+                    layerId: layer.id,
+                    field: layer.distanceField,
+                    rect,
+                    distance: layer.distance,
+                };
+            }
         } else if (layer.kind === 'rectList') {
             const hit = rectListHandleAt(layer, point);
             if (event.button === 2) {
@@ -1392,6 +1474,9 @@
             } else if (drag.type === 'circleRadius') {
                 drag.radius = Math.max(0.25, snapTo(Math.hypot(point.x - drag.center.x, point.y - drag.center.y), 0.25));
                 layer.radius = drag.radius;
+            } else if (drag.type === 'edgeRegion') {
+                // The distance is an integer count of cells, so the halo snaps to whole rings.
+                drag.distance = Math.max(0, Math.round(edgeRegionDistanceAt(drag.rect, point)));
             } else if (drag.type === 'component') {
                 const entry = layer.entries.find((candidate) => candidate.component === drag.entry.component);
                 if (entry) entry.location = snapped;
@@ -1427,6 +1512,8 @@
                     field: layer ? layer.radiusField : 'BuffRadius',
                     value: drag.radius,
                 });
+            } else if (drag.type === 'edgeRegion') {
+                sendMutation({ op: 'setNumber', layerId: drag.layerId, field: drag.field, value: drag.distance });
             } else if (drag.type === 'component') {
                 // Chained components author their location relative to the chain parent, so the
                 // dropped grid point is transformed back through the parent's total rotation.
@@ -1831,6 +1918,7 @@
         if (layer.kind === 'cellDirection' || layer.kind === 'cellRay') return layer.cell ? 1 : 0;
         if (layer.kind === 'polygon') return layer.vertices.length;
         if (layer.kind === 'circle') return layer.center || layer.radius ? 1 : 0;
+        if (layer.kind === 'edgeRegion') return layer.distance ? 1 : 0;
         if (layer.kind === 'rectList') return layer.entries.length;
         if (layer.kind === 'componentPoints') return layer.entries.length;
         return layer.rect ? 1 : 0;
@@ -2006,6 +2094,32 @@
                         : 'Drag the ring handle to change the radius. The center follows the component location.'
                 )
             );
+        } else if (layer.kind === 'edgeRegion') {
+            section.appendChild(
+                element(
+                    'div',
+                    'hint',
+                    'Drag the halo boundary to change how many cells the region reaches beyond the part. Right-click clears the distance.'
+                )
+            );
+            const distRow = element('div', 'row');
+            distRow.appendChild(element('span', null, 'Distance:'));
+            const input = element('input');
+            input.type = 'text';
+            input.className = 'intlist';
+            input.value = layer.distance === null ? '' : String(layer.distance);
+            distRow.appendChild(input);
+            distRow.appendChild(
+                button('Set', 'Write the region distance', () => {
+                    const value = Number(input.value);
+                    if (!Number.isInteger(value) || value < 0) {
+                        setStatus('Distance: a non-negative integer');
+                        return;
+                    }
+                    sendMutation({ op: 'setNumber', layerId: layer.id, field: layer.distanceField, value });
+                })
+            );
+            section.appendChild(distRow);
         } else if (layer.kind === 'rectList') {
             section.appendChild(
                 element('div', 'hint', 'Drag a corner handle to resize a rect, right-click one to remove it.')

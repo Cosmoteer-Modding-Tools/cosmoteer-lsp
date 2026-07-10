@@ -45,6 +45,23 @@ describe('parser', () => {
         expect(parse('A { x = 1 }\nB : A\n{\n}\n').parserErrors).toEqual([]);
     });
 
+    it('classifies asset and reference values with any extension casing', () => {
+        // The game resolves paths through the case-insensitive Windows FS, so `Icon.PNG` or
+        // `<Foo.Rules>` load exactly like their lowercase spellings and must classify the same.
+        for (const [src, expected] of [
+            ['File = icon.PNG\n', 'Sprite'],
+            ['Sound = boom.WAV\n', 'Sound'],
+            ['Shader = fx.SHADER\n', 'Shader'],
+            ['Ref = &<Foo.Rules>/A\n', 'Reference'],
+            ['Ref = &<Foo.TXT>/A\n', 'Reference'],
+        ] as const) {
+            const { value, parserErrors } = parse(src);
+            expect(parserErrors).toEqual([]);
+            const right = (value.elements[0] as { right?: { valueType?: { type: string } } }).right;
+            expect(right?.valueType?.type, src).toBe(expected);
+        }
+    });
+
     it('lexes scientific notation as a single Number value (incl. `E+38`)', () => {
         // Regression: `MaxEmissionZoom = 3.4028235E+38` split at `+`, becoming a math
         // expression whose operand `3.4028235E` is a String (flagged by the math validator).

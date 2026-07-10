@@ -29,7 +29,9 @@ import { CancellationError } from './cancellation';
 export const namedMembersOf = (node: { elements: AbstractNode[] }): [string, AbstractNode][] => {
     const members: [string, AbstractNode][] = [];
     for (const element of node.elements) {
-        if (isAssignmentNode(element)) members.push([element.left.name, element.right]);
+        // An in-progress empty assignment (`Type = ` with no value yet) counts like a bare valueless
+        // field: the name is present, and its identifier stands in as the member node.
+        if (isAssignmentNode(element)) members.push([element.left.name, element.right ?? element.left]);
         else if ((isGroupNode(element) || isListNode(element)) && element.identifier)
             members.push([element.identifier.name, element]);
         else if (isIdentifierNode(element)) members.push([element.name, element]);

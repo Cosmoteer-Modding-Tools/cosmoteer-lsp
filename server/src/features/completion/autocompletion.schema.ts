@@ -9,12 +9,12 @@ import {
     isListNode,
     isValueNode,
 } from '../../core/ast/ast';
-import { namedMembersOf } from '../../utils/ast.utils';
 import { AutoCompletion, Completion } from './autocompletion.service';
 import { registryForGroup, resolveGroupClass } from '../../document/schema/schema-context';
 import { documentRootClass, documentRootRegistry } from '../../document/schema/document-root';
-import { enumDef, fieldOf, registryOf } from '../../document/schema/schema';
+import { enumDef, fieldOf } from '../../document/schema/schema';
 import { SchemaField, SchemaRegistry, ValueType } from '../../document/schema/schema.types';
+import { componentIdCompletions } from './autocompletion.component-id';
 import { resolveClassThroughInheritance } from './inheritance-resolution';
 
 /**
@@ -23,8 +23,9 @@ import { resolveClassThroughInheritance } from './inheritance-resolution';
  *  - `Type = …`  → the polymorphic registry's discriminators (e.g. all `PartComponentRules` types),
  *  - an enum field (e.g. `Mode = …`) → the enum's members,
  *  - a boolean field → `true` / `false`,
- *  - an `ID<…>` reference to a sibling component (e.g. `OperationalToggle = …`) → the names of the
- *    other components in the same container (the killer feature of the `ID<>` value oracle).
+ *  - an `ID<…>` reference to a component (e.g. `OperationalToggle = …`) → the part's component ids,
+ *    siblings first, then the part-wide union across nesting and inherited bases (the killer
+ *    feature of the `ID<>` value oracle). See `autocompletion.component-id.ts`.
  *
  * The group's concrete class is resolved from its own `Type` field. The registry behind a
  * `Type=` completion is inferred from sibling groups in the same container. See {@link classOfGroup}.
@@ -60,7 +61,10 @@ export class AutoCompletionSchema implements AutoCompletion<AbstractNode> {
         if (!fieldName) return [];
         // A group that derives via `: base` may not redeclare its `Type`.
         const cls = await resolveClassThroughInheritance(group, cancellationToken);
-        return completeFieldValue(group, fieldName, cls);
+        // A same-registry `ID<…>` reference field completes with the part's component ids
+        // (siblings plus the part-wide union for the component registry).
+        const componentIds = await componentIdCompletions(group, fieldName, cls, cancellationToken);
+        return componentIds ?? completeFieldValue(group, fieldName, cls);
     }
 }
 
@@ -68,13 +72,13 @@ export class AutoCompletionSchema implements AutoCompletion<AbstractNode> {
  * The legal values for `group`'s `fieldName`, given its already-resolved concrete class `cls`, shared
  * by value-node completion and the offset-based completion that fires at an empty `key = ` position:
  *  - `Type` → the registry's discriminators (registry resolved via slot or a typed sibling),
- *  - an enum field → its members, a bool field → `true`/`false`,
- *  - an `ID<…>` reference to the container's registry → the sibling component names.
+ *  - an enum field → its members, a bool field → `true`/`false`.
+ * Component `ID<…>` reference values are served by the async {@link componentIdCompletions}, which
+ * both callers try first.
  */
 export const completeFieldValue = (group: GroupNode, fieldName: string, cls: string | undefined): Completion[] => {
     // (1) `Type = …` → the registry's discriminators. `registryForGroup` resolves via the slot (works
     // for a typed list element like `Layers [ { Type = … } ]`) or a typed sibling in the same container.
-    const container = group.parent;
     const registry = registryForGroup(group);
     if (registry && fieldName === registry.typeField) return discriminatorCompletions(registry);
 
@@ -95,20 +99,6 @@ export const completeFieldValue = (group: GroupNode, fieldName: string, cls: str
             { label: 'true', kind: CompletionItemKind.Value },
             { label: 'false', kind: CompletionItemKind.Value },
         ];
-    }
-    // `ID<X>` where X is the registry this group's container holds → a reference to a sibling.
-    if (
-        valueType.kind === 'reference' &&
-        container &&
-        isGroupNode(container) &&
-        registry &&
-        registryOf(valueType.target) === registry
-    ) {
-        const self = group.identifier?.name;
-        return namedMembersOf(container)
-            .map(([name]) => name)
-            .filter((name) => name !== self)
-            .map((name) => ({ label: name, kind: CompletionItemKind.Reference, detail: `${registry.name} (sibling)` }));
     }
     return [];
 };

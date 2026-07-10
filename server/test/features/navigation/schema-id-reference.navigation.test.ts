@@ -47,6 +47,32 @@ const PART = `Part
 	}
 }`;
 
+// A part's build cost: `Resources` is a list of `[resource_id, amount]` tuples, so the first tuple
+// slot is an ID<ResourceRules> reference and the second a plain int.
+const PART_TUPLE = `Part
+{
+	Resources
+	[
+		[battery, 20]
+	]
+}`;
+
+/** First value node whose written value is `text`, searching depth-first (tuple entries have no field name). */
+const findValueByText = (node: AbstractNode, text: string): ValueNode | undefined => {
+    if (isValueNode(node) && String(node.valueType.value) === text) return node;
+    const children =
+        isGroupNode(node) || isListNode(node) || isDocumentNode(node)
+            ? node.elements
+            : isAssignmentNode(node)
+              ? [node.right]
+              : [];
+    for (const child of children) {
+        const found = findValueByText(child, text);
+        if (found) return found;
+    }
+    return undefined;
+};
+
 describe('resolveSchemaIdReference — cross-file ID<X> go-to-definition', () => {
     let dir: string;
     const token = CancellationToken.None;
@@ -59,9 +85,36 @@ describe('resolveSchemaIdReference — cross-file ID<X> go-to-definition', () =>
         await writeFile(join(dir, 'resources', 'battery.rules'), 'ID = battery\nNameKey = "x"\nBuyPrice = 1\n');
         await writeFile(join(dir, 'resources', 'iron.rules'), 'ID = iron\nNameKey = "y"\nBuyPrice = 2\n');
         await mkdir(join(dir, 'parts'), { recursive: true });
+        // The part also costs the resource via a `[id, amount]` tuple, so find-references and
+        // rename must pick up the tuple usage alongside the `ResourceType` field usage.
         await writeFile(
             join(dir, 'parts', 'store.rules'),
-            'Part\n{\n\tComponents\n\t{\n\t\tStore\n\t\t{\n\t\t\tType = ResourceStorage\n\t\t\tResourceType = battery\n\t\t}\n\t}\n}'
+            'Part\n{\n\tResources\n\t[\n\t\t[battery, 20]\n\t]\n\tComponents\n\t{\n\t\tStore\n\t\t{\n\t\t\tType = ResourceStorage\n\t\t\tResourceType = battery\n\t\t}\n\t}\n}'
+        );
+        // A part declares its identity as `Part { ID = … }`, the target of `EditorParentParts` and
+        // part-keyed maps.
+        await writeFile(join(dir, 'parts', 'armor.rules'), 'Part\n{\n\tID = test.armor\n\tMaxHealth = 100\n}\n');
+        // Mods also write rules content in `.txt` files (the game's loader ignores the extension),
+        // so a part declared there must be indexed like any other.
+        await writeFile(join(dir, 'parts', 'legacy.txt'), 'Part\n{\n\tID = test.legacy_part\n\tMaxHealth = 50\n}\n');
+        // A ship file declares render layers as entry-form keys of the self-keyed `RenderLayers` map.
+        await mkdir(join(dir, 'ships'), { recursive: true });
+        await writeFile(
+            join(dir, 'ships', 'terran.rules'),
+            'RenderLayers\n[\n\t{\n\t\tKey = "structure"\n\t\tValue\n\t\t{\n\t\t\tUniqueBucket = true\n\t\t}\n\t}\n]\n'
+        );
+        // A sysgen file declares spawner tags, the usage-defined ids other spawners reference.
+        await mkdir(join(dir, 'modes', 'sectors'), { recursive: true });
+        await writeFile(
+            join(dir, 'modes', 'sectors', 'sysgen.rules'),
+            'Type = None\nTags = [hub_tag]\nSubSpawners\n[\n]\nWeight = 1\n'
+        );
+        // A faction fragment declares list-element entities, referenced from the career map picker.
+        await writeFile(join(dir, 'factions.rules'), 'Factions\n[\n\t{\n\t\tID = monolith\n\t}\n]\n');
+        // A hit effect declares its damage type inline, the declaration side of resistance keys.
+        await writeFile(
+            join(dir, 'effect.rules'),
+            'Type = ExplosiveDamage\nDamageType = fire\nDamageAmount = 100\n'
         );
         folders = [pathToFileURL(dir).href];
     });
@@ -101,33 +154,143 @@ describe('resolveSchemaIdReference — cross-file ID<X> go-to-definition', () =>
         expect(await SchemaIdIndex.instance.idCompletions(node!, folders, token)).toEqual([]);
     });
 
-    it('find-references on a resource finds the usage AND the declaration across files', async () => {
-        // Cursor on `ResourceType = battery` in the on-disk part file.
-        const storeUri = pathToFileURL(join(dir, 'parts', 'store.rules')).href;
-        const storeSrc = 'Part\n{\n\tComponents\n\t{\n\t\tStore\n\t\t{\n\t\t\tType = ResourceStorage\n\t\t\tResourceType = battery\n\t\t}\n\t}\n}';
-        const doc = parser(lexer(storeSrc), storeUri).value;
-        const line = 7;
-        const character = storeSrc.split('\n')[line].indexOf('= battery') + 3;
-        const locs = await ReferenceIndex.instance.findReferences(doc, { line, character }, true, folders, token);
-        const uris = locs.map((l) => l.uri.toLowerCase());
-        expect(uris.some((u) => u.includes('store.rules'))).toBe(true); // the usage
-        expect(uris.some((u) => u.includes('battery.rules'))).toBe(true); // the declaration
-        expect(locs).toHaveLength(2);
+    it('resolves a Resources tuple entry (`[battery, 20]`) to the declaring resource file', async () => {
+        const node = findValueByText(parse(PART_TUPLE), 'battery');
+        const loc = await resolveSchemaIdReference(node, folders, token);
+        expect(loc).not.toBeNull();
+        expect(loc!.uri.toLowerCase()).toContain('battery.rules');
     });
 
-    it('rename on a resource rewrites the declaration ID and the usage across files', async () => {
+    it('SchemaIdIndex completes a Resources tuple entry with project resource ids', async () => {
+        const node = findValueByText(parse(PART_TUPLE), 'battery');
+        const labels = (await SchemaIdIndex.instance.idCompletions(node!, folders, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
+        expect(labels.sort()).toEqual(['battery', 'iron']);
+    });
+
+    it('offers nothing at a tuple entry int slot (the `20` in `[battery, 20]`)', async () => {
+        const node = findValueByText(parse(PART_TUPLE), '20');
+        expect(await SchemaIdIndex.instance.idCompletions(node!, folders, token)).toEqual([]);
+    });
+
+    it('completes a part id in the flat EditorParentParts spelling and resolves it', async () => {
+        const src = 'Part\n{\n\tEditorParentParts = [ armor_x ]\n}';
+        const node = findValueByText(parse(src), 'armor_x');
+        const labels = (await SchemaIdIndex.instance.idCompletions(node!, folders, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
+        expect(labels).toContain('test.armor');
+        const written = findValueByText(parse(src.replace('armor_x', 'test.armor')), 'test.armor');
+        const loc = await resolveSchemaIdReference(written, folders, token);
+        expect(loc).not.toBeNull();
+        expect(loc!.uri.toLowerCase()).toContain('armor.rules');
+    });
+
+    it('completes an entry-form map key (`RenderLayers [ { Key = … } ]`) and resolves it', async () => {
+        const src = 'RenderLayers\n[\n\t{\n\t\tKey = doors\n\t\tValue\n\t\t{\n\t\t}\n\t}\n]\n';
+        const node = findValueByText(parse(src), 'doors');
+        const labels = (await SchemaIdIndex.instance.idCompletions(node!, folders, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
+        expect(labels).toContain('structure');
+        const written = findValueByText(parse(src.replace('= doors', '= structure')), 'structure');
+        const loc = await resolveSchemaIdReference(written, folders, token);
+        expect(loc).not.toBeNull();
+        expect(loc!.uri.toLowerCase()).toContain('terran.rules');
+    });
+
+    it('completes a spawner tag reference and resolves it to the declaring Tags entry', async () => {
+        const src = 'Type = None\nRootLocationTag = h\nSubSpawners\n[\n]\nWeight = 1\n';
+        const doc = parser(lexer(src), 'file:///c%3A/mod/modes/sectors/probe.rules').value;
+        const node = findValueByText(doc, 'h');
+        const labels = (await SchemaIdIndex.instance.idCompletions(node!, folders, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
+        expect(labels).toContain('hub_tag');
+        const written = findValueByText(
+            parser(lexer(src.replace('= h', '= hub_tag')), 'file:///c%3A/mod/modes/sectors/probe.rules').value,
+            'hub_tag'
+        );
+        const loc = await resolveSchemaIdReference(written, folders, token);
+        expect(loc).not.toBeNull();
+        expect(loc!.uri.toLowerCase()).toContain('sysgen.rules');
+    });
+
+    it('completes a faction id inside a tuple-nested reference list', async () => {
+        const src = 'Galaxy\n{\n\tType = StartingNodePicker\n\tCandidatesClosestToFactions = [3, [mono]]\n}';
+        const node = findValueByText(parse(src), 'mono');
+        const labels = (await SchemaIdIndex.instance.idCompletions(node!, folders, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
+        expect(labels).toContain('monolith');
+    });
+
+    it('completes damage-type keys from hit-effect declarations plus the engine builtins', async () => {
+        // `DamageResistances { <key> = … }` keys reference whatever the hit effects deal
+        // (`DamageType = fire`) plus the engine's hardcoded three (schema `builtinIds`).
+        const labels = (
+            await SchemaIdIndex.instance.idCompletionsForClass('Cosmoteer.DamageType', folders, token)
+        ).map((c) => (typeof c === 'string' ? c : c.label));
+        expect(labels).toContain('fire'); // declared by the fixture hit effect
+        expect(labels).toContain('explosive'); // engine builtin
+        expect(labels).toContain('default'); // engine builtin
+    });
+
+    it('completes and resolves a part declared in a .txt rules file', async () => {
+        const src = 'Part\n{\n\tEditorParentParts = [ x ]\n}';
+        const node = findValueByText(parse(src), 'x');
+        const labels = (await SchemaIdIndex.instance.idCompletions(node!, folders, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
+        expect(labels).toContain('test.legacy_part');
+        const written = findValueByText(parse(src.replace('[ x ]', '[ test.legacy_part ]')), 'test.legacy_part');
+        const loc = await resolveSchemaIdReference(written, folders, token);
+        expect(loc).not.toBeNull();
+        expect(loc!.uri.toLowerCase()).toContain('legacy.txt');
+    });
+
+    it('completes a partially typed tuple entry with a dotted mod prefix (`[SW., …]`)', async () => {
+        // The mid-typing state of `Resources [ [SW.<cursor>, ceil(…)] ]`. The dotted prefix must
+        // still resolve as tuple slot 0 and offer the project ids.
+        const src = 'Part\n{\n\tResources\n\t[\n\t\t[SW., ceil((&~/COST)*(&~/MULTIPLIKATOR))]\n\t]\n}';
+        const node = findValueByText(parse(src), 'SW.');
+        expect(node).toBeDefined();
+        const labels = (await SchemaIdIndex.instance.idCompletions(node!, folders, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
+        expect(labels.sort()).toEqual(['battery', 'iron']);
+    });
+
+    // The on-disk store.rules content, mirrored here so the tests can compute cursor positions.
+    const STORE_SRC =
+        'Part\n{\n\tResources\n\t[\n\t\t[battery, 20]\n\t]\n\tComponents\n\t{\n\t\tStore\n\t\t{\n\t\t\tType = ResourceStorage\n\t\t\tResourceType = battery\n\t\t}\n\t}\n}';
+
+    it('find-references on a resource finds both usages and the declaration across files', async () => {
+        // Cursor on `ResourceType = battery` in the on-disk part file.
         const storeUri = pathToFileURL(join(dir, 'parts', 'store.rules')).href;
-        const storeSrc = 'Part\n{\n\tComponents\n\t{\n\t\tStore\n\t\t{\n\t\t\tType = ResourceStorage\n\t\t\tResourceType = battery\n\t\t}\n\t}\n}';
-        const doc = parser(lexer(storeSrc), storeUri).value;
-        const line = 7;
-        const character = storeSrc.split('\n')[line].indexOf('= battery') + 3;
+        const doc = parser(lexer(STORE_SRC), storeUri).value;
+        const line = 11;
+        const character = STORE_SRC.split('\n')[line].indexOf('= battery') + 3;
+        const locs = await ReferenceIndex.instance.findReferences(doc, { line, character }, true, folders, token);
+        const uris = locs.map((l) => l.uri.toLowerCase());
+        expect(uris.filter((u) => u.includes('store.rules'))).toHaveLength(2); // field + tuple usage
+        expect(uris.some((u) => u.includes('battery.rules'))).toBe(true); // the declaration
+        expect(locs).toHaveLength(3);
+    });
+
+    it('rename on a resource rewrites the declaration ID and both usages across files', async () => {
+        const storeUri = pathToFileURL(join(dir, 'parts', 'store.rules')).href;
+        const doc = parser(lexer(STORE_SRC), storeUri).value;
+        const line = 11;
+        const character = STORE_SRC.split('\n')[line].indexOf('= battery') + 3;
         const edit = await RenameService.instance.rename(doc, { line, character }, 'power_cell', folders, token);
         expect(edit).not.toBeNull();
         const changed = Object.keys(edit!.changes!).map((u) => u.toLowerCase());
         expect(changed.some((u) => u.includes('store.rules'))).toBe(true);
         expect(changed.some((u) => u.includes('battery.rules'))).toBe(true);
         const allEdits = Object.values(edit!.changes!).flat();
-        expect(allEdits).toHaveLength(2);
+        expect(allEdits).toHaveLength(3);
         expect(allEdits.every((e) => e.newText === 'power_cell')).toBe(true);
     });
 

@@ -10,124 +10,124 @@
 ## Ships
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether ships and their parts can be affected at all. When false, every ship and part check fails regardless of the allegiance fields. True by default in every effect's built-in filter.
 
 ## OperationalHealth
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Allows the effect to hit parts with operational health (the normal health pool of most functional parts). A part is filtered out when the flag for its health type is false. True by default. See [[Cosmoteer.Simulation.EffectFilter.StructuralHealth]].
 
 ## StructuralHealth
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Allows the effect to hit parts with structural health, such as armor and structure. True by default. See [[Cosmoteer.Simulation.EffectFilter.OperationalHealth]].
 
 ## OnlyPartCategories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+When set, only parts whose type declares at least one of these part categories pass the filter.
 
 ## ExcludePartCategories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+When set, parts whose type declares any of these part categories are filtered out.
 
 ## Shields
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether shields can be affected. Shield hits still respect [[Cosmoteer.Simulation.EffectFilter.IgnoreInvulnerability]] and the allegiance fields, judged by the ship the shield belongs to. True by default.
 
 ## Bullets
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether projectiles can be affected. A projectile's allegiance is judged by the ship that fired it, so a projectile fired by the effect's own source ship falls under [[Cosmoteer.Simulation.EffectFilter.Self]], not [[Cosmoteer.Simulation.EffectFilter.Friendlies]]. Projectiles whose firing ship no longer exists skip the allegiance check entirely and always pass. True by default for most effects, but `AreaImpulse` presets it to false.
 
 ## OnlyBulletCategories
 `→ BulletTargetableRules[]` · optional
 
-<!-- TODO: needs documentation -->
+When set, only projectiles declaring at least one of these categories in their `Targetable` rules pass the filter.
 
 ## ExcludeBulletCategories
 `→ BulletTargetableRules[]` · optional
 
-<!-- TODO: needs documentation -->
+When set, projectiles declaring any of these categories in their `Targetable` rules are filtered out.
 
 ## OnlyStatuses
 `StatusValueFilter[]` · optional
 
-<!-- TODO: needs documentation -->
+When set, only parts matching at least one of these status filters pass the filter.
 
 ## ExcludeStatuses
 `StatusValueFilter[]` · optional
 
-<!-- TODO: needs documentation -->
+Intended to filter out parts matching any of these status filters. The current game code inverts the check, so in practice it behaves exactly like [[Cosmoteer.Simulation.EffectFilter.OnlyStatuses]] and rejects parts that do not match.
 
 ## Crew
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether crew floating in space can be affected. Crew allegiance uses their home ship while it still exists, otherwise the crew member's own player. True by default.
 
 ## Nuggets
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether loose resource nuggets can be affected. Nuggets have no allegiance, so this flag alone decides. True by default.
 
 ## IgnoreInvulnerability
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When false, ships flagged invulnerable are protected from the effect. Checked for ship and shield hits. False by default for most damage effects, but `AreaImpulse` and the bullet and crew collision filters preset it to true.
 
 ## Self
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the effect's own source ship can be affected. This also governs projectiles fired by the source ship when [[Cosmoteer.Simulation.EffectFilter.Bullets]] filtering runs, so an effect that should not touch its own projectiles needs `Self = false` even when [[Cosmoteer.Simulation.EffectFilter.Friendlies]] is false. When unset, falls back to [[Cosmoteer.Simulation.EffectFilter.Friendlies]] and then to the game mode's normal damage rules. No effect presets this, so it is unset unless written.
 
 ## TargetedSelf
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Overrides [[Cosmoteer.Simulation.EffectFilter.Self]] when the source ship is also the effect's target ship. When unset, [[Cosmoteer.Simulation.EffectFilter.Self]] applies.
 
 ## Friendlies
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether allied ships (same team, including other ships of the same player) can be affected. Does not cover the effect's own source ship, which is [[Cosmoteer.Simulation.EffectFilter.Self]]. When unset, falls back to the game mode's normal damage rules. Most effects leave it unset, but `AreaImpulse` presets it to true, so it must be written as false there to spare allies.
 
 ## TargetedFriendlies
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Overrides [[Cosmoteer.Simulation.EffectFilter.Friendlies]] when the hit ally is also the effect's target ship. When unset, [[Cosmoteer.Simulation.EffectFilter.Friendlies]] applies.
 
 ## Enemies
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether enemy ships can be affected. When unset, falls back to the game mode's normal damage rules, which normally allow damaging enemies. `AreaImpulse` presets it to true, and the bullet and crew collision filters preset it to false.
 
 ## TargetedEnemies
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Overrides [[Cosmoteer.Simulation.EffectFilter.Enemies]] when the hit enemy is also the effect's target ship. Enemy projectiles targeting the effect's source ship also check this before [[Cosmoteer.Simulation.EffectFilter.Enemies]]. When unset, [[Cosmoteer.Simulation.EffectFilter.Enemies]] applies.
 
 ## Neutrals
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether neutral ships (neither allied nor enemy) can be affected. When unset, falls back to the game mode's normal damage rules. `AreaImpulse` presets it to true, and the bullet and crew collision filters preset it to false.
 
 ## TargetedNeutrals
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Overrides [[Cosmoteer.Simulation.EffectFilter.Neutrals]] when the hit neutral ship is also the effect's target ship. When unset, [[Cosmoteer.Simulation.EffectFilter.Neutrals]] applies.
 
 ## Junk
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether junk ships (derelict debris) can be affected. When unset, falls back to the game mode's normal damage rules. `AreaImpulse` presets it to true, and the bullet and crew collision filters preset it to false.
 
 ## TargetedJunk
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Overrides [[Cosmoteer.Simulation.EffectFilter.Junk]] when the junk is also the effect's target ship. When unset, [[Cosmoteer.Simulation.EffectFilter.Junk]] applies.
 
 ## Deconstruction
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, only hits caused by part deconstruction pass the filter. When false, deconstruction hits are filtered out. When unset, the distinction is ignored.

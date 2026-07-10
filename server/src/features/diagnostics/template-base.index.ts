@@ -26,7 +26,7 @@ const baseNamesOf = (document: AbstractNodeDocument): string[] => {
         const children = isGroupNode(node) || isListNode(node) || isDocumentNode(node)
             ? node.elements
             : isAssignmentNode(node)
-              ? [node.right]
+              ? (node.right ? [node.right] : [])
               : [];
         for (const child of children) visit(child);
     };
@@ -55,6 +55,14 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
     private readonly counts = new Map<string, number>();
     /** normalized source uri → the distinct base names that file contributed. */
     private readonly bySource = new Map<string, string[]>();
+    /** normalized source uri → the file's original (parseable) uri, so a query can re-parse it. The
+     *  normalized key is lower-cased and slash-stripped for identity, which is not a valid path off
+     *  Windows, so the raw uri is kept for {@link uriToFsPath}. */
+    private readonly rawUriBySource = new Map<string, string>();
+    /** Reverse edge: lower-cased base leaf name → the normalized source uris that inherit it. This is
+     *  the inheritor→base relation the virtual-inheritance (`:`) resolver walks the other way, to find
+     *  the derived overrides of a base group. Keyed case-insensitively, like the game's member lookup. */
+    private readonly byName = new Map<string, Set<string>>();
     /** Snapshot handed out by {@link baseNames}, rebuilt only after the counts changed. */
     private namesSnapshot: ReadonlySet<string> | null = null;
 
@@ -73,7 +81,39 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
     protected clear(): void {
         this.counts.clear();
         this.bySource.clear();
+        this.rawUriBySource.clear();
+        this.byName.clear();
         this.namesSnapshot = null;
+    }
+
+    /** Registers the reverse edge (base name → source) and the source's raw uri for a just-indexed file. */
+    private addReverse(source: string, rawUri: string, names: string[]): void {
+        this.rawUriBySource.set(source, rawUri);
+        for (const name of names) {
+            const lower = name.toLowerCase();
+            (this.byName.get(lower) ?? this.byName.set(lower, new Set()).get(lower)!).add(source);
+        }
+    }
+
+    /**
+     * The original (parseable) uris of every file that inherits a base named `name`, matched
+     * case-insensitively. These are the candidate files the virtual-inheritance resolver re-parses to
+     * find the concrete overrides of the base — a superset, since a name collision or a same-named base
+     * in another chain can appear here, so the resolver confirms each candidate by resolving its
+     * inheritance reference back to the base node.
+     *
+     * @param name the base group's leaf name.
+     * @returns the raw uris of the inheriting files, or an empty array when none inherit that name.
+     */
+    public documentsForBaseName(name: string): string[] {
+        const sources = this.byName.get(name.toLowerCase());
+        if (!sources) return [];
+        const uris: string[] = [];
+        for (const source of sources) {
+            const raw = this.rawUriBySource.get(source);
+            if (raw) uris.push(raw);
+        }
+        return uris;
     }
 
     /**
@@ -82,7 +122,10 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
      * @returns the JSON-safe state.
      */
     public saveState(): unknown {
-        return [...this.bySource.entries()];
+        return {
+            bySource: [...this.bySource.entries()],
+            rawUris: [...this.rawUriBySource.entries()],
+        };
     }
 
     /**
@@ -93,13 +136,19 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
      * @returns true when the state had the expected shape and was loaded.
      */
     public loadState(state: unknown): boolean {
-        if (!Array.isArray(state)) return false;
+        const parsed = state as { bySource?: Array<[string, string[]]>; rawUris?: Array<[string, string]> };
+        // A legacy array-shaped cache predates the reverse edge; reject it so the index rebuilds and
+        // populates the raw-uri and name maps the virtual-inheritance resolver needs.
+        if (!parsed || !Array.isArray(parsed.bySource) || !Array.isArray(parsed.rawUris)) return false;
         this.clear();
-        for (const entry of state as Array<[string, string[]]>) {
+        const rawUris = new Map(parsed.rawUris);
+        for (const entry of parsed.bySource) {
             if (!Array.isArray(entry) || typeof entry[0] !== 'string' || !Array.isArray(entry[1])) return false;
             const [source, names] = entry;
             this.bySource.set(source, names);
             for (const name of names) this.counts.set(name, (this.counts.get(name) ?? 0) + 1);
+            const raw = rawUris.get(source);
+            if (raw) this.addReverse(source, raw, names);
         }
         return true;
     }
@@ -112,8 +161,12 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
             const next = (this.counts.get(name) ?? 0) - 1;
             if (next <= 0) this.counts.delete(name);
             else this.counts.set(name, next);
+            const sources = this.byName.get(name.toLowerCase());
+            sources?.delete(source);
+            if (sources && sources.size === 0) this.byName.delete(name.toLowerCase());
         }
         this.bySource.delete(source);
+        this.rawUriBySource.delete(source);
     }
 
     protected indexDocument(document: AbstractNodeDocument): boolean {
@@ -128,6 +181,7 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
         this.namesSnapshot = null;
         this.bySource.set(source, names);
         for (const name of names) this.counts.set(name, (this.counts.get(name) ?? 0) + 1);
+        this.addReverse(source, document.uri, names);
         return changed;
     }
 

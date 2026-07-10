@@ -31,6 +31,7 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateShaderCode: Boolean = true
         var validateLocalizationKeys: Boolean = true
         var validateRedundantSeparators: Boolean = true
+        var validateIgnoredFields: Boolean = true
         var allowEditingVanillaFiles: Boolean = false
         var formattingEnabled: Boolean = true
         /**
@@ -70,6 +71,7 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateShaderCode" to state.validateShaderCode,
             "validateLocalizationKeys" to state.validateLocalizationKeys,
             "validateRedundantSeparators" to state.validateRedundantSeparators,
+            "validateIgnoredFields" to state.validateIgnoredFields,
         ),
         "rename" to mapOf("allowEditingVanillaFiles" to state.allowEditingVanillaFiles),
         // Format-on-save is intentionally not exposed: LSP4IJ has no willSaveWaitUntil, JetBrains

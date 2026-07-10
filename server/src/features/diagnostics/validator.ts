@@ -65,7 +65,7 @@ export class Validator {
             }
         } else if (isAssignmentNode(node)) {
             promises.push(this.validateRecursive(node.left, promises, cancellationToken));
-            promises.push(this.validateRecursive(node.right, promises, cancellationToken));
+            if (node.right) promises.push(this.validateRecursive(node.right, promises, cancellationToken));
         } else if (isFunctionCallNode(node)) {
             for (const child of node.arguments) {
                 promises.push(this.validateRecursive(child, promises, cancellationToken));
@@ -103,6 +103,12 @@ export type ValidationError = {
 export type ValidationErrorData = {
     /** A "did you mean …" quick fix that replaces the diagnostic's range with `newText`. */
     quickFix?: { title: string; newText: string };
+    /**
+     * A quick fix deleting the byte-offset span `[start, end)` (e.g. a whole ignored field). The
+     * code-action handler widens the span to whole lines when nothing else shares them, so the
+     * removal leaves no blank line behind.
+     */
+    remove?: { title: string; start: number; end: number };
     /**
      * An undefined localization key the code action can offer to insert into the mod's strings files.
      * Carries only the key path (`Parts/Foo`); resolving the target files and edits happens lazily in

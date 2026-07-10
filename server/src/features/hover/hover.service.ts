@@ -12,6 +12,7 @@ import { isAssetValue, resolveAssetPath } from '../navigation/asset-resolver';
 import { filePathToUri } from '../navigation/navigation-strategy';
 import { findReferenceTargetAtPosition } from '../navigation/reference-index';
 import { resolveSchemaSiblingReference } from '../navigation/schema-reference.navigation';
+import { resolvePartComponentDeclaration } from '../diagnostics/validator.schema-sibling';
 import { resolveSchemaIdReference } from '../navigation/schema-id-reference.navigation';
 import { evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
@@ -62,9 +63,12 @@ export class HoverService {
             const described = target && !isFile(target as FileWithPath) ? describeTarget(target as AbstractNode) : null;
             if (described) lines.push(`→ ${described}`);
         } else {
-            // A schema `ID<>` reference written as a bare id: a sibling component (same file) or a
+            // A schema `ID<>` reference written as a bare id: a sibling component (same file), a
+            // part-wide component (an inherited base, an include, an override target) or a
             // cross-file whole-file root — surface where it resolves, just like a `&`-reference.
-            const sibling = resolveSchemaSiblingReference(node);
+            const sibling =
+                resolveSchemaSiblingReference(node) ??
+                (await resolvePartComponentDeclaration(node, cancellationToken).catch(() => undefined));
             if (sibling) {
                 const described = describeTarget(sibling);
                 if (described) lines.push(`→ ${described}`);

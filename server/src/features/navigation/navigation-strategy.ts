@@ -1,5 +1,6 @@
 import { Dirent } from 'fs';
 import { AbstractNode } from '../../core/ast/ast';
+import { isRulesFileName } from '../../document/document-kind';
 import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 
@@ -34,7 +35,7 @@ export const filePathToDirectoryPath = (path: string) => {
         const drive = cleaned.match(/^\/([a-zA-Z]):/);
         if (drive) cleaned = drive[1].toUpperCase() + cleaned.slice(2);
         result = cleaned.substring(0, cleaned.lastIndexOf('/') + 1);
-    } else if (path.endsWith('.rules')) {
+    } else if (isRulesFileName(path)) {
         result = path.substring(0, (path.includes('/') ? path.lastIndexOf('/') : path.lastIndexOf('\\') - 1) + 1);
     } else {
         result = path;

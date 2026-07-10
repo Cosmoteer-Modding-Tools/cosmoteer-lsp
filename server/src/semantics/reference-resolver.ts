@@ -10,6 +10,29 @@ import { getStartOfAstNode } from '../utils/ast.utils';
 import { isNumber } from '../utils/utils';
 
 /**
+ * Supplies inheritance-list entries appended to a node beyond its own written bases — the bases a
+ * mod's `AddBase` actions merge in — indexed once and queried synchronously here. Registered by the
+ * {@link import('../mod/add-base.index').AddBaseIndex} so `stepIntoNode` (the single per-segment
+ * resolver shared by navigation, validation, hover and completion) resolves `^/N` into an added base
+ * consistently. `extraIndex` is 0-based past the static list.
+ */
+export type InheritanceExtensionSource = (node: AbstractNode, extraIndex: number) => AbstractNode | undefined;
+
+let inheritanceExtensionSource: InheritanceExtensionSource | undefined;
+
+/**
+ * Registers the source of `AddBase`-appended inheritance entries. The resolver lives in the semantics
+ * layer and must not import the index (which depends on navigation, which depends on the resolver), so
+ * the index registers itself here at startup — the same inversion the schema layer uses for the
+ * reverse-include fallback.
+ *
+ * @param source the extension source, or undefined to clear it (tests).
+ */
+export const registerInheritanceExtensionSource = (source: InheritanceExtensionSource | undefined): void => {
+    inheritanceExtensionSource = source;
+};
+
+/**
  * Canonical single-step navigation within the in-memory AST.
  *
  * Given a node and one path segment, return the node that segment points to,
@@ -31,7 +54,16 @@ export const stepIntoNode = (
     if (isNumber(segment)) {
         const index = Number(segment);
         if (isInheritance && (isListNode(node) || isGroupNode(node))) {
-            return node.inheritance?.[index];
+            const staticList = node.inheritance;
+            const staticLength = staticList?.length ?? 0;
+            // The node's own written inheritance entries come first, exactly as before.
+            if (index < staticLength) return staticList![index];
+            // Past them, a mod's `AddBase` action appends bases to this node's inheritance list at
+            // load time (the game's `ModAddBaseAction` calls `InheritanceList.Add`). The registered
+            // source supplies those extra bases so `^/N` into an added base resolves the same way for
+            // navigation, validation, hover and completion. Absent a registered source (or a match)
+            // this is undefined, the pre-existing out-of-range behaviour.
+            return inheritanceExtensionSource?.(node, index - staticLength) ?? undefined;
         }
         if (isListNode(node)) {
             return node.elements[index];

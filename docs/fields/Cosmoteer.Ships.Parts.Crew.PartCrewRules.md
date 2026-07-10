@@ -10,52 +10,73 @@
 ## Crew
 `int` · required
 
-<!-- TODO: needs documentation -->
+The number of crew that operate this part. The component itself acts as a toggle that reads on
+while at least this many crew have arrived, which is how `IsOperational`-style
+[[Cosmoteer.Ships.Parts.Logic.PartMultiToggleRules]] chains gate a weapon on its operators.
 
 ## DefaultPriority
 `int` · required
 
-<!-- TODO: needs documentation -->
+The base priority with which crew work this job, used whenever the player has not set a custom
+priority for it in the crew management UI. Higher values win crew over lower ones.
 
 ## OverridePriorityPart
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+Stores and looks up the player-set crew priority under another part's identity instead of this
+part's own. Keeps priorities saved in old ships working after a part is renamed or split.
 
 ## OverridePriorityKey
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Stores and looks up the player-set crew priority under another component's id instead of this
+component's own. Several crew components can share one key so they appear as a single priority
+entry, and vanilla uses it to keep old saves working after a component was renamed.
 
 ## OverridePriorityName
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Stores and looks up the player-set crew priority under an arbitrary label instead of a component
+id. The free-form spelling of [[Cosmoteer.Ships.Parts.Crew.PartCrewRules.OverridePriorityKey]].
 
 ## PrerequisitesBeforeCrewing
 `ToggleRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Toggles that must all be on for the part to request operators at all. While any is off for longer
+than [[Cosmoteer.Ships.Parts.Crew.PartCrewRules.PrerequisitesUnmetAbandonDelay]], the job asks for
+zero crew and the current operators walk away. Vanilla weapons list their power and scorched
+toggles here, so an unpowered turret does not hold crew.
 
 ## HighPriorityPrerequisites
 `ToggleRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Toggles that must all be on for the operators to hold their station against other work. While any
+is off for longer than [[Cosmoteer.Ships.Parts.Crew.PartCrewRules.PrerequisitesUnmetAbandonDelay]],
+the job's effective priority drops by 10000, so any other job (a delivery run, another part) pulls
+the operators away, and they only return when nothing else needs them. The vanilla missile
+launcher points this at a `ToggleProxy` whose target each missile mode supplies, so crew stand
+down when the selected mode has no ammo. A proxy with no connected target reads as off, so every
+toggled component set must declare the proxied component.
 
 ## CrewDestinations
 `Vector2[]` · optional
 
-<!-- TODO: needs documentation -->
+The points, in part rules coordinates, an operator walks to and stands at. Each assigned crew
+picks one destination, so there should be at least [[Cosmoteer.Ships.Parts.Crew.PartCrewRules.Crew]]
+entries.
 
 ## CrewLocations
 `→ PartComponentRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Ids of `CrewLocation` components in this part. An arrived operator binds one and takes its
+location and rotation as their standing pose, which is how gunners face their weapon. Unbound
+operators just stand at their [[Cosmoteer.Ships.Parts.Crew.PartCrewRules.CrewDestinations]] point.
 
 ## SwitchLocationInterval
 `range<Time>` · optional
 
-<!-- TODO: needs documentation -->
+How long an arrived operator stays at one destination before picking a new one, in seconds. When
+set, crew periodically rotate between the part's destinations instead of standing still.
 
 ## AbandonOnStatusSeverity
 `int` · optional
@@ -65,9 +86,12 @@ The minimum JobInterruptionSeverity for abandonment of this job, if any.
 ## PrerequisitesUnmetAbandonDelay
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+The grace period, in seconds, before an unmet prerequisite takes effect (default 1.5). A toggle
+flickering off for less than this neither dismisses the operators
+([[Cosmoteer.Ships.Parts.Crew.PartCrewRules.PrerequisitesBeforeCrewing]]) nor drops their priority
+([[Cosmoteer.Ships.Parts.Crew.PartCrewRules.HighPriorityPrerequisites]]).
 
 ## AccessWarningLevel
-`enum AccessWarningLevel` · optional · default `2` · one of: `None`, `Weak`, `Strong`
+`enum AccessWarningLevel` · optional · default `Strong` · one of: `None`, `Weak`, `Strong`
 
 <!-- TODO: needs documentation -->

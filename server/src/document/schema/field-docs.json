@@ -314,7 +314,18 @@
         "StatusResistances": "The collider's base resistances to status types, interpolated by the current DamageFraction."
     },
     "Cosmoteer.Ships.Parts.Crew.PartCrewRules": {
-        "AbandonOnStatusSeverity": "The minimum JobInterruptionSeverity for abandonment of this job, if any."
+        "Crew": "The number of crew that operate this part. The component itself acts as a toggle that reads on\nwhile at least this many crew have arrived, which is how `IsOperational`-style\n[[Cosmoteer.Ships.Parts.Logic.PartMultiToggleRules]] chains gate a weapon on its operators.",
+        "DefaultPriority": "The base priority with which crew work this job, used whenever the player has not set a custom\npriority for it in the crew management UI. Higher values win crew over lower ones.",
+        "OverridePriorityPart": "Stores and looks up the player-set crew priority under another part's identity instead of this\npart's own. Keeps priorities saved in old ships working after a part is renamed or split.",
+        "OverridePriorityKey": "Stores and looks up the player-set crew priority under another component's id instead of this\ncomponent's own. Several crew components can share one key so they appear as a single priority\nentry, and vanilla uses it to keep old saves working after a component was renamed.",
+        "OverridePriorityName": "Stores and looks up the player-set crew priority under an arbitrary label instead of a component\nid. The free-form spelling of [[Cosmoteer.Ships.Parts.Crew.PartCrewRules.OverridePriorityKey]].",
+        "PrerequisitesBeforeCrewing": "Toggles that must all be on for the part to request operators at all. While any is off for longer\nthan [[Cosmoteer.Ships.Parts.Crew.PartCrewRules.PrerequisitesUnmetAbandonDelay]], the job asks for\nzero crew and the current operators walk away. Vanilla weapons list their power and scorched\ntoggles here, so an unpowered turret does not hold crew.",
+        "HighPriorityPrerequisites": "Toggles that must all be on for the operators to hold their station against other work. While any\nis off for longer than [[Cosmoteer.Ships.Parts.Crew.PartCrewRules.PrerequisitesUnmetAbandonDelay]],\nthe job's effective priority drops by 10000, so any other job (a delivery run, another part) pulls\nthe operators away, and they only return when nothing else needs them. The vanilla missile\nlauncher points this at a `ToggleProxy` whose target each missile mode supplies, so crew stand\ndown when the selected mode has no ammo. A proxy with no connected target reads as off, so every\ntoggled component set must declare the proxied component.",
+        "CrewDestinations": "The points, in part rules coordinates, an operator walks to and stands at. Each assigned crew\npicks one destination, so there should be at least [[Cosmoteer.Ships.Parts.Crew.PartCrewRules.Crew]]\nentries.",
+        "CrewLocations": "Ids of `CrewLocation` components in this part. An arrived operator binds one and takes its\nlocation and rotation as their standing pose, which is how gunners face their weapon. Unbound\noperators just stand at their [[Cosmoteer.Ships.Parts.Crew.PartCrewRules.CrewDestinations]] point.",
+        "SwitchLocationInterval": "How long an arrived operator stays at one destination before picking a new one, in seconds. When\nset, crew periodically rotate between the part's destinations instead of standing still.",
+        "AbandonOnStatusSeverity": "The minimum JobInterruptionSeverity for abandonment of this job, if any.",
+        "PrerequisitesUnmetAbandonDelay": "The grace period, in seconds, before an unmet prerequisite takes effect (default 1.5). A toggle\nflickering off for less than this neither dismisses the operators\n([[Cosmoteer.Ships.Parts.Crew.PartCrewRules.PrerequisitesBeforeCrewing]]) nor drops their priority\n([[Cosmoteer.Ships.Parts.Crew.PartCrewRules.HighPriorityPrerequisites]])."
     },
     "Cosmoteer.Ships.Parts.Graphics.PartIndicatorSpritesRules/IndicatorRules": {
         "HidesIndicators": "The indices of other indicators in the same PartIndicatorSpritesRules that this indicator hides."
@@ -347,11 +358,20 @@
     "Cosmoteer.Ships.Parts.Logic.PartTileScoreValueRules": {
         "Region": "The region that will be included in the calculations."
     },
+    "Cosmoteer.Ships.Parts.Logic.PartToggleProxyRules": {
+        "ProxyRules": "The proxy target: which part and component to mirror. Written flat on the proxy itself\n(`ComponentID = …`, optionally `PartLocation` or `PartCriteria`), see\n[[Cosmoteer.Ships.Parts.Logic.ProxyRules]].",
+        "IsOnWhenNotConnected": "The toggle state this proxy reports while no target component is connected (default `false`).\nDisconnected covers a `PartLocation` cell with no matching part, and equally a `ComponentID`\nthat no active component carries. The vanilla missile launcher relies on that: its\n`MissilesPrereqProxy` targets a `MissilesPrereq` component that each `ToggledComponents`\nmissile mode must supply, so a mode that forgets it reads permanently off and the launcher's\ncrew stand down."
+    },
     "Cosmoteer.Ships.Parts.Logic.PartToggleTriggerRules": {
         "AllowOperationalBypass": "Whether the component can trigger without being operational, as long as it has no operational toggle, or the toggle is already true."
     },
     "Cosmoteer.Ships.Parts.Logic.PartToggleValueSelectorRules": {
         "BlueprintToggle": "The toggle to use in place of Toggle for blueprints, if any."
+    },
+    "Cosmoteer.Ships.Parts.Logic.PartToggledComponentsRules": {
+        "Toggle": "The toggle that controls whether this set's `Components` exist on the part. They are added the\nmoment the toggle turns on and removed when it turns off, so the part behaves as if they were\nnever written while inactive. Invert the reading with\n[[Cosmoteer.Ships.Parts.Logic.PartToggledComponentsRules.Invert]].",
+        "Invert": "Inverts [[Cosmoteer.Ships.Parts.Logic.PartToggledComponentsRules.Toggle]], so the components\nexist while that toggle is off.",
+        "IncludeInBlueprints": "Whether the sub-components are included when rendering the ship's blueprints: never (`False`),\nalways (`True`), or following the toggle's current state (`Dynamic`, the vanilla missile\nlauncher's choice so only the selected mode's visuals appear)."
     },
     "Cosmoteer.Ships.Parts.Logic.PartValueAccumulatorRules": {
         "AccumulatingToggle": "The IPartComponentToggle that determines the operational state of the accumulator.",
@@ -371,6 +391,16 @@
         "AllowWhenOff": "Whether this trigger activates when the accumulator is off.",
         "AllowWhenOperational": "Whether this trigger activates when the accumulator is operational.",
         "AllowWhenNonOperational": "Whether this trigger activates when the accumulator is non-operational."
+    },
+    "Cosmoteer.Ships.Parts.Logic.ProxyRules": {
+        "PartLocation": "The cell, in this part's rules coordinates, whose occupying part is proxied. Rotation and flip\nof the placed part are applied, and the proxy reconnects automatically as parts are built or\ndestroyed on that cell. When omitted, the proxy targets a component of its own part instead.",
+        "ProxyToggle": "A toggle of this part that gates the proxy connection. While it is off the proxy disconnects\nentirely, as if the target did not exist. Invert the reading with\n[[Cosmoteer.Ships.Parts.Logic.ProxyRules.InvertProxyToggle]].",
+        "InvertProxyToggle": "Inverts [[Cosmoteer.Ships.Parts.Logic.ProxyRules.ProxyToggle]], so the proxy connects while\nthat toggle is off.",
+        "ProxyableComponents": "The candidate targets, checked in order against the proxied part. The first entry whose\n`PartCriteria` matches (or that has none) wins, and its `ComponentID` names the component to\nmirror. The flat `ComponentID = …` spelling on the proxy is the one-entry shorthand for this\nlist."
+    },
+    "Cosmoteer.Ships.Parts.Logic.ProxyRules/ProxyableComponent": {
+        "PartCriteria": "A filter the candidate part must match (part id, categories, ownership relative to this part)\nbefore this entry's [[Cosmoteer.Ships.Parts.Logic.ProxyRules+ProxyableComponent.ComponentID]]\nis proxied. An entry without criteria matches any part.",
+        "ComponentID": "The id of the component to mirror in the targeted part. The connection is live: if the\ncomponent does not exist yet (a `ToggledComponents` mode that is switched off, a part still\nunder construction), the proxy waits and connects the moment a component with this id\nappears, and disconnects again when it is removed."
     },
     "Cosmoteer.Ships.Parts.Logic.UIToggleModeOverrideRules": {
         "TargetUIToggle": "The ID of the PartUIToggle to override.",
@@ -408,6 +438,14 @@
         "IsRotateable": "Whether the part can be rotated during placement.",
         "IsFlippable": "Whether the part can be flipped during placement.",
         "IsWalled": "If false, the part can only have doors to parts that are themselves not walled.",
+        "ExternalWalls": "The sides of the part that count as solid hull. A wall sprite renders against each listed side from the neighboring cell whenever that cell is empty space or an open side of another part (see [[Cosmoteer.Ships.Parts.PartRules.InternalWalls]]). Directions are in the part's un-rotated orientation and rotate and flip with it. Inherited as `[All]` from `base_part.rules`, so a part that says nothing is walled on every side.",
+        "BlueprintExternalWalls": "The blueprint-view counterpart of [[Cosmoteer.Ships.Parts.PartRules.ExternalWalls]]. When omitted, the blueprint uses `ExternalWalls`.",
+        "ExternalWallsByCell": "Per-cell override of [[Cosmoteer.Ships.Parts.PartRules.ExternalWalls]] for multi-cell parts. Each `Key` is a cell of the part (`[0, 0]` is the top-left cell) and each `Value` lists the sides of that cell that count as solid hull, with `[]` meaning no walls there. Cells without an entry keep the whole-part `ExternalWalls` value.",
+        "BlueprintExternalWallsByCell": "The blueprint-view counterpart of [[Cosmoteer.Ships.Parts.PartRules.ExternalWallsByCell]]. When omitted, the blueprint uses `ExternalWallsByCell`.",
+        "InternalWalls": "The sides of the part's cells that are visually open, so a wall may render inside this part's own cell along them. A wall appears on a listed side only when the neighbor on that side declares the shared edge solid via its [[Cosmoteer.Ships.Parts.PartRules.ExternalWalls]]. Inherited as `[None]` from `base_part.rules` (fully enclosed room). Angled armor lists its open wedge sides here, and open-platform structure uses `[All]`.",
+        "BlueprintInternalWalls": "The blueprint-view counterpart of [[Cosmoteer.Ships.Parts.PartRules.InternalWalls]]. When omitted, the blueprint uses `InternalWalls`.",
+        "InternalWallsByCell": "Per-cell override of [[Cosmoteer.Ships.Parts.PartRules.InternalWalls]] for multi-cell parts, in the same `Key`/`Value` form as [[Cosmoteer.Ships.Parts.PartRules.ExternalWallsByCell]]. Cells without an entry keep the whole-part `InternalWalls` value.",
+        "BlueprintInternalWallsByCell": "The blueprint-view counterpart of [[Cosmoteer.Ships.Parts.PartRules.InternalWallsByCell]]. When omitted, the blueprint uses `InternalWallsByCell`.",
         "TypeCategories": "Part-category identifiers used to classify the part.",
         "SignificanceToggle": "ID of the IPartComponentToggle that determines whether this part should be considered for determining ship 'significance'.",
         "JobsIcon": "Sprite shown for the part's job assignments.",
@@ -418,6 +456,10 @@
         "MaxBuffValues": "Per-buff maximum values this part clamps received buffs to.",
         "EditorGroups": "The names of the ship-editor tabs the part appears in.",
         "EditorGroup": "The name of the ship-editor tab the part appears in."
+    },
+    "Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules": {
+        "ToggleOnResources": "The storage doubles as a toggle, and this is the fill level that switches it on: it reads on\nonce the stored amount reaches this many resources, and off again only when the amount falls\nto [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.ToggleOffResources]] or below.\nThe gap between the two is a hysteresis band that stops the toggle from flickering while\nresources stream in and out. Vanilla missile modes set it to one shot's worth of parts, so the\ntoggle means \"has enough to fire\".",
+        "ToggleOffResources": "The fill level that switches the storage's toggle off again: it reads off once the stored\namount falls to this many resources or below, after having reached\n[[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.ToggleOnResources]]. Usually set\none below the on threshold."
     },
     "Cosmoteer.Ships.Parts.Resources.ResourceConsumingStorageRules": {
         "TriggerThreshold": "The resource threshold at which the storage triggers and consumes the threshold amount from its stores. If set to 0, the storage will trigger as soon as it has any resources, consuming all of them."
@@ -536,6 +578,33 @@
         "ValuePerTargetResource": "The conversion rate of status value to ValueTargetStorage resources.",
         "LimitByTargetFreeSpace": "Whether the regular requires free space in the ValueTargetStorage in order to function."
     },
+    "Cosmoteer.Simulation.EffectFilter": {
+        "Ships": "Whether ships and their parts can be affected at all. When false, every ship and part check fails regardless of the allegiance fields. True by default in every effect's built-in filter.",
+        "OperationalHealth": "Allows the effect to hit parts with operational health (the normal health pool of most functional parts). A part is filtered out when the flag for its health type is false. True by default. See [[Cosmoteer.Simulation.EffectFilter.StructuralHealth]].",
+        "StructuralHealth": "Allows the effect to hit parts with structural health, such as armor and structure. True by default. See [[Cosmoteer.Simulation.EffectFilter.OperationalHealth]].",
+        "OnlyPartCategories": "When set, only parts whose type declares at least one of these part categories pass the filter.",
+        "ExcludePartCategories": "When set, parts whose type declares any of these part categories are filtered out.",
+        "Shields": "Whether shields can be affected. Shield hits still respect [[Cosmoteer.Simulation.EffectFilter.IgnoreInvulnerability]] and the allegiance fields, judged by the ship the shield belongs to. True by default.",
+        "Bullets": "Whether projectiles can be affected. A projectile's allegiance is judged by the ship that fired it, so a projectile fired by the effect's own source ship falls under [[Cosmoteer.Simulation.EffectFilter.Self]], not [[Cosmoteer.Simulation.EffectFilter.Friendlies]]. Projectiles whose firing ship no longer exists skip the allegiance check entirely and always pass. True by default for most effects, but `AreaImpulse` presets it to false.",
+        "OnlyBulletCategories": "When set, only projectiles declaring at least one of these categories in their `Targetable` rules pass the filter.",
+        "ExcludeBulletCategories": "When set, projectiles declaring any of these categories in their `Targetable` rules are filtered out.",
+        "OnlyStatuses": "When set, only parts matching at least one of these status filters pass the filter.",
+        "ExcludeStatuses": "Intended to filter out parts matching any of these status filters. The current game code inverts the check, so in practice it behaves exactly like [[Cosmoteer.Simulation.EffectFilter.OnlyStatuses]] and rejects parts that do not match.",
+        "Crew": "Whether crew floating in space can be affected. Crew allegiance uses their home ship while it still exists, otherwise the crew member's own player. True by default.",
+        "Nuggets": "Whether loose resource nuggets can be affected. Nuggets have no allegiance, so this flag alone decides. True by default.",
+        "IgnoreInvulnerability": "When false, ships flagged invulnerable are protected from the effect. Checked for ship and shield hits. False by default for most damage effects, but `AreaImpulse` and the bullet and crew collision filters preset it to true.",
+        "Self": "Whether the effect's own source ship can be affected. This also governs projectiles fired by the source ship when [[Cosmoteer.Simulation.EffectFilter.Bullets]] filtering runs, so an effect that should not touch its own projectiles needs `Self = false` even when [[Cosmoteer.Simulation.EffectFilter.Friendlies]] is false. When unset, falls back to [[Cosmoteer.Simulation.EffectFilter.Friendlies]] and then to the game mode's normal damage rules. No effect presets this, so it is unset unless written.",
+        "TargetedSelf": "Overrides [[Cosmoteer.Simulation.EffectFilter.Self]] when the source ship is also the effect's target ship. When unset, [[Cosmoteer.Simulation.EffectFilter.Self]] applies.",
+        "Friendlies": "Whether allied ships (same team, including other ships of the same player) can be affected. Does not cover the effect's own source ship, which is [[Cosmoteer.Simulation.EffectFilter.Self]]. When unset, falls back to the game mode's normal damage rules. Most effects leave it unset, but `AreaImpulse` presets it to true, so it must be written as false there to spare allies.",
+        "TargetedFriendlies": "Overrides [[Cosmoteer.Simulation.EffectFilter.Friendlies]] when the hit ally is also the effect's target ship. When unset, [[Cosmoteer.Simulation.EffectFilter.Friendlies]] applies.",
+        "Enemies": "Whether enemy ships can be affected. When unset, falls back to the game mode's normal damage rules, which normally allow damaging enemies. `AreaImpulse` presets it to true, and the bullet and crew collision filters preset it to false.",
+        "TargetedEnemies": "Overrides [[Cosmoteer.Simulation.EffectFilter.Enemies]] when the hit enemy is also the effect's target ship. Enemy projectiles targeting the effect's source ship also check this before [[Cosmoteer.Simulation.EffectFilter.Enemies]]. When unset, [[Cosmoteer.Simulation.EffectFilter.Enemies]] applies.",
+        "Neutrals": "Whether neutral ships (neither allied nor enemy) can be affected. When unset, falls back to the game mode's normal damage rules. `AreaImpulse` presets it to true, and the bullet and crew collision filters preset it to false.",
+        "TargetedNeutrals": "Overrides [[Cosmoteer.Simulation.EffectFilter.Neutrals]] when the hit neutral ship is also the effect's target ship. When unset, [[Cosmoteer.Simulation.EffectFilter.Neutrals]] applies.",
+        "Junk": "Whether junk ships (derelict debris) can be affected. When unset, falls back to the game mode's normal damage rules. `AreaImpulse` presets it to true, and the bullet and crew collision filters preset it to false.",
+        "TargetedJunk": "Overrides [[Cosmoteer.Simulation.EffectFilter.Junk]] when the junk is also the effect's target ship. When unset, [[Cosmoteer.Simulation.EffectFilter.Junk]] applies.",
+        "Deconstruction": "When true, only hits caused by part deconstruction pass the filter. When false, deconstruction hits are filtered out. When unset, the distinction is ignored."
+    },
     "Cosmoteer.Simulation.HitEffects.AreaShieldStatusApplicationEffectRules": {
         "ScaleChanceByShieldArea": "Whether StatusChance will be scaled by the proportion of the shield's arc that is within the effect radius.",
         "ScaleValueByShieldArea": "Whether StatusValue will be scaled by the proportion of the shield's arc that is within the effect radius.",
@@ -588,6 +657,16 @@
         "ImmunityResources": "The list of resources that provide immunity from this effect when carried by a crew member. If ImmunityResourcesIsBlacklist is true, this behaviour is inverted.",
         "ImmuneWhileEmptyHanded": "Whether a crew member is immune to this effect while not carrying any resources.",
         "Filter": "The filter used to determine hit validity."
+    },
+    "Cosmoteer.Simulation.HitEffects.RepeatingEffectRules": {
+        "HitEffects": "The hit effects to perform every repetition.",
+        "MediaEffects": "The media effects to play every repetition.",
+        "Interval": "The period between one repetition and the next.",
+        "Count": "The number of total repetition.",
+        "InitialDelay": "The delay before starting the first repetition.",
+        "RequireHitPart": "Whether to end the repeating effect if the hit part is null or destroyed.",
+        "HitEffectsScaleOverIterations": "The multiplier of effectScale over the duration of the repeat. Minimum on the first iteration to maximum on the last.",
+        "HitEffectsScaleOverIterationsExponent": "The exponent to which the normalised iteration progress value is raised, which is used to sample HitEffectsScaleOverIterations."
     },
     "Cosmoteer.Simulation.HitEffects.StatusApplicationEffectRules": {
         "ApplyToAllHitPartTiles": "Whether the effect should apply to each tile of the hit part, or just the tile matching the hit location. Only applicable to tile-layer statuses.",

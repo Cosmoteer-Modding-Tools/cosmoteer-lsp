@@ -29,6 +29,25 @@ export const basenameOf = (uri: string): string => {
 /** True if a bare filename is a mod manifest (`mod.rules` / `mod_*.rules`). The single
  *  source of truth for manifest naming, reused by mod-root / mod-context scans. */
 export const isManifestBasename = (basename: string): boolean => MOD_MANIFEST_BASENAME.test(basename);
+
+/**
+ * True if a filename holds rules content the project walks should index. The game's loader ignores
+ * the extension, and mods declare whole parts in `.txt` files, so those count alongside `.rules`.
+ * The single source of truth for the walk filters (project documents, stat sweeps, file trees,
+ * reachability), so the set can be widened in one spot.
+ */
+export const isRulesFileName = (basename: string): boolean => {
+    const lower = basename.toLowerCase();
+    return lower.endsWith('.rules') || lower.endsWith('.txt');
+};
+
+/**
+ * True if a segment of a `<…>` reference path ends its file part (`foo.rules>`, `bar.txt>`). The
+ * game resolves the path through the case-insensitive Windows FS and its loader ignores the
+ * extension, so any casing and both extensions must match. The single source of truth for the
+ * path splitters that locate the file part of a reference.
+ */
+export const isRulesPathSegment = (segment: string): boolean => /\.(rules|txt)>$/i.test(segment);
 /**
  * Get the kind of a Cosmoteer rules document based on its URI.
  * @param uri The URI of the document.

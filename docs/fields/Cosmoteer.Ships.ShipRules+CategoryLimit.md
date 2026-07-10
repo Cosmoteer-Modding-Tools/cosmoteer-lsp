@@ -13,11 +13,11 @@
 <!-- TODO: needs documentation -->
 
 ## Min
-`int` · optional · default `Mono.Cecil.CustomAttributeArgument`
+`int` · optional · default `0`
 
 <!-- TODO: needs documentation -->
 
 ## Max
-`int` · optional · default `Mono.Cecil.CustomAttributeArgument`
+`int` · optional · default `2147483647`
 
 <!-- TODO: needs documentation -->

@@ -11,7 +11,7 @@ const HAVE_DATA = existsSync(DATA_DIR);
 
 // True if any HLSL-only token survived translation, which would mean the GLSL would not compile.
 const hasHlslLeftovers = (glsl: string): boolean =>
-    /\bTexture2D\b|\bSamplerState\b|\bfloat[234]\s*\(|\bPIX_OUTPUT\b|\.Sample\s*\(|:\s*SV_TARGET|\bstatic\b|\bhalf\b|\(\s*u?int[234]?\s*\)|\bGetDimensions\b/.test(
+    /\bTexture2D\b|\bSamplerState\b|\bfloat[234]\s*\(|\bPIX_OUTPUT\b|\.Sample\s*\(|:\s*SV_TARGET|\bstatic\b|\bhalf\b|\(\s*u?int[234]?\s*\)|\bGetDimensions\b|\bSampleLevel\b|%|\bisinf\s*\(|\bnointerpolation\b|\bsincos\s*\(/.test(
         glsl
     );
 
@@ -100,7 +100,8 @@ PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
 
     it('lowers SampleLevel, GetDimensions and texture parameters (the decals shader pattern)', () => {
         // Explicit-LOD sampling and texture-size queries have no fragment-stage equivalent in GLSL ES
-        // 1.00, so the LOD argument is dropped and the dimensions are stubbed, leaving compilable code.
+        // 1.00, so both route through the pvTexLod/pvTexSize helpers, whose ES 1.00 fallback bodies
+        // the webview swaps for textureLod/textureSize when it runs on WebGL2.
         const glsl = translateToGlsl(`
 typedef float4 PIX_OUTPUT;
 struct VERT_OUTPUT { float2 uv : TEXCOORD0; float4 color : COLOR0; };
@@ -120,8 +121,11 @@ PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
 `);
         expect(glsl.ok).toBe(true);
         expect(glsl.glsl).toContain('float mip(sampler2D tex');
-        expect(glsl.glsl).toContain('texture2D(_texture, vsIn.uv)');
-        expect(glsl.glsl).toContain('w = 256.0; h = 256.0;');
+        expect(glsl.glsl).toContain('pvTexLod(_texture, vsIn.uv, lod)');
+        expect(glsl.glsl).toContain('w = pvTexSize(tex).x; h = pvTexSize(tex).y;');
+        // The helpers carry the ES 1.00 fallback bodies the webview swaps on WebGL2.
+        expect(glsl.glsl).toContain('vec4 pvTexLod(sampler2D t, vec2 uv, float lod) { return texture2D(t, uv); }');
+        expect(glsl.glsl).toContain('vec2 pvTexSize(sampler2D t) { return vec2(256.0, 256.0); }');
         expect(glsl.glsl).not.toMatch(/GetDimensions|SampleLevel|\bTexture2D\b/);
         // Screen-space derivatives need their WebGL1 extension declared ahead of everything else.
         expect(glsl.glsl!.startsWith('#extension GL_OES_standard_derivatives : enable')).toBe(true);
@@ -329,6 +333,134 @@ PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
             expect(hasHlslLeftovers(result.glsl!), `${rel} has HLSL leftovers`).toBe(false);
             expect(result.glsl).toContain('void main');
         }
+    });
+
+    it('resolves #if defined(…) chains the way crew_lit gates its animated UVs', async () => {
+        // crew_lit.shader opens with `#if defined(GTE_PS_4_0) || defined(GTE_VS_4_0)`. The expansion
+        // must evaluate the condition (not skip it) so the guarded define lands exactly when a branch
+        // is truly active, and `#elif`/`#else` pick the right alternative.
+        const { writeFile, mkdtemp, rm } = await import('fs/promises');
+        const { tmpdir } = await import('os');
+        const dir = await mkdtemp(join(tmpdir(), 'shader-if-'));
+        const path = join(dir, 'cond.shader');
+        try {
+            await writeFile(
+                path,
+                [
+                    '#if defined(GTE_PS_4_0) || defined(NEVER_DEFINED)',
+                    '#define TAKEN_OR',
+                    '#endif',
+                    '#if defined(NEVER_DEFINED) && defined(GTE_PS_4_0)',
+                    'float wrongAnd;',
+                    '#elif defined(GTE_PS_4_0)',
+                    'float takenElif;',
+                    '#else',
+                    'float wrongElse;',
+                    '#endif',
+                    '#if !defined(NEVER_DEFINED)',
+                    'float takenNot;',
+                    '#endif',
+                    '#ifdef TAKEN_OR',
+                    'float sawGuardedDefine;',
+                    '#endif',
+                ].join('\n')
+            );
+            const expanded = await expandShaderSource(path, [...PREVIEW_SHADER_DEFINES]);
+            expect(expanded).toContain('takenElif');
+            expect(expanded).toContain('takenNot');
+            expect(expanded).toContain('sawGuardedDefine');
+            expect(expanded).not.toContain('wrongAnd');
+            expect(expanded).not.toContain('wrongElse');
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
+    });
+
+    it('lowers the HLSL % operator with multiplicative-chain precedence (the crew drop-shadow pattern)', () => {
+        const glsl = translateToGlsl(`
+typedef float4 PIX_OUTPUT;
+struct VERT_OUTPUT { float2 uv : TEXCOORD0; float4 color : COLOR0; };
+float _time;
+PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
+{
+    float2 spriteUV = abs(input.uv - 0.25) / 0.5 % 1;
+    float cycle = _time % 3.5;
+    return float4(spriteUV, cycle, 1);
+}
+`);
+        expect(glsl.ok).toBe(true);
+        // `a / b % 1` binds the whole multiplicative chain as the left operand, like HLSL.
+        expect(glsl.glsl).toContain('pvMod(abs(vsIn.uv - 0.25) / 0.5, 1.0)');
+        expect(glsl.glsl).toContain('pvMod(_time, 3.5)');
+        expect(glsl.glsl).not.toContain('%');
+    });
+
+    it('lowers int locals, int casts of calls, and isinf (the atlas animation pattern)', () => {
+        const glsl = translateToGlsl(`
+typedef float4 PIX_OUTPUT;
+struct VERT_OUTPUT { float2 uv : TEXCOORD0; float4 color : COLOR0; };
+float wrap(float val, float interval) { return frac(val / interval) * interval; }
+float _gameTime;
+PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
+{
+    int frame;
+    if (isinf(input.uv.x))
+        frame = (int)min(input.uv.y, 3);
+    else
+        frame = (int)wrap(_gameTime, 4);
+    int framesPerRow = (int)input.uv.y;
+    int col = frame % framesPerRow;
+    int row = frame / framesPerRow;
+    return float4(col, row, 0, 1);
+}
+`);
+        expect(glsl.ok).toBe(true);
+        // int locals become floored floats so mixed arithmetic stays legal and truncation survives.
+        expect(glsl.glsl).toContain('float frame;');
+        expect(glsl.glsl).toContain('frame = floor(min(vsIn.uv.y, 3.0))');
+        expect(glsl.glsl).toContain('frame = floor(wrap(_gameTime, 4.0))');
+        expect(glsl.glsl).toContain('float col = floor(pvMod(frame, framesPerRow));');
+        expect(glsl.glsl).toContain('float row = floor(frame / framesPerRow);');
+        expect(glsl.glsl).toContain('pvIsInf(vsIn.uv.x)');
+        expect(hasHlslLeftovers(glsl.glsl!)).toBe(false);
+    });
+
+    it.runIf(HAVE_DATA)('translates crew_lit with its drop shadow and builds the crew vertex stage', async () => {
+        const expanded = await expandShaderSource(
+            join(DATA_DIR, 'crew/crew_lit.shader'),
+            [...PREVIEW_SHADER_DEFINES],
+            DATA_DIR
+        );
+        const result = translateToGlsl(expanded);
+        expect(result.ok, result.reason).toBe(true);
+        expect(hasHlslLeftovers(result.glsl!), 'crew_lit has HLSL leftovers').toBe(false);
+        // The GTE_PS_4_0 drop-shadow branch is active and its float modulo is lowered.
+        expect(result.glsl).toContain('pvMod(');
+        // The crew vert is synthesizable: its inputs (including the nested animation struct) all have
+        // stand-ins, and the interpolation modifiers on the outputs are stripped.
+        expect(result.vertex).toBeDefined();
+        expect(result.vertex!.kind).toBe('crew');
+        expect(result.vertex!.glsl).toContain('vin.animInfo.uv =');
+        expect(result.vertex!.glsl).toContain('vin.shirtColor =');
+        expect(result.vertex!.glsl).toContain('vin.vertexOffset = aPos * 0.5;');
+        expect(result.vertex!.fragment).not.toContain('nointerpolation');
+    });
+
+    it.runIf(HAVE_DATA)('builds a shipPart vertex stage for the atlas default vert (roof_light)', async () => {
+        const expanded = await expandShaderSource(
+            join(DATA_DIR, 'ships/common/roof_light.shader'),
+            [...PREVIEW_SHADER_DEFINES],
+            DATA_DIR
+        );
+        const result = translateToGlsl(expanded);
+        expect(result.ok, result.reason).toBe(true);
+        expect(result.vertex).toBeDefined();
+        expect(result.vertex!.kind).toBe('shipPart');
+        // The nested animation block is initialized field by field for the real atlas vert to read.
+        expect(result.vertex!.glsl).toContain('vin.animInfo.animationFrames = vec2(1.0, 1.0);');
+        expect(result.vertex!.glsl).toContain('vin.rotateAround = vec4(0.0, 0.0, 0.0, 1.0);');
+        expect(hasHlslLeftovers(result.vertex!.glsl), 'atlas vertex stage has HLSL leftovers').toBe(false);
+        expect(hasHlslLeftovers(result.vertex!.fragment), 'atlas fragment has HLSL leftovers').toBe(false);
     });
 
     it.runIf(HAVE_DATA)('builds a type-correct main for the nebula pix struct (vec2 worldLoc)', async () => {

@@ -43,7 +43,7 @@ const languageOf = (document: AbstractNodeDocument): string => {
     for (const [name, value] of namedMembersOf(document)) {
         if (name === '__Name' && isValueNode(value)) return String(value.valueType.value);
     }
-    return normalizeUri(document.uri).split('/').pop()?.replace(/\.rules$/, '') ?? '';
+    return normalizeUri(document.uri).split('/').pop()?.replace(/\.rules$/i, '') ?? '';
 };
 
 /**

@@ -4,94 +4,15 @@
     "patterns": [
         { "include": "#comments" },
         { "include": "#strings" },
+        { "include": "#references" },
         { "include": "#functions" },
-        { "include": "#constants" },
-        { "include": "#expression" }
+        { "include": "#numbers" },
+        { "include": "#booleans" },
+        { "include": "#keys" },
+        { "include": "#unquoted" },
+        { "include": "#operators" }
     ],
     "repository": {
-        "expression": {
-            "patterns": [{ "include": "#paren-expression" }, { "include": "#constants" }]
-        },
-        "constants": {
-            "patterns": [
-                {
-                    "match": "(?<=:|=) ?(true|false)",
-                    "name": "constant.language"
-                },
-                {
-                    "name": "constant.numeric",
-                    "match": "\\-?.?\\d+\\.?\\d*"
-                },
-                {
-                    "name": "constant.numeric",
-                    "match": "\\d+\\.\\d*E\\+\\d+"
-                },
-                {
-                    "name": "variable.name",
-                    "match": "[a-zA-Z_][a-zA-Z0-9_]+ ?(?=:|=|)"
-                },
-                {
-                    "name": "entity.name.tag",
-                    "match": "[&|<|^|/|..][<>~./\\w_]+"
-                }
-            ]
-        },
-        "strings": {
-            "patterns": [
-                {
-                    "name": "string.quoted",
-                    "begin": "\"",
-                    "end": "\"",
-                    "patterns": [
-                        {
-                            "name": "constant.character.escape",
-                            "match": "\\\\."
-                        }
-                    ]
-                },
-                {
-                    "name": "string.unquoted",
-                    "match": "((?<= = )[^0-9.\\[\\-&<\\^\\(\\)][\\w._]+[ ]?[\\w]*)(?!=|:|\\()"
-                }
-            ]
-        },
-        "functions": {
-            "patterns": [
-                {
-                    "name": "support.function",
-                    "match": "(?<=:|=) ?[a-zA-Z_][a-zA-Z0-9_]+ ?(?=\\()"
-                },
-                {
-                    "name": "variable.parameter",
-                    "begin": "\\(",
-                    "end": "\\)",
-                    "beginCaptures": {
-                        "0": { "name": "punctuation.paren.open" }
-                    },
-                    "endCaptures": {
-                        "0": { "name": "punctuation.paren.close" }
-                    },
-                    "patterns": [
-                        {
-                            "name": "constant.numeric",
-                            "match": "\\b(\\-?\\d+.?\\d*)\\b"
-                        },
-                        {
-                            "name": "variable.parameter",
-                            "match": " ?[a-zA-Z_][a-zA-Z0-9_]+ ?(?=,)"
-                        },
-                        {
-                            "name": "entity.name.tag",
-                            "match": "[&|<|^][<>.\\/\\w_]+"
-                        },
-                        {
-                            "name": "punctuation.comma",
-                            "match": ","
-                        }
-                    ]
-                }
-            ]
-        },
         "comments": {
             "patterns": [
                 {
@@ -113,20 +34,115 @@
                     },
                     "name": "comment.line.double-slash"
                 }
-            ],
-            "name": "comment"
+            ]
         },
-        "paren-expression": {
-            "begin": "\\(",
-            "end": "\\)",
-            "beginCaptures": {
-                "0": { "name": "punctuation.paren.open" }
-            },
-            "endCaptures": {
-                "0": { "name": "punctuation.paren.close" }
-            },
-            "name": "expression.group",
-            "patterns": [{ "include": "#expression" }]
+        "strings": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double",
+                    "begin": "@?\"",
+                    "end": "\"",
+                    "patterns": [
+                        {
+                            "name": "constant.character.escape",
+                            "match": "\\\\."
+                        },
+                        {
+                            "comment": "A reference target quoted as a string — mod actions write AddTo = \"<…rules>/Path\" and db2vol(\"&…\"). Only sigil-led content, so plain quoted text (a localization key) stays a string.",
+                            "name": "entity.name.tag",
+                            "match": "(<[^>\\n\"]*\\.(?i:rules|txt)[^>\\n\"]*>(?:/[\\w.^~<>-]*)*|&[\\w./^~<>-]*|\\^/[\\w./^~<>-]*|~/[\\w./^~<>-]*)"
+                        }
+                    ]
+                },
+                {
+                    "comment": "Asset paths (may start with ./ or ../) end in a known extension — a string, not a reference.",
+                    "name": "string.unquoted.asset",
+                    "match": "(?<![\\w])[\\w./-]*\\.(?i:png|jpg|jpeg|dds|tga|bmp|wav|ogg|mp3|shader|ttf|otf|fnt)(?![\\w])"
+                }
+            ]
+        },
+        "references": {
+            "patterns": [
+                {
+                    "comment": "A value is a reference only when it starts with a sigil: <…rules>, &, ^/, ~/, ./, ../, or /Name. A bare leading / followed by a digit stays division (blocked by the digit and the no-word-before guard).",
+                    "name": "entity.name.tag",
+                    "match": "(?<![\\w.])(<[^>\\n]*\\.(?i:rules|txt)[^>\\n]*>(?:/[\\w.^~<>-]*)*|&[\\w./^~<>-]*|\\^/[\\w./^~<>-]*|~/?[\\w./^~<>-]*|\\.\\.?/[\\w./^~<>-]*|/[A-Za-z_][\\w./^~<>-]*)"
+                }
+            ]
+        },
+        "functions": {
+            "patterns": [
+                {
+                    "name": "support.function",
+                    "match": "(?<![\\w])[a-zA-Z_][a-zA-Z0-9_]* ?(?=\\()"
+                }
+            ]
+        },
+        "numbers": {
+            "patterns": [
+                {
+                    "name": "constant.numeric",
+                    "match": "(?<![\\w.])-?(?:[Ii]nfinity|(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?%?)"
+                }
+            ]
+        },
+        "booleans": {
+            "patterns": [
+                {
+                    "name": "constant.language",
+                    "match": "(?<![\\w])(?:true|false)(?![\\w])"
+                }
+            ]
+        },
+        "keys": {
+            "patterns": [
+                {
+                    "comment": "A field / group / list name before = : { [. Dotted names (cosmoteer.fire) are keys too.",
+                    "name": "variable.name",
+                    "match": "(?<![\\w])[a-zA-Z_][a-zA-Z0-9_.]*(?=[ \\t]*[:={\\[])"
+                },
+                {
+                    "comment": "A bare group/list header alone on its line (optionally trailed by a comment).",
+                    "name": "variable.name",
+                    "match": "^[\\t ]*[a-zA-Z_][a-zA-Z0-9_.]*(?=[\\t ]*(?://|$))"
+                }
+            ]
+        },
+        "unquoted": {
+            "patterns": [
+                {
+                    "name": "string.unquoted",
+                    "match": "[a-zA-Z_][a-zA-Z0-9_.]*"
+                }
+            ]
+        },
+        "operators": {
+            "patterns": [
+                {
+                    "name": "keyword.operator",
+                    "match": "[-+*/^!%]"
+                },
+                {
+                    "name": "punctuation.paren.open",
+                    "match": "\\("
+                },
+                {
+                    "name": "punctuation.paren.close",
+                    "match": "\\)"
+                },
+                {
+                    "name": "punctuation.section.brackets",
+                    "match": "[\\[\\]{}]"
+                },
+                {
+                    "name": "punctuation.separator.comma",
+                    "match": ","
+                },
+                {
+                    "name": "keyword.operator.assignment",
+                    "match": "[:=]"
+                }
+            ]
         }
     }
 }

@@ -11,10 +11,10 @@ import {
     isValueNode,
     ValueNode,
 } from '../../core/ast/ast';
-import { resolveGroupClass } from '../../document/schema/schema-context';
+import { listSlotType, resolveGroupClass } from '../../document/schema/schema-context';
 import { documentRootClass } from '../../document/schema/document-root';
-import { fieldOf, typeDef } from '../../document/schema/schema';
-import { entityDeclarationsOf } from '../../document/schema/entity-schema';
+import { fieldOf, scalarReferenceTargetOf, typeDef } from '../../document/schema/schema';
+import { entityDeclarationsOf, REFERENCE_MAP_KEY_FIELDS } from '../../document/schema/entity-schema';
 import { definitionLocationOf } from './reference-location';
 import { documentsMentioning } from './workspace-files';
 
@@ -32,7 +32,9 @@ const ownerClassOf = (container: AbstractNode): string | undefined =>
  *    target. The list may be written `Field = [ … ]` (an assignment whose value is the list) or
  *    `Field [ … ]` (a named list member).
  */
-export const schemaReferenceFieldOf = (node: AbstractNode): { targetClass: string; value: string } | undefined => {
+export const schemaReferenceFieldOf = (
+    node: AbstractNode
+): { targetClass: string; value: string; fieldName?: string } | undefined => {
     if (!isValueNode(node) || node.valueType.type !== 'String') return undefined;
     const container = node.parent;
     if (!container) return undefined;
@@ -47,7 +49,33 @@ export const schemaReferenceFieldOf = (node: AbstractNode): { targetClass: strin
         const field = cls && fieldName ? fieldOf(cls, fieldName) : undefined;
         const vt = field?.valueType;
         if (vt && (vt.kind === 'list' || vt.kind === 'range' || vt.kind === 'interpolated') && vt.element.kind === 'reference') {
-            return { targetClass: vt.element.target, value };
+            return { targetClass: vt.element.target, value, fieldName };
+        }
+        // A scalar-form group element (`EditorParentParts = ["cosmoteer.armor"]`): a bare entry of a
+        // `list<group>` field reads as the element class's scalar payload.
+        if (vt && (vt.kind === 'list' || vt.kind === 'range' || vt.kind === 'interpolated') && vt.element.kind === 'group') {
+            const target = scalarReferenceTargetOf(vt.element.ref);
+            if (target) return { targetClass: target, value, fieldName };
+        }
+        // Positional slots. An inheriting list appends after the inherited elements, shifting every
+        // index, so positional resolution must stay silent there.
+        if (!container.inheritance?.length) {
+            const slot = listSlotType(container);
+            // Tuple element: the container is a tuple slot (a part's `Resources [ [bullet, 20] ]`
+            // entry), so the value's index picks the declared entry type.
+            if (slot?.kind === 'tuple') {
+                const element = slot.elements[container.elements.indexOf(node)];
+                if (element?.kind === 'reference') return { targetClass: element.target, value };
+            }
+            // A list slot reached without a field name, e.g. the faction list nested inside a
+            // career map picker's tuple (`CandidatesClosestToFactions = [3, [faction, …]]`).
+            if (
+                slot &&
+                (slot.kind === 'list' || slot.kind === 'range' || slot.kind === 'interpolated') &&
+                slot.element.kind === 'reference'
+            ) {
+                return { targetClass: slot.element.target, value };
+            }
         }
         return undefined;
     }
@@ -57,8 +85,42 @@ export const schemaReferenceFieldOf = (node: AbstractNode): { targetClass: strin
     const fieldName = assignmentFieldNameOf(container, node);
     const cls = fieldName ? ownerClassOf(container) : undefined;
     const field = cls && fieldName ? fieldOf(cls, fieldName) : undefined;
-    if (!field || field.valueType.kind !== 'reference') return undefined;
-    return { targetClass: field.valueType.target, value };
+    if (field?.valueType.kind === 'reference') return { targetClass: field.valueType.target, value, fieldName };
+    // A scalar written for a scalar-form group field (`FireTrigger = Turret`, `Search = some_tag`):
+    // the engine reads it into the class's scalar payload, so the value is that payload's reference.
+    if (field?.valueType.kind === 'group') {
+        const target = scalarReferenceTargetOf(field.valueType.ref);
+        if (target) return { targetClass: target, value, fieldName };
+    }
+    // Entry-form map key: `Key = "structure"` inside a `[{ Key, Value }]` element of a
+    // `map<reference X, V>` field (the list spelling of `RenderLayers`, resistances, …).
+    if (fieldName?.toLowerCase() === 'key' && isGroupNode(container)) {
+        const target = mapEntryKeyTargetOf(container);
+        if (target) return { targetClass: target, value };
+    }
+    return undefined;
+};
+
+/**
+ * The key target class of the map an entry group belongs to, when the group is an element of a map
+ * serialized as `[{ Key = …; Value = … }]`. The declaring field resolves through the list's owner
+ * class where possible, else through the schema-wide field-name table (a fragment's owner class is
+ * often unresolvable, but a name like `RenderLayers` names only one map in the whole schema).
+ *
+ * @param entry the `{ Key = …; Value = … }` entry group.
+ * @returns the key target class FullName, or undefined when the entry is not such a map element.
+ */
+export const mapEntryKeyTargetOf = (entry: GroupNode): string | undefined => {
+    const list = entry.parent;
+    if (!list || !isListNode(list)) return undefined;
+    const owner = list.parent;
+    const fieldName = list.identifier?.name ?? (owner ? assignmentFieldNameOf(owner, list) : undefined);
+    if (!fieldName) return undefined;
+    const cls = owner ? ownerClassOf(owner) : undefined;
+    const vt = cls ? fieldOf(cls, fieldName)?.valueType : undefined;
+    if (vt?.kind === 'map') return vt.key.kind === 'reference' ? vt.key.target : undefined;
+    const candidates = REFERENCE_MAP_KEY_FIELDS.get(fieldName.toLowerCase());
+    return candidates?.length === 1 ? candidates[0] : undefined;
 };
 
 /** The field name whose assignment value is `child`, among `container`'s elements. */
@@ -102,6 +164,8 @@ export interface MapKeyReference {
     readonly node: IdentifierNode;
     readonly targetClass: string;
     readonly value: string;
+    /** The map collection's declaring field name (`DamageResistances`, `Stats`, …), when known. */
+    readonly fieldName?: string;
 }
 
 /**
@@ -124,13 +188,17 @@ export function* mapKeyReferencesOf(document: AbstractNodeDocument): Generator<M
         const mapGroup = keyId ? node.parent : undefined;
         if (keyId && mapGroup && isGroupNode(mapGroup)) {
             const target = mapKeyTargetOf(mapGroup);
-            if (target) yield { node: keyId, targetClass: target, value: keyId.name };
+            if (target) {
+                const owner = mapGroup.parent;
+                const fieldName = mapGroup.identifier?.name ?? (owner ? assignmentFieldNameOf(owner, mapGroup) : undefined);
+                yield { node: keyId, targetClass: target, value: keyId.name, fieldName };
+            }
         }
         const children: AbstractNode[] =
             isGroupNode(node) || isListNode(node) || isDocumentNode(node)
                 ? node.elements
                 : isAssignmentNode(node)
-                  ? [node.right]
+                  ? (node.right ? [node.right] : [])
                   : [];
         for (const child of children) yield* visit(child);
     }

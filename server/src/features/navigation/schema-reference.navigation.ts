@@ -10,8 +10,8 @@ import {
     ListNode,
     ValueNode,
 } from '../../core/ast/ast';
-import { classOfGroup, registryForContainer } from '../../document/schema/schema-context';
-import { fieldOf, registryOf } from '../../document/schema/schema';
+import { classOfGroup, listSlotType, registryForContainer } from '../../document/schema/schema-context';
+import { fieldOf, registryOf, scalarReferenceTargetOf } from '../../document/schema/schema';
 
 /**
  * Resolve a schema-driven `ID<…>` sibling reference to its definition node.
@@ -27,7 +27,50 @@ import { fieldOf, registryOf } from '../../document/schema/schema';
  * matches (callers then fall through to other navigation strategies).
  */
 export const resolveSchemaSiblingReference = (node: AbstractNode | null | undefined): AbstractNode | undefined => {
+    const targetName = componentReferenceIdOf(node);
+    if (targetName === undefined) return undefined;
+
+    // A component id written in a tuple slot (a network router's `Routes [ [A, B, 0] ]`): the engine
+    // resolves the id part-wide, so search the whole document for the named group (cross-file bases
+    // are out of this sync resolver's scope; the async part-wide resolver covers them).
+    const list = node!.parent;
+    if (list && isListNode(list)) return findComponentInDocument(node!, targetName);
+
+    // The value text is a sibling component's identifier, so find that group in the same container.
+    // Case-folded with exact preference, matching the game's case-insensitive node lookup.
+    const container = node!.parent?.parent;
+    if (!container || !isGroupNode(container)) return undefined;
+    const named = container.elements.filter(
+        (element): element is GroupNode | ListNode => (isGroupNode(element) || isListNode(element)) && !!element.identifier
+    );
+    return (
+        named.find((element) => element.identifier!.name === targetName) ??
+        named.find((element) => element.identifier!.name.toLowerCase() === targetName.toLowerCase())
+    );
+};
+
+/**
+ * The written id when `node` is a component `ID<…>` reference value: a same-registry reference field
+ * of a component group (`OperationalToggle = IsOperational`) or a part-component tuple slot (a
+ * router's `Routes [ [from, to, cost] ]`). Carries the gates only, shared by the sync resolvers here
+ * and the async part-wide resolution in the sibling validator.
+ *
+ * @param node the value node under the cursor.
+ * @returns the written component id, or undefined when the node is not a component reference.
+ */
+export const componentReferenceIdOf = (node: AbstractNode | null | undefined): string | undefined => {
     if (!node || !isValueNode(node) || node.valueType.type !== 'String') return undefined;
+
+    const list = node.parent;
+    if (list && isListNode(list)) {
+        if (list.inheritance?.length) return undefined;
+        const slot = listSlotType(list);
+        const element = slot?.kind === 'tuple' ? slot.elements[list.elements.indexOf(node)] : undefined;
+        if (element?.kind === 'reference' && registryOf(element.target)?.name === 'PartComponentRules') {
+            return String(node.valueType.value);
+        }
+        return undefined;
+    }
 
     const group = node.parent;
     if (!group || !isGroupNode(group)) return undefined;
@@ -50,20 +93,48 @@ export const resolveSchemaSiblingReference = (node: AbstractNode | null | undefi
 
     const cls = classOfGroup(group, registry.name);
     const field = cls ? fieldOf(cls, fieldName) : undefined;
-    if (!field || field.valueType.kind !== 'reference' || registryOf(field.valueType.target) !== registry) {
-        return undefined;
-    }
+    // A same-registry reference field, or a scalar-form group field whose scalar payload is such a
+    // reference (`FireTrigger = Turret` reads into ComponentTriggerReferenceRules.ID).
+    const target =
+        field?.valueType.kind === 'reference'
+            ? field.valueType.target
+            : field?.valueType.kind === 'group'
+              ? scalarReferenceTargetOf(field.valueType.ref)
+              : undefined;
+    if (!target || registryOf(target) !== registry) return undefined;
+    return String(node.valueType.value);
+};
 
-    // The value text is a sibling component's identifier — find that group in the same container.
-    // Case-folded with exact preference, matching the game's case-insensitive node lookup.
-    const targetName = String((node as ValueNode).valueType.value);
-    const named = container.elements.filter(
-        (element): element is GroupNode | ListNode => (isGroupNode(element) || isListNode(element)) && !!element.identifier
-    );
-    return (
-        named.find((element) => element.identifier!.name === targetName) ??
-        named.find((element) => element.identifier!.name.toLowerCase() === targetName.toLowerCase())
-    );
+/**
+ * The named group/list called `targetName` anywhere in `node`'s document, exact case preferred, the
+ * document-wide mirror of the same-container sibling search for part-wide component ids.
+ *
+ * @param node any node of the document to search.
+ * @param targetName the component id to find.
+ * @returns the declaring group/list node, or undefined when the document declares none.
+ */
+const findComponentInDocument = (node: AbstractNode, targetName: string): AbstractNode | undefined => {
+    let root: AbstractNode | undefined = node;
+    while (root.parent) root = root.parent;
+    let caseInsensitive: AbstractNode | undefined;
+    const stack: AbstractNode[] = [root];
+    while (stack.length) {
+        const current = stack.pop()!;
+        if ((isGroupNode(current) || isListNode(current)) && current.identifier) {
+            if (current.identifier.name === targetName) return current;
+            if (!caseInsensitive && current.identifier.name.toLowerCase() === targetName.toLowerCase()) {
+                caseInsensitive = current;
+            }
+        }
+        const children: AbstractNode[] =
+            isGroupNode(current) || isListNode(current) || isDocumentNode(current)
+                ? current.elements
+                : isAssignmentNode(current)
+                  ? (current.right ? [current.right] : [])
+                  : [];
+        for (const child of children) stack.push(child);
+    }
+    return caseInsensitive;
 };
 
 /** The document range covering a bare-string value node's whole text (a single-segment id). */
@@ -94,7 +165,7 @@ export function stringValueNodesOf(node: AbstractNode | null | undefined): reado
         if (isGroupNode(current) || isListNode(current) || isDocumentNode(current)) {
             for (let i = current.elements.length - 1; i >= 0; i--) stack.push(current.elements[i]);
         } else if (isAssignmentNode(current)) {
-            stack.push(current.right);
+            if (current.right) stack.push(current.right);
         } else if (isValueNode(current) && current.valueType.type === 'String') {
             values.push(current);
         }

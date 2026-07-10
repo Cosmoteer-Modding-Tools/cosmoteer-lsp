@@ -205,6 +205,26 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
     }
 
     /**
+     * Every recorded field include of the fragment at `uri`: the normalized including-source uri,
+     * the included member, and the schema type of the slot the include fills. This is the fragment's
+     * way back to its including context, so a mode-variant components fragment finds the part file
+     * whose `ToggledComponents` pulls it in. The slot type lets a caller follow only the includes it
+     * cares about (a components-map slot, not a scalar read of one nested value).
+     *
+     * @param uri the fragment's document uri.
+     * @returns the recorded includes, or an empty array when nothing includes the fragment.
+     */
+    public includesOf(uri: string): Array<{ source: string; member: string; slot: ValueType }> {
+        const members = this.byTarget.get(normalizeUri(uri));
+        if (!members) return [];
+        const out: Array<{ source: string; member: string; slot: ValueType }> = [];
+        for (const [member, sources] of members) {
+            for (const [source, slot] of sources) out.push({ source, member, slot });
+        }
+        return out;
+    }
+
+    /**
      * The base-member names the file at `uri` is rooted by through inheritance-base rooting (a
      * `Derived : <uri>/Member` somewhere in the project), or an empty array. These are the members no
      * forward walk or field include reaches, so this identifies exactly the fragments this seam newly

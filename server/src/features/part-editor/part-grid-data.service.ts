@@ -26,6 +26,7 @@ import {
     CircleLayerData,
     ComponentPointEntry,
     ComponentPointsLayerData,
+    EdgeRegionLayerData,
     GridLayerData,
     GridPoint,
     PartGridData,
@@ -776,6 +777,21 @@ const componentFieldLayers = async (part: GroupNode, token: CancellationToken): 
                 radiusField: 'BuffRadius',
                 centerEditable: true,
             } as CircleLayerData);
+        }
+
+        // A status-value regulator's edge-distance region (the heat exchanger's absorption area)
+        // draws as a halo grown outward from the part rect by `Distance` cells. Only the EdgeDistance
+        // shape maps to this layer, other region shapes are left for the text editor.
+        const regionMember = await effectiveMember(group, 'Region', token);
+        const regionGroup = regionMember && isGroupNode(regionMember.node) ? regionMember.node : null;
+        if (regionGroup && enumNameOf(childNamed(regionGroup, 'Type')) === 'EdgeDistance') {
+            const distanceNode = childNamed(regionGroup, 'Distance');
+            layers.push({
+                kind: 'edgeRegion',
+                ...layerBaseOf(path, 'Region', label('Region'), 'Regions', regionMember),
+                distance: distanceNode ? numberOf(distanceNode) : null,
+                distanceField: 'Distance',
+            } as EdgeRegionLayerData);
         }
 
         if (inAncestry(cls, POLYGON_COLLIDER_CLASS) || isListNode(childNamed(group, 'Vertices'))) {

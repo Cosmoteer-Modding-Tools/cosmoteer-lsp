@@ -64,3 +64,32 @@ describe('in-shader document features', () => {
         expect(def).toBeNull();
     });
 });
+
+describe('preprocessor macro hover', () => {
+    it('explains an engine feature-level macro', async () => {
+        const { shaderDocumentHover } = await import('../../../src/features/shader/shader-document-features');
+        const src = '#ifdef GTE_PS_4_0_level_9_3\nfloat x;\n#endif';
+        const hover = shaderDocumentHover(src, src.indexOf('GTE_PS') + 2);
+        expect(hover).not.toBeNull();
+        expect(JSON.stringify(hover)).toContain('shader model 4.0 level 9.3 or above');
+    });
+
+    it('shows a defined macro with its replacement', async () => {
+        const { shaderDocumentHover } = await import('../../../src/features/shader/shader-document-features');
+        const src = '#define TEX_SCALE 0.3\nfloat f() { return TEX_SCALE; }';
+        const hover = shaderDocumentHover(src, src.lastIndexOf('TEX_SCALE') + 2);
+        expect(JSON.stringify(hover)).toContain('#define TEX_SCALE 0.3');
+    });
+
+    it('explains a guard tested only by an included base shader', async () => {
+        const { shaderDocumentHover } = await import('../../../src/features/shader/shader-document-features');
+        const src = '#define ENABLE_STENCIL\n#include "base_atlas.shader"';
+        const includeText = '#ifdef ENABLE_STENCIL\nfloat guarded;\n#endif';
+        // The macro is defined in the edited file, so the define hover wins.
+        const defined = shaderDocumentHover(src, src.indexOf('ENABLE_STENCIL') + 2, includeText);
+        expect(JSON.stringify(defined)).toContain('#define ENABLE_STENCIL');
+        // A guard never defined anywhere still gets the tested-guard explanation.
+        const testedOnly = shaderDocumentHover('#ifdef DISABLE_ANIMATION\n#endif', 9);
+        expect(JSON.stringify(testedOnly)).toContain('guard tested');
+    });
+});

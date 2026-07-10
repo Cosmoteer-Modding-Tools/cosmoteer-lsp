@@ -4,9 +4,9 @@ import { basename, dirname, join, relative, resolve } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, isAssignmentNode, isGroupNode, isListNode, isValueNode } from '../core/ast/ast';
 import { parseAlias } from '../document/schema/alias-root';
-import { isManifestBasename } from '../document/document-kind';
+import { isManifestBasename, isRulesFileName } from '../document/document-kind';
 import { parseFilePath } from '../utils/ast.utils';
-import { parseModActions } from './action-parser';
+import { findActionsList, parseModActions } from './action-parser';
 
 /**
  * Which files of a mod the game can actually load, computed from the manifest outward.
@@ -138,7 +138,7 @@ const rulesFilesUnder = (root: string): string[] => {
         }
         for (const entry of entries) {
             if (entry.isDirectory()) walk(join(dir, entry.name));
-            else if (entry.name.toLowerCase().endsWith('.rules')) out.push(join(dir, entry.name));
+            else if (isRulesFileName(entry.name)) out.push(join(dir, entry.name));
         }
     };
     walk(root);
@@ -156,7 +156,7 @@ const resolveRef = (raw: string, fromDir: string, modRoot: string, knownFiles: S
     const ref = raw.trim().replace(/\\/g, '/');
     if (!ref || /^\.\/data\//i.test(ref)) return undefined;
     const withExtension = /\.[^/.]+$/.test(ref) ? ref : `${ref}.rules`;
-    if (!withExtension.toLowerCase().endsWith('.rules')) return undefined;
+    if (!isRulesFileName(withExtension)) return undefined;
     for (const base of [fromDir, modRoot]) {
         const candidate = resolve(base, withExtension);
         if (knownFiles.has(reachabilityKey(candidate))) return candidate;
@@ -231,6 +231,16 @@ export const computeModReachability = async (
             const refs: string[] = [];
             for (const source of action.sources) collectSourceRefs(source, refs);
             for (const ref of refs) enqueue(resolveRef(ref, manifestDir, root, knownFiles));
+        }
+        // A manifest may build its `Actions` by concatenating other files' action lists via virtual
+        // inheritance (`Actions: &<launcher.rules>/Actions, …`). Those `<file>` refs live in the
+        // list's inheritance, not its body, so parseModActions never sees them — yet the game loads
+        // each referenced file to merge its actions in. Seed them here; their own `<…>` refs (the
+        // parts/resources the actions add) then expand in the wave below.
+        for (const base of findActionsList(document)?.inheritance ?? []) {
+            if (!isValueNode(base) || base.valueType.type !== 'Reference') continue;
+            const alias = parseAlias(String(base.valueType.value));
+            if (alias) enqueue(resolveRef(alias.fileRef.replace(/^</, '').replace(/>$/, ''), manifestDir, root, knownFiles));
         }
         // Language files under the StringsFolder are loaded by the game directly. The game's node
         // lookup is case-insensitive, so `Stringsfolder` (seen in a published mod) counts too.

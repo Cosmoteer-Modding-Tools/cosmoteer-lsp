@@ -12,6 +12,7 @@ import {
     CellSetLayerData,
     CircleLayerData,
     ComponentPointsLayerData,
+    EdgeRegionLayerData,
     GridMutation,
     PartGridData,
     PointLayerData,
@@ -111,6 +112,13 @@ describe('sweep-round layers', () => {
         const circle = layerOf<CircleLayerData>(base, 'Components/cbuff/BuffCenter');
         expect(circle.center).toEqual({ x: 0.5, y: 1 });
         expect(circle.radius).toBe(2);
+    });
+
+    it('builds the edge-distance region layer', () => {
+        const region = layerOf<EdgeRegionLayerData>(base, 'Components/regulator/Region');
+        expect(region.kind).toBe('edgeRegion');
+        expect(region.distance).toBe(3);
+        expect(region.distanceField).toBe('Distance');
     });
 
     it('builds the tile line ray layer', () => {
@@ -366,5 +374,16 @@ describe('sweep-round mutations', () => {
         const center = await mutate({ op: 'setPoint', layerId: 'Components/cbuff/BuffCenter', point: { x: 1, y: 1 } });
         const circle = layerOf<CircleLayerData>(center.data, 'Components/cbuff/BuffCenter');
         expect(circle.center).toEqual({ x: 1, y: 1 });
+    });
+
+    it('writes the region distance into the nested Region group and clears it', async () => {
+        // The distance lives at Region/Distance, so the edit targets the nested group, not a sibling.
+        const grown = await mutate({ op: 'setNumber', layerId: 'Components/regulator/Region', field: 'Distance', value: 6 });
+        expect(grown.edited).toContain('Distance = 6');
+        expect(layerOf<EdgeRegionLayerData>(grown.data, 'Components/regulator/Region').distance).toBe(6);
+
+        const cleared = await mutate({ op: 'setNumber', layerId: 'Components/regulator/Region', field: 'Distance', value: null });
+        expect(cleared.edited).not.toContain('Distance =');
+        expect(layerOf<EdgeRegionLayerData>(cleared.data, 'Components/regulator/Region').distance).toBeNull();
     });
 });

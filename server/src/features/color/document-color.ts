@@ -98,7 +98,7 @@ function* colorGroups(document: AbstractNodeDocument): Generator<ColorGroup> {
             isGroupNode(node) || isListNode(node) || isDocumentNode(node)
                 ? node.elements
                 : isAssignmentNode(node)
-                  ? [node.right]
+                  ? (node.right ? [node.right] : [])
                   : [];
         for (const child of children) yield* visit(child);
     };

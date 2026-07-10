@@ -4,6 +4,7 @@ import { readdir } from 'fs/promises';
 import { sep } from 'path';
 import { Dirent } from 'fs';
 import { parseFile } from '../utils/ast.utils';
+import { isRulesFileName } from '../document/document-kind';
 import * as l10n from '@vscode/l10n';
 import * as path from 'path';
 import { globalSettings } from '../settings';
@@ -260,7 +261,7 @@ export class CosmoteerWorkspaceService {
                     return parent;
                 }
                 if (dirent.isFile()) {
-                    if (dirent.name.endsWith('.rules')) {
+                    if (isRulesFileName(dirent.name)) {
                         return {
                             type: 'File',
                             name: dirent.name,
@@ -271,7 +272,9 @@ export class CosmoteerWorkspaceService {
                             parent: parentTree,
                         };
                     }
-                    if (dirent.name.endsWith('.png') || dirent.name.endsWith('.shader')) {
+                    // Case-folded like the rules filter above: the game loads `Icon.PNG` through the
+                    // case-insensitive Windows FS, so it must land in the asset tree too.
+                    if (/\.(png|shader)$/i.test(dirent.name)) {
                         return {
                             type: 'File',
                             name: dirent.name,

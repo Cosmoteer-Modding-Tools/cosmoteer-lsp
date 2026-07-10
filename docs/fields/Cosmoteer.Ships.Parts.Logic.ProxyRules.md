@@ -10,19 +10,27 @@
 ## PartLocation
 `IntVector2` · optional
 
-<!-- TODO: needs documentation -->
+The cell, in this part's rules coordinates, whose occupying part is proxied. Rotation and flip
+of the placed part are applied, and the proxy reconnects automatically as parts are built or
+destroyed on that cell. When omitted, the proxy targets a component of its own part instead.
 
 ## ProxyToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A toggle of this part that gates the proxy connection. While it is off the proxy disconnects
+entirely, as if the target did not exist. Invert the reading with
+[[Cosmoteer.Ships.Parts.Logic.ProxyRules.InvertProxyToggle]].
 
 ## InvertProxyToggle
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Inverts [[Cosmoteer.Ships.Parts.Logic.ProxyRules.ProxyToggle]], so the proxy connects while
+that toggle is off.
 
 ## ProxyableComponents
 `ProxyableComponent[]` · optional
 
-<!-- TODO: needs documentation -->
+The candidate targets, checked in order against the proxied part. The first entry whose
+`PartCriteria` matches (or that has none) wins, and its `ComponentID` names the component to
+mirror. The flat `ComponentID = …` spelling on the proxy is the one-entry shorthand for this
+list.

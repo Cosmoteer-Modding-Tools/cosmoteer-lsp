@@ -12,6 +12,7 @@ import {
 } from '../../../core/ast/ast';
 import { findNodeByIdentifier, getStartOfAstNode, parseFile } from '../../../utils/ast.utils';
 import { cachedParseFilePath, cachedReaddir } from '../../../workspace/fs-cache';
+import { isRulesFileName, isRulesPathSegment } from '../../../document/document-kind';
 import { getParsedFileDocument } from '../../../workspace/parsed-file-cache';
 import { CosmoteerWorkspaceService, FileTree, FileWithPath, isFile } from '../../../workspace/cosmoteer-workspace.service';
 import { AutoCompletionStrategy } from './autocompletion.strategy';
@@ -19,6 +20,8 @@ import { join } from 'path';
 import { CancellationError } from '../../../utils/cancellation';
 import { FullNavigationStrategy } from '../../navigation/full.navigation-strategy';
 import { modAddedGlobalNames, modOverrideMemberNamesForFile, resolveFromModContextOnly } from '../../../mod/mod-context';
+import { AddBaseIndex } from '../../../mod/add-base.index';
+import { findInheritorsOf } from '../../../semantics/inheritor-resolver';
 
 const navigation = new FullNavigationStrategy();
 const EMPTY_STRING = '';
@@ -276,6 +279,11 @@ const traversePath = async (
     // segment split and the on-disk lookups behave identically on every OS.
     if (path.startsWith('<')) path = path.replace(/\\/g, '/');
 
+    // Mods write the game-root prefix in any casing (`&<./data/...>`) and the game resolves it
+    // through the case-insensitive Windows FS. Canonicalize to `<./Data/` so the case-sensitive
+    // branch below matches, mirroring navigateRules' case-insensitive `data` check.
+    path = path.replace(/^<\.\/data\//i, '<./Data/');
+
     const parts = path === EMPTY_STRING ? [EMPTY_STRING] : extractSubstrings(path);
     if (path.endsWith('/')) parts.push(EMPTY_STRING);
     if (path.startsWith('<./Data/')) {
@@ -304,7 +312,7 @@ const traverseOwnPath = async (
     originUri: string
 ) => {
     const currentLocation = getStartOfAstNode(node).uri;
-    const indexOfRules = parts.findIndex((part) => part.endsWith('.rules>'));
+    const indexOfRules = parts.findIndex((part) => isRulesPathSegment(part));
     if (indexOfRules !== -1) {
         // Resolve the referenced file (the path up to and including the `.rules>`
         // token — slicing it off would parse the directory and throw), then list /
@@ -361,7 +369,7 @@ const traverseCosmoteerPath = async (
     originUri: string
 ) => {
     const isWorkshopPath = parts.some((part) => part.startsWith('..'));
-    const indexOfRules = parts.findIndex((part) => part.endsWith('.rules>'));
+    const indexOfRules = parts.findIndex((part) => isRulesPathSegment(part));
     if (indexOfRules !== -1 && !isWorkshopPath) {
         // parts look like ['<.', 'Data', <dirs…>, 'file.rules>', <in-file…>]. findFile
         // wants the workspace-relative path BELOW Data, with the trailing `>` stripped —
@@ -392,13 +400,13 @@ const traverseCosmoteerPath = async (
 const tarverseWorkshopPath = async (parts: string[], cancellationToken: CancellationToken, originUri: string) => {
     const pathWithoutData = parts.slice(parts.findIndex((part) => part.startsWith('..')));
     const workshopPath = join(CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath, pathWithoutData.join('/'));
-    if (parts[parts.length - 1].endsWith('.rules>')) {
+    if (isRulesPathSegment(parts[parts.length - 1])) {
         const cosmoteerRules = await cachedParseFilePath(workshopPath, cancellationToken);
         return getOptionsForLevel(cosmoteerRules);
-    } else if (parts.some((part) => part.endsWith('.rules>'))) {
+    } else if (parts.some((part) => isRulesPathSegment(part))) {
         const cosmoteerRules = await cachedParseFilePath(workshopPath, cancellationToken);
         return await traversePath(
-            parts.slice(parts.findIndex((part) => part.endsWith('.rules'))).join('/'),
+            parts.slice(parts.findIndex((part) => part.toLowerCase().endsWith('.rules'))).join('/'),
             cosmoteerRules,
             cancellationToken,
             originUri
@@ -427,7 +435,7 @@ const getPathOptions = async (path: string) => {
     const dirents = await cachedReaddir(path).catch(() => null);
     if (dirents) {
         for (const dirent of dirents) {
-            if (dirent.isFile() && dirent.name.endsWith('.rules')) options.push(dirent.name + '>');
+            if (dirent.isFile() && isRulesFileName(dirent.name)) options.push(dirent.name + '>');
             else if (dirent.isDirectory()) options.push(dirent.name + '/');
         }
     } else {
@@ -437,7 +445,7 @@ const getPathOptions = async (path: string) => {
         const parentDirents = await cachedReaddir(path.substring(0, lastSlash + 1)).catch(() => null);
         if (!parentDirents) return options;
         for (const dirent of parentDirents) {
-            if (dirent.isFile() && dirent.name.toLowerCase().startsWith(subPath) && dirent.name.endsWith('.rules'))
+            if (dirent.isFile() && dirent.name.toLowerCase().startsWith(subPath) && isRulesFileName(dirent.name))
                 options.push(dirent.name + '>');
             else if (dirent.isDirectory() && dirent.name.toLowerCase().startsWith(subPath))
                 options.push(dirent.name + '/');
@@ -466,6 +474,9 @@ const traverseReferencePath = async (
     if (!(isGroupNode(currentNode) || isListNode(currentNode) || isDocumentNode(currentNode)) && node.parent) {
         currentNode = node.parent;
     }
+    // The base a virtual-inheritance `:` was traversed against, so its concrete inheritors' members can
+    // be offered alongside the base's own (a member that exists only on a deriving override).
+    let virtualBase: AbstractNode | undefined;
     for (const path of parts) {
         if (path === EMPTY_STRING) break;
 
@@ -495,12 +506,22 @@ const traverseReferencePath = async (
         if (path === ':') {
             // `:` selects the most-derived inheritor (virtual inheritance), statically approximated
             // as the node itself (see `stepIntoNode` in semantics/reference-resolver.ts). `currentNode`
-            // has already been normalized to a container above, so keep it.
+            // has already been normalized to a container above, so keep it, and remember it as the
+            // virtual base so its inheritors' members can be offered too.
+            virtualBase = currentNode;
             continue;
         }
 
-        if (isGroupNode(currentNode) && !isNaN(parseInt(path)) && currentNode.inheritance) {
-            const nextNode = currentNode.inheritance.find((_, i) => i === parseInt(path));
+        if (isGroupNode(currentNode) && !isNaN(parseInt(path))) {
+            // The node's own written inheritance bases come first; past them, the bases a mod's
+            // `AddBase` action appends resolve through the same index the shared resolver uses, so
+            // `^/N/` completion offers an added base's members exactly as navigation resolves them.
+            const inheritanceIndex = parseInt(path);
+            const staticLength = currentNode.inheritance?.length ?? 0;
+            const nextNode =
+                inheritanceIndex < staticLength
+                    ? currentNode.inheritance![inheritanceIndex]
+                    : AddBaseIndex.instance.appendedBaseAt(currentNode, inheritanceIndex - staticLength);
             if (!nextNode) break;
             currentNode = nextNode;
             continue;
@@ -556,8 +577,35 @@ const traverseReferencePath = async (
         }
     }
     if (isAssignmentNode(currentNode) && currentNode.left.name === parts[parts.length - 2]) return [];
-    return getOptionsForParentLevel(parts[parts.length - 1], currentNode, parts[parts.length - 2] === '^');
-};
+    const search = parts[parts.length - 1];
+    const options = getOptionsForParentLevel(search, currentNode, parts[parts.length - 2] === '^');
+    if (!virtualBase) return options;
+    // Merge the members every concrete inheritor of the base defines, so a `:` path offers a
+    // virtual member that only a deriving override supplies, not just the base's own declarations.
+    const inheritorNames = await inheritorMemberNames(virtualBase, search, cancellationToken);
+    return inheritorNames.length ? [...new Set([...options, ...inheritorNames])] : options;
+}
+
+/**
+ * The member names every concrete inheritor of a virtual-inheritance base defines, filtered by the
+ * typed prefix. These complete a `&Base/:/…` path with the members the derivers supply, including any
+ * the base itself only declares virtually (or not at all).
+ *
+ * @param base the virtual base a `:` was traversed against.
+ * @param search the member-name prefix typed so far.
+ * @param cancellationToken cancels the inheritor search.
+ * @returns the deduplicated inheritor member names.
+ */
+const inheritorMemberNames = async (
+    base: AbstractNode,
+    search: string,
+    cancellationToken: CancellationToken
+): Promise<string[]> => {
+    const inheritors = await findInheritorsOf(base, cancellationToken).catch(() => []);
+    const names = new Set<string>();
+    for (const inheritor of inheritors) for (const name of getOptionsForLevel(inheritor, search)) names.add(name);
+    return [...names];
+};;
 
 /**
  *  Traverse a reference path that starts with a reference to a super entity, resolving it to the target entity and listing its members.

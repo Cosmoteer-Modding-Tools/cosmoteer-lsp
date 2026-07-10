@@ -78,6 +78,13 @@ export interface SchemaTypeDef {
      */
     scalarForm?: boolean;
     /**
+     * The member a scalar value lands in when written for a `scalarForm` type (`FireTrigger =
+     * Turret` stores into `ID`, an `EditorParentParts` entry into `Parent`). Extracted by schemagen
+     * from the store instruction in the deserializer's scalar branch. Absent when the scalar is
+     * parsed rather than stored into one member (`Color = White`).
+     */
+    scalarField?: string;
+    /**
      * True when a globally registered wrapper serializer reads the type from a bare word looked
      * up by name (`ValueCombiner = Add`). Strings only, a number still throws in game.
      */
@@ -88,6 +95,15 @@ export interface SchemaTypeDef {
      * MultiHitEffectRules' effect list, a proxy's group-only ProxyRules). Extracted by schemagen.
      */
     valueForm?: ValueType;
+    /**
+     * True when this type and its whole `extends` chain deserialize purely by reflection over their
+     * `[Serialize]` members, so the emitted `fields` list is the complete set of keys the engine reads.
+     * Detected by schemagen (no custom `[ObjectTextConstructor]`/`ReadContentFrom` hook, no `valueForm`,
+     * no custom wrapper serializer, no generic `*FromPath` read, anywhere in the chain). Only under this
+     * guarantee is a written key that the class does not declare provably ignored by the game, which is
+     * what the ignored-field validator gates on. Absent means the member list may be incomplete.
+     */
+    purelyReflective?: boolean;
     fields: SchemaField[];
 }
 
@@ -111,5 +127,8 @@ export interface SchemaBundle {
     registries: Record<string, SchemaRegistry>;
     types: Record<string, SchemaTypeDef>;
     enums: Record<string, SchemaEnum>;
+    /** Class FullName → ids the engine hardcodes in C# (schemagen sweeps every literal
+     *  `new ID<T>("…")` construction), so no `.rules` file declares them. */
+    builtinIds?: Record<string, string[]>;
     unresolved: { types: Record<string, number>; generics: Record<string, number> };
 }

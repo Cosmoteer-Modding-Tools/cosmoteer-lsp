@@ -438,6 +438,10 @@ export const lexer = (input: string): Token[] => {
         // whole game tree (find-all-references) would otherwise spew thousands of these.
         if (globalSettings.trace.server === 'verbose') console.warn('unexcpected', char);
         pushToken(createToken(TOKEN_TYPES.UNEXPECTED, lineOffset, lineNumber, current, current + 1, char));
+        // Advance the column too: without this every UNEXPECTED char shifted all following tokens
+        // on the line one column left, misplacing their diagnostics and breaking the parser's
+        // source-adjacency check for assembled operators such as `@&` or `||`.
+        lineOffset++;
         current++;
     }
 

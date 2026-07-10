@@ -123,7 +123,9 @@ export const extractValueCodeAction = (
     if (insertLine === undefined) return undefined;
     const edits: TextEdit[] = [
         TextEdit.insert(Position.create(insertLine, 0), `${name} = ${literal}\n`),
-        ...occurrences.map((assignment) => TextEdit.replace(rangeOf(assignment.right.position), `&~/${name}`)),
+        ...occurrences.flatMap((assignment) =>
+            assignment.right ? [TextEdit.replace(rangeOf(assignment.right.position), `&~/${name}`)] : []
+        ),
     ];
     return {
         title: l10n.t('Extract value {0} to shared root field ({1} occurrences)', literal, occurrences.length),

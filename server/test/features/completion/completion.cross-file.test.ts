@@ -108,6 +108,28 @@ describe('ReferenceAutoCompletionStrategy — cross-file', () => {
             expect((await complete('&<./Data/a.rules>/A/To', docA)).sort()).toEqual(['ToB', 'ToC', 'ToNested'].sort());
         });
 
+        it('<./data/a.rules>/A/ with a lowercase game-root prefix lists the same members', async () => {
+            // Mods commonly write `&<./data/...>` and the game resolves it through the
+            // case-insensitive Windows FS, so completion must match navigation here.
+            expect((await complete('&<./data/a.rules>/A/', docA)).sort()).toEqual(
+                ['Direct', 'ToB', 'ToC', 'ToNested', 'RefToB'].sort()
+            );
+        });
+
+        it('<./data/ with a lowercase game-root prefix lists the workspace Data directory', async () => {
+            const result = await complete('&<./data/', docA);
+            expect(result).toContain('a.rules>');
+            expect(result).toContain('ships/');
+        });
+
+        it('<./DATA/A.RULES>/A/ with arbitrary casing throughout still lists members of A', async () => {
+            // Prefix, directory and extension casing all fold: the game resolves the whole path
+            // through the case-insensitive Windows FS.
+            expect((await complete('&<./DATA/A.RULES>/A/', docA)).sort()).toEqual(
+                ['Direct', 'ToB', 'ToC', 'ToNested', 'RefToB'].sort()
+            );
+        });
+
         it('<../c.rules>/ lists members of c.rules via the own relative path', async () => {
             expect(await complete('&<../c.rules>/', shipDoc)).toEqual(['C']);
         });

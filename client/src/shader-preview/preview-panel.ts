@@ -7,7 +7,11 @@ interface ShaderPreviewData {
     shaderName: string;
     shaderUri: string | null;
     glsl: string | null;
-    vertexStage: { glsl: string; fragment: string; kind: 'sprite' | 'particle' | 'beam' } | null;
+    vertexStage: {
+        glsl: string;
+        fragment: string;
+        kind: 'sprite' | 'particle' | 'beam' | 'crew' | 'shipPart';
+    } | null;
     translationOk: boolean;
     reason?: string;
     constants: Array<{
@@ -22,7 +26,7 @@ interface ShaderPreviewData {
     textures: Array<{
         name: string;
         uri: string | null;
-        sampler: { sampleMode: string; uMode: string; vMode: string; mips: boolean };
+        sampler: { sampleMode: string; uMode: string; vMode: string; mips: boolean; mipCount?: number };
     }>;
     blend: {
         label: string;

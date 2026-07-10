@@ -8,31 +8,31 @@
 > the [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## SourceRgbFactor
-`enum BlendFactor` · optional · default `Mono.Cecil.CustomAttributeArgument` · one of: `Zero`, `One`, `SourceColor`, `InverseSourceColor`, `SourceAlpha`, `InverseSourceAlpha`, `DestColor`, `InverseDestColor`, `DestAlpha`, `InverseDestAlpha`
+`enum BlendFactor` · optional · default `SourceAlpha` · one of: `Zero`, `One`, `SourceColor`, `InverseSourceColor`, `SourceAlpha`, `InverseSourceAlpha`, `DestColor`, `InverseDestColor`, `DestAlpha`, `InverseDestAlpha`
 
 The SourceRgbFactor parameter for every RGB channel in the equation: RgbOperator([sourceRGB] * SourceRgbFactor, [destRGB] * DestRgbFactor)
 
 ## DestRgbFactor
-`enum BlendFactor` · optional · default `Mono.Cecil.CustomAttributeArgument` · one of: `Zero`, `One`, `SourceColor`, `InverseSourceColor`, `SourceAlpha`, `InverseSourceAlpha`, `DestColor`, `InverseDestColor`, `DestAlpha`, `InverseDestAlpha`
+`enum BlendFactor` · optional · default `InverseSourceAlpha` · one of: `Zero`, `One`, `SourceColor`, `InverseSourceColor`, `SourceAlpha`, `InverseSourceAlpha`, `DestColor`, `InverseDestColor`, `DestAlpha`, `InverseDestAlpha`
 
 The DestRgbFactor parameter for every RGB channel in the equation: RgbOperator([sourceRGB] * SourceRgbFactor, [destRGB] * DestRgbFactor)
 
 ## RgbOperator
-`enum BlendOperator` · optional · default `Mono.Cecil.CustomAttributeArgument` · one of: `Add`, `SubtractSourceFromDest`, `SubtractDestFromSource`, `Min`, `Max`
+`enum BlendOperator` · optional · default `Add` · one of: `Add`, `SubtractSourceFromDest`, `SubtractDestFromSource`, `Min`, `Max`
 
 The RgbOperator function for every RGB channel in the equation: RgbOperator([sourceRGB] * SourceRgbFactor, [destRGB] * DestRgbFactor)
 
 ## SourceAlphaFactor
-`enum BlendFactor` · optional · default `Mono.Cecil.CustomAttributeArgument` · one of: `Zero`, `One`, `SourceColor`, `InverseSourceColor`, `SourceAlpha`, `InverseSourceAlpha`, `DestColor`, `InverseDestColor`, `DestAlpha`, `InverseDestAlpha`
+`enum BlendFactor` · optional · default `InverseDestAlpha` · one of: `Zero`, `One`, `SourceColor`, `InverseSourceColor`, `SourceAlpha`, `InverseSourceAlpha`, `DestColor`, `InverseDestColor`, `DestAlpha`, `InverseDestAlpha`
 
 The SourceAlphaFactor parameter for the alpha channel in the equation: AlphaOperator([sourceAlpha] * SourceAlphaFactor, [destAlpha] * DestAlphaFactor)
 
 ## DestAlphaFactor
-`enum BlendFactor` · optional · default `Mono.Cecil.CustomAttributeArgument` · one of: `Zero`, `One`, `SourceColor`, `InverseSourceColor`, `SourceAlpha`, `InverseSourceAlpha`, `DestColor`, `InverseDestColor`, `DestAlpha`, `InverseDestAlpha`
+`enum BlendFactor` · optional · default `One` · one of: `Zero`, `One`, `SourceColor`, `InverseSourceColor`, `SourceAlpha`, `InverseSourceAlpha`, `DestColor`, `InverseDestColor`, `DestAlpha`, `InverseDestAlpha`
 
 The DestAlphaFactor parameter for the alpha channel in the equation: AlphaOperator([sourceAlpha] * SourceAlphaFactor, [destAlpha] * DestAlphaFactor)
 
 ## AlphaOperator
-`enum BlendOperator` · optional · default `Mono.Cecil.CustomAttributeArgument` · one of: `Add`, `SubtractSourceFromDest`, `SubtractDestFromSource`, `Min`, `Max`
+`enum BlendOperator` · optional · default `Add` · one of: `Add`, `SubtractSourceFromDest`, `SubtractDestFromSource`, `Min`, `Max`
 
 The AlphaOperator function for the alpha channel in the equation: AlphaOperator([sourceAlpha] * SourceAlphaFactor, [destAlpha] * DestAlphaFactor)

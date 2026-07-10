@@ -33,8 +33,9 @@ export const resolveInclude = (fromFile: string, includePath: string, dataDir?: 
 /**
  * Expands a Cosmoteer `.shader` into a single preprocessed source string, ready for translation to
  * GLSL. It inlines `#include "…"` directives in place and resolves the C-style preprocessor subset the
- * shaders use (`#define`, `#undef`, `#ifdef`, `#ifndef`, `#else`, `#endif`) so the entry points gated
- * behind `#ifdef USE_DEFAULT_PIX` and friends are present in the output.
+ * shaders use (`#define`, `#undef`, `#ifdef`, `#ifndef`, `#if`/`#elif` with `defined(…)`, `#else`,
+ * `#endif`) so the entry points gated behind `#ifdef USE_DEFAULT_PIX` and friends are present in the
+ * output.
  *
  * It is intentionally a small preprocessor, not a full one. Object-like macros are substituted, but
  * function-like macros are not (the vanilla shaders do not use them, they prefer `static const`
@@ -55,6 +56,31 @@ interface CondFrame {
 const substituteMacros = (line: string, macros: Map<string, string>): string => {
     if (macros.size === 0) return line;
     return line.replace(/\b[A-Za-z_]\w*\b/g, (word) => (macros.has(word) ? macros.get(word)! : word));
+};
+
+/**
+ * Evaluates a `#if`/`#elif` condition against the macro table. Supports the subset the shaders use:
+ * `defined(NAME)` (and `defined NAME`), `!`, `&&`, `||`, parentheses, comparisons, and integer
+ * literals; undefined identifiers evaluate to 0 and a defined-but-empty macro to 1, the C convention.
+ * A condition that still contains anything else after substitution conservatively evaluates true, so
+ * an unsupported expression keeps its branch rather than silently dropping code.
+ */
+const evalCondition = (expr: string, macros: Map<string, string>): boolean => {
+    let s = expr.replace(/\/\/.*$|\/\*.*?\*\//g, ' ');
+    s = s.replace(/\bdefined\s*\(\s*([A-Za-z_]\w*)\s*\)|\bdefined\s+([A-Za-z_]\w*)/g, (_m, a, b) =>
+        macros.has(a ?? b) ? '1' : '0'
+    );
+    s = s.replace(/\b[A-Za-z_]\w*\b/g, (word) => {
+        if (!macros.has(word)) return '0';
+        const value = macros.get(word)!.trim();
+        return /^\d+$/.test(value) ? value : '1';
+    });
+    if (!/^[\d\s!&|()<>=+*/%-]*$/.test(s) || !s.trim()) return true;
+    try {
+        return Boolean(Function(`"use strict"; return (${s});`)());
+    } catch {
+        return true;
+    }
 };
 
 /**
@@ -107,6 +133,19 @@ export const expandShaderSource = async (
                     const has = macros.has(rest.trim());
                     const active = emitting() && (keyword === 'ifdef' ? has : !has);
                     stack.push({ active, taken: active, parentActive: emitting() });
+                    continue;
+                }
+                if (keyword === 'if') {
+                    const active = emitting() && evalCondition(rest, macros);
+                    stack.push({ active, taken: active, parentActive: emitting() });
+                    continue;
+                }
+                if (keyword === 'elif') {
+                    const frame = stack.pop();
+                    if (frame) {
+                        const active = frame.parentActive && !frame.taken && evalCondition(rest, macros);
+                        stack.push({ active, taken: frame.taken || active, parentActive: frame.parentActive });
+                    }
                     continue;
                 }
                 if (keyword === 'else') {

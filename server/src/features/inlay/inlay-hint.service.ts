@@ -52,11 +52,12 @@ export class InlayHintService {
             if (!node || cancellationToken.isCancellationRequested) continue;
             if (isAssignmentNode(node)) {
                 const right = node.right;
+                if (!right) continue;
                 if (
                     isMathExpressionNode(right) ||
                     isFunctionCallNode(right) ||
                     isReferenceValueNode(right) ||
-                    isPercentLiteral(right)
+                    isSuffixedNumberLiteral(right)
                 ) {
                     // Math/function results and plain reference assignments (`COST = &<file>/COST`)
                     // both annotate with the number they resolve to — a cross-file or inherited
@@ -137,7 +138,7 @@ export class InlayHintService {
         // lone reference / percentage literal whose resolved number isn't visible in the source.
         const computes =
             group.some((node) => isExpressionNode(node) || isFunctionCallNode(node) || isMathExpressionNode(node)) ||
-            (group.length === 1 && (isReferenceValueNode(group[0]) || isPercentLiteral(group[0])));
+            (group.length === 1 && (isReferenceValueNode(group[0]) || isSuffixedNumberLiteral(group[0])));
         if (!computes) return;
         const end = endPositionOf(group);
         if (end.line < range.start.line || end.line > range.end.line) return;
@@ -157,13 +158,15 @@ const isReferenceValueNode = (node: AbstractNode): node is ValueNode =>
     isValueNode(node) && node.valueType.type === 'Reference';
 
 /**
- * An unquoted percentage literal (`50%`, `-3.5 %`). The lexer keeps `%` inside the value token, so
- * these are plain `String`-typed values rather than `Number`s. The evaluator converts them to their
- * decimal (`÷100`) value, which is what the inlay hint surfaces. Mirrors the percent rule in
- * {@link evaluateNumericValue}'s `evaluateValue`.
+ * An unquoted percentage or degrees literal (`50%`, `-3.5 %`, `90d`). The lexer keeps the suffix
+ * inside the value token, so these are plain `String`-typed values rather than `Number`s. The
+ * evaluator converts them the way the game does before mXparser sees them (`÷100` for percent,
+ * degrees to radians), which is what the inlay hint surfaces. A radians literal (`2r`) converts to
+ * its own digits, so it gets no hint. Mirrors the suffix rules in {@link evaluateNumericValue}'s
+ * `evaluateValue`.
  */
-const isPercentLiteral = (node: AbstractNode): node is ValueNode =>
-    isValueNode(node) && !node.quoted && /^-?\d*\.?\d+\s*%$/.test(String(node.valueType.value));
+const isSuffixedNumberLiteral = (node: AbstractNode): node is ValueNode =>
+    isValueNode(node) && !node.quoted && /^-?\d*\.?\d+\s*[%d]$/.test(String(node.valueType.value));
 
 /** The position just after the last character of an expression segment (where its ` = N` hint sits). */
 const endPositionOf = (nodes: AbstractNode[]): Position => {

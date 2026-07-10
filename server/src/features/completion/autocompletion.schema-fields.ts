@@ -8,7 +8,6 @@ import {
     listSlotType,
     memberScopeClassAt,
     registryForGroup,
-    resolveGroupClass,
 } from '../../document/schema/schema-context';
 import { documentRootClass, documentRootRegistry } from '../../document/schema/document-root';
 import {
@@ -17,12 +16,17 @@ import {
     fieldSignatureMarkdown,
     fieldsOf,
     isLocalizationKeyType,
+    scalarReferenceTargetOf,
     schema,
+    typeDef,
     valueTypeLabel,
 } from '../../document/schema/schema';
 import { SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { Completion } from './autocompletion.service';
 import { completeFieldValue, discriminatorCompletions } from './autocompletion.schema';
+import { componentIdCompletions } from './autocompletion.component-id';
+import { componentNameCompletions } from './autocompletion.component-name';
+import { mapEntryKeyTargetOf } from '../navigation/schema-id-reference.navigation';
 import { resolveClassThroughInheritance } from './inheritance-resolution';
 import { shaderConstantCompletions, shaderConstantGroupClass } from './autocompletion.shader-constants';
 
@@ -90,6 +94,12 @@ const listElementCompletions = (list: ListNode): Completion[] => {
     // are the class's digit fields — plain values with nothing to name-complete.
     if (!slot || slot.kind !== 'list') return [];
     const element = slot.element;
+    // A scalar-form element class with a reference payload (`EditorParentParts` entries) is
+    // normally written as a bare id, so offer nothing here and let the caller's cross-file id
+    // fallback complete the ids instead of scaffolding a `{ … }` block.
+    if (element.kind === 'group' && scalarReferenceTargetOf(element.ref)) {
+        return [];
+    }
     if (element.kind === 'polymorphicGroup' || element.kind === 'group') {
         const scaffold = element.kind === 'polymorphicGroup' ? '{\n\tType = $0\n}' : '{\n\t$0\n}';
         return [
@@ -126,6 +136,12 @@ export const schemaFieldNameCompletions = async (
     // A shader constant written in group form (`_waveTex { … }`) is not a schema field, so the slot
     // walk cannot type it. Resolve its class from the material's referenced `.shader` file instead.
     if (!cls && group) cls = await shaderConstantGroupClass(group, document.uri, cancellationToken);
+    // A `Components` map has no class and no schema field names, its members are free-form component
+    // ids. Offer the ids the part's scope references but nothing declares (a proxy's per-mode target).
+    if (!cls && group) {
+        const componentNames = await componentNameCompletions(group, document, cancellationToken);
+        if (componentNames) return componentNames;
+    }
     // Lower-cased: an already-written `maxhealth` counts as `MaxHealth` (game lookup ignores case).
     const present = new Set(namedMembersOf(group ?? document).map(([name]) => name.toLowerCase()));
     // All-digit fields (Vector2's `0`/`1`, Color's `0`-`3`, …) are the positional names the game
@@ -141,6 +157,9 @@ export const schemaFieldNameCompletions = async (
         documentation: fieldSignatureMarkdown(field, cls ?? undefined),
         insertText: fieldSnippet(field.name, field.valueType),
         isSnippet: true,
+        // The snippet's stop lands at a value position that has its own completions (a subtype for
+        // `Type = `, enum members, `true`/`false`, component ids), so reopen the popup there.
+        triggerSuggest: ['polymorphicGroup', 'enum', 'bool', 'reference'].includes(field.valueType.kind),
         // Required fields sort above optional ones (LSP sorts by sortText lexicographically).
         sortText: `${field.optional ? '1' : '0'}_${field.name}`,
     }));
@@ -183,22 +202,27 @@ const fieldNameAtValuePosition = (linePrefix: string): string | undefined => VAL
 /**
  * Value completion at an empty `Key = ` insertion point, where the AST has no value leaf yet, so the
  * value-node completer can't fire. Detects the field being assigned from the line text and offers the
- * same legal values (enum members, `true`/`false`, `Type=` discriminators, sibling component ids) the
+ * same legal values (enum members, `true`/`false`, `Type=` discriminators, component ids) the
  * value-node path would. Returns `undefined` when not at a value position (so the caller falls back to
  * field-name completion). At a value position it returns the values (possibly empty, the caller must
  * not then offer field names, since `Key = X` always wants a value).
  */
-export const schemaValueCompletionsAtOffset = (
+export const schemaValueCompletionsAtOffset = async (
     document: AbstractNodeDocument,
     offset: number,
-    linePrefix: string
-): Completion[] | undefined => {
+    linePrefix: string,
+    cancellationToken: CancellationToken
+): Promise<Completion[] | undefined> => {
     const fieldName = fieldNameAtValuePosition(linePrefix);
     if (!fieldName) return undefined;
 
     const container = findEnclosingContainer(document, offset);
     if (container && isGroupNode(container)) {
-        return completeFieldValue(container, fieldName, resolveGroupClass(container));
+        // Inheritance-aware like the value-node path: a `MyTurret : Base { Mode = <cursor> }` group
+        // may not redeclare its `Type`, so its class comes from the base.
+        const cls = await resolveClassThroughInheritance(container, cancellationToken);
+        const componentIds = await componentIdCompletions(container, fieldName, cls, cancellationToken);
+        return componentIds ?? completeFieldValue(container, fieldName, cls);
     }
     if (container) {
         // A `Name = <cursor>` inside `[ … ]` resolves against the list's own scope, never the outer
@@ -254,6 +278,27 @@ export const crossFileReferenceTargetAtOffset = (
     ) {
         return valueType.element.target;
     }
+    // A scalar-form group element (`EditorParentParts = ["cosmoteer.armor"]`): a bare entry of a
+    // `list<group>` field reads as the element class's scalar payload.
+    if (
+        (valueType?.kind === 'list' || valueType?.kind === 'range' || valueType?.kind === 'interpolated') &&
+        valueType.element.kind === 'group'
+    ) {
+        const target = scalarReferenceTargetOf(valueType.element.ref);
+        if (target) return target;
+    }
+    // A scalar-form group field written scalar (`FireTrigger = <cursor>`): the value is the class's
+    // scalar payload, a reference id.
+    if (valueType?.kind === 'group') {
+        const target = scalarReferenceTargetOf(valueType.ref);
+        if (target) return target;
+    }
+    // An entry-form map key (`RenderLayers [ { Key = <cursor> } ]`): the entry group has no class of
+    // its own, so the target comes from the enclosing map field's key type.
+    if (fieldName.toLowerCase() === 'key') {
+        const container = findEnclosingContainer(document, offset);
+        if (container && isGroupNode(container)) return mapEntryKeyTargetOf(container);
+    }
     return undefined;
 };
 
@@ -290,6 +335,7 @@ const discriminatorFieldCompletion = (registry: SchemaRegistry): Completion => {
         }`,
         insertText: `${registry.typeField} = $0`,
         isSnippet: true,
+        triggerSuggest: true,
         sortText: '0', // before every other field (which sort as `0_…`/`1_…`)
     };
 };

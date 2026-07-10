@@ -246,6 +246,12 @@
                     "default": true,
                     "description": "Hint at a ',' or ';' separator that a line break already makes redundant. The game ends every field or list element at a line break, so separators are only needed between entries on the same line. Shown as an editor hint, not in the Problems panel."
                 },
+                "cosmoteerLSPRules.diagnostics.validateIgnoredFields": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Hint at a field the game ignores: its group's schema class does not declare the field and no reference in the file reads it, so the value is never loaded. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
+                },
                 "cosmoteerLSPRules.rename.allowEditingVanillaFiles": {
                     "scope": "resource",
                     "type": "boolean",

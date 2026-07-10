@@ -47,4 +47,67 @@ describe('listElementReferenceTarget', () => {
         expect(listElementReferenceTarget(inner as any, refOffset)).toBe('Cosmoteer.Ships.Parts.PartRules');
         expect(listElementReferenceTarget(inner as any, intOffset)).toBeUndefined();
     });
+
+    // A tuple entry of a part's `Resources [ [bullet, 20] ]`: the tuple's first slot is an
+    // ID<ResourceRules> reference, the second an int. The cursor's index picks the entry type.
+    it('resolves a tuple entry target from the cursor offset (Resources entry)', () => {
+        const src = 'Part\n{\n\tResources\n\t[\n\t\t[battery, 20]\n\t]\n}';
+        const doc = parse(src);
+        let inner: AbstractNode | undefined;
+        const walk = (n: any) => {
+            if (isListNode(n)) inner = n; // deepest list wins (visited last)
+            for (const k of (n.elements ?? (n.type === 'Assignment' ? [n.left, n.right] : []))) walk(k);
+        };
+        walk(doc);
+        const refOffset = src.indexOf('battery') + 3;
+        const intOffset = src.indexOf(', 20]') + 2;
+        expect(listElementReferenceTarget(inner as any, refOffset)).toBe('Cosmoteer.Resources.ResourceRules');
+        expect(listElementReferenceTarget(inner as any, intOffset)).toBeUndefined();
+    });
+
+    // The scalar-form spelling of a `list<group>` field: every vanilla wedge part writes
+    // `EditorParentParts = ["cosmoteer.armor"]`, where the bare entry reads as the entry class's
+    // `0` reference field.
+    it('resolves a bare scalar-form entry of a list<group> field (EditorParentParts flat form)', () => {
+        const src = 'Part\n{\n\tEditorParentParts = [ armor_part ]\n}';
+        const doc = parse(src);
+        let list: AbstractNode | undefined;
+        const walk = (n: any) => {
+            if (isListNode(n)) list = n;
+            for (const k of (n.elements ?? (n.type === 'Assignment' ? [n.left, n.right] : []))) walk(k);
+        };
+        walk(doc);
+        const offset = src.indexOf('armor_part') + 3;
+        expect(listElementReferenceTarget(list as any, offset)).toBe('Cosmoteer.Ships.Parts.PartRules');
+    });
+
+    // A reference list nested inside a tuple slot: the career map picker's
+    // `CandidatesClosestToFactions = [3, [faction, …]]` (tuple of int and list<reference FactionRules>).
+    it('resolves a reference list nested inside a tuple slot', () => {
+        const src = 'Galaxy\n{\n\tType = StartingNodePicker\n\tCandidatesClosestToFactions = [3, [monolith]]\n}';
+        const doc = parse(src);
+        let inner: AbstractNode | undefined;
+        const walk = (n: any) => {
+            if (isListNode(n)) inner = n; // deepest list wins (visited last)
+            for (const k of (n.elements ?? (n.type === 'Assignment' ? [n.left, n.right] : []))) walk(k);
+        };
+        walk(doc);
+        const offset = src.indexOf('monolith') + 3;
+        expect(listElementReferenceTarget(inner as any, offset)).toBe('Cosmoteer.Factions.FactionRules');
+    });
+
+    // The just-opened-entry state a modder is actually in when asking for ids: `[<cursor>` with
+    // nothing typed yet must already resolve slot 0.
+    it('resolves the first tuple slot in an empty just-opened entry', () => {
+        const src = 'Part\n{\n\tResources\n\t[\n\t\t[\n\t]\n}';
+        const doc = parse(src);
+        let inner: AbstractNode | undefined;
+        const walk = (n: any) => {
+            if (isListNode(n)) inner = n;
+            for (const k of (n.elements ?? (n.type === 'Assignment' ? [n.left, n.right] : []))) walk(k);
+        };
+        walk(doc);
+        const offset = src.indexOf('[\n\t]') + 1;
+        expect(listElementReferenceTarget(inner as any, offset)).toBe('Cosmoteer.Resources.ResourceRules');
+    });
 });

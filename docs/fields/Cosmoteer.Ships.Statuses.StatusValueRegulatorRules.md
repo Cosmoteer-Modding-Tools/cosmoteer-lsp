@@ -83,7 +83,7 @@ The conversion rate of status value to ValueTargetStorage resources.
 Whether the regular requires free space in the ValueTargetStorage in order to function.
 
 ## AllowedChangeDirections
-`enum ValueChangeDirection` · optional · default `2` · one of: `Negative`, `Positive`, `Any`
+`enum ValueChangeDirection` · optional · default `Any` · one of: `Negative`, `Positive`, `Any`
 
 <!-- TODO: needs documentation -->
 

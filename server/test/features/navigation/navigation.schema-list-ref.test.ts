@@ -27,6 +27,7 @@ describe('schemaReferenceFieldOf: list-element references', () => {
         expect(schemaReferenceFieldOf(valueNode('fringe'))).toEqual({
             targetClass: 'Cosmoteer.Factions.FactionRules',
             value: 'fringe',
+            fieldName: 'AllowedFactions',
         });
     });
 
@@ -51,7 +52,12 @@ describe('mapKeyReferenceAt: map-key references', () => {
     };
 
     it('recognizes a map key as an ID<X> reference', () => {
-        expect(at('Engine', 0)).toEqual({ targetClass: 'Cosmoteer.Ships.Buffs.BuffType', value: 'Engine', node: expect.anything() });
+        expect(at('Engine', 0)).toEqual({
+            targetClass: 'Cosmoteer.Ships.Buffs.BuffType',
+            value: 'Engine',
+            fieldName: 'MaxBuffValues',
+            node: expect.anything(),
+        });
     });
 
     it('does NOT treat the map field name itself as a key', () => {

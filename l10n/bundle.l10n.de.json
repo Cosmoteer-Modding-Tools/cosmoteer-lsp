@@ -68,5 +68,7 @@
     "Unnecessary separator": "Unnötiges Trennzeichen",
     "The line break already ends this entry, so the separator has no effect. Separators are only needed between entries on the same line": "Der Zeilenumbruch beendet diesen Eintrag bereits, das Trennzeichen hat also keine Wirkung. Trennzeichen sind nur zwischen Einträgen in derselben Zeile nötig",
     "Remove separator": "Trennzeichen entfernen",
+    "'{0}' is not a member of {1} and is never referenced in this file, so the game ignores it.": "'{0}' ist kein Mitglied von {1} und wird in dieser Datei nirgends referenziert, das Spiel ignoriert es daher.",
+    "Remove '{0}'": "'{0}' entfernen",
     "'{0}' is a {1} field; the game does not evaluate math here and reads the value as literal text.": "'{0}' ist ein {1}-Feld; das Spiel wertet hier keine Mathematik aus und liest den Wert als wörtlichen Text."
 }

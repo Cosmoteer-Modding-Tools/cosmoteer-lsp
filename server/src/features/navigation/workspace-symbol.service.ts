@@ -101,7 +101,7 @@ export class WorkspaceSymbolService extends WatchedDocumentIndex {
                 this.collect(element, uri, containerName, out);
             } else if (isAssignmentNode(element)) {
                 out.push(this.symbol(element.left.name, this.kindOf(element.right), element.left, uri, containerName));
-                if (isGroupNode(element.right) || isListNode(element.right)) {
+                if (element.right && (isGroupNode(element.right) || isListNode(element.right))) {
                     this.collect(element.right, uri, element.left.name, out);
                 }
             }
@@ -119,7 +119,8 @@ export class WorkspaceSymbolService extends WatchedDocumentIndex {
         return { name, kind, location, containerName };
     }
 
-    private kindOf(node: AbstractNode): SymbolKind {
+    private kindOf(node: AbstractNode | null): SymbolKind {
+        if (!node) return SymbolKind.Field;
         if (isGroupNode(node)) return SymbolKind.Object;
         if (isListNode(node)) return SymbolKind.Array;
         if (isValueNode(node)) {

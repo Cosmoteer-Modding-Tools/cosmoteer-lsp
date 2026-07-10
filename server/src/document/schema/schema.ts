@@ -29,6 +29,29 @@ export const typeDef = (fullName: string): SchemaTypeDef | undefined => schema.t
 /** An enum (its members) by C# FullName. */
 export const enumDef = (fullName: string): SchemaEnum | undefined => schema.enums[fullName];
 
+/**
+ * The reference target class a plain scalar written for group class `cls` resolves to. A
+ * scalar-form class reads a bare value into one member (the schema's `scalarField`, extracted from
+ * the engine's deserializer, with the digit-`0` tuple field as fallback). When that member is
+ * itself a scalar-form group (a multi-toggle entry's `Toggle`), the chain is followed to the
+ * terminal reference.
+ *
+ * @param cls the group class FullName.
+ * @returns the payload's reference target class, or undefined when `cls` reads no scalar or the
+ *          payload is not a reference.
+ */
+export const scalarReferenceTargetOf = (cls: string): string | undefined => {
+    for (let depth = 0; depth < 4; depth++) {
+        const def = typeDef(cls);
+        if (!def?.scalarForm) return undefined;
+        const payload = def.scalarField ? fieldOf(cls, def.scalarField) : fieldOf(cls, '0');
+        if (payload?.valueType.kind === 'reference') return payload.valueType.target;
+        if (payload?.valueType.kind !== 'group') return undefined;
+        cls = payload.valueType.ref;
+    }
+    return undefined;
+};
+
 /** Short registry `name` → registry, so a name lookup is not a scan over all registries. */
 const registryByShortName = new Map<string, SchemaRegistry>();
 for (const registry of Object.values(schema.registries)) {

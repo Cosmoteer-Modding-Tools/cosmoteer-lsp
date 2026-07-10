@@ -16,10 +16,21 @@ import {
     isValueNode,
     MathExpressionNode,
     GroupNode,
+    MX_ASSEMBLED_OPERATORS,
+    MxAssembledOperator,
     ValueNode,
     ValueNodeTypes,
 } from '../ast/ast';
 import * as l10n from '@vscode/l10n';
+
+// Set form of the assembled-operator spellings for the O(1) lookups in `matchAssembledOperator`,
+// plus every proper prefix of a spelling so a non-viable token run is abandoned on its first
+// token. This keeps the matcher O(1) on ordinary values ("Guns" is not a prefix, done), which
+// matters because it runs once per math-chain step of every parse.
+const MX_ASSEMBLED_OPERATOR_SET: ReadonlySet<string> = new Set(MX_ASSEMBLED_OPERATORS);
+const MX_ASSEMBLED_OPERATOR_PREFIXES: ReadonlySet<string> = new Set(
+    MX_ASSEMBLED_OPERATORS.flatMap((op) => Array.from({ length: op.length }, (_, i) => op.slice(0, i + 1)))
+);
 /**
  * TODO add Parser per Group to beatufy the code below lol
  */
@@ -67,10 +78,13 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
     const errors: ParserError[] = [];
     // Plain numbers: an integer/decimal mantissa — including a leading-dot decimal such as `.5`
     // or `.75` (common in Cosmoteer, e.g. `Bleed = .75 * .5`) — with an optional scientific
-    // exponent (`3.4028235E+38`, `1.5e10`) and the legacy `d` suffix. The previous pattern put the
-    // `^` anchor mid-expression (`[-.]?^…`), which made the leading `-`/`.` branch dead and typed
-    // `.5` as a String, breaking value typing, math validation and resolved-value computation.
-    const IS_NUMBER = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?d?$/;
+    // exponent (`3.4028235E+38`, `1.5e10`). A `d`-suffixed number (`90d`) is NOT a plain number:
+    // the game's ExpressionEvaluator converts it degrees-to-radians, so it must stay a String and
+    // go through the suffix rules in the value evaluator (typing it `Number 90` showed 90 where
+    // the game computes 1.5708). The previous pattern also put the `^` anchor mid-expression
+    // (`[-.]?^…`), which made the leading `-`/`.` branch dead and typed `.5` as a String,
+    // breaking value typing, math validation and resolved-value computation.
+    const IS_NUMBER = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
     // A numeric literal carrying a unit suffix — percent `%`, degrees `d`, radians `r` (mXparser /
     // Cosmoteer expression suffixes). The lexer keeps the suffix inside the value token, so `40%`
     // lexes as one String value. Used so a leading sign (`-40%`) folds into that value instead of
@@ -258,11 +272,17 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             // and would corrupt the file on rename and truncate every quoted-value highlight/hover.
             const lastStringToken = tokens[current - 1] ?? token;
             const endOffset = lastStringToken.end ?? token.end ?? token.start;
+            // A quoted value is a string literal even when its content is all digits: the game reads
+            // `SituationCode = "0000"` as the eight-character text, not the number 0. Never let the
+            // numeric inference type a quoted token `Number`, or its highlight and hover read as a
+            // number and the leading zeros vanish.
+            const inferredType = inferValueType(IS_NUMBER, token);
+            const quotedType = inferredType.type === 'Number' ? { type: 'String' as const } : inferredType;
             return {
                 type: 'Value',
                 // Keep the type inferred from the first segment (String/Sprite/Sound/…) but carry the
                 // FULL concatenated text as the value, so hover/rename/goto see the whole string.
-                valueType: { ...inferValueType(IS_NUMBER, token), value } as ValueNodeTypes,
+                valueType: { ...quotedType, value } as ValueNodeTypes,
                 parent,
                 position: {
                     characterEnd: token.lineOffset + (endOffset - token.start),
@@ -331,9 +351,8 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 tokens[current - 2] &&
                 tokens[current]?.type === TOKEN_TYPES.VALUE &&
                 IS_NUMBER.test(tokenValue) &&
-                // `IS_NUMBER` tolerates a trailing `d` (degrees), so `40d` matches but is not a
-                // JS-coercible number (`-"40d"` is NaN); let those fall through to the unit-suffix
-                // branch below rather than folding to a NaN value.
+                // Defensive guard: only fold values JS can actually coerce, anything else falls
+                // through to the unit-suffix branch below rather than folding to a NaN value.
                 !Number.isNaN(Number(tokenValue)) &&
                 !lastCompletesValue
             ) {
@@ -452,7 +471,13 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 token.value === '/' &&
                 tokens[current]?.type === TOKEN_TYPES.VALUE &&
                 tokens[current]?.lineNumber === token.lineNumber &&
-                !IS_NUMBER.test(tokenValue)
+                !IS_NUMBER.test(tokenValue) &&
+                // A super-path segment is a NAME (`/SW_X`, `/BASE_SOUNDS`). A segment that starts with
+                // a digit is really math the lexer glued through a value-char `-`: `166/64-0.6` lexes
+                // as `166`, `/`, `64-0.6`, and without this guard the `/` folds `64-0.6` into a bogus
+                // reference `/64-0.6` (which then reports as an unresolved reference). Treat it as the
+                // division operator instead by falling through to the Expression case below.
+                /^[A-Za-z_]/.test(tokenValue)
             ) {
                 const value = '/' + tokenValue;
                 current++;
@@ -801,6 +826,19 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     } as ParserError);
                     return null;
                 }
+                // The OT grammar terminates a value at the unsuppressed newline or the member
+                // terminators, so `Type = ` with nothing before the line break is an EMPTY field.
+                // Consuming the next token as the value instead would eat the enclosing group's
+                // closing brace (or the next member) and desync the whole container, which is
+                // exactly the live-editing state right after a completion snippet scaffolds the
+                // field or the user deletes a value.
+                const next = tokens[current];
+                const valueIsEmpty =
+                    next.precededByNewline ||
+                    next.type === TOKEN_TYPES.RIGHT_BRACE ||
+                    next.type === TOKEN_TYPES.RIGHT_BRACKET ||
+                    next.type === TOKEN_TYPES.SEMICOLON ||
+                    next.type === TOKEN_TYPES.COMMA;
                 node = {
                     type: 'Assignment',
                     assignmentType: 'Equals',
@@ -817,7 +855,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                             start: token.start,
                         },
                     } as IdentifierNode,
-                    right: continueMathExpression(walk(_lastNode, parent), parent),
+                    right: valueIsEmpty ? null : continueMathExpression(walk(_lastNode, parent), parent),
                 } as AssignmentNode;
             } else if (
                 token.value &&
@@ -1099,7 +1137,77 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 first.type === 'MathExpression' ||
                 first.type === 'FunctionCall' ||
                 first.type === 'Expression');
-        if (!first || (tokens[current]?.type !== TOKEN_TYPES.EXPRESSION && !nextIsImplicitMult())) return first;
+        // The mXparser operators the lexer does not emit as one EXPRESSION token (boolean `&`,
+        // `||`, relations `<=`/`==`/`<>`, modulo `#`, bitwise `@&`, tetration `^^`, …) reach us as
+        // short runs of VALUE/EXPRESSION/EQUALS/UNEXPECTED/paren tokens. Assemble the longest run
+        // whose concatenated source text is a known operator, requiring the tokens to be ADJACENT
+        // in the source (mXparser reads `< =` as two tokens, never as `<=`) and the operator to be
+        // followed on the same line by a `(` or a plain number, the only operand forms the game's
+        // reference substitution supports. Vanilla `statuses/fire` has
+        // `(&SCORCH_PER_SECOND) & (&TickInterval)`. The narrow shape keeps unquoted text values
+        // such as `Guns & Roses` or `A | B` concatenating to a flat string like the game does.
+        const assembledText = (token: Token): string | null => {
+            switch (token.type) {
+                case TOKEN_TYPES.VALUE:
+                case TOKEN_TYPES.EXPRESSION:
+                case TOKEN_TYPES.UNEXPECTED:
+                    return typeof token.value === 'string' ? token.value : null;
+                case TOKEN_TYPES.EQUALS:
+                    return '=';
+                case TOKEN_TYPES.LEFT_PAREN:
+                    return '(';
+                case TOKEN_TYPES.RIGHT_PAREN:
+                    return ')';
+                default:
+                    return null;
+            }
+        };
+        const matchAssembledOperator = (): { op: MxAssembledOperator; tokenCount: number } | null => {
+            if (!tokens[current] || tokens[current].precededByNewline) return null;
+            let text = '';
+            let best: { op: MxAssembledOperator; tokenCount: number } | null = null;
+            for (let count = 0; count < 3; count++) {
+                const token = tokens[current + count];
+                if (!token) break;
+                if (count > 0) {
+                    const previous = tokens[current + count - 1];
+                    const previousText = assembledText(previous) ?? '';
+                    const adjacent =
+                        token.lineNumber === previous.lineNumber &&
+                        token.lineOffset === previous.lineOffset + previousText.length;
+                    if (!adjacent) break;
+                }
+                const part = assembledText(token);
+                if (part === null) break;
+                text += part;
+                if (!MX_ASSEMBLED_OPERATOR_PREFIXES.has(text)) break;
+                if (!MX_ASSEMBLED_OPERATOR_SET.has(text)) continue;
+                const operand = tokens[current + count + 1];
+                const operandQualifies =
+                    operand &&
+                    !operand.precededByNewline &&
+                    (operand.type === TOKEN_TYPES.LEFT_PAREN ||
+                        (operand.type === TOKEN_TYPES.VALUE &&
+                            typeof operand.value === 'string' &&
+                            IS_NUMBER.test(operand.value)));
+                if (operandQualifies) best = { op: text as MxAssembledOperator, tokenCount: count + 1 };
+            }
+            return best;
+        };
+        const firstIsMathOperand = () =>
+            first !== null &&
+            (first.type === 'MathExpression' ||
+                first.type === 'FunctionCall' ||
+                (first.type === 'Value' &&
+                    ((first as ValueNode).valueType.type === 'Reference' ||
+                        (first as ValueNode).valueType.type === 'Number')));
+        const nextIsOperatorChain = () => firstIsMathOperand() && matchAssembledOperator() !== null;
+        if (
+            !first ||
+            (tokens[current]?.type !== TOKEN_TYPES.EXPRESSION && !nextIsImplicitMult() && !nextIsOperatorChain())
+        ) {
+            return first;
+        }
         const mathNode: MathExpressionNode = {
             type: 'MathExpression',
             elements: [first as ValueNode],
@@ -1108,35 +1216,77 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
         };
         // Stop the math chain at an unsuppressed line break — ObjectText ends a value at the
         // newline, so `X = 1\n+ 2` is `X = 1` (the `+ 2` is not folded into the value).
-        while (
-            (tokens[current]?.type === TOKEN_TYPES.EXPRESSION || tokens[current]?.type === TOKEN_TYPES.LEFT_PAREN) &&
-            !tokens[current]?.precededByNewline
-        ) {
+        for (;;) {
             const operatorToken = tokens[current];
-            const isImplicitMult = operatorToken.type === TOKEN_TYPES.LEFT_PAREN;
+            if (!operatorToken || operatorToken.precededByNewline) break;
+            // An assembled operator wins over the single-token reads below, so `!=` is the relation
+            // rather than a factorial followed by an `=`, and `^^` is tetration rather than two
+            // dangling powers.
+            const assembled = matchAssembledOperator();
+            if (
+                !assembled &&
+                operatorToken.type !== TOKEN_TYPES.EXPRESSION &&
+                operatorToken.type !== TOKEN_TYPES.LEFT_PAREN
+            ) {
+                break;
+            }
+            const isImplicitMult = !assembled && operatorToken.type === TOKEN_TYPES.LEFT_PAREN;
+            const operatorTokenCount = assembled?.tokenCount ?? 1;
+            const lastOperatorToken = tokens[current + operatorTokenCount - 1];
             mathNode.elements.push({
                 type: 'Expression',
-                expressionType: isImplicitMult ? '*' : (operatorToken.value as '+' | '-' | '*' | '/' | '^' | '!'),
+                expressionType: assembled
+                    ? assembled.op
+                    : isImplicitMult
+                      ? '*'
+                      : (operatorToken.value as ExpressionNode['expressionType']),
                 parent,
                 position: {
                     line: operatorToken.lineNumber,
                     characterStart: operatorToken.lineOffset,
-                    characterEnd: operatorToken.lineOffset + 1,
+                    characterEnd: lastOperatorToken.lineOffset + (assembledText(lastOperatorToken)?.length ?? 1),
                     start: operatorToken.start,
-                    end: operatorToken.end ?? 0,
+                    end: lastOperatorToken.end ?? 0,
                 },
             } as ExpressionNode);
             // For an explicit operator, consume it so the operand is not lexed as a `/`-path; for an
             // implicit `*` there is no operator token, so leave `(` for `walk` to consume as a group.
-            if (!isImplicitMult) current++;
+            if (!isImplicitMult) current += operatorTokenCount;
             // `!` is postfix (factorial): it applies to the value already pushed, so there is no
             // right operand to consume — keep scanning for the next operator instead.
-            if (!isImplicitMult && operatorToken.value === '!') {
+            if (!assembled && !isImplicitMult && operatorToken.value === '!') {
                 mathNode.position.end = operatorToken.end ?? mathNode.position.end;
                 mathNode.position.characterEnd = operatorToken.lineOffset + 1;
                 continue;
             }
-            const operand = walk(undefined, parent);
+            // A plain-number right operand is consumed directly: handing it to `walk` misreads a
+            // number followed by more operator tokens as the start of a new node (`1 + 2 == 3`
+            // turned the `2` into an assignment identifier once `==` support made `=` reachable
+            // inside values).
+            const operandToken = tokens[current];
+            let operand: AbstractNode | null;
+            if (
+                operandToken?.type === TOKEN_TYPES.VALUE &&
+                typeof operandToken.value === 'string' &&
+                IS_NUMBER.test(operandToken.value) &&
+                !operandToken.precededByNewline
+            ) {
+                operand = {
+                    type: 'Value',
+                    valueType: inferValueType(IS_NUMBER, operandToken),
+                    parent,
+                    position: {
+                        characterEnd: operandToken.lineOffset + operandToken.value.length,
+                        characterStart: operandToken.lineOffset,
+                        end: operandToken.end ?? 0,
+                        line: operandToken.lineNumber,
+                        start: operandToken.start,
+                    },
+                } as ValueNode;
+                current++;
+            } else {
+                operand = walk(undefined, parent);
+            }
             if (!operand) break;
             mathNode.elements.push(operand as ValueNode | MathExpressionNode | ExpressionNode);
             // Some recovered operands carry no own `position` (e.g. an Assignment parsed out of
@@ -1206,7 +1356,7 @@ export interface TokenParserResult {
 
 // Hoisted out of inferValueType, which runs for every value token of every parsed file — building
 // the pattern there compiled a fresh RegExp per token.
-const IS_SOUND = new RegExp(ALLOWED_AUDIO_EXTENSIONS.join('|').replaceAll('.', '\\.'));
+const IS_SOUND = new RegExp(ALLOWED_AUDIO_EXTENSIONS.join('|').replaceAll('.', '\\.'), 'i');
 
 function inferValueType(IS_NUMBER: RegExp, token: Token): ValueNodeTypes {
     if (typeof token.value === 'undefined') throw new Error('Token value is undefined');
@@ -1214,14 +1364,17 @@ function inferValueType(IS_NUMBER: RegExp, token: Token): ValueNodeTypes {
     let valueType: ValueNodeTypes['type'] = IS_NUMBER.test(token.value) ? 'Number' : 'String';
     // Every asset form below contains a dot, so one indexOf spares most strings the two regex
     // tests and the suffix check. Hot: this runs for every string value of every parse.
+    // Extension matches fold case: the game resolves paths through the case-insensitive
+    // Windows FS, so `Icon.PNG` or `<Foo.Rules>` load exactly like their lowercase spellings.
     const hasDot = token.value.includes('.');
-    if (valueType === 'String' && hasDot && token.value.includes('.png')) {
+    const lower = hasDot ? token.value.toLowerCase() : token.value;
+    if (valueType === 'String' && hasDot && lower.includes('.png')) {
         valueType = 'Sprite';
         value = value as string;
     } else if (valueType === 'String' && hasDot && IS_SOUND.test(token.value)) {
         valueType = 'Sound';
         value = value as string;
-    } else if (valueType === 'String' && hasDot && token.value.endsWith('.shader')) {
+    } else if (valueType === 'String' && hasDot && lower.endsWith('.shader')) {
         valueType = 'Shader';
         value = value as string;
     } else if (
@@ -1234,7 +1387,9 @@ function inferValueType(IS_NUMBER: RegExp, token: Token): ValueNodeTypes {
         (token.value.startsWith('..') && token.value.length > 2) ||
         (token.value.startsWith('/') && token.value.length > 1) ||
         (token.value.startsWith('~') && token.value.length > 1) ||
-        (token.value.startsWith('<') && token.value.includes('.rules')) ||
+        // Mods write rules content in `.txt` files too (the game's loader ignores the extension),
+        // so `<file.txt>` paths are references exactly like `<file.rules>`.
+        (token.value.startsWith('<') && (lower.includes('.rules') || lower.includes('.txt'))) ||
         (token.value.startsWith('<') && !token.value.includes('>'))
     ) {
         return {

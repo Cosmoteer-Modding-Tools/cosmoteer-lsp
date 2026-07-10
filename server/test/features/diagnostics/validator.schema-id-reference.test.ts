@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { CancellationToken } from 'vscode-languageserver';
+import { CancellationToken, Connection, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -8,12 +8,22 @@ import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { validateCrossFileIdReferences } from '../../../src/features/diagnostics/validator.schema-id-reference';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
+import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
+import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
+import { globalSettings } from '../../../src/settings';
 
 // End-to-end test of the opt-in cross-file id-reference validator. A temp folder holds the
 // authoritative `PartToggles` declaration list (the same field-name harvest the real index
 // uses); each part document is parsed in memory and validated against that folder. The index
-// singleton is reset before every test so it rebuilds from the folder passed in.
-const parse = (src: string, uri = 'file:///part.rules') => parser(lexer(src), uri).value;
+// singleton is reset before every test so it rebuilds from the folder passed in. Parsed documents
+// register like open buffers do in production, since the loose declaration probe reads them
+// registrar-first. A second temp folder plays the game data root, giving the label-field
+// derivation vanilla usage to derive from.
+const parse = (src: string, uri = 'file:///part.rules') => {
+    const document = parser(lexer(src), uri).value;
+    ParserResultRegistrar.instance.setResult(uri, document);
+    return document;
+};
 const token = CancellationToken.None;
 
 /** A part with a single `UIToggle` component referencing `toggleId` via `ToggleID`. */
@@ -37,10 +47,34 @@ describe('validateCrossFileIdReferences', () => {
             join(declDir, 'part_toggles.rules'),
             'PartToggles\n[\n\t{\n\t\tToggleID = "on_off"\n\t}\n\t{\n\t\tToggleID = "fire_mode"\n\t}\n]\n'
         );
+        // A part declaring its identity and a legacy alias, the targets of part-id references.
+        const partsDir = join(tmpRoot, 'data', 'ships');
+        mkdirSync(partsDir, { recursive: true });
+        writeFileSync(
+            join(partsDir, 'armor.rules'),
+            'Part\n{\n\tID = test.armor\n\tOtherIDs = [old.armor]\n\tMaxHealth = 100\n}\n'
+        );
         workspaceUri = pathToFileURL(join(tmpRoot, 'data')).href;
         const emptyDir = join(tmpRoot, 'empty');
         mkdirSync(emptyDir, { recursive: true });
         emptyUri = pathToFileURL(emptyDir).href;
+        // A miniature game data root (the service requires the `Data` suffix): its part declares a
+        // real id while using the two label fields with values that resolve to nothing, the shape
+        // the derivation reads off the real install.
+        const gameDir = join(tmpRoot, 'game', 'Data');
+        mkdirSync(gameDir, { recursive: true });
+        writeFileSync(
+            join(gameDir, 'armor.rules'),
+            'Part\n{\n\tID = cosmoteer.armor\n\tSelectionTypeID = "armor"\n\tFlipWhenLoadingIDs = [armor_wedge_R]\n}\n'
+        );
+        globalSettings.cosmoteerPath = gameDir;
+        const svc = CosmoteerWorkspaceService.instance;
+        svc.setConnection({
+            languages: { diagnostics: { refresh: () => undefined } },
+            window: { showWarningMessage: () => undefined },
+        } as unknown as Connection);
+        const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
+        return svc.initialize(gameDir, noop);
     });
 
     afterAll(() => rmSync(tmpRoot, { recursive: true, force: true }));
@@ -76,10 +110,42 @@ describe('validateCrossFileIdReferences', () => {
         expect(errors).toHaveLength(0);
     });
 
-    it('does not flag the part\'s own non-GUI reference fields (e.g. its PartRules ID)', async () => {
-        // The part's own `ID = my_part` resolves to a PartRules reference, which is NOT in the
-        // GUI allowlist, so it must never be flagged even though it is undeclared.
+    it('does not flag the part\'s own identity fields (e.g. its PartRules ID)', async () => {
+        // The part's own `ID = my_part` is reference-typed but is the declaration itself: the open
+        // buffer writes it in a declaration shape, which the loose probe accepts.
         const errors = await validateCrossFileIdReferences(partWithToggle('on_off'), [workspaceUri], token);
         expect(errors.map((e) => e.message)).toEqual([]);
+    });
+
+    it('flags a part-id reference nothing declares, with a did-you-mean fix', async () => {
+        // The workspace declares `test.armor` (and the alias `old.armor`); a typo resolves nowhere,
+        // and without a Steam install in this harness the dependency-mod consult stays silent too.
+        const errors = await validateCrossFileIdReferences(
+            parse('Part\n{\n\tEditorParentParts = ["test.armr"]\n}'),
+            [workspaceUri],
+            token
+        );
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain("'test.armr'");
+        expect(errors[0].data?.quickFix?.newText).toBe('test.armor');
+    });
+
+    it('accepts part-id references to the declared id and its OtherIDs alias', async () => {
+        for (const id of ['test.armor', 'old.armor']) {
+            const doc = parse(`Part\n{\n\tEditorParentParts = ["${id}"]\n}`);
+            expect(await validateCrossFileIdReferences(doc, [workspaceUri], token)).toHaveLength(0);
+        }
+    });
+
+    it('never flags a SelectionTypeID label despite its PartRules type', async () => {
+        // Derived from the game root's own usage: every vanilla SelectionTypeID value fails to
+        // resolve, so the field is a label the engine never dereferences.
+        const doc = parse('Part\n{\n\tSelectionTypeID = "cannons"\n}');
+        expect(await validateCrossFileIdReferences(doc, [workspaceUri], token)).toHaveLength(0);
+    });
+
+    it('never flags a FlipWhenLoadingIDs legacy id despite its PartRules type', async () => {
+        const doc = parse('Part\n{\n\tFlipWhenLoadingIDs = [my_old_part_R]\n}');
+        expect(await validateCrossFileIdReferences(doc, [workspaceUri], token)).toHaveLength(0);
     });
 });

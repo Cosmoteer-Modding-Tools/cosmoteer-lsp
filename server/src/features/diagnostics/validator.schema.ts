@@ -263,7 +263,7 @@ export const validateSchema = async (
         let valueNode: AbstractNode | undefined;
         for (const element of container.elements) {
             if (isAssignmentNode(element) && element.left.name === registry.typeField) {
-                valueNode = element.right;
+                valueNode = element.right ?? undefined;
                 break;
             }
         }
@@ -344,7 +344,7 @@ export const validateSchema = async (
             isGroupNode(node) || isListNode(node) || isDocumentNode(node)
                 ? node.elements
                 : isAssignmentNode(node)
-                  ? [node.right]
+                  ? (node.right ? [node.right] : [])
                   : [];
         for (const child of children) visit(child);
     };
@@ -627,10 +627,10 @@ export const validateSchema = async (
                 if (field) checkValueForm(field, element, element.identifier.name);
                 continue;
             }
-            if (!isAssignmentNode(element)) continue;
+            if (!isAssignmentNode(element) || !element.right) continue;
             const field = fieldOf(cls, element.left.name);
             if (!field) continue;
-            if (element.right) checkValueForm(field, element.right, element.left.name);
+            checkValueForm(field, element.right, element.left.name);
             if (requiresWholeNumber(field.valueType)) {
                 await checkInteger(element.right);
             } else if (field.valueType.kind === 'range' && requiresWholeNumber(field.valueType.element)) {

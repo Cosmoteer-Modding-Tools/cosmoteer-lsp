@@ -9,6 +9,7 @@ import {
     CellSetLayerData,
     CellToValuesLayerData,
     ComponentPointsLayerData,
+    EdgeRegionLayerData,
     PolygonLayerData,
     RectLayerData,
     RectListLayerData,
@@ -88,6 +89,15 @@ describe.skipIf(!HAVE_DATA)('buildPartGridData over vanilla parts', () => {
         );
         expect(ports.length).toBeGreaterThanOrEqual(1);
         expect(ports.some((port) => port.direction === 'Down')).toBe(true);
+
+        // The absorption area is an EdgeDistance region: a distance-from-edge halo, distance 5.
+        const region = data.layers.find(
+            (layer): layer is EdgeRegionLayerData => layer.kind === 'edgeRegion'
+        )!;
+        expect(region).toBeTruthy();
+        expect(region.distance).toBe(5);
+        expect(region.distanceField).toBe('Distance');
+        expect(region.id).toBe('Components/HeatExchanger/Region');
     });
 
     it('reads the cannon deck prohibit rects and resource grids', async () => {

@@ -10,9 +10,16 @@
 ## ProxyRules
 `ProxyRules` · optional
 
-<!-- TODO: needs documentation -->
+The proxy target: which part and component to mirror. Written flat on the proxy itself
+(`ComponentID = …`, optionally `PartLocation` or `PartCriteria`), see
+[[Cosmoteer.Ships.Parts.Logic.ProxyRules]].
 
 ## IsOnWhenNotConnected
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+The toggle state this proxy reports while no target component is connected (default `false`).
+Disconnected covers a `PartLocation` cell with no matching part, and equally a `ComponentID`
+that no active component carries. The vanilla missile launcher relies on that: its
+`MissilesPrereqProxy` targets a `MissilesPrereq` component that each `ToggledComponents`
+missile mode must supply, so a mode that forgets it reads permanently off and the launcher's
+crew stand down.

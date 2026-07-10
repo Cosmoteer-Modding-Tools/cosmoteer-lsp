@@ -105,6 +105,40 @@ describe('computeModReachability', () => {
     });
 });
 
+describe('computeModReachability with a virtual-inheritance Actions list', () => {
+    // A manifest that builds `Actions` by concatenating other files' action lists via
+    // `Actions: &<launcher.rules>/Actions, …` (the pvp-parts idiom). Those referenced files live
+    // only in the list's inheritance, not its body, so they must be seeded from there.
+    const REF_DIR = join(FIXTURES_DIR, 'reachability-mod-actionsref');
+    let reachable: Set<string>;
+    let unreachable: string[];
+
+    beforeAll(async () => {
+        const result = await computeModReachability(REF_DIR, token);
+        expect(result).toBeDefined();
+        reachable = result!.reachable;
+        unreachable = result!.unreachable.map((file) => relativeToMod(REF_DIR, file)).sort();
+    });
+
+    const has = (rel: string): boolean => reachable.has(reachabilityKey(join(REF_DIR, rel)));
+
+    it('reaches every action file the manifest concatenates via inheritance', () => {
+        expect(has('mod.rules')).toBe(true);
+        expect(has('launcher.rules')).toBe(true);
+        expect(has('register.rules')).toBe(true);
+    });
+
+    it('cascades through a reached action file to the parts its actions add', () => {
+        // launcher.rules's AddMany source `&<parts/foo.rules>/Part` expands once the file is reached.
+        expect(has('parts/foo.rules')).toBe(true);
+    });
+
+    it('does not reach an action file referenced only behind a comment', () => {
+        // `//&<disabled.rules>/Actions` is stripped at lex time and never becomes an inheritance ref.
+        expect(unreachable).toEqual(['disabled.rules']);
+    });
+});
+
 describe('generateModOverview', () => {
     let markdown: string;
 

@@ -114,7 +114,7 @@ export const validateRequiredFields = async (
         const children = isGroupNode(node) || isListNode(node) || isDocumentNode(node)
             ? node.elements
             : isAssignmentNode(node)
-              ? [node.right]
+              ? (node.right ? [node.right] : [])
               : [];
         for (const child of children) collect(child);
     };

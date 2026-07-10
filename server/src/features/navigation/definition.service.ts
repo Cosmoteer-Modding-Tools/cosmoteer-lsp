@@ -4,9 +4,12 @@ import { findNodeAtPosition, getStartOfAstNode } from '../../utils/ast.utils';
 import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { FullNavigationStrategy } from './full.navigation-strategy';
 import { isAssetValue, resolveAssetPath } from './asset-resolver';
-import { filePathToUri } from './navigation-strategy';
-import { definitionLocationOf } from './reference-location';
+import { filePathToUri, stripReferenceWhitespace } from './navigation-strategy';
+import { definitionLocationOf, locationKey } from './reference-location';
+import { splitVirtualColon } from '../../utils/reference.utils';
+import { resolveVirtualInheritanceTargets } from '../../semantics/inheritor-resolver';
 import { resolveSchemaSiblingReference } from './schema-reference.navigation';
+import { resolvePartComponentDeclaration } from '../diagnostics/validator.schema-sibling';
 import {
     resolveSchemaIdReference,
     mapKeyReferenceAt,
@@ -50,9 +53,26 @@ export class DefinitionService {
         position: Position,
         cancellationToken: CancellationToken,
         folderPaths: string[] = []
-    ): Promise<Location | null> {
+    ): Promise<Location | Location[] | null> {
         const node = findNodeAtPosition(document, position);
-        if (isReferenceValue(node)) return this.resolveReferenceLocation(document, node, cancellationToken);
+        if (isReferenceValue(node)) {
+            const primary = await this.resolveReferenceLocation(document, node, cancellationToken);
+            // A virtual-inheritance path (`&Base/:/Member`) also points at the concrete overrides — the
+            // "most-derived version" the `:` selects at runtime. Offer those alongside the base's own
+            // (default) declaration `primary` lands on, so go-to-definition reaches the deriving values.
+            const overrides = await this.resolveVirtualOverrides(document, node, cancellationToken).catch(() => []);
+            if (overrides.length) {
+                const all = primary ? [primary, ...overrides] : overrides;
+                const seen = new Set<string>();
+                return all.filter((location) => {
+                    const key = locationKey(location);
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+            }
+            return primary;
+        }
         // An asset value (`Sprite`/`Sound`/`Shader`) points at an on-disk file, not an AST node —
         // resolve it (relative to the file or any inherited asset base) and jump to that file.
         if (isAssetValue(node)) {
@@ -63,6 +83,10 @@ export class DefinitionService {
         // identifier, not a `&`-reference — resolve it via the schema to the sibling component group.
         const sibling = resolveSchemaSiblingReference(node);
         if (sibling) return definitionLocationOf(sibling);
+        // The same-file search missed: a component declared in an inherited base part, an include or
+        // an override target still resolves through the part-wide walk validation and completion use.
+        const partWide = await resolvePartComponentDeclaration(node, cancellationToken).catch(() => undefined);
+        if (partWide) return definitionLocationOf(partWide);
         // A particle data channel use (`BIn = rot_vel`) jumps to where the channel is written
         // (`DataOut = rot_vel`) in the same file. A built-in channel with no in-file writer falls through.
         const channel = particleChannelAt(document, position);
@@ -82,6 +106,33 @@ export class DefinitionService {
                   () => null
               )
             : null;
+    }
+
+    /**
+     * The definition locations of the concrete overrides a virtual-inheritance reference (`&Base/:/Member`)
+     * points at: the member's value in every group that inherits the base. Empty for a reference with no
+     * `:` segment, an unresolvable base, or a base no file inherits yet (a template awaiting a deriver).
+     *
+     * @param document the document the reference lives in, the base-resolution origin.
+     * @param node the reference value node under the cursor.
+     * @param cancellationToken cancels the base resolution and the inheritor search.
+     * @returns the override locations, or an empty array.
+     */
+    private async resolveVirtualOverrides(
+        document: AbstractNodeDocument,
+        node: ValueNode,
+        cancellationToken: CancellationToken
+    ): Promise<Location[]> {
+        const split = splitVirtualColon(stripReferenceWhitespace(String(node.valueType.value)));
+        if (!split) return [];
+        // Resolve the node before the `:` to the base it names. A bare `&:/…` (the group's own
+        // most-derived self) has no explicit base path, so fall back to the reference's own scope.
+        const base = split.basePath.replace(/^&$/, '')
+            ? await this.navigation.navigate(split.basePath, node, document.uri, cancellationToken).catch(() => null)
+            : node.parent ?? null;
+        if (!base || isFile(base as FileTree)) return [];
+        const targets = await resolveVirtualInheritanceTargets(base as AbstractNode, split.memberPath, cancellationToken);
+        return targets.map(definitionLocationOf);
     }
 
     /**

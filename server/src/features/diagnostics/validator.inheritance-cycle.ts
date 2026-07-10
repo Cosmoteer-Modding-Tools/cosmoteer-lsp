@@ -25,7 +25,7 @@ function* walkTree(node: AbstractNode): Generator<AbstractNode> {
         if ((isGroupNode(node) || isListNode(node)) && node.inheritance) {
             for (const child of node.inheritance) yield* walkTree(child);
         }
-    } else if (isAssignmentNode(node)) {
+    } else if (isAssignmentNode(node) && node.right) {
         yield* walkTree(node.right);
     }
 }

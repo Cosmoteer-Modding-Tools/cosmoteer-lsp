@@ -145,6 +145,15 @@ Part
 			Location = [0, 1]
 			ChainedTo = eff1
 		}
+		regulator
+		{
+			Type = StatusValueRegulator
+			Region
+			{
+				Type = EdgeDistance
+				Distance = 3
+			}
+		}
 		Graphics
 		{
 			Type = Graphics

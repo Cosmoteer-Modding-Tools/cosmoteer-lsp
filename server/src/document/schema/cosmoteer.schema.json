@@ -677,6 +677,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "ValueCurve",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MinValue",
@@ -814,6 +815,7 @@
     "Cosmoteer.Simulation.EffectFilter": {
       "name": "EffectFilter",
       "namespace": "Cosmoteer.Simulation",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Ships",
@@ -1033,6 +1035,7 @@
     "Cosmoteer.Simulation.SimRules": {
       "name": "SimRules",
       "namespace": "Cosmoteer.Simulation",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AudioSpeedIncreaseDuration",
@@ -1212,6 +1215,7 @@
     "Cosmoteer.Simulation.NetworkRules": {
       "name": "NetworkRules",
       "namespace": "Cosmoteer.Simulation",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "InputTicksPerSecond",
@@ -1250,6 +1254,7 @@
     "Cosmoteer.Simulation.SimGuiRules": {
       "name": "SimGuiRules",
       "namespace": "Cosmoteer.Simulation",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ShipTextColorFactor",
@@ -1950,6 +1955,7 @@
     "Cosmoteer.Simulation.GameSpeed": {
       "name": "GameSpeed",
       "namespace": "Cosmoteer.Simulation",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Speed",
@@ -1998,6 +2004,7 @@
     "Cosmoteer.Simulation.Overlays.CappedLine": {
       "name": "CappedLine",
       "namespace": "Cosmoteer.Simulation.Overlays",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LineSprite",
@@ -2222,6 +2229,7 @@
     "Cosmoteer.Simulation.Overlays.SplitCappedLine": {
       "name": "SplitCappedLine",
       "namespace": "Cosmoteer.Simulation.Overlays",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LineSprite",
@@ -2334,6 +2342,7 @@
       "extends": "Cosmoteer.Simulation.MediaEffects.MediaEffectRules",
       "derivedType": "ArcShield",
       "registry": "Cosmoteer.Simulation.MediaEffects.MediaEffectRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FadeInTime",
@@ -2851,6 +2860,7 @@
     "Cosmoteer.Simulation.MediaEffects.DynamicFilterParams": {
       "name": "DynamicFilterParams",
       "namespace": "Cosmoteer.Simulation.MediaEffects",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FilterType",
@@ -2901,6 +2911,7 @@
       "namespace": "Cosmoteer.Simulation.MediaEffects",
       "abstract": true,
       "extends": "Cosmoteer.Simulation.MediaEffects.MediaEffectRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DebugName",
@@ -3051,6 +3062,7 @@
       "extends": "Cosmoteer.Simulation.MediaEffects.BaseQuadEffectRules",
       "derivedType": "Beam",
       "registry": "Cosmoteer.Simulation.MediaEffects.MediaEffectRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Z",
@@ -3152,6 +3164,7 @@
       "namespace": "Cosmoteer.Simulation.MediaEffects",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Delay",
@@ -3204,6 +3217,7 @@
       "extends": "Cosmoteer.Simulation.MediaEffects.MediaEffectRules",
       "derivedType": "Particles",
       "registry": "Cosmoteer.Simulation.MediaEffects.MediaEffectRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Def",
@@ -3433,6 +3447,7 @@
       "extends": "Cosmoteer.Simulation.MediaEffects.BaseQuadEffectRules",
       "derivedType": "PartQuad",
       "registry": "Cosmoteer.Simulation.MediaEffects.MediaEffectRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RectType",
@@ -3494,6 +3509,7 @@
       "extends": "Cosmoteer.Simulation.MediaEffects.BaseQuadEffectRules",
       "derivedType": "Quad",
       "registry": "Cosmoteer.Simulation.MediaEffects.MediaEffectRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Z",
@@ -3541,6 +3557,7 @@
       "extends": "Cosmoteer.Simulation.MediaEffects.MediaEffectRules",
       "derivedType": "Random",
       "registry": "Cosmoteer.Simulation.MediaEffects.MediaEffectRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RandomOptions",
@@ -3567,6 +3584,7 @@
     "Cosmoteer.Simulation.MediaEffects.RandomMediaEffectRules/EffectSet": {
       "name": "EffectSet",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RandomWeight",
@@ -3666,6 +3684,7 @@
       "extends": "Cosmoteer.Simulation.MediaEffects.BaseQuadEffectRules",
       "derivedType": "TileQuad",
       "registry": "Cosmoteer.Simulation.MediaEffects.MediaEffectRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Inflate",
@@ -3725,6 +3744,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "OffsetByIndex",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DataInOut",
@@ -3771,6 +3791,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "AddFrameOfReference",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "VelocityInOut",
@@ -3789,6 +3810,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "AlignToVelocity",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "VelocityIn",
@@ -3816,6 +3838,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "AlternatingConstVector2",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Vector2A",
@@ -3854,6 +3877,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "AssignIndex",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "IndexOut",
@@ -3875,6 +3899,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "Barrier",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "BarrierIDIn",
@@ -3902,6 +3927,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "ColorFromSource",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ColorOut",
@@ -3920,6 +3946,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "ConstructVector2",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DataXIn",
@@ -3956,6 +3983,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "CrewColor",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ColorOut",
@@ -3974,6 +4002,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "EndPointFromCustomShape",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationOut",
@@ -3992,6 +4021,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "FpsCompensator",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationInOut",
@@ -4036,6 +4066,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "GetHitNormal",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "HitNormalOut",
@@ -4054,6 +4085,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "InheritVelocity",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "VelocityInOut",
@@ -4072,6 +4104,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "ParticleLightNormal",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationIn",
@@ -4099,6 +4132,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "LocalBarrier",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationIn",
@@ -4143,6 +4177,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "LocationAndValueFromCustomShape",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationOut",
@@ -4170,6 +4205,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "LocationFromCustomShape",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationOut",
@@ -4188,6 +4224,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "LocationFromPartRect",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationOut",
@@ -4248,6 +4285,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "LocationFromSource",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationOut",
@@ -4266,6 +4304,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "ParticleNormalFromRotation",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RotationIn",
@@ -4293,6 +4332,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "RandomRotationByIndex",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RotationInOut",
@@ -4321,6 +4361,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "ParticleRotationFromNormal",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NormalIn",
@@ -4348,6 +4389,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "ScaleFromCamera",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ScaleOut",
@@ -4382,6 +4424,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "ScaleFromIntensity",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ScaleOut",
@@ -4416,6 +4459,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "SetBulletBarrierID",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "BarrierIDOut",
@@ -4434,6 +4478,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "UvFlip",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FlipXYIn",
@@ -4461,6 +4506,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "VelocityFromIntensity",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "VelocityOut",
@@ -4497,6 +4543,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "WorldLocationFromPartRect",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationOut",
@@ -4541,6 +4588,7 @@
       "extends": "Halfling.Particles.Renderers.StandardParticleQuadRenderer",
       "derivedType": "LightQuadRenderer",
       "registry": "Halfling.Particles.IParticleRenderer",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Simulation.MediaEffects.ParticleRenderers.LitParticleQuadRenderer": {
@@ -4549,6 +4597,7 @@
       "extends": "Halfling.Particles.Renderers.StandardParticleQuadRenderer\u00601",
       "derivedType": "LitQuadRenderer",
       "registry": "Halfling.Particles.IParticleRenderer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LightNormalIn",
@@ -4583,6 +4632,7 @@
       "extends": "Halfling.Particles.Renderers.BaseParticleRenderer\u00601",
       "derivedType": "LightningRenderer",
       "registry": "Halfling.Particles.IParticleRenderer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LineSprite",
@@ -4778,6 +4828,7 @@
       "extends": "Halfling.Particles.Renderers.StandardParticleQuadRenderer\u00601",
       "derivedType": "TwoColorQuadRenderer",
       "registry": "Halfling.Particles.IParticleRenderer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Color2In",
@@ -6562,6 +6613,7 @@
     "Cosmoteer.Simulation.HitEffects.RandomHitEffectRules/RandomEffect": {
       "name": "RandomEffect",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RandomWeight",
@@ -7238,6 +7290,7 @@
     "Cosmoteer.Simulation.Doodads.PlanetDoodadRules/ProximityEffectsRules": {
       "name": "ProximityEffectsRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "InstantKillRadiusFactor",
@@ -7566,6 +7619,7 @@
     "Cosmoteer.Simulation.Cameras.CameraRules": {
       "name": "CameraRules",
       "namespace": "Cosmoteer.Simulation.Cameras",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "PixelOrthographicFactor",
@@ -7731,6 +7785,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "WorldLocationFromPartCenter",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationOut",
@@ -7759,6 +7814,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "WorldScaleFromPartSize",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ScaleOut",
@@ -7810,6 +7866,7 @@
       "namespace": "Cosmoteer.Source.Ships.Parts.Regions",
       "derivedType": "Area",
       "registry": "Cosmoteer.Source.Ships.Parts.Regions.IPartRelativeRegion",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Area",
@@ -7837,6 +7894,7 @@
       "namespace": "Cosmoteer.Source.Ships.Parts.Regions",
       "derivedType": "EdgeDistance",
       "registry": "Cosmoteer.Source.Ships.Parts.Regions.IPartRelativeRegion",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Distance",
@@ -7872,6 +7930,7 @@
       "namespace": "Cosmoteer.Source.Ships.Parts.Regions",
       "derivedType": "Grid",
       "registry": "Cosmoteer.Source.Ships.Parts.Regions.IPartRelativeRegion",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "GridDistance",
@@ -7905,6 +7964,7 @@
       "namespace": "Cosmoteer.Source.Ships.Parts.Regions",
       "derivedType": "Radius",
       "registry": "Cosmoteer.Source.Ships.Parts.Regions.IPartRelativeRegion",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Radius",
@@ -8729,6 +8789,7 @@
     "Cosmoteer.Ships.ShipRules/CategoryLimit": {
       "name": "CategoryLimit",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Category",
@@ -8763,6 +8824,7 @@
     "Cosmoteer.Ships.ShipRules/CategoryNounData": {
       "name": "CategoryNounData",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Category",
@@ -8795,6 +8857,7 @@
     "Cosmoteer.Ships.ShipFtlEffectRules": {
       "name": "ShipFtlEffectRules",
       "namespace": "Cosmoteer.Ships",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TotalDuration",
@@ -9005,6 +9068,7 @@
     "Cosmoteer.Ships.ShipRenderLayerRules": {
       "name": "ShipRenderLayerRules",
       "namespace": "Cosmoteer.Ships",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "UniqueBucket",
@@ -9140,6 +9204,7 @@
     "Cosmoteer.Ships.ShipBlueprintRules": {
       "name": "ShipBlueprintRules",
       "namespace": "Cosmoteer.Ships",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AtlasTextureParams",
@@ -9194,6 +9259,7 @@
     "Cosmoteer.Ships.ShipRedprintRules": {
       "name": "ShipRedprintRules",
       "namespace": "Cosmoteer.Ships",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Material",
@@ -9447,6 +9513,7 @@
     "Cosmoteer.Ships.DecalGroupRules": {
       "name": "DecalGroupRules",
       "namespace": "Cosmoteer.Ships",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Folders",
@@ -9489,6 +9556,7 @@
     "Cosmoteer.Ships.VitalCategoryInfo": {
       "name": "VitalCategoryInfo",
       "namespace": "Cosmoteer.Ships",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Category",
@@ -9593,6 +9661,7 @@
       "name": "StatusResistance",
       "namespace": "Cosmoteer.Ships.Statuses",
       "scalarForm": true,
+      "scalarField": "Value",
       "fields": [
         {
           "name": "Value",
@@ -9996,6 +10065,7 @@
     "Cosmoteer.Ships.Statuses.StatusType/StatusResourceSinkRules": {
       "name": "StatusResourceSinkRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Resource",
@@ -10097,6 +10167,7 @@
     "Cosmoteer.Ships.Statuses.StatusType/StatusApplicationFilter": {
       "name": "StatusApplicationFilter",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "PartRectType",
@@ -10165,6 +10236,7 @@
       "name": "StatusSoftRepairRules",
       "namespace": "",
       "extends": "Cosmoteer.Ships.Parts.Construction.SoftRepairRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TargetValue",
@@ -10213,6 +10285,7 @@
     "Cosmoteer.Ships.Statuses.StatusType/BaseResistanceRules": {
       "name": "BaseResistanceRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DivideByPartArea",
@@ -10248,6 +10321,7 @@
       "name": "StatusResistanceRules",
       "namespace": "",
       "extends": "Cosmoteer.Ships.Statuses.StatusType/BaseResistanceRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Resistance",
@@ -10264,6 +10338,7 @@
       "name": "SimpleResistanceRules",
       "namespace": "",
       "extends": "Cosmoteer.Ships.Statuses.StatusType/BaseResistanceRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Resistance",
@@ -10283,6 +10358,7 @@
     "Cosmoteer.Ships.Statuses.StatusType/DiffusionRules": {
       "name": "DiffusionRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Basis",
@@ -10340,6 +10416,7 @@
     "Cosmoteer.Ships.Statuses.StatusType/DiffusionSpeedFactors": {
       "name": "DiffusionSpeedFactors",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Occupied",
@@ -10612,6 +10689,7 @@
       "extends": "Cosmoteer.Ships.Statuses.ValueModulatorRules",
       "derivedType": "Constant",
       "registry": "Cosmoteer.Ships.Statuses.ValueModulatorRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Value",
@@ -10640,6 +10718,7 @@
       "extends": "Cosmoteer.Ships.Statuses.ValueModulatorRules",
       "derivedType": "InterpolateSine",
       "registry": "Cosmoteer.Ships.Statuses.ValueModulatorRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "InterpolationRange",
@@ -10679,6 +10758,7 @@
       "extends": "Cosmoteer.Ships.Statuses.ValueModulatorRules",
       "derivedType": "Interpolate",
       "registry": "Cosmoteer.Ships.Statuses.ValueModulatorRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "InterpolationRange",
@@ -10716,6 +10796,7 @@
     "Cosmoteer.Ships.Statuses.MultiValueModulatorRules": {
       "name": "MultiValueModulatorRules",
       "namespace": "Cosmoteer.Ships.Statuses",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ContinueAfterFirstModulation",
@@ -10744,6 +10825,7 @@
       "namespace": "Cosmoteer.Ships.Statuses",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "StatusFilter",
@@ -10788,6 +10870,7 @@
     "Cosmoteer.Ships.Roles.RoleRules": {
       "name": "RoleRules",
       "namespace": "Cosmoteer.Ships.Roles",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DefaultRoleColor",
@@ -10923,6 +11006,7 @@
     "Cosmoteer.Ships.Rendering.AmbiguousToggledBlendSprites": {
       "name": "AmbiguousToggledBlendSprites",
       "namespace": "Cosmoteer.Ships.Rendering",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SituationCode",
@@ -11134,6 +11218,7 @@
     "Cosmoteer.Ships.Rendering.AtlasTextureParams": {
       "name": "AtlasTextureParams",
       "namespace": "Cosmoteer.Ships.Rendering",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SampleMode",
@@ -11365,6 +11450,7 @@
     "Cosmoteer.Ships.Networks.PartNetworkPortOverlayOptions": {
       "name": "PartNetworkPortOverlayOptions",
       "namespace": "Cosmoteer.Ships.Networks",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OverlayIcon",
@@ -11460,6 +11546,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "NetworkBasicNode",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "IncludeInPhysical",
@@ -11631,6 +11718,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "NetworkResourceStore",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ResourceType",
@@ -11713,6 +11801,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "NetworkRouter",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RouteGenerators",
@@ -11752,6 +11841,7 @@
       "namespace": "",
       "derivedType": "Simple",
       "registry": "Cosmoteer.Ships.Networks.PartNetworkRouterRules/IRouteGenerator",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Routes",
@@ -11954,6 +12044,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "NetworkToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ToggleSource",
@@ -12025,6 +12116,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "NetworkTrigger",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TriggerSource",
@@ -12105,6 +12197,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "NetworkValue",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ValueSource",
@@ -12152,6 +12245,7 @@
       "namespace": "Cosmoteer.Ships.Formations",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NameKey",
@@ -12175,6 +12269,7 @@
     "Cosmoteer.Ships.Formations.CustomFormationSlotRules": {
       "name": "CustomFormationSlotRules",
       "namespace": "Cosmoteer.Ships.Formations",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LetterKey",
@@ -12200,6 +12295,7 @@
       "extends": "Cosmoteer.Ships.Formations.BuiltInFormation",
       "derivedType": "Line",
       "registry": "Cosmoteer.Ships.Formations.BuiltInFormation",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RadiusFactor",
@@ -12496,6 +12592,7 @@
     "Cosmoteer.Ships.Commands.CommandRules": {
       "name": "CommandRules",
       "namespace": "Cosmoteer.Ships.Commands",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Move",
@@ -12574,6 +12671,7 @@
     "Cosmoteer.Ships.Commands.BaseCommandRules": {
       "name": "BaseCommandRules",
       "namespace": "Cosmoteer.Ships.Commands",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "IssueSound",
@@ -12720,6 +12818,7 @@
       "name": "MoveCommandRules",
       "namespace": "Cosmoteer.Ships.Commands",
       "extends": "Cosmoteer.Ships.Commands.BaseCommandRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SeparationRadiusFactor",
@@ -12929,6 +13028,7 @@
       "name": "BaseFollowCommandRules",
       "namespace": "Cosmoteer.Ships.Commands",
       "extends": "Cosmoteer.Ships.Commands.BaseCommandRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MaxFollowRadiusFactor",
@@ -13199,6 +13299,7 @@
       "name": "AttackCommandRules",
       "namespace": "Cosmoteer.Ships.Commands",
       "extends": "Cosmoteer.Ships.Commands.BaseFollowCommandRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FocusWidget",
@@ -13215,6 +13316,7 @@
       "name": "FollowCommandRules",
       "namespace": "Cosmoteer.Ships.Commands",
       "extends": "Cosmoteer.Ships.Commands.BaseFollowCommandRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DefaultDistRadiusFactor",
@@ -13281,6 +13383,7 @@
       "name": "SalvageCommandRules",
       "namespace": "Cosmoteer.Ships.Commands",
       "extends": "Cosmoteer.Ships.Commands.BaseFollowCommandRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DistRadiusFactor",
@@ -13314,6 +13417,7 @@
       "name": "FtlGateJumpCommandRules",
       "namespace": "Cosmoteer.Ships.Commands",
       "extends": "Cosmoteer.Ships.Commands.BaseFollowCommandRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FtlReadinessIcon",
@@ -13391,6 +13495,7 @@
       "name": "FtlLocalJumpCommandRules",
       "namespace": "Cosmoteer.Ships.Commands",
       "extends": "Cosmoteer.Ships.Commands.BaseCommandRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FtlReadinessIcon",
@@ -13489,6 +13594,7 @@
     "Cosmoteer.Ships.Commands.WeaponTargetRules": {
       "name": "WeaponTargetRules",
       "namespace": "Cosmoteer.Ships.Commands",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "IssueSound",
@@ -13604,6 +13710,7 @@
     "Cosmoteer.Ships.Commands.CommandWidgetRules": {
       "name": "CommandWidgetRules",
       "namespace": "Cosmoteer.Ships.Commands",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "StateNoneSprite",
@@ -13799,6 +13906,7 @@
       "namespace": "Cosmoteer.Ships.Parts",
       "abstract": true,
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Location",
@@ -13834,6 +13942,7 @@
     "Cosmoteer.Ships.Parts.ExternalWallRules": {
       "name": "ExternalWallRules",
       "namespace": "Cosmoteer.Ships.Parts",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AmbiguousSprites",
@@ -13865,6 +13974,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "StatProvider",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Stat",
@@ -13893,6 +14003,7 @@
       "namespace": "Cosmoteer.Ships.Parts",
       "abstract": true,
       "extends": "Cosmoteer.Ships.Parts.ChainablePartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OperationalToggle",
@@ -13926,6 +14037,7 @@
       "namespace": "Cosmoteer.Ships.Parts",
       "abstract": true,
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OperationalToggle",
@@ -13959,6 +14071,7 @@
       "namespace": "Cosmoteer.Ships.Parts",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OnlyWithRotation",
@@ -15180,6 +15293,7 @@
     "Cosmoteer.Ships.Parts.PartStatsCategory": {
       "name": "PartStatsCategory",
       "namespace": "Cosmoteer.Ships.Parts",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NameKey",
@@ -15223,6 +15337,7 @@
       "name": "EditorParentPart",
       "namespace": "Cosmoteer.Ships.Parts",
       "scalarForm": true,
+      "scalarField": "Parent",
       "fields": [
         {
           "name": "Parent",
@@ -15266,6 +15381,7 @@
     "Cosmoteer.Ships.Parts.PartToolTipData": {
       "name": "PartToolTipData",
       "namespace": "Cosmoteer.Ships.Parts",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TitleKey",
@@ -16096,6 +16212,7 @@
       "name": "BeamHitRules",
       "namespace": "",
       "extends": "Cosmoteer.Bullets.Hits.HitRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ConditionalHitEffects",
@@ -16123,6 +16240,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "BeamRegulator",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Emitter",
@@ -16276,6 +16394,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "DirectControlToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Weapon",
@@ -16476,6 +16595,7 @@
     "Cosmoteer.Ships.Parts.Weapons.EmitterRules/ResourceUsageRules": {
       "name": "ResourceUsageRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ResourceStorage",
@@ -16594,6 +16714,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalChainablePartComponentRules",
       "derivedType": "Oscillator",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Angle",
@@ -16647,6 +16768,7 @@
       "extends": "Cosmoteer.Ships.Parts.ChainablePartComponentRules",
       "derivedType": "ToggleEmitterSelector",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Toggle",
@@ -16686,6 +16808,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalChainablePartComponentRules",
       "derivedType": "RailgunProjectile",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "XStartOffset",
@@ -17002,6 +17125,7 @@
     "Cosmoteer.Ships.Parts.Weapons.WeaponAutoTargetRules": {
       "name": "WeaponAutoTargetRules",
       "namespace": "Cosmoteer.Ships.Parts.Weapons",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TargetType",
@@ -17463,6 +17587,7 @@
       "namespace": "Cosmoteer.Ships.Parts.UI",
       "abstract": true,
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ShowProgressFor",
@@ -17512,6 +17637,7 @@
       "extends": "Cosmoteer.Ships.Parts.UI.BasePartProgressBarRules",
       "derivedType": "ProgressBar",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LowColor",
@@ -17551,6 +17677,7 @@
       "extends": "Cosmoteer.Ships.Parts.UI.BasePartProgressBarRules",
       "derivedType": "SegmentedProgressBar",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SegmentCount",
@@ -17608,6 +17735,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "UIColor",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ColorID",
@@ -17714,6 +17842,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "UIToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ToggleID",
@@ -17815,6 +17944,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "UITrigger",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TriggerID",
@@ -17849,6 +17979,7 @@
     "Cosmoteer.Ships.Parts.UI.UIToggleModePair": {
       "name": "UIToggleModePair",
       "namespace": "Cosmoteer.Ships.Parts.UI",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ToggleID",
@@ -18012,6 +18143,7 @@
     "Cosmoteer.Ships.Parts.Thrusters.ThrusterRules/FuelUsageRules": {
       "name": "FuelUsageRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FuelStorage",
@@ -18040,6 +18172,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "Sensor",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SightRadius",
@@ -18066,6 +18199,7 @@
       "namespace": "Cosmoteer.Ships.Parts.Resources",
       "abstract": true,
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ResourceType",
@@ -18323,6 +18457,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "ExplosiveResourceDrainSink",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AbsorbsResourceDrain",
@@ -18469,6 +18604,7 @@
       "extends": "Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules",
       "derivedType": "InlineResourceConverter",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FromStorage",
@@ -18506,6 +18642,7 @@
       "extends": "Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules",
       "derivedType": "IonEnergyStorage",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ReductionFactorPerBeam",
@@ -18524,6 +18661,7 @@
       "extends": "Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules",
       "derivedType": "MultiResourceStorage",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ResourceStorages",
@@ -18600,6 +18738,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "ResourceChange",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ResourceStorage",
@@ -18754,6 +18893,7 @@
       "extends": "Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules",
       "derivedType": "ResourceConsumingStorage",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TriggerThreshold",
@@ -18919,6 +19059,7 @@
     "Cosmoteer.Ships.Parts.Resources.ResourceConverterRules/ResourceInfo": {
       "name": "ResourceInfo",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Storage",
@@ -19309,6 +19450,7 @@
       "namespace": "Cosmoteer.Ships.Parts.Overlays",
       "abstract": true,
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RenderWhenPartSelected",
@@ -19336,6 +19478,7 @@
       "extends": "Cosmoteer.Ships.Parts.Overlays.PartOverlayRules",
       "derivedType": "WeaponTargetOverlay",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Weapon",
@@ -19381,6 +19524,7 @@
       "namespace": "Cosmoteer.Ships.Parts.Logic",
       "abstract": true,
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Values",
@@ -19452,6 +19596,7 @@
       "namespace": "Cosmoteer.Ships.Parts.Logic",
       "abstract": true,
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "PartRectType",
@@ -19582,6 +19727,7 @@
       "name": "ComponentToggleReferenceRules",
       "namespace": "Cosmoteer.Ships.Parts.Logic",
       "scalarForm": true,
+      "scalarField": "ID",
       "fields": [
         {
           "name": "ID",
@@ -19608,6 +19754,7 @@
       "name": "ComponentTriggerReferenceRules",
       "namespace": "Cosmoteer.Ships.Parts.Logic",
       "scalarForm": true,
+      "scalarField": "ID",
       "fields": [
         {
           "name": "ID",
@@ -19634,6 +19781,7 @@
       "name": "ComponentValueReferenceRules",
       "namespace": "Cosmoteer.Ships.Parts.Logic",
       "scalarForm": true,
+      "scalarField": "ID",
       "fields": [
         {
           "name": "ID",
@@ -19662,6 +19810,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "DistanceThreshold",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ThresholdDistance",
@@ -19731,6 +19880,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "DoorPresenceToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AdjacentCell",
@@ -19750,6 +19900,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalChainablePartComponentRules",
       "derivedType": "FanArcController",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "GetTargetFrom",
@@ -19817,6 +19968,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "JunkToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OnWhenJunk",
@@ -19835,6 +19987,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "BurstTrigger",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Trigger",
@@ -19912,6 +20065,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "DamageTrigger",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MinDamage",
@@ -19939,6 +20093,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "DebugMode",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DefaultMode",
@@ -19956,6 +20111,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "DebugToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DefaultToggle",
@@ -19973,6 +20129,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "DebugTrigger",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.Parts.Logic.PartDebugValueRules": {
@@ -19981,6 +20138,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "DebugValue",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DefaultValue",
@@ -19998,6 +20156,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "DelayTrigger",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Trigger",
@@ -20025,6 +20184,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "DestroyedTrigger",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.Parts.Logic.PartHealthToggleRules": {
@@ -20033,6 +20193,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "HealthToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MinHealthFraction",
@@ -20058,6 +20219,7 @@
       "extends": "Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules",
       "derivedType": "LazyMultiValue",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.Parts.Logic.PartModeCycleRules": {
@@ -20066,6 +20228,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "ModeCycle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "IncrementTrigger",
@@ -20195,6 +20358,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "ModeTrigger",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Mode",
@@ -20224,6 +20388,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "MultiToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Toggles",
@@ -20270,6 +20435,7 @@
       "name": "ToggleRules",
       "namespace": "",
       "scalarForm": true,
+      "scalarField": "Toggle",
       "fields": [
         {
           "name": "Toggle",
@@ -20296,6 +20462,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "MultiTrigger",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Triggers",
@@ -20326,6 +20493,7 @@
       "extends": "Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules",
       "derivedType": "MultiValue",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "IncludeInBlueprints",
@@ -20345,6 +20513,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "PolledValue",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ValueSource",
@@ -20370,6 +20539,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "SmoothedValue",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ValueSource",
@@ -20413,6 +20583,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "StaticMode",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Mode",
@@ -20430,6 +20601,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "StaticToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ToggleOn",
@@ -20447,6 +20619,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "StaticValue",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Value",
@@ -20464,6 +20637,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "Stopwatch",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Max",
@@ -20523,6 +20697,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "ThresholdToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ValueFrom",
@@ -20571,6 +20746,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "ThresholdTrigger",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AmountFrom",
@@ -20616,6 +20792,7 @@
       "extends": "Cosmoteer.Ships.Parts.Logic.BaseTileScoreValueRules",
       "derivedType": "TileLineScoreValue",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Line",
@@ -20803,6 +20980,7 @@
     "Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValueRules/TileLine": {
       "name": "TileLine",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Location",
@@ -20851,6 +21029,7 @@
       "extends": "Cosmoteer.Ships.Parts.Logic.BaseTileScoreValueRules",
       "derivedType": "TileScoreValue",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Region",
@@ -20885,6 +21064,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "Timer",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Duration",
@@ -21047,6 +21227,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "ToggleTrigger",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Toggle",
@@ -21092,6 +21273,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "ToggleValueSelector",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Toggle",
@@ -21157,6 +21339,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalChainablePartComponentRules",
       "derivedType": "TransformLerp",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ValueFrom",
@@ -21216,6 +21399,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalChainablePartComponentRules",
       "derivedType": "TransformMatch",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MatchTransformOf",
@@ -21345,6 +21529,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "TriggeredToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OnTrigger",
@@ -21412,6 +21597,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "ValueAccumulator",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AccumulatingToggle",
@@ -21493,6 +21679,7 @@
     "Cosmoteer.Ships.Parts.Logic.PartValueAccumulatorRules/AccumulationTriggerRules": {
       "name": "AccumulationTriggerRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Trigger",
@@ -21566,6 +21753,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "ValueChangeTrigger",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ValueSource",
@@ -21602,6 +21790,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "ValueLerp",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "InputValue",
@@ -21665,6 +21854,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "ValueOperation",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Operator",
@@ -21868,6 +22058,7 @@
     "Cosmoteer.Ships.Parts.Logic.ProxyRules/ProxyableComponent": {
       "name": "ProxyableComponent",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "PartCriteria",
@@ -21896,6 +22087,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "ShipConstructionToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "IgnoreRepairs",
@@ -21913,6 +22105,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "TriggeredPartSwap",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Trigger",
@@ -22002,6 +22195,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "UIToggleModeOverride",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TargetUIToggle",
@@ -22045,6 +22239,7 @@
       "name": "BasePartValueSpritesRules",
       "namespace": "Cosmoteer.Ships.Parts.Graphics",
       "extends": "Cosmoteer.Ships.Parts.ChainablePartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Layer",
@@ -22148,6 +22343,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "CustomShipIcon",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Icon",
@@ -22241,6 +22437,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalChainablePartComponentRules",
       "derivedType": "BlendSprite",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AmbiguousSprites",
@@ -22345,6 +22542,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalChainablePartComponentRules",
       "derivedType": "Graphics",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DoodadToggle",
@@ -22531,6 +22729,7 @@
     "Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules/DamageLevelSprites": {
       "name": "DamageLevelSprites",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DamageLevels",
@@ -22616,6 +22815,7 @@
     "Cosmoteer.Ships.Parts.Graphics.PartIndicatorSpritesRules/IndicatorRules": {
       "name": "IndicatorRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Toggle",
@@ -22680,6 +22880,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "MultiColor",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Colors",
@@ -22844,6 +23045,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "RoofOpacity",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "InputRange",
@@ -22875,6 +23077,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalChainablePartComponentRules",
       "derivedType": "ShieldArcsMimic",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Shield",
@@ -23130,6 +23333,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "ValueColor",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RedFrom",
@@ -23185,6 +23389,7 @@
       "extends": "Cosmoteer.Ships.Parts.Graphics.BasePartValueSpritesRules",
       "derivedType": "ValueSprites",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ValueFrom",
@@ -23203,6 +23408,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "FtlBeacon",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.Parts.Ftl.FtlDriveRules": {
@@ -23211,6 +23417,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "FtlDrive",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "PowerStorage",
@@ -23302,6 +23509,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalChainablePartComponentRules",
       "derivedType": "ContinuousEffects",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MediaEffects",
@@ -23420,6 +23628,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalChainablePartComponentRules",
       "derivedType": "DeathEffects",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MediaEffects",
@@ -23501,6 +23710,7 @@
       "extends": "Cosmoteer.Ships.Parts.ChainablePartComponentRules",
       "derivedType": "ToggleEffects",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Toggle",
@@ -23546,6 +23756,7 @@
       "extends": "Cosmoteer.Ships.Parts.ChainablePartComponentRules",
       "derivedType": "TriggeredEffects",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Trigger",
@@ -23834,6 +24045,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "Airlock",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "EnterExitPoint",
@@ -23932,6 +24144,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "CrewDestinationProximityToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Distance",
@@ -23949,6 +24162,7 @@
       "extends": "Cosmoteer.Ships.Parts.ChainablePartComponentRules",
       "derivedType": "CrewLocation",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "EnforceRotation",
@@ -23967,6 +24181,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "CrewSource",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Crew",
@@ -24151,6 +24366,7 @@
     "Cosmoteer.Ships.Parts.Construction.SoftRepairRules": {
       "name": "SoftRepairRules",
       "namespace": "Cosmoteer.Ships.Parts.Construction",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RepairType",
@@ -24170,6 +24386,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "CommandConsumer",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "CommandPoints",
@@ -24187,6 +24404,7 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "CommandProvider",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "CommandPoints",
@@ -24204,6 +24422,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "CommandToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.Parts.Colliders.BaseColliderRules": {
@@ -24211,6 +24430,7 @@
       "namespace": "Cosmoteer.Ships.Parts.Colliders",
       "abstract": true,
       "extends": "Cosmoteer.Ships.Parts.OperationalChainablePartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Density",
@@ -24284,6 +24504,7 @@
       "extends": "Cosmoteer.Ships.Parts.Colliders.BaseColliderRules",
       "derivedType": "CircleCollider",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Radius",
@@ -24301,6 +24522,7 @@
       "extends": "Cosmoteer.Ships.Parts.Colliders.BaseColliderRules",
       "derivedType": "PolygonCollider",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Vertices",
@@ -24458,6 +24680,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "BuffableValue",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Value",
@@ -24742,6 +24965,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "BlueprintNetworkOverlaySignal",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Signal",
@@ -24771,6 +24995,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "BlueprintNetworkValueOverlay",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "BorderColor",
@@ -24868,6 +25093,7 @@
     "Cosmoteer.Ships.Blueprints.ExternalBlueprintWallRules": {
       "name": "ExternalBlueprintWallRules",
       "namespace": "Cosmoteer.Ships.Blueprints",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AmbiguousSprites",
@@ -24888,6 +25114,7 @@
       "namespace": "Cosmoteer.Ships.Blueprints.Graphics",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ColorFactor",
@@ -24986,6 +25213,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "BlueprintBlendSprite",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Location",
@@ -25097,6 +25325,7 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "BlueprintToggledBlendSprites",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Location",
@@ -25193,6 +25422,7 @@
       "namespace": "Cosmoteer.Ships.AI",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.AI.AIParameters": {
@@ -25274,6 +25504,7 @@
       "namespace": "Cosmoteer.Ships.AI",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.AI.AIStrategyModuleRules": {
@@ -25281,6 +25512,7 @@
       "namespace": "Cosmoteer.Ships.AI",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.AI.AITacticsModuleRules": {
@@ -25288,6 +25520,7 @@
       "namespace": "Cosmoteer.Ships.AI",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.AI.AITargetingModuleRules": {
@@ -25295,6 +25528,7 @@
       "namespace": "Cosmoteer.Ships.AI",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.AI.ShipAIRules": {
@@ -25422,6 +25656,7 @@
       "extends": "Cosmoteer.Ships.AI.AITargetingModuleRules",
       "derivedType": "ValueTargeter",
       "registry": "Cosmoteer.Ships.AI.AITargetingModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TargetChecksPerUpdate",
@@ -25455,6 +25690,7 @@
       "extends": "Cosmoteer.Ships.AI.AITacticsModuleRules",
       "derivedType": "DefaultAttackRadiusAndRotation",
       "registry": "Cosmoteer.Ships.AI.AITacticsModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AttackRotationSwitchThresholdFactor",
@@ -25495,6 +25731,7 @@
       "extends": "Cosmoteer.Ships.AI.AITacticsModuleRules",
       "derivedType": "RandomAttackAngle",
       "registry": "Cosmoteer.Ships.AI.AITacticsModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AttackAngleChangeInterval",
@@ -25538,6 +25775,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
       "derivedType": "AggroEnemies",
       "registry": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TargetSwitchThresholdFactor",
@@ -25637,6 +25875,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
       "derivedType": "AreaPatrol",
       "registry": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DefaultPatrolRadius",
@@ -25674,6 +25913,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
       "derivedType": "DeleteSelf",
       "registry": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.AI.StrategyModules.AIExitSectorModuleRules": {
@@ -25682,6 +25922,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
       "derivedType": "ExitSector",
       "registry": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "IsActivated",
@@ -25699,6 +25940,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
       "derivedType": "FleeFromEnemies",
       "registry": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FleeStartRange",
@@ -25754,6 +25996,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
       "derivedType": "FollowFleetLeader",
       "registry": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.AI.StrategyModules.AIHoldPositionModuleRules": {
@@ -25762,6 +26005,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
       "derivedType": "HoldPosition",
       "registry": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "HoldRotation",
@@ -25779,6 +26023,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
       "derivedType": "SelfRepair",
       "registry": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RepairChecksPerTick",
@@ -25850,6 +26095,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
       "derivedType": "WantedSearch",
       "registry": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AvoidableDoodadTags",
@@ -25879,6 +26125,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStasisModuleRules",
       "derivedType": "AreaPatrol",
       "registry": "Cosmoteer.Ships.AI.AIStasisModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DefaultPatrolRadius",
@@ -25924,6 +26171,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStasisModuleRules",
       "derivedType": "DeleteSelf",
       "registry": "Cosmoteer.Ships.AI.AIStasisModuleRules",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.AI.StasisModules.AIStasisExitSectorModuleRules": {
@@ -25932,6 +26180,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStasisModuleRules",
       "derivedType": "ExitSector",
       "registry": "Cosmoteer.Ships.AI.AIStasisModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DefaultStasisSpeed",
@@ -25977,6 +26226,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStasisModuleRules",
       "derivedType": "FollowFleetLeader",
       "registry": "Cosmoteer.Ships.AI.AIStasisModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DefaultStasisSpeed",
@@ -26014,6 +26264,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStasisModuleRules",
       "derivedType": "MissionProvider",
       "registry": "Cosmoteer.Ships.AI.AIStasisModuleRules",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.AI.StasisModules.AIStasisWantedSearchModuleRules": {
@@ -26022,6 +26273,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStasisModuleRules",
       "derivedType": "WantedSearch",
       "registry": "Cosmoteer.Ships.AI.AIStasisModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DefaultStasisSpeed",
@@ -26059,6 +26311,7 @@
       "extends": "Cosmoteer.Ships.AI.AICommsModuleRules",
       "derivedType": "CrewProvider",
       "registry": "Cosmoteer.Ships.AI.AICommsModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "CrewForHireFraction",
@@ -26103,6 +26356,7 @@
       "extends": "Cosmoteer.Ships.AI.AICommsModuleRules",
       "derivedType": "Dialogue",
       "registry": "Cosmoteer.Ships.AI.AICommsModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DefaultChanceToConsiderSurrenderingToPlayer",
@@ -26171,6 +26425,7 @@
       "extends": "Cosmoteer.Ships.AI.AICommsModuleRules",
       "derivedType": "MissionProvider",
       "registry": "Cosmoteer.Ships.AI.AICommsModuleRules",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.AI.CommsModules.AITechProviderModuleRules": {
@@ -26179,6 +26434,7 @@
       "extends": "Cosmoteer.Ships.AI.AICommsModuleRules",
       "derivedType": "TechProvider",
       "registry": "Cosmoteer.Ships.AI.AICommsModuleRules",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Ships.AI.CommsModules.AITradeModuleRules": {
@@ -26187,6 +26443,7 @@
       "extends": "Cosmoteer.Ships.AI.AICommsModuleRules",
       "derivedType": "Trade",
       "registry": "Cosmoteer.Ships.AI.AICommsModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AllowHumanTrade",
@@ -26225,6 +26482,7 @@
     "Cosmoteer.Resources.NuggetRules": {
       "name": "NuggetRules",
       "namespace": "Cosmoteer.Resources",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LinearDamping",
@@ -26296,6 +26554,7 @@
     "Cosmoteer.Resources.ResourceRarityRules": {
       "name": "ResourceRarityRules",
       "namespace": "Cosmoteer.Resources",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "UseFogDot",
@@ -26626,6 +26885,7 @@
     "Cosmoteer.Resources.ResourceRules/NuggetDropRates": {
       "name": "NuggetDropRates",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "PartDestroyed",
@@ -26721,6 +26981,7 @@
     "Cosmoteer.Resources.ResourceRules/HitResponseRules": {
       "name": "HitResponseRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "HitEffects",
@@ -26804,6 +27065,7 @@
     "Cosmoteer.Resources.ResourceRules/HitResponseRules/DamageTypeOverrideData": {
       "name": "DamageTypeOverrideData",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Chance",
@@ -26833,6 +27095,7 @@
       "namespace": "Cosmoteer.Nebulas",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Nebulas.NebulaDamageCrewEffectRules": {
@@ -26841,6 +27104,7 @@
       "extends": "Cosmoteer.Nebulas.NebulaActiveEffectRules",
       "derivedType": "DamageCrew",
       "registry": "Cosmoteer.Nebulas.NebulaActiveEffectRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DamageChancePerCrewPerTick",
@@ -26883,6 +27147,7 @@
       "extends": "Cosmoteer.Nebulas.NebulaActiveEffectRules",
       "derivedType": "DamageShips",
       "registry": "Cosmoteer.Nebulas.NebulaActiveEffectRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DamageChancePerPartPerTick",
@@ -26925,6 +27190,7 @@
       "extends": "Cosmoteer.Nebulas.NebulaActiveEffectRules",
       "derivedType": "LightningStrikes",
       "registry": "Cosmoteer.Nebulas.NebulaActiveEffectRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LightningChancePerTilePerTick",
@@ -27803,6 +28069,7 @@
     "Cosmoteer.Modes.MapSize": {
       "name": "MapSize",
       "namespace": "Cosmoteer.Modes",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NameKey",
@@ -27835,6 +28102,7 @@
       "name": "StatusFactors",
       "namespace": "Cosmoteer.Modes",
       "scalarForm": true,
+      "scalarField": "Chance",
       "fields": [
         {
           "name": "Chance",
@@ -27876,6 +28144,7 @@
       "name": "PvpModeRules",
       "namespace": "Cosmoteer.Modes.Pvp",
       "abstract": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MapGenerator",
@@ -28114,6 +28383,7 @@
     "Cosmoteer.Modes.Pvp.Teams": {
       "name": "Teams",
       "namespace": "Cosmoteer.Modes.Pvp",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TeamCount",
@@ -28143,6 +28413,7 @@
     "Cosmoteer.Modes.Pvp.TimeLimit": {
       "name": "TimeLimit",
       "namespace": "Cosmoteer.Modes.Pvp",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Seconds",
@@ -28172,6 +28443,7 @@
     "Cosmoteer.Modes.Pvp.PvpMapType": {
       "name": "PvpMapType",
       "namespace": "Cosmoteer.Modes.Pvp",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Generator",
@@ -28203,6 +28475,7 @@
     "Cosmoteer.Modes.Pvp.FleetDistance": {
       "name": "FleetDistance",
       "namespace": "Cosmoteer.Modes.Pvp",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Distance",
@@ -28232,6 +28505,7 @@
     "Cosmoteer.Modes.Pvp.PerimeterDistance": {
       "name": "PerimeterDistance",
       "namespace": "Cosmoteer.Modes.Pvp",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Radius",
@@ -28261,6 +28535,7 @@
     "Cosmoteer.Modes.Pvp.Ruleset": {
       "name": "Ruleset",
       "namespace": "Cosmoteer.Modes.Pvp",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Options",
@@ -28281,6 +28556,7 @@
       "name": "OfficialRuleset",
       "namespace": "Cosmoteer.Modes.Pvp",
       "extends": "Cosmoteer.Modes.Pvp.Ruleset",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NameKey",
@@ -28313,6 +28589,7 @@
       "namespace": "Cosmoteer.Modes.Pvp.Pointmatch",
       "abstract": true,
       "extends": "Cosmoteer.Modes.Pvp.PvpModeRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MinGoalPoints",
@@ -28372,6 +28649,7 @@
       "name": "ArenaModeRules",
       "namespace": "Cosmoteer.Modes.Pvp.Pointmatch.Arena",
       "extends": "Cosmoteer.Modes.Pvp.Pointmatch.PointmatchModeRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Icon",
@@ -28511,6 +28789,7 @@
       "name": "EliminationModeRules",
       "namespace": "Cosmoteer.Modes.Pvp.Elimination",
       "extends": "Cosmoteer.Modes.Pvp.PvpModeRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Icon",
@@ -28558,6 +28837,7 @@
     "Cosmoteer.Modes.Pvp.Elimination.VictoryCondition": {
       "name": "VictoryCondition",
       "namespace": "Cosmoteer.Modes.Pvp.Elimination",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DestructionGoal",
@@ -28588,6 +28868,7 @@
       "name": "DominationModeRules",
       "namespace": "Cosmoteer.Modes.Pvp.Domination",
       "extends": "Cosmoteer.Modes.Pvp.PvpModeRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Icon",
@@ -28678,6 +28959,7 @@
     "Cosmoteer.Modes.Pvp.Domination.DominationMapRules": {
       "name": "DominationMapRules",
       "namespace": "Cosmoteer.Modes.Pvp.Domination",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NameKey",
@@ -28740,6 +29022,7 @@
     "Cosmoteer.Modes.Pvp.Domination.DoodadTypeCount": {
       "name": "DoodadTypeCount",
       "namespace": "Cosmoteer.Modes.Pvp.Domination",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DoodadID",
@@ -28782,6 +29065,7 @@
     "Cosmoteer.Modes.Pvp.Domination.CapturePointRules": {
       "name": "CapturePointRules",
       "namespace": "Cosmoteer.Modes.Pvp.Domination",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Radius",
@@ -28980,6 +29264,7 @@
     "Cosmoteer.Modes.Pvp.Domination.SpawnPointRules": {
       "name": "SpawnPointRules",
       "namespace": "Cosmoteer.Modes.Pvp.Domination",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Radius",
@@ -29268,6 +29553,7 @@
     "Cosmoteer.Modes.Pvp.BuildBattle.CapturePointRules": {
       "name": "CapturePointRules",
       "namespace": "Cosmoteer.Modes.Pvp.BuildBattle",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Radius",
@@ -29428,6 +29714,7 @@
     "Cosmoteer.Modes.Pvp.BuildBattle.BuildAreaRules": {
       "name": "BuildAreaRules",
       "namespace": "Cosmoteer.Modes.Pvp.BuildBattle",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Radius",
@@ -29501,6 +29788,7 @@
     "Cosmoteer.Modes.Pvp.BuildBattle.BuildBattleTechRules": {
       "name": "BuildBattleTechRules",
       "namespace": "Cosmoteer.Modes.Pvp.BuildBattle",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ID",
@@ -29678,6 +29966,7 @@
     "Cosmoteer.Modes.Creative.CreativeModeRules": {
       "name": "CreativeModeRules",
       "namespace": "Cosmoteer.Modes.Creative",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Icon",
@@ -29758,6 +30047,7 @@
     "Cosmoteer.Modes.Creative.CreativeModeGuiRules": {
       "name": "CreativeModeGuiRules",
       "namespace": "Cosmoteer.Modes.Creative",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ShipLibraryIcon",
@@ -29973,6 +30263,7 @@
     "Cosmoteer.Modes.Creative.SOSWidgetRules": {
       "name": "SOSWidgetRules",
       "namespace": "Cosmoteer.Modes.Creative",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "StateNoneSprite",
@@ -30380,6 +30671,7 @@
     "Cosmoteer.Modes.Career.CareerModeGuiRules": {
       "name": "CareerModeGuiRules",
       "namespace": "Cosmoteer.Modes.Career",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Comms",
@@ -30434,6 +30726,7 @@
     "Cosmoteer.Modes.Career.CareerModeMapRules": {
       "name": "CareerModeMapRules",
       "namespace": "Cosmoteer.Modes.Career",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FriendliesPresentSprite",
@@ -30459,6 +30752,7 @@
     "Cosmoteer.Modes.Career.DangerLevelColorRules": {
       "name": "DangerLevelColorRules",
       "namespace": "Cosmoteer.Modes.Career",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Tier",
@@ -30483,6 +30777,7 @@
     "Cosmoteer.Modes.Career.StarterShipRules": {
       "name": "StarterShipRules",
       "namespace": "Cosmoteer.Modes.Career",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Ship",
@@ -30506,6 +30801,7 @@
     "Cosmoteer.Modes.Career.CombatDifficultyRules": {
       "name": "CombatDifficultyRules",
       "namespace": "Cosmoteer.Modes.Career",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ID",
@@ -30650,6 +30946,7 @@
     "Cosmoteer.Modes.Career.EconDifficultyRules": {
       "name": "EconDifficultyRules",
       "namespace": "Cosmoteer.Modes.Career",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ID",
@@ -30779,6 +31076,7 @@
     "Cosmoteer.Modes.Career.CrewScarcityRules": {
       "name": "CrewScarcityRules",
       "namespace": "Cosmoteer.Modes.Career",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ID",
@@ -30849,6 +31147,7 @@
     "Cosmoteer.Modes.Career.ExplorationRules": {
       "name": "ExplorationRules",
       "namespace": "Cosmoteer.Modes.Career",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SectorSize",
@@ -30933,6 +31232,7 @@
     "Cosmoteer.Modes.Career.WantedRules": {
       "name": "WantedRules",
       "namespace": "Cosmoteer.Modes.Career",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SearchRadius",
@@ -31037,6 +31337,7 @@
     "Cosmoteer.Modes.Career.DialogueRules": {
       "name": "DialogueRules",
       "namespace": "Cosmoteer.Modes.Career",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SurrenderAreaCheckRadius",
@@ -31165,6 +31466,7 @@
     "Cosmoteer.Modes.Career.FameTitleRules": {
       "name": "FameTitleRules",
       "namespace": "Cosmoteer.Modes.Career",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Fame",
@@ -31211,6 +31513,7 @@
     "Cosmoteer.Modes.Career.ReputationTitleRules": {
       "name": "ReputationTitleRules",
       "namespace": "Cosmoteer.Modes.Career",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Reputation",
@@ -31320,6 +31623,7 @@
     "Cosmoteer.Modes.Career.SystemVisitMissionsRules": {
       "name": "SystemVisitMissionsRules",
       "namespace": "Cosmoteer.Modes.Career",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Metatype",
@@ -31361,6 +31665,7 @@
     "Cosmoteer.Modes.Career.ResourceDeliveryMissionRules": {
       "name": "ResourceDeliveryMissionRules",
       "namespace": "Cosmoteer.Modes.Career",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Metatype",
@@ -31424,6 +31729,7 @@
     "Cosmoteer.Modes.Career.ResourceDeliveryMissionRules/DeliveryTypeRules": {
       "name": "DeliveryTypeRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ResourceType",
@@ -31472,6 +31778,7 @@
       "extends": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
       "derivedType": "HaltForComms",
       "registry": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "HaltForTrade",
@@ -31489,11 +31796,13 @@
       "extends": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
       "derivedType": "TradeShip",
       "registry": "Cosmoteer.Ships.AI.AIStrategyModuleRules",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Modes.Career.TradeRoutes.TradeRoutesRules": {
       "name": "TradeRoutesRules",
       "namespace": "Cosmoteer.Modes.Career.TradeRoutes",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MaxTradeShipsPerEndpoint",
@@ -31714,6 +32023,7 @@
     "Cosmoteer.Modes.Career.TradeRoutes.TradeShipResourceRules": {
       "name": "TradeShipResourceRules",
       "namespace": "Cosmoteer.Modes.Career.TradeRoutes",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ResourceType",
@@ -31749,6 +32059,7 @@
     "Cosmoteer.Modes.Career.TradeRoutes.StationResourceRules": {
       "name": "StationResourceRules",
       "namespace": "Cosmoteer.Modes.Career.TradeRoutes",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ResourceType",
@@ -32002,6 +32313,7 @@
     "Cosmoteer.Modes.Career.Missions.MissionCategory": {
       "name": "MissionCategory",
       "namespace": "Cosmoteer.Modes.Career.Missions",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ID",
@@ -32026,6 +32338,7 @@
     "Cosmoteer.Modes.Career.Missions.MissionMetatype": {
       "name": "MissionMetatype",
       "namespace": "Cosmoteer.Modes.Career.Missions",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NameKey",
@@ -32081,6 +32394,7 @@
     "Cosmoteer.Modes.Career.Missions.MissionsGuiRules": {
       "name": "MissionsGuiRules",
       "namespace": "Cosmoteer.Modes.Career.Missions",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LogIcon",
@@ -32755,6 +33069,7 @@
       "extends": "Cosmoteer.Generators.Simulation.SimSpawner",
       "derivedType": "Mission",
       "registry": "Cosmoteer.Generators.Simulation.SimSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Metatype",
@@ -32903,6 +33218,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Rewards.RewardSpawner",
       "derivedType": "CustomText",
       "registry": "Cosmoteer.Modes.Career.Missions.Rewards.RewardSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TextKey",
@@ -32919,6 +33235,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Rewards.RewardSpawner",
       "derivedType": "Fame",
       "registry": "Cosmoteer.Modes.Career.Missions.Rewards.RewardSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Fame",
@@ -33034,6 +33351,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Rewards.RewardSpawner",
       "derivedType": "Money",
       "registry": "Cosmoteer.Modes.Career.Missions.Rewards.RewardSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Money",
@@ -33106,6 +33424,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Rewards.RewardSpawner",
       "derivedType": "NoOp",
       "registry": "Cosmoteer.Modes.Career.Missions.Rewards.RewardSpawner",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Modes.Career.Missions.Rewards.ReputationReward/Spawner": {
@@ -33114,6 +33433,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Rewards.RewardSpawner",
       "derivedType": "Reputation",
       "registry": "Cosmoteer.Modes.Career.Missions.Rewards.RewardSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Faction",
@@ -33194,6 +33514,7 @@
       "namespace": "Cosmoteer.Modes.Career.Missions.Rewards",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Modes.Career.Missions.Objectives.AnyOrderObjective/Spawner": {
@@ -33202,6 +33523,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
       "derivedType": "AnyOrder",
       "registry": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SubObjectives",
@@ -33255,6 +33577,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
       "derivedType": "DebugEvent",
       "registry": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "EventCount",
@@ -33275,6 +33598,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
       "derivedType": "DefeatShips",
       "registry": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TargetsTag",
@@ -33455,6 +33779,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
       "derivedType": "DiscoverPOIs",
       "registry": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "POITags",
@@ -33521,6 +33846,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
       "derivedType": "DontSurrenderTo",
       "registry": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TargetsTag",
@@ -33606,6 +33932,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
       "derivedType": "Fame",
       "registry": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Fame",
@@ -33680,6 +34007,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Objectives.AnyOrderObjective/Spawner",
       "derivedType": "Implicit",
       "registry": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner": {
@@ -33687,6 +34015,7 @@
       "namespace": "Cosmoteer.Modes.Career.Missions.Objectives",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Rewards",
@@ -33716,6 +34045,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
       "derivedType": "ProtectShips",
       "registry": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TargetsTag",
@@ -33827,6 +34157,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
       "derivedType": "ReceiveRewards",
       "registry": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ContactShipTag",
@@ -33854,6 +34185,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
       "derivedType": "Sequential",
       "registry": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SubObjectives",
@@ -33900,6 +34232,7 @@
       "extends": "Cosmoteer.Modes.Career.Missions.Objectives.AnyOrderObjective/Spawner",
       "derivedType": "TimeLimit",
       "registry": "Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TimeLimit",
@@ -33927,6 +34260,7 @@
       "extends": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
       "derivedType": "FactionNodeTiers",
       "registry": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Factions",
@@ -33945,6 +34279,7 @@
     "Cosmoteer.Modes.Career.Map.FactionNodeTiersSpawner/FactionTiersRules": {
       "name": "FactionTiersRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FactionID",
@@ -34007,6 +34342,7 @@
       "extends": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
       "derivedType": "ProgressionNodeTiers",
       "registry": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DesiredTierDeltas",
@@ -34068,6 +34404,7 @@
     "Cosmoteer.Modes.Career.Map.ProgressionNodeTiersSpawner/DesiredTierDeltaRules": {
       "name": "DesiredTierDeltaRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SourceLowTierDelta",
@@ -34120,6 +34457,7 @@
       "extends": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
       "derivedType": "RandomNodeTiers",
       "registry": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TierRangeLow",
@@ -34151,6 +34489,7 @@
       "extends": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
       "derivedType": "RandomSectorTypes",
       "registry": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SectorTypes",
@@ -34169,6 +34508,7 @@
     "Cosmoteer.Modes.Career.Map.RandomSectorTypesSpawner/SectorTypeInfo": {
       "name": "SectorTypeInfo",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Type",
@@ -34208,6 +34548,7 @@
     "Cosmoteer.Modes.Career.Map.SectorTypeRules": {
       "name": "SectorTypeRules",
       "namespace": "Cosmoteer.Modes.Career.Map",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ID",
@@ -34295,6 +34636,7 @@
       "extends": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
       "derivedType": "StartingNodePicker",
       "registry": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AllowedFactions",
@@ -34422,6 +34764,7 @@
     "Cosmoteer.Modes.Career.Encounter.EncounterManagerRules": {
       "name": "EncounterManagerRules",
       "namespace": "Cosmoteer.Modes.Career.Encounter",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MinTimeBetweenEncounters",
@@ -34473,6 +34816,7 @@
     "Cosmoteer.Modes.Career.Encounter.EncounterRules": {
       "name": "EncounterRules",
       "namespace": "Cosmoteer.Modes.Career.Encounter",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ID",
@@ -34574,6 +34918,7 @@
     "Cosmoteer.Modes.Career.Comms.CommsGuiRules": {
       "name": "CommsGuiRules",
       "namespace": "Cosmoteer.Modes.Career.Comms",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ToolIcon",
@@ -34984,6 +35329,7 @@
     "Cosmoteer.Gui.MenuRules": {
       "name": "MenuRules",
       "namespace": "Cosmoteer.Gui",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MainMenuBackgrounds",
@@ -35434,6 +35780,7 @@
     "Cosmoteer.Gui.MenuBackgroundRules": {
       "name": "MenuBackgroundRules",
       "namespace": "Cosmoteer.Gui",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "BackgroundStyle",
@@ -35469,6 +35816,7 @@
     "Cosmoteer.Gui.MenuBackgroundPlanetRules": {
       "name": "MenuBackgroundPlanetRules",
       "namespace": "Cosmoteer.Gui",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DoodadID",
@@ -35522,6 +35870,7 @@
     "Cosmoteer.Gui.LatencyLevel": {
       "name": "LatencyLevel",
       "namespace": "Cosmoteer.Gui",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MaxLatency",
@@ -35547,6 +35896,7 @@
     "Cosmoteer.Gui.WidgetRules": {
       "name": "WidgetRules",
       "namespace": "Cosmoteer.Gui",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "PulsingTextShader",
@@ -36856,6 +37206,7 @@
       "namespace": "Cosmoteer.Generators.Textures",
       "abstract": true,
       "extends": "Cosmoteer.Generators.Textures.HeightMapLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Seed",
@@ -36963,6 +37314,7 @@
       "namespace": "Cosmoteer.Generators.Textures",
       "abstract": true,
       "extends": "Cosmoteer.Generators.Textures.TextureLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Seed",
@@ -37078,6 +37430,7 @@
       "namespace": "Cosmoteer.Generators.Textures",
       "abstract": true,
       "extends": "Cosmoteer.Generators.Textures.TextureLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "HeightFactor",
@@ -37138,6 +37491,7 @@
       "extends": "Cosmoteer.Generators.Textures.TextureLayer",
       "derivedType": "ColorShift",
       "registry": "Cosmoteer.Generators.Textures.TextureLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Seed",
@@ -37199,6 +37553,7 @@
       "extends": "Cosmoteer.Generators.Textures.BaseDecalsTextureLayer\u00601",
       "derivedType": "Decals",
       "registry": "Cosmoteer.Generators.Textures.TextureLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DecalFiles",
@@ -37291,6 +37646,7 @@
       "extends": "Cosmoteer.Generators.Textures.TextureLayer",
       "derivedType": "Grid",
       "registry": "Cosmoteer.Generators.Textures.TextureLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "VerticalLines",
@@ -37315,6 +37671,7 @@
     "Cosmoteer.Generators.Textures.HeightMapGenerator": {
       "name": "HeightMapGenerator",
       "namespace": "Cosmoteer.Generators.Textures",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Name",
@@ -37358,6 +37715,7 @@
       "namespace": "Cosmoteer.Generators.Textures",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OpacityInRange",
@@ -37455,6 +37813,7 @@
       "extends": "Cosmoteer.Generators.Textures.BaseNormalsTextureLayer\u00601",
       "derivedType": "HeightmapToNormals",
       "registry": "Cosmoteer.Generators.Textures.TextureLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "HeightExponent",
@@ -37480,6 +37839,7 @@
       "extends": "Cosmoteer.Generators.Textures.HeightMapLayer",
       "derivedType": "PerlinDistortion",
       "registry": "Cosmoteer.Generators.Textures.HeightMapLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Distortion",
@@ -37516,6 +37876,7 @@
       "extends": "Cosmoteer.Generators.Textures.TextureLayer",
       "derivedType": "PerlinDistortion",
       "registry": "Cosmoteer.Generators.Textures.TextureLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Distortion",
@@ -37560,6 +37921,7 @@
       "extends": "Cosmoteer.Generators.Textures.HeightMapLayer",
       "derivedType": "Perlin",
       "registry": "Cosmoteer.Generators.Textures.HeightMapLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "PerlinNoise",
@@ -37584,6 +37946,7 @@
     "Cosmoteer.Generators.Textures.PerlinNoiseEdgeEffects": {
       "name": "PerlinNoiseEdgeEffects",
       "namespace": "Cosmoteer.Generators.Textures",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LeftAdd",
@@ -37721,6 +38084,7 @@
       "extends": "Cosmoteer.Generators.Textures.BaseNormalsTextureLayer\u00601",
       "derivedType": "PerlinNormals",
       "registry": "Cosmoteer.Generators.Textures.TextureLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "PerlinNoise",
@@ -37775,6 +38139,7 @@
       "extends": "Cosmoteer.Generators.Textures.HeightMapLayer",
       "derivedType": "RemapRange",
       "registry": "Cosmoteer.Generators.Textures.HeightMapLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "InputRange",
@@ -37830,6 +38195,7 @@
       "extends": "Cosmoteer.Generators.Textures.TextureLayer",
       "derivedType": "SolidColor",
       "registry": "Cosmoteer.Generators.Textures.TextureLayer",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Generators.Textures.SwirlHeightMapLayer": {
@@ -37838,6 +38204,7 @@
       "extends": "Cosmoteer.Generators.Textures.BaseDecalsHeightMapLayer\u00601",
       "derivedType": "Swirl",
       "registry": "Cosmoteer.Generators.Textures.HeightMapLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SwirlAmount",
@@ -37863,6 +38230,7 @@
       "extends": "Cosmoteer.Generators.Textures.BaseDecalsTextureLayer\u00601",
       "derivedType": "Swirls",
       "registry": "Cosmoteer.Generators.Textures.TextureLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SwirlAmount",
@@ -37885,6 +38253,7 @@
     "Cosmoteer.Generators.Textures.TextureGenerator": {
       "name": "TextureGenerator",
       "namespace": "Cosmoteer.Generators.Textures",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SampleMode",
@@ -37925,6 +38294,7 @@
       "namespace": "Cosmoteer.Generators.Textures",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Name",
@@ -38001,6 +38371,7 @@
       "extends": "Cosmoteer.Generators.Textures.TextureLayer",
       "derivedType": "LayerGroup",
       "registry": "Cosmoteer.Generators.Textures.TextureLayer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ImportClippingMask",
@@ -38089,6 +38460,7 @@
       "name": "DoodadTypeInfo",
       "namespace": "",
       "scalarForm": true,
+      "scalarField": "Type",
       "fields": [
         {
           "name": "Type",
@@ -38132,6 +38504,7 @@
       "name": "MultiSpawnedObjectSearch",
       "namespace": "Cosmoteer.Generators.Simulation",
       "scalarForm": true,
+      "scalarField": "Tag",
       "fields": [
         {
           "name": "Mode",
@@ -38213,6 +38586,7 @@
       "extends": "Cosmoteer.Generators.Simulation.SimObjectSpawner",
       "derivedType": "Nebula",
       "registry": "Cosmoteer.Generators.Simulation.SimObjectSpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NebulaType",
@@ -38388,6 +38762,7 @@
       "extends": "Cosmoteer.Generators.Simulation.SimObjectSpawner",
       "derivedType": "None",
       "registry": "Cosmoteer.Generators.Simulation.SimObjectSpawner",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Generators.Simulation.ShipSpawner": {
@@ -38658,6 +39033,7 @@
       "name": "ShipInfo",
       "namespace": "",
       "scalarForm": true,
+      "scalarField": "ShipID",
       "fields": [
         {
           "name": "ShipID",
@@ -38683,6 +39059,7 @@
     "Cosmoteer.Generators.Simulation.ShipSpawner/ShipCriteria": {
       "name": "ShipCriteria",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Factions",
@@ -38800,6 +39177,7 @@
     "Cosmoteer.Generators.Simulation.ShipSpawner/ShipCommand": {
       "name": "ShipCommand",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Type",
@@ -38880,6 +39258,7 @@
     "Cosmoteer.Generators.Simulation.ResourceTypeLoadoutRules": {
       "name": "ResourceTypeLoadoutRules",
       "namespace": "Cosmoteer.Generators.Simulation",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ResourceType",
@@ -38919,6 +39298,7 @@
       "abstract": true,
       "extends": "Cosmoteer.Generators.Simulation.SimSpawner",
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Tags",
@@ -39304,6 +39684,7 @@
       "namespace": "Cosmoteer.Generators.Simulation",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Conditions",
@@ -39328,6 +39709,7 @@
     "Cosmoteer.Generators.Simulation.SimSpawner/SpawnConditions": {
       "name": "SpawnConditions",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OnlySectorTypes",
@@ -39435,6 +39817,7 @@
     "Cosmoteer.Generators.Simulation.SimulationGenerator": {
       "name": "SimulationGenerator",
       "namespace": "Cosmoteer.Generators.Simulation",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Spawners",
@@ -39454,6 +39837,7 @@
       "name": "SpawnedObjectSearch",
       "namespace": "Cosmoteer.Generators.Simulation",
       "scalarForm": true,
+      "scalarField": "Tag",
       "fields": [
         {
           "name": "Mode",
@@ -39503,6 +39887,7 @@
       "extends": "Cosmoteer.Generators.Simulation.SimObjectSpawner",
       "derivedType": "SpawnPoint",
       "registry": "Cosmoteer.Generators.Simulation.SimObjectSpawner",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Generators.Simulation.TierFieldSpawner": {
@@ -39511,6 +39896,7 @@
       "extends": "Cosmoteer.Generators.Simulation.SimObjectSpawner",
       "derivedType": "TierField",
       "registry": "Cosmoteer.Generators.Simulation.SimObjectSpawner",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Generators.Ships.GeneratorStage": {
@@ -39732,6 +40118,7 @@
     "Cosmoteer.Generators.Ships.Stages.BasePlacePartsStage/RotationFlipWeightValues": {
       "name": "RotationFlipWeightValues",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RotZeroWeight",
@@ -40569,6 +40956,7 @@
       "extends": "Cosmoteer.Generators.Planets.PlanetTextureGeneratorLayerRules",
       "derivedType": "HaloGenerator",
       "registry": "Cosmoteer.Generators.Planets.PlanetLayerRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OuterThickness",
@@ -40601,6 +40989,7 @@
       "namespace": "Cosmoteer.Generators.Planets",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Name",
@@ -40708,6 +41097,7 @@
       "extends": "Cosmoteer.Generators.Planets.PlanetTextureGeneratorLayerRules",
       "derivedType": "RingGenerator",
       "registry": "Cosmoteer.Generators.Planets.PlanetLayerRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RingThickness",
@@ -40774,6 +41164,7 @@
     "Cosmoteer.Generators.Planets.PlanetRules": {
       "name": "PlanetRules",
       "namespace": "Cosmoteer.Generators.Planets",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Styles",
@@ -40877,6 +41268,7 @@
       "extends": "Cosmoteer.Generators.Planets.PlanetLayerRules",
       "derivedType": "TextureGenerator",
       "registry": "Cosmoteer.Generators.Planets.PlanetLayerRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Generator",
@@ -40913,6 +41305,7 @@
       "extends": "Cosmoteer.Generators.Planets.PlanetLayerRules",
       "derivedType": "WavesGenerator",
       "registry": "Cosmoteer.Generators.Planets.PlanetLayerRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Interval",
@@ -40960,6 +41353,7 @@
       "namespace": "Cosmoteer.Generators.Names",
       "derivedType": "CharacterSequence",
       "registry": "Cosmoteer.Generators.Names.NameGenerator",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AvailableCharacters",
@@ -41026,6 +41420,7 @@
       "namespace": "Cosmoteer.Generators.Names",
       "derivedType": "Multi",
       "registry": "Cosmoteer.Generators.Names.NameGenerator",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SubGenerators",
@@ -41092,6 +41487,7 @@
       "namespace": "Cosmoteer.Generators.Names",
       "derivedType": "NameList",
       "registry": "Cosmoteer.Generators.Names.NameGenerator",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Names",
@@ -41110,6 +41506,7 @@
       "namespace": "Cosmoteer.Generators.Names",
       "derivedType": "None",
       "registry": "Cosmoteer.Generators.Names.NameGenerator",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Generators.Galaxies.FactionsSpawner": {
@@ -41118,6 +41515,7 @@
       "extends": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
       "derivedType": "Factions",
       "registry": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Factions",
@@ -41171,6 +41569,7 @@
     "Cosmoteer.Generators.Galaxies.FactionsSpawner/FactionSpawnRules": {
       "name": "FactionSpawnRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FactionID",
@@ -41230,6 +41629,7 @@
     "Cosmoteer.Generators.Galaxies.GalaxyGenerator": {
       "name": "GalaxyGenerator",
       "namespace": "Cosmoteer.Generators.Galaxies",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Spawners",
@@ -41250,6 +41650,7 @@
       "namespace": "Cosmoteer.Generators.Galaxies",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SpawnChance",
@@ -41268,6 +41669,7 @@
       "extends": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
       "derivedType": "MapNodes",
       "registry": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Count",
@@ -41336,6 +41738,7 @@
       "extends": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
       "derivedType": "RandomNodeFactions",
       "registry": "Cosmoteer.Generators.Galaxies.GalaxySpawner",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FactionStrengths",
@@ -41369,6 +41772,7 @@
     "Cosmoteer.Game.GameRules": {
       "name": "GameRules",
       "namespace": "Cosmoteer.Game",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "GameGui",
@@ -42476,6 +42880,7 @@
     "Cosmoteer.Game.UIColorRules": {
       "name": "UIColorRules",
       "namespace": "Cosmoteer.Game",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DefaultPlayerColor",
@@ -42534,6 +42939,7 @@
     "Cosmoteer.Game.ColorblindPreset": {
       "name": "ColorblindPreset",
       "namespace": "Cosmoteer.Game",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NameKey",
@@ -42588,6 +42994,7 @@
     "Cosmoteer.Game.ObjectIndicatorRules": {
       "name": "ObjectIndicatorRules",
       "namespace": "Cosmoteer.Game",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OffScreenDistFromEdge",
@@ -42995,6 +43402,7 @@
     "Cosmoteer.Game.MirrorLineRules": {
       "name": "MirrorLineRules",
       "namespace": "Cosmoteer.Game",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MirrorLineColor",
@@ -43102,6 +43510,7 @@
     "Cosmoteer.Game.PartTriggerGuiRules": {
       "name": "PartTriggerGuiRules",
       "namespace": "Cosmoteer.Game",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TriggerID",
@@ -43179,6 +43588,7 @@
     "Cosmoteer.Game.PartTargeterGuiRules": {
       "name": "PartTargeterGuiRules",
       "namespace": "Cosmoteer.Game",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TargeterID",
@@ -43490,6 +43900,7 @@
     "Cosmoteer.Game.PartToggleChoice": {
       "name": "PartToggleChoice",
       "namespace": "Cosmoteer.Game",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ChoiceID",
@@ -43576,6 +43987,7 @@
     "Cosmoteer.Game.PartColorGuiRules": {
       "name": "PartColorGuiRules",
       "namespace": "Cosmoteer.Game",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ColorID",
@@ -43702,6 +44114,7 @@
     "Cosmoteer.Game.MinimapRules": {
       "name": "MinimapRules",
       "namespace": "Cosmoteer.Game",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ViewRectNineSlice",
@@ -43779,6 +44192,7 @@
     "Cosmoteer.Game.PartStatRules": {
       "name": "PartStatRules",
       "namespace": "Cosmoteer.Game",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ID",
@@ -43828,6 +44242,7 @@
     "Cosmoteer.Game.Gui.PartHighlightGuiRules": {
       "name": "PartHighlightGuiRules",
       "namespace": "Cosmoteer.Game.Gui",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Color",
@@ -43949,6 +44364,7 @@
     "Cosmoteer.Game.Gui.PartNetworkOverlayIcon": {
       "name": "PartNetworkOverlayIcon",
       "namespace": "Cosmoteer.Game.Gui",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Sprite",
@@ -43998,6 +44414,7 @@
       "name": "ToggledImageButton",
       "namespace": "Cosmoteer.Game.Gui",
       "extends": "Halfling.Gui.SelectableButton",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "StateNormalSelectedNineSlice",
@@ -44058,6 +44475,7 @@
     "Cosmoteer.Game.Gui.Resources.ResourceGuiRules": {
       "name": "ResourceGuiRules",
       "namespace": "Cosmoteer.Game.Gui.Resources",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ToolIcon",
@@ -44853,6 +45271,7 @@
     "Cosmoteer.Game.Gui.Paint.PaintGuiRules": {
       "name": "PaintGuiRules",
       "namespace": "Cosmoteer.Game.Gui.Paint",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "PaintShipToolIcon",
@@ -45218,6 +45637,7 @@
     "Cosmoteer.Game.Gui.Developer.DeveloperToolbarRules": {
       "name": "DeveloperToolbarRules",
       "namespace": "Cosmoteer.Game.Gui.Developer",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ToolbarIcon",
@@ -45233,6 +45653,7 @@
     "Cosmoteer.Game.Gui.Crew.CrewGuiRules": {
       "name": "CrewGuiRules",
       "namespace": "Cosmoteer.Game.Gui.Crew",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SelectCrewCursor",
@@ -45885,6 +46306,7 @@
     "Cosmoteer.Game.Gui.Build.BuildGuiRules": {
       "name": "BuildGuiRules",
       "namespace": "Cosmoteer.Game.Gui.Build",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "EditShipToolIcon",
@@ -46804,6 +47226,7 @@
     "Cosmoteer.Game.Gui.Build.EditorGroupRules": {
       "name": "EditorGroupRules",
       "namespace": "Cosmoteer.Game.Gui.Build",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NameKey",
@@ -46844,6 +47267,7 @@
     "Cosmoteer.Game.Gui.Build.Stats.BuildToolboxStatsGuiRules": {
       "name": "BuildToolboxStatsGuiRules",
       "namespace": "Cosmoteer.Game.Gui.Build.Stats",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "StatToggleButtons",
@@ -47064,6 +47488,7 @@
     "Cosmoteer.Game.Gui.Build.Stats.StatToggleButtonRules": {
       "name": "StatToggleButtonRules",
       "namespace": "Cosmoteer.Game.Gui.Build.Stats",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TooltipKey",
@@ -47105,6 +47530,7 @@
       "namespace": "Cosmoteer.Game.Gui.Build.Stats",
       "derivedType": "IconText",
       "registry": "Cosmoteer.Game.Gui.Build.Stats.IShipStatWidgetRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NameKey",
@@ -47196,6 +47622,7 @@
       "namespace": "Cosmoteer.Game.Gui.Build.Stats",
       "derivedType": "InlineContainer",
       "registry": "Cosmoteer.Game.Gui.Build.Stats.IShipStatWidgetRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Padding",
@@ -47225,6 +47652,7 @@
       "namespace": "Cosmoteer.Game.Gui.Build.Stats",
       "derivedType": "StatBar",
       "registry": "Cosmoteer.Game.Gui.Build.Stats.IShipStatWidgetRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NameKey",
@@ -47363,6 +47791,7 @@
     "Cosmoteer.Game.Gui.Build.Stats.StatBarMarkerRules": {
       "name": "StatBarMarkerRules",
       "namespace": "Cosmoteer.Game.Gui.Build.Stats",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TooltipKey",
@@ -47407,6 +47836,7 @@
       "extends": "Cosmoteer.Game.Gui.Brushes.TileBrush",
       "derivedType": "Block",
       "registry": "Cosmoteer.Game.Gui.Brushes.TileBrush",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Size",
@@ -47426,6 +47856,7 @@
       "extends": "Cosmoteer.Game.Gui.Brushes.TileBrush",
       "derivedType": "Box",
       "registry": "Cosmoteer.Game.Gui.Brushes.TileBrush",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Game.Gui.Brushes.FillTileBrush": {
@@ -47434,6 +47865,7 @@
       "extends": "Cosmoteer.Game.Gui.Brushes.TileBrush",
       "derivedType": "Fill",
       "registry": "Cosmoteer.Game.Gui.Brushes.TileBrush",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Game.Gui.Brushes.LineTileBrush": {
@@ -47442,6 +47874,7 @@
       "extends": "Cosmoteer.Game.Gui.Brushes.TileBrush",
       "derivedType": "Line",
       "registry": "Cosmoteer.Game.Gui.Brushes.TileBrush",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Game.Gui.Brushes.OvalTileBrush": {
@@ -47450,6 +47883,7 @@
       "extends": "Cosmoteer.Game.Gui.Brushes.TileBrush",
       "derivedType": "Oval",
       "registry": "Cosmoteer.Game.Gui.Brushes.TileBrush",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Game.Gui.Brushes.TileBrush": {
@@ -47457,6 +47891,7 @@
       "namespace": "Cosmoteer.Game.Gui.Brushes",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Game.Gui.Brushes.TriangleTileBrush": {
@@ -47465,11 +47900,13 @@
       "extends": "Cosmoteer.Game.Gui.Brushes.TileBrush",
       "derivedType": "Triangle",
       "registry": "Cosmoteer.Game.Gui.Brushes.TileBrush",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.GalaxyMap.MapRules": {
       "name": "MapRules",
       "namespace": "Cosmoteer.GalaxyMap",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "BackgroundStyleID",
@@ -48484,6 +48921,7 @@
     "Cosmoteer.Data.PostShaderRules": {
       "name": "PostShaderRules",
       "namespace": "Cosmoteer.Data",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NameKey",
@@ -49173,6 +49611,7 @@
     "Cosmoteer.Crew.CrewRules/BodyType": {
       "name": "BodyType",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "WalkSprite",
@@ -49239,6 +49678,7 @@
     "Cosmoteer.Crew.CrewRules/SuitType": {
       "name": "SuitType",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FlySprite",
@@ -49254,6 +49694,7 @@
     "Cosmoteer.Crew.CrewRules/JetRules": {
       "name": "JetRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Location",
@@ -49289,6 +49730,7 @@
     "Cosmoteer.Crew.CrewRules/CrewBeamRules": {
       "name": "CrewBeamRules",
       "namespace": "",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Location",
@@ -49416,6 +49858,7 @@
     "Cosmoteer.Codex.CodexPageRules": {
       "name": "CodexPageRules",
       "namespace": "Cosmoteer.Codex",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ID",
@@ -49513,6 +49956,7 @@
     "Cosmoteer.Codex.CodexPageEntryRules": {
       "name": "CodexPageEntryRules",
       "namespace": "Cosmoteer.Codex",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Image",
@@ -49538,6 +49982,7 @@
       "namespace": "Cosmoteer.Bullets",
       "abstract": true,
       "isRegistry": true,
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Bullets.BulletRules": {
@@ -49649,6 +50094,7 @@
       "extends": "Cosmoteer.Bullets.BulletComponentRules",
       "derivedType": "SameShipRetarget",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": []
     },
     "Cosmoteer.Bullets.Targeting.BulletTargetableRules": {
@@ -49722,6 +50168,7 @@
       "extends": "Cosmoteer.Bullets.BulletComponentRules",
       "derivedType": "TargetSearch",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Interval",
@@ -49773,6 +50220,7 @@
       "extends": "Cosmoteer.Bullets.BulletComponentRules",
       "derivedType": "Acceleration",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Acceleration",
@@ -49818,6 +50266,7 @@
       "extends": "Cosmoteer.Bullets.Physics.BulletPhysicsRules",
       "derivedType": "BoxPhysics",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Size",
@@ -49845,6 +50294,7 @@
       "extends": "Cosmoteer.Bullets.Physics.BulletPhysicsRules",
       "derivedType": "CirclePhysics",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Radius",
@@ -49869,6 +50319,7 @@
       "namespace": "Cosmoteer.Bullets.Physics",
       "abstract": true,
       "extends": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LinearDamping",
@@ -49926,6 +50377,7 @@
       "extends": "Cosmoteer.Bullets.BulletComponentRules",
       "derivedType": "ProximityAcceleration",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Range",
@@ -50008,6 +50460,7 @@
       "extends": "Cosmoteer.Bullets.BulletComponentRules",
       "derivedType": "TargetHoming",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TurnVelocity",
@@ -50109,6 +50562,7 @@
       "extends": "Cosmoteer.Bullets.BulletComponentRules",
       "derivedType": "DamagePool",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Damage",
@@ -50127,6 +50581,7 @@
       "extends": "Cosmoteer.Bullets.BulletComponentRules",
       "derivedType": "PenetratingHit",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Penetration",
@@ -50440,6 +50895,7 @@
       "extends": "Cosmoteer.Bullets.BulletComponentRules",
       "derivedType": "SimpleHit",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FriendlyShipLowCollisions",
@@ -50623,6 +51079,7 @@
       "extends": "Cosmoteer.Bullets.BulletComponentRules",
       "derivedType": "VolumeHit",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "BulletCollisions",
@@ -50683,6 +51140,7 @@
     "Cosmoteer.Bullets.Hits.DamagePoolBulletSplitRules": {
       "name": "DamagePoolBulletSplitRules",
       "namespace": "Cosmoteer.Bullets.Hits",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DamagePool",
@@ -50716,6 +51174,7 @@
     "Cosmoteer.Bullets.Hits.HitRules": {
       "name": "HitRules",
       "namespace": "Cosmoteer.Bullets.Hits",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "HitEffects",
@@ -50998,6 +51457,7 @@
       "extends": "Cosmoteer.Bullets.BulletComponentRules",
       "derivedType": "MediaEffects",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MediaEffects",
@@ -51225,6 +51685,7 @@
       "namespace": "Cosmoteer.Bullets.Death",
       "abstract": true,
       "extends": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OnDeath",
@@ -51252,6 +51713,7 @@
       "extends": "Cosmoteer.Bullets.Death.BaseBulletDeathRules",
       "derivedType": "DeathByDamagePool",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DamagePool",
@@ -51271,6 +51733,7 @@
       "extends": "Cosmoteer.Bullets.Death.BaseBulletDeathRules",
       "derivedType": "DeathByDistanceTraveled",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Distance",
@@ -51299,6 +51762,7 @@
       "extends": "Cosmoteer.Bullets.Death.BaseBulletDeathRules",
       "derivedType": "DeathByEnemyProximity",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Interval",
@@ -51402,6 +51866,7 @@
       "extends": "Cosmoteer.Bullets.Death.BaseBulletDeathRules",
       "derivedType": "DeathByLifetime",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Lifetime",
@@ -51430,6 +51895,7 @@
       "extends": "Cosmoteer.Bullets.Death.BaseBulletDeathRules",
       "derivedType": "DeathByPredictedTargetDistance",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RandomOffset",
@@ -51452,6 +51918,7 @@
       "extends": "Cosmoteer.Bullets.Death.BaseBulletDeathRules",
       "derivedType": "DeathBySpeed",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MinSpeed",
@@ -51487,6 +51954,7 @@
       "extends": "Cosmoteer.Bullets.Death.BaseBulletDeathRules",
       "derivedType": "DeathByTargetProximity",
       "registry": "Cosmoteer.Bullets.BulletComponentRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Proximity",
@@ -51890,6 +52358,7 @@
     "Cosmoteer.Backgrounds.GridRules": {
       "name": "GridRules",
       "namespace": "Cosmoteer.Backgrounds",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LineColor",
@@ -51931,6 +52400,7 @@
       "name": "Time",
       "namespace": "Halfling.Timing",
       "scalarForm": true,
+      "scalarField": "_seconds",
       "valueForm": {
         "kind": "float"
       },
@@ -51951,6 +52421,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "DirectionFromWorldSpace",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DirectionIn",
@@ -51978,6 +52449,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "LocationToWorldSpace",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationIn",
@@ -52005,6 +52477,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "RotationToWorldSpace",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RotationIn",
@@ -52032,6 +52505,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "ScaleToWorldSpace",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ScaleIn",
@@ -52059,6 +52533,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "SetWorldSpaceLocation",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationOut",
@@ -52087,6 +52562,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "SetWorldSpaceRotation",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RotationOut",
@@ -52115,6 +52591,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "SetWorldSpaceScale",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ScaleOut",
@@ -52141,6 +52618,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "SetWorldSpaceVelocity",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "VelocityOut",
@@ -52169,6 +52647,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "VelocityToWorldSpace",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "VelocityIn",
@@ -52195,6 +52674,7 @@
       "namespace": "",
       "derivedType": "Exponential",
       "registry": "Halfling.Physics2D.Dynamics.Drag.IAngularDragSolverRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Coefficient",
@@ -52227,6 +52707,7 @@
       "namespace": "",
       "derivedType": "Exponential",
       "registry": "Halfling.Physics2D.Dynamics.Drag.ILinearDragSolverRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Coefficient",
@@ -52259,6 +52740,7 @@
       "namespace": "",
       "derivedType": "Viscous",
       "registry": "Halfling.Physics2D.Dynamics.Drag.IAngularDragSolverRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Coefficient",
@@ -52275,6 +52757,7 @@
       "namespace": "",
       "derivedType": "Viscous",
       "registry": "Halfling.Physics2D.Dynamics.Drag.ILinearDragSolverRules",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Coefficient",
@@ -52289,6 +52772,7 @@
     "Halfling.Particles.ParticleEmitterDef": {
       "name": "ParticleEmitterDef",
       "namespace": "Halfling.Particles",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "EmitPerSecond",
@@ -52338,6 +52822,7 @@
     "Halfling.Particles.ParticleSystemDef": {
       "name": "ParticleSystemDef",
       "namespace": "Halfling.Particles",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "EmitPerSecond",
@@ -52447,6 +52932,7 @@
       "name": "BaseParticleDataUpdater",
       "namespace": "Halfling.Particles.Updaters",
       "abstract": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Name",
@@ -52479,6 +52965,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "ColorRamp",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LerpIn",
@@ -52590,6 +53077,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "Lifetime",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LifeInOut",
@@ -52618,6 +53106,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "Operator",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DataType",
@@ -52732,6 +53221,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "PerpendicularVector",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "VectorIn",
@@ -52759,6 +53249,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "RotateVectorRandom",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "VectorIn",
@@ -52809,6 +53300,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "ScalarOperator",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AIn",
@@ -52912,6 +53404,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "SetRandomCircle",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationOut",
@@ -52948,6 +53441,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "SetRandomHsvColor",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ColorOut",
@@ -53010,6 +53504,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "SetRandomVelocity",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "VelocityOut",
@@ -53052,6 +53547,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "SetRandomVelocityFromPoint",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationIn",
@@ -53147,6 +53643,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "UvAnimation",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TimeIn",
@@ -53236,6 +53733,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "UvSprites",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SpriteIndexIn",
@@ -53317,6 +53815,7 @@
       "extends": "Halfling.Particles.Updaters.BaseParticleDataUpdater",
       "derivedType": "VariableLifetime",
       "registry": "Halfling.Particles.IParticleDataUpdater",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LifeInOut",
@@ -53345,6 +53844,7 @@
       "name": "BaseParticleRenderer\u00601",
       "namespace": "Halfling.Particles.Renderers",
       "abstract": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Name",
@@ -53361,6 +53861,7 @@
       "extends": "Halfling.Particles.Renderers.StandardParticleQuadRenderer\u00601",
       "derivedType": "StandardQuadRenderer",
       "registry": "Halfling.Particles.IParticleRenderer",
+      "purelyReflective": true,
       "fields": []
     },
     "Halfling.Particles.Renderers.StandardParticleQuadRenderer\u00601": {
@@ -53368,6 +53869,7 @@
       "namespace": "Halfling.Particles.Renderers",
       "abstract": true,
       "extends": "Halfling.Particles.Renderers.BaseParticleRenderer\u00601",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "LocationIn",
@@ -53515,6 +54017,7 @@
       "name": "Button",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.DynamicWidget",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "StateNormalTextRenderer",
@@ -53603,6 +54106,7 @@
       "name": "ContextMenu",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.ScrollBox",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RectController",
@@ -53637,6 +54141,7 @@
       "name": "DropButton",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.Button",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FocusController",
@@ -53716,12 +54221,14 @@
       "name": "DropList",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.DropList\u00601",
+      "purelyReflective": true,
       "fields": []
     },
     "Halfling.Gui.DropList\u00601": {
       "name": "DropList\u00601",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.DropButton",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ListBox",
@@ -53768,6 +54275,7 @@
       "name": "DynamicWidget",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.Widget",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "StateNormalNineSlice",
@@ -53829,6 +54337,7 @@
       "name": "Image",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.StaticWidget",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Sprite",
@@ -53845,6 +54354,7 @@
       "name": "ImageButton",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.Button",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ImageRectController",
@@ -53870,6 +54380,7 @@
       "name": "ImageListItem",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.ListItem",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ImageRectController",
@@ -53895,6 +54406,7 @@
       "name": "Label",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.StaticWidget",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TextRenderer",
@@ -53926,12 +54438,14 @@
       "name": "LayoutBox",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.LayoutBox\u00602",
+      "purelyReflective": true,
       "fields": []
     },
     "Halfling.Gui.LayoutBox\u00602": {
       "name": "LayoutBox\u00602",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.StaticWidget",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DockedChildren",
@@ -53978,12 +54492,14 @@
       "name": "ListBox",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.ListBox\u00601",
+      "purelyReflective": true,
       "fields": []
     },
     "Halfling.Gui.ListBox\u00601": {
       "name": "ListBox\u00601",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.ScrollBox\u00601",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SelectionManager",
@@ -54000,6 +54516,7 @@
       "name": "ListItem",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.SelectableButton",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SelectedNineSlice",
@@ -54025,6 +54542,7 @@
       "name": "MenuBar",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.StaticWidget",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Children",
@@ -54047,6 +54565,7 @@
       "name": "MenuCategory",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.Button",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "IconRectController",
@@ -54134,6 +54653,7 @@
       "name": "MenuItem",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.Button",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "CloseWhenClicked",
@@ -54176,12 +54696,14 @@
       "name": "MenuSeparator",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.StaticWidget",
+      "purelyReflective": true,
       "fields": []
     },
     "Halfling.Gui.MenuSubCategory": {
       "name": "MenuSubCategory",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.MenuCategory",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ArrowRectController",
@@ -54216,6 +54738,7 @@
       "name": "MenuToggleItem",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.ToggleButton",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "CloseWhenClicked",
@@ -54258,6 +54781,7 @@
       "name": "ProgressBar",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.StaticWidget",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ProgressNineSlice",
@@ -54316,6 +54840,7 @@
       "name": "ScrollBar",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.StaticWidget",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "DockedChildren",
@@ -54446,12 +54971,14 @@
       "name": "ScrollBox",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.ScrollBox\u00601",
+      "purelyReflective": true,
       "fields": []
     },
     "Halfling.Gui.ScrollBox\u00601": {
       "name": "ScrollBox\u00601",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.LayoutBox\u00602",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "HorizontalScrollBar",
@@ -54504,6 +55031,7 @@
       "name": "SelectableButton",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.Button",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SelectionController",
@@ -54537,12 +55065,14 @@
       "name": "SimpleBox",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.SimpleBox\u00601",
+      "purelyReflective": true,
       "fields": []
     },
     "Halfling.Gui.SimpleBox\u00601": {
       "name": "SimpleBox\u00601",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.StaticWidget",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Children",
@@ -54574,6 +55104,7 @@
       "name": "StaticWidget",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.Widget",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NineSlice",
@@ -54590,12 +55121,14 @@
       "name": "TabBox",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.TabBox\u00601",
+      "purelyReflective": true,
       "fields": []
     },
     "Halfling.Gui.TabBox\u00601": {
       "name": "TabBox\u00601",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.LayoutBox\u00602",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TabsListBox",
@@ -54612,6 +55145,7 @@
       "name": "TextEditField",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.ScrollBox",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "InternalTextField",
@@ -54628,6 +55162,7 @@
       "name": "TextFieldWidget",
       "namespace": "",
       "extends": "Halfling.Gui.DynamicWidget",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "StateEnabledTextRenderer",
@@ -54757,6 +55292,7 @@
       "name": "ToggleButton",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.SelectableButton",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ToggleRectController",
@@ -54809,6 +55345,7 @@
       "name": "ToolTipBox",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.ScrollBox",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TooltipLabel",
@@ -54834,6 +55371,7 @@
       "name": "ToolTipLabel",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.Label",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ToolTipDisplayController",
@@ -54849,6 +55387,7 @@
     "Halfling.Gui.Widget": {
       "name": "Widget",
       "namespace": "Halfling.Gui",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Name",
@@ -55174,12 +55713,14 @@
       "name": "WindowBox",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.WindowBox\u00601",
+      "purelyReflective": true,
       "fields": []
     },
     "Halfling.Gui.WindowBox\u00601": {
       "name": "WindowBox\u00601",
       "namespace": "Halfling.Gui",
       "extends": "Halfling.Gui.ScrollBox\u00601",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TitleBox",
@@ -55264,6 +55805,7 @@
       "name": "DialogBase",
       "namespace": "Halfling.Gui.Dialogs",
       "abstract": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "BackgroundColor",
@@ -55281,6 +55823,7 @@
       "name": "OneButtonDialog",
       "namespace": "Halfling.Gui.Dialogs",
       "extends": "Halfling.Gui.Dialogs.DialogBase",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OuterBox",
@@ -55324,6 +55867,7 @@
       "name": "OneButtonTextEntryDialog",
       "namespace": "Halfling.Gui.Dialogs",
       "extends": "Halfling.Gui.Dialogs.DialogBase",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OuterBox",
@@ -55376,6 +55920,7 @@
       "name": "ThreeButtonDialog",
       "namespace": "Halfling.Gui.Dialogs",
       "extends": "Halfling.Gui.Dialogs.DialogBase",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OuterBox",
@@ -55437,6 +55982,7 @@
       "name": "TwoButtonDialog",
       "namespace": "Halfling.Gui.Dialogs",
       "extends": "Halfling.Gui.Dialogs.DialogBase",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OuterBox",
@@ -55489,6 +56035,7 @@
       "name": "TwoButtonTextEntryDialog",
       "namespace": "Halfling.Gui.Dialogs",
       "extends": "Halfling.Gui.Dialogs.DialogBase",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OuterBox",
@@ -55550,6 +56097,7 @@
       "name": "ZeroButtonDialog",
       "namespace": "Halfling.Gui.Dialogs",
       "extends": "Halfling.Gui.Dialogs.DialogBase",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "OuterBox",
@@ -55575,6 +56123,7 @@
       "name": "WidgetComponent",
       "namespace": "Halfling.Gui.Components",
       "abstract": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Active",
@@ -55590,6 +56139,7 @@
       "name": "WidgetRaiseController",
       "namespace": "Halfling.Gui.Components.Windows",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MouseButton",
@@ -55609,6 +56159,7 @@
       "name": "WidgetResizeController",
       "namespace": "Halfling.Gui.Components.Windows",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MouseButton",
@@ -55729,12 +56280,14 @@
     "Halfling.Gui.Components.Triggers.WidgetTriggerManager": {
       "name": "WidgetTriggerManager",
       "namespace": "Halfling.Gui.Components.Triggers",
+      "purelyReflective": true,
       "fields": []
     },
     "Halfling.Gui.Components.ToolTips.WidgetToolTipDisplayController": {
       "name": "WidgetToolTipDisplayController",
       "namespace": "Halfling.Gui.Components.ToolTips",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ClearTextWhenSourceCleared",
@@ -55846,6 +56399,7 @@
       "name": "WidgetToolTips",
       "namespace": "Halfling.Gui.Components.ToolTips",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Text",
@@ -55883,6 +56437,7 @@
       "name": "WidgetKeyboardTextSelector",
       "namespace": "Halfling.Gui.Components.Text",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Holdable",
@@ -56022,6 +56577,7 @@
       "name": "WidgetMouseTextSelector",
       "namespace": "Halfling.Gui.Components.Text",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MouseButton",
@@ -56071,6 +56627,7 @@
       "name": "WidgetTextCaretRenderer",
       "namespace": "Halfling.Gui.Components.Text",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "CaretColor",
@@ -56114,6 +56671,7 @@
       "name": "WidgetTextClipboardController",
       "namespace": "Halfling.Gui.Components.Text",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AllowCopy",
@@ -56161,6 +56719,7 @@
       "name": "WidgetTextEditController",
       "namespace": "Halfling.Gui.Components.Text",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "CharFilter",
@@ -56176,6 +56735,7 @@
       "name": "WidgetTextSelectionRenderer",
       "namespace": "Halfling.Gui.Components.Text",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "HighlightColor",
@@ -56200,6 +56760,7 @@
     "Halfling.Gui.Components.Selection.SelectionManager": {
       "name": "SelectionManager",
       "namespace": "Halfling.Gui.Components.Selection",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MinSelected",
@@ -56243,6 +56804,7 @@
       "name": "WidgetSelectionController",
       "namespace": "Halfling.Gui.Components.Selection",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "IsSelected",
@@ -56266,6 +56828,7 @@
       "name": "WidgetTriggeredSelectionController",
       "namespace": "Halfling.Gui.Components.Selection",
       "extends": "Halfling.Gui.Components.Selection.WidgetSelectionController",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "EnableSelect",
@@ -56289,6 +56852,7 @@
       "name": "PaddleDragController",
       "namespace": "Halfling.Gui.Components.ScrollBars",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MouseButton",
@@ -56308,6 +56872,7 @@
       "name": "PaddleRectController",
       "namespace": "Halfling.Gui.Components.ScrollBars",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "PaddleDirection",
@@ -56359,6 +56924,7 @@
       "name": "ScrollBarPaddle",
       "namespace": "Halfling.Gui.Components.ScrollBars",
       "extends": "Halfling.Gui.Button",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RectController",
@@ -56399,12 +56965,14 @@
       "name": "ScrollBarPager",
       "namespace": "Halfling.Gui.Components.ScrollBars",
       "extends": "Halfling.Gui.Button",
+      "purelyReflective": true,
       "fields": []
     },
     "Halfling.Gui.Components.ScrollBars.WidgetScrollBarController": {
       "name": "WidgetScrollBarController",
       "namespace": "Halfling.Gui.Components.ScrollBars",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ShowHorizontal",
@@ -56431,6 +56999,7 @@
     "Halfling.Gui.Components.Rects.FilledRectProvider": {
       "name": "FilledRectProvider",
       "namespace": "Halfling.Gui.Components.Rects",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "HorizontalFillMode",
@@ -56467,6 +57036,7 @@
     "Halfling.Gui.Components.Rects.InnerRectProvider": {
       "name": "InnerRectProvider",
       "namespace": "Halfling.Gui.Components.Rects",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "InnerRectSize",
@@ -56538,12 +57108,14 @@
       "name": "WidgetMenuFocusController",
       "namespace": "Halfling.Gui.Components.Menus",
       "extends": "Halfling.Gui.Components.Focus.WidgetMouseFocusController",
+      "purelyReflective": true,
       "fields": []
     },
     "Halfling.Gui.Components.Masking.NineSlicedMask": {
       "name": "NineSlicedMask",
       "namespace": "Halfling.Gui.Components.Masking",
       "extends": "Halfling.Gui.Components.Graphics.WidgetNineSlice",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MaskType",
@@ -56561,6 +57133,7 @@
       "name": "BaseWidgetDragController",
       "namespace": "Halfling.Gui.Components.Input",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MouseButton",
@@ -56588,6 +57161,7 @@
       "name": "WidgetClickController",
       "namespace": "Halfling.Gui.Components.Input",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Holdable",
@@ -56653,6 +57227,7 @@
       "name": "WidgetDragController",
       "namespace": "Halfling.Gui.Components.Input",
       "extends": "Halfling.Gui.Components.Input.BaseWidgetDragController",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "MoveWhenBoundsChanged",
@@ -56668,6 +57243,7 @@
       "name": "WidgetInputStateController",
       "namespace": "Halfling.Gui.Components.Input",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "BlocksInput",
@@ -56738,6 +57314,7 @@
       "name": "WidgetInputStateCursors",
       "namespace": "Halfling.Gui.Components.Input",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "HighlightedCursor",
@@ -56761,6 +57338,7 @@
       "name": "WidgetScrollWheelController",
       "namespace": "Halfling.Gui.Components.Input",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "IncrementAmount",
@@ -56908,6 +57486,7 @@
       "name": "WidgetNineSlice",
       "namespace": "Halfling.Gui.Components.Graphics",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "TopLeftSprite",
@@ -57094,6 +57673,7 @@
     "Halfling.Gui.Components.Graphics.WidgetSpriteUVManager": {
       "name": "WidgetSpriteUVManager",
       "namespace": "Halfling.Gui.Components.Graphics",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Enabled",
@@ -57328,12 +57908,14 @@
       "name": "WidgetFocusController",
       "namespace": "Halfling.Gui.Components.Focus",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": []
     },
     "Halfling.Gui.Components.Focus.WidgetMouseFocusController": {
       "name": "WidgetMouseFocusController",
       "namespace": "Halfling.Gui.Components.Focus",
       "extends": "Halfling.Gui.Components.Focus.WidgetFocusController",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "EnableClickInsideToFocus",
@@ -57401,6 +57983,7 @@
       "name": "WidgetDropTargetController",
       "namespace": "Halfling.Gui.Components.Droppers",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AutoParentTargetToRoot",
@@ -57416,6 +57999,7 @@
       "name": "WidgetRelativeRectController",
       "namespace": "Halfling.Gui.Components.Droppers",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "RestrictAutoSizeBounds",
@@ -57493,6 +58077,7 @@
       "name": "WidgetAutoSizeController",
       "namespace": "Halfling.Gui.Components.AutoSizing",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "AutoWidthMode",
@@ -57606,6 +58191,7 @@
       "name": "WidgetActiveStateAudio",
       "namespace": "Halfling.Gui.Components.Audio",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "ActivatedSound",
@@ -57639,6 +58225,7 @@
       "name": "WidgetFocusStateAudio",
       "namespace": "Halfling.Gui.Components.Audio",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FocusedSound",
@@ -57672,6 +58259,7 @@
       "name": "WidgetInputStateAudio",
       "namespace": "Halfling.Gui.Components.Audio",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "NormalSound",
@@ -57714,6 +58302,7 @@
       "name": "WidgetSelectionStateAudio",
       "namespace": "Halfling.Gui.Components.Audio",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "SelectedSound",
@@ -57747,6 +58336,7 @@
       "name": "WidgetTriggeredAudio",
       "namespace": "Halfling.Gui.Components.Audio",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Sound",
@@ -57771,6 +58361,7 @@
       "name": "WidgetAnimator",
       "namespace": "Halfling.Gui.Components.Animation",
       "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
       "fields": []
     },
     "Halfling.Graphics.CircleRenderer": {
@@ -58417,6 +59008,7 @@
     "Halfling.Geometry.Circle": {
       "name": "Circle",
       "namespace": "Halfling.Geometry",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Center",
@@ -58815,6 +59407,7 @@
     "Halfling.Generation.PerlinNoise1D": {
       "name": "PerlinNoise1D",
       "namespace": "Halfling.Generation",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Seed",
@@ -58896,6 +59489,7 @@
     "Halfling.Generation.PerlinNoise2D": {
       "name": "PerlinNoise2D",
       "namespace": "Halfling.Generation",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Seed",
@@ -58981,6 +59575,7 @@
     "Halfling.Audio.FilterParams": {
       "name": "FilterParams",
       "namespace": "Halfling.Audio",
+      "purelyReflective": true,
       "fields": [
         {
           "name": "FilterType",
@@ -59014,6 +59609,7 @@
       "name": "ISoundEffect",
       "namespace": "Halfling.Audio",
       "abstract": true,
+      "purelyReflective": true,
       "fields": [
         {
           "name": "Sounds",
@@ -60374,6 +60970,51 @@
         "Max"
       ]
     }
+  },
+  "builtinIds": {
+    "Cosmoteer.Ships.Parts.PartCategory": [
+      "ftl"
+    ],
+    "Cosmoteer.DamageType": [
+      "default",
+      "explosive",
+      "salvage"
+    ],
+    "Cosmoteer.Ships.Parts.PartComponentRules": [
+      "ConstructPartJob",
+      "ConstructionTracker",
+      "DeconstructJob",
+      "RepairPartJob",
+      "RepairTracker",
+      "ResourceTransferJob.Collect",
+      "ResourceTransferJob.Eject",
+      "SalvageJob",
+      "StatusDeliveryJob"
+    ],
+    "Cosmoteer.Ships.Parts.Logic.IComponentTriggerProvider": [
+      "CrewResourcesReceived",
+      "HitIntervalElapsed"
+    ],
+    "Cosmoteer.Ships.Parts.Logic.IComponentToggleProvider": [
+      "Default",
+      "IsRunning"
+    ],
+    "Cosmoteer.Resources.ResourceRarity": [
+      "Common"
+    ],
+    "Cosmoteer.Generators.Simulation.SimObjectSpawner": [
+      "capture_point",
+      "player",
+      "player_ship",
+      "spawn_point"
+    ],
+    "Cosmoteer.Generators.Simulation.SimSpawner/SpawnFlag": [
+      "disable_asteroids",
+      "disable_nebulas"
+    ],
+    "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules": [
+      "default_bullet"
+    ]
   },
   "unresolved": {
     "types": {

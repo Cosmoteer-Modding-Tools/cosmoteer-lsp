@@ -45,3 +45,23 @@ export const inheritanceBaseLeafName = (reference: string): string | undefined =
     const segment = reference.replace(/^[&^~]+/, '').split('/').pop() ?? '';
     return /^[A-Za-z_]\w*$/.test(segment) ? segment : undefined;
 };
+
+/**
+ * Splits a reference path around its virtual-inheritance colon (`&Base/:/Member`), the `:` segment that
+ * selects the most-derived inheritor of the node before it. The colon is recognized exactly as the lexer
+ * keeps it in a value: a `:` preceded by `&` or `/` and followed by `/` (never an inheritance-declaration
+ * colon, which follows a name or whitespace). Returns the path up to the colon (the base) and the path
+ * after it (the member, or a deeper path into each inheritor), or undefined when the path has no such colon.
+ *
+ * @param path the whitespace-stripped reference path, for example `&~/BaseExploration/:/v_DiscoverCountFraction`.
+ * @returns the base and member sub-paths, or undefined when there is no virtual-inheritance colon.
+ */
+export const splitVirtualColon = (path: string): { basePath: string; memberPath: string } | undefined => {
+    const match = /(^&|\/):\//.exec(path);
+    if (!match) return undefined;
+    const colonIndex = match.index + match[1].length;
+    return {
+        basePath: path.slice(0, colonIndex).replace(/\/$/, ''),
+        memberPath: path.slice(colonIndex + 2),
+    };
+};

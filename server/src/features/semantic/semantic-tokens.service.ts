@@ -131,6 +131,12 @@ const collectContainer = (node: GroupNode | ListNode, topLevel: boolean, tokens:
     for (const element of node.elements) collectNode(element, false, tokens);
 };
 
+// A bareword that the parser types `String` but that is really a numeric literal: an mXparser
+// percentage (`50%`, `-0.6%`) or infinity. The parser keeps these `String` so the evaluator can
+// resolve them (percent → /100), but they read as numbers, and the TextMate grammar already colours
+// them numeric — so the semantic overlay must agree or the colour flips when the server catches up.
+const NUMERIC_LITERAL = /^-?(?:\s*\d*\.?\d+\s*%|infinity)$/i;
+
 /** Maps a value node's parsed kind to its token type. */
 const valueTokenType = (node: ValueNode): TokenType => {
     switch (node.valueType.type) {
@@ -145,7 +151,9 @@ const valueTokenType = (node: ValueNode): TokenType => {
         case 'Shader':
             return 'string';
         case 'String':
-            // A quoted string is a literal. A bareword (`Add`, `Normal`) is an enum-style value.
+            // A quoted string is a literal. A bareword numeric literal (`50%`, `Infinity`) colours as
+            // a number; any other bareword (`Add`, `Normal`) is an enum-style value.
+            if (!node.quoted && NUMERIC_LITERAL.test(String(node.valueType.value))) return 'number';
             return node.quoted ? 'string' : 'enumMember';
     }
 };

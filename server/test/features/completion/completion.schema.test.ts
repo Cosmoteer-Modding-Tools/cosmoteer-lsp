@@ -12,6 +12,7 @@ import {
     ValueNode,
 } from '../../../src/core/ast/ast';
 import { AutoCompletionSchema } from '../../../src/features/completion/autocompletion.schema';
+import { componentIdCompletionsForTarget } from '../../../src/features/completion/autocompletion.component-id';
 import {
     schemaFieldNameCompletions,
     schemaValueCompletionsAtOffset,
@@ -120,6 +121,89 @@ describe('AutoCompletionSchema — schema-driven value completion', () => {
         expect(result).toContain('IsOperational');
         expect(result).toContain('PowerToggle');
         expect(result).not.toContain('Turret'); // self excluded
+    });
+
+    it('offers component ids from an inherited base part (part-wide, beyond direct siblings)', async () => {
+        // The engine resolves an `ID<PartComponent>` part-wide, so a component declared only in the
+        // inherited base must complete too (previously only same-container siblings were offered).
+        const src = `BasePart
+{
+	Components
+	{
+		HiddenToggle { Type = MultiToggle; Mode = All }
+	}
+}
+Part : BasePart
+{
+	Components
+	{
+		IsOperational { Type = MultiToggle; Mode = All }
+		Turret { Type = TurretWeapon; OperationalToggle = x }
+	}
+}`;
+        const doc = parse(src);
+        const ref = doc.elements.map((n) => findValue(n, 'OperationalToggle')).find(Boolean);
+        const result = await completer.getCompletions(ref!, token);
+        const names = result.map((c) => (typeof c === 'string' ? c : c.label));
+        expect(names).toContain('IsOperational'); // direct sibling
+        expect(names).toContain('HiddenToggle'); // inherited base component
+        expect(names).not.toContain('Turret'); // self excluded
+        // Siblings sort above the inherited part-wide ids.
+        const sortOf = (label: string) =>
+            result.map((c) => (typeof c === 'string' ? undefined : c)).find((c) => c?.label === label)?.sortText;
+        expect(sortOf('IsOperational')!.localeCompare(sortOf('HiddenToggle')!)).toBeLessThan(0);
+    });
+
+    it('serves a part-component target (a router Routes tuple slot) from the part-wide union', async () => {
+        const src = `Part
+{
+	Components
+	{
+		Port_Down { Type = MultiToggle; Mode = All }
+		HeatSink { Type = MultiToggle; Mode = All }
+		Router
+		{
+			Type = NetworkRouter
+			RouteGenerators
+			[
+				{
+					Type = Bidirectional
+					Routes
+					[
+						[Port_Down, x, 0]
+					]
+				}
+			]
+		}
+	}
+}`;
+        const doc = parse(src);
+        const result = await componentIdCompletionsForTarget('Cosmoteer.Ships.Parts.PartComponentRules', doc, token);
+        const names = result!.map((c) => (typeof c === 'string' ? c : c.label));
+        expect(names).toContain('Port_Down');
+        expect(names).toContain('HeatSink');
+        expect(names).toContain('Router');
+        // A cross-file target stays with the id index, not the component union.
+        expect(await componentIdCompletionsForTarget('Cosmoteer.Resources.ResourceRules', doc, token)).toBeUndefined();
+    });
+
+    it('offers no local ids inside a cross-part proxy (its ComponentID targets the adjacent part)', async () => {
+        const src = `Part
+{
+	Components
+	{
+		LocalStorage { Type = ResourceStorage; ResourceType = bullet }
+		AmmoProxy
+		{
+			Type = ResourceStorageProxy
+			PartLocation = [0, 4]
+			ComponentID = x
+		}
+	}
+}`;
+        const doc = parse(src);
+        const ref = doc.elements.map((n) => findValue(n, 'ComponentID')).find(Boolean);
+        expect(await labels(ref)).toEqual([]);
     });
 
     it('completes a whole-file root’s top-level Type= with the root registry discriminators', async () => {
@@ -333,7 +417,7 @@ describe('schemaFieldNameCompletions — field-NAME completion inside a typed gr
         const uri = 'file:///c%3A/mod/common_effects/p.rules';
         const doc = parseUri(src, uri);
         const offset = src.indexOf(marker) + marker.length; // the empty value position after `SampleMode = `
-        const values = fieldLabels(schemaValueCompletionsAtOffset(doc, offset, marker) ?? []);
+        const values = fieldLabels((await schemaValueCompletionsAtOffset(doc, offset, marker, token)) ?? []);
         expect(values).toContain('Linear');
         expect(values).toContain('Point');
     });
@@ -423,37 +507,45 @@ describe('documentRootClass — whole-file data roots', () => {
 
 describe('schemaValueCompletionsAtOffset — value completion at an empty `Key = ` position', () => {
     const linePrefixAt = (src: string, offset: number) => src.slice(src.lastIndexOf('\n', offset - 1) + 1, offset);
-    const valuesAt = (src: string, marker: string) => {
+    const valuesAt = async (src: string, marker: string) => {
         const doc = parse(src);
         const offset = src.indexOf(marker) + marker.length;
-        return schemaValueCompletionsAtOffset(doc, offset, linePrefixAt(src, offset))!.map((c) =>
+        return (await schemaValueCompletionsAtOffset(doc, offset, linePrefixAt(src, offset), token))!.map((c) =>
             typeof c === 'string' ? c : c.label
         );
     };
 
-    it('completes enum members at `Mode = ` (no value typed yet)', () => {
+    it('completes enum members at `Mode = ` (no value typed yet)', async () => {
         const src = 'Part\n{\n\tComponents\n\t{\n\t\tX\n\t\t{\n\t\t\tType = MultiToggle\n\t\t\tMode = \n\t\t}\n\t}\n}';
-        expect(valuesAt(src, 'Mode = ').sort()).toEqual(['All', 'Any', 'None', 'One']);
+        expect((await valuesAt(src, 'Mode = ')).sort()).toEqual(['All', 'Any', 'None', 'One']);
     });
 
-    it('completes Type= discriminators at `Type = ` (no value typed yet)', () => {
+    it('completes Type= discriminators at `Type = ` (no value typed yet)', async () => {
         const src = 'Part\n{\n\tComponents\n\t{\n\t\tExisting { Type = MultiToggle }\n\t\tNew\n\t\t{\n\t\t\tType = \n\t\t}\n\t}\n}';
-        const result = valuesAt(src, '\n\t\t\tType = ');
+        const result = await valuesAt(src, '\n\t\t\tType = ');
         expect(result).toContain('TurretWeapon');
         expect(result).toContain('MultiToggle');
     });
 
-    it('returns undefined when not at a value position (so field-name completion runs instead)', () => {
-        const src = 'Part\n{\n\tID = test\n\t\n}';
-        const offset = src.indexOf('\n\t\n}') + 2;
-        expect(schemaValueCompletionsAtOffset(parse(src), offset, '\t')).toBeUndefined();
+    it('completes component ids at an empty `OperationalToggle = ` value position', async () => {
+        const src =
+            'Part\n{\n\tComponents\n\t{\n\t\tIsOperational { Type = MultiToggle; Mode = All }\n\t\tTurret\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t\tOperationalToggle = \n\t\t}\n\t}\n}';
+        const result = await valuesAt(src, 'OperationalToggle = ');
+        expect(result).toContain('IsOperational');
+        expect(result).not.toContain('Turret'); // self excluded
     });
 
-    it('returns an (empty) array at a value position for a cross-file ref field (not field names)', () => {
+    it('returns undefined when not at a value position (so field-name completion runs instead)', async () => {
+        const src = 'Part\n{\n\tID = test\n\t\n}';
+        const offset = src.indexOf('\n\t\n}') + 2;
+        expect(await schemaValueCompletionsAtOffset(parse(src), offset, '\t', token)).toBeUndefined();
+    });
+
+    it('returns an (empty) array at a value position for a cross-file ref field (not field names)', async () => {
         // `ResourceType = ` is a value position; its sync values are empty (resource ids are cross-file).
         const src = 'Part\n{\n\tComponents\n\t{\n\t\tS\n\t\t{\n\t\t\tType = ResourceStorage\n\t\t\tResourceType = \n\t\t}\n\t}\n}';
         const offset = src.indexOf('ResourceType = ') + 'ResourceType = '.length;
-        const result = schemaValueCompletionsAtOffset(parse(src), offset, '\t\t\tResourceType = ');
+        const result = await schemaValueCompletionsAtOffset(parse(src), offset, '\t\t\tResourceType = ', token);
         expect(result).toEqual([]); // value position → array (caller routes to the id index), not undefined
     });
 });
@@ -495,7 +587,7 @@ describe('schemaFieldNameCompletions — list-element positions (no outer-group 
         expect(items[0].isSnippet).toBe(true);
     });
 
-    it('value completion inside brackets resolves against the list class, not the outer group', () => {
+    it('value completion inside brackets resolves against the list class, not the outer group', async () => {
         // `EntryToggle` is an Airlock reference field; the old outer-group resolution offered its
         // sibling-component ids inside the brackets, where the game never reads the assignment.
         const marker = 'EnterExitPoint [EntryToggle = ';
@@ -503,7 +595,7 @@ describe('schemaFieldNameCompletions — list-element positions (no outer-group 
             'Part\n{\n\tComponents\n\t{\n\t\tDoor\n\t\t{\n\t\t\tType = Airlock\n\t\t\t' + marker + '\n\t\t}\n\t}\n}';
         const doc = parse(src);
         const offset = src.indexOf(marker) + marker.length;
-        expect(schemaValueCompletionsAtOffset(doc, offset, '\t\t\t' + marker)).toEqual([]);
+        expect(await schemaValueCompletionsAtOffset(doc, offset, '\t\t\t' + marker, token)).toEqual([]);
     });
 });
 

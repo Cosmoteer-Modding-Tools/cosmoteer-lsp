@@ -74,6 +74,133 @@ describe('resolveSchemaSiblingReference — go-to-definition for ID<> sibling re
     });
 });
 
+describe('resolveSchemaSiblingReference: component ids in tuple slots', () => {
+    /** First value node whose written value is `text`, searching depth-first (tuple entries have no field name). */
+    const findValueByText = (node: AbstractNode, text: string): ValueNode | undefined => {
+        if (isValueNode(node) && String(node.valueType.value) === text) return node;
+        const children =
+            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
+                ? node.elements
+                : isAssignmentNode(node)
+                  ? [node.right]
+                  : [];
+        for (const child of children) {
+            const found = findValueByText(child, text);
+            if (found) return found;
+        }
+        return undefined;
+    };
+
+    // A network router's route generator names components in `[from, to, cost]` tuples (the vanilla
+    // heat exchanger's `Routes`), and the referenced components live elsewhere in the part.
+    const ROUTER_SRC = `Part
+{
+	Components
+	{
+		Port_Down { Type = MultiToggle; Mode = All }
+		HeatSink { Type = MultiToggle; Mode = All }
+		Router
+		{
+			Type = NetworkRouter
+			RouteGenerators
+			[
+				{
+					Type = Bidirectional
+					Routes
+					[
+						[Port_Down, HeatSink, 0]
+					]
+				}
+			]
+		}
+	}
+}`;
+
+    it('resolves the first tuple slot to the named component group', () => {
+        const ref = findValueByText(parse(ROUTER_SRC), 'Port_Down');
+        const target = resolveSchemaSiblingReference(ref);
+        expect(target).toBeDefined();
+        expect(isGroupNode(target!) && target!.identifier?.name).toBe('Port_Down');
+    });
+
+    it('resolves the second tuple slot too', () => {
+        const ref = findValueByText(parse(ROUTER_SRC), 'HeatSink');
+        const target = resolveSchemaSiblingReference(ref);
+        expect(isGroupNode(target!) && target!.identifier?.name).toBe('HeatSink');
+    });
+
+    it('leaves a non-component tuple slot alone (a Resources cost entry is a resource, not a component)', () => {
+        const src = 'Part\n{\n\tResources\n\t[\n\t\t[battery, 20]\n\t]\n}';
+        const ref = findValueByText(parse(src), 'battery');
+        expect(resolveSchemaSiblingReference(ref)).toBeUndefined();
+    });
+});
+
+describe('resolvePartComponentDeclaration: part-wide goto beyond the same container', () => {
+    // The referenced component lives in an inherited base part, which the same-container search
+    // cannot see. The async part-wide resolver walks the inheritance like validation does.
+    const INHERITED = `BasePart
+{
+	Components
+	{
+		HiddenToggle { Type = MultiToggle; Mode = All }
+	}
+}
+Part : BasePart
+{
+	Components
+	{
+		Turret { Type = TurretWeapon; OperationalToggle = HiddenToggle }
+	}
+}`;
+
+    it('resolves an assignment-form reference to a component of the inherited base', async () => {
+        const doc = parse(INHERITED);
+        const line = INHERITED.split('\n').findIndex((l) => l.includes('OperationalToggle'));
+        const character = INHERITED.split('\n')[line].indexOf('= HiddenToggle') + 3;
+        const location = await DefinitionService.instance.getDefinition(doc, { line, character }, CancellationToken.None);
+        expect(location).not.toBeNull();
+        expect(location!.range.start.line).toBe(4); // the base's `HiddenToggle { … }` line
+    });
+
+    it('resolves a route-tuple reference to a component of the inherited base', async () => {
+        const src = `BasePart
+{
+	Components
+	{
+		HeatSink { Type = MultiToggle; Mode = All }
+	}
+}
+Part : BasePart
+{
+	Components
+	{
+		Port { Type = MultiToggle; Mode = All }
+		Router
+		{
+			Type = NetworkRouter
+			RouteGenerators
+			[
+				{
+					Type = Bidirectional
+					Routes
+					[
+						[Port, HeatSink, 0]
+					]
+				}
+			]
+		}
+	}
+}`;
+        const doc = parse(src);
+        const line = src.split('\n').findIndex((l) => l.includes('[Port, HeatSink'));
+        const character = src.split('\n')[line].indexOf('HeatSink') + 2;
+        const location = await DefinitionService.instance.getDefinition(doc, { line, character }, CancellationToken.None);
+        expect(location).not.toBeNull();
+        expect(location!.range.start.line).toBe(4); // the base's `HeatSink { … }` line
+    });
+});
+
 describe('find-all-references + rename for ID<> sibling refs', () => {
     const token = CancellationToken.None;
     const defLine = 4; // `IsOperational { … }`

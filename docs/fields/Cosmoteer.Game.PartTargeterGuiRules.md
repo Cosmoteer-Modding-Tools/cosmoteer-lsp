@@ -93,7 +93,7 @@
 <!-- TODO: needs documentation -->
 
 ## TargetTypes
-`enum PartTargeterTypes` · optional · default `3` · one of: `Ships`, `Parts`, `ShipLocalPoint`
+`enum PartTargeterTypes` · optional · default `Ships, Parts` · one of: `Ships`, `Parts`, `ShipLocalPoint`
 
 <!-- TODO: needs documentation -->
 

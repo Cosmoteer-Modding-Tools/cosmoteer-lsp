@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { ValidationForValue } from '../../../src/features/diagnostics/validator.value';
-import { AbstractNode, isListNode, isGroupNode, ValueNode } from '../../../src/core/ast/ast';
+import { AbstractNode, isAssignmentNode, isListNode, isGroupNode, ValueNode } from '../../../src/core/ast/ast';
 import { parseFilePath, findNodeByIdentifier } from '../../../src/utils/ast.utils';
 import { globalSettings } from '../../../src/settings';
 import { initWorkspace, workspaceFile, WORKSPACE_DATA_DIR } from '../../workspace-helper';
@@ -66,6 +66,46 @@ describe('inheritance that extends a missing base member', () => {
         // Only the extend-MY-OWN-member idiom (`X : ^/0/X`) is suppressed; a mismatched name
         // is a likely typo and must still be reported.
         const diagnostic = await ValidationForValue.callback(typoedInh, token);
+        expect(diagnostic?.message).toBe('Reference name is not known');
+    });
+});
+
+// A plain value reference (not an inheritance clause) that steps through a `^/N` caret base. When a
+// member genuinely exists on the base, it resolves; when it does not — and no `AddBase` action
+// extends that base (none in this fixture) — it is a real miss and flags, exactly like a member
+// reached without a caret hop. The `AddBase`-added-base case (`^/1` into an appended base) resolves
+// through the shared resolver's AddBase index and is verified end-to-end by the LSP drivers.
+describe('value reference through a caret-inheritance base', () => {
+    let caretGood: ValueNode;
+    let caretMissing: ValueNode;
+    let nonCaretMissing: ValueNode;
+
+    const valueOf = (container: AbstractNode & { elements: AbstractNode[] }, name: string): ValueNode => {
+        const assignment = container.elements.find((e) => isAssignmentNode(e) && e.left.name === name);
+        return (assignment as unknown as { right: ValueNode }).right;
+    };
+
+    beforeAll(async () => {
+        await initWorkspace();
+        globalSettings.cosmoteerPath = WORKSPACE_DATA_DIR;
+        const doc = await parseFilePath(workspaceFile('parts', 'eg_caret_ref.rules'));
+        const thing = findNodeByIdentifier(doc, 'CaretThing')! as AbstractNode & { elements: AbstractNode[] };
+        caretGood = valueOf(thing, 'CaretGood');
+        caretMissing = valueOf(thing, 'CaretMissing');
+        nonCaretMissing = valueOf(thing, 'NonCaretMissing');
+    });
+
+    it('does not flag `&^/0/Density` — the member exists on the caret base', async () => {
+        expect(await ValidationForValue.callback(caretGood, token)).toBeUndefined();
+    });
+
+    it('flags `&^/0/NotOnBase` when the base lacks the member and no AddBase extends it', async () => {
+        const diagnostic = await ValidationForValue.callback(caretMissing, token);
+        expect(diagnostic?.message).toBe('Reference name is not known');
+    });
+
+    it('still flags a missing member reached WITHOUT a caret hop (`&<eg_base.rules>/EgBase/NotOnBase`)', async () => {
+        const diagnostic = await ValidationForValue.callback(nonCaretMissing, token);
         expect(diagnostic?.message).toBe('Reference name is not known');
     });
 });

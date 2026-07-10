@@ -9,15 +9,37 @@ import {
     ValueNode,
 } from '../core/ast/ast';
 import { namedMembersOf } from '../utils/ast.utils';
-import { Action, ActionFlag, ActionSource, ActionVerb, isActionVerb, ModAction, VERB_SCHEMA } from './action';
+import {
+    Action,
+    ActionFlag,
+    ActionSource,
+    ActionVerb,
+    isActionEntryGroup,
+    isActionVerb,
+    ModAction,
+    VERB_SCHEMA,
+} from './action';
 
 /**
  * The top-level `Actions [ ... ]` list of a manifest, or undefined. The game looks nodes up
  * case-insensitively (OTGroupNode keys its children with InvariantCultureIgnoreCase), so a
  * published manifest writing `actions [...]` loads fine and must be recognized here too.
  */
-const findActionsList = (document: AbstractNodeDocument): ListNode | undefined =>
+export const findActionsList = (document: AbstractNodeDocument): ListNode | undefined =>
     document.elements.find((e): e is ListNode => isListNode(e) && e.identifier?.name.toLowerCase() === 'actions');
+
+/**
+ * Whether a document is an included action fragment: it has a top-level `Actions` list holding at
+ * least one action entry (a `{}` group with an `Action` field). Such a file (launcher.rules,
+ * register.rules) is concatenated into a manifest's `Actions` at load time via
+ * `Actions: &<file>/Actions`, so its action targets resolve against the game root exactly like a
+ * manifest's and are validated the same way. Callers gate this on the file NOT being a manifest
+ * (a manifest is handled through the registrar).
+ */
+export const isActionFragmentDocument = (document: AbstractNodeDocument): boolean => {
+    const list = findActionsList(document);
+    return !!list && list.elements.some((element) => isGroupNode(element) && isActionEntryGroup(element));
+};
 
 /**
  * An action group's field names mapped to their value node (assignment RHS or identified

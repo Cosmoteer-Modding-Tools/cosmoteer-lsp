@@ -209,6 +209,12 @@ const expectedValueTypeUncached = (node: GroupNode | ListNode, depth: number): V
             const index = parent.elements.indexOf(node);
             if (index >= 0) return fieldOf(listType.ref, String(index))?.valueType;
         }
+        // A tuple slot: element N's declared type is the tuple's Nth entry, so a nested list inside
+        // a tuple (a career map picker's `[3, [faction, …]]`) resolves through its index too.
+        if (listType?.kind === 'tuple' && !parent.inheritance?.length) {
+            const index = parent.elements.indexOf(node);
+            if (index >= 0) return listType.elements[index];
+        }
         return undefined;
     }
     return undefined;
@@ -466,14 +472,19 @@ const findEnclosing = <T extends AbstractNode>(
     let best: T | undefined;
     const visit = (node: AbstractNode | null | undefined): void => {
         if (!node) return; // an empty `Key = ` assignment has a null right-hand value
-        if (matches(node) && offset >= node.position.start && offset <= node.position.end) {
-            best = node;
+        // The last container of a file keeps `position.end` at 0 (the parser's container-position
+        // invariant), which would exclude every offset inside it. Treat such an end as open-ended;
+        // a deeper properly-ended container still wins the deepest-match scan. The end is only read
+        // on a match, because an assignment node carries no position at all.
+        if (matches(node) && offset >= node.position.start) {
+            const end = node.position.end > node.position.start ? node.position.end : Number.MAX_SAFE_INTEGER;
+            if (offset <= end) best = node;
         }
         const children: AbstractNode[] =
             isGroupNode(node) || isListNode(node) || isDocumentNode(node)
                 ? node.elements
                 : isAssignmentNode(node)
-                  ? [node.right]
+                  ? (node.right ? [node.right] : [])
                   : [];
         for (const child of children) visit(child);
     };
@@ -590,8 +601,35 @@ export const listElementReferenceTarget = (list: ListNode, offset?: number): str
         }
     }
     if (offset !== undefined) {
-        const positional = positionalElementField(list, positionalIndexAt(list, offset));
+        const index = positionalIndexAt(list, offset);
+        const positional = positionalElementField(list, index);
         if (positional?.valueType.kind === 'reference') return positional.valueType.target;
+        // An inheriting list appends its elements after the inherited ones, shifting every index, so
+        // positional resolution through the slot must stay silent there.
+        if (!list.inheritance?.length) {
+            const slot = listSlotType(list);
+            // A tuple slot (a part's `Resources [ [bullet, 20] ]` entry): the element's index picks
+            // the declared entry type.
+            if (slot?.kind === 'tuple') {
+                const element = slot.elements[index];
+                if (element?.kind === 'reference') return element.target;
+            }
+            if (slot && ELEMENT_KINDS.has(slot.kind) && 'element' in slot) {
+                // A list slot reached without a field name, e.g. a list nested inside a tuple entry
+                // (`CandidatesClosestToFactions = [3, [faction, …]]`).
+                if (slot.element.kind === 'reference') return slot.element.target;
+                // A scalar-form group element (`EditorParentParts = ["cosmoteer.armor"]`): a bare
+                // entry reads as the element class's `0` reference field. A container entry resolves
+                // through its own slot instead, so only value (or empty) positions take this path.
+                if (slot.element.kind === 'group') {
+                    const entry = list.elements[index];
+                    if (!entry || isValueNode(entry)) {
+                        const first = fieldOf(slot.element.ref, '0');
+                        if (first?.valueType.kind === 'reference') return first.valueType.target;
+                    }
+                }
+            }
+        }
     }
     return undefined;
 };

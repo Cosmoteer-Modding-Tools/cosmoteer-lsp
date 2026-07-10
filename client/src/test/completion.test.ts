@@ -15,9 +15,20 @@ suite('Should do completion', () => {
     test('Completes reference members in a rules file', async () => {
         await testCompletion(docUri, new vscode.Position(4, 10), ['ValueOne', 'ValueTwo']);
     });
+
+    // The post-snippet state of the component-name completion: a fresh component block whose
+    // `Type = ` value is still empty. The discriminator list must arrive through the real client.
+    test('Completes the Type discriminator at an empty value position', async () => {
+        await testCompletion(getDocUri('part_type.rules'), new vscode.Position(7, 10), ['MultiToggle'], false);
+    });
 });
 
-async function testCompletion(docUri: vscode.Uri, position: vscode.Position, expectedLabels: string[]) {
+async function testCompletion(
+    docUri: vscode.Uri,
+    position: vscode.Position,
+    expectedLabels: string[],
+    expectReferenceKind = true
+) {
     await activate(docUri);
 
     // Executing the command `vscode.executeCompletionItemProvider` to simulate triggering completion
@@ -35,6 +46,7 @@ async function testCompletion(docUri: vscode.Uri, position: vscode.Position, exp
             actualLabels.includes(label),
             `expected completion '${label}' in [${actualLabels.join(', ')}]`
         );
+        if (!expectReferenceKind) return;
         const item = actualCompletionList.items.find(
             (i) => (typeof i.label === 'string' ? i.label : i.label.label) === label
         )!;

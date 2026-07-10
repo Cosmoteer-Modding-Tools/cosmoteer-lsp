@@ -18,6 +18,6 @@ Whether to divide the resistance value by the tile-area of the part.
 Whether to multiply the resistance value by the instance count of this status type on the part. If this is false, this resistance is applied once, regardless of status count.
 
 ## ModificationMode
-`enum SimpleValueModificationMode` · optional · default `1` · one of: `Replace`, `Add`, `Subtract`, `Multiply`, `Divide`
+`enum SimpleValueModificationMode` · optional · default `Add` · one of: `Replace`, `Add`, `Subtract`, `Multiply`, `Divide`
 
 <!-- TODO: needs documentation -->

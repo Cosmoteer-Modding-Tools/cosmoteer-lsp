@@ -59,6 +59,11 @@ export interface CosmoteerSettings {
         // needed between entries on the same line). Hint severity keeps it out of the Problems
         // panel; vanilla itself ships hundreds of such separators.
         validateRedundantSeparators: boolean;
+        // When true (the default), hint at a field the game provably ignores: its group resolves to
+        // a schema class that does not declare the name, and no reference in the file reads it (so
+        // the constant idiom `X = foo.png` + `&X` stays untouched). Comes with a remove quick fix.
+        // Hint severity keeps it out of the Problems panel.
+        validateIgnoredFields: boolean;
     };
     rename: {
         // When true, a rename may also edit files inside the Cosmoteer game `Data` install. Off by
@@ -96,6 +101,7 @@ export const defaultSettings: CosmoteerSettings = {
         validateShaderCode: true,
         validateLocalizationKeys: true,
         validateRedundantSeparators: true,
+        validateIgnoredFields: true,
     },
     rename: {
         allowEditingVanillaFiles: false,

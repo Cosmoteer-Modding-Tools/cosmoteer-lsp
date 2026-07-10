@@ -128,7 +128,8 @@ export class DocumentSymbolService {
         return ': ' + node.inheritance.map((ref) => String(ref.valueType.value).replace(/^&/, '')).join(', ');
     }
 
-    private kindOfValue(node: AbstractNode): SymbolKind {
+    private kindOfValue(node: AbstractNode | null): SymbolKind {
+        if (!node) return SymbolKind.Field;
         if (isFunctionCallNode(node)) return SymbolKind.Function;
         if (isMathExpressionNode(node)) return SymbolKind.Number;
         if (isValueNode(node)) {
@@ -150,7 +151,8 @@ export class DocumentSymbolService {
         return SymbolKind.Field;
     }
 
-    private detailOf(node: AbstractNode): string | undefined {
+    private detailOf(node: AbstractNode | null): string | undefined {
+        if (!node) return undefined;
         if (isValueNode(node)) return String((node as ValueNode).valueType.value);
         if (isFunctionCallNode(node)) return `${node.name}(…)`;
         return undefined;

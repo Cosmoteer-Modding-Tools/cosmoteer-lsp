@@ -222,6 +222,19 @@ export interface CellPairListLayerData extends GridLayerBase {
     }>;
 }
 
+/**
+ * An edge-distance region (`StatusValueRegulator.Region { Type = EdgeDistance; Distance }`, the heat
+ * exchanger's absorption area): the part rect grown outward by a scalar `Distance` in cells. The game
+ * highlights the same halo in the designer via `RegionHighlightID`.
+ */
+export interface EdgeRegionLayerData extends GridLayerBase {
+    readonly kind: 'edgeRegion';
+    /** How many cells the region extends beyond the part edge, or null when unreadable. */
+    readonly distance: number | null;
+    /** The nested field the distance is written to inside `Region` (`Distance`). */
+    readonly distanceField: string;
+}
+
 /** A single rectangle (`PhysicalRect`, `GridRect`, `IdleRect`), dragged by its handles. */
 export interface RectLayerData extends GridLayerBase {
     readonly kind: 'rect';
@@ -247,6 +260,7 @@ export type GridLayerData =
     | RectListLayerData
     | ComponentPointsLayerData
     | CellPairListLayerData
+    | EdgeRegionLayerData
     | RectLayerData;
 
 /** A boolean rotation field's effective value with its provenance (null when unset everywhere). */

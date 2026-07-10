@@ -154,7 +154,10 @@ export const resolveDocumentLink = async (
         const location = await DefinitionService.instance
             .getDefinition(document, position, cancellationToken, folderPaths)
             .catch(() => null);
-        if (location) link.target = linkTargetFromLocation(location);
+        // A virtual-inheritance reference resolves to several override sites; a document link is a single
+        // target, so follow the first (the base's own declaration, when present).
+        const single = Array.isArray(location) ? location[0] : location;
+        if (single) link.target = linkTargetFromLocation(single);
         return link;
     }
 

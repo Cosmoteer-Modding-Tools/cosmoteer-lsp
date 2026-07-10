@@ -57,4 +57,15 @@ describe('workshop escape recommendation', () => {
         const doc = parser(lexer(source), SOURCE_URI).value;
         expect(await ValidationForValue.callback(findReferenceNode(doc, reference), token)).toBeUndefined();
     });
+
+    // An action target rooted at the game folder (`<./Data/...>`) is the standard, correct way to
+    // target vanilla data from a mod action (225 uses across the 42-mod corpus, zero misuses). It is
+    // never fragile, so it must stay silent. This guards against a future "wrong idiom in an action"
+    // rule regressing into flagging the dominant correct form.
+    it('leaves an action target using the game-root ./Data form alone', async () => {
+        const reference = `<./Data/${relFromData}>/Shared`;
+        const source = `Actions\n[\n\t{\n\t\tAction = Overrides\n\t\tOverrideIn = "${reference}"\n\t\tOverrides { }\n\t}\n]\n`;
+        const doc = parser(lexer(source), SOURCE_URI).value;
+        expect(await ValidationForValue.callback(findReferenceNode(doc, reference), token)).toBeUndefined();
+    });
 });

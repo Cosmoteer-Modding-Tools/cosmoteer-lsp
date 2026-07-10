@@ -19,14 +19,22 @@ import { parseModActions } from './action-parser';
 import { normalizeTargetPath, resolveActionTarget } from './action-target-resolver';
 import { findModRoot } from './mod-root';
 import { safeReaddir } from '../utils/fs.utils';
-import { isManifestBasename } from '../document/document-kind';
+import { isManifestBasename, isRulesPathSegment } from '../document/document-kind';
 import { ParserResultRegistrar } from '../registrar/parser-result-registrar';
 import { recordNavigationDep } from '../utils/navigation-deps';
 
 const navigation = new FullNavigationStrategy();
 
+/**
+ * A game-root target path as a case-folded map key. The game resolves file paths through the
+ * case-insensitive Windows FS, so a manifest target and a reference may spell the same file with
+ * different casing (`<gui/x.rules>` vs `&<./Data/GUI/x.rules>`) and must land on the same key.
+ * Navigation accepts the folded form as a path too, so it stays usable as a resolve prefix.
+ */
+const targetKeyOf = (rawTarget: string): string => normalizeTargetPath(rawTarget).toLowerCase();
+
 /** The canonical game-root key for the root `cosmoteer.rules` (where super-paths `/X` resolve). */
-const COSMOTEER_RULES_KEY = normalizeTargetPath('<cosmoteer.rules>');
+const COSMOTEER_RULES_KEY = targetKeyOf('<cosmoteer.rules>');
 
 /** Load a mod file, preferring the live in-editor (possibly unsaved) buffer over disk. The read
  *  is recorded for a running navigation's dependency set, like the fs parse cache does. */
@@ -39,9 +47,9 @@ const loadDocument = async (osPath: string): Promise<AbstractNodeDocument | null
 const fileKeyAndContainer = (rawTarget: string): { fileKey: string; container: string[] } | null => {
     if (!rawTarget.includes('<')) return null;
     const parts = extractSubstrings(rawTarget);
-    const idx = parts.findIndex((p) => p.endsWith('.rules>'));
+    const idx = parts.findIndex((p) => isRulesPathSegment(p));
     if (idx === -1) return null;
-    return { fileKey: normalizeTargetPath(parts.slice(0, idx + 1).join('/')), container: parts.slice(idx + 1) };
+    return { fileKey: targetKeyOf(parts.slice(0, idx + 1).join('/')), container: parts.slice(idx + 1) };
 };
 
 /**
@@ -55,9 +63,9 @@ const splitEffectivePath = (path: string): { fileKey: string; segments: string[]
     if (p.startsWith('/')) return { fileKey: COSMOTEER_RULES_KEY, segments: extractSubstrings(p) };
     if (p.startsWith('<')) {
         const parts = extractSubstrings(p);
-        const idx = parts.findIndex((s) => s.endsWith('.rules>'));
+        const idx = parts.findIndex((s) => isRulesPathSegment(s));
         if (idx === -1) return null;
-        return { fileKey: normalizeTargetPath(parts.slice(0, idx + 1).join('/')), segments: parts.slice(idx + 1) };
+        return { fileKey: targetKeyOf(parts.slice(0, idx + 1).join('/')), segments: parts.slice(idx + 1) };
     }
     return null;
 };

@@ -6,6 +6,7 @@ import { AbstractNodeDocument } from '../../core/ast/ast';
 import { parseText } from '../../utils/ast.utils';
 import { CancellationError } from '../../utils/cancellation';
 import { ParserResultRegistrar } from '../../registrar/parser-result-registrar';
+import { isRulesFileName } from '../../document/document-kind';
 import { globalSettings } from '../../settings';
 import { MentionIndex } from './mention.index';
 import { normalizeUri } from './reference-location';
@@ -24,17 +25,20 @@ export const uriToFsPath = (uri: string): string => {
     return path.replace(/\//g, sep);
 };
 
-/** Yield every `.rules` file path under `dir`, recursively. Unreadable dirs are skipped. Listings
+/** Yield every rules file path under `dir`, recursively. Unreadable dirs are skipped. Listings
  *  come from the shared readdir cache; the watcher invalidates a directory whose contents change,
- *  so repeated walks (every scan pass, plus the index builds between them) stop re-listing disk. */
+ *  so repeated walks (every scan pass, plus the index builds between them) stop re-listing disk.
+ *  `.txt` files count too: the game's loader ignores the extension and mods declare whole parts in
+ *  them. A non-rules `.txt` (a readme) parses to noise that contributes nothing to any index. */
 export async function* collectRulesFiles(dir: string): AsyncGenerator<string> {
     const entries = await cachedReaddir(dir).catch(() => []);
     for (const entry of entries) {
         const full = join(dir, entry.name);
         if (entry.isDirectory()) yield* collectRulesFiles(full);
-        else if (entry.isFile() && entry.name.endsWith('.rules')) yield full;
+        else if (entry.isFile() && isRulesFileName(entry.name)) yield full;
     }
 }
+
 
 /** How many file reads are kept in flight ahead of the consumer during a project walk. */
 const READ_AHEAD = 16;

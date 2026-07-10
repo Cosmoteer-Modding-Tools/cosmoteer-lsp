@@ -13,4 +13,9 @@ Calc
 	FractionalCostToRepair = (ceil((&Resources/0/1) / 5) / (&Resources/0/1))
 	ArrayMath = [10 * 2, &A + 5, 30]
 	NestedFunc = floor(sqrt(&Resources/0/1) * 2)
+	BoolAnd = (&A) & (&B)
+	BoolAndZero = (0) & (&A)
+	Degrees = 90d
+	Radians = 2.5r
+	DegreesMath = 180d / 2
 }

@@ -28,12 +28,12 @@ import {
     isGroupNode,
     isListNode,
     isValueNode,
-    ListNode,
     ValueNode,
 } from '../../core/ast/ast';
 import { fieldsOf, schema } from './schema';
 import { ValueType } from './schema.types';
 import { aliasRootIndex } from './alias-root';
+import { listSlotType } from './schema-context';
 
 const ROOT_CLASS = 'Cosmoteer.Data.Rules';
 
@@ -142,6 +142,8 @@ export interface EntityDeclaration {
     readonly id: string;
     /** The node to jump to for go-to-definition — an id value node, or a group-keyed member. */
     readonly node: AbstractNode;
+    /** True for an `OtherIDs` legacy alias, which resolves references but is not the primary id. */
+    readonly alias?: boolean;
 }
 
 /**
@@ -235,10 +237,38 @@ export function* entityDeclarationsOf(document: AbstractNodeDocument): Generator
                     // query then keeps only the subclass(es) of the reference's target.
                     for (const entity of candidates) {
                         const idNode = idValueNodeOf(element, entity.identityKey);
-                        if (idNode) yield { elementClass: entity.elementClass, id: String(idNode.valueType.value), node: idNode };
+                        if (idNode) {
+                            yield { elementClass: entity.elementClass, id: String(idNode.valueType.value), node: idNode };
+                            yield* otherIdAliasesOf(element, entity.elementClass);
+                        }
                     }
                 }
             }
+        }
+        // A self-keyed map member (`RenderLayers`, `TradeShips`, …) declares its keys, in the named
+        // (`RenderLayers [ … ]`) and assignment (`RenderLayers = [ … ]`) spellings alike.
+        const selfKeyedMember = namedContainerOf(node);
+        if (selfKeyedMember) {
+            const selfKeyed = SELF_KEYED_MAP_FIELDS.get(selfKeyedMember.name.toLowerCase());
+            if (selfKeyed) yield* selfKeyedMapDeclarationsOf(selfKeyedMember.container, selfKeyed);
+        }
+        // A part's `Stats { PowerUsage = … }` keys are the provider side of the stat relation: the
+        // part writes the stat into existence and the GUI's stat entries and widgets reference it,
+        // so each key declares the stat id.
+        if (selfKeyedMember && isGroupNode(selfKeyedMember.container) && STAT_PROVIDER_FIELDS.has(selfKeyedMember.name.toLowerCase())) {
+            for (const member of selfKeyedMember.container.elements) {
+                if (isAssignmentNode(member)) yield { elementClass: PART_STAT_CLASS, id: member.left.name, node: member.left };
+            }
+        }
+        // A damage effect's `DamageType = fire` declares the type, like a category: the resistance
+        // maps reference whatever the hit effects deal (plus the engine's hardcoded three).
+        if (
+            isAssignmentNode(node) &&
+            node.left.name.toLowerCase() === 'damagetype' &&
+            isValueNode(node.right) &&
+            node.right.valueType.type === 'String'
+        ) {
+            yield { elementClass: DAMAGE_TYPE_CLASS, id: String(node.right.valueType.value), node: node.right };
         }
         // A loose GUI id group a mod.rules action later adds into the game's collection.
         const loose = looseGuiDeclarationOf(node);
@@ -247,11 +277,15 @@ export function* entityDeclarationsOf(document: AbstractNodeDocument): Generator
             isGroupNode(node) || isListNode(node) || isDocumentNode(node)
                 ? node.elements
                 : isAssignmentNode(node)
-                  ? [node.right]
+                  ? (node.right ? [node.right] : [])
                   : [];
         for (const child of children) yield* visit(child);
     }
     for (const element of document.elements) yield* visit(element);
+
+    // A part file's own identity, and a sysgen file's usage-defined spawner tags.
+    yield* partDeclarationsOf(document);
+    yield* spawnerTagDeclarationsOf(document);
 
     // Group-name-keyed entities, gated by the alias-root index (authoritative collections only).
     const rootType = aliasRootIndex.rootType(document.uri);
@@ -275,3 +309,199 @@ export const isEntityClass = (cls: string): boolean => {
     }
     return false;
 };
+
+export const PART_RULES_CLASS = 'Cosmoteer.Ships.Parts.PartRules';
+export const SIM_OBJECT_SPAWNER_CLASS = 'Cosmoteer.Generators.Simulation.SimObjectSpawner';
+export const DAMAGE_TYPE_CLASS = 'Cosmoteer.DamageType';
+export const PART_STAT_CLASS = 'Cosmoteer.Game.PartStatRules';
+
+/**
+ * Lower-cased names of the map fields whose keys write part stats into existence (`Stats`, decompile
+ * verified: the build GUI reads whichever stat ids the parts provide). Derived from the schema as
+ * every `map<reference PartStatRules, V>` field name.
+ */
+const STAT_PROVIDER_FIELDS: ReadonlySet<string> = (() => {
+    const found = new Set<string>();
+    for (const type of Object.values(schema.types)) {
+        for (const field of type.fields) {
+            const vt = field.valueType;
+            if (vt.kind === 'map' && vt.key.kind === 'reference' && vt.key.target === PART_STAT_CLASS) {
+                found.add(field.name.toLowerCase());
+            }
+        }
+    }
+    return found;
+})();
+
+/**
+ * Ids the engine hardcodes in C#, so no file declares them: `DamageType`'s three static instances,
+ * the sim-object tags the game modes register at runtime (`player`, `spawn_point`, …), the crew-job
+ * component ids (`ConstructionTracker`, `SalvageJob`, …). Extracted by schemagen, which sweeps every
+ * literal `new ID<T>("…")` construction in the game assemblies, so the set follows a game update
+ * through a normal schema regeneration. The id index serves them alongside the file-harvested
+ * declarations, for completion and for the existence checks alike.
+ */
+export const BUILTIN_IDS: ReadonlyMap<string, readonly string[]> = new Map(Object.entries(schema.builtinIds ?? {}));
+
+/**
+ * Lower-cased field name → the key target class(es) of a `map<reference X, V>` field of that name
+ * anywhere in the schema. Resolves `Key = …` references of the entry-list map spelling
+ * (`RenderLayers [ { Key = "structure" Value { … } } ]`) when the entry's owner class is not
+ * resolvable from context, mirroring how {@link ENTITY_FIELDS} keys on field names.
+ */
+export const REFERENCE_MAP_KEY_FIELDS: ReadonlyMap<string, readonly string[]> = (() => {
+    const found = new Map<string, string[]>();
+    for (const type of Object.values(schema.types)) {
+        for (const field of type.fields) {
+            const vt = field.valueType;
+            if (vt.kind !== 'map' || vt.key.kind !== 'reference') continue;
+            const key = field.name.toLowerCase();
+            const targets = found.get(key) ?? found.set(key, []).get(key)!;
+            if (!targets.includes(vt.key.target)) targets.push(vt.key.target);
+        }
+    }
+    return found;
+})();
+
+/**
+ * Lower-cased field name → the key target of a self-keyed map field (`map<reference X, group X>`),
+ * whose member names and entry `Key`s declare the instances of X the keys reference (`RenderLayers`,
+ * `TradeShips`, `Styles`, …). Only field names the schema uses exclusively as such maps qualify: the
+ * harvest is name-driven and global, so a name that elsewhere means something else (a plain group, a
+ * component list) would pollute the id pool with garbage declarations.
+ */
+export const SELF_KEYED_MAP_FIELDS: ReadonlyMap<string, string> = (() => {
+    const candidates = new Map<string, Set<string>>();
+    const disqualified = new Set<string>();
+    for (const type of Object.values(schema.types)) {
+        for (const field of type.fields) {
+            const vt = field.valueType;
+            const key = field.name.toLowerCase();
+            if (vt.kind === 'map' && vt.key.kind === 'reference' && vt.value.kind === 'group' && vt.value.ref === vt.key.target) {
+                (candidates.get(key) ?? candidates.set(key, new Set()).get(key)!).add(vt.key.target);
+            } else {
+                disqualified.add(key);
+            }
+        }
+    }
+    const found = new Map<string, string>();
+    for (const [key, targets] of candidates) {
+        if (!disqualified.has(key) && targets.size === 1) found.set(key, [...targets].pop()!);
+    }
+    return found;
+})();
+
+/** The named group/list a node declares, covering the named (`Foo { }` / `Foo [ ]`) and assignment
+ *  (`Foo = { }` / `Foo = [ ]`) spellings, which the game reads identically. */
+const namedContainerOf = (
+    node: AbstractNode
+): { name: string; container: AbstractNode } | undefined => {
+    if ((isGroupNode(node) || isListNode(node)) && node.identifier) {
+        return { name: node.identifier.name, container: node };
+    }
+    if (isAssignmentNode(node) && (isGroupNode(node.right) || isListNode(node.right))) {
+        return { name: node.left.name, container: node.right };
+    }
+    return undefined;
+};
+
+/** The declarations a self-keyed map member makes: named members (group spelling) or entry `Key`s
+ *  (`[{ Key = "x" Value { … } }]` list spelling), each an instance of the map's key target. */
+function* selfKeyedMapDeclarationsOf(node: AbstractNode, target: string): Generator<EntityDeclaration> {
+    if (isGroupNode(node)) {
+        yield* mapKeyedMembers(node, target);
+        return;
+    }
+    if (!isListNode(node)) return;
+    for (const entry of node.elements) {
+        if (!isGroupNode(entry)) continue;
+        for (const member of entry.elements) {
+            if (
+                isAssignmentNode(member) &&
+                member.left.name.toLowerCase() === 'key' &&
+                isValueNode(member.right) &&
+                member.right.valueType.type === 'String'
+            ) {
+                yield { elementClass: target, id: String(member.right.valueType.value), node: member.right };
+            }
+        }
+    }
+}
+
+/** The alias ids an entity element declares beside its identity. The engine's `GetAllIDs()` registers
+ *  the `ID` and every `OtherIDs` entry into the same lookup dictionary (decompile verified on parts,
+ *  doors and ships alike), so each alias resolves references exactly like the primary id, e.g. the
+ *  rock parts' `cosmoteer.rubble` aliases the asteroid doodads reference. */
+function* otherIdAliasesOf(element: AbstractNode, elementClass: string): Generator<EntityDeclaration> {
+    if (!isGroupNode(element)) return;
+    for (const member of element.elements) {
+        const named = namedContainerOf(member);
+        if (named && named.name.toLowerCase() === 'otherids' && isListNode(named.container)) {
+            for (const alias of named.container.elements) {
+                if (isValueNode(alias) && alias.valueType.type === 'String') {
+                    yield { elementClass, id: String(alias.valueType.value), node: alias, alias: true };
+                }
+            }
+        }
+    }
+}
+
+/** The part ids a top-level `Part { … }` group declares: its `ID = …` identity, plus every alias in
+ *  its `OtherIDs = [ … ]` list. */
+function* partDeclarationsOf(document: AbstractNodeDocument): Generator<EntityDeclaration> {
+    for (const element of document.elements) {
+        if (!isGroupNode(element) || element.identifier?.name.toLowerCase() !== 'part') continue;
+        for (const member of element.elements) {
+            if (
+                isAssignmentNode(member) &&
+                member.left.name.toLowerCase() === 'id' &&
+                isValueNode(member.right) &&
+                member.right.valueType.type === 'String'
+            ) {
+                yield { elementClass: PART_RULES_CLASS, id: String(member.right.valueType.value), node: member.right };
+            }
+        }
+        yield* otherIdAliasesOf(element, PART_RULES_CLASS);
+    }
+}
+
+/**
+ * The spawner tags a document declares. A spawner has no `ID`: other spawners reference it by the
+ * strings in its `Tags [ … ]` list (`MinDistanceFromTags`, `RootLocationTag`, …), so each written tag
+ * is itself the declaration, like a part category. `Tags` is too generic a name to harvest blindly
+ * (a ship spawner's `Criteria { Tags }` targets builtin-ship tags instead), so each candidate list is
+ * checked through its resolved slot: a slot that resolves to anything other than a
+ * `list<reference SimObjectSpawner>` is skipped. An unresolvable slot still harvests, because
+ * template groups (`CapturedStation : UndiscoveredStation { Tags = … }`) carry their class only
+ * through inheritance, which this sync walk cannot follow.
+ */
+function* spawnerTagDeclarationsOf(document: AbstractNodeDocument): Generator<EntityDeclaration> {
+    function* visit(node: AbstractNode): Generator<EntityDeclaration> {
+        const member = namedContainerOf(node);
+        if (member && member.name.toLowerCase() === 'tags' && isListNode(member.container)) {
+            const slot = listSlotType(member.container);
+            const resolvedElsewhere =
+                slot !== undefined &&
+                !(
+                    (slot.kind === 'list' || slot.kind === 'range' || slot.kind === 'interpolated') &&
+                    slot.element.kind === 'reference' &&
+                    slot.element.target === SIM_OBJECT_SPAWNER_CLASS
+                );
+            if (!resolvedElsewhere) {
+                for (const element of member.container.elements) {
+                    if (isValueNode(element) && element.valueType.type === 'String') {
+                        yield { elementClass: SIM_OBJECT_SPAWNER_CLASS, id: String(element.valueType.value), node: element };
+                    }
+                }
+            }
+        }
+        const children: AbstractNode[] =
+            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
+                ? node.elements
+                : isAssignmentNode(node)
+                  ? (node.right ? [node.right] : [])
+                  : [];
+        for (const child of children) yield* visit(child);
+    }
+    for (const element of document.elements) yield* visit(element);
+}

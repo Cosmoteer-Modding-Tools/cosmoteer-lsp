@@ -18,7 +18,7 @@
 <!-- TODO: needs documentation -->
 
 ## Allegiance
-`enum ShipAllegiance` · optional · default `1` · one of: `Player`, `Neutral`, `Barbarian`, `Junk`, `FactionMilitary`, `FactionCivilian`, `Unique`
+`enum ShipAllegiance` · optional · default `Neutral` · one of: `Player`, `Neutral`, `Barbarian`, `Junk`, `FactionMilitary`, `FactionCivilian`, `Unique`
 
 <!-- TODO: needs documentation -->
 

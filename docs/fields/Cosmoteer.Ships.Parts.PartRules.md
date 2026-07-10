@@ -93,7 +93,7 @@ The width and height of the part, in tiles.
 <!-- TODO: needs documentation -->
 
 ## AllowedContiguity
-`enum AdjacencyFlags` · optional · default `170` · one of: `None`, `TopLeft`, `Top`, `TopRight`, `Right`, `BottomRight`, `Bottom`, `BottomLeft`, `Left`, `Sides`, `Corners`, `All`
+`enum AdjacencyFlags` · optional · default `Sides` · one of: `None`, `TopLeft`, `Top`, `TopRight`, `Right`, `BottomRight`, `Bottom`, `BottomLeft`, `Left`, `Sides`, `Corners`, `All`
 
 <!-- TODO: needs documentation -->
 
@@ -103,7 +103,7 @@ The width and height of the part, in tiles.
 <!-- TODO: needs documentation -->
 
 ## RectColliderRectType
-`enum PartRectType` · optional · default `1` · one of: `Normal`, `Physical`
+`enum PartRectType` · optional · default `Physical` · one of: `Normal`, `Physical`
 
 <!-- TODO: needs documentation -->
 
@@ -388,49 +388,49 @@ If false, the part can only have doors to parts that are themselves not walled.
 <!-- TODO: needs documentation -->
 
 ## DoorAccessWarningLevel
-`enum AccessWarningLevel` · optional · default `2` · one of: `None`, `Weak`, `Strong`
+`enum AccessWarningLevel` · optional · default `Strong` · one of: `None`, `Weak`, `Strong`
 
 <!-- TODO: needs documentation -->
 
 ## ExternalWalls
 `enum AdjacencyFlags` · required · one of: `None`, `TopLeft`, `Top`, `TopRight`, `Right`, `BottomRight`, `Bottom`, `BottomLeft`, `Left`, `Sides`, `Corners`, `All`
 
-<!-- TODO: needs documentation -->
+The sides of the part that count as solid hull. A wall sprite renders against each listed side from the neighboring cell whenever that cell is empty space or an open side of another part (see [[Cosmoteer.Ships.Parts.PartRules.InternalWalls]]). Directions are in the part's un-rotated orientation and rotate and flip with it. Inherited as `[All]` from `base_part.rules`, so a part that says nothing is walled on every side.
 
 ## BlueprintExternalWalls
 `enum AdjacencyFlags` · optional · one of: `None`, `TopLeft`, `Top`, `TopRight`, `Right`, `BottomRight`, `Bottom`, `BottomLeft`, `Left`, `Sides`, `Corners`, `All`
 
-<!-- TODO: needs documentation -->
+The blueprint-view counterpart of [[Cosmoteer.Ships.Parts.PartRules.ExternalWalls]]. When omitted, the blueprint uses `ExternalWalls`.
 
 ## ExternalWallsByCell
 `map<IntVector2, enum AdjacencyFlags>` · optional
 
-<!-- TODO: needs documentation -->
+Per-cell override of [[Cosmoteer.Ships.Parts.PartRules.ExternalWalls]] for multi-cell parts. Each `Key` is a cell of the part (`[0, 0]` is the top-left cell) and each `Value` lists the sides of that cell that count as solid hull, with `[]` meaning no walls there. Cells without an entry keep the whole-part `ExternalWalls` value.
 
 ## BlueprintExternalWallsByCell
 `map<IntVector2, enum AdjacencyFlags>` · optional
 
-<!-- TODO: needs documentation -->
+The blueprint-view counterpart of [[Cosmoteer.Ships.Parts.PartRules.ExternalWallsByCell]]. When omitted, the blueprint uses `ExternalWallsByCell`.
 
 ## InternalWalls
 `enum AdjacencyFlags` · required · one of: `None`, `TopLeft`, `Top`, `TopRight`, `Right`, `BottomRight`, `Bottom`, `BottomLeft`, `Left`, `Sides`, `Corners`, `All`
 
-<!-- TODO: needs documentation -->
+The sides of the part's cells that are visually open, so a wall may render inside this part's own cell along them. A wall appears on a listed side only when the neighbor on that side declares the shared edge solid via its [[Cosmoteer.Ships.Parts.PartRules.ExternalWalls]]. Inherited as `[None]` from `base_part.rules` (fully enclosed room). Angled armor lists its open wedge sides here, and open-platform structure uses `[All]`.
 
 ## BlueprintInternalWalls
 `enum AdjacencyFlags` · optional · one of: `None`, `TopLeft`, `Top`, `TopRight`, `Right`, `BottomRight`, `Bottom`, `BottomLeft`, `Left`, `Sides`, `Corners`, `All`
 
-<!-- TODO: needs documentation -->
+The blueprint-view counterpart of [[Cosmoteer.Ships.Parts.PartRules.InternalWalls]]. When omitted, the blueprint uses `InternalWalls`.
 
 ## InternalWallsByCell
 `map<IntVector2, enum AdjacencyFlags>` · optional
 
-<!-- TODO: needs documentation -->
+Per-cell override of [[Cosmoteer.Ships.Parts.PartRules.InternalWalls]] for multi-cell parts, in the same `Key`/`Value` form as [[Cosmoteer.Ships.Parts.PartRules.ExternalWallsByCell]]. Cells without an entry keep the whole-part `InternalWalls` value.
 
 ## BlueprintInternalWallsByCell
 `map<IntVector2, enum AdjacencyFlags>` · optional
 
-<!-- TODO: needs documentation -->
+The blueprint-view counterpart of [[Cosmoteer.Ships.Parts.PartRules.InternalWallsByCell]]. When omitted, the blueprint uses `InternalWallsByCell`.
 
 ## VirtualInternalCells
 `VirtualInternalCell[]` · optional

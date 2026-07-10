@@ -39,6 +39,17 @@ describe('value-evaluator', () => {
         expect(await evaluateNumericValue(rhsOf(doc, 'FractionalCostToRepair'), token)).toBe(0.2);
     });
 
+    it('evaluates the boolean & like mXparser: nonzero operands are true, result is 1 or 0', async () => {
+        expect(await evaluateNumericValue(rhsOf(doc, 'BoolAnd'), token)).toBe(1); // (&A=10) & (&B=2)
+        expect(await evaluateNumericValue(rhsOf(doc, 'BoolAndZero'), token)).toBe(0); // (0) & (&A=10)
+    });
+
+    it('converts the game number suffixes: degrees to radians, radians pass through', async () => {
+        expect(await evaluateNumericValue(rhsOf(doc, 'Degrees'), token)).toBeCloseTo(Math.PI / 2, 10); // 90d
+        expect(await evaluateNumericValue(rhsOf(doc, 'Radians'), token)).toBe(2.5); // 2.5r
+        expect(await evaluateNumericValue(rhsOf(doc, 'DegreesMath'), token)).toBeCloseTo(Math.PI / 2, 10); // 180d / 2
+    });
+
     it('returns null for non-numeric values', async () => {
         expect(await evaluateNumericValue(rhsOf(doc, 'Text'), token)).toBeNull();
     });
