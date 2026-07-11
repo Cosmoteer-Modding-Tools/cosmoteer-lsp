@@ -1,0 +1,7 @@
+// Members merged into derived_part's Components by an Overrides whose source is `&<this file>` (a
+// whole-file reference), rather than an inline `{}` group. The file's root members are the injected ones.
+FileOverriddenComp
+{
+	Type = StaticToggle
+	ToggleOn = true
+}

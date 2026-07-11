@@ -69,6 +69,7 @@ import { basenameOf, isManifestBasename, isModRules, isRulesFileName } from './d
 import { ModRulesRegistrar } from './mod/mod-rules.registrar';
 import { isActionFragmentDocument, parseModActions } from './mod/action-parser';
 import { AddBaseIndex } from './mod/add-base.index';
+import { MemberInjectionIndex } from './mod/member-injection.index';
 import { computeModReachability, reachabilityKey } from './mod/mod-reachability';
 import { generateModOverview } from './mod/mod-overview';
 import { clearModRootCache, findModRoot } from './mod/mod-root';
@@ -379,6 +380,8 @@ connection.onInitialized(async (_params) => {
             LocalizationKeyIndex.instance.reset();
             ReverseIncludeIndex.instance.reset();
             AddBaseIndex.instance.reset();
+        MemberInjectionIndex.instance.reset();
+            MemberInjectionIndex.instance.reset();
             MentionIndex.instance.reset();
             clearFsCaches();
             invalidateSchemaContextCache();
@@ -622,6 +625,7 @@ function registerOpenDocument(document: TextDocument): void {
     LocalizationKeyIndex.instance.markDirty(document.uri);
     ReverseIncludeIndex.instance.markDirty(document.uri);
     AddBaseIndex.instance.markDirty(document.uri);
+    MemberInjectionIndex.instance.markDirty(document.uri);
     if (isModRules(document.uri)) {
         // Parse the manifest's actions. A mod.rules edit changes the effective game tree.
         ModRulesRegistrar.instance.registerManifest(parserResult.value);
@@ -1545,7 +1549,13 @@ connection.onCompletion(
             await ensureFragmentRooting(cancellationToken);
             const node = findNodeAtPosition(parserResult, textDocumentPosition?.position);
             if (node) {
-                completions = await AutoCompletionService.instance.getCompletions(node, cancellationToken).catch(() => []);
+                // The cursor offset lets the reference completer complete the path segment AT the
+                // cursor rather than the whole written value, so editing a middle segment of a long
+                // reference path offers that segment's members instead of a stale suggestion.
+                const cursorOffset = documents.get(textDocumentPosition.textDocument.uri)?.offsetAt(textDocumentPosition.position);
+                completions = await AutoCompletionService.instance
+                    .getCompletions(node, cancellationToken, cursorOffset)
+                    .catch(() => []);
                 // A part-component target (a router's `Routes [ [A, B, 0] ]` tuple slot): the ids are
                 // part-local, so the part-wide component union serves them, not the cross-file index.
                 // Tried first, because the index would otherwise answer with just the engine builtins.
@@ -1817,6 +1827,11 @@ async function ensureFragmentRooting(cancellationToken: CancellationToken): Prom
     // of them actually moved. The whole-workspace scan calls this once per file, and bumping
     // unconditionally invalidated every memo on shared base nodes several thousand times per scan.
     const rootingRevisionBefore = aliasRootIndex.revision + ReverseIncludeIndex.instance.revision;
+    // The action indexes feed the resolver's `^/N`/injected-member extensions. When an edit to a
+    // manifest or action fragment changes what they hold, references that resolved THROUGH them are
+    // stale in the navigation memo (they never read the edited file, so the per-file memo drop misses
+    // them). Snapshot their revisions and clear the memo below if a reconcile moved either.
+    const actionRevisionBefore = AddBaseIndex.instance.revision + MemberInjectionIndex.instance.revision;
     await ensureAliasRootIndex(cancellationToken).catch(() => undefined);
     const folders = await searchFolderUris();
     await WatchedDocumentIndex.buildTogether(
@@ -1833,10 +1848,17 @@ async function ensureFragmentRooting(cancellationToken: CancellationToken): Prom
     // The AddBase index feeds the resolver's `^/N`-into-added-base extension (mod folders only, since
     // the game Data tree carries no mod actions). Built here so it is fresh before any feature resolves.
     await AddBaseIndex.instance.ensureBuilt(folders, cancellationToken).catch(() => undefined);
+    // The Overrides index feeds the resolver's nested-Overrides member extension (mod folders only).
+    await MemberInjectionIndex.instance.ensureBuilt(folders, cancellationToken).catch(() => undefined);
     // The builds above may have (re)rooted fragments, which changes what the per-node schema
     // resolution memos would answer, so start a fresh memo epoch for the features that follow.
     if (aliasRootIndex.revision + ReverseIncludeIndex.instance.revision !== rootingRevisionBefore) {
         invalidateSchemaContextCache();
+    }
+    // A reconcile that changed an action index (a manifest/fragment edit added or removed an
+    // AddBase/Overrides/Add) invalidates every `^/N`/injected-member resolution the memo cached.
+    if (AddBaseIndex.instance.revision + MemberInjectionIndex.instance.revision !== actionRevisionBefore) {
+        clearNavigationMemo();
     }
 }
 
@@ -1883,6 +1905,7 @@ connection.onDidChangeWatchedFiles(async (params) => {
             LocalizationKeyIndex.instance.remove(change.uri);
             ReverseIncludeIndex.instance.remove(change.uri);
             AddBaseIndex.instance.remove(change.uri);
+            MemberInjectionIndex.instance.remove(change.uri);
             // Clear any whole-workspace diagnostics we published for the now-deleted file. We must
             // send to the same uri string we published with, so match by normalized form (the
             // watcher's uri may differ in encoding from our `filePathToUri` form).
@@ -1899,6 +1922,7 @@ connection.onDidChangeWatchedFiles(async (params) => {
             LocalizationKeyIndex.instance.markDirty(change.uri);
             ReverseIncludeIndex.instance.markDirty(change.uri);
             AddBaseIndex.instance.markDirty(change.uri);
+            MemberInjectionIndex.instance.markDirty(change.uri);
             if (openNorms) toRevalidate.push(uriToFsPath(change.uri));
         }
     }

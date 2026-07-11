@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { stepIntoNode, registerInheritanceExtensionSource } from '../../src/semantics/reference-resolver';
+import {
+    stepIntoNode,
+    registerInheritanceExtensionSource,
+    registerMemberExtensionSource,
+} from '../../src/semantics/reference-resolver';
 import { AbstractNode, isListNode, isAssignmentNode, isGroupNode } from '../../src/core/ast/ast';
 import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
@@ -63,5 +67,33 @@ describe('stepIntoNode inheritance extension (AddBase)', () => {
         expect(stepIntoNode(derived, '1', true)).toBe(appended);
         // The written entry at slot 0 is still returned from the node's own list, not the source.
         expect(stepIntoNode(derived, '0', true)).not.toBe(appended);
+    });
+});
+
+// A named segment that the node does not define itself is looked up through the registered member
+// source (the OverridesIndex in production), so a member a mod's nested Overrides merges in resolves.
+describe('stepIntoNode member extension (Overrides)', () => {
+    const doc = parser(lexer('Target\n{\n\tOwn = 1\n}\n'), 'file:///t.rules').value;
+    const target = doc.elements.find((e) => isGroupNode(e) && e.identifier?.name === 'Target')!;
+
+    afterEach(() => registerMemberExtensionSource(undefined));
+
+    it('returns the node own member without consulting the source', () => {
+        const own = stepIntoNode(target, 'Own');
+        expect(own && 'valueType' in own).toBe(true);
+    });
+
+    it('returns null for an absent member when no source is registered', () => {
+        expect(stepIntoNode(target, 'Injected')).toBeNull();
+    });
+
+    it('consults the registered source for a member the node does not define', () => {
+        const injected = doc.elements[0] as AbstractNode; // stand-in for an Overrides-injected member
+        registerMemberExtensionSource((node, member) =>
+            node === target && member === 'Injected' ? injected : undefined
+        );
+        expect(stepIntoNode(target, 'Injected')).toBe(injected);
+        // A member the node defines itself is still resolved from the node, not the source.
+        expect(stepIntoNode(target, 'Own')).not.toBe(injected);
     });
 });

@@ -291,6 +291,22 @@ describe('schemaFieldNameCompletions — field-NAME completion inside a typed gr
         expect(labels).not.toContain('FiringArc'); // present as a bare valueless member
     });
 
+    it('scopes a cursor right after a closing brace to the parent, not the closed group', async () => {
+        // The cursor between the component's `}` and the newline types into `Components`, so the
+        // component class's fields (`FiringArc`, …) must not leak past the closer. The offset one
+        // char earlier (right before `}`) is still inside and keeps them.
+        const doc = parse(SRC);
+        const afterClose = SRC.indexOf('\t\t}') + 3; // one past the Turret component's `}`
+        const outside = (await schemaFieldNameCompletions(doc, afterClose, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
+        expect(outside).not.toContain('FiringArc');
+        const inside = (await schemaFieldNameCompletions(doc, afterClose - 1, token)).map((c) =>
+            typeof c === 'string' ? c : c.label
+        );
+        expect(inside).toContain('FiringArc');
+    });
+
     it('omits positional digit fields (`0`/`1`) inside a Vector2-typed group', async () => {
         // Vector2 (and Color, Rect, …) carry schema fields `0`/`1` so list-form `[7.2, 7.2]`
         // elements type-resolve. Inside `{}` only the named components are useful suggestions.

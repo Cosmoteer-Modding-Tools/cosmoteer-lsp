@@ -134,6 +134,20 @@ describe('ReferenceAutoCompletionStrategy — cross-file', () => {
             expect(await complete('&<../c.rules>/', shipDoc)).toEqual(['C']);
         });
 
+        it('<./Data/../workshop/…/wm.rules>/ workshop escape lists the target file root members', async () => {
+            expect((await complete('&<./Data/../workshop/wm/wm.rules>/', docA)).sort()).toEqual(['WM', 'WMList'].sort());
+        });
+
+        it('<./Data/../workshop/…/wm.rules>/WM/ drills into a member of the workshop file', async () => {
+            expect((await complete('&<./Data/../workshop/wm/wm.rules>/WM/', docA)).sort()).toEqual(
+                ['Alpha', 'Beta'].sort()
+            );
+        });
+
+        it('<./Data/../workshop/wm/ lists the workshop directory contents', async () => {
+            expect(await complete('&<./Data/../workshop/wm/', docA)).toEqual(['wm.rules>']);
+        });
+
         it('&RefToB/ drills through A.RefToB into group B and lists its members', async () => {
             const aObj = findNodeByIdentifier(docA, 'A')!;
             expect((await complete('&RefToB/', aObj)).sort()).toEqual(['InnerValue', 'ToC', 'Nested'].sort());

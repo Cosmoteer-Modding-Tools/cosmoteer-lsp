@@ -1,0 +1,57 @@
+ID = test.actionresolution
+
+// A mod that patches the fixture game part `parts/derived_part.rules` three ways, to exercise the
+// AddBase index (^/N into an appended base) and the member-injection index (Overrides + Add(Name)).
+// derived_part's Part already inherits base_part at slot 0, so the appended base lands at slot 1 —
+// the same shape as the real pvp-parts overclock case.
+Actions
+[
+	{
+		Action = AddBase
+		AddBaseTo = "<parts/derived_part.rules>/Part"
+		BaseToAdd = &<overclock_base.rules>/Part
+	}
+	// A second AddBase to the same node appends after the first, so its base sits at `^/2`.
+	{
+		Action = AddBase
+		AddBaseTo = "<parts/derived_part.rules>/Part"
+		BaseToAdd = &<overclock_base2.rules>/Part
+	}
+	{
+		Action = Overrides
+		OverrideIn = "<parts/derived_part.rules>/Part/Components"
+		Overrides
+		{
+			OverriddenComp
+			{
+				Type = StaticToggle
+				ToggleOn = false
+			}
+		}
+	}
+	// A second Overrides into the same node, with a `&<file>` source (the dominant real-mod form)
+	// instead of an inline group — exercises the source-dereferencing path.
+	{
+		Action = Overrides
+		OverrideIn = "<parts/derived_part.rules>/Part/Components"
+		Overrides = &<extra_components.rules>
+	}
+	{
+		Action = Add
+		AddTo = "<parts/derived_part.rules>/Part/Components"
+		Name = AddedComp
+		ToAdd
+		{
+			Type = StaticToggle
+			ToggleOn = true
+		}
+	}
+	// An AddBase carrying an explicit Index inserts mid-list and is deliberately NOT modelled (it
+	// could re-slot every following base), so `<base_part.rules>/Part/^/0/...` must stay unresolved.
+	{
+		Action = AddBase
+		AddBaseTo = "<parts/base_part.rules>/Part"
+		BaseToAdd = &<overclock_base.rules>/Part
+		Index = 0
+	}
+]

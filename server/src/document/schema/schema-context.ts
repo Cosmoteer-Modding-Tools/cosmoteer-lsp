@@ -478,7 +478,9 @@ const findEnclosing = <T extends AbstractNode>(
         // on a match, because an assignment node carries no position at all.
         if (matches(node) && offset >= node.position.start) {
             const end = node.position.end > node.position.start ? node.position.end : Number.MAX_SAFE_INTEGER;
-            if (offset <= end) best = node;
+            // `position.end` is one past the closing brace, so a cursor at exactly `end` sits after
+            // the closer and types into the parent container, not into this one.
+            if (offset < end) best = node;
         }
         const children: AbstractNode[] =
             isGroupNode(node) || isListNode(node) || isDocumentNode(node)

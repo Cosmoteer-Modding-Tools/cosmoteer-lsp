@@ -77,6 +77,17 @@ export class AddBaseIndex extends WatchedDocumentIndex {
     }
 
     /**
+     * How many bases `AddBase` actions appended to a node's inheritance list, so `^/N` slot completion
+     * can offer the appended slots (which sit past the node's own written inheritance) too.
+     *
+     * @param node the node whose appended-base count is queried.
+     * @returns the number of appended bases (0 when none).
+     */
+    public appendedBaseCount(node: AbstractNode): number {
+        return this.byNode.get(AddBaseIndex.nodeKey(node))?.length ?? 0;
+    }
+
+    /**
      * Builds the index once over the workspace mod folders, then reconciles changed files. The game
      * `Data` root is excluded: it holds no mod actions, so walking it would only cost time.
      *

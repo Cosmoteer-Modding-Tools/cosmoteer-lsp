@@ -10,7 +10,7 @@ import {
     isValueNode,
     ValueNode,
 } from '../../../core/ast/ast';
-import { findNodeByIdentifier, getStartOfAstNode, parseFile } from '../../../utils/ast.utils';
+import { getStartOfAstNode, parseFile } from '../../../utils/ast.utils';
 import { cachedParseFilePath, cachedReaddir } from '../../../workspace/fs-cache';
 import { isRulesFileName, isRulesPathSegment } from '../../../document/document-kind';
 import { getParsedFileDocument } from '../../../workspace/parsed-file-cache';
@@ -21,7 +21,9 @@ import { CancellationError } from '../../../utils/cancellation';
 import { FullNavigationStrategy } from '../../navigation/full.navigation-strategy';
 import { modAddedGlobalNames, modOverrideMemberNamesForFile, resolveFromModContextOnly } from '../../../mod/mod-context';
 import { AddBaseIndex } from '../../../mod/add-base.index';
+import { MemberInjectionIndex } from '../../../mod/member-injection.index';
 import { findInheritorsOf } from '../../../semantics/inheritor-resolver';
+import { stepIntoNode } from '../../../semantics/reference-resolver';
 
 const navigation = new FullNavigationStrategy();
 const EMPTY_STRING = '';
@@ -50,8 +52,9 @@ const referenceStartCompletions = (node: AbstractNode): string[] => {
     const completions = ['&', '&<', '&~/', '&../', '&/', '&<./Data/', '&:/'];
     let container: AbstractNode | undefined = node.parent;
     while (container && !(isGroupNode(container) || isListNode(container))) container = container.parent;
-    if (container && (isGroupNode(container) || isListNode(container)) && container.inheritance) {
-        for (let i = 0; i < container.inheritance.length; i++) completions.push(`&^/${i}/`);
+    if (container && (isGroupNode(container) || isListNode(container))) {
+        const total = (container.inheritance?.length ?? 0) + AddBaseIndex.instance.appendedBaseCount(container);
+        for (let i = 0; i < total; i++) completions.push(`&^/${i}/`);
     }
     return completions;
 };
@@ -99,12 +102,15 @@ export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
         node: ValueNode;
         isInheritanceNode: boolean;
         cancellationToken: CancellationToken;
+        /** The value text up to the cursor, used instead of the whole written value so a mid-path
+         *  edit completes the segment at the cursor. Undefined completes the whole value. */
+        valueUpToCursor?: string;
     }): Promise<string[]> {
         const { node, isInheritanceNode, cancellationToken } = args;
         if (node.valueType.type !== 'Reference') {
             return [];
         }
-        const reference = node.valueType.value;
+        const reference = args.valueUpToCursor ?? node.valueType.value;
         if (reference === EMPTY_STRING && !isInheritanceNode) {
             return referenceStartCompletions(node);
         } else if (reference === EMPTY_STRING && isInheritanceNode) {
@@ -113,8 +119,9 @@ export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
             // idiom) and the sibling names of the inheriting group.
             const completions = ['/', '<./Data', '..', '~', '<'];
             const container = node.parent?.parent;
-            if ((isGroupNode(container) || isListNode(container)) && container.inheritance) {
-                for (let i = 0; i < container.inheritance.length; i++) completions.push(`^/${i}/`);
+            if (isGroupNode(container) || isListNode(container)) {
+                const total = (container.inheritance?.length ?? 0) + AddBaseIndex.instance.appendedBaseCount(container);
+                for (let i = 0; i < total; i++) completions.push(`^/${i}/`);
             }
             if (container) completions.push(...getOptionsForLevel(container));
             const inheritingName =
@@ -195,16 +202,24 @@ const getOptionsForParentLevel = (reference: string, node: AbstractNode, isInher
  * @param search  the search string to filter options by
  * @returns  an array of completion options for the node
  */
-const getOptionsForInheritance = (node: AbstractNode, search: string = EMPTY_STRING): string[] => {
-    if (isGroupNode(node) && node.inheritance) {
-        return node.inheritance
-            .filter((_, i) => search === EMPTY_STRING || i.toString().startsWith(search))
-            .map((_, i) => i.toString() + '/');
-    } else if (node.parent && isGroupNode(node.parent) && node.parent.inheritance) {
-        return node.parent.inheritance
-            .filter((_, i) => search === EMPTY_STRING || i.toString().startsWith(search))
-            .map((_, i) => i.toString() + '/');
+const inheritanceSlotOptions = (container: AbstractNode, search: string): string[] => {
+    // Slots are the node's own written bases followed by the bases a mod's `AddBase` action appends,
+    // so `^/N/` completion suggests the added slots too (their members already complete, this offers
+    // the index that reaches them).
+    const staticLength = isGroupNode(container) || isListNode(container) ? (container.inheritance?.length ?? 0) : 0;
+    const total = staticLength + AddBaseIndex.instance.appendedBaseCount(container);
+    const out: string[] = [];
+    for (let i = 0; i < total; i++) {
+        if (search === EMPTY_STRING || i.toString().startsWith(search)) out.push(i.toString() + '/');
     }
+    return out;
+};
+
+const getOptionsForInheritance = (node: AbstractNode, search: string = EMPTY_STRING): string[] => {
+    const forNode = isGroupNode(node) || isListNode(node) ? inheritanceSlotOptions(node, search) : [];
+    if (forNode.length) return forNode;
+    const parent = node.parent;
+    if (parent && (isGroupNode(parent) || isListNode(parent))) return inheritanceSlotOptions(parent, search);
     return [];
 };
 
@@ -216,20 +231,28 @@ const getOptionsForInheritance = (node: AbstractNode, search: string = EMPTY_STR
  */
 const getOptionsForElement = (node: AbstractNode, search: string = EMPTY_STRING): string[] => {
     if (isGroupNode(node) || isListNode(node) || isDocumentNode(node)) {
+        // Member names are matched case-insensitively, like the game's node lookup (and stepIntoNode),
+        // so typing a lower-case prefix still offers a capitalized member. The client re-filters anyway,
+        // but an exact-case pre-filter here would wrongly drop it before the client ever sees it.
+        const lowerSearch = search.toLowerCase();
+        const matches = (name: string | undefined): boolean =>
+            search === EMPTY_STRING || (name?.toLowerCase().startsWith(lowerSearch) ?? false);
+        // Members a mod's nested `Overrides`/`Add` merges into this node are offered alongside its own.
+        const injected = MemberInjectionIndex.instance.injectedMemberNames(node).filter(matches);
         // A bare `word` line in a group parses to a lone IdentifierNode: a named void field the
         // game keys by name (vanilla: `v_Faction // VIRTUAL; must be inherited`), so it is
         // offered like any member.
         const voidFieldName = (v: AbstractNode): string | undefined =>
             !isListNode(node) && isIdentifierNode(v) ? v.name : undefined;
-        return node.elements
+        const own = node.elements
             .filter(
                 (v) =>
-                    ((isGroupNode(v) || isListNode(v)) && v.identifier?.name.startsWith(search)) ||
+                    ((isGroupNode(v) || isListNode(v)) && matches(v.identifier?.name)) ||
                     search === EMPTY_STRING ||
                     (isListNode(v) && v.identifier === undefined) ||
                     (isGroupNode(v) && v.identifier === undefined) ||
-                    (isAssignmentNode(v) && v.left.name.startsWith(search)) ||
-                    voidFieldName(v)?.startsWith(search)
+                    (isAssignmentNode(v) && matches(v.left.name)) ||
+                    matches(voidFieldName(v))
             )
             .map((v) => {
                 if ((isListNode(v) && v.identifier === undefined) || (isGroupNode(v) && v.identifier === undefined)) {
@@ -241,6 +264,7 @@ const getOptionsForElement = (node: AbstractNode, search: string = EMPTY_STRING)
                 }
                 return voidFieldName(v) ?? EMPTY_STRING;
             });
+        return [...own, ...injected.filter((name) => !own.includes(name))];
     }
     return [];
 };
@@ -382,7 +406,7 @@ const traverseCosmoteerPath = async (
         const document = await getParsedFileDocument(cosmoteerRules);
         return await optionsInFile(parts.slice(indexOfRules + 1), document, cancellationToken, originUri);
     } else if (isWorkshopPath) {
-        return await tarverseWorkshopPath(parts, cancellationToken, originUri);
+        return await traverseWorkshopPath(parts, cancellationToken, originUri);
     } else {
         return await getPathOptions(
             join(CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath, parts.join('/').replace('<./Data/', ''))
@@ -397,23 +421,26 @@ const traverseCosmoteerPath = async (
  * @param originUri  The URI of the file the user is editing, used to locate the owning mod for mod-added members
  * @returns  A promise that resolves to an array of completion options for the target entity
  */
-const tarverseWorkshopPath = async (parts: string[], cancellationToken: CancellationToken, originUri: string) => {
+const traverseWorkshopPath = async (parts: string[], cancellationToken: CancellationToken, originUri: string) => {
+    // The escape resolves against the game Data root: ['<.', 'Data', '..', …, 'file.rules>', <in-file…>]
+    // becomes <Data>/../…/file.rules on disk. The file segment keeps its `>` from the split, so it is
+    // stripped before touching the filesystem, and everything after it is the in-file member path.
     const pathWithoutData = parts.slice(parts.findIndex((part) => part.startsWith('..')));
-    const workshopPath = join(CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath, pathWithoutData.join('/'));
-    if (isRulesPathSegment(parts[parts.length - 1])) {
-        const cosmoteerRules = await cachedParseFilePath(workshopPath, cancellationToken);
-        return getOptionsForLevel(cosmoteerRules);
-    } else if (parts.some((part) => isRulesPathSegment(part))) {
-        const cosmoteerRules = await cachedParseFilePath(workshopPath, cancellationToken);
-        return await traversePath(
-            parts.slice(parts.findIndex((part) => part.toLowerCase().endsWith('.rules'))).join('/'),
-            cosmoteerRules,
-            cancellationToken,
-            originUri
+    const indexOfRules = pathWithoutData.findIndex((part) => isRulesPathSegment(part));
+    if (indexOfRules !== -1) {
+        const workshopFilePath = join(
+            CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath,
+            pathWithoutData
+                .slice(0, indexOfRules + 1)
+                .join('/')
+                .replaceAll(/[<>]/g, EMPTY_STRING)
         );
-    } else {
-        return await getPathOptions(workshopPath);
+        const document = await cachedParseFilePath(workshopFilePath, cancellationToken);
+        return await optionsInFile(pathWithoutData.slice(indexOfRules + 1), document, cancellationToken, originUri);
     }
+    return await getPathOptions(
+        join(CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath, pathWithoutData.join('/'))
+    );
 };
 
 /**
@@ -454,12 +481,13 @@ const getPathOptions = async (path: string) => {
     return options;
 };
 
-/** This walk intentionally differs from the canonical single-step navigation
-* in semantics/reference-resolver.ts (`stepIntoNode`, used by FullNavigationStrategy):
- * for completion we enumerate candidates, so we keep assignment nodes (not their
- * right-hand side), anchor `^` on the original node, and treat numeric segments on
- * groups as inheritance indices. Cross-file/reference dereferencing is delegated to
- * FullNavigationStrategy.navigate so the file-resolution engine is not duplicated.
+/**
+ * Walks a reference path to the container the cursor is in, then the caller lists that container's
+ * members (the completion-specific part). The per-segment stepping is delegated to the shared
+ * `stepIntoNode` (semantics/reference-resolver.ts) — the same resolver navigation, hover and validation
+ * use — so completion can never diverge from them on what a segment resolves to (a class of bug this
+ * used to reimplement). Cross-file/reference dereferencing is delegated to `FullNavigationStrategy`,
+ * and a trailing `/` (list the deref target) and a `:` virtual base are handled after the loop.
  */
 const traverseReferencePath = async (
     parts: string[],
@@ -477,94 +505,40 @@ const traverseReferencePath = async (
     // The base a virtual-inheritance `:` was traversed against, so its concrete inheritors' members can
     // be offered alongside the base's own (a member that exists only on a deriving override).
     let virtualBase: AbstractNode | undefined;
-    for (const path of parts) {
+    // Walk the in-file segments through the SHARED per-segment resolver `stepIntoNode`, the same one
+    // FullNavigationStrategy uses, so completion resolves every segment type (`..`, `~`, `^`, `:`,
+    // numeric, named member, case-insensitively) exactly as go-to-definition, hover and validation do.
+    // Reimplementing this walk is what repeatedly diverged. AddBase-appended bases and Overrides/Add-
+    // injected members come through stepIntoNode's registered extension hooks, so no special cases here.
+    for (let i = 0; i < parts.length; i++) {
+        const path = parts[i];
         if (path === EMPTY_STRING) break;
+        // A `:` statically resolves to the node itself; remember it so the leaf can also offer the
+        // members its concrete inheritors supply.
+        if (path === ':') virtualBase = currentNode;
 
-        if (path === '^') {
-            // `^` selects the current node's own inheritance anchor, mirroring the game's
-            // `OTNode.FindAtPath` and the shared resolver's `stepInto` in semantics/reference-resolver.ts.
-            // For a group or list that anchor is the node itself, and the following `/N` then reads its
-            // `inheritance`, so keep `currentNode`. Only a value or void node, which has no inheritance of
-            // its own, climbs to its owning group (the grandparent). The previous code jumped to the
-            // original node's grandparent unconditionally. For `X = &^/0/` that landed on the document,
-            // because value nodes are parented to their enclosing group, so `/0` found no member and
-            // completion listed the base file's root instead of the inherited base's members.
-            if (!(isGroupNode(currentNode) || isListNode(currentNode)) && currentNode.parent?.parent) {
-                currentNode = currentNode.parent.parent;
-            }
-            continue;
-        }
+        // `isInheritance` mirrors stepIntoNode's flag exactly: the previous segment was `^`.
+        const isInheritance = i > 0 && parts[i - 1] === '^';
+        let stepped: AbstractNode | null | undefined = stepIntoNode(currentNode, path, isInheritance);
 
-        if (path === '..' && currentNode.parent) {
-            currentNode = currentNode.parent;
-            continue;
-        }
-        if (path === '~') {
-            currentNode = getStartOfAstNode(currentNode);
-            continue;
-        }
-        if (path === ':') {
-            // `:` selects the most-derived inheritor (virtual inheritance), statically approximated
-            // as the node itself (see `stepIntoNode` in semantics/reference-resolver.ts). `currentNode`
-            // has already been normalized to a container above, so keep it, and remember it as the
-            // virtual base so its inheritors' members can be offered too.
-            virtualBase = currentNode;
-            continue;
-        }
-
-        if (isGroupNode(currentNode) && !isNaN(parseInt(path))) {
-            // The node's own written inheritance bases come first; past them, the bases a mod's
-            // `AddBase` action appends resolve through the same index the shared resolver uses, so
-            // `^/N/` completion offers an added base's members exactly as navigation resolves them.
-            const inheritanceIndex = parseInt(path);
-            const staticLength = currentNode.inheritance?.length ?? 0;
-            const nextNode =
-                inheritanceIndex < staticLength
-                    ? currentNode.inheritance![inheritanceIndex]
-                    : AddBaseIndex.instance.appendedBaseAt(currentNode, inheritanceIndex - staticLength);
-            if (!nextNode) break;
-            currentNode = nextNode;
-            continue;
-        }
-
-        if (isGroupNode(currentNode) || isListNode(currentNode) || isDocumentNode(currentNode)) {
-            const nextNode = currentNode.elements.find(
-                (v, i) =>
-                    ((isGroupNode(v) || isListNode(v)) && v.identifier?.name === path) ||
-                    (isAssignmentNode(v) && v.left.name === path) ||
-                    (isListNode(currentNode) && i === parseInt(path))
-            );
-            if (!nextNode) break;
-            currentNode = nextNode;
-            continue;
-        }
-        if (
-            (isValueNode(currentNode) && currentNode.valueType.type === 'Reference') ||
-            (isAssignmentNode(currentNode) &&
-                isValueNode(currentNode.right) &&
-                currentNode.right.valueType.type === 'Reference')
-        ) {
-            const value = (isValueNode(currentNode) ? currentNode : currentNode.right) as ValueNode;
-            if (value.valueType.type !== 'Reference') return [];
-            const node = await navigation
-                .navigate(value.valueType.value, currentNode, getStartOfAstNode(currentNode).uri, cancellationToken)
+        // stepIntoNode is synchronous and does not follow a reference result (an inheritance base, or a
+        // member whose value is `&…`). Dereference it through the shared navigation engine ONLY when a
+        // real next segment will descend into it; when the reference is the last walked segment before a
+        // trailing `/`, leave it un-dereferenced so the leaf below lists its target through
+        // `optionsThroughReference` — which also merges the members a whole-file `Overrides` adds.
+        const derefToContinue = i + 1 < parts.length && parts[i + 1] !== EMPTY_STRING;
+        if (derefToContinue && isReferenceValueNode(stepped)) {
+            const target = await navigation
+                .navigate(String(stepped.valueType.value), stepped, getStartOfAstNode(stepped).uri, cancellationToken)
                 .catch(() => undefined);
-            if (node?.type === 'File') {
-                if (cancellationToken.isCancellationRequested) throw new CancellationError();
-                const parsedDocument = await parseFile(node);
-                currentNode = parsedDocument;
-                const nextNode = findNodeByIdentifier(currentNode, path);
-                if (!nextNode) break;
-                currentNode = nextNode;
-            } else if (node?.type) {
-                currentNode = node;
-                const nextNode = findNodeByIdentifier(currentNode, path);
-                if (!nextNode) break;
-                currentNode = nextNode;
-            } else {
-                return [];
-            }
+            if (cancellationToken.isCancellationRequested) throw new CancellationError();
+            stepped =
+                target?.type === 'File'
+                    ? await parseFile(target as FileWithPath)
+                    : (target as AbstractNode | null | undefined);
         }
+        if (stepped == null) break;
+        currentNode = stepped;
     }
     // The walk stopped on a reference (or an assignment to
     // one) and the user typed a trailing `/`. Dereference it and list the target's

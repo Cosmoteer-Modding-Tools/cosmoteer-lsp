@@ -1,0 +1,12 @@
+// A "workshop mod" file next to the fixture Data root, reached via the game-root escape
+// `<./Data/../workshop/wm/wm.rules>` (the fixture stands in for the real
+// `<./Data/../../../workshop/content/<appid>/<id>/…>` layout with fewer `..` hops).
+WM
+{
+	Alpha = 1
+	Beta = 2
+}
+WMList
+[
+	100
+]

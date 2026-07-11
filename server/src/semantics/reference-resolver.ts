@@ -33,6 +33,27 @@ export const registerInheritanceExtensionSource = (source: InheritanceExtensionS
 };
 
 /**
+ * Supplies a member that a mod's nested `Overrides` action merges into a node (`OverrideIn=<…>/Part/
+ * Components` adding a component), indexed once and queried synchronously here. Registered by the
+ * {@link import('../mod/overrides.index').OverridesIndex} so `stepIntoNode` resolves an
+ * Overrides-injected member the same way for navigation, validation, hover and completion. Consulted
+ * only when the node has no such member of its own.
+ */
+export type MemberExtensionSource = (node: AbstractNode, member: string) => AbstractNode | undefined;
+
+let memberExtensionSource: MemberExtensionSource | undefined;
+
+/**
+ * Registers the source of `Overrides`-injected members. Same registration inversion as
+ * {@link registerInheritanceExtensionSource} — the resolver must not import the index.
+ *
+ * @param source the extension source, or undefined to clear it (tests).
+ */
+export const registerMemberExtensionSource = (source: MemberExtensionSource | undefined): void => {
+    memberExtensionSource = source;
+};
+
+/**
  * Canonical single-step navigation within the in-memory AST.
  *
  * Given a node and one path segment, return the node that segment points to,
@@ -103,7 +124,11 @@ export const stepIntoNode = (
             // reference, so the per-container name tables are built once and reused.
             const index = memberIndexOf(node);
             if (index.exact.has(segment)) return index.exact.get(segment);
-            return index.lower.get(segment.toLowerCase()) ?? null;
+            const lower = index.lower.get(segment.toLowerCase());
+            if (lower !== undefined) return lower;
+            // The node defines no such member itself, so a member a mod's nested `Overrides` action
+            // merges in resolves here (undefined when nothing is injected — the prior behaviour).
+            return memberExtensionSource?.(node, segment) ?? null;
         }
     }
     return null;
