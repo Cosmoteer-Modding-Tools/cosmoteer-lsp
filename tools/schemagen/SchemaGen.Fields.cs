@@ -111,7 +111,9 @@ internal sealed partial class SchemaGen
             arr.Add(fo);
         }
         // Append the custom-deserializer reads (see CustomReadCalls) not already emitted as reflected
-        // members. They are optional (read via Try/Optional or with a default) and never the discriminator.
+        // members. All are marked optional even when read with the throwing `ReadFromPath`: such a
+        // read may sit in a branch the IL scan cannot see (Color's alpha only when four values are
+        // written), so requiredness is not provable here and a wrong `required` flags valid files.
         var emitted = new HashSet<string>();
         foreach (var node in arr)
             if (node is JsonObject existing && existing["name"] is JsonValue nv) emitted.Add(nv.GetValue<string>());

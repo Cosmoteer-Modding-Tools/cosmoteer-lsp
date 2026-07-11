@@ -83,6 +83,21 @@ internal sealed partial class SchemaGen
                 var (rf, rn) = ConcreteImpl.TryGetValue(def.FullName, out var c) ? c : (def.FullName, def.Name);
                 o["kind"] = "group"; o["ref"] = rf; o["name"] = rn; return o;
             }
+            // A type with no [Serialize] surface whose deserialization hook still reads named OT keys
+            // (a [GenericConstructor] like MediaEffectBucketsRules, an [ObjectTextConstructor] like
+            // DirectionalCrewSpeeds) is a group of those recovered keys, and BuildTypes emits it with
+            // that field set. Its scalar branch, when it has one, surfaces as the type's `scalarForm`
+            // through the normal detection. Two curated exclusions stay ahead of this branch:
+            // Modifiable* keeps its scalar-first dual form (`number` + `groupForm`, below) so numeric
+            // completion, validation and the computed-value inlays keep working on the dominant
+            // bare-scalar spelling, and the inline-expansion types (FlexRange/FlexValue) must stay
+            // opaque here because their keys are written flat on the OWNING group (`FromValue = 0`
+            // directly in a particle updater, never a subgroup), which OwnFields expands in place.
+            if (IsCustomReadParticipant(def) && !def.Name.StartsWith("Modifiable")
+                && !inlineFieldExpansions.ContainsKey(def.Name))
+            {
+                o["kind"] = "group"; o["ref"] = def.FullName; o["name"] = def.Name; return o;
+            }
             // enum-like: struct/class exposing >=2 public static fields of its own type (Direction, etc.)
             // but not numeric value types that merely expose a few named constants (e.g. Angle: Zero/
             // Ninety/…) those accept arbitrary numbers (incl. Infinity). Exclude anything with a
@@ -133,16 +148,8 @@ internal sealed partial class SchemaGen
             // An external/internal virtual cell pair, modeled as a curated group (see SchemaGen.Curation.cs).
             case "VirtualInternalCell":
                 return GroupOf("Cosmoteer.Ships.Parts.VirtualInternalCell", "VirtualInternalCell");
-            // Per-direction crew speeds, dual-form like Modifiable below: a bare factor that applies to all
-            // four directions, or a `{ Left Right Up Down }` group (curated, see SchemaGen.Curation.cs).
-            case "DirectionalCrewSpeeds":
-                o["kind"] = "number"; o["type"] = nm; o["groupForm"] = DIRECTIONAL_CREW_SPEEDS; return o;
-            // The effect-bucket lists of `effect_buckets.rules`, read by a [GenericConstructor] the
-            // reflection walk cannot see (curated, see SchemaGen.Curation.cs).
-            case "MediaEffectBucketsRules":
-                return GroupOf(MEDIA_EFFECT_BUCKETS, nm);
             // A sysgen part conversion pair `{ From = <part id>  To = <part id> }`, a record struct with no
-            // serialization attributes (curated, see SchemaGen.Curation.cs).
+            // serialization attributes or deserialization hook (curated, see SchemaGen.Curation.cs).
             case "PartConversion":
                 return GroupOf(PART_CONVERSION, nm);
             // A hotkey / input button is written as a list of key names (`[Control, N]`), each a ViKey.

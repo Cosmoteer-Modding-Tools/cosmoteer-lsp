@@ -107,6 +107,16 @@ wrote .../cosmoteer.schema.json (1199 KB)
   The extractor scans the method **IL** for those generic calls and recovers each field's name (the
   literal string) and type (the generic argument) — so a class read by a custom constructor contributes
   its fields with no hand-curation.
+- **Custom-read-only types** → a type with **no** `[Serialize]` surface at all still gets modeled as a
+  group when a deserialization hook (`[ObjectTextConstructor]`, `[GenericConstructor]`,
+  `ReadContentFrom`) reads named OT keys: its field set is exactly those recovered keys, and a scalar
+  branch surfaces as its `scalarForm` (`DirectionalCrewSpeeds`, `MediaEffectBucketsRules`,
+  `CircleDashInfo`). Such types deliberately do **not** join `Participates`, which also drives the
+  plain-class-name registry member discovery — a runtime type must not enter a `Type=` vocabulary just
+  because one of its methods reads a path. Recovered keys are always emitted optional: a throwing
+  `ReadFromPath` can sit in a branch the IL scan cannot see (Color's alpha), so requiredness is not
+  provable. Types whose keys are written flat on the *owning* group (`FlexRange`/`FlexValue`) stay on
+  the inline-expansion table instead.
 - C# field type → value kind (enum/reference/group/list/number/asset/…); a small curation table
   handles engine value types (assets, `Range<T>`, `Angle`, enum-like structs like `Direction`).
 - Reachability prune from `Cosmoteer.Data.Rules` drops non-`.rules` serialization (multiplayer

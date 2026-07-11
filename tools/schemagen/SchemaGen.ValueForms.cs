@@ -134,14 +134,36 @@ internal sealed partial class SchemaGen
     //   5. a generic `*FromPath` read of extra OT keys. These are recovered as synthetic fields, but
     //      still signal a hand-written read path whose completeness cannot be fully vouched for.
     bool HasCustomDeserialization(TypeDefinition t) =>
+        HasDeserializationHook(t)
+        || EmptyAliasMemberType(t) != null
+        || customSerializerTargets.Contains(t.FullName)
+        || CustomReadCalls(t).Any();
+
+    // Whether the engine deserializes the type through a hand-written hook: an [ObjectTextConstructor],
+    // an IObjectTextContentDeserializable `ReadContentFrom`, or a [GenericConstructor] read path
+    // (a constructor taking a GenericSerialReader, own or via a `base(reader)` chain).
+    static bool HasDeserializationHook(TypeDefinition t) =>
         t.Methods.Any(m => m.IsConstructor && Attr(m, OTCTOR) != null)
         || t.Methods.Any(m => m.Name.EndsWith("ReadContentFrom")
             && m.Parameters.Any(p => p.ParameterType.FullName == "Halfling.Serialization.ObjectText.ObjectTextSerializer"))
         || t.Methods.Any(m => m.IsConstructor && m.Parameters.Any(p =>
-            p.ParameterType.FullName == "Halfling.Serialization.Generic.GenericSerialReader"))
-        || EmptyAliasMemberType(t) != null
-        || customSerializerTargets.Contains(t.FullName)
-        || CustomReadCalls(t).Any();
+            p.ParameterType.FullName == "Halfling.Serialization.Generic.GenericSerialReader"));
+
+    // A type with no reflective surface at all (no [ReflectiveSerialization], no [Serialize] members)
+    // that the engine still provably deserializes: it has a deserialization hook AND that hook reads
+    // named OT keys the CustomReadCalls scan recovers. Such a type is modeled as a group of those
+    // recovered keys (MediaEffectBucketsRules' bucket lists, DirectionalCrewSpeeds' four directions)
+    // instead of landing opaque. Deliberately not folded into Participates: that predicate also feeds
+    // the plain-class-name registry member discovery in BuildRegistries, and a runtime type must not
+    // enter a `Type=` vocabulary just because some method of it reads a path. Memoized, the IL scan is
+    // not free and MapType asks per field.
+    static readonly Dictionary<string, bool> customReadParticipantMemo = new(StringComparer.Ordinal);
+    static bool IsCustomReadParticipant(TypeDefinition t)
+    {
+        if (customReadParticipantMemo.TryGetValue(t.FullName, out var cached)) return cached;
+        var participates = !Participates(t) && HasDeserializationHook(t) && CustomReadCalls(t).Any();
+        return customReadParticipantMemo[t.FullName] = participates;
+    }
 
     // Whether the type and its whole schema-inheritance chain read purely by reflection over their
     // `[Serialize]` members, so the emitted member set is the complete set of keys the engine reads.

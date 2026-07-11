@@ -3,9 +3,9 @@
     "source": "Cosmoteer.dll \u002B HalflingCore.dll",
     "root": "Cosmoteer.Data.Rules",
     "registries": 36,
-    "types": 840,
+    "types": 841,
     "enums": 99,
-    "typesBeforePrune": 1326,
+    "typesBeforePrune": 1349,
     "registriesBeforePrune": 62
   },
   "registries": {
@@ -3172,6 +3172,72 @@
             "kind": "range",
             "element": {
               "kind": "float"
+            }
+          },
+          "optional": true
+        }
+      ]
+    },
+    "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules": {
+      "name": "MediaEffectBucketsRules",
+      "namespace": "Cosmoteer.Simulation.MediaEffects",
+      "fields": [
+        {
+          "name": "LowerBuckets",
+          "valueType": {
+            "kind": "list",
+            "element": {
+              "kind": "reference",
+              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
+              "targetName": "MediaEffectBucketsRules"
+            }
+          },
+          "optional": true
+        },
+        {
+          "name": "InteriorSurfaceBuckets",
+          "valueType": {
+            "kind": "list",
+            "element": {
+              "kind": "reference",
+              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
+              "targetName": "MediaEffectBucketsRules"
+            }
+          },
+          "optional": true
+        },
+        {
+          "name": "MiddleBuckets",
+          "valueType": {
+            "kind": "list",
+            "element": {
+              "kind": "reference",
+              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
+              "targetName": "MediaEffectBucketsRules"
+            }
+          },
+          "optional": true
+        },
+        {
+          "name": "SurfaceBuckets",
+          "valueType": {
+            "kind": "list",
+            "element": {
+              "kind": "reference",
+              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
+              "targetName": "MediaEffectBucketsRules"
+            }
+          },
+          "optional": true
+        },
+        {
+          "name": "UpperBuckets",
+          "valueType": {
+            "kind": "list",
+            "element": {
+              "kind": "reference",
+              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
+              "targetName": "MediaEffectBucketsRules"
             }
           },
           "optional": true
@@ -15089,9 +15155,9 @@
         {
           "name": "CrewSpeedFactor",
           "valueType": {
-            "kind": "number",
-            "type": "DirectionalCrewSpeeds",
-            "groupForm": "Cosmoteer.Ships.Parts.DirectionalCrewSpeeds"
+            "kind": "group",
+            "ref": "Cosmoteer.Ships.Parts.DirectionalCrewSpeeds",
+            "name": "DirectionalCrewSpeeds"
           },
           "optional": false,
           "nullable": false
@@ -15099,9 +15165,9 @@
         {
           "name": "CrewCongestedSpeedFactor",
           "valueType": {
-            "kind": "number",
-            "type": "DirectionalCrewSpeeds",
-            "groupForm": "Cosmoteer.Ships.Parts.DirectionalCrewSpeeds"
+            "kind": "group",
+            "ref": "Cosmoteer.Ships.Parts.DirectionalCrewSpeeds",
+            "name": "DirectionalCrewSpeeds"
           },
           "optional": false,
           "nullable": false
@@ -15109,9 +15175,9 @@
         {
           "name": "CrewMinimumSpeedFactor",
           "valueType": {
-            "kind": "number",
-            "type": "DirectionalCrewSpeeds",
-            "groupForm": "Cosmoteer.Ships.Parts.DirectionalCrewSpeeds"
+            "kind": "group",
+            "ref": "Cosmoteer.Ships.Parts.DirectionalCrewSpeeds",
+            "name": "DirectionalCrewSpeeds"
           },
           "optional": false,
           "nullable": false
@@ -15723,6 +15789,45 @@
           "name": "ProhibitBelow",
           "valueType": {
             "kind": "int"
+          },
+          "optional": true,
+          "nullable": false
+        }
+      ]
+    },
+    "Cosmoteer.Ships.Parts.DirectionalCrewSpeeds": {
+      "name": "DirectionalCrewSpeeds",
+      "namespace": "Cosmoteer.Ships.Parts",
+      "scalarForm": true,
+      "fields": [
+        {
+          "name": "Left",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "Right",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "Up",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "Down",
+          "valueType": {
+            "kind": "float"
           },
           "optional": true,
           "nullable": false
@@ -58814,8 +58919,9 @@
           "valueType": {
             "kind": "list",
             "element": {
-              "kind": "opaque",
-              "type": "CircleDashInfo"
+              "kind": "group",
+              "ref": "Halfling.Graphics.CircleDashInfo",
+              "name": "CircleDashInfo"
             }
           },
           "optional": true
@@ -58958,6 +59064,85 @@
           "name": "OuterRadius",
           "valueType": {
             "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        }
+      ]
+    },
+    "Halfling.Graphics.CircleDashInfo": {
+      "name": "CircleDashInfo",
+      "namespace": "Halfling.Graphics",
+      "fields": [
+        {
+          "name": "SizeWeight",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "DashURange",
+          "valueType": {
+            "kind": "range",
+            "element": {
+              "kind": "float"
+            }
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "BeginCapLength",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "BeginCapLengthPerThickness",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "BeginCapURange",
+          "valueType": {
+            "kind": "range",
+            "element": {
+              "kind": "float"
+            }
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "EndCapLength",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "EndCapLengthPerThickness",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "EndCapURange",
+          "valueType": {
+            "kind": "range",
+            "element": {
+              "kind": "float"
+            }
           },
           "optional": true,
           "nullable": false
@@ -60261,106 +60446,6 @@
         }
       ]
     },
-    "Cosmoteer.Ships.Parts.DirectionalCrewSpeeds": {
-      "name": "DirectionalCrewSpeeds",
-      "namespace": "Cosmoteer.Ships.Parts",
-      "fields": [
-        {
-          "name": "Left",
-          "valueType": {
-            "kind": "number"
-          },
-          "optional": false
-        },
-        {
-          "name": "Right",
-          "valueType": {
-            "kind": "number"
-          },
-          "optional": false
-        },
-        {
-          "name": "Up",
-          "valueType": {
-            "kind": "number"
-          },
-          "optional": false
-        },
-        {
-          "name": "Down",
-          "valueType": {
-            "kind": "number"
-          },
-          "optional": false
-        }
-      ]
-    },
-    "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules": {
-      "name": "MediaEffectBucketsRules",
-      "namespace": "Cosmoteer.Simulation.MediaEffects",
-      "fields": [
-        {
-          "name": "LowerBuckets",
-          "valueType": {
-            "kind": "list",
-            "element": {
-              "kind": "reference",
-              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
-              "targetName": "MediaEffectBucketsRules"
-            }
-          },
-          "optional": true
-        },
-        {
-          "name": "InteriorSurfaceBuckets",
-          "valueType": {
-            "kind": "list",
-            "element": {
-              "kind": "reference",
-              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
-              "targetName": "MediaEffectBucketsRules"
-            }
-          },
-          "optional": true
-        },
-        {
-          "name": "MiddleBuckets",
-          "valueType": {
-            "kind": "list",
-            "element": {
-              "kind": "reference",
-              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
-              "targetName": "MediaEffectBucketsRules"
-            }
-          },
-          "optional": true
-        },
-        {
-          "name": "SurfaceBuckets",
-          "valueType": {
-            "kind": "list",
-            "element": {
-              "kind": "reference",
-              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
-              "targetName": "MediaEffectBucketsRules"
-            }
-          },
-          "optional": true
-        },
-        {
-          "name": "UpperBuckets",
-          "valueType": {
-            "kind": "list",
-            "element": {
-              "kind": "reference",
-              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
-              "targetName": "MediaEffectBucketsRules"
-            }
-          },
-          "optional": true
-        }
-      ]
-    },
     "Cosmoteer.Generators.Ships.Stages.ConvertTypeStage/PartConversion": {
       "name": "PartConversion",
       "namespace": "Cosmoteer.Generators.Ships.Stages",
@@ -61598,8 +61683,7 @@
       "CustomShapeFunc": 1,
       "Object": 1,
       "CharFilter": 1,
-      "CharacterMask": 1,
-      "CircleDashInfo": 1
+      "CharacterMask": 1
     },
     "generics": {
       "WidgetLayoutChildren\u00601": 3,

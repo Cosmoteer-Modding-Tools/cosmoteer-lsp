@@ -248,6 +248,9 @@
         "SignalThroughNode": "ID of the blueprint-available component to receive the network signal from.",
         "DrawOnHover": "Whether this value overlay should be drawn regardless of signal when the part is hovered in build mode."
     },
+    "Cosmoteer.Ships.BuffModifier": {
+        "BuffType": "The ID of the BuffType that the modifier uses."
+    },
     "Cosmoteer.Ships.Networks.BasePartNetworkPortRules": {
         "BlueprintOperationalToggle": "The ID of the blueprint component to use for the blueprint port's operational checks, if any.",
         "BlueprintConnectionMode": "The mode used to determine the validity of a connection between two blueprint ports.",
@@ -495,11 +498,18 @@
     "Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules": {
         "TriggerValueIsShotOffsetTime": "Whether the emitter fakes an emission time offset using the value from the FireTrigger."
     },
+    "Cosmoteer.Ships.ScaledEffectScaleModifier": {
+        "Basis": "The value that Scale will scale the EffectScale towards."
+    },
     "Cosmoteer.Ships.ShipFile": {
         "FilePath": "The path of the saved ship file."
     },
     "Cosmoteer.Ships.ShipRules": {
         "IndicatorAtlasParams": "Parameters for constructing the IndicatorAtlases."
+    },
+    "Cosmoteer.Ships.StatusRemapModifier": {
+        "IgnoreValuesBelowRange": "Whether to skip modification when the input value is below the RemapFrom range.",
+        "IgnoreValuesAboveRange": "Whether to skip modification when the input value is above the RemapFrom range."
     },
     "Cosmoteer.Ships.Statuses.StatusCustomShapeEffectRules": {
         "StatusValueToEffectValueType": "The status value conversion type, if any, to return as the value of Rand).",
@@ -577,6 +587,11 @@
         "ValueTargetStorage": "The resource storage that the regulator will deposit into.",
         "ValuePerTargetResource": "The conversion rate of status value to ValueTargetStorage resources.",
         "LimitByTargetFreeSpace": "Whether the regular requires free space in the ValueTargetStorage in order to function."
+    },
+    "Cosmoteer.Ships.ValueModifier": {
+        "ModificationMode": "The method of value modification.",
+        "MinValue": "The minimum resultant value.",
+        "MaxValue": "The maximum resultant value."
     },
     "Cosmoteer.Simulation.EffectFilter": {
         "Ships": "Whether ships and their parts can be affected at all. When false, every ship and part check fails regardless of the allegiance fields. True by default in every effect's built-in filter.",

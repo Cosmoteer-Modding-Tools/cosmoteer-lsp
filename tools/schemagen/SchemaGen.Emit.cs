@@ -51,7 +51,10 @@ internal sealed partial class SchemaGen
     {
         foreach (var t in allTypes)
         {
-            if (!Participates(t)) continue;
+            // Custom-read participants (see IsCustomReadParticipant) are emitted with their recovered
+            // keys as the field set, but stay out of Participates so the plain-class-name registry
+            // member discovery above never picks them up as `Type=` vocabulary.
+            if (!Participates(t) && !IsCustomReadParticipant(t)) continue;
             var o = new JsonObject { ["name"] = t.Name, ["namespace"] = t.Namespace };
             if (t.IsAbstract) o["abstract"] = true;
             if (NearestSchemaBase(t) is { } bd) o["extends"] = bd.FullName;
