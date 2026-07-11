@@ -65,6 +65,14 @@ export interface CosmoteerSettings {
         // Hint severity keeps it out of the Problems panel.
         validateIgnoredFields: boolean;
     };
+    inlayHints: {
+        // When true (the default), a reference whose target is a group in the game's
+        // ModifiableValue shape (`Arc { BaseValue = 160d }`) is annotated with that member:
+        // `Arc = &~/…/ArcShield/Arc` renders ` /BaseValue = 160d`. The BaseValue is what the
+        // reference effectively supplies at runtime, and it is otherwise invisible without
+        // following the reference by hand.
+        showBaseValue: boolean;
+    };
     rename: {
         // When true, a rename may also edit files inside the Cosmoteer game `Data` install. Off by
         // default to protect the read-only vanilla files — only a developer working on the game data
@@ -102,6 +110,9 @@ export const defaultSettings: CosmoteerSettings = {
         validateLocalizationKeys: true,
         validateRedundantSeparators: true,
         validateIgnoredFields: true,
+    },
+    inlayHints: {
+        showBaseValue: true,
     },
     rename: {
         allowEditingVanillaFiles: false,

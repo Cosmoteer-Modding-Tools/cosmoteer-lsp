@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- A reference to a group with a `BaseValue` member now shows that value as an inlay hint: `Arc = &~/Part/Components/ArcShield/Arc` renders `/BaseValue = 160d` after the reference. A literal shows as written, a computed `BaseValue` shows its evaluated number, and a `BaseValue` inherited from a base group is found too. Toggleable via the new `inlayHints.showBaseValue` setting, on by default.
+- The `Modifiers` entries of a `BaseValue` group are now fully understood: `Type =` completes with the twelve modifier kinds the game dispatches on (`Buff`, `BuffRemap`, `Status`, `StatusRemap`, `NamedValue`, `EffectScale`, and their variants), each entry's fields complete, hover and validate (`RemapFrom`, `RemapTo`, `Clamp`, `ModificationMode`, ...), and a typo in a type name or mode gets the usual did-you-mean fix.
+- Per-direction crew speed groups (`CrewSpeedFactor { Left Right Up Down }`) now complete and validate, alongside the bare single-factor form.
+- `effect_buckets.rules` completes its five bucket-list fields, and a sysgen `ConvertTypeStage`'s `Conversions` entries complete `From`/`To` with part-id navigation.
+- Hover on a dual-form field now says so: a `Modifiable` field reads `number | ModifiableValue group` instead of just `number`, so the group spelling is discoverable.
 - Interactive part grid editor. An "Edit part grid" CodeLens on every `Part` opens a visual editor that shows the part's sprites split into the in-game cell grid, with an extra ring for the door and virtual cells around it.
 - Clicking the grid authors the per-cell fields instead of hand-typing coordinates: allowed door locations, blocked travel cells and their directions, external/internal/blueprint walls per cell edge, crew destinations with sub-cell snapping, virtual internal cell pairs, `PhysicalRect`/`SaveRect` and `Size`.
 - Every click writes the change to the `.rules` file immediately and undoes with the normal editor undo. Values inherited from a base part render as ghosts, and the first edit creates the local override carrying them along.

@@ -60,6 +60,7 @@ All settings live under the `cosmoteerLSPRules.` prefix.
 | `diagnostics.validateShaderCode` | on | Diagnostics inside `.shader` files: missing `#include` targets, undeclared uniforms, unknown functions |
 | `diagnostics.validateLocalizationKeys` | on | Flag a localization key that no language strings file declares |
 | `diagnostics.validateRedundantSeparators` | on | Hint at a `,`/`;` separator a line break already makes redundant (shown as an editor hint, not in the Problems panel) |
+| `inlayHints.showBaseValue` | on | Show the referenced group's `BaseValue` inline: a reference to a group with a `BaseValue` member renders `/BaseValue = 160d` |
 | `rename.allowEditingVanillaFiles` | off | Allow Rename to edit files inside the game `Data` install |
 | `associateShaderFiles` | on | Open `.shader` files with the Cosmoteer Shader language when another extension claims the extension |
 | `formatting.enabled` | on | Document formatting for `.rules` and `.shader` files |

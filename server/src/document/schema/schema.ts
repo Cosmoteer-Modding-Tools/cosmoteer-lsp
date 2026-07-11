@@ -352,8 +352,18 @@ export const valueTypeLabel = (vt: ValueType): string => {
             return `[${vt.elements.map(valueTypeLabel).join(', ')}]`;
         case 'asset':
             return `asset (${vt.assetKind})`;
-        case 'number':
-            return vt.unit ? `number (${vt.unit})` : 'number';
+        case 'bool':
+        case 'int':
+        case 'float':
+        case 'string':
+        case 'number': {
+            const base = vt.kind === 'number' && vt.unit ? `number (${vt.unit})` : vt.kind;
+            // A dual-form scalar (a Modifiable<T>, DirectionalCrewSpeeds) also accepts a group whose
+            // fields come from the groupForm class; surface that in the label so `Arc: number` does
+            // not read as scalar-only when `Arc { BaseValue = … }` is equally valid.
+            const groupForm = vt.groupForm ? (schema.types[vt.groupForm]?.name ?? vt.groupForm) : undefined;
+            return groupForm ? `${base} | ${groupForm} group` : base;
+        }
         case 'opaque':
             // A custom-deserialized engine type (e.g. a particle channel `ParticleDataID`). It has no
             // modelled fields, but its C# type name is meaningful to show — far more useful than the

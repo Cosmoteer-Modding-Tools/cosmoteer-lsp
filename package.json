@@ -252,6 +252,12 @@
                     "default": true,
                     "description": "Hint at a field the game ignores: its group's schema class does not declare the field and no reference in the file reads it, so the value is never loaded. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
                 },
+                "cosmoteerLSPRules.inlayHints.showBaseValue": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show the referenced group's BaseValue as an inline hint. A reference like 'Arc = &~/Part/Components/ArcShield/Arc' whose target group has a BaseValue member renders '/BaseValue = 160d' after the reference."
+                },
                 "cosmoteerLSPRules.rename.allowEditingVanillaFiles": {
                     "scope": "resource",
                     "type": "boolean",

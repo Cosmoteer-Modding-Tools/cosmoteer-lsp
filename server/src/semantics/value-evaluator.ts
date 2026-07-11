@@ -5,6 +5,7 @@ import {
     FunctionCallNode,
     isExpressionNode,
     isFunctionCallNode,
+    isGroupNode,
     isMathExpressionNode,
     isValueNode,
     ValueNode,
@@ -47,6 +48,34 @@ export const evaluateExpressionGroup = async (
     token: CancellationToken
 ): Promise<number | null> => {
     return evaluateSequence(parts, { token, visited: new Set() });
+};
+
+/**
+ * Resolve the `BaseValue` member of the group a reference points at, the game's ModifiableValue
+ * shape (`Arc { BaseValue = 160d }`). The member lookup runs through the same navigation as
+ * reference evaluation, so a `BaseValue` supplied by an inherited base group is found too, and a
+ * reference-valued `BaseValue` comes back already dereferenced to its final target.
+ *
+ * @param node the reference value node whose target group to inspect.
+ * @param token cancellation token of the surrounding request.
+ * @returns the `BaseValue` member's value node, or `null` when the reference does not resolve to a
+ * group or the group carries no `BaseValue`.
+ */
+export const resolveReferencedBaseValue = async (
+    node: ValueNode,
+    token: CancellationToken
+): Promise<AbstractNode | null> => {
+    if (node.valueType.type !== 'Reference') return null;
+    const target = await navigation
+        .navigate(String(node.valueType.value), node, getStartOfAstNode(node).uri, token)
+        .catch(() => null);
+    if (!target || isFile(target as FileWithPath) || !isGroupNode(target as AbstractNode)) return null;
+    const group = target as AbstractNode;
+    const member = await navigation
+        .navigate('BaseValue', group, getStartOfAstNode(group).uri, token)
+        .catch(() => null);
+    if (!member || isFile(member as FileWithPath)) return null;
+    return member as AbstractNode;
 };
 
 const evaluate = async (node: AbstractNode, context: EvalContext): Promise<number | null> => {

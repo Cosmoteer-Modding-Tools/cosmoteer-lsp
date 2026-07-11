@@ -32,6 +32,7 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateLocalizationKeys: Boolean = true
         var validateRedundantSeparators: Boolean = true
         var validateIgnoredFields: Boolean = true
+        var inlayShowBaseValue: Boolean = true
         var allowEditingVanillaFiles: Boolean = false
         var formattingEnabled: Boolean = true
         /**
@@ -73,6 +74,7 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateRedundantSeparators" to state.validateRedundantSeparators,
             "validateIgnoredFields" to state.validateIgnoredFields,
         ),
+        "inlayHints" to mapOf("showBaseValue" to state.inlayShowBaseValue),
         "rename" to mapOf("allowEditingVanillaFiles" to state.allowEditingVanillaFiles),
         // Format-on-save is intentionally not exposed: LSP4IJ has no willSaveWaitUntil, JetBrains
         // users get the same behavior from Settings | Tools | Actions on Save | Reformat code.

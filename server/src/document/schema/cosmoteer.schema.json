@@ -2,10 +2,10 @@
   "meta": {
     "source": "Cosmoteer.dll \u002B HalflingCore.dll",
     "root": "Cosmoteer.Data.Rules",
-    "registries": 35,
-    "types": 824,
+    "registries": 36,
+    "types": 840,
     "enums": 99,
-    "typesBeforePrune": 1323,
+    "typesBeforePrune": 1326,
     "registriesBeforePrune": 62
   },
   "registries": {
@@ -91,6 +91,25 @@
         "EdgeDistance": "Cosmoteer.Source.Ships.Parts.Regions.PartRelativeEdgeDistance",
         "Grid": "Cosmoteer.Source.Ships.Parts.Regions.PartRelativeGrid",
         "Radius": "Cosmoteer.Source.Ships.Parts.Regions.PartRelativeRadius"
+      }
+    },
+    "Cosmoteer.Ships.ValueModifier": {
+      "name": "ValueModifier",
+      "typeField": "Type",
+      "valueField": "",
+      "members": {
+        "Buff": "Cosmoteer.Ships.BuffModifier",
+        "BuffRemap": "Cosmoteer.Ships.BuffRemapModifier",
+        "EffectScale": "Cosmoteer.Ships.EffectScaleModifier",
+        "ScaledEffectScale": "Cosmoteer.Ships.ScaledEffectScaleModifier",
+        "NamedValue": "Cosmoteer.Ships.NamedValueModifier",
+        "NamedValueRemap": "Cosmoteer.Ships.NamedValueRemapModifier",
+        "ScaledBuff": "Cosmoteer.Ships.ScaledBuffModifier",
+        "StatusExponent": "Cosmoteer.Ships.StatusExponentModifier",
+        "ScaledStatusExponent": "Cosmoteer.Ships.ScaledStatusExponentModifier",
+        "Status": "Cosmoteer.Ships.StatusModifier",
+        "StatusRemap": "Cosmoteer.Ships.StatusRemapModifier",
+        "StatusToggledRange": "Cosmoteer.Ships.StatusToggledRangeModifier"
       }
     },
     "Cosmoteer.Ships.Statuses.ValueModulatorRules": {
@@ -7985,6 +8004,423 @@
         }
       ]
     },
+    "Cosmoteer.Ships.BuffModifier": {
+      "name": "BuffModifier",
+      "namespace": "Cosmoteer.Ships",
+      "extends": "Cosmoteer.Ships.ValueModifier",
+      "derivedType": "Buff",
+      "registry": "Cosmoteer.Ships.ValueModifier",
+      "fields": [
+        {
+          "name": "BuffType",
+          "valueType": {
+            "kind": "reference",
+            "target": "Cosmoteer.Ships.Buffs.BuffType",
+            "targetName": "BuffType"
+          },
+          "optional": true,
+          "nullable": false
+        }
+      ]
+    },
+    "Cosmoteer.Ships.BuffRemapModifier": {
+      "name": "BuffRemapModifier",
+      "namespace": "Cosmoteer.Ships",
+      "extends": "Cosmoteer.Ships.BuffModifier",
+      "derivedType": "BuffRemap",
+      "registry": "Cosmoteer.Ships.ValueModifier",
+      "fields": [
+        {
+          "name": "RemapFrom",
+          "valueType": {
+            "kind": "range",
+            "element": {
+              "kind": "float"
+            }
+          },
+          "optional": false,
+          "nullable": false
+        },
+        {
+          "name": "RemapTo",
+          "valueType": {
+            "kind": "range",
+            "element": {
+              "kind": "float"
+            }
+          },
+          "optional": false,
+          "nullable": false
+        },
+        {
+          "name": "Clamp",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": true
+        }
+      ]
+    },
+    "Cosmoteer.Ships.EffectScaleModifier": {
+      "name": "EffectScaleModifier",
+      "namespace": "Cosmoteer.Ships",
+      "extends": "Cosmoteer.Ships.ValueModifier",
+      "derivedType": "EffectScale",
+      "registry": "Cosmoteer.Ships.ValueModifier",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "Exponent",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": 1
+        }
+      ]
+    },
+    "Cosmoteer.Ships.ScaledEffectScaleModifier": {
+      "name": "ScaledEffectScaleModifier",
+      "namespace": "Cosmoteer.Ships",
+      "extends": "Cosmoteer.Ships.EffectScaleModifier",
+      "derivedType": "ScaledEffectScale",
+      "registry": "Cosmoteer.Ships.ValueModifier",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "Scale",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "nullable": false
+        },
+        {
+          "name": "Basis",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        }
+      ]
+    },
+    "Cosmoteer.Ships.NamedValueModifier": {
+      "name": "NamedValueModifier",
+      "namespace": "Cosmoteer.Ships",
+      "extends": "Cosmoteer.Ships.ValueModifier",
+      "derivedType": "NamedValue",
+      "registry": "Cosmoteer.Ships.ValueModifier",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "ValueID",
+          "valueType": {
+            "kind": "reference",
+            "target": "System.Single",
+            "targetName": "Single"
+          },
+          "optional": true,
+          "nullable": false
+        }
+      ]
+    },
+    "Cosmoteer.Ships.NamedValueRemapModifier": {
+      "name": "NamedValueRemapModifier",
+      "namespace": "Cosmoteer.Ships",
+      "extends": "Cosmoteer.Ships.NamedValueModifier",
+      "derivedType": "NamedValueRemap",
+      "registry": "Cosmoteer.Ships.ValueModifier",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "RemapFrom",
+          "valueType": {
+            "kind": "range",
+            "element": {
+              "kind": "float"
+            }
+          },
+          "optional": false,
+          "nullable": false
+        },
+        {
+          "name": "RemapTo",
+          "valueType": {
+            "kind": "range",
+            "element": {
+              "kind": "float"
+            }
+          },
+          "optional": false,
+          "nullable": false
+        },
+        {
+          "name": "Clamp",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": true
+        }
+      ]
+    },
+    "Cosmoteer.Ships.ScaledBuffModifier": {
+      "name": "ScaledBuffModifier",
+      "namespace": "Cosmoteer.Ships",
+      "extends": "Cosmoteer.Ships.BuffModifier",
+      "derivedType": "ScaledBuff",
+      "registry": "Cosmoteer.Ships.ValueModifier",
+      "fields": [
+        {
+          "name": "Scale",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": 1
+        },
+        {
+          "name": "Exponent",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": 1
+        },
+        {
+          "name": "Basis",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        }
+      ]
+    },
+    "Cosmoteer.Ships.StatusExponentModifier": {
+      "name": "StatusExponentModifier",
+      "namespace": "Cosmoteer.Ships",
+      "extends": "Cosmoteer.Ships.StatusModifier",
+      "derivedType": "StatusExponent",
+      "registry": "Cosmoteer.Ships.ValueModifier",
+      "fields": [
+        {
+          "name": "Exponent",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "nullable": false
+        }
+      ]
+    },
+    "Cosmoteer.Ships.ScaledStatusExponentModifier": {
+      "name": "ScaledStatusExponentModifier",
+      "namespace": "Cosmoteer.Ships",
+      "extends": "Cosmoteer.Ships.StatusExponentModifier",
+      "derivedType": "ScaledStatusExponent",
+      "registry": "Cosmoteer.Ships.ValueModifier",
+      "fields": [
+        {
+          "name": "Scale",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "nullable": false
+        },
+        {
+          "name": "Basis",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        }
+      ]
+    },
+    "Cosmoteer.Ships.StatusModifier": {
+      "name": "StatusModifier",
+      "namespace": "Cosmoteer.Ships",
+      "extends": "Cosmoteer.Ships.ValueModifier",
+      "derivedType": "Status",
+      "registry": "Cosmoteer.Ships.ValueModifier",
+      "fields": [
+        {
+          "name": "ValueType",
+          "valueType": {
+            "kind": "enum",
+            "ref": "Cosmoteer.Ships.Statuses.StatusValueType",
+            "name": "StatusValueType"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "BaseStatusValue",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "StatusType",
+          "valueType": {
+            "kind": "reference",
+            "target": "Cosmoteer.Ships.Statuses.StatusType",
+            "targetName": "StatusType"
+          },
+          "optional": true,
+          "nullable": false
+        }
+      ]
+    },
+    "Cosmoteer.Ships.StatusRemapModifier": {
+      "name": "StatusRemapModifier",
+      "namespace": "Cosmoteer.Ships",
+      "extends": "Cosmoteer.Ships.StatusModifier",
+      "derivedType": "StatusRemap",
+      "registry": "Cosmoteer.Ships.ValueModifier",
+      "fields": [
+        {
+          "name": "RemapFrom",
+          "valueType": {
+            "kind": "range",
+            "element": {
+              "kind": "float"
+            }
+          },
+          "optional": false,
+          "nullable": false
+        },
+        {
+          "name": "RemapTo",
+          "valueType": {
+            "kind": "range",
+            "element": {
+              "kind": "float"
+            }
+          },
+          "optional": false,
+          "nullable": false
+        },
+        {
+          "name": "Clamp",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": true
+        },
+        {
+          "name": "IgnoreValuesBelowRange",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "IgnoreValuesAboveRange",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "Exponent",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": 1
+        }
+      ]
+    },
+    "Cosmoteer.Ships.StatusToggledRangeModifier": {
+      "name": "StatusToggledRangeModifier",
+      "namespace": "Cosmoteer.Ships",
+      "extends": "Cosmoteer.Ships.StatusModifier",
+      "derivedType": "StatusToggledRange",
+      "registry": "Cosmoteer.Ships.ValueModifier",
+      "fields": [
+        {
+          "name": "AffectedValueRange",
+          "valueType": {
+            "kind": "range",
+            "element": {
+              "kind": "float"
+            }
+          },
+          "optional": false,
+          "nullable": false
+        },
+        {
+          "name": "InsideRangeValue",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "nullable": false
+        },
+        {
+          "name": "OutsideRangeValue",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "nullable": false
+        }
+      ]
+    },
+    "Cosmoteer.Ships.ValueModifier": {
+      "name": "ValueModifier",
+      "namespace": "Cosmoteer.Ships",
+      "abstract": true,
+      "isRegistry": true,
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "ModificationMode",
+          "valueType": {
+            "kind": "enum",
+            "ref": "Cosmoteer.Ships.ValueModificationMode",
+            "name": "ValueModificationMode"
+          },
+          "optional": false,
+          "nullable": false
+        },
+        {
+          "name": "MinValue",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": -3.4028235E+38
+        },
+        {
+          "name": "MaxValue",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false,
+          "default": 3.4028235E+38
+        }
+      ]
+    },
     "Cosmoteer.Ships.ShipFile": {
       "name": "ShipFile",
       "namespace": "Cosmoteer.Ships",
@@ -14653,8 +15089,9 @@
         {
           "name": "CrewSpeedFactor",
           "valueType": {
-            "kind": "opaque",
-            "type": "DirectionalCrewSpeeds"
+            "kind": "number",
+            "type": "DirectionalCrewSpeeds",
+            "groupForm": "Cosmoteer.Ships.Parts.DirectionalCrewSpeeds"
           },
           "optional": false,
           "nullable": false
@@ -14662,8 +15099,9 @@
         {
           "name": "CrewCongestedSpeedFactor",
           "valueType": {
-            "kind": "opaque",
-            "type": "DirectionalCrewSpeeds"
+            "kind": "number",
+            "type": "DirectionalCrewSpeeds",
+            "groupForm": "Cosmoteer.Ships.Parts.DirectionalCrewSpeeds"
           },
           "optional": false,
           "nullable": false
@@ -14671,8 +15109,9 @@
         {
           "name": "CrewMinimumSpeedFactor",
           "valueType": {
-            "kind": "opaque",
-            "type": "DirectionalCrewSpeeds"
+            "kind": "number",
+            "type": "DirectionalCrewSpeeds",
+            "groupForm": "Cosmoteer.Ships.Parts.DirectionalCrewSpeeds"
           },
           "optional": false,
           "nullable": false
@@ -40204,8 +40643,9 @@
           "valueType": {
             "kind": "list",
             "element": {
-              "kind": "opaque",
-              "type": "PartConversion"
+              "kind": "group",
+              "ref": "Cosmoteer.Generators.Ships.Stages.ConvertTypeStage/PartConversion",
+              "name": "PartConversion"
             }
           },
           "optional": true
@@ -48530,8 +48970,9 @@
         {
           "name": "EffectBuckets",
           "valueType": {
-            "kind": "opaque",
-            "type": "MediaEffectBucketsRules"
+            "kind": "group",
+            "ref": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
+            "name": "MediaEffectBucketsRules"
           },
           "optional": false
         },
@@ -59717,8 +60158,9 @@
           "valueType": {
             "kind": "list",
             "element": {
-              "kind": "opaque",
-              "type": "ValueModifier"
+              "kind": "polymorphicGroup",
+              "ref": "Cosmoteer.Ships.ValueModifier",
+              "name": "ValueModifier"
             }
           },
           "optional": true
@@ -59816,6 +60258,130 @@
             "name": "ValueModificationMode"
           },
           "optional": true
+        }
+      ]
+    },
+    "Cosmoteer.Ships.Parts.DirectionalCrewSpeeds": {
+      "name": "DirectionalCrewSpeeds",
+      "namespace": "Cosmoteer.Ships.Parts",
+      "fields": [
+        {
+          "name": "Left",
+          "valueType": {
+            "kind": "number"
+          },
+          "optional": false
+        },
+        {
+          "name": "Right",
+          "valueType": {
+            "kind": "number"
+          },
+          "optional": false
+        },
+        {
+          "name": "Up",
+          "valueType": {
+            "kind": "number"
+          },
+          "optional": false
+        },
+        {
+          "name": "Down",
+          "valueType": {
+            "kind": "number"
+          },
+          "optional": false
+        }
+      ]
+    },
+    "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules": {
+      "name": "MediaEffectBucketsRules",
+      "namespace": "Cosmoteer.Simulation.MediaEffects",
+      "fields": [
+        {
+          "name": "LowerBuckets",
+          "valueType": {
+            "kind": "list",
+            "element": {
+              "kind": "reference",
+              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
+              "targetName": "MediaEffectBucketsRules"
+            }
+          },
+          "optional": true
+        },
+        {
+          "name": "InteriorSurfaceBuckets",
+          "valueType": {
+            "kind": "list",
+            "element": {
+              "kind": "reference",
+              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
+              "targetName": "MediaEffectBucketsRules"
+            }
+          },
+          "optional": true
+        },
+        {
+          "name": "MiddleBuckets",
+          "valueType": {
+            "kind": "list",
+            "element": {
+              "kind": "reference",
+              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
+              "targetName": "MediaEffectBucketsRules"
+            }
+          },
+          "optional": true
+        },
+        {
+          "name": "SurfaceBuckets",
+          "valueType": {
+            "kind": "list",
+            "element": {
+              "kind": "reference",
+              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
+              "targetName": "MediaEffectBucketsRules"
+            }
+          },
+          "optional": true
+        },
+        {
+          "name": "UpperBuckets",
+          "valueType": {
+            "kind": "list",
+            "element": {
+              "kind": "reference",
+              "target": "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules",
+              "targetName": "MediaEffectBucketsRules"
+            }
+          },
+          "optional": true
+        }
+      ]
+    },
+    "Cosmoteer.Generators.Ships.Stages.ConvertTypeStage/PartConversion": {
+      "name": "PartConversion",
+      "namespace": "Cosmoteer.Generators.Ships.Stages",
+      "fields": [
+        {
+          "name": "From",
+          "valueType": {
+            "kind": "reference",
+            "target": "Cosmoteer.Ships.Parts.PartRules",
+            "targetName": "PartRules"
+          },
+          "optional": false
+        },
+        {
+          "name": "To",
+          "valueType": {
+            "kind": "reference",
+            "target": "Cosmoteer.Ships.Parts.PartRules",
+            "targetName": "PartRules"
+          },
+          "optional": false
         }
       ]
     },
@@ -61023,11 +61589,8 @@
       "ITextProvider": 6,
       "AudioGroup": 5,
       "ShaderConstantCollection": 4,
-      "DirectionalCrewSpeeds": 3,
       "PartStatValues": 3,
       "TreeItem": 1,
-      "PartConversion": 1,
-      "MediaEffectBucketsRules": 1,
       "FocusedWidgetManager": 1,
       "TextSelectionProvider": 1,
       "WidgetRenderSettings": 1,
@@ -61036,8 +61599,7 @@
       "Object": 1,
       "CharFilter": 1,
       "CharacterMask": 1,
-      "CircleDashInfo": 1,
-      "ValueModifier": 1
+      "CircleDashInfo": 1
     },
     "generics": {
       "WidgetLayoutChildren\u00601": 3,

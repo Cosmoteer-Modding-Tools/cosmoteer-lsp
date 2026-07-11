@@ -12,7 +12,13 @@ import {
     isValueNode,
     ValueNode,
 } from '../../core/ast/ast';
-import { evaluateExpressionGroup, evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
+import {
+    evaluateExpressionGroup,
+    evaluateNumericValue,
+    formatNumber,
+    resolveReferencedBaseValue,
+} from '../../semantics/value-evaluator';
+import { globalSettings } from '../../settings';
 
 /**
  * Inlay hints (`textDocument/inlayHint`) showing the computed result of math assignments
@@ -20,6 +26,8 @@ import { evaluateExpressionGroup, evaluateNumericValue, formatNumber } from '../
  * of reading `.rules` is seeing what an expression actually works out to. This surfaces it
  * inline. Only assignments whose value is a `MathExpression`/`FunctionCall` that fully
  * evaluates get a hint (see {@link evaluateNumericValue}) anything non-numeric stays bare.
+ * A reference whose target is a group in the game's ModifiableValue shape gets the group's
+ * `BaseValue` instead (`Arc = &…/Arc` renders ` /BaseValue = 160d`).
  */
 export class InlayHintService {
     private static _instance: InlayHintService;
@@ -143,10 +151,55 @@ export class InlayHintService {
         const end = endPositionOf(group);
         if (end.line < range.start.line || end.line > range.end.line) return;
         const value = await evaluateExpressionGroup(group, cancellationToken);
-        if (value === null) return;
+        if (value === null) {
+            // A lone reference that resolves to a group instead of a number may still carry the
+            // game's ModifiableValue shape (`Arc { BaseValue = 160d }`). Its BaseValue is the
+            // number the reference effectively supplies, so surface that member instead.
+            if (group.length === 1 && isReferenceValueNode(group[0])) {
+                await this.emitBaseValueHint(group[0], end, cancellationToken, hints);
+            }
+            return;
+        }
         hints.push({
             position: end,
             label: `= ${formatNumber(value)}`,
+            kind: InlayHintKind.Type,
+            paddingLeft: true,
+        });
+    }
+
+    /**
+     * Annotate a reference to a ModifiableValue group with the group's `BaseValue` member,
+     * rendering ` /BaseValue = 160d` after the reference. A plain literal shows exactly as
+     * written (`160d`, not its radians conversion), while a computed BaseValue (math, function
+     * call, reference) shows the number it evaluates to. Toggleable via the
+     * `inlayHints.showBaseValue` setting, on by default.
+     *
+     * @param reference the lone reference value node the hint annotates.
+     * @param position the position just after the reference, where the hint sits.
+     * @param cancellationToken token cancelling the request.
+     * @param hints the accumulator the hint is pushed into.
+     */
+    private async emitBaseValueHint(
+        reference: ValueNode,
+        position: Position,
+        cancellationToken: CancellationToken,
+        hints: InlayHint[]
+    ): Promise<void> {
+        if (globalSettings.inlayHints?.showBaseValue === false) return;
+        const member = await resolveReferencedBaseValue(reference, cancellationToken);
+        if (!member) return;
+        let label: string | null = null;
+        if (isValueNode(member) && member.valueType.type !== 'Reference') {
+            label = String(member.valueType.value);
+        } else {
+            const value = await evaluateNumericValue(member, cancellationToken);
+            if (value !== null) label = formatNumber(value);
+        }
+        if (!label) return;
+        hints.push({
+            position,
+            label: `/BaseValue = ${label}`,
             kind: InlayHintKind.Type,
             paddingLeft: true,
         });

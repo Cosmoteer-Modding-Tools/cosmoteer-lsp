@@ -92,6 +92,11 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
             row { checkBox("Hint at fields the game ignores").bindSelected(state::validateIgnoredFields) }
         }
         group("Editing") {
+            row {
+                checkBox("Show the referenced group's BaseValue as an inlay hint")
+                    .bindSelected(state::inlayShowBaseValue)
+                    .comment("A reference to a group with a BaseValue member renders '/BaseValue = 160d' inline.")
+            }
             row { checkBox("Allow rename to edit vanilla files").bindSelected(state::allowEditingVanillaFiles) }
             row { checkBox("Enable formatting").bindSelected(state::formattingEnabled) }
             row {

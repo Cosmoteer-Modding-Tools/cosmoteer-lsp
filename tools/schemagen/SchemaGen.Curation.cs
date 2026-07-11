@@ -57,6 +57,9 @@ internal sealed partial class SchemaGen
     // member list and kept honest by the vanilla scan.
     const string VALUE_MOD_MODE = "Cosmoteer.Ships.ValueModificationMode";
     const string MODIFIABLE_VALUE = "Cosmoteer.Ships.ModifiableValue";
+    const string DIRECTIONAL_CREW_SPEEDS = "Cosmoteer.Ships.Parts.DirectionalCrewSpeeds";
+    const string MEDIA_EFFECT_BUCKETS = "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules";
+    const string PART_CONVERSION = "Cosmoteer.Generators.Ships.Stages.ConvertTypeStage/PartConversion";
     // When an animated AtlasSprite's animation clock starts. Nested enum reached only via the sprite's
     // custom deserializer (no `[Serialize]` slot), so curated from the decompiled member list.
     const string ANIM_START_MODE = "Cosmoteer.Ships.Rendering.AtlasSprite/AnimStartTimeMode";
@@ -87,9 +90,9 @@ internal sealed partial class SchemaGen
     // A few structs are deserialized field-by-field but carry no [Serialize]/[ReflectiveSerialization]
     // (plain public fields read by a custom ObjectTextConstructor), so reflection can't see their shape
     // and they would land as opaque. Their field set is fixed and unambiguous, so we inject it here and
-    // point the matching MapType case at it. Only model structs with a single, non-dual written form
-    // (a struct that is sometimes a scalar/list and sometimes a group — e.g. DirectionalCrewSpeeds — is
-    // left opaque so completion is not misled). The reachability prune keeps these only if actually used.
+    // point the matching MapType case at it. A struct written as either a scalar or a group (Modifiable,
+    // DirectionalCrewSpeeds) keeps a scalar primary kind whose `groupForm` names the curated class, so
+    // both written forms complete and validate. The reachability prune keeps these only if actually used.
     static JsonObject CuratedField(string name, JsonObject valueType) =>
         new() { ["name"] = name, ["valueType"] = valueType, ["optional"] = false };
     static JsonObject GroupOf(string fullName, string name) => new() { ["kind"] = "group", ["ref"] = fullName, ["name"] = name };
@@ -100,6 +103,11 @@ internal sealed partial class SchemaGen
     static JsonObject AssetImage() => new() { ["kind"] = "asset", ["assetKind"] = "image" };
     static JsonObject ListOfImages() => new() { ["kind"] = "list", ["element"] = AssetImage() };
     static JsonObject Vector2Type() => GroupOf("Halfling.Geometry.Vector2", "Vector2");
+    static JsonObject ListOfBucketIds() => new()
+    {
+        ["kind"] = "list",
+        ["element"] = RefType(MEDIA_EFFECT_BUCKETS, "MediaEffectBucketsRules"),
+    };
     static JsonObject BoolType() => new() { ["kind"] = "bool" };
     static JsonObject IntType2() => new() { ["kind"] = "int" };
     static JsonObject IntVec2() => GroupOf("Halfling.Geometry.IntVector2", "IntVector2");
@@ -118,16 +126,22 @@ internal sealed partial class SchemaGen
         // ModifiableValue: the group form of a Modifiable<T> field (the `groupForm` target above). Its
         // reflective members are BaseValue/Modifiers/MinValue/MaxValue; the buff/status/effect-scale keys are
         // read inline by the custom deserializer (`_TryReadInlineModifierData`). BaseValue/Min/Max are the
-        // generic `T`, modeled as a plain `number` (good for any variant). Modifiers stays a permissive list
-        // so its polymorphic elements are never falsely flagged. All optional — the scalar shorthand is the
-        // common form, so none of these is required.
+        // generic `T`, modeled as a plain `number` (good for any variant). Modifiers points at the real
+        // `[SerialBaseType]` registry on `Cosmoteer.Ships.ValueModifier`, whose derived classes the normal
+        // reflection harvest emits (BuffRemap, StatusRemap, NamedValue, ...), so entries complete and
+        // validate like every other `Type=` group. All optional — the scalar shorthand is the common form,
+        // so none of these is required.
         types[MODIFIABLE_VALUE] = new JsonObject
         {
             ["name"] = "ModifiableValue",
             ["namespace"] = "Cosmoteer.Ships",
             ["fields"] = new JsonArray(
                 OptField("BaseValue", NumberType()),
-                OptField("Modifiers", new JsonObject { ["kind"] = "list", ["element"] = OpaqueRef("ValueModifier") }),
+                OptField("Modifiers", new JsonObject
+                {
+                    ["kind"] = "list",
+                    ["element"] = new JsonObject { ["kind"] = "polymorphicGroup", ["ref"] = "Cosmoteer.Ships.ValueModifier", ["name"] = "ValueModifier" },
+                }),
                 OptField("MinValue", NumberType()),
                 OptField("MaxValue", NumberType()),
                 OptField("BuffType", RefType("Cosmoteer.Ships.Buffs.BuffType", "BuffType")),
@@ -140,6 +154,46 @@ internal sealed partial class SchemaGen
                 OptField("StatusMaxValue", NumberType()),
                 OptField("EffectScaleExponent", NumberType()),
                 OptField("EffectScaleMode", ModeEnum()))
+        };
+        // DirectionalCrewSpeeds: dual-form like Modifiable (the `groupForm` target of the MapType case).
+        // Its [ObjectTextConstructor] reads a bare scalar that applies to all four directions, or a group
+        // whose Left/Right/Up/Down are each a required `ReadFromPath<float>` (the game throws when one is
+        // missing, and every group-form use in vanilla writes all four).
+        types[DIRECTIONAL_CREW_SPEEDS] = new JsonObject
+        {
+            ["name"] = "DirectionalCrewSpeeds",
+            ["namespace"] = "Cosmoteer.Ships.Parts",
+            ["fields"] = new JsonArray(
+                CuratedField("Left", NumberType()),
+                CuratedField("Right", NumberType()),
+                CuratedField("Up", NumberType()),
+                CuratedField("Down", NumberType()))
+        };
+        // MediaEffectBucketsRules: the root of `effect_buckets.rules` (the game root's `EffectBuckets`).
+        // Its [GenericConstructor] reads five optional bucket-name lists via TryReadFromPath; each name
+        // declares an `ID<MediaEffectBucketsRules>` that effects' `Bucket =` fields reference, so the
+        // elements carry the same reference type those fields already use.
+        types[MEDIA_EFFECT_BUCKETS] = new JsonObject
+        {
+            ["name"] = "MediaEffectBucketsRules",
+            ["namespace"] = "Cosmoteer.Simulation.MediaEffects",
+            ["fields"] = new JsonArray(
+                OptField("LowerBuckets", ListOfBucketIds()),
+                OptField("InteriorSurfaceBuckets", ListOfBucketIds()),
+                OptField("MiddleBuckets", ListOfBucketIds()),
+                OptField("SurfaceBuckets", ListOfBucketIds()),
+                OptField("UpperBuckets", ListOfBucketIds()))
+        };
+        // PartConversion: `record struct PartConversion(ID<PartRules> From, ID<PartRules> To)`, the entries
+        // of a sysgen ConvertTypeStage's `Conversions` list. Written as `{ From = <part id>  To = <part id> }`
+        // (see vanilla `doodads/asteroids/hard_conversions.rules`), both required by the positional record.
+        types[PART_CONVERSION] = new JsonObject
+        {
+            ["name"] = "PartConversion",
+            ["namespace"] = "Cosmoteer.Generators.Ships.Stages",
+            ["fields"] = new JsonArray(
+                CuratedField("From", RefType("Cosmoteer.Ships.Parts.PartRules", "PartRules")),
+                CuratedField("To", RefType("Cosmoteer.Ships.Parts.PartRules", "PartRules")))
         };
         // AtlasSprite: the engine's quad-sprite, a custom-deserialized group (`IObjectTextContentDeserializable`,
         // no `[Serialize]` members) so reflection yields an empty field set. It is referenced as a group by

@@ -133,6 +133,18 @@ internal sealed partial class SchemaGen
             // An external/internal virtual cell pair, modeled as a curated group (see SchemaGen.Curation.cs).
             case "VirtualInternalCell":
                 return GroupOf("Cosmoteer.Ships.Parts.VirtualInternalCell", "VirtualInternalCell");
+            // Per-direction crew speeds, dual-form like Modifiable below: a bare factor that applies to all
+            // four directions, or a `{ Left Right Up Down }` group (curated, see SchemaGen.Curation.cs).
+            case "DirectionalCrewSpeeds":
+                o["kind"] = "number"; o["type"] = nm; o["groupForm"] = DIRECTIONAL_CREW_SPEEDS; return o;
+            // The effect-bucket lists of `effect_buckets.rules`, read by a [GenericConstructor] the
+            // reflection walk cannot see (curated, see SchemaGen.Curation.cs).
+            case "MediaEffectBucketsRules":
+                return GroupOf(MEDIA_EFFECT_BUCKETS, nm);
+            // A sysgen part conversion pair `{ From = <part id>  To = <part id> }`, a record struct with no
+            // serialization attributes (curated, see SchemaGen.Curation.cs).
+            case "PartConversion":
+                return GroupOf(PART_CONVERSION, nm);
             // A hotkey / input button is written as a list of key names (`[Control, N]`), each a ViKey.
             case "IInputButton":
                 o["kind"] = "list";
