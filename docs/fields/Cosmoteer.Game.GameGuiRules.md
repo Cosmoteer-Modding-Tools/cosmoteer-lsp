@@ -10,559 +10,559 @@
 ## MoneyTickUpSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Looping sound played while the money counter in the HUD is animating upward toward the player's actual funds. The loop stops when the displayed amount catches up.
 
 ## MoneyTickDownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Looping sound played while the money counter in the HUD is animating downward toward the player's actual funds. The loop stops when the displayed amount catches up.
 
 ## FameTickUpSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Looping sound played while the fame counter in the HUD is animating upward. The duration of its first sound also scales how long the count-up animation takes.
 
 ## FameTickDownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Looping sound played while the fame counter in the HUD is animating downward. The duration of its first sound also scales how long the count-down animation takes.
 
 ## Colors
 `UIColorRules` · required
 
-<!-- TODO: needs documentation -->
+Customizable allegiance color rules for the gameplay UI, including the default player, enemy, ally, and neutral colors and the colorblind presets offered in the accessibility settings. The defaults are used whenever the player has not chosen a custom color.
 
 ## ObjectIndicators
 `ObjectIndicatorRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the indicator icons drawn over ships and map objects, covering off-screen edge arrows, pulse and ping effects, ship dot sprites per allegiance, FTL point and gate icons, and the ship icon glow rendering.
 
 ## Build
 `BuildGuiRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the ship build and repair GUI, including the part editor groups, blueprint overlay sprites, and the error flash settings for the money and resource displays.
 
 ## Paint
 `PaintGuiRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the ship painting GUI, covering the paint toolbox, decal editing states, and the paint scheme dialog.
 
 ## Brushes
 `BrushRules[][]` · optional
 
-<!-- TODO: needs documentation -->
+Brush shape entries for the brush menu shared by the build and paint toolboxes. Each inner list forms one group of brush buttons and a separator is drawn between groups, with every entry defining a brush shape, name, icon, tooltip, and optional default hotkey.
 
 ## Crew
 `CrewGuiRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the crew management GUI, including the crew toolbox, roster and role edit windows, crew role sprites and drag lines, and related sounds.
 
 ## Resources
 `ResourceGuiRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the resource management GUI, covering the resources toolbox, resource transfer lines and animations, supply and consumption toggle buttons, storage grid rendering, and related sounds.
 
 ## Minimap
 `MinimapRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the minimap widget, including the friendly, enemy, and neutral pip sprites drawn for ships and other objects.
 
 ## PartNetworks
 `PartNetworkGuiRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the part network overlay drawn in blueprint mode, defining the route lines, network port and hub icons, and the material and atlas parameters used to render them.
 
 ## PartStats
 `PartStatRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Ordered list of part statistic definitions used to build part tooltips. Each entry pairs a stat ID with a localization format key and optionally a built-in stat that computes a default value from the part itself, and stats appear in the tooltip in this list's order.
 
 ## PartFeatures
 `map<→ PartFeature, string>` · optional
 
-<!-- TODO: needs documentation -->
+Maps each part feature ID to the localization key of its display name, used when a part tooltip lists the part's features. Feature IDs without an entry fall back to showing the raw ID.
 
 ## DeveloperToolbar
 `DeveloperToolbarRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the developer mode toolbar, currently just the icon that opens it.
 
 ## CloseHudButtonIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Close icon overlaid on HUD toggle buttons while their panel is open, including the toolbox mode buttons and the galaxy map button. Also used by the close button of an expanded part group in the build toolbox.
 
 ## RoofToggleOnIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the interior toggle button on the ships card and parts card while ship roofs are shown and interiors are hidden.
 
 ## RoofToggleOffIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the interior toggle button on the ships card and parts card while ship interiors are shown and roofs are hidden.
 
 ## FormationIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the formations popout button in the ships card command box, which opens the formations panel when multiple ships are selected.
 
 ## CancelFormationIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the cancel button in the formations popout panel, active while a selected ship is currently flying in a formation.
 
 ## DirectControlOnIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the direct control toggle button on the ships card while direct control mode is active.
 
 ## DirectControlOffIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the direct control toggle button on the ships card while direct control mode is inactive. Also shown with a distance value in the ship info area while a direct control command is in effect.
 
 ## MoveIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the move command button in the ships card command box, which enters the movement ordering mode for the selected ships.
 
 ## RotateIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the rotate command button in the ships card command box, which enters the rotation ordering mode for the selected ships.
 
 ## StrafeIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the strafe command button in the ships card command box, which enters the strafe ordering mode for the selected ships.
 
 ## AttackIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the attack command button in the ships card command box, which enters the attack ordering mode for the selected ships.
 
 ## SalvageIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the salvage command button in the ships card command box, which enters the salvage selection mode.
 
 ## FtlJumpIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the FTL jump command button on the ships card and of the plot course button on the galaxy map.
 
 ## HaltIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the halt button in the ships card command box, which cancels the current orders of the selected ships.
 
 ## SummonCrewIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the summon crew button in the ships card command box, which recalls crew for each selected ship.
 
 ## SpeedometerBacking
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Background dial of the speedometer shown in the ships card info area when a single ship is selected.
 
 ## SpeedometerNeedle
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Needle of the speedometer in the ships card info area, rotated to indicate the selected ship's current speed.
 
 ## SpeedometerNeedleSpeedRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Speed range mapped onto the needle sweep defined by [[Cosmoteer.Game.GameGuiRules.SpeedometerNeedleAngleRange]]. The ship's current speed is converted to a normalized position within this range, and speeds outside it extrapolate linearly rather than clamping.
 
 ## SpeedometerNeedleAngleRange
 `range<number (degrees)>` · required
 
-<!-- TODO: needs documentation -->
+Rotation range of the speedometer needle. The minimum angle corresponds to the minimum of [[Cosmoteer.Game.GameGuiRules.SpeedometerNeedleSpeedRange]] and the maximum angle to its maximum, and speeds outside that range rotate the needle linearly past these angles.
 
 ## CrewEvaIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Indicator icon in the ships card info area shown with a count while the selected ship has crew outside the ship and no construction is queued.
 
 ## UnderConstructionIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Indicator icon in the ships card info area shown while the selected ship has queued construction that is proceeding normally.
 
 ## ConstructionBlockedIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Indicator icon in the ships card info area shown while the selected ship has queued construction that is blocked.
 
 ## NoControlIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Indicator icon in the ships card info area shown while the selected ship cannot execute commands, either because it is junk or because its command point usage exceeds the points provided.
 
 ## NewShipIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the new ship button in the top menu bar, available in game modes that allow creating a ship from scratch, which enters the new ship placement mode.
 
 ## MoveCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while the move command mode is active and the player is choosing a destination for the selected ships.
 
 ## StrafeCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while the strafe command mode is active.
 
 ## RotateCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while the rotate command mode is active.
 
 ## AttackCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while the attack command mode is active.
 
 ## TargetCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while the weapon targeting mode is active, and when hovering a part that the selected weapons can target, including in the miniview.
 
 ## DirectControlAimCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while directly controlling a ship with weapon fire enabled, used for aiming the ship's weapons.
 
 ## DirectControlAimDisabledCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while directly controlling a ship with weapon fire disabled.
 
 ## DirectControlMaxTargetDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Maximum distance from the mouse cursor at which a ship can become the direct control weapon target, multiplied by the camera's current uniform scale so the pickup radius follows the zoom level. Ships beyond this distance are not targeted and weapons aim at the raw cursor position.
 
 ## DirectControlSoftTargetCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Circle drawn in direct control mode around the closest potential target ship near the cursor while no target is locked. It is tinted with the enemy color when the ship can be damaged and the neutral color otherwise. See [[Cosmoteer.Game.GameGuiRules.DirectControlHardTargetCircle]] for the locked variant.
 
 ## DirectControlHardTargetCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Circle drawn in direct control mode around the ship locked as the target with the lock target input, always tinted with the enemy color. Unlike the soft target ring of [[Cosmoteer.Game.GameGuiRules.DirectControlSoftTargetCircle]], this target persists until unlocked, destroyed, or out of sight.
 
 ## DirectControlHardTargetSound
 `ISoundEffect` · optional
 
-<!-- TODO: needs documentation -->
+Sound played in direct control mode when the player toggles the target lock, both when locking onto the closest ship as the hard target and when releasing an existing hard target. The locked target is marked with [[Cosmoteer.Game.GameGuiRules.DirectControlHardTargetCircle]].
 
 ## CancelPartSelectionIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the cancel button in the ship GUI tool button row, which clears the current part selection. Temporarily replaced by [[Cosmoteer.Game.GameGuiRules.ErrorFlashSprite]] during an error flash.
 
 ## TargetIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the target command button in the parts card command box, which enters the weapon targeting mode for the selected weapons.
 
 ## CancelTargetIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the cancel targets button in the parts card command box, which clears the explicit targets of the selected weapons.
 
 ## AutoThrustOffIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the auto thrust toggle button in the parts card command box while auto thrust is disabled for the selected thrusters.
 
 ## AutoThrustOnIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the auto thrust toggle button in the parts card command box while auto thrust is enabled for the selected thrusters.
 
 ## MenuIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the menu button in the top left menu bar, which opens the in game menu.
 
 ## GalaxyMapIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the galaxy map toggle button in the top left menu bar, which shows and hides the galaxy map. While the map is open the button is overlaid with [[Cosmoteer.Game.GameGuiRules.CloseHudButtonIcon]].
 
 ## PauseSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the pause button on the game speed bar at the top of the screen, which pauses the simulation.
 
 ## UnpauseSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the unpause button on the game speed bar, shown in place of the pause button while the simulation is paused.
 
 ## IncreaseSpeedSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the increase speed button on the game speed bar, which steps the simulation speed up to the next available game speed.
 
 ## DecreaseSpeedSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the decrease speed button on the game speed bar, which steps the simulation speed down to the next available game speed.
 
 ## PartTriggers
 `PartTriggerGuiRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Button definitions for player-activated part triggers shown on the command card, one button per entry. Parts reference an entry by its TriggerID through their UI trigger rules, and each trigger also gets a bindable hotkey.
 
 ## PartTargeters
 `PartTargeterGuiRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Button definitions for part targeting commands shown on the command card, each creating a target selection button and optionally a matching cancel button. Parts reference an entry by its TargeterID.
 
 ## PartToggles
 `PartToggleGuiRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Button definitions for part settings that cycle between multiple choices, shown on the command card and used while placing parts in build mode. Parts reference an entry by its ToggleID and each choice maps to a part mode number.
 
 ## PartColors
 `PartColorGuiRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Button definitions for part color settings chosen through a color picker, shown on the command card and applied while placing parts. Parts reference an entry by its ColorID.
 
 ## PartHighlights
 `map<→ PartHighlightGuiRules, PartHighlightGuiRules>` · optional
 
-<!-- TODO: needs documentation -->
+Fill and border colors for tile highlight overlays drawn over parts, with the fill alpha scaled by each cell's highlight intensity. At load the game adds an extra entry for every buff type that defines a RectFillColor, keyed by that buff's ID.
 
 ## ErrorSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when a player action fails, such as invalid part placement, an FTL jump that cannot be plotted, or a crew or resource transfer that cannot be completed. It does not overlap itself if errors repeat quickly.
 
 ## ErrorFlashCount
 `int` · required
 
-<!-- TODO: needs documentation -->
+Number of times the ship card's cancel button flashes to [[Cosmoteer.Game.GameGuiRules.ErrorFlashSprite]] when an action is rejected, with each on and off phase lasting [[Cosmoteer.Game.GameGuiRules.ErrorFlashInterval]] seconds.
 
 ## ErrorFlashInterval
 `float` · required
 
-<!-- TODO: needs documentation -->
+Duration in seconds of each half of a cancel button error flash, first while [[Cosmoteer.Game.GameGuiRules.ErrorFlashSprite]] is shown and then while the normal icon is restored, repeated [[Cosmoteer.Game.GameGuiRules.ErrorFlashCount]] times.
 
 ## ErrorFlashSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Error sprite flashed onto the cancel part selection button when a command is issued at an invalid location while parts are selected. It alternates with [[Cosmoteer.Game.GameGuiRules.CancelPartSelectionIcon]] according to [[Cosmoteer.Game.GameGuiRules.ErrorFlashCount]] and [[Cosmoteer.Game.GameGuiRules.ErrorFlashInterval]].
 
 ## PlotCourseLocalSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when the player plots a local FTL jump, after jump commands are issued to the selected ships.
 
 ## PlotCourseGalaxySound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played as local feedback when the player sets a destination node on the galaxy map.
 
 ## SummonCrewSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when the player summons all crew back to a ship, which cancels its off-ship transfer, salvage, and queued construction jobs. Summoning for several ships at once does not overlap the sound.
 
 ## ShipLogoColorFactor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Multiplicative color factor applied on top of a ship icon button's own tint when rendering the ship logo. In vanilla it mainly reduces the logo's alpha.
 
 ## ShipLogoRedprintsColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color used to draw the destroyed part redprint ghost on ship icon buttons that show redprints, multiplied by the widget's current color scale.
 
 ## ShipLogoUnselectedColorFactor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color scale applied to a ship's button in the HUD ships list while that ship is not selected, while selected ships render at plain white. The vanilla value fades unselected logos to half opacity.
 
 ## FtlPointColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Indicator color for discovered FTL point landmarks that are not hostile to the local player, overriding the default allegiance-based indicator color.
 
 ## FtlJumpCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while plotting an FTL jump whenever the hovered destination is valid and the jump's fuel cost can be afforded. An invalid destination or unaffordable jump shows the generic invalid cursor instead.
 
 ## FtlJumpLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line drawn from each jumping ship to the hovered FTL destination while plotting a jump. It is shown fully opaque when the destination is valid and at half opacity while pointing at the raw mouse position.
 
 ## FtlJumpLinePulseSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Scroll speed of the [[Cosmoteer.Game.GameGuiRules.FtlJumpLine]] texture, advanced with game time and scaled by the camera zoom so the pulses appear to travel along the line toward the destination.
 
 ## MPPlayerColors
 `Color[]` · optional
 
-<!-- TODO: needs documentation -->
+Pool of colors assigned to multiplayer players. The color order is shuffled once per game from the match's random seed and each player receives the color at their player index, wrapping around when there are more players than colors.
 
 ## ShipHiddenSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when a selected ship becomes hidden to outside observers, such as when it enters a nebula that blocks sight.
 
 ## ShipRevealedSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when a selected ship that was hidden to outside observers becomes visible again, such as when it leaves a sight-blocking nebula.
 
 ## LaunchGameSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played once when a game session starts, at the moment the game is pushed onto the application state stack.
 
 ## TimePauseSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when the game becomes paused. It only plays if the pause state actually changes.
 
 ## TimeContinueSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when the game resumes from being paused. It only plays if the pause state actually changes.
 
 ## OpenBuildRepairMenuSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the build and repair toolbox opens.
 
 ## OpenPaintMenuSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the paint toolbox opens.
 
 ## OpenCrewMenuSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the crew toolbox opens.
 
 ## OpenResourcesMenuSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the resources toolbox opens.
 
 ## OpenCommsMenuSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the comms toolbox opens.
 
 ## CloseCommsMenuSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the comms toolbox closes.
 
 ## CloseNonCommsMenuSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the build, paint, crew, or resources toolbox closes. The comms toolbox uses [[Cosmoteer.Game.GameGuiRules.CloseCommsMenuSound]] instead.
 
 ## CopySound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the player copies the selected parts in build mode or the selected decals in paint mode.
 
 ## CutSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the player cuts selected parts or decals, or grabs a part or decal off the ship with the grab tool.
 
 ## PasteSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the player enters paste mode with copied parts in build mode or copied decals in paint mode. Not played when paste mode is entered as part of a cut.
 
 ## StartSalvageSelectSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the salvage command button is selected and salvage target selection begins.
 
 ## StopSalvageSelectSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the salvage command button is clicked while already selected, ending salvage target selection.
 
 ## DeletePartInBinSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the player drops a grabbed part into the trashcan button or deletes the selected parts or decals with the delete button.
 
 ## ShowShipInteriorSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the interior toggle button switches to showing ship interiors.
 
 ## HideShipInteriorSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the interior toggle button switches back to showing ship roofs.
 
 ## StartTradeSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the player confirms a trade in the comms trade tab and the resource transfer starts successfully. On failure [[Cosmoteer.Game.GameGuiRules.ErrorSound]] plays instead.
 
 ## ShowGalaxyMapSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the galaxy map toggle button is selected and the galaxy map opens.
 
 ## HideGalaxyMapSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the galaxy map toggle button is deselected and the galaxy map closes.
 
 ## AllCrewInsideSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the last crew member returns inside a selected player ship so that no crew remain outside. Suppressed while an enemy ship is nearby.
 
 ## FirstCrewLeftSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the first crew member leaves a selected player ship while all other crew are still inside. Suppressed while an enemy ship is nearby.
 
 ## CrewDistanceWarningSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when a crew member of the local player first strays far enough from its home ship to get a distance warning indicator. Only sounds for the first crew member currently warned, not for each additional one.
 
 ## BlueprintUnlockedSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the player buys a technology in the comms techs tab or unlocks a technology in Build Battle mode.
 
 ## GenericPutdownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when a Creative Mode tool places something in the simulation, such as spawning a ship, editing nebula cells, or placing a planet, crew, or point-of-interest doodad.
 
 ## AmbientTradeLoopSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Loops continuously while a comms window with a missions tab is open, providing ambient sound for the station. Stops when the window closes or the missions tab is no longer available.
 
 ## SeenShipPingDuration
 `float` · required
 
-<!-- TODO: needs documentation -->
+Duration in seconds of simulation time that a ship is remembered as already seen after its indicator disappears. If the ship is spotted again within this window its indicator ping does not trigger the automatic game slowdown.

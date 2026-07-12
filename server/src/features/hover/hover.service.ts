@@ -17,6 +17,7 @@ import { resolveSchemaIdReference } from '../navigation/schema-id-reference.navi
 import { evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { schemaDiscriminatorHover, schemaFieldHover } from './schema-hover';
+import { decompilerHoverLink } from './decompiler-link';
 import { shaderConstantHover } from '../shader/shader-hover';
 import { localizationKeyHover } from './localization-key-hover';
 
@@ -100,6 +101,13 @@ export class HoverService {
         if (discriminatorInfo) lines.push(discriminatorInfo);
 
         if (lines.length === 0) return null;
+
+        // Opt-in power-user footer: a link opening the owning C# schema class in the user's .NET
+        // decompiler. Only added to a hover that already has content, so the feature never makes a
+        // popup appear where there would otherwise be none.
+        const decompilerLink = decompilerHoverLink(node);
+        if (decompilerLink) lines.push(decompilerLink);
+
         return { contents: { kind: MarkupKind.Markdown, value: lines.join('\n\n') } };
     }
 }

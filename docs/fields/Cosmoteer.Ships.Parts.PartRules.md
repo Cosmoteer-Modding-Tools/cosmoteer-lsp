@@ -20,7 +20,7 @@ The part name as it shows up in the ship editor's menus.
 ## JobsNameKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+The part's display name in the crew jobs UI (the role edit window). When omitted, [[Cosmoteer.Ships.Parts.PartRules.NameKey]] is shown instead. Vanilla crew quarters use it to show a generic job name like "General".
 
 ## ID
 `→ PartRules` · required
@@ -40,7 +40,7 @@ Part IDs that trigger flipping when the ship is loaded.
 ## DontStackInEditorGroups
 `→ EditorGroupRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Editor tabs in which this part's sub-parts (see [[Cosmoteer.Ships.Parts.PartRules.EditorParentParts]]) are not collapsed into one stacked palette button. In the listed groups the part gets a plain button of its own. Vanilla armor uses this to appear un-stacked in the Structure tab.
 
 ## EditorParentParts
 `EditorParentPart[]` · optional
@@ -50,17 +50,17 @@ The IDs of parts that will contain this part as a 'sub-part' within the ship edi
 ## DefaultEditorHotkey
 `enum ViKey[]` · optional
 
-<!-- TODO: needs documentation -->
+The default key binding that selects this part for placement in the ship editor. Listing more than one key makes a key combination, e.g. `[PlatformCmdCtrl, B]`, while most parts use a single key like `[Z]`.
 
 ## EditorReplacementPartID
 `→ PartRules` · required
 
-<!-- TODO: needs documentation -->
+The part automatically placed into each vacated cell when this part is deleted or built over in the ship editor. Inherited as `corridor` from `base_part.rules`. Setting it to `""` leaves the cells empty, which vanilla armor wedges do.
 
 ## DescriptionKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Descriptive text shown in the part's tooltip, below the name and cost line.
 
 ## Resources
 `[→ ResourceRules, int][]` · optional
@@ -85,37 +85,37 @@ The width and height of the part, in tiles.
 ## PhysicalRect
 `IntRect` · optional
 
-<!-- TODO: needs documentation -->
+The sub-rectangle of the part's [[Cosmoteer.Ships.Parts.PartRules.Size]] footprint that is physically solid, as `[x, y, width, height]` in tiles from the part's un-rotated top-left. Only these cells collide, carry mass and hull walls, and connect to neighboring parts. The remaining cells are non-solid overhang, which vanilla weapons and thrusters use for barrels and nozzles, e.g. the medium cannon's `[0, 1, 2, 1]`. Must lie within the part's size rect.
 
 ## SaveRect
 `IntRect` · optional
 
-<!-- TODO: needs documentation -->
+Shifts the part's origin in saved ship files: the location written to and read from saves is offset by this rect's top-left instead of using the part's own top-left. Keeps previously saved ships loading correctly when a part's [[Cosmoteer.Ships.Parts.PartRules.Size]] or [[Cosmoteer.Ships.Parts.PartRules.PhysicalRect]] changes. Vanilla weapons and thrusters typically set `SaveRect = &PhysicalRect`.
 
 ## AllowedContiguity
 `enum AdjacencyFlags` · optional · default `Sides` · one of: `None`, `TopLeft`, `Top`, `TopRight`, `Right`, `BottomRight`, `Bottom`, `BottomLeft`, `Left`, `Sides`, `Corners`, `All`
 
-<!-- TODO: needs documentation -->
+The edges of the part that count as structural connections to neighboring parts when the game determines ship contiguity. A connection exists only if both parts allow the shared edge, and directions are in the part's un-rotated orientation. Wedge parts restrict this so their empty diagonal side does not connect, e.g. vanilla `armor_wedge` uses `[Right, Bottom]`. Any value other than `Sides` also makes the part incompatible with the editor's brush tools unless [[Cosmoteer.Ships.Parts.PartRules.ForceBrushCompatibility]] says otherwise.
 
 ## GenerateRectCollider
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the part gets an automatic rectangular collider spanning its [[Cosmoteer.Ships.Parts.PartRules.RectColliderRectType]] rect, which also provides its physics cells and mass. Set to false for parts with a custom `PolygonCollider` component, as vanilla wedge and triangle parts do.
 
 ## RectColliderRectType
 `enum PartRectType` · optional · default `Physical` · one of: `Normal`, `Physical`
 
-<!-- TODO: needs documentation -->
+Which rect the automatic collider spans. `Normal` covers the full [[Cosmoteer.Ships.Parts.PartRules.Size]] footprint, `Physical` only the [[Cosmoteer.Ships.Parts.PartRules.PhysicalRect]]. Ignored when [[Cosmoteer.Ships.Parts.PartRules.GenerateRectCollider]] is false.
 
 ## BoundingRectType
 `enum PartRectType` · optional · one of: `Normal`, `Physical`
 
-<!-- TODO: needs documentation -->
+Which rect contributes the part's corner points to the ship's overall bounding circle. `Normal` uses the full [[Cosmoteer.Ships.Parts.PartRules.Size]] footprint, `Physical` uses the [[Cosmoteer.Ships.Parts.PartRules.PhysicalRect]]. Vanilla thrusters use `Physical` so their non-solid nozzle overhang does not inflate the ship's bounds.
 
 ## PartNetworkOverlayMidpoint
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The point where the blueprint resource-network overlay's route lines converge on this part, in tiles from the part's top-left corner. When omitted, the center of the part's rect is used.
 
 ## CellOccupancyFactor
 `float` · optional · default `1`
@@ -140,12 +140,12 @@ If true, double-clicking the part in-game only selects parts of the same type fa
 ## SelectionTypeRotations
 `int[]` · optional
 
-<!-- TODO: needs documentation -->
+Rotation offsets treated as equivalent when double-click selecting parts of the same type with [[Cosmoteer.Ships.Parts.PartRules.SelectionTypeByRotation]]. Two parts match if any pair of listed offsets brings their rotations to the same value modulo 4. Vanilla's 2-way small thruster uses `[0, 3]` so both orientations of the same placement select together.
 
 ## IgnoreRotationForMirroredSelection
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+If true, mirror selection in the ship editor matches the mirrored counterpart by part type and occupied cells only, ignoring rotation and flip. Set on rotationally symmetric parts like armor, corridors and storages, whose mirrored copy may be stored with a different rotation.
 
 ## Density
 `float` · required
@@ -165,52 +165,52 @@ The part's health category. See the HealthTypes reference.
 ## ConstructionWork
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Total crew-seconds of work needed to build the part. When omitted, it is derived from health as the ship's `DefaultConstructionWorkPerHealth` times [[Cosmoteer.Ships.Parts.PartRules.MaxHealth]], which in vanilla works out to one second per corridor tile.
 
 ## ConstructionSwapDelay
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds to wait after construction reaches 100% before the under-construction placeholder is swapped for the finished part. Vanilla Terran parts use `0.2`.
 
 ## WorkPerRepairedHealth
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Crew-seconds of work needed to restore one point of health when repairing the part. When omitted, the ship's `DefaultWorkPerRepairedHealth` is used.
 
 ## SalvageProgressMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Continuous visual and sound effects played at the part while it is being salvaged, with intensity rising as salvage progresses.
 
 ## SalvageProgressMediaEffectsTimeout
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds after the last salvage progress before [[Cosmoteer.Ships.Parts.PartRules.SalvageProgressMediaEffects]] stop playing.
 
 ## ConstructionProgressMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Continuous visual and sound effects played at the part while it is being constructed, with intensity rising as construction progresses.
 
 ## ConstructionProgressMediaEffectsTimeout
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds after the last construction progress before [[Cosmoteer.Ships.Parts.PartRules.ConstructionProgressMediaEffects]] stop playing.
 
 ## ConstructionFinishedMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot effects played when construction of the part completes, just before the [[Cosmoteer.Ships.Parts.PartRules.ConstructionSwapDelay]] swap to the finished part.
 
 ## ExplosiveDamageAbsorption
 `range<number>` · required
 
-<!-- TODO: needs documentation -->
+The fraction (`0..1`) of an explosion's remaining damage this part can absorb, soaking the blast and shielding parts behind it. The range interpolates from the first value at full health to the second when nearly destroyed. Inherited as `50%` from `base_part.rules`, and vanilla armor uses `100%`.
 
 ## DamageResistances
 `map<→ DamageType, range<number>>` · optional
 
-<!-- TODO: needs documentation -->
+Per damage type, the fraction of incoming damage removed before it is applied: the part takes `damage * (1 - resistance)`, so `50%` halves the damage and negative values amplify it. Each range interpolates from the first value at full health to the second when nearly destroyed, and unlisted damage types have zero resistance. Vanilla armor uses `explosive = 50%` and `thermal = -25%`.
 
 ## StatusResistances
 `map<→ StatusType, StatusResistance>` · optional
@@ -220,52 +220,52 @@ The part's base resistances to status types, interpolated by the current DamageF
 ## UnderlyingPart
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+Part that underlies this part and spawns in its place when it is destroyed, one instance covering the whole footprint. The underlying part's resources and cost are deducted from this part's, so it only pays the difference. Also readable as `CreatePartWhenDestroyed`. See [[Cosmoteer.Ships.Parts.PartRules.UnderlyingPartPerTile]] for the per-tile variant and [[Cosmoteer.Ships.Parts.PartRules.CreateUnderlyingWhenDestroyed]].
 
 ## UnderlyingPartPerTile
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+Per-tile variant of [[Cosmoteer.Ships.Parts.PartRules.UnderlyingPart]]: one copy of the referenced part per physical tile spawns when this part is destroyed, and its cost per tile is deducted from this part's cost. Also readable as `CreatePartPerTileWhenDestroyed`. Inherited as `structure` from `base_part.rules`, so destroyed vanilla parts leave structure behind.
 
 ## CreateUnderlyingWhenDestroyed
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+If false, the underlying part (see [[Cosmoteer.Ships.Parts.PartRules.UnderlyingPart]] and [[Cosmoteer.Ships.Parts.PartRules.UnderlyingPartPerTile]]) only appears when this part is removed by salvage, not when it is destroyed in combat.
 
 ## TempConstructionPartPerTile
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+Part temporarily placed on each physical tile as scaffolding while this part is under construction, removed when the finished part is swapped in. Vanilla structure wedges use a full `structure` tile per cell.
 
 ## CreatePartPerTileWhenGrabbed
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+Part placed on each physical tile when this part is grabbed (picked up or moved) in the ship editor. Inherited as `corridor` from `base_part.rules`, and vanilla armor sets `""` so grabbing it leaves nothing behind.
 
 ## DestroyedPartHealthFraction
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The fraction of its max health the spawned underlying part starts with when this part is destroyed in combat, with salvage progress pulling the value toward full. Inherited as `50%` from `base_part.rules`. See [[Cosmoteer.Ships.Parts.PartRules.UnderlyingPart]].
 
 ## CrewKillChanceWhenDestroyed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Chance (`0..1`) that each crew member inside the part is killed when the part is destroyed. Survivors are ejected into space at [[Cosmoteer.Ships.Parts.PartRules.CrewThrowSpeedWhenDestroyed]]. Inherited as `25%` from `base_part.rules`.
 
 ## CrewThrowSpeedWhenDestroyed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed added in a random direction to surviving crew ejected into space when the part is destroyed. Inherited as `10` from `base_part.rules`.
 
 ## InitialPenetrationResistance
 `range<number>` · required
 
-<!-- TODO: needs documentation -->
+How much of a penetrating projectile's remaining penetration budget is consumed when it first breaches the part through a wall. The range interpolates from the first value at full health to the second when nearly destroyed. See [[Cosmoteer.Ships.Parts.PartRules.ContinuingPenetrationResistance]] for travel after the breach. Vanilla armor uses `7` versus the base part's `1`.
 
 ## ContinuingPenetrationResistance
 `range<number>` · required
 
-<!-- TODO: needs documentation -->
+How much of a penetrating projectile's remaining penetration budget is consumed while it continues through the part after the initial breach. The range interpolates from the first value at full health to the second when nearly destroyed. Usually lower than [[Cosmoteer.Ships.Parts.PartRules.InitialPenetrationResistance]], e.g. `.5` versus `1` in `base_part.rules`.
 
 ## CrewSpeedFactor
 `DirectionalCrewSpeeds` · required
@@ -290,7 +290,7 @@ The minimum values to multiply crew speed by within the part.
 ## IsCrewSalvageable
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether crew can salvage the part by walking up to it. If false, the part can only be salvaged with salvage weapons.
 
 ## HasNonContiguousPathing
 `bool` · optional
@@ -300,32 +300,32 @@ Set to true if some tiles of the part cannot be walked across by crew in a given
 ## BlockedTravelCells
 `IntVector2[]` · optional
 
-<!-- TODO: needs documentation -->
+Cells of the part, counted from its un-rotated top-left, that crew can never stand on or walk through. Usually paired with [[Cosmoteer.Ships.Parts.PartRules.HasNonContiguousPathing]] so the remaining cells form separate walkable islands. Vanilla large weapons use it to keep crew out of the mechanism.
 
 ## BlockedTravelCellDirections
 `map<IntVector2, enum TravelDirection[]>` · optional
 
-<!-- TODO: needs documentation -->
+Per-cell directional travel blocks. Each `Key` is a cell of the part (un-rotated, from the top-left) and each `Value` lists the directions crew may not move while in that cell, so unlike [[Cosmoteer.Ships.Parts.PartRules.BlockedTravelCells]] the other directions stay open. Directions rotate and flip with the part.
 
 ## ForceManhattanPathInPart
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+If true, crew heading to a specific spot inside the part must path all the way to that exact cell instead of stopping at the first reachable cell of the part. Vanilla pairs it with [[Cosmoteer.Ships.Parts.PartRules.BlockedTravelCells]] on large weapons to funnel crew along a fixed interior route.
 
 ## ProhibitRects
 `[→ ProhibitCategory, IntRect][]` · optional
 
-<!-- TODO: needs documentation -->
+Rectangular keep-out zones the part projects, each a category plus an `[x, y, width, height]` rect in tiles from the part's un-rotated top-left, typically extending outside its footprint. Parts listing the category in their [[Cosmoteer.Ships.Parts.PartRules.ProhibitedBy]] cannot be placed or built inside the zone. The zones rotate and flip with the part, and the [[Cosmoteer.Ships.Parts.PartRules.Prohibits]] shorthands generate entries here.
 
 ## ProhibitedBy
 `→ ProhibitCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+The prohibit categories this part respects: it cannot be placed or built where another part projects a keep-out zone (see [[Cosmoteer.Ships.Parts.PartRules.ProhibitRects]]) of a listed category. This is a hard placement block, not a warning. Inherited as `[default]` from `base_part.rules`.
 
 ## ContiguityOriginPriority
 `int` · optional
 
-<!-- TODO: needs documentation -->
+When a ship breaks into disconnected pieces, the piece containing the highest-priority part is kept as the surviving origin ship, with ties broken by largest total area. Vanilla control rooms set 1 to 3 by size so the piece holding the best control room stays the ship.
 
 ## IsExternal
 `bool` · required
@@ -350,47 +350,47 @@ If false, the part can only have doors to parts that are themselves not walled.
 ## IsSelfDestructible
 `bool` · required
 
-<!-- TODO: needs documentation -->
+Whether the ship's self-destruct command destroys this part. Vanilla armor sets it to false, so plating survives a self-destruct.
 
 ## IsLowPriorityDeconstruction
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+If true, crew only deconstruct this part when no other construction, repair or normal deconstruction job needs doing. Vanilla airlocks set it so they are removed last.
 
 ## ForceBrushCompatibility
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Overrides whether the part can be drawn with the editor's line, rectangle and fill brush tools. When omitted, a part qualifies automatically if it is 1x1, has [[Cosmoteer.Ships.Parts.PartRules.AllowedContiguity]] `Sides`, and its [[Cosmoteer.Ships.Parts.PartRules.AllowedDoorLocations]] is unset or empty.
 
 ## AllowedDoorLocations
 `IntVector2[]` · optional
 
-<!-- TODO: needs documentation -->
+Cells just outside the part, in un-rotated coordinates from its top-left, that doors to this part may connect to. For example a 1x1 airlock lists `[0, 1]`, the cell directly below it. Omitting the field allows doors on every side-adjacent cell, while an empty list `[]` forbids doors entirely, as vanilla armor and structure do.
 
 ## MaxDoors
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+The maximum number of doors that may border the part, enforced both when placing doors manually and by the automatic door generator. The default means no limit.
 
 ## GeneratorRequiresDoor
 `bool` · required
 
-<!-- TODO: needs documentation -->
+If true, the procedural ship generator only places the part where at least one door can be created for it, so generated crew-operated parts are never sealed off. Inherited as true from `base_part.rules`, with armor and structure turning it off.
 
 ## AutoDoorMaxPathLength
 `int` · required
 
-<!-- TODO: needs documentation -->
+Radius, in walkable interior cells, within which the automatic door generator will not add another door near an existing one on this part. Inherited as `6` from `base_part.rules`. `0` lets auto-doors be placed as densely as possible.
 
 ## NoAutoDoors
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Excludes the part from automatic door creation, both as a source and as a target, and also suppresses the door-access warning. Doors can still be placed manually.
 
 ## DoorAccessWarningLevel
 `enum AccessWarningLevel` · optional · default `Strong` · one of: `None`, `Weak`, `Strong`
 
-<!-- TODO: needs documentation -->
+How the ship editor warns when crew have no walkable path from this part to the ship exterior. `Strong` shows the full no-access warning, `Weak` a softer variant, and `None` skips the check. Purely a warning, it never blocks building.
 
 ## ExternalWalls
 `enum AdjacencyFlags` · required · one of: `None`, `TopLeft`, `Top`, `TopRight`, `Right`, `BottomRight`, `Bottom`, `BottomLeft`, `Left`, `Sides`, `Corners`, `All`
@@ -435,7 +435,7 @@ The blueprint-view counterpart of [[Cosmoteer.Ships.Parts.PartRules.InternalWall
 ## VirtualInternalCells
 `VirtualInternalCell[]` · optional
 
-<!-- TODO: needs documentation -->
+Pairs of `ExternalCell`/`InternalCell` (in un-rotated cells relative to the part) declaring that the two cells are joined as interior, which suppresses the exterior hull wall between them. Vanilla wedge armor and structure use it so sloped parts merge visually with their diagonal neighbor. Not applied while the part is under construction.
 
 ## TypeCategories
 `→ PartCategory[]` · optional
@@ -445,12 +445,12 @@ Part-category identifiers used to classify the part.
 ## RequiresCategories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Part categories of which the ship must contain at least one part, otherwise this part is flagged invalid in the ship editor and blueprint. Provider parts list the dependent categories in [[Cosmoteer.Ships.Parts.PartRules.AffectsValidityOfCategories]] so the flag updates promptly.
 
 ## AffectsValidityOfCategories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Part categories whose members get their validity re-checked whenever this part is added or removed. Set on parts that other parts depend on through [[Cosmoteer.Ships.Parts.PartRules.RequiresCategories]], so their invalid markers update immediately.
 
 ## SignificanceToggle
 `→ PartComponentRules` · optional
@@ -460,7 +460,7 @@ ID of the IPartComponentToggle that determines whether this part should be consi
 ## EditorIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon that represents the part on build-palette buttons and in other UI such as the parts card and the jobs window. This is a UI image only, not the in-world sprite.
 
 ## JobsIcon
 `Sprite` · optional
@@ -485,7 +485,7 @@ How much the AI wants to destroy this part on ships it considers enemies.
 ## ReceivableBuffs
 `→ BuffType[]` · optional
 
-<!-- TODO: needs documentation -->
+The buff types this part can receive from buff-providing parts, with received values clamped by [[Cosmoteer.Ships.Parts.PartRules.MinBuffValues]] and [[Cosmoteer.Ships.Parts.PartRules.MaxBuffValues]]. Vanilla thrusters list `Engine` and related buffs, and an empty list `[]` disables buff reception.
 
 ## MinBuffValues
 `map<→ BuffType, float>` · optional
@@ -500,32 +500,32 @@ Per-buff maximum values this part clamps received buffs to.
 ## Stats
 `map<→ PartStatRules, PartStatValues>` · optional
 
-<!-- TODO: needs documentation -->
+Stat lines shown in the part's stats tooltip. Each entry maps a stat ID to the number (or numbers) substituted into that stat's localized format string, so units and meaning come from the stat definition, not from this field. Lines render in the order the stats are declared game-wide, and [[Cosmoteer.Ships.Parts.PartRules.StatsByCategory]] can group further lines under headings.
 
 ## Features
 `→ PartFeature[]` · optional
 
-<!-- TODO: needs documentation -->
+Feature tags listed under the "Features" header of the part's stats tooltip. Each ID resolves to a localized label from the game-wide part-feature list, falling back to the raw ID string.
 
 ## StatsByCategory
 `PartStatsCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Groups of stat lines rendered under their own named heading in the part's stats tooltip, after the top-level [[Cosmoteer.Ships.Parts.PartRules.Stats]]. Each entry holds a `NameKey`, a `Stats` map and optional `Features`, which vanilla uses for example to show one block per firing mode of the cannon deck.
 
 ## StatsNotesKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Footnote text appended at the very bottom of the part's stats tooltip, after all [[Cosmoteer.Ships.Parts.PartRules.Stats]] and [[Cosmoteer.Ships.Parts.PartRules.StatsByCategory]] lines.
 
 ## SecondaryToolTip
 `PartToolTipData` · optional
 
-<!-- TODO: needs documentation -->
+An extra tooltip panel with its own title, description, stats and features, shown next to the main part tooltip when the player has secondary tooltips enabled in the settings. Vanilla's cannon deck uses it for a second stats block.
 
 ## FractionalNonPlayerRefund
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The fraction of the part's cost refunded when a non-player ship sells or refunds it in Career mode. The player always gets the full cost back. Inherited as 25% from `base_part.rules`.
 
 ## EditorGroups
 `→ EditorGroupRules[]` · optional
@@ -540,29 +540,29 @@ The name of the ship-editor tab the part appears in.
 ## ExplosiveDamageResistance
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Shorthand that stores the value as the `Explosive` entry of [[Cosmoteer.Ships.Parts.PartRules.DamageResistances]] at load time. It has no effect of its own beyond that, and an explicit `DamageResistances` entry for `Explosive` takes precedence.
 
 ## Prohibits
 `→ ProhibitCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+The prohibit categories used by the [[Cosmoteer.Ships.Parts.PartRules.ProhibitLeft]], [[Cosmoteer.Ships.Parts.PartRules.ProhibitRight]], [[Cosmoteer.Ships.Parts.PartRules.ProhibitAbove]] and [[Cosmoteer.Ships.Parts.PartRules.ProhibitBelow]] shorthands, which add one keep-out rect per listed category. Must be set whenever any of those fields is used. Inherited as `[default]` from `base_part.rules`.
 
 ## ProhibitLeft
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Shorthand that adds a keep-out zone extending this many tiles beyond the part's left edge (un-rotated), spanning its full height, for every category in [[Cosmoteer.Ships.Parts.PartRules.Prohibits]].
 
 ## ProhibitRight
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Shorthand that adds a keep-out zone extending this many tiles beyond the part's right edge (un-rotated), spanning its full height, for every category in [[Cosmoteer.Ships.Parts.PartRules.Prohibits]].
 
 ## ProhibitAbove
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Shorthand that adds a keep-out zone extending this many tiles beyond the part's top edge (un-rotated), spanning its full width, for every category in [[Cosmoteer.Ships.Parts.PartRules.Prohibits]]. Vanilla cannons use it for muzzle clearance, e.g. `ProhibitAbove = 2` on the large cannon.
 
 ## ProhibitBelow
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Shorthand that adds a keep-out zone extending this many tiles beyond the part's bottom edge (un-rotated), spanning its full width, for every category in [[Cosmoteer.Ships.Parts.PartRules.Prohibits]]. Vanilla thrusters use it for exhaust clearance, e.g. `ProhibitBelow = 3` on the small thruster.

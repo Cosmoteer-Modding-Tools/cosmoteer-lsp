@@ -10,217 +10,217 @@
 ## ID
 `→ ShipRules` · required
 
-<!-- TODO: needs documentation -->
+The unique identifier of this ship type, which must be in the form `author_name.ship_name`. Ship saves and game modes reference the ship type through this ID.
 
 ## OtherIDs
 `→ ShipRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Additional IDs that resolve to this same ship type. Lets a renamed ship type keep loading saves and references that still use an old ID.
 
 ## ShipScale
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Multiplies the world-space size of the ship's tiles, scaling part sprites and physical sizes. Also caps how many crew can work the same construction, repair, or salvage job at the whole-number part of this value.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the ship type's display name, shown for example when choosing a ship class for a new ship.
 
 ## Parts
 `PartRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Every part type that can exist on ships of this type. Each part's ID must be unique within the ship.
 
 ## Doors
 `DoorRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The door types available on ships of this type. Each door's ID must be unique within the ship.
 
 ## DefaultDoorID
 `→ DoorRules` · required
 
-<!-- TODO: needs documentation -->
+The door type used when doors are auto-created or when assigning a type to doors from a legacy ship save. Must match an entry in [[Cosmoteer.Ships.ShipRules.Doors]], or be empty for ships without doors.
 
 ## ExternalWalls
 `ExternalWallRules` · required
 
-<!-- TODO: needs documentation -->
+Sprite rules for the exterior walls drawn automatically around the outside of the ship's interior.
 
 ## ExternalRoofWalls
 `ExternalWallRules` · required
 
-<!-- TODO: needs documentation -->
+Sprite rules for the exterior walls drawn on the ship's roof layer, using the same format as [[Cosmoteer.Ships.ShipRules.ExternalWalls]].
 
 ## MaxBorders
 `IntRect` · required
 
-<!-- TODO: needs documentation -->
+The rectangle of tile coordinates parts may be built within. The build tools reject parts outside it, imported PNG blueprints are checked against its size, and recentering centers the blueprint inside it. Vanilla allows -60 to 60 on both axes.
 
 ## MaxAbsLinearVelocity
 `float` · required
 
-<!-- TODO: needs documentation -->
+Hard cap on the ship's linear speed. The physics engine clamps the ship body's velocity to this magnitude. Vanilla ships use `Infinity`.
 
 ## MaxAbsAngularVelocity
 `float` · required
 
-<!-- TODO: needs documentation -->
+Hard cap on the ship's rotation speed, applied to the physics body's angular velocity.
 
 ## RenderLayers
 `map<→ ShipRenderLayerRules, ShipRenderLayerRules>` · optional
 
-<!-- TODO: needs documentation -->
+The render layers ship sprites can draw into, keyed by layer ID. Each layer's sprites are packed into texture atlases, and layers are drawn in sorted order within their render stage.
 
 ## Blueprints
 `ShipBlueprintRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for rendering the ship's blueprint view, including the blueprint materials, atlas parameters, and blueprint external walls.
 
 ## Redprints
 `ShipRedprintRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for rendering redprints, the red overlay used for invalid blueprint parts, including its material and the repair indicator sprites.
 
 ## LinearDrag
 `ILinearDragSolverRules` · optional
 
-<!-- TODO: needs documentation -->
+The drag solver applied to the ship body's linear velocity, slowing the ship when it is not thrusting. Omitting it gives the ship no linear drag. Vanilla uses an `Exponential` solver.
 
 ## AngularDrag
 `IAngularDragSolverRules` · optional
 
-<!-- TODO: needs documentation -->
+The drag solver applied to the ship body's angular velocity, slowing its rotation. Omitting it gives the ship no angular drag. Vanilla uses a `Viscous` solver.
 
 ## Restitution
 `float` · required
 
-<!-- TODO: needs documentation -->
+Bounciness of the ship's collision fixtures. 0 makes collisions absorb all bounce, higher values make the ship rebound off other objects.
 
 ## RotationalInertiaFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplier on the rotational inertia computed from the ship's mass distribution. Higher values make the ship slower to rotate.
 
 ## ThrusterUpdateInterval
 `range<Time>` · required
 
-<!-- TODO: needs documentation -->
+Seconds between recalculations of the ship's thruster activations, drawn at random from this range so ships don't all update on the same tick. Ignored while the ship's speed is inside [[Cosmoteer.Ships.ShipRules.ThrusterUpdateIntervalOverrideSpeedRange]].
 
 ## ThrusterUpdateIntervalOverrideSpeedRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Speed range within which thruster activations are recalculated every physics tick instead of waiting for [[Cosmoteer.Ships.ShipRules.ThrusterUpdateInterval]].
 
 ## ThrusterSolverIterations
 `int` · required
 
-<!-- TODO: needs documentation -->
+Number of iterations the thrust solver runs when translating a desired acceleration into individual thruster activation levels. More iterations track the desired acceleration more closely at more CPU cost.
 
 ## MaxLinearMagicAcceleration
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Maximum linear acceleration applied directly to the ship's body to make up for whatever its thrusters cannot deliver. Lets a ship move without adequate thrusters. Omitted or 0 disables the effect.
 
 ## MaxAngularMagicAcceleration
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Maximum angular acceleration applied directly to the ship's body to make up for whatever its thrusters cannot deliver, like [[Cosmoteer.Ships.ShipRules.MaxLinearMagicAcceleration]] but for rotation. Omitted or 0 disables the effect.
 
 ## UncommandedThrusterShutdownDelay
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds after the last movement command before the ship's thrusters shut down and stop updating.
 
 ## MaxRampUpTimeForDeceleration
 `float` · required
 
-<!-- TODO: needs documentation -->
+Seconds of thruster ramp-up the deceleration planner is willing to rely on. When predicting braking thrust, a thruster's usable activation is capped so reaching that level takes no longer than this.
 
 ## TargetReachedDistanceSizeRatio
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiple of the ship's bounding diameter within which the autopilot considers its destination reached and switches to fine position adjustment.
 
 ## TargetResetDistanceSizeRatio
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiple of the ship's bounding diameter beyond which the autopilot abandons fine adjustment and resumes a normal approach. Acts as the hysteresis counterpart to [[Cosmoteer.Ships.ShipRules.TargetReachedDistanceSizeRatio]].
 
 ## AdjustRotationVelocity
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed the ship must slow to before the autopilot starts rotating it toward the commanded final facing.
 
 ## VelocityCalculateFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Gain that converts the remaining distance to the destination, after subtracting the predicted stopping distance, into desired acceleration. Higher values make the autopilot approach more aggressively.
 
 ## TooCloseVelocityOverrideStrength
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplier on the push-away velocity used when the ship gets too close to another ship or obstacle. Vanilla's large value makes the override dominate normal movement.
 
 ## AngularVelocityCalculateFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Gain that converts the remaining rotation offset, after subtracting the predicted stopping angle, into desired angular acceleration. The rotational counterpart of [[Cosmoteer.Ships.ShipRules.VelocityCalculateFactor]].
 
 ## RetroVelocityCalculateFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Gain applied against the ship's current velocity when computing desired acceleration. Acts as the damping term that cancels residual drift.
 
 ## RetroAngularVelocityCalculateFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Gain applied against the ship's current angular velocity when computing desired angular acceleration. The rotational counterpart of [[Cosmoteer.Ships.ShipRules.RetroVelocityCalculateFactor]].
 
 ## AngleSatisfiedThreshold
 `range<number (degrees)>` · required
 
-<!-- TODO: needs documentation -->
+Range of remaining rotation offset, in degrees, used to scale forward thrust while the ship still needs to turn. At or below the minimum the ship thrusts at full power, at or above the maximum it holds thrust until the rotation catches up.
 
 ## HorizontalSatisfiedThreshold
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Range of sideways velocity, measured as a fraction of the remaining forward distance, used to scale forward thrust while cruising. At or below the minimum the ship thrusts fully forward, at or above the maximum it diverts thrust into lateral correction instead.
 
 ## DecelerationDistanceDtRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Bounds, in seconds, on the timestep used by the iterative stopping-distance prediction. The actual step is the current speed times [[Cosmoteer.Ships.ShipRules.DecelerationDistanceDtSpeedRatio]] clamped into this range.
 
 ## DecelerationDistanceDtSpeedRatio
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplied with the ship's current speed to pick the timestep of the stopping-distance prediction, clamped into [[Cosmoteer.Ships.ShipRules.DecelerationDistanceDtRange]]. Larger values give a coarser but cheaper prediction.
 
 ## ForwardThrustRatioHistoryCount
 `int` · required
 
-<!-- TODO: needs documentation -->
+Number of recent thrust updates over which the ship averages its forward thrust ratio. The average feeds arrival-time matching with other ships flying in formation.
 
 ## ArrivalTimeOptimisticBuffer
 `float` · required
 
-<!-- TODO: needs documentation -->
+Seconds subtracted from other ships' predicted arrival times when matching arrival times, so the ship assumes its companions arrive slightly sooner than predicted.
 
 ## ArrivalTimeRampDown
 `float` · required
 
-<!-- TODO: needs documentation -->
+Controls how quickly forward thrust may drop when slowing to match arrival times with other ships. Each update the allowed thrust ratio can fall by the update interval divided by this value, so larger values give a more gradual ramp down.
 
 ## OrbitModeRadiusFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplier on a follow command's follow radius used to decide when the ship is close enough to switch into orbiting and fine adjustment around its target.
 
 ## MaxPartSearchIterations
 `int` · required
 
-<!-- TODO: needs documentation -->
+Cap on pathfinding iterations when searching outward for nearby parts or cells, for example when crew search from an airlock or when looking for resource destinations.
 
 ## SupplierSearchInterval
 `Time` · required
@@ -230,212 +230,212 @@
 ## SelfDestructForce
 `float` · required
 
-<!-- TODO: needs documentation -->
+Impulse applied to the ship at every cell bordering a self-destructing part, pushing the surrounding structure away from the destroyed part.
 
 ## BaseSightRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Sight radius, in tiles beyond the ship's bounding radius, that every ship of this type has even without sensor parts. Sensor parts with a larger radius take precedence, and nebulas scale the result.
 
 ## BaseRadarRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radar radius, in tiles beyond the ship's bounding radius, available without sensor parts. Sensor parts with a larger radius take precedence, and nebulas scale the result.
 
 ## MinCommsRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Minimum communication radius, in tiles beyond the ship's bounding radius. The effective comms radius is the larger of this and the ship's sight radius.
 
 ## WeaponActivationEnemyCheckRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance beyond the ship's bounding radius scanned for visible enemy ships. Whether an enemy is inside drives weapon activation and gates behavior that requires safety, such as automatic crew exit.
 
 ## DefaultTargetingRangeFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies a weapon's emitter range to get its default auto-targeting acquisition range when the weapon does not define its own TargetingRange.
 
 ## MapJumpFuelCostPerMass
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance-independent term of the galaxy-map FTL jump fuel cost, charged per unit of ship mass. The total cost also scales with the ship's FTL jump efficiency.
 
 ## MapJumpFuelCostPerMassDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Fuel charged per unit of ship mass per unit of galaxy-map distance jumped. Vanilla is tuned to 1 fuel per 100 mass to jump 10 light-years at 100% efficiency.
 
 ## MapJumpDistanceExponent
 `float` · required
 
-<!-- TODO: needs documentation -->
+Exponent applied to the map jump distance before it is multiplied by [[Cosmoteer.Ships.ShipRules.MapJumpFuelCostPerMassDistance]]. 1 makes fuel cost linear in distance.
 
 ## LocalJumpFuelCostPerMass
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance-independent term of the in-system FTL jump fuel cost, charged per unit of ship mass. The total cost also scales with the ship's FTL jump efficiency.
 
 ## LocalJumpFuelCostPerMassDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Fuel charged per unit of ship mass per tile of in-system jump distance. Vanilla is tuned to 1 fuel per 100 mass to jump 25000 tiles at 100% efficiency.
 
 ## LocalJumpDistanceExponent
 `float` · required
 
-<!-- TODO: needs documentation -->
+Exponent applied to the in-system jump distance before it is multiplied by [[Cosmoteer.Ships.ShipRules.LocalJumpFuelCostPerMassDistance]]. 1 makes fuel cost linear in distance.
 
 ## LocalJumpMinDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Minimum distance, measured from the ship's bounding circle to the destination, required to start an in-system FTL jump. Closer destinations are rejected.
 
 ## ImmuneToEnvDamage
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Exempts the ship from environmental damage sources such as damaging nebulas, lightning strikes, and out-of-bounds damage in PvP arenas.
 
 ## AlwaysVisibleInNebulas
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Prevents nebulas from hiding this ship from other players' sight.
 
 ## IsAsteroid
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks this ship type as an asteroid. Crew can salvage asteroids from manipulator-beam distance instead of standing adjacent, and creative mode's clear-objects tool counts them as asteroids rather than ships.
 
 ## JunkBlocksWeaponLOS
 `bool` · required
 
-<!-- TODO: needs documentation -->
+Whether junk chunks of this ship type block weapon line-of-sight checks and homing projectile target acquisition. Weapons with `IgnoreJunkLOSChecks` shoot through regardless.
 
 ## Roofs
 `ShipRoofRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for rendering ship roofs, including fade in and out durations, roof texture and decal parameters, and the default roof colors.
 
 ## FtlEffects
 `ShipFtlEffectRules` · required
 
-<!-- TODO: needs documentation -->
+The visual and sound effect played when the ship makes an FTL jump, including the flash sprite, warp distortion, light-speed streak, and the jump-in and jump-out sounds.
 
 ## DefaultCollectNuggetPriority
 `int` · required
 
-<!-- TODO: needs documentation -->
+Default crew priority of the collect-loose-resources job. Shown in the crew priority UI under the part named by [[Cosmoteer.Ships.ShipRules.AssociateCollectNuggetJobWithPart]].
 
 ## AssociateCollectNuggetJobWithPart
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+The part whose crew-priority entry hosts the collect-nuggets job. The job appears under this part's priorities with [[Cosmoteer.Ships.ShipRules.DefaultCollectNuggetPriority]] as its default.
 
 ## DefaultEjectNuggetPriority
 `int` · required
 
-<!-- TODO: needs documentation -->
+Default crew priority of the eject-resources job, used when crew carry unwanted resources to an airlock and jettison them.
 
 ## AssociateEjectNuggetJobWithPart
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+The part whose crew-priority entry hosts the eject-nuggets job. The job appears under this part's priorities with [[Cosmoteer.Ships.ShipRules.DefaultEjectNuggetPriority]] as its default.
 
 ## DefaultSalvagePriority
 `int` · required
 
-<!-- TODO: needs documentation -->
+Default crew priority of salvage jobs. Shown in the crew priority UI under the part named by [[Cosmoteer.Ships.ShipRules.AssociateSalvageJobWithPart]].
 
 ## DefaultConstructPriority
 `int` · required
 
-<!-- TODO: needs documentation -->
+Default crew priority of part construction jobs. Shown in the crew priority UI under the part named by [[Cosmoteer.Ships.ShipRules.AssociateConstructJobWithPart]].
 
 ## DefaultDeconstructPriority
 `int` · required
 
-<!-- TODO: needs documentation -->
+Default crew priority of part deconstruction jobs. Shown in the crew priority UI under the part named by [[Cosmoteer.Ships.ShipRules.AssociateDeconstructJobWithPart]].
 
 ## DefaultRepairPriority
 `int` · required
 
-<!-- TODO: needs documentation -->
+Default crew priority of part repair jobs. Shown in the crew priority UI under the part named by [[Cosmoteer.Ships.ShipRules.AssociateRepairJobWithPart]].
 
 ## AssociateSalvageJobWithPart
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+The part whose crew-priority entry hosts the salvage job. The job appears under this part's priorities with [[Cosmoteer.Ships.ShipRules.DefaultSalvagePriority]] as its default.
 
 ## AssociateConstructJobWithPart
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+The part whose crew-priority entry hosts the construct job. The job appears under this part's priorities with [[Cosmoteer.Ships.ShipRules.DefaultConstructPriority]] as its default.
 
 ## AssociateDeconstructJobWithPart
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+The part whose crew-priority entry hosts the deconstruct job. The job appears under this part's priorities with [[Cosmoteer.Ships.ShipRules.DefaultDeconstructPriority]] as its default.
 
 ## AssociateRepairJobWithPart
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+The part whose crew-priority entry hosts the repair job. The job appears under this part's priorities with [[Cosmoteer.Ships.ShipRules.DefaultRepairPriority]] as its default.
 
 ## DefaultConstructionWorkPerHealth
 `float` · required
 
-<!-- TODO: needs documentation -->
+Crew work required to construct a part, per point of its max health, for parts that do not define their own `ConstructionWork`. Vanilla is tuned so a corridor tile takes about one second.
 
 ## DefaultWorkPerRepairedHealth
 `float` · required
 
-<!-- TODO: needs documentation -->
+Crew work required per point of health repaired, for parts that do not define their own `WorkPerRepairedHealth`.
 
 ## ConstructionResourceSearchesPerTick
 `int` · required
 
-<!-- TODO: needs documentation -->
+How many pending construction jobs may search for source resources each simulation tick. Throttles the cost of construction searches on busy ships.
 
 ## ConstructionNuggetSinkSearchesPerTick
 `int` · required
 
-<!-- TODO: needs documentation -->
+How many searches for places to deposit leftover construction nuggets run each simulation tick, like [[Cosmoteer.Ships.ShipRules.ConstructionResourceSearchesPerTick]] but for the nugget sink side.
 
 ## MaxCrewExitShipSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Maximum ship speed at which crew are still allowed to automatically exit the ship, for example to work exterior jobs.
 
 ## OverrideConstructionMode
 `enum ConstructionMode` · optional · one of: `InstantFree`, `InstantCredits`, `InstantResources`, `CrewResources`
 
-<!-- TODO: needs documentation -->
+Forces this construction mode for ships of this type, overriding the construction mode the game mode would otherwise use.
 
 ## SalvagingDisabledSuppressesResourceDrops
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Suppresses resource nugget drops from this ship's destroyed parts while the game mode has salvaging disabled.
 
 ## WeaponFireRevealDuration
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds after the ship last fires a weapon during which it counts as temporarily revealed, even if it would otherwise be hidden from other players.
 
 ## CategoryLimits
 `CategoryLimit[]` · optional
 
-<!-- TODO: needs documentation -->
+Per part-category limits on how many parts a ship may have. The build tools refuse to place parts beyond a category's `Max`. Warning messages use the nouns from [[Cosmoteer.Ships.ShipRules.CategoryNouns]].
 
 ## CategoryNouns
 `CategoryNounData[]` · optional
 
-<!-- TODO: needs documentation -->
+Singular and plural localization keys naming each part category, used in messages such as build-limit warnings. Categories without an entry fall back to the raw category ID.
 
 ## VitalCategories
 `VitalCategoryInfo[]` · optional
 
-<!-- TODO: needs documentation -->
+Part categories the ship should always contain. When a blueprint has no part in one of these categories, the build UI shows a missing-parts warning using that entry's `WarningKey`.
 
 ## IndicatorAtlasParams
 `AtlasTextureParams` · required

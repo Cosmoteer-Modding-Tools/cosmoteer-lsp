@@ -270,6 +270,34 @@
                     "default": true,
                     "description": "Open .shader files with the Cosmoteer Shader language (HLSL) even when another extension, such as the built-in Unity ShaderLab support, also claims the .shader extension. Only reassigns files opened as ShaderLab or plain text, never a language you chose yourself."
                 },
+                "cosmoteerLSPRules.decompiler.showInHover": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Power user: end schema hovers with an 'Open <Class> in decompiler' link that opens the owning C# class from the game's assemblies (Cosmoteer.dll / HalflingCore.dll) in your .NET decompiler. ILSpy and dotPeek installs are found automatically, so 'cosmoteerLSPRules.decompiler.executablePath' is only needed when that fails."
+                },
+                "cosmoteerLSPRules.decompiler.executablePath": {
+                    "scope": "machine-overridable",
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to your .NET decompiler executable, e.g. 'C:\\Tools\\ILSpy\\ILSpy.exe'. Only needed when the automatic search (PATH, winget, Program Files, JetBrains Toolbox, /Applications) does not find your ILSpy or dotPeek install."
+                },
+                "cosmoteerLSPRules.decompiler.tool": {
+                    "scope": "machine-overridable",
+                    "type": "string",
+                    "enum": [
+                        "auto",
+                        "ilspy",
+                        "dotpeek"
+                    ],
+                    "default": "auto",
+                    "enumDescriptions": [
+                        "Infer from the executable's file name.",
+                        "ILSpy: launched as '<assembly> /navigateTo:T:<Class>'.",
+                        "dotPeek: launched as '/select=<assembly>!T:<Class>'."
+                    ],
+                    "description": "Which command-line style the 'Open in decompiler' link uses. 'auto' infers ILSpy or dotPeek from the executable's file name."
+                },
                 "cosmoteerLSPRules.formatting.enabled": {
                     "scope": "resource",
                     "type": "boolean",

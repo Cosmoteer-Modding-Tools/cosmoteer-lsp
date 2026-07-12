@@ -10,234 +10,234 @@
 ## BackgroundStyleID
 `→ BackgroundStyleRules` · required
 
-<!-- TODO: needs documentation -->
+The background style rendered behind the galaxy map, referenced by ID from the game's background styles. Vanilla uses `bg_galaxy`.
 
 ## Camera
 `CameraRules` · required
 
-<!-- TODO: needs documentation -->
+Camera settings for the galaxy map view, such as the zoom limits and the pixel-to-world scale factor. Vanilla inherits the simulation camera and tightens the zoom range.
 
 ## TargetNodeFocusSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed factor for the camera pan to the newly arrived node when traveling without the FTL flight animation. The pan speed scales with the remaining distance, so the camera eases in as it approaches.
 
 ## NodeSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite drawn for each node on the galaxy map. Nodes the game mode reports as unvisited use [[Cosmoteer.GalaxyMap.MapRules.NodeUnvisitedSprite]] instead.
 
 ## NodeUnvisitedSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite drawn for map nodes the player has not yet visited, replacing [[Cosmoteer.GalaxyMap.MapRules.NodeSprite]]. Vanilla tints it gray.
 
 ## NodeSpriteRotSpeed
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+Continuous spin rate of each node sprite, in degrees per second. Every node starts at a random rotation offset so they don't spin in unison.
 
 ## NodeNameFontSize
 `int` · required
 
-<!-- TODO: needs documentation -->
+Font size of the name label drawn next to each map node.
 
 ## NodeNameFadeRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Camera zoom scales between which node name labels fade in. At the first value the label is invisible and at the second it is fully opaque. Mousing over a node always fades its label in regardless of zoom.
 
 ## NodeNameWorldOffset
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Offset of the name label from the node's center, in galaxy map world units. Rotates with the camera.
 
 ## NodeNamePixelOffset
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Additional offset of the name label in screen pixels, applied after [[Cosmoteer.GalaxyMap.MapRules.NodeNameWorldOffset]] and scaled by the UI scale.
 
 ## NodeNameMouseOverLerpTime
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds for a node's name label to blend to its moused-over state (full opacity and fixed screen size) when the cursor enters the node, and back when it leaves.
 
 ## NodeClickRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance from a node's center within which the mouse cursor counts as over that node, in galaxy map world units. The effective radius is half this value and grows with the square root of the camera zoom.
 
 ## NodeFtlPulseSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The pulse sprite that expands from every jumpable node while the player is choosing an FTL jump destination.
 
 ## NodeFtlPulseInterval
 `float` · required
 
-<!-- TODO: needs documentation -->
+Seconds between successive FTL pulses on jumpable nodes. Each pulse animates through [[Cosmoteer.GalaxyMap.MapRules.NodeFtlPulseScaleRange]] and [[Cosmoteer.GalaxyMap.MapRules.NodeFtlPulseAlphaRange]] over this time.
 
 ## NodeFtlPulseScaleRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Start and end scale multipliers applied to [[Cosmoteer.GalaxyMap.MapRules.NodeFtlPulseSprite]] over each pulse. Vanilla grows the pulse from 1 to 3 times its size.
 
 ## NodeFtlPulseAlphaRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Start and end opacity multipliers applied to the pulse sprite's own alpha over each pulse. Vanilla fades the pulse from fully visible to invisible.
 
 ## ConnectionLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The line drawn between every pair of connected map nodes. Its texture repeat is scaled with the camera zoom so the pattern keeps a consistent on-screen density.
 
 ## ConnectionLinePulseSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed at which the connection line's texture scrolls along the line, creating a slow pulsing movement. Higher values scroll faster.
 
 ## ConnectionClickDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance from a connection line within which the mouse cursor counts as over that connection, in galaxy map world units. Grows with the square root of the camera zoom.
 
 ## CourseLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The line drawn along the plotted FTL course from the current node to the selected destination, one segment per hop of the path.
 
 ## CourseLinePulseSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed at which the course line's texture scrolls, making the course appear to flow. Higher values scroll faster.
 
 ## CurNodeSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The marker sprite drawn around the node the player currently occupies.
 
 ## UnscaledCurNodeWorldSize
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Base size of the current-node marker in galaxy map world units, before the pulse scale and camera scaling are applied.
 
 ## CurNodePulseInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds per pulse cycle of the current-node marker as it oscillates between its begin and end scale and color.
 
 ## CurNodeBeginScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Scale multiplier of the current-node marker at one end of its pulse. The marker oscillates between this and [[Cosmoteer.GalaxyMap.MapRules.CurNodeEndScale]].
 
 ## CurNodeEndScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Scale multiplier of the current-node marker at the other end of its pulse. See [[Cosmoteer.GalaxyMap.MapRules.CurNodeBeginScale]].
 
 ## CurNodeBeginColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color of the current-node marker at one end of its pulse. The marker blends between this and [[Cosmoteer.GalaxyMap.MapRules.CurNodeEndColor]].
 
 ## CurNodeEndColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color of the current-node marker at the other end of its pulse. See [[Cosmoteer.GalaxyMap.MapRules.CurNodeBeginColor]].
 
 ## DestNodeSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The marker sprite drawn around the node currently set as the FTL travel destination.
 
 ## UnscaledDestNodeWorldSize
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Base size of the destination marker in galaxy map world units, before the pulse scale and camera scaling are applied.
 
 ## DestNodePulseInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds per pulse cycle of the destination marker as it oscillates between its begin and end scale and color.
 
 ## DestNodeBeginScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Scale multiplier of the destination marker at one end of its pulse. The marker oscillates between this and [[Cosmoteer.GalaxyMap.MapRules.DestNodeEndScale]].
 
 ## DestNodeEndScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Scale multiplier of the destination marker at the other end of its pulse. See [[Cosmoteer.GalaxyMap.MapRules.DestNodeBeginScale]].
 
 ## DestNodeBeginColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color of the destination marker at one end of its pulse. The marker blends between this and [[Cosmoteer.GalaxyMap.MapRules.DestNodeEndColor]].
 
 ## DestNodeEndColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color of the destination marker at the other end of its pulse. See [[Cosmoteer.GalaxyMap.MapRules.DestNodeBeginColor]].
 
 ## DestNodeFromTime
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds of the arrival animation played when a new destination is selected. Over this time the marker eases from [[Cosmoteer.GalaxyMap.MapRules.DestNodeFromColor]], [[Cosmoteer.GalaxyMap.MapRules.DestNodeFromScale]] and [[Cosmoteer.GalaxyMap.MapRules.DestNodeFromRot]] to its normal appearance.
 
 ## DestNodeFromColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Tint the destination marker starts from when a new destination is selected, blending to untinted white over [[Cosmoteer.GalaxyMap.MapRules.DestNodeFromTime]].
 
 ## DestNodeFromScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Scale multiplier the destination marker starts from when a new destination is selected, easing to 1 over [[Cosmoteer.GalaxyMap.MapRules.DestNodeFromTime]]. Vanilla starts at 3 times normal size.
 
 ## DestNodeFromRot
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+Rotation offset, in degrees, the destination marker starts from when a new destination is selected, easing to 0 over [[Cosmoteer.GalaxyMap.MapRules.DestNodeFromTime]]. Vanilla's 360 spins the marker in with one full turn.
 
 ## FtlShip
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The ship icon that flies along the jump path on the galaxy map during the FTL travel animation. The camera follows it from node to node.
 
 ## FtlShipSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed of the FTL ship icon along the jump path, in galaxy map units per second.
 
 ## FactionBorderSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite used to render the borders around faction territories. Only its height matters and sets the border thickness. It is tinted with each faction's [[Cosmoteer.Factions.FactionRules.BorderColor]].
 
 ## FactionBorderRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance from each faction-controlled node, in galaxy map units, at which its territory border is drawn. Borders between adjacent territories run along the intersection of these circles.
 
 ## FactionBorderImaginaryNodeDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance, in galaxy map units, at which invisible helper nodes are placed in eight directions around each node where no real node is nearby. They push the border inward around nodes on the perimeter of a territory.
 
 ## FactionMaxMissingBorderAngle
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+Largest angular gap, in degrees, allowed between adjacent border segments around a node. Wider gaps are bridged with extra arc segments at [[Cosmoteer.GalaxyMap.MapRules.FactionBorderRadius]].
 
 ## FactionBorderPointUnifyTolerance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance, in galaxy map units, within which nearby border points are merged into one so segments from neighboring nodes join up cleanly.
 
 ## FactionCurveSegmentsPerDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Number of straight segments used per map unit of length when tessellating the smoothed border curves. Higher values make rounder borders.

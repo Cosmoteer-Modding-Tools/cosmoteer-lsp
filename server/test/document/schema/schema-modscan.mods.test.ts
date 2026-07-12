@@ -60,6 +60,12 @@ const KNOWN_MOD_BUGS = new Set<string>([
     "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot02.rules :: 'AmmoDrain' was renamed to 'ResourceDrain' in a newer game version (ammo was generalized into the resource system).",
     "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot02.rules :: 'ExplosiveAmmoDrain' was renamed to 'ExplosiveResourceDrain' in a newer game version (ammo was generalized into the resource system).",
     "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot03.rules :: 'AmmoDrain' was renamed to 'ResourceDrain' in a newer game version (ammo was generalized into the resource system).",
+    // Surfaced when inheritance bases reached through mod convenience-global super-paths started
+    // rooting (the shots-fragment beams inherited as `BeamEmitter : &/SW_SHOTS/…`): the nested
+    // `AmmoDrain` hit effects inside those beams now validate, and their legacy name is the same
+    // genuine pre-rename bug as the entries above.
+    "3119349707/sw_effects/shots/SuperLaser_beam_green.rules :: 'AmmoDrain' was renamed to 'ResourceDrain' in a newer game version (ammo was generalized into the resource system).",
+    "3119349707/sw_effects/shots/SuperLaser_beam_green2.rules :: 'AmmoDrain' was renamed to 'ResourceDrain' in a newer game version (ammo was generalized into the resource system).",
     "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot03.rules :: 'ExplosiveAmmoDrain' was renamed to 'ExplosiveResourceDrain' in a newer game version (ammo was generalized into the resource system).",
 ]);
 

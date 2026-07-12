@@ -55,6 +55,9 @@
                     icon="/icons/rules.png"
                     factoryClass="cosmoteer.grid.PartGridEditorToolWindowFactory"/>
         <notificationGroup id="Cosmoteer Language Server" displayType="BALLOON"/>
+        <!-- Executes the "Open in decompiler" command link in schema hovers. LSP4IJ's own link
+             handler only navigates file:// links, so command: links need this plugin-side hook. -->
+        <platform.backend.documentation.linkHandler implementation="cosmoteer.lsp.DecompilerLinkHandler"/>
         <codeInsight.lineMarkerProvider language="textmate"
                                         implementationClass="cosmoteer.actions.CosmoteerLineMarkerProvider"/>
         <codeInsight.lineMarkerProvider language="TEXT"

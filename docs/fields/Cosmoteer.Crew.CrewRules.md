@@ -10,127 +10,127 @@
 ## CostPerCrew
 `int` · required
 
-<!-- TODO: needs documentation -->
+The credits charged for each crew member hired. Also counts toward a ship's total value based on its crew capacity.
 
 ## MaxHealth
 `int` · required
 
-<!-- TODO: needs documentation -->
+The hit points a crew member has while flying in space. Weapons that target crew subtract from it, and the crew dies when it reaches 0.
 
 ## BaseSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Walking speed aboard a ship, in tiles per second. Multiplied by each part's crew speed factor and by the carried resource's `CarrySpeed`. Also used to turn path distances into travel-time estimates when crew pick resource sources.
 
 ## DoorOpenDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+How close, in tiles, a walking crew must get to the door ahead of it before it holds that door open. Works with [[Cosmoteer.Crew.CrewRules.DoorCloseDistance]].
 
 ## DoorCloseDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+How far, in tiles, a crew keeps holding a door open after passing through it. Beyond this distance the door is released and can close.
 
 ## JobAssignmentsPerSecond
 `float` · required
 
-<!-- TODO: needs documentation -->
+How many queued normal-priority jobs per second a ship recomputes crew assignments for. Higher values make crew react to new work faster at more CPU cost. Low-priority jobs use [[Cosmoteer.Crew.CrewRules.LowPriorityJobAssignmentsPerSecond]] instead.
 
 ## LowPriorityJobAssignmentsPerSecond
 `float` · required
 
-<!-- TODO: needs documentation -->
+How many jobs per second from the ship's low-priority queue get their crew assignments recomputed. The normal queue uses [[Cosmoteer.Crew.CrewRules.JobAssignmentsPerSecond]].
 
 ## ResourceSearchesPerSecond
 `float` · required
 
-<!-- TODO: needs documentation -->
+How many resource sinks per second re-search the ship for possible supply sources. Rate-limits the expensive source search that feeds resource-delivery jobs.
 
 ## ManualTransferJobExpensiveCheckInterval
 `float` · required
 
-<!-- TODO: needs documentation -->
+How often each pending manual resource-transfer job runs its expensive validity check (completion and source reachability). Despite the name it acts as a rate, roughly this many checks per job per second, spread round-robin over all pending jobs.
 
 ## SalvageJobExpensiveCheckInterval
 `float` · required
 
-<!-- TODO: needs documentation -->
+How often each active salvage or deconstruction job runs its expensive finished check, including sight and distance tests. Like [[Cosmoteer.Crew.CrewRules.ManualTransferJobExpensiveCheckInterval]] it acts as roughly this many checks per job per second, spread round-robin.
 
 ## MaxCrewSearchIterations
 `int` · required
 
-<!-- TODO: needs documentation -->
+Cap on pathfinding iterations when searching outward from a job for the nearest available crew. Limits how far the search expands before giving up.
 
 ## EqualPriorityJobDistanceThreshold
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance bias, in tiles, in favor of a crew's current job. When two jobs have equal priority, a crew is only pulled onto the new job if its current job's remaining distance exceeds the distance to the new job by more than this.
 
 ## OffShipEqualPriorityJobDistanceThreshold
 `float` · required
 
-<!-- TODO: needs documentation -->
+The equivalent of [[Cosmoteer.Crew.CrewRules.EqualPriorityJobDistanceThreshold]] applied to crew that are currently off their ship.
 
 ## TotalPathTrafficIncrease
 `float` · required
 
-<!-- TODO: needs documentation -->
+Traffic cost added to the cells along each walking crew's registered path, and removed again when the path is released. Path searches that account for traffic then prefer less congested routes.
 
 ## CrewUpdatesPerSecond
 `int` · required
 
-<!-- TODO: needs documentation -->
+How many times per second each crew member's movement and job logic runs, staggered across ticks. Its inverse is the timestep a job receives each time a crew works on it.
 
 ## SourceRefreshesPerTick
 `int` · required
 
-<!-- TODO: needs documentation -->
+How many crew per physics tick re-validate their assigned crew source (the quarters part housing them), cycling round-robin through all crew in the simulation.
 
 ## HomelessWanderDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radius, in tiles, around the spot where a crew became homeless within which it picks random wander destinations.
 
 ## FollowShipDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+How far, in tiles, beyond the home ship's bounding circle idle or waiting crew in space position themselves, for example while idling outside or waiting for an oxygen refill.
 
 ## NewHomeSearchDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radius, in tiles, a homeless crew searches for a ship of its player with spare crew capacity. The nearest such ship becomes its new home.
 
 ## NewHomeSearchInterval
 `range<Time>` · required
 
-<!-- TODO: needs documentation -->
+Minimum and maximum seconds a homeless crew waits between searches for a new home ship. Each wait is randomized within the range.
 
 ## LoseHomeShipDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance from the home ship, in tiles, beyond which an off-ship crew member is abandoned and counted as killed. A warning shows earlier at [[Cosmoteer.Crew.CrewRules.LoseHomeShipWarningDistance]].
 
 ## LoseHomeShipWarningDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance from the home ship, in tiles, at which an off-ship crew shows the [[Cosmoteer.Crew.CrewRules.DistanceWarningSprite]] indicator. Also used throughout the game as the working range for off-ship activity such as salvage, nugget collection, crew and resource transfers, and hiring between ships.
 
 ## ExtraNuggetCollectDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Maximum distance, in tiles, at which a crew collecting resource nuggets picks a nearby follow-up nugget headed to the same destination as its next collection target.
 
 ## MaxNuggetCollectSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed above which a drifting resource nugget is not offered as a collection job. Crew wait for nuggets to slow below this before flying out to grab them.
 
 ## Radius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Nominal body radius of a crew member, in tiles. Used for selection hit-testing, selection and highlight circles, and warning indicator sizing. The physics size in space is [[Cosmoteer.Crew.CrewRules.CollisionRadius]].
 
 ## PathfindRadius
 `float` · required
@@ -140,224 +140,224 @@
 ## CollisionRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radius, in tiles, of the circular physics body created for a crew flying in space.
 
 ## Density
 `float` · required
 
-<!-- TODO: needs documentation -->
+Density of the space crew's physics body. Together with [[Cosmoteer.Crew.CrewRules.CollisionRadius]] it determines the body's mass.
 
 ## AccelerationOverDistance
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Acceleration a crew flying in space applies toward its desired velocity. Blended between the two values based on the remaining distance to the destination, as mapped by [[Cosmoteer.Crew.CrewRules.AccelerationOverDistanceRange]].
 
 ## DecelerationOverDistance
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Braking acceleration used instead of [[Cosmoteer.Crew.CrewRules.AccelerationOverDistance]] when a flying crew needs to slow down. Blended over [[Cosmoteer.Crew.CrewRules.DecelerationOverDistanceRange]] by remaining distance.
 
 ## AccelerationOverDistanceRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Remaining-distance range, in tiles, over which [[Cosmoteer.Crew.CrewRules.AccelerationOverDistance]] is interpolated. At or below the low end the first acceleration value applies, at or above the high end the second.
 
 ## DecelerationOverDistanceRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Remaining-distance range, in tiles, over which [[Cosmoteer.Crew.CrewRules.DecelerationOverDistance]] is interpolated.
 
 ## RotSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Maximum turn rate, in radians per second, of a crew flying in space.
 
 ## LinearDamping
 `float` · required
 
-<!-- TODO: needs documentation -->
+Viscous drag applied to a space crew's linear velocity. Higher values bleed off drift speed faster.
 
 ## AngularDamping
 `float` · required
 
-<!-- TODO: needs documentation -->
+Viscous drag applied to a space crew's spin. Higher values stop rotation faster.
 
 ## DesiredVelocityPerDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Target flying speed per tile of remaining distance. A crew in space aims for a speed of distance times this value, so it naturally slows on approach. Floored by [[Cosmoteer.Crew.CrewRules.MinDesiredVelocity]].
 
 ## MinDesiredVelocity
 `float` · required
 
-<!-- TODO: needs documentation -->
+Lower bound, in tiles per second, on a flying crew's target speed so it never fully stalls short of its destination.
 
 ## MinDesiredVelocityEnteringAirlock
 `float` · required
 
-<!-- TODO: needs documentation -->
+Minimum target speed used instead of [[Cosmoteer.Crew.CrewRules.MinDesiredVelocity]] while a crew is flying into an airlock, so it does not crawl on final approach.
 
 ## MinDesiredVelocityGrabbingNugget
 `float` · required
 
-<!-- TODO: needs documentation -->
+Minimum target speed used instead of [[Cosmoteer.Crew.CrewRules.MinDesiredVelocity]] while a crew is flying to grab a resource nugget.
 
 ## SpaceDestinationArriveDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+How close, in tiles, a crew flying to a point in space must get for the destination to count as reached.
 
 ## SpaceDestinationArriveAngle
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+Maximum facing error at which a space destination that requires a specific rotation counts as reached.
 
 ## AirlockArriveDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance, in tiles, from an airlock's enter/exit point at which a crew flying in space boards the ship.
 
 ## AirlockExitOpenTime
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds an airlock is held open when a crew exits through it into space.
 
 ## AirlockEnterOpenTime
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds an airlock is held open when a crew enters it from space.
 
 ## AirlockExitTime
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds a crew waits inside an airlock before stepping out into space.
 
 ## OxygenSupply
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds of oxygen a crew's suit holds. In space the oxygen meter drains from full (1) to empty over this time, and the crew dies when it runs out.
 
 ## OxygenWarningLevel
 `float` · required
 
-<!-- TODO: needs documentation -->
+Fraction (`0..1`) of remaining oxygen below which the [[Cosmoteer.Crew.CrewRules.OxygenWarningSprite]] indicator shows and the crew tries to return to a ship to refill.
 
 ## SalvageDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+How close, in tiles, a crew in space must get to the spot it is salvaging before it counts as arrived and starts working.
 
 ## ConstructDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+How close, in tiles, a crew in space must get to the part it is constructing or repairing before it counts as arrived and starts working.
 
 ## WorkPerSecond
 `float` · required
 
-<!-- TODO: needs documentation -->
+Rate at which a single crew performs construction and repair work, passed as the work-per-second rate to a part's construction and repair trackers.
 
 ## ManipulatorBeamDistToAsteroid
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance to its destination below which a crew salvaging an asteroid is no longer assisted by manipulator beams, unless it is still moving faster than [[Cosmoteer.Crew.CrewRules.ManipulatorBeamVelocityToAsteroid]].
 
 ## ManipulatorBeamVelocityToAsteroid
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed above which manipulator beams may still assist a crew that is already within [[Cosmoteer.Crew.CrewRules.ManipulatorBeamDistToAsteroid]] of the asteroid it is salvaging.
 
 ## AvoidableDoodadTags
 `→ SimObjectSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Tags of doodads (such as the sun) whose hazard areas crew refuse to work in. Salvage, resource-transfer, repair, construction and door-deconstruction jobs are not assigned when the target or the crew's ship lies inside such an area.
 
 ## SalvageHitEffects
 `MultiHitEffectRules` · required
 
-<!-- TODO: needs documentation -->
+Hit effects applied to the part a crew is salvaging or deconstructing, once every [[Cosmoteer.Crew.CrewRules.SalvageHitEffectsInterval]]. Vanilla uses damage effects with a salvage damage type to break the part down.
 
 ## SalvageHitEffectsInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds between applications of [[Cosmoteer.Crew.CrewRules.SalvageHitEffects]] while crew work a salvage job.
 
 ## OxygenWarningSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Indicator sprite drawn over a crew in space whose oxygen has dropped below [[Cosmoteer.Crew.CrewRules.OxygenWarningLevel]].
 
 ## DistanceWarningSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Indicator sprite drawn over a crew that has strayed beyond [[Cosmoteer.Crew.CrewRules.LoseHomeShipWarningDistance]] from its home ship.
 
 ## AtlasTextureParams
 `AtlasTextureParams` · required
 
-<!-- TODO: needs documentation -->
+Parameters, such as mip levels, for the runtime texture atlas the game builds from all crew body, suit and resource-nugget sprites.
 
 ## ShipCrewAtlasMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material used to draw crew walking inside ships and crew portraits in the GUI. Its texture is replaced at load with the generated crew atlas.
 
 ## SpaceCrewAtlasMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material used to draw crew flying in space with scene lighting. Receives the crew atlas as its texture and the generated normal-map atlases as shader constants.
 
 ## SpaceCrewNormalsAtlasMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material used to render space crew into the simulation's normals render target for lighting.
 
 ## SpaceCrewDiffuseAtlasMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material used to render space crew into the simulation's diffuse render target. Vanilla reuses [[Cosmoteer.Crew.CrewRules.ShipCrewAtlasMaterial]] for this.
 
 ## BodyTypes
 `BodyType[]` · optional
 
-<!-- TODO: needs documentation -->
+The body appearance variants crew can have. Each crew member is assigned one by a random seed and uses its walk, carry, operate and idle animations and its skin and hair color palettes.
 
 ## SuitTypes
 `SuitType[]` · optional
 
-<!-- TODO: needs documentation -->
+The spacesuit appearance variants. Each crew member is assigned one by a random seed and uses its `FlySprite` while flying in space.
 
 ## LostInSpaceDeathMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects played at a crew's location when it dies in space, for example when its oxygen runs out or it is shot down.
 
 ## FireDeathMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects played at a crew's location on the ship when it is killed by fire.
 
 ## Jets
 `JetRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Thruster jets on the spacesuit. Each jet anchors its `MediaEffects` at a location and rotation on the crew and plays them continuously in space, with intensity based on how hard the crew accelerates against the jet's direction.
 
 ## ConstructionBeams
 `CrewBeamRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Beam effects drawn from a crew in space to the part it is constructing or repairing. Each entry positions one beam by location and rotation, with optional length and angle oscillation, its beam effects, and optional hit effects at the target.
 
 ## SalvageBeams
 `CrewBeamRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Beam effects drawn from a crew in space to the part it is salvaging. Same structure as [[Cosmoteer.Crew.CrewRules.ConstructionBeams]].
 
 ## CrewIconShader
 `asset (shader)` · required
 
-<!-- TODO: needs documentation -->
+Shader applied to each body type's crew icon sprite, which is cut from a frame of its walk animation, so skin, hair and shirt colors can be tinted in crew UI.
 
 ## NameGenerator
 `NameGenerator` · required
 
-<!-- TODO: needs documentation -->
+Generator used to create random crew names, both for newly created crew and for the randomize button in the crew edit window.

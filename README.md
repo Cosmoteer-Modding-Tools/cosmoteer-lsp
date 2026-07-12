@@ -63,6 +63,9 @@ All settings live under the `cosmoteerLSPRules.` prefix.
 | `diagnostics.validateIgnoredFields` | on | Hint at a field the game never reads, with a remove quick fix (shown as an editor hint, not in the Problems panel) |
 | `inlayHints.showBaseValue` | on | Show the referenced group's `BaseValue` inline: a reference to a group with a `BaseValue` member renders `/BaseValue = 160d` |
 | `rename.allowEditingVanillaFiles` | off | Allow Rename to edit files inside the game `Data` install |
+| `decompiler.showInHover` | off | Power user: end schema hovers with an "Open in decompiler" link that opens the owning C# class from the game's assemblies |
+| `decompiler.executablePath` | `""` | Path to your ILSpy or dotPeek executable (auto-detected when empty, searching the PATH and the usual install locations) |
+| `decompiler.tool` | `auto` | Command-line style for the decompiler (`auto` infers ILSpy or dotPeek from the executable name) |
 | `associateShaderFiles` | on | Open `.shader` files with the Cosmoteer Shader language when another extension claims the extension |
 | `formatting.enabled` | on | Document formatting for `.rules` and `.shader` files |
 | `formatting.formatOnSave` | off | Format before every save, independent of the editor's `formatOnSave` |
@@ -139,7 +142,6 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 
 -   In Depth Diagnostics
 -   More useful code actions and refactorings and quick fixes
--   More visuals for understanding how sprites are working
 -   If you have suggestions or ideas, please open an issue on [GitHub](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/issues)
 
 ## Credits

@@ -10,219 +10,219 @@
 ## FireInterval
 `number` · required
 
-<!-- TODO: needs documentation -->
+Seconds between shots. A newly built weapon starts fully unloaded and must wait one full interval before its first shot.
 
 ## FirePermissionToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The component ID of a toggle component that gates firing. While that toggle is off the weapon holds fire even when it wants to shoot.
 
 ## TargetingEmitter
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The component ID of the emitter whose range and aim prediction drive this weapon's targeting checks. When neither this nor [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.Emitter]] is set, the weapon assumes infinite range and aims straight at the target's center.
 
 ## ResourceCheckEmitters
 `→ PartComponentRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The component IDs of emitters whose resource supply gates firing. The weapon holds fire unless at least one listed emitter has the resources it needs to shoot, or every one of them when [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.ResourceCheckRequiresAllEmitters]] is true.
 
 ## ResourceCheckRequiresAllEmitters
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Requires every emitter in [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.ResourceCheckEmitters]] to have its resources before the weapon fires, instead of just one of them.
 
 ## AIFirepowerRating
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The weapon's contribution to its ship's total firepower score, which the AI uses to judge how threatening a ship is. Vanilla weapons point this at the part's damage-per-second stat.
 
 ## AddAIFirepowerRatingsWhenTargetedByPartCategories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Part categories of other weapons on the same ship whose firepower rating is added to this weapon's own rating while they are targeting this part. The ion prism lists `[ion_beam_emitter, ion_beam_prism]` so the beams feeding it count toward its rating.
 
 ## CanBeGivenExplicitTarget
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the player can give this weapon explicit targets. When false the weapon is skipped by all target-assignment input and never receives ship-wide targets.
 
 ## AllowShipWideExplicitTargets
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the weapon picks up ship-wide explicit targets given by right-clicking enemy parts with no specific weapon selected. Ignored unless [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.CanBeGivenExplicitTarget]] is true.
 
 ## AllowShipWideExplicitTargetsToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The component ID of a toggle component. When set, the weapon only accepts ship-wide explicit targets while that toggle is on, as with the flak cannon's fire-preference toggle.
 
 ## ShowExplicitTarget
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the weapon's explicit targets are drawn in the world with a reticle and target line.
 
 ## ShowTargetButtons
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the target buttons for this weapon appear in the part's UI card. Ignored unless [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.CanBeGivenExplicitTarget]] is true.
 
 ## AllowDirectControl
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the weapon can be aimed and fired in direct control mode.
 
 ## AllowDirectControlToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The component ID of a toggle component. When set, direct control only drives this weapon while that toggle is on.
 
 ## DefaultDirectControlBinding
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The zero-based index of the direct control fire button that fires this weapon. Turreted weapons default to 0 and fixed weapons to 1, while vanilla assigns 2 to the tractor beam and 3 to the mine launcher.
 
 ## CanSalvage
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Counts the weapon as a salvaging weapon, like the mining laser. A ship with an operational salvaging weapon can be ordered to salvage parts that are not crew-salvageable.
 
 ## IsDefensiveOnly
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the weapon as purely defensive, like point defense. It is excluded from firepower estimation and does not count when the game checks whether a crippled ship still has significant weapons.
 
 ## IncludeInFirepowerEstimation
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the weapon counts toward firepower estimation, which attack commands use to position the ship so its weapons bear on the target and the AI uses for its total firepower score. Also controls whether the weapon's coverage area is drawn while giving commands.
 
 ## EstimateFirepowerToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The component ID of a toggle component. When set, the weapon only counts toward firepower estimation while that toggle is on.
 
 ## AutoFireToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The component ID of the toggle that enables autonomous fire. The weapon only wants to fire on its own while that toggle is on.
 
 ## AlwaysShowCoverage
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Draws the weapon's coverage area while giving commands even when the weapon is excluded from firepower estimation. Used by the mining laser and the flak cannon.
 
 ## IgnoreFriendlyShipLowLOSChecks
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets the weapon's line-of-sight rays pass through the low colliders of ships it cannot damage, so it can shoot over low parts of friendly ships like the deck cannon does. Also accepted under the older name `IgnoreSourceShipLowLOSChecks`.
 
 ## IgnoreFriendlyShipHighLOSChecks
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets the weapon's line-of-sight rays pass through even the high colliders of ships it cannot damage, so friendly ships never block its fire. The manipulator beam enables this together with [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.IgnoreFriendlyShipLowLOSChecks]]. Also accepted under the older name `IgnoreSourceShipHighLOSChecks`.
 
 ## IgnoreFriendlyStructureLOSChecks
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Lets the weapon's line-of-sight rays pass through structure cells of ships it cannot damage, so friendly structure does not block fire.
 
 ## IgnoreJunkLOSChecks
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Junk debris never blocks this weapon's line of sight, even junk whose [[Cosmoteer.Ships.ShipRules.JunkBlocksWeaponLOS]] setting says it should.
 
 ## AllowEnemyStructureAutoTargeting
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets auto-targeting pick structure cells on enemy ships. When false, enemy structure is only targeted once the ship has no operational parts left. FixedWeapon flips this default to true.
 
 ## ProhibitTargetPartsFilter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+Filter for parts the weapon refuses to target. The ion beam emitter uses it to avoid force-firing on friendly ion prisms.
 
 ## ProhibitShipRelativePointTargets
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Refuses explicit targets that are points pinned relative to a ship rather than actual parts.
 
 ## SuppressShipWideExplicitTargetsWhenTargetingPartsFilter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+While the weapon's current target matches this filter, it stops accepting ship-wide explicit targets, so whole-ship attack orders do not override a special assignment such as a friendly ion prism.
 
 ## SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+While the weapon is targeting a ship-relative point, it stops accepting ship-wide explicit targets.
 
 ## SuppressDirectControlWhenTargetingPartsFilter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+While the weapon's current target matches this filter, direct control ignores the weapon so manual fire does not override the assignment.
 
 ## SuppressDirectControlWhenTargetingShipRelativePoints
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+While the weapon is targeting a ship-relative point, direct control ignores it.
 
 ## SuppressFirepowerEstimationWhenTargetingPartsFilter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+Excludes the weapon from firepower estimation while its current target matches this filter, for example an ion beam aimed into a friendly prism.
 
 ## SuppressFirepowerEstimationWhenTargetingShipRelativePoints
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Excludes the weapon from firepower estimation while it is targeting a ship-relative point. The ion prism uses this so the same prism is not counted for both its turret mode and its fixed mode.
 
 ## SuppressFirepowerEstimationWhenNotTargetingShipRelativePoints
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Excludes the weapon from firepower estimation unless it is targeting a ship-relative point. The counterpart of [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.SuppressFirepowerEstimationWhenTargetingShipRelativePoints]] used by a part's chained or fixed mode.
 
 ## SaveSelfTargetPartCategories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Part categories for which a target on the weapon's own ship is saved with the ship design and restored on load. Ion beams and prisms use it to keep beam-into-prism setups intact.
 
 ## SaveShipRelativeTargets
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Saves the weapon's ship-relative point targets with the ship design so they are restored on load.
 
 ## ToggleOnMode
 `enum WeaponToggleOnMode` · optional · one of: `WantsAndReadyToFire`, `WantsToFire`, `HasTarget`, `HasTargetExceptShipRelative`, `IsReloaded`
 
-<!-- TODO: needs documentation -->
+The condition under which this weapon counts as on when other components read it as a toggle source. Defaults to `WantsAndReadyToFire`, meaning the weapon both wants to fire and is reloaded with resources and permission to shoot.
 
 ## OverrideTargetNineSlice
 `NineSlice` · optional
 
-<!-- TODO: needs documentation -->
+Replaces the standard rectangle drawn around this weapon's explicit targets in the targeting overlay.
 
 ## OverrideTargetCircle
 `CircleRenderer` · optional
 
-<!-- TODO: needs documentation -->
+Replaces the standard circle drawn around this weapon's explicit targets in the targeting overlay.
 
 ## OverrideTargetLine
 `CappedLine` · optional
 
-<!-- TODO: needs documentation -->
+Replaces the standard line drawn from the weapon to its explicit target, and between queued targets, in the targeting overlay.
 
 ## OverrideReticleSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Replaces the standard reticle sprite drawn on this weapon's explicit targets in the targeting overlay.
 
 ## Emitter
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Shorthand that registers one emitter as both the [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.TargetingEmitter]], when that is not set explicitly, and an entry in [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.ResourceCheckEmitters]]. Most vanilla weapons set only this field.
 
 ## ResourceCheckEmitter
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Shorthand that adds one more emitter to [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.ResourceCheckEmitters]].

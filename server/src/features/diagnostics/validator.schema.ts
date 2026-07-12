@@ -337,8 +337,10 @@ export const validateSchema = async (
             // the base's fields working), so a slot-typed group whose class is exactly that
             // fallback validates its discriminator too. A concrete resolution (including the
             // sector spawners whose `Type = Doodads` dispatches beyond the slot registry's own
-            // member map) is proof the game reads it and stays silent.
-            if (disc && (!cls || cls === slotRegistry)) checkDiscriminator(node);
+            // member map) is proof the game reads it and stays silent. A deprecated name is the
+            // exception: it resolves through its rename as an editing courtesy, but the game does
+            // not read it, so it must still surface the rename hint.
+            if (disc && (!cls || cls === slotRegistry || deprecatedDiscriminator(disc))) checkDiscriminator(node);
         }
         const children: AbstractNode[] =
             isGroupNode(node) || isListNode(node) || isDocumentNode(node)

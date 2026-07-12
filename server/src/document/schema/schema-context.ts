@@ -301,7 +301,13 @@ const inheritedBaseClassForGroup = (group: GroupNode): string | undefined => {
     const parent = group.parent;
     if (!parent || !isDocumentNode(parent) || !group.identifier) return undefined;
     const deriverClasses = inheritanceBaseCandidates(parent, group.identifier.name);
-    if (deriverClasses.length === 0 || documentRootClass(parent) !== undefined) return undefined;
+    if (deriverClasses.length === 0) return undefined;
+    // A rooted document blocks base rooting only when its root class actually owns the group's
+    // name, where slot typing gives the better answer. A named wrapper group the root class does
+    // not know (a shots-folder munitions fragment whose groups are inherited into components)
+    // would otherwise stay dark even though its derivers know its class.
+    const parentRoot = documentRootClass(parent);
+    if (parentRoot && fieldOf(parentRoot, group.identifier.name)) return undefined;
     const names = ownedFieldNames(group);
     const candidates = new Set<string>();
     for (const cls of deriverClasses) for (const ancestor of classAncestry(cls)) candidates.add(ancestor);

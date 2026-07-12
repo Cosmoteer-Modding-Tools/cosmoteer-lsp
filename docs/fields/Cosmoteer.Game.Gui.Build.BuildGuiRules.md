@@ -10,504 +10,504 @@
 ## EditShipToolIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the build-mode toggle button in the ship HUD.
 
 ## EditorGroups
 `map<→ EditorGroupRules, EditorGroupRules>` · optional
 
-<!-- TODO: needs documentation -->
+Catalog of the build-menu category groups (name, icon, sort order) that parts and doors are filed into, keyed by group ID. Must also contain the groups `__favorites0` and up that back the favorite tabs counted by [[Cosmoteer.Game.Gui.Build.BuildGuiRules.FavoriteGroups]].
 
 ## ColorReplaceShader
 `asset (shader)` · required
 
-<!-- TODO: needs documentation -->
+Shader that redraws a part icon as a flat silhouette in [[Cosmoteer.Game.Gui.Build.BuildGuiRules.StackedPartGroupGlowColor]], forming the base for the glow behind stacked-part group icons in the build toolbox.
 
 ## StackedPartGroupGlowShader
 `asset (shader)` · required
 
-<!-- TODO: needs documentation -->
+Directional blur shader run in repeated horizontal and vertical passes to spread the silhouette from [[Cosmoteer.Game.Gui.Build.BuildGuiRules.ColorReplaceShader]] into a glow around stacked-part group icons.
 
 ## StackedPartGroupGlowColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Tint of the glow drawn behind stacked-part group icons in the build toolbox.
 
 ## StackedPartGroupGlowIterations
 `float` · required
 
-<!-- TODO: needs documentation -->
+Number of blur passes for the stacked-part group glow, expressed as a fraction of the icon's larger pixel dimension. More passes widen and smooth the glow.
 
 ## StackedPartGroupGlowDisplacement
 `float` · required
 
-<!-- TODO: needs documentation -->
+Offset in pixels that each blur pass of the stacked-part group glow samples at, controlling how far the glow spreads per pass.
 
 ## StackedPartGroupIconScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Fraction from 0 to 1 of the group icon's render area that the part icon itself fills when centered. The remaining margin leaves room for the glow.
 
 ## StatsGui
 `BuildToolboxStatsGuiRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the ship-stats panel in the build toolbox, supplying the stat-bar sprites, segment sprite, color gradients and default label of each stat bar.
 
 ## MirrorLine
 `MirrorLineRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the draggable mirror centerline overlay, supplying its line color, handle sprite and handle size. Shared by the build, crew, paint and resources toolboxes.
 
 ## ErrorFlashCount
 `int` · required
 
-<!-- TODO: needs documentation -->
+Number of on/off flash cycles played when signalling an invalid action, such as an illegal part or door placement or insufficient money or resources. Each half cycle lasts [[Cosmoteer.Game.Gui.Build.BuildGuiRules.ErrorFlashInterval]].
 
 ## ErrorFlashInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Duration in seconds of each half of an error flash cycle. Pairs with [[Cosmoteer.Game.Gui.Build.BuildGuiRules.ErrorFlashCount]].
 
 ## BlueprintUnderlayColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Tint of the translucent full-screen underlay shown behind the build menu while editing blueprints.
 
 ## AutoDoorValidColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Tint of automatically placed door previews that would be validly added while dragging parts. Invalid door locations use [[Cosmoteer.Game.Gui.Build.BuildGuiRules.AutoDoorInvalidColor]] instead.
 
 ## AutoDoorInvalidColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Tint of automatically placed door previews at invalid locations while the placement as a whole is still valid.
 
 ## AutoDoorInvalidCursorColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Tint applied to all auto-door previews when the placement under the cursor is itself invalid.
 
 ## LegalDoorLocationColor1
 `Color` · required
 
-<!-- TODO: needs documentation -->
+First endpoint of the pulsing highlight drawn over every legal door location while the door tool is active. The highlight fades between this and [[Cosmoteer.Game.Gui.Build.BuildGuiRules.LegalDoorLocationColor2]] with a period of [[Cosmoteer.Game.Gui.Build.BuildGuiRules.LegalDoorLocationInterval]].
 
 ## LegalDoorLocationColor2
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Second endpoint color of the legal door location pulse. In the vanilla data it differs from [[Cosmoteer.Game.Gui.Build.BuildGuiRules.LegalDoorLocationColor1]] only in alpha, making the pulse a fade.
 
 ## LegalDoorLocationInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Period in seconds of one pulse of the legal door location highlight.
 
 ## BlueprintsOffSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the blueprint-mode toggle button in the build toolbox while blueprint editing is off. Swapped for [[Cosmoteer.Game.Gui.Build.BuildGuiRules.BlueprintsOnSprite]] when the toggle is on.
 
 ## BlueprintsOnSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the blueprint-mode toggle button in the build toolbox while blueprint editing is on. Counterpart of [[Cosmoteer.Game.Gui.Build.BuildGuiRules.BlueprintsOffSprite]].
 
 ## RemovePartSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the remove-part tool button in the build toolbox.
 
 ## GrabPartSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the grab-part tool button in the build toolbox.
 
 ## SelectPartsSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the select-parts tool button in the build toolbox.
 
 ## RepairToolSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the repair tool button in the build toolbox. Also layered onto the main build button in the ship HUD to signal repair mode.
 
 ## ConstructionInProgressSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Overlay sprite layered onto the main build button in the ship HUD while construction is underway.
 
 ## MirrorOffSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the mirror-mode toggle button in the build toolbox while mirroring is off. Swapped for [[Cosmoteer.Game.Gui.Build.BuildGuiRules.MirrorOnSprite]] when mirroring is enabled.
 
 ## MirrorOnSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the mirror-mode toggle button in the build toolbox while mirroring is enabled. Counterpart of [[Cosmoteer.Game.Gui.Build.BuildGuiRules.MirrorOffSprite]].
 
 ## RemovePartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Frame drawn over each blueprint part or door the remove tool will delete when clicked. Drawn together with the X from [[Cosmoteer.Game.Gui.Build.BuildGuiRules.RemovePartXLine]].
 
 ## RemovePartXLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line style of the X drawn diagonally across a part slated for removal. Its thickness scales with the square root of the camera zoom.
 
 ## RemovePartXLineRectDeflate
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance in tiles by which the part's rectangle is shrunk on every side before the removal X from [[Cosmoteer.Game.Gui.Build.BuildGuiRules.RemovePartXLine]] is drawn, insetting the X from the part edges.
 
 ## UnRemovePartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Frame drawn over already-removed parts or doors that the remove tool would restore instead of delete.
 
 ## GrabPartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Frame drawn over the blueprint part or door under the cursor that the grab tool will pick up, including its mirrored counterparts.
 
 ## GrabPartCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while the grab-part tool is active. Also used by the select-parts tool while it is grabbing a selection.
 
 ## RemovePartCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while the remove-part tool is active.
 
 ## SelectPartsCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while the select-parts tool is active and not grabbing a selection.
 
 ## RepairCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while the repair tool is active.
 
 ## SelectedPartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Frame drawn over each currently selected part in the select-parts tool.
 
 ## SelectedMirroredPartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Frame drawn over the mirrored counterparts of selected parts that are not themselves directly selected.
 
 ## TentativeSelectedPartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Frame drawn over parts inside the current drag-selection rectangle that are not yet committed to the selection.
 
 ## TentativeSelectedMirroredPartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Frame drawn over the mirrored counterparts of tentatively selected parts that are not otherwise in the tentative selection.
 
 ## RepairPartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Frame drawn over the destroyed or damaged part or door under the cursor that the repair tool will act on.
 
 ## PartSelectionOutlineSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Border of the drag-selection rectangle in the select-parts tool, drawn as four edge segments around [[Cosmoteer.Game.Gui.Build.BuildGuiRules.PartSelectionFillSprite]].
 
 ## PartSelectionFillSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Fill of the drag-selection rectangle interior in the select-parts tool. Drawn under the [[Cosmoteer.Game.Gui.Build.BuildGuiRules.PartSelectionOutlineSprite]] border.
 
 ## ProhibitedZoneSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite tiled over each ship cell where a part cannot be placed, shown while hovering a placement and when flashing an invalid part's prohibited zone.
 
 ## DeletedTileSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Marker drawn over a ship cell whose physical part has been deleted from the blueprint, shown only when viewing pending blueprint changes. Also textures the deleted-door markers sized by [[Cosmoteer.Game.Gui.Build.BuildGuiRules.DeletedHorizontalDoorSpriteSize]] and [[Cosmoteer.Game.Gui.Build.BuildGuiRules.DeletedVerticalDoorSpriteSize]].
 
 ## DeletedHorizontalDoorSpriteSize
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Width and height in tiles of the deleted marker drawn over a removed horizontal door location. Uses the [[Cosmoteer.Game.Gui.Build.BuildGuiRules.DeletedTileSprite]] texture.
 
 ## DeletedVerticalDoorSpriteSize
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Width and height in tiles of the deleted marker drawn over a removed vertical door location, the transpose of [[Cosmoteer.Game.Gui.Build.BuildGuiRules.DeletedHorizontalDoorSpriteSize]].
 
 ## ConstructionBlockedSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon drawn centered on each queued part whose construction is currently blocked.
 
 ## RotateLeftSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the rotate-left button on the context toolbar shown while placing parts.
 
 ## RotateRightSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the rotate-right button on the context toolbar shown while placing parts.
 
 ## FlipHorizontalSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the flip-horizontal button on the context toolbar shown while placing parts.
 
 ## FlipVerticalSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the flip-vertical button on the context toolbar shown while placing parts.
 
 ## TrashcanSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the delete button shown while a part is held with the grab tool, which discards the grabbed part.
 
 ## CopyPartsSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the copy button on the select-parts toolbar.
 
 ## CutPartsSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the cut button on the select-parts toolbar.
 
 ## PastePartsSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the paste button on the select-parts toolbar.
 
 ## DeletePartsSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the delete button on the select-parts toolbar.
 
 ## CancelPastePartsSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the cancel button on the select-parts toolbar, which clears the current selection.
 
 ## BuildSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Fallback sound played when placing parts in live construction and none of the category-specific putdown sounds such as [[Cosmoteer.Game.Gui.Build.BuildGuiRules.SmallModulePutdownSound]] applies.
 
 ## BlueprintModeOnSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when entering blueprint editing mode.
 
 ## MakeItSoSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when committing construction with the confirm button. In crew-and-resources construction mode [[Cosmoteer.Game.Gui.Build.BuildGuiRules.BlueprintMakeItSoSound]] plays instead.
 
 ## BlueprintAddSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Fallback sound for adding blueprint parts when no category-specific blueprint putdown sound applies. Also plays when loading, importing or recentering blueprints, and when queueing repairs in crew-and-resources construction mode.
 
 ## BlueprintDeleteSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when blueprint parts are removed, for example clearing all or invalid blueprints, undoing a blueprint-only change, or cancelling a queued repair.
 
 ## BlueprintMakeItSoSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played in crew-and-resources construction mode when committing construction or repair-all, standing in for [[Cosmoteer.Game.Gui.Build.BuildGuiRules.MakeItSoSound]] and [[Cosmoteer.Game.Gui.Build.BuildGuiRules.RepairAllSound]].
 
 ## BlueprintDiscedModificationsPopupSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when the confirmation dialog about discarding uncommitted ship modifications opens on toggling blueprint mode.
 
 ## BlueprintDiscedModificationsConfirmedSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when uncommitted blueprint changes are actually discarded, resetting the blueprints to match the physical ship.
 
 ## RepairSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when the repair tool applies an instant repair. In crew-and-resources construction mode [[Cosmoteer.Game.Gui.Build.BuildGuiRules.BlueprintAddSound]] plays instead.
 
 ## RepairAllSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when clicking the repair-all button. In crew-and-resources construction mode [[Cosmoteer.Game.Gui.Build.BuildGuiRules.BlueprintMakeItSoSound]] plays instead.
 
 ## CancelConstructionSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when pressing the cancel input in build mode to reset the current tool or clear a paste or selection.
 
 ## CancelAllSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when clicking the cancel-all button, which cancels every queued construction, deconstruction and repair on the ship.
 
 ## ItemFlipFirstSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+One of the two sounds alternated on each flip of a held or pasted item, starting with this one. Alternates with [[Cosmoteer.Game.Gui.Build.BuildGuiRules.ItemFlipSecondSound]] so consecutive flips produce a two-note back and forth.
 
 ## ItemFlipSecondSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+The alternate flip sound, interleaved with [[Cosmoteer.Game.Gui.Build.BuildGuiRules.ItemFlipFirstSound]] on consecutive flips.
 
 ## RotateLeftSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when rotating a held or pasted item counterclockwise.
 
 ## RotateRightSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when rotating a held or pasted item clockwise.
 
 ## MediumModuleMaxArea
 `int` · required
 
-<!-- TODO: needs documentation -->
+Largest tile area (width times height) at which a placed part still counts as a medium module when choosing a putdown sound. Larger parts use [[Cosmoteer.Game.Gui.Build.BuildGuiRules.LargeModulePutdownSound]]. Pairs with [[Cosmoteer.Game.Gui.Build.BuildGuiRules.SmallModuleMaxArea]].
 
 ## SmallModuleMaxArea
 `int` · required
 
-<!-- TODO: needs documentation -->
+Largest tile area at which a placed part counts as a small module when choosing a putdown sound. Parts above it fall through to the [[Cosmoteer.Game.Gui.Build.BuildGuiRules.MediumModuleMaxArea]] threshold.
 
 ## SmallModulePutdownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when placing parts that classify as small modules, with tile area at most [[Cosmoteer.Game.Gui.Build.BuildGuiRules.SmallModuleMaxArea]].
 
 ## MediumModulePutdownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when placing parts that classify as medium modules, with tile area between [[Cosmoteer.Game.Gui.Build.BuildGuiRules.SmallModuleMaxArea]] and [[Cosmoteer.Game.Gui.Build.BuildGuiRules.MediumModuleMaxArea]].
 
 ## LargeModulePutdownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when placing parts with tile area above [[Cosmoteer.Game.Gui.Build.BuildGuiRules.MediumModuleMaxArea]].
 
 ## StructurePutdownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when placing parts in the `structure` type category.
 
 ## FloorModulePutdownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when placing parts in the `corridor` type category.
 
 ## DoorModulePutdownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when a placement adds only doors and no parts.
 
 ## SmallModuleBlueprintPutdownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Blueprint-mode counterpart of [[Cosmoteer.Game.Gui.Build.BuildGuiRules.SmallModulePutdownSound]], played when small modules are added to a blueprint instead of built directly.
 
 ## MediumModuleBlueprintPutdownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Blueprint-mode counterpart of [[Cosmoteer.Game.Gui.Build.BuildGuiRules.MediumModulePutdownSound]], played when medium modules are added to a blueprint.
 
 ## LargeModuleBlueprintPutdownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Blueprint-mode counterpart of [[Cosmoteer.Game.Gui.Build.BuildGuiRules.LargeModulePutdownSound]], played when large modules are added to a blueprint.
 
 ## StructureBlueprintPutdownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Blueprint-mode counterpart of [[Cosmoteer.Game.Gui.Build.BuildGuiRules.StructurePutdownSound]], played when structure parts are added to a blueprint.
 
 ## FloorModuleBlueprintPutdownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Blueprint-mode counterpart of [[Cosmoteer.Game.Gui.Build.BuildGuiRules.FloorModulePutdownSound]], played when corridor parts are added to a blueprint.
 
 ## DoorModuleBlueprintPutdownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Blueprint-mode counterpart of [[Cosmoteer.Game.Gui.Build.BuildGuiRules.DoorModulePutdownSound]], played when only doors are added to a blueprint.
 
 ## FtlOverlayAlpha
 `float` · required
 
-<!-- TODO: needs documentation -->
+Opacity from 0 to 1 of every colored cell in the FTL jump-efficiency overlay drawn over the ship.
 
 ## FtlOverlayHueRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Hue range in degrees that the FTL jump-efficiency overlay maps each cell's efficiency onto, with zero efficiency at the start of the range and full efficiency at the end. The vanilla `[0, 120]` runs from red to green. Pairs with [[Cosmoteer.Game.Gui.Build.BuildGuiRules.FtlOverlayAlpha]].
 
 ## CrewPathLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line style of the crew-access path drawn from a placed part to its nearest crew source while the path stays shorter than [[Cosmoteer.Game.Gui.Build.BuildGuiRules.CrewPathLineWarningDist]].
 
 ## CrewPathWarningLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line style of a crew-access path whose length reaches [[Cosmoteer.Game.Gui.Build.BuildGuiRules.CrewPathLineWarningDist]] but not [[Cosmoteer.Game.Gui.Build.BuildGuiRules.CrewPathLineStrongWarningDist]].
 
 ## CrewPathStrongWarningLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line style of a crew-access path whose length reaches [[Cosmoteer.Game.Gui.Build.BuildGuiRules.CrewPathLineStrongWarningDist]], the strongest visual warning that crew are far away.
 
 ## CrewPathLineWarningDist
 `int` · required
 
-<!-- TODO: needs documentation -->
+Path length in tiles at or above which the crew-access path switches from [[Cosmoteer.Game.Gui.Build.BuildGuiRules.CrewPathLine]] to [[Cosmoteer.Game.Gui.Build.BuildGuiRules.CrewPathWarningLine]] and a warning is shown at the cursor.
 
 ## CrewPathLineStrongWarningDist
 `int` · required
 
-<!-- TODO: needs documentation -->
+Path length in tiles at or above which the crew-access path escalates to [[Cosmoteer.Game.Gui.Build.BuildGuiRules.CrewPathStrongWarningLine]] and the strong-warning cursor text.
 
 ## CrewPathLineUSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Scroll speed of the crew-path line texture along its length, in texture U units per second, animating the line toward its destination.
 
 ## CrewPathOverlapSeparation
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Offset in tiles between overlapping crew-path lines. Multiple paths are fanned out by this vector, centered on the original route, so they do not draw on top of each other.
 
 ## FavoriteGroups
 `int` · required
 
-<!-- TODO: needs documentation -->
+Number of user-favorite tabs in the build toolbox. Each tab N maps to the editor group ID `__favoritesN` counting from 0, which must exist in [[Cosmoteer.Game.Gui.Build.BuildGuiRules.EditorGroups]].
 
 ## FavoriteSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Badge overlaid on a part button in the build toolbox to mark it as favorited.
 
 ## CenterOfMassSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon drawn at the ship's center of mass in the build overlay. Scales with camera zoom and rotates with the ship.

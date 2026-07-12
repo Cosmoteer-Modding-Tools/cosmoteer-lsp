@@ -50,6 +50,8 @@ import { SchemaIdIndex } from './features/completion/schema-id.index';
 import { RenameService, dropEditsUnderRoot } from './features/navigation/rename.service';
 import { InlayHintService } from './features/inlay/inlay-hint.service';
 import { HoverService } from './features/hover/hover.service';
+import { OPEN_IN_DECOMPILER_COMMAND } from './features/hover/decompiler-link';
+import { OpenInDecompilerArgs, openInDecompiler } from './features/hover/decompiler-launcher';
 import { ValidationError, ValidationErrorData, Validator } from './features/diagnostics/validator';
 import { ValidationForIdentifier, ValidationForValue } from './features/diagnostics/validator.value';
 import { ValidationForFunctionCall } from './features/diagnostics/validator.functioncall';
@@ -272,6 +274,11 @@ connection.onInitialize(async (params: InitializeParams) => {
             documentFormattingProvider: true,
             codeActionProvider: {
                 codeActionKinds: [CodeActionKind.QuickFix, CodeActionKind.RefactorExtract],
+            },
+            // The "Open in decompiler" hover link executes on the server (it spawns the user's
+            // ILSpy/dotPeek locally), so VS Code and the JetBrains plugin share one implementation.
+            executeCommandProvider: {
+                commands: [OPEN_IN_DECOMPILER_COMMAND],
             },
             semanticTokensProvider: {
                 legend: semanticTokensLegend,
@@ -2165,6 +2172,15 @@ connection.onHover(async (params, cancellationToken) => {
         if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
         return null;
     }
+});
+
+// The "Open in decompiler" hover link (see decompiler-link.ts). Both clients route it here as a
+// plain workspace/executeCommand, and the server finds and spawns the user's decompiler locally.
+connection.onExecuteCommand(async (params) => {
+    if (params.command !== OPEN_IN_DECOMPILER_COMMAND) return;
+    await openInDecompiler((params.arguments?.[0] ?? {}) as OpenInDecompilerArgs, connection).catch((e) => {
+        if (globalSettings.trace.server === 'messages') console.error(e);
+    });
 });
 
 // Live shader preview: build the payload (translated GLSL, constants, texture, blend mode) for the

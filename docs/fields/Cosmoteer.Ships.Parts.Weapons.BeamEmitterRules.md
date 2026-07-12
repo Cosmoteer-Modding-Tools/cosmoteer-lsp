@@ -10,37 +10,37 @@
 ## Range
 `number` · required
 
-<!-- TODO: needs documentation -->
+The maximum length of the beam, in tiles. Objects beyond this distance cannot be hit, except that an object the beam is already hitting stays valid out to [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.StretchRange]].
 
 ## StretchRange
 `number` · optional
 
-<!-- TODO: needs documentation -->
+An extended maximum length, in tiles, that applies once the beam is hitting something, letting it hold onto a target that drifts beyond [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.Range]]. New objects must still first be hit within Range. When set, it also replaces Range as the full length used by the OverRange scaling fields. The vanilla tractor beam grabs at 300 and stretches to 600.
 
 ## IdealRange
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The attack distance, in tiles, the ship AI tries to hold, interpolated between its Min and Max based on the target's radius relative to [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.IdealRadius]]. Falls back to [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.Range]] when unset.
 
 ## IdealRadius
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The target radius span, in tiles, mapped onto [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.IdealRange]]. Targets no larger than the Min radius use the ideal range's Min, targets at least the Max radius use its Max, with interpolation in between.
 
 ## ClipRangeToTarget
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Limits the beam's length to the distance to its current target, so the beam ends at the target instead of continuing on to full [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.Range]]. The vanilla flak cannon uses this so its [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.HitNothing]] burst detonates at the target's distance.
 
 ## RandomOffsetRadius
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, of a circle around the beam's endpoint within which the actual endpoint is randomly scattered. Interpolated from Min to Max as the beam's length approaches full range, so the scatter grows with distance.
 
 ## Width
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The collision thickness of the beam, in tiles. Half of it is also reported as the emitted radius for targeting purposes. The visual width comes from [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.BeamMediaEffects]] instead.
 
 ## SecondaryWidth
 `number` · optional
@@ -60,47 +60,47 @@ The filter, if any, that the primary collision result is checked against in orde
 ## ShieldCollisions
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+The filter deciding whose shields block the beam. Defaults to enemy shields plus the shields of a targeted friendly ship, never the emitting ship's own. Shields that pass the filter stop the beam and receive [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.HitShield]]. The vanilla tractor beam sets `Shields = false` to pass through all shields.
 
 ## CrewCollisions
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+The filter deciding which crew floating in space the beam can hit. All crew collisions are off by default. Crew that pass the filter stop the beam and receive [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.HitCrew]].
 
 ## AttenuatorCollisions
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+The filter deciding which beam-attenuating projectiles the beam collides with. Defaults to enemy projectiles. Only relevant when [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.AttenuationLimit]] is set.
 
 ## FriendlyShipLowCollisions
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the beam collides with the low part colliders of ships it cannot damage, including the emitting ship itself. Set to false to let the beam pass over low parts of friendly ships, as the vanilla resonance beam does. Also accepted under the alias `SourceShipLowCollisions`.
 
 ## FriendlyShipHighCollisions
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the beam collides with the high part colliders of ships it cannot damage, including the emitting ship itself. Also accepted under the alias `SourceShipHighCollisions`.
 
 ## NonFriendlyShipLowCollisions
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the beam collides with the low part colliders of ships it can damage. Set to false to make the beam pass over enemy low parts and only hit their high colliders.
 
 ## NonFriendlyShipHighCollisions
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the beam collides with the high part colliders of ships it can damage.
 
 ## PenetratesStructure
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the beam passes through bare structure and continues to whatever lies behind, still applying [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.HitStructural]] to the structure it crosses. When false the beam stops at the first structure hit, as the vanilla mining and tractor beams do.
 
 ## UseHitNormalAsWorldDirection
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Uses the hit surface's normal, pointed into the surface, as the world direction for hit effects instead of the beam's actual travel direction. Hit effects then behave as if the beam struck the surface head-on.
 
 ## AntiPhasingRaycastDistance
 `float` · optional
@@ -115,199 +115,199 @@ Whether a separate test is performed to detect overlap with a collider at the em
 ## AttenuationLimit
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The strength the beam pits against beam-attenuating projectiles such as the overclocked flak cannon's flak field. The beam stops at such a projectile, drains up to this amount from its attenuation damage pool, and applies [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.HitAttenuator]]. When unset the beam ignores attenuators entirely.
 
 ## HitAttenuator
 `BeamHitRules` · optional
 
-<!-- TODO: needs documentation -->
+The hit effects and media effects applied at the point where the beam strikes a beam-attenuating projectile. Only used when [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.AttenuationLimit]] is set.
 
 ## HitOperational
 `BeamHitRules` · optional
 
-<!-- TODO: needs documentation -->
+The hit effects and media effects applied at the point where the beam strikes an operational (non-structure) part.
 
 ## HitShield
 `BeamHitRules` · optional
 
-<!-- TODO: needs documentation -->
+The hit effects and media effects applied at the point where the beam strikes a shield that passes [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.ShieldCollisions]].
 
 ## HitStructural
 `BeamHitRules` · optional
 
-<!-- TODO: needs documentation -->
+The hit effects and media effects applied at the point where the beam strikes structure. With [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.PenetratesStructure]] true these are applied to the structure the beam passes through while it continues on.
 
 ## HitCrew
 `BeamHitRules` · optional
 
-<!-- TODO: needs documentation -->
+The hit effects and media effects applied when the beam strikes crew in space. Requires [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.CrewCollisions]] to allow crew hits.
 
 ## HitNothing
 `BeamHitRules` · optional
 
-<!-- TODO: needs documentation -->
+The hit effects and media effects applied at the beam's endpoint when it hits nothing at all. The vanilla flak cannon uses this to detonate its burst in open space.
 
 ## ConditionalEffectToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A toggle component on the same part that gates the [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules+BeamHitRules.ConditionalHitEffects]] and [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules+BeamHitRules.ConditionalMediaEffects]] of the Hit groups. While the toggle is on, those effects are applied in addition to the normal ones.
 
 ## Duration
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds the beam stays on after each trigger. Triggering again while emitting extends the emission back up to this duration, so a repeatedly fired beam becomes continuous. At 0, the default, the beam is instantaneous and applies its hit effects once per shot.
 
 ## HitInterval
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds between successive applications of the beam's hit effects while a continuous beam is emitting. Only meaningful when [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.Duration]] is greater than 0.
 
 ## KeepLengthWhenHitNothing
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Keeps the beam at its previous length when it stops hitting anything, instead of instantly extending to full range.
 
 ## ResourceUsageScaleOverRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the emitter's resource usage, interpolated from Min to Max as the beam's current length goes from 0 to full range. Defaults to a constant 1. [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.InvertRangeScaling]] reverses the direction.
 
 ## HitEffectsScaleOverRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the scale of all hit effects, interpolated from Min to Max as the beam's current length goes from 0 to full range. The vanilla ion beam uses `[1, 80%]` to deal reduced damage at long range. Defaults to a constant 1.
 
 ## ValueOverRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the value this emitter reports to other components (for example through a `MultiValue`), interpolated from Min to Max as the beam's current length goes from 0 to full range. Defaults to a constant 1.
 
 ## MediaEffectsScaleOverRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the intensity of the beam's media effects, interpolated from Min to Max as the beam's current length goes from 0 to full range. Defaults to a constant 1.
 
 ## ResourceUsageScaleOverRampUp
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the emitter's resource usage, interpolated from Min to Max as the beam ramps up over [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.RampUpTime]]. Defaults to `[0, 1]`.
 
 ## HitEffectsScaleOverRampUp
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the scale of all hit effects, interpolated from Min to Max as the beam ramps up over [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.RampUpTime]]. Defaults to `[0, 1]`, so damage fades in during ramp-up.
 
 ## ValueOverRampUp
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the value this emitter reports to other components, interpolated from Min to Max as the beam ramps up over [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.RampUpTime]]. Defaults to `[0, 1]`.
 
 ## MediaEffectsScaleOverRampUp
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the intensity of the beam's media effects, interpolated from Min to Max as the beam ramps up over [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.RampUpTime]]. Defaults to `[0, 1]`, so the visuals fade in during ramp-up.
 
 ## InvertRangeScaling
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Reverses the interpolation of the four OverRange scaling fields, so their Min applies at full beam length and their Max at zero length.
 
 ## EffectsScaleFactor
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A value component on the same part whose current value is used as the beam's effect scale, feeding every modifiable with an `EffectScaleExponent` such as hit damage, spread, and media effect intensity. The vanilla ion beam prism points this at its stored ion energy so beam power tracks accumulated energy.
 
 ## ValueScaleFactor
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A value component on the same part whose current value multiplies the value this emitter reports to other components, together with [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.ValueOverRange]] and [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.ValueOverRampUp]].
 
 ## UpdateScaleFactorsPerEmit
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.EffectsScaleFactor]] and [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.ValueScaleFactor]] are sampled only at the moment the beam emits. When false, the default, they are re-read every tick while a continuous beam is firing.
 
 ## RampUpTime
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds for the beam to ramp up to full strength after it starts firing. While ramping, the four OverRampUp scaling fields interpolate from their Min to their Max. At 0, the default, the beam is always at full ramp-up.
 
 ## RequireHitForRampUp
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Makes ramp-up count only time spent actually hitting something. The ramp starts at the first hit and drains back down over the same time span once the beam stops hitting, as used by the vanilla tractor beam.
 
 ## InitHitLengthResetDelay
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds after the beam loses its hit during which its initial hit length is remembered and the emission is kept alive, letting the beam re-acquire the target. While remembered, [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.StretchRange]] continues to apply.
 
 ## BeamMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+The media effects that render the beam itself, played continuously while a continuous beam is on or as a one-shot for instantaneous beams. Their beam length parameter follows the beam's actual length plus [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.BeamMediaEffectsLengthOffset]].
 
 ## BeamMediaEffectsOffset
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The offset, in tiles relative to the anchoring component, at which [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.BeamMediaEffects]] are attached. The vanilla manipulator beam uses this to start the visual at its muzzle.
 
 ## BeamMediaEffectsIntensity
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the intensity of the beam, start, and end media effects, on top of [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.MediaEffectsScaleOverRange]] and [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.MediaEffectsScaleOverRampUp]].
 
 ## AttachBeamMediaEffectsTo
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A component on the same part that the beam media effects anchor to instead of the emitter itself. The vanilla ion beam prism attaches them to its interpolated turret so the visual follows the turret's rendered rotation.
 
 ## ColorRed
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The red channel of a tint applied to all of the beam's media effects. Channels left unset default to 1, and setting any of the four channels enables the custom tint. Being modifiable, it can be driven by buffs, as the vanilla resonance beam does with its thermal buffs.
 
 ## ColorGreen
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The green channel of the beam's media effect tint. See [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.ColorRed]].
 
 ## ColorBlue
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The blue channel of the beam's media effect tint. See [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.ColorRed]].
 
 ## ColorAlpha
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The alpha channel of the beam's media effect tint. See [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.ColorRed]].
 
 ## BeamMediaEffectsLengthOffset
 `float` · optional
 
-<!-- TODO: needs documentation -->
+A distance, in tiles, added to the beam's actual length when setting the visual beam length. Negative values shorten the visual, as the vanilla manipulator beam does to compensate for its muzzle offset.
 
 ## Spread
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+A random angular deviation added to the beam's aim direction, rolled between Min and Max each time the beam updates. Angles are written with a `d` suffix for degrees, for example `[-1.5d, 1.5d]`.
 
 ## PelletSpread
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+An extra angular deviation applied per pellet when [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.Pellets]] emits more than one, rolled between Min and Max for each pellet. With [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.EvenPelletSpread]] the pellets are spaced across the range instead.
 
 ## EvenPelletSpread
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Spaces the pellets evenly across the [[Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules.PelletSpread]] range instead of rolling each pellet's angle at random.
 
 ## StartMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played when a continuous beam starts emitting, such as the vanilla tractor beam's start sound.
 
 ## EndMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played when a continuous beam stops emitting.

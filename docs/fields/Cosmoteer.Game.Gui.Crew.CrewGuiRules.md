@@ -10,354 +10,354 @@
 ## SelectCrewCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while the crew selection tool is active. Replaced by [[Cosmoteer.Game.Gui.Crew.CrewGuiRules.AssignToSquadCursor]] when hovering a crew quarters the selected crew can be assigned to.
 
 ## AssignToSquadCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown when hovering a crew quarters that the currently selected crew have a path to, indicating that clicking will assign them to that quarters.
 
 ## SetCrewRoleCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while a role is selected in the crew toolbox and clicking a crew quarters will assign that role to it.
 
 ## TargetToolCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while the squad target tool is active. Replaced by [[Cosmoteer.Game.Gui.Crew.CrewGuiRules.TargetToolSelectionCursor]] once one or more crew quarters are selected.
 
 ## TargetToolSelectionCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown in the squad target tool while crew quarters are selected, indicating that clicking a valid part will add or remove it as a supply target of those quarters.
 
 ## ToolIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the button in the ship toolbar that opens the crew management toolbox.
 
 ## RosterIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the crew toolbox button that opens the roster window listing the ship's crew.
 
 ## SelectCrewIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the crew selection tool button in the crew toolbox.
 
 ## TargetToolOffIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the squad target tool's toggle button while the tool is inactive. Swapped for [[Cosmoteer.Game.Gui.Crew.CrewGuiRules.TargetToolOnIcon]] when the tool is selected.
 
 ## TargetToolOnIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the squad target tool's toggle button while the tool is active.
 
 ## ClearSquadTargetsIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the context button that clears all supply targets of the selected crew quarters in the squad target tool. Drawn with the disabled icon shader while none of the selected quarters have targets.
 
 ## TransferCrewIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the crew entry in the crew and resource transfer window.
 
 ## CrewSelectionOutlineSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite used to draw the four edges of the drag-selection rectangle when selecting crew or squads. Its color is multiplied by the current player color.
 
 ## CrewSelectionFillSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite that fills the inside of the drag-selection rectangle. Its color is multiplied by the current player color.
 
 ## CrewSelectSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when crew are selected, either by drag-selecting or with the select-all hotkey.
 
 ## AssignToSquadSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when the selected crew are assigned to a crew quarters.
 
 ## ChangeRoleColorSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when a role color change is committed in the role editor, and when a color change is undone or redone.
 
 ## SetCrewRoleSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when clicking a crew quarters assigns the selected role to it, and when a role assignment is undone or redone.
 
 ## SquadSelectSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when crew quarters are selected with the squad target tool.
 
 ## SquadDeselectSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when crew quarters are deselected in the squad target tool.
 
 ## AddSquadTargetSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when a supply target is added to the selected crew quarters.
 
 ## RemoveSquadTargetSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when a supply target is removed from the selected crew quarters. Also used as the fallback sound for other undo and redo steps in the crew toolbox.
 
 ## TentativeCrewCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Circle drawn around crew inside the drag-selection rectangle that would be selected on release. Tinted with the current player color.
 
 ## SelectedCrewCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Circle drawn around each currently selected crew member. Tinted with the current player color.
 
 ## SquadCrewCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Circle drawn around the crew assigned to the quarters under the cursor while assigning a role, when the quarters does not already have that role.
 
 ## SquadCrewDimCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Dimmed circle used in place of [[Cosmoteer.Game.Gui.Crew.CrewGuiRules.SquadCrewCircle]] when the hovered quarters already has the role being assigned.
 
 ## TentativeCrewLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line drawn from a tentatively selected crew member to their home quarters when crew homes are shown.
 
 ## SelectedCrewLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line drawn from a selected crew member to their home quarters when crew homes are shown.
 
 ## SquadCrewLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line drawn from each assigned crew member to the quarters under the cursor while assigning a role, when the quarters does not already have that role.
 
 ## SquadCrewDimLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Dimmed line used in place of [[Cosmoteer.Game.Gui.Crew.CrewGuiRules.SquadCrewLine]] when the hovered quarters already has the role being assigned.
 
 ## TentativeSquadNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Border drawn around the home quarters of tentatively selected crew, and around the quarters under the cursor that the selected crew could be assigned to.
 
 ## SelectedSquadNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Border drawn around the home quarters of the selected crew when crew homes are shown.
 
 ## TentativeCrewPathLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line traced along the walking path of tentatively selected crew when crew paths are shown.
 
 ## SelectedCrewPathLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line traced along the walking path of selected crew when crew paths are shown.
 
 ## CrewPathLineUSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed at which the texture of crew path lines scrolls along the line, in texture units per second. Produces the marching animation on [[Cosmoteer.Game.Gui.Crew.CrewGuiRules.TentativeCrewPathLine]] and [[Cosmoteer.Game.Gui.Crew.CrewGuiRules.SelectedCrewPathLine]].
 
 ## RoleSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Generic role icon used for the role buttons in the crew toolbox and for the color preview in the role editor. Tinted with the role's color.
 
 ## RoleCursorSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite drawn next to the mouse cursor while assigning a role to crew quarters. Tinted with the role's color.
 
 ## RoleDragLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Vertical line drawn between role buttons to show the insertion position while dragging a role to reorder it.
 
 ## PriorityDisableSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the disable option (priority 0) of a job's priority row in the role editor.
 
 ## MirrorLine
 `MirrorLineRules` · required
 
-<!-- TODO: needs documentation -->
+Appearance settings for the draggable mirror centerline shown over the ship when mirror mode is enabled in the crew toolbox.
 
 ## MirrorOffSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the mirror mode toggle button while mirroring is disabled. Swapped for [[Cosmoteer.Game.Gui.Crew.CrewGuiRules.MirrorOnSprite]] when enabled.
 
 ## MirrorOnSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the mirror mode toggle button while mirroring is enabled.
 
 ## CrewHighlightDimColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplied over the ship view to dim it while the crew toolbox highlights crew and their quarters. Highlighted crew and parts are excluded from the dimming.
 
 ## CrewHighlightSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite drawn over each assigned crew member to exclude them from the dimming overlay while the crew selection tool is active. When a role is hovered in the toolbox, only that role's crew are highlighted.
 
 ## PartHighlightNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Rectangle drawn over each crew quarters to exclude it from the dimming overlay. When a role is hovered in the toolbox, only that role's quarters are highlighted.
 
 ## PartHighlightTweenTime
 `float` · required
 
-<!-- TODO: needs documentation -->
+Seconds it takes a part's highlight in the squad target tool's dimming overlay to fade in or out.
 
 ## SelectedPartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Border drawn around each selected crew quarters in the squad target tool.
 
 ## SelectedMirroredPartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Border drawn around the mirrored counterparts of the selected crew quarters when mirror mode is enabled.
 
 ## TentativePartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Border drawn around crew quarters inside the drag-selection rectangle that would be selected on release in the squad target tool.
 
 ## TentativeMirroredPartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Border drawn around the mirrored counterparts of tentatively selected crew quarters when mirror mode is enabled.
 
 ## TentativeTargetNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Border drawn around the targetable part under the cursor, and its mirrors, while crew quarters are selected in the squad target tool.
 
 ## SetCrewRoleNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Border drawn around the crew quarters under the cursor while assigning a role, when the quarters does not already have that role.
 
 ## AlreadySetCrewRoleNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Border used in place of [[Cosmoteer.Game.Gui.Crew.CrewGuiRules.SetCrewRoleNineSlice]] when the hovered quarters already has the role being assigned.
 
 ## RandomizeCrewIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon of the button in the crew editor that randomizes the crew member's name and appearance.
 
 ## FavoriteSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on crew members marked as favorites in the roster window and the crew editor.
 
 ## FavoriteUnderlaySprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite drawn in the world beneath each favorite crew member while the crew selection tool is active.
 
 ## TargetLineDim
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Dimmed style for the supply target lines of quarters that are not selected while other quarters are selected in the squad target tool. Only drawn when showing unselected crew assignments is enabled.
 
 ## TargetLineFull
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Full-strength style for the supply target lines of quarters that are neither selected nor under the cursor while no quarters are selected. Only drawn when showing unselected crew assignments is enabled.
 
 ## TargetLineSelected
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Style for the supply target lines of the selected or hovered quarters in the squad target tool. Also used for the lines of quarters whose role is hovered in the toolbox.
 
 ## TentativeTargetLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line drawn from each selected quarters to the targetable part under the cursor before it is added as a supply target.
 
 ## TargetLineUSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed at which the texture of supply target lines scrolls along the line, in texture units per second. Produces the marching animation.
 
 ## CrewOverlayIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Crew icon drawn over each crew quarters and targetable part in the squad target tool. Tinted with the source or target overlay colors depending on the part's state.
 
 ## CrewOverlayIconBackgroundSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Backing sprite drawn behind [[Cosmoteer.Game.Gui.Crew.CrewGuiRules.CrewOverlayIcon]]. Its size also determines the drawn size of the icon overlay.
 
 ## SourceOverlayDimColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Tint of the crew overlay icon on crew quarters that are neither selected nor hovered while other quarters are selected in the squad target tool.
 
 ## SourceOverlayPulsingColorRange
 `range<Color>` · required
 
-<!-- TODO: needs documentation -->
+Color range the crew overlay icon on crew quarters pulses between while no quarters are selected in the squad target tool.
 
 ## SourceOverlayPulseInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds for one full pulse cycle between the colors of [[Cosmoteer.Game.Gui.Crew.CrewGuiRules.SourceOverlayPulsingColorRange]].
 
 ## SourceOverlaySelectedColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Tint of the crew overlay icon on crew quarters that are selected, under the cursor, or belong to the role hovered in the toolbox.
 
 ## TargetOverlayDimColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Tint of the crew overlay icon on targetable parts while no crew quarters are selected in the squad target tool.
 
 ## TargetOverlayPulsingColorRange
 `range<Color>` · required
 
-<!-- TODO: needs documentation -->
+Color range the crew overlay icon pulses between on parts that the selected quarters could target but do not target yet.
 
 ## TargetOverlayPulseInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds for one full pulse cycle between the colors of [[Cosmoteer.Game.Gui.Crew.CrewGuiRules.TargetOverlayPulsingColorRange]].
 
 ## TargetOverlaySelectedColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Tint of the crew overlay icon on parts that are already targeted by the selected or highlighted quarters.

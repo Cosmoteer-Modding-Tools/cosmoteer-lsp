@@ -10,239 +10,239 @@
 ## LogIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the career HUD button that opens the log window and on that window's mission log tab.
 
 ## ReputationIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the reputation tab of the career log window. Also marks the fame bar inside that tab.
 
 ## TrackedIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon marking missions that are currently tracked. Shown next to tracked missions in the HUD list and on the untrack buttons in the mission log.
 
 ## UntrackedIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the track buttons of missions that are not currently tracked in the mission log.
 
 ## NewMissionSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Played together with the on-screen New Mission banner when the player receives a mission.
 
 ## MissionCompletedSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Played together with the on-screen Mission Complete banner when a mission is finished.
 
 ## MissionFailedSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Played together with the on-screen Mission Failed banner when a mission fails.
 
 ## FameLevelUpSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Played together with the on-screen banner when the player's fame reaches a new level.
 
 ## GoToMissionSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Played when clicking a mission's location link in the missions panel or an objective, which jumps the view to the mission target.
 
 ## ReputationLevelUpSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Played together with the on-screen banner when reputation with a faction rises to a higher level.
 
 ## ReputationLevelDownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Played together with the on-screen banner when reputation with a faction drops to a lower level.
 
 ## NewMissionColorAnim
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes for the New Mission headline shown at the top center of the screen. Each entry pairs a time in seconds from the start of the animation with the color the label tweens to, and the banner is removed after the last keyframe.
 
 ## NewMissionNameColorAnim
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes for the mission name line shown below the New Mission headline. Uses the same seconds-and-color keyframe format as [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.NewMissionColorAnim]].
 
 ## MissionCompletedColorAnimIn
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes that fade in the Mission Complete headline. The matching fade-out is [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.MissionCompletedColorAnimOut]].
 
 ## MissionCompletedNameColorAnimIn
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes that fade in the mission name line below the Mission Complete headline.
 
 ## MissionCompletedFirstRewardAnimDelayIn
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds after the Mission Complete headline appears before the first reward line starts animating in.
 
 ## MissionCompletedAdditionalRewardAnimDelayIn
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds between each further reward line starting to animate in after the first.
 
 ## MissionCompletedRewardColorAnimIn
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes that fade in each reward line of the Mission Complete banner.
 
 ## MissionCompletedRewardTickDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds a reward line takes to count its displayed value up from zero to the full reward amount.
 
 ## MissionCompletedDelayAfterLastReward
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds the completed banner holds after the last reward line has appeared before the fade-out animations begin.
 
 ## MissionCompletedColorAnimOut
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes that fade out the Mission Complete headline once [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.MissionCompletedDelayAfterLastReward]] has elapsed.
 
 ## MissionCompletedNameColorAnimOut
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes that fade out the mission name line of the Mission Complete banner.
 
 ## MissionCompletedFirstRewardAnimDelayOut
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds into the fade-out phase before the first reward line starts fading out.
 
 ## MissionCompletedAdditionalRewardAnimDelayOut
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds between each further reward line starting to fade out after the first.
 
 ## MissionCompletedRewardColorAnimOut
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes that fade out each reward line of the Mission Complete banner.
 
 ## MissionFailedColorAnim
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes for the Mission Failed headline, covering both fade-in and fade-out in one sequence. Uses the same seconds-and-color keyframe format as [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.NewMissionColorAnim]].
 
 ## MissionFailedNameColorAnim
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes for the mission name line shown below the Mission Failed headline.
 
 ## FameLevelUpColorAnim
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes for the Fame Level Up headline shown when the player's fame reaches a new level.
 
 ## FameLevelUpNameColorAnim
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes for the new fame title line shown below the Fame Level Up headline.
 
 ## ReputationLevelUpColorAnim
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes for the Reputation Level Up headline shown when reputation with a faction rises to a higher level.
 
 ## FameLevelUpCrewColorAnim
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes for the crew gained line of the fame banner. That line only appears when the new fame level raises the player's crew capacity.
 
 ## FameLevelUpCrewAnimDelayIn
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds after the Fame Level Up banner appears before the crew gained line starts animating.
 
 ## ReputationLevelUpNameColorAnim
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes for the faction and title line shown below the Reputation Level Up headline.
 
 ## ReputationLevelDownColorAnim
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes for the Reputation Level Down headline shown when reputation with a faction drops to a lower level.
 
 ## ReputationLevelDownNameColorAnim
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes for the faction and title line shown below the Reputation Level Down headline.
 
 ## MaxTrackedMissions
 `int` · required
 
-<!-- TODO: needs documentation -->
+The most missions the player can have tracked at the same time. Trying to track more shows a dialog, and the value also caps the Show Nearby Missions choices in the gameplay settings.
 
 ## TrackedMissionLandmarkIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon drawn over the HUD indicator of a ship or stasis landmark that is the target of a tracked mission. [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.UntrackedMissionLandmarkIcon]] is used instead when the mission is not tracked.
 
 ## TrackedMissionLandmarkIconOffset
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Offset in GUI pixels from the center of the target's HUD indicator to where [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.TrackedMissionLandmarkIcon]] is drawn. Negative Y moves the icon up.
 
 ## TrackedMissionPOIIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon drawn over the HUD indicator of a point of interest that is the target of a tracked mission. [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.UntrackedMissionPOIIcon]] is used instead when the mission is not tracked.
 
 ## TrackedMissionPOIIconOffset
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Offset in GUI pixels from the center of the point of interest's HUD indicator to where [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.TrackedMissionPOIIcon]] is drawn. Negative Y moves the icon up.
 
 ## TrackedMissionNodeIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon drawn on a galaxy map node that a tracked mission points to. [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.UntrackedMissionNodeIcon]] is used instead when the mission is not tracked.
 
 ## TrackedMissionNodeIconOffset
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Offset from the map node's center to where [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.TrackedMissionNodeIcon]] is drawn, in galaxy map coordinates. The offset is multiplied by the same scale as the icon itself.
 
 ## UntrackedMissionLandmarkIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon drawn over the HUD indicator of a ship or stasis landmark that is the target of an untracked mission. Tracked missions use [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.TrackedMissionLandmarkIcon]] instead.
 
 ## UntrackedMissionLandmarkIconOffset
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Offset in GUI pixels from the center of the target's HUD indicator to where [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.UntrackedMissionLandmarkIcon]] is drawn. Negative Y moves the icon up.
 
 ## UntrackedMissionPOIIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon drawn over the HUD indicator of a point of interest that is the target of an untracked mission. Tracked missions use [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.TrackedMissionPOIIcon]] instead.
 
 ## UntrackedMissionPOIIconOffset
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Offset in GUI pixels from the center of the point of interest's HUD indicator to where [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.UntrackedMissionPOIIcon]] is drawn. Negative Y moves the icon up.
 
 ## UntrackedMissionNodeIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon drawn on a galaxy map node that an untracked mission points to. Tracked missions use [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.TrackedMissionNodeIcon]] instead.
 
 ## UntrackedMissionNodeIconOffset
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Offset from the map node's center to where [[Cosmoteer.Modes.Career.Missions.MissionsGuiRules.UntrackedMissionNodeIcon]] is drawn, in galaxy map coordinates. The offset is multiplied by the same scale as the icon itself.

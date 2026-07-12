@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { tmpdir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -16,6 +16,9 @@ import { buildShaderPreview } from '../../../src/features/shader/shader-preview.
 import { globalSettings } from '../../../src/settings';
 import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
+import { MemberInjectionIndex } from '../../../src/mod/member-injection.index';
+import { clearModRootCache } from '../../../src/mod/mod-root';
+import { invalidateModContext } from '../../../src/mod/mod-context';
 
 const token = CancellationToken.None;
 
@@ -247,6 +250,56 @@ describe('reverse-include rooting', () => {
             ReverseIncludeIndex.instance.reset();
             aliasRootIndex.invalidate();
             rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    // A mod that defines shared munitions in a fragment file and inherits them into components through
+    // its cosmoteer.rules convenience globals (`BeamEmitter : &/SHOTS/Alias/Group`). The base carries
+    // no `<file>` ref, so only the full navigator finds where it lands. The base group then roots to
+    // the deriver's class, even though its own legacy `Type = Beam` matches a different registry.
+    it('roots an inheritance base reached through a mod convenience-global super-path', async () => {
+        await initWorkspace();
+        globalSettings.cosmoteerPath = WORKSPACE_DATA_DIR;
+        const modDir = mkdtempSync(join(tmpdir(), 'revinc-superbase-'));
+        try {
+            // The real-mod shape: the manifest adds the global onto the game root, the global aliases
+            // the shots fragment file, and a part component inherits a shot through the global.
+            writeFileSync(
+                join(modDir, 'mod.rules'),
+                'ID = test.superbase\nActions\n[\n\t{\n\t\tAction = Add\n\t\tAddTo = "<cosmoteer.rules>"\n\t\tName = SW_SHOTS\n\t\tToAdd = &<mod-shots.rules>\n\t}\n]\n'
+            );
+            writeFileSync(join(modDir, 'mod-shots.rules'), 'MyBeam = &<shots/beam.rules>\n');
+            mkdirSync(join(modDir, 'shots'));
+            const beamText = 'Siege_Beam\n{\n\tType = Beam\n\tDuration = 5\n\tHitInterval = .1\n}\n';
+            writeFileSync(join(modDir, 'shots', 'beam.rules'), beamText);
+            writeFileSync(
+                join(modDir, 'part.rules'),
+                'Part\n{\n\tComponents\n\t{\n\t\tBeamEmitter : &/SW_SHOTS/MyBeam/Siege_Beam\n\t\t{\n\t\t\tType = BeamEmitter\n\t\t}\n\t}\n}\n'
+            );
+
+            clearModRootCache();
+            invalidateModContext();
+            MemberInjectionIndex.instance.reset();
+            await MemberInjectionIndex.instance.ensureBuilt([WORKSPACE_DATA_DIR, modDir], token);
+            ReverseIncludeIndex.instance.reset();
+            await ReverseIncludeIndex.instance.ensureBuilt([modDir], token);
+
+            const beamPath = join(modDir, 'shots', 'beam.rules');
+            const beamUri = pathToFileURL(beamPath).href;
+            expect(ReverseIncludeIndex.instance.inheritanceBaseMembers(beamUri)).toContain('Siege_Beam');
+            expect(ReverseIncludeIndex.instance.inheritanceDeriverClasses(beamUri, 'Siege_Beam')).toContain(
+                'Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules'
+            );
+            const doc = parser(lexer(beamText), beamUri).value;
+            const group = findEnclosingGroup(doc, beamText.indexOf('Duration'));
+            expect(group?.identifier?.name).toBe('Siege_Beam');
+            expect(resolveGroupClass(group!)).toBe('Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules');
+        } finally {
+            ReverseIncludeIndex.instance.reset();
+            MemberInjectionIndex.instance.reset();
+            clearModRootCache();
+            invalidateModContext();
+            rmSync(modDir, { recursive: true, force: true });
         }
     });
 

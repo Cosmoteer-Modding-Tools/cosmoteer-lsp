@@ -79,6 +79,19 @@ export interface CosmoteerSettings {
         // itself should turn this on.
         allowEditingVanillaFiles: boolean;
     };
+    decompiler: {
+        // When true, a schema hover ends with an "Open <Class> in decompiler" link that opens the
+        // owning C# class in the user's .NET decompiler (ILSpy or dotPeek). Off by default: it is
+        // a power-user feature that needs a decompiler installed, and the link is noise for
+        // everyone else.
+        showInHover: boolean;
+        // Explicit path to the decompiler executable. Empty (the default) means auto-detect:
+        // the PATH plus the usual ILSpy / dotPeek install locations per OS are searched.
+        executablePath: string;
+        // Which command-line style to launch with. 'auto' infers ILSpy or dotPeek from the
+        // executable's file name and is right for both standard installs.
+        tool: 'auto' | 'ilspy' | 'dotpeek';
+    };
     formatting: {
         // Master switch for document formatting (Format Document on `.rules` and `.shader` files).
         // On by default; turning it off makes the server return no formatting edits.
@@ -116,6 +129,11 @@ export const defaultSettings: CosmoteerSettings = {
     },
     rename: {
         allowEditingVanillaFiles: false,
+    },
+    decompiler: {
+        showInHover: false,
+        executablePath: '',
+        tool: 'auto',
     },
     formatting: {
         enabled: true,

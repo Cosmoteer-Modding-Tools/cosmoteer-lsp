@@ -10,429 +10,429 @@
 ## ToolIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the ship HUD mode button that opens the resource management tools.
 
 ## GrabToolIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the resources toolbox button that activates the grab tool for picking up and moving resources between storage tiles.
 
 ## ClearToolIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the resources toolbox button that activates the tool for clearing a storage tile's assigned resource type.
 
 ## SupplyChainToolOffIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the supply-chain toolbox button while the supply-chain tool is inactive. Swapped for [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplyChainToolOnIcon]] when the tool is selected.
 
 ## SupplyChainToolOnIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the supply-chain toolbox button while the supply-chain tool is active. Replaces [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplyChainToolOffIcon]] when the tool is selected.
 
 ## MirrorLine
 `MirrorLineRules` · required
 
-<!-- TODO: needs documentation -->
+Appearance of the mirror centerlines and their drag handles that define the symmetry axes for mirrored resource placement. Shown while the mirror toggle ([[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.MirrorOnSprite]]) is enabled.
 
 ## MirrorOffSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the mirror toggle button while mirrored resource placement is off. Paired with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.MirrorOnSprite]].
 
 ## MirrorOnSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown on the mirror toggle button while mirrored resource placement is on. Paired with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.MirrorOffSprite]].
 
 ## StorageHighlightDimColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Semi-transparent color painted over the whole ship except storage tiles and highlighted resource nuggets while the resources tool or supply-chain tool is active, darkening everything outside the areas of interest.
 
 ## StorageHighlightNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Border drawn around each storage grid that has no consumption or supply toggle state, tinted each frame by [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.StorageHighlightColorLerpRange]]. Grids with a toggle state use the consumption or supply nine-slices instead.
 
 ## StorageHighlightConsumptionOnNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Border drawn around a storage grid whose part currently has resource consumption enabled while the resources tool is active. Paired with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.StorageHighlightConsumptionOffNineSlice]].
 
 ## StorageHighlightConsumptionOffNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Border drawn around a storage grid whose part currently has resource consumption disabled. The off counterpart to [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.StorageHighlightConsumptionOnNineSlice]].
 
 ## StorageHighlightSupplyOnNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Border drawn around a storage grid that has automatic supply enabled and no consumption state. Paired with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.StorageHighlightSupplyOffNineSlice]].
 
 ## StorageHighlightSupplyOffNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Border drawn around a storage grid that has automatic supply disabled and no consumption state. The off counterpart to [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.StorageHighlightSupplyOnNineSlice]].
 
 ## StorageHighlightColorLerpRange
 `range<Color>` · required
 
-<!-- TODO: needs documentation -->
+Two endpoint colors the storage grid borders ping-pong between, producing a subtle pulse. One full cycle takes [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.StorageHighlightColorLerpInterval]].
 
 ## StorageHighlightColorLerpInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds for one full ping-pong cycle of the storage grid border animation between the endpoints of [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.StorageHighlightColorLerpRange]]. Each grid gets a random phase offset so the boxes do not pulse in unison.
 
 ## TypedStorageGridInset
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance in tiles that a typed storage part's highlight rectangle is pulled inward from the outer edges of its tiles, so the resources overlay box sits inside the part footprint. Flex storages use [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.FlexStorageGridInset]].
 
 ## FlexStorageGridInset
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance in tiles that a flex storage part's highlight rectangle is pulled inward from the outer edges of its tiles. The flex counterpart to [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.TypedStorageGridInset]].
 
 ## NuggetHighlightCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Ring drawn around each loose resource nugget floating near the ship while the resources tool is active, excluding the nugget from the [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.StorageHighlightDimColor]] dimming.
 
 ## TileCountTextColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color of the per-tile resource count label drawn over storage tiles while the resource tools are active.
 
 ## TileCountTextFontSize
 `int` · required
 
-<!-- TODO: needs documentation -->
+Font size in pixels of the per-tile resource count label drawn over storage tiles.
 
 ## TileCountTextHAlignment
 `enum HAlignment` · required · one of: `Left`, `Center`, `Right`
 
-<!-- TODO: needs documentation -->
+Horizontal alignment of the per-tile resource count label relative to its anchor point, which is placed by [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.TileCountTextOffset]].
 
 ## TileCountTextVAlignment
 `enum VAlignment` · required · one of: `Top`, `Center`, `Bottom`
 
-<!-- TODO: needs documentation -->
+Vertical alignment of the per-tile resource count label relative to its anchor point, which is placed by [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.TileCountTextOffset]].
 
 ## TileCountTextOffset
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Offset in tiles from a storage tile's center to the anchor point of its resource count label. Rotated to follow the camera so the label stays fixed relative to the tile.
 
 ## TileCountIncreaseFmt
 `string` · required
 
-<!-- TODO: needs documentation -->
+Format string for the tile count label when resources are being added to a non-empty tile, where `{0}` is the current count and `{1}` is the amount being added. Supports inline XML color tags.
 
 ## TileCountDecreaseFmt
 `string` · required
 
-<!-- TODO: needs documentation -->
+Format string for the tile count label when resources are being removed, where `{0}` is the current count and `{1}` is the amount being removed. Supports inline XML color tags.
 
 ## TileCountZeroIncreaseFmt
 `string` · required
 
-<!-- TODO: needs documentation -->
+Format string for the tile count label when resources are being added to an empty tile, where `{0}` is the amount being added. Supports inline XML color tags.
 
 ## TileTypeOverlayUnselectedEmptyColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplying a storage tile's resource-type overlay icon in its dim default state, when the tile does not belong to the currently hovered or selected resource type.
 
 ## TileTypeOverlaySelectedPresentColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplying the overlay icon of a tile assigned to the currently hovered or selected resource type that already holds the correct resource.
 
 ## TileTypeOverlaySelectedEmptyColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplying the overlay icon of an empty tile assigned to the currently hovered or selected resource type.
 
 ## TileTypeOverlayIncorrectColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplying a tile's overlay icon when the resource actually stored in the tile does not match the tile's assigned resource type.
 
 ## TileTypeOverlayCursorColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplying the resource-type overlay icon drawn beside the cursor while the set-resource-type tool is active with a resource type selected.
 
 ## ResourceTransferLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line drawn from a resource transfer job's destination tile to its source for every scheduled transfer. Tinted by the four ResourceTransferLine colors depending on the source kind and whether the transfer's resource type is currently highlighted.
 
 ## ResourceTransferLineUnselectedSourceColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color of a [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ResourceTransferLine]] whose source is an on-ship storage and whose resource type is not the currently highlighted one. Paired with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ResourceTransferLineSelectedSourceColor]] for the highlighted case.
 
 ## ResourceTransferLineSelectedSourceColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color of a [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ResourceTransferLine]] whose source is an on-ship storage and whose resource type matches the currently highlighted one. Paired with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ResourceTransferLineUnselectedSourceColor]].
 
 ## ResourceTransferLineUnselectedCrewColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color of a [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ResourceTransferLine]] representing a crew-carried transfer or a floating nugget pickup whose resource type is not the currently highlighted one. Paired with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ResourceTransferLineSelectedCrewColor]].
 
 ## ResourceTransferLineSelectedCrewColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color of a [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ResourceTransferLine]] representing a crew-carried transfer or nugget pickup whose resource type matches the currently highlighted one. Paired with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ResourceTransferLineUnselectedCrewColor]].
 
 ## SetResourceTypeCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown by the set-resource-type tool while a resource type is selected to paint onto flex storage tiles. Replaced by [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ClearResourceTypeCursor]] when no type is selected.
 
 ## SetResourceTypeTileHoverSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite drawn over each flex storage tile that the set-resource-type tool would assign a type to. Replaced by [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ClearResourceTypeTileHoverSprite]] when clearing instead.
 
 ## ClearResourceTypeCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown by the set-resource-type tool when no resource type is selected, so clicking clears tile assignments. Replaces [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SetResourceTypeCursor]].
 
 ## ClearResourceTypeTileHoverSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite drawn over each flex storage tile whose resource type the set-resource-type tool would clear. Replaces [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SetResourceTypeTileHoverSprite]].
 
 ## SetResourceTypeSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when the set-resource-type tool assigns a resource type to one or more flex storage tiles. Paired with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ClearResourceTypeSound]] for clearing.
 
 ## ClearResourceTypeSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when the set-resource-type tool clears the resource type of one or more flex storage tiles. The counterpart to [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SetResourceTypeSound]].
 
 ## MoveResourcesPickUpCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown by the move-resources tool before a source tile is grabbed. Replaced by [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.MoveResourcesPutDownCursor]] once resources are held.
 
 ## MoveResourcesPutDownCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown by the move-resources tool while carrying resources to a destination tile. Replaces [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.MoveResourcesPickUpCursor]].
 
 ## MoveResourcesTileHoverPickUpSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite drawn over each valid source tile the move-resources tool can pick up from. Paired with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.MoveResourcesTileHoverPutDownSprite]] for destination tiles.
 
 ## MoveResourcesTileHoverPutDownSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite drawn over the held source tile and each valid destination tile while the move-resources tool carries resources. Replaces [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.MoveResourcesTileHoverPickUpSprite]].
 
 ## MoveResourcesCursorLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line drawn from the tile resources are carried from to the hovered destination tile or cursor while the move-resources tool drags resources. Its texture scrolls over time at [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.MoveResourcesCursorLineSpeed]].
 
 ## MoveResourcesCursorLineSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed in line-length units per second at which the texture of [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.MoveResourcesCursorLine]] scrolls along the line. Larger values scroll faster.
 
 ## PickUpResourcesSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when the move-resources tool picks resources up from a source tile. Paired with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.PutDownResourcesSound]] for dropping them off.
 
 ## PutDownResourcesSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when carried resources are dropped onto a destination tile. Also used by the crew and resource transfer window and the creative-mode place-resource action.
 
 ## EjectResourcesSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Image on the move-resources tool's eject button, which dumps the selected storage tile's resources out through a connected airlock.
 
 ## ConsumptionToggleButton
 `ToggledImageButton` · required
 
-<!-- TODO: needs documentation -->
+Appearance of the per-part button that toggles a consumer part's automatic resource delivery on and off. Its selected state shows the delivery-on image and its normal state the delivery-off image. See also [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplyToggleButton]].
 
 ## SupplyToggleButton
 `ToggledImageButton` · required
 
-<!-- TODO: needs documentation -->
+Appearance of the per-part button that toggles a storage part's automatic resource supply on and off. The supplier counterpart to [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ConsumptionToggleButton]].
 
 ## PartHighlightNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Mask drawn around each relevant part while the supply-chain tool is active, cutting those parts out of the screen-wide dimming from [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.StorageHighlightDimColor]] so they stay bright. Its per-part opacity fades over [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.PartHighlightTweenTime]].
 
 ## PartHighlightTweenTime
 `float` · required
 
-<!-- TODO: needs documentation -->
+Seconds over which a part's [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.PartHighlightNineSlice]] opacity fades fully in or out as parts enter and leave the highlighted set, controlling how quickly the dimming overlay reveals or re-covers them.
 
 ## SelectedPartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Outline drawn around each part the player has selected as a supplier in the supply-chain tool. Its mirror-symmetric counterparts use [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SelectedMirroredPartNineSlice]].
 
 ## SelectedMirroredPartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Outline drawn around the mirror-symmetric counterparts of selected supplier parts, showing which parts build-mirroring will also affect. Rendered dimmer than [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SelectedPartNineSlice]] in the vanilla data.
 
 ## TentativePartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Outline previewing parts that a pending drag-selection would add as suppliers, shown before the selection is confirmed. Their mirror counterparts use [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.TentativeMirroredPartNineSlice]].
 
 ## TentativeMirroredPartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Outline previewing the mirror-symmetric counterparts of parts a pending drag-selection would add as suppliers. Rendered dimmer than [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.TentativePartNineSlice]] in the vanilla data.
 
 ## TentativeTargetNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Outline drawn around the part under the cursor that would become a supply target if clicked. Colored to contrast with the supplier outlines [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.TentativePartNineSlice]] and [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SelectedPartNineSlice]].
 
 ## ProducerOverlayDimColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplied onto a producer part's resource icon when the part is shown but not actively highlighted in the supply-chain tool. Contrasted with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ProducerOverlayPulsingColorRange]] and [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ProducerOverlaySelectedColor]].
 
 ## ProducerOverlayPulsingColorRange
 `range<Color>` · required
 
-<!-- TODO: needs documentation -->
+Two colors a producer part's resource icon ping-pongs between through HSV space when highlighted in the supply-chain tool, cycling over [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ProducerOverlayPulseInterval]] seconds.
 
 ## ProducerOverlayPulseInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds for one full pulse cycle of [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ProducerOverlayPulsingColorRange]]. For producers handling multiple resource types it is also the seconds each type icon is shown before cross-fading to the next.
 
 ## ProducerOverlaySelectedColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplied onto a producer part's resource icon when that producer is the selected part in the supply-chain tool. Distinct from the dimmed [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ProducerOverlayDimColor]].
 
 ## ConsumerOverlayDimColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplied onto a consumer part's resource icon when the part is shown but not actively highlighted in the supply-chain tool. The consumer counterpart to [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ProducerOverlayDimColor]].
 
 ## ConsumerOverlayPulsingColorRange
 `range<Color>` · required
 
-<!-- TODO: needs documentation -->
+Two colors a consumer part's resource icon ping-pongs between through HSV space when highlighted in the supply-chain tool, cycling over [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ConsumerOverlayPulseInterval]] seconds.
 
 ## ConsumerOverlayPulseInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds for one full pulse cycle of [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ConsumerOverlayPulsingColorRange]]. For consumers handling multiple resource types it is also the seconds each type icon is shown before cross-fading to the next.
 
 ## ConsumerOverlaySelectedColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplied onto a consumer part's resource icon when that consumer is the selected part in the supply-chain tool. Distinct from the dimmed [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ConsumerOverlayDimColor]].
 
 ## OverlayBackgroundSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Backdrop drawn on each producer and consumer part beneath its resource-type icon in the supply-chain tool, darkening the part so the icon reads clearly.
 
 ## GenericTypeOverlay
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Fallback icon drawn on a producer or consumer part in the supply-chain tool when the part handles the generic stackable resource rather than a specific resource type with its own overlay sprite.
 
 ## ClearSupplyTargetsIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the context button that removes every supply target assigned to the currently selected supplier parts. Shown with the disabled shader when those parts have no targets.
 
 ## SupplierSelectionOutlineSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite drawing the border of the drag-selection rectangle in the supply-chain tool, tinted by the player color. Its interior is filled by [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplierSelectionFillSprite]].
 
 ## SupplierSelectionFillSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite filling the interior of the drag-selection rectangle in the supply-chain tool, tinted by the player color. Drawn behind the border from [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplierSelectionOutlineSprite]].
 
 ## SupplyLineDim
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line drawn for an existing supplier-to-target link whose producer is not part of the current selection while other parts are selected. Rendered faint to de-emphasize it against [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplyLineSelected]] links.
 
 ## SupplyLineFull
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line drawn at full opacity for an existing supplier-to-target link when no supplier is selected. The default appearance, contrasted with the faded [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplyLineDim]] used while a selection is active.
 
 ## SupplyLineSelected
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line drawn for a supplier-to-target link belonging to a selected or hovered supplier. Colored to stand out above [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplyLineDim]] and [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplyLineFull]].
 
 ## TentativeSupplyLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+Line previewing the supply link that would be created from each selected supplier to the target part under the cursor, shown before the click confirms it. Distinct from the committed [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplyLineSelected]].
 
 ## SupplyLineUSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Scroll rate of the supply lines' arrow texture along each line, making the arrows appear to flow from producer toward target. Higher values scroll the flow animation faster.
 
 ## SupplyChainToolCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Cursor shown while the supply-chain tool is active and no suppliers are selected. Replaced by [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplyChainToolSelectionCursor]] once suppliers are selected.
 
 ## SupplyChainToolSelectionCursor
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Cursor shown while supplier parts are selected in the supply-chain tool, signaling that clicking a part assigns or removes it as a supply target. Takes the place of [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplyChainToolCursor]].
 
 ## SupplierSelectSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when parts are added as selected suppliers in the supply-chain tool. Paired with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplierDeselectSound]] for removal.
 
 ## SupplierDeselectSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when selected supplier parts are removed from the selection in the supply-chain tool. The counterpart to [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplierSelectSound]].
 
 ## AddSupplyTargetSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when the player assigns one or more parts as supply targets for the selected suppliers. Paired with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.RemoveSupplyTargetSound]].
 
 ## RemoveSupplyTargetSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound played when the player removes supply targets from the selected suppliers. The counterpart to [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.AddSupplyTargetSound]].
 
 ## ResourceTransferProgressAnimationSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite drawn over a resource transfer widget while a transfer is in progress. Its shader animates in the direction resources are flowing based on the sign of the pending amount.

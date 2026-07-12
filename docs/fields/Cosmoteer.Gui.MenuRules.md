@@ -10,244 +10,244 @@
 ## MainMenuBackgrounds
 `MenuBackgroundRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The backdrops available behind the title screen, each with its own background style, light direction, and planet. The title screen shows one at a time and steps through this array when the player cycles backgrounds or when the cycle-background setting advances it on each game launch.
 
 ## CreditsBackground
 `MenuBackgroundRules` · required
 
-<!-- TODO: needs documentation -->
+The backdrop shown behind the credits screen. Only its background style is used, without a planet or logo ship.
 
 ## LogoShip
 `ShipFile` · required
 
-<!-- TODO: needs documentation -->
+The ship that flies in the title screen background, arriving and leaving with FTL jump animations. Vanilla points this at the ship carrying the game logo.
 
 ## MasterVolumeAdjustSound
 `asset (sound)` · required
 
-<!-- TODO: needs documentation -->
+Plays as feedback when the master volume slider in the audio settings changes, so the player hears the new level.
 
 ## EffectsVolumeAdjustSound
 `asset (sound)` · required
 
-<!-- TODO: needs documentation -->
+Plays through the effects audio group as feedback when the effects volume slider in the audio settings changes.
 
 ## InterfaceVolumeAdjustSound
 `asset (sound)` · required
 
-<!-- TODO: needs documentation -->
+Plays through the interface audio group as feedback when the interface volume slider in the audio settings changes.
 
 ## CountdownBeepSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays on each tick of the game-start countdown in the multiplayer setup screen and Build Battle.
 
 ## ChatMessageSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when a message arrives in the multiplayer chat box.
 
 ## LogoShipFlyInSound
 `ISoundEffect` · optional
 
-<!-- TODO: needs documentation -->
+Plays when the [[Cosmoteer.Gui.MenuRules.LogoShip]] jumps into the title screen background.
 
 ## LogoShipFlyOutSound
 `ISoundEffect` · optional
 
-<!-- TODO: needs documentation -->
+Plays when the [[Cosmoteer.Gui.MenuRules.LogoShip]] jumps out of the title screen background.
 
 ## MultiplayerJoinedSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when another player joins the multiplayer game setup lobby.
 
 ## MultiplayerLeftSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when a player leaves the multiplayer lobby or a game in progress.
 
 ## LogoShipFlyOutDelay
 `float` · required
 
-<!-- TODO: needs documentation -->
+Seconds between [[Cosmoteer.Gui.MenuRules.LogoShipFlyOutSound]] starting and the [[Cosmoteer.Gui.MenuRules.LogoShip]] actually jumping out. Vanilla uses 0.3.
 
 ## ShipColorSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The ship image shown on the color chooser buttons in the accessibility settings tab, where the player overrides the player, enemy, ally, and neutral ship colors.
 
 ## PlayerInGameSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown in the multiplayer player list next to players who are currently in a game.
 
 ## ContinueGameIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the title screen Continue button that loads the most recent save.
 
 ## NewGameIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the title screen New Game button.
 
 ## LoadGameIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the title screen Load Game button.
 
 ## MultiplayerIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the title screen Multiplayer button.
 
 ## ExitIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the title screen Exit button. Also reused for the unstash button in Build Battle.
 
 ## NewsIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the title screen News button.
 
 ## SettingsIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the Settings button of the title screen and multiplayer lobby screens.
 
 ## ModsIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the Mods button of the title screen and multiplayer lobby screens.
 
 ## ShipLibraryIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the Ship Library entry in the title screen menu. Also reused in the PvP scoreboard and Build Battle gui.
 
 ## CodexIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the Codex entry in the title screen menu.
 
 ## RoadmapIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the Roadmap entry in the title screen menu.
 
 ## CommunityIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the Community submenu in the title screen menu.
 
 ## FeedbackIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the title screen Feedback button.
 
 ## CreditsIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the title screen Credits button.
 
 ## DiscordIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the Discord entry in the title screen Community submenu.
 
 ## SteamIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the Steam entry in the title screen Community submenu.
 
 ## RedditIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the Reddit entry in the title screen Community submenu.
 
 ## BackIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the back button of the multiplayer lobby and game setup screens.
 
 ## OnlineIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the Online tab of the multiplayer lobby browser, which lists Steam lobbies.
 
 ## LanIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the LAN tab of the multiplayer lobby browser.
 
 ## DirectConnectIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the direct connect button of the multiplayer lobby browser.
 
 ## SearchIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon displayed inside text search fields throughout the gui.
 
 ## LockIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon marking password-protected games in the multiplayer game list.
 
 ## HostIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon marking the hosting player in the game setup screen and PvP scoreboard.
 
 ## AiIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon marking AI-controlled players in the game setup screen and PvP scoreboard.
 
 ## ObserverIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon marking observers in the PvP scoreboard.
 
 ## DisconnectedIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown in the PvP scoreboard for players who have left or disconnected from the game.
 
 ## WaitingIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown in the PvP scoreboard for players the game is currently waiting on.
 
 ## RefreshIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon on the refresh button of the Steam lobby list.
 
 ## InCommsIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown in the PvP scoreboard next to players who are currently in the comms menu.
 
 ## Spinner
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite used as the animated busy indicator wherever the gui shows a loading spinner. Rotates continuously at [[Cosmoteer.Gui.MenuRules.SpinnerSpeed]].
 
 ## SpinnerSpeed
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+Degrees per second the [[Cosmoteer.Gui.MenuRules.Spinner]] rotates. Vanilla uses 360, one full revolution per second.
 
 ## LatencyLevels
 `LatencyLevel[]` · optional
 
-<!-- TODO: needs documentation -->
+Thresholds mapping a player's measured latency to a connection quality icon in the multiplayer game list and scoreboard. Levels are checked in order, and the first whose `MaxLatency` in seconds is not exceeded supplies the sprite shown.
 
 ## LobbyNameGenerator
 `NameGenerator` · required
 
-<!-- TODO: needs documentation -->
+Generates the random code appended to Steam lobby names when hosting an online game. Vanilla produces a three character sequence of letters and digits.

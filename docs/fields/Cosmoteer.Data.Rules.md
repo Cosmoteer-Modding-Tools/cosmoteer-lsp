@@ -10,22 +10,22 @@
 ## EffectBuckets
 `MediaEffectBucketsRules` · required
 
-<!-- TODO: needs documentation -->
+Defines the named buckets that media effects render into, listed as `LowerBuckets`, `InteriorSurfaceBuckets`, `MiddleBuckets`, `SurfaceBuckets` and `UpperBuckets` in draw order. Media effects reference a bucket by name to control their render order.
 
 ## LitSpriteShader
 `asset (shader)` · required
 
-<!-- TODO: needs documentation -->
+The shader used to render sprites that are affected by simulation lighting. Lit bullet sprites use it unless they specify their own shader.
 
 ## SpriteNormalsShader
 `asset (shader)` · required
 
-<!-- TODO: needs documentation -->
+The shader used to render sprites' normal maps for lighting. Bullet sprites use it as their default normals shader.
 
 ## LightBufferShader
 `asset (shader)` · optional
 
-<!-- TODO: needs documentation -->
+The shader set while drawing lights into the simulation's light buffer during ship and scene rendering.
 
 ## IndicatorMaterial
 `Material` · required
@@ -35,169 +35,169 @@ The material used to render indicator sprites.
 ## Widgets
 `WidgetRules` · required
 
-<!-- TODO: needs documentation -->
+The templates and shared styling for the game's GUI widgets. Vanilla points this at `gui/widgets.rules`.
 
 ## Buffs
 `map<→ BuffType, BuffType>` · optional
 
-<!-- TODO: needs documentation -->
+The buff types available to the game, keyed by their ID. Parts refer to these IDs when providing or receiving buffs. Vanilla points this at `buffs/buffs.rules`.
 
 ## Statuses
 `StatusTypes` · required
 
-<!-- TODO: needs documentation -->
+The collection of ship status types together with data shared by all of them. Vanilla points this at `statuses/statuses.rules`.
 
 ## Resources
 `ResourceRules[]` · optional
 
-<!-- TODO: needs documentation -->
+All resource types in the game, each a [[Cosmoteer.Resources.ResourceRules]] entry. Resource IDs must be unique across the list. Vanilla points this at `resources/resources.rules`.
 
 ## FtlFuelResource
 `→ ResourceRules` · required
 
-<!-- TODO: needs documentation -->
+The ID of the resource used as FTL jump fuel. Its icon is inserted into texts that show FTL fuel amounts. Vanilla sets `hyperium`.
 
 ## Nuggets
 `NuggetRules` · required
 
-<!-- TODO: needs documentation -->
+Global rules for resource nuggets, including the `Rarities` table that [[Cosmoteer.Resources.ResourceRules.Rarity]] refers to.
 
 ## Nebulas
 `NebulaRules` · required
 
-<!-- TODO: needs documentation -->
+Rules that apply to all nebula types. Vanilla points this at `nebulas/nebulas.rules`.
 
 ## Ships
 `ShipRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The rule sets for each kind of ship in the game, referenced elsewhere by their IDs. Vanilla defines `Terran`, `Asteroid` and `Megaroid`.
 
 ## Doodads
 `DoodadRules[]` · optional
 
-<!-- TODO: needs documentation -->
+All doodad types that can appear in the simulation, referenced elsewhere by their IDs. Vanilla points this at `doodads/doodads.rules`.
 
 ## Factions
 `FactionRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The rule sets of all factions in the game, referenced elsewhere by their IDs. Vanilla points this at `factions/factions.rules`.
 
 ## BuiltInShipsFolder
 `string` · required
 
-<!-- TODO: needs documentation -->
+Path of the folder holding the game's built-in ship design files. It backs the Built-In ship library. Vanilla sets `builtin_ships`.
 
 ## Crew
 `CrewRules` · required
 
-<!-- TODO: needs documentation -->
+Global rules for ship crew, including suit types, jets and crew death effects. Vanilla points this at `crew/crew.rules`.
 
 ## Roles
 `RoleRules` · required
 
-<!-- TODO: needs documentation -->
+Rules about crew roles. Vanilla configures the default and new role colors and the allowed role color ranges here.
 
 ## Commands
 `CommandRules` · required
 
-<!-- TODO: needs documentation -->
+Rules governing ship commands. Vanilla points this at `commands/commands.rules`.
 
 ## Formations
 `BuiltInFormation[]` · optional
 
-<!-- TODO: needs documentation -->
+The fleet formations built into the game, as opposed to player-created ones. Each entry has a display name key and an icon.
 
 ## CustomFormations
 `CustomFormationSlotRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The slots available for player-created custom formations, one entry per slot.
 
 ## Game
 `GameRules` · required
 
-<!-- TODO: needs documentation -->
+General game-level rules. Vanilla configures the in-game GUI, the backgrounds, map transition timing and the maximum FTL fuel purchase here.
 
 ## Simulation
 `SimRules` · required
 
-<!-- TODO: needs documentation -->
+General simulation rules. Vanilla configures the simulation GUI, physics update rate, camera behavior, the build grid display and the selectable game speeds here.
 
 ## GalaxyMap
 `MapRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the galaxy map. Vanilla points this at `galaxy_map/galaxy_map.rules`.
 
 ## CareerMode
 `CareerModeRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the main career mode. Vanilla points this at `modes/career/career.rules`.
 
 ## CreativeMode
 `CreativeModeRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the creative mode. Vanilla points this at `modes/creative/creative.rules`.
 
 ## EliminationMode
 `EliminationModeRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the multiplayer elimination mode. Vanilla points this at `modes/pvp/pvp_elimination/pvp_elimination.rules`.
 
 ## ArenaMode
 `ArenaModeRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the multiplayer arena mode. Vanilla points this at `modes/pvp/pvp_arena/pvp_arena.rules`.
 
 ## DominationMode
 `DominationModeRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the multiplayer domination mode. Vanilla points this at `modes/pvp/pvp_domination/pvp_domination.rules`.
 
 ## BuildBattleMode
 `BuildBattleModeRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the multiplayer Build and Battle mode. Vanilla points this at `modes/pvp/pvp_buildbattle/pvp_buildbattle.rules`.
 
 ## Codex
 `CodexRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the game's codex. Vanilla points this at `codex/codex.rules`.
 
 ## ShipAIs
 `map<→ ShipAIRules, ShipAIRules>` · optional
 
-<!-- TODO: needs documentation -->
+The ship AI rule sets available to the game, keyed by their ID. Vanilla points this at `ai/ai.rules`.
 
 ## BuiltinShips
 `BuiltinShipsDatabase` · required
 
-<!-- TODO: needs documentation -->
+The database of built-in ships that can be spawned by the game. Vanilla points this at `builtin_ships/builtins.rules`.
 
 ## Planets
 `PlanetRules` · required
 
-<!-- TODO: needs documentation -->
+General rules for all planets. Vanilla points this at `planets/planets.rules`.
 
 ## Menus
 `MenuRules` · required
 
-<!-- TODO: needs documentation -->
+General rules for the game's menus. Vanilla points this at `gui/menus.rules`.
 
 ## TextSprites
 `map<string, TextSprite>` · optional
 
-<!-- TODO: needs documentation -->
+Named sprites registered with the text system at load. Each entry can then be inserted into any game text with `<img name='...'/>` markup, using the map key as the image name.
 
 ## PostShaders
 `PostShaderRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The full-screen post-processing shader options offered in the graphics settings. The first entry is used when no valid option is selected.
 
 ## Music
 `MusicRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the game's music. Vanilla points this at `music/music.rules`.
 
 ## DecalLayers
 `int` · required
 
-<!-- TODO: needs documentation -->
+The number of decal layers every ship has for painting. The paint toolbox lists one entry per layer. Vanilla uses `3`.

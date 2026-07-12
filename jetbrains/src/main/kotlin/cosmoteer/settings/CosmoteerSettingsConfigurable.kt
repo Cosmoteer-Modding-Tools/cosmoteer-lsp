@@ -113,6 +113,34 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                     .bindItem(state::traceServer.toNullableProperty())
             }
         }
+        group("Decompiler") {
+            row {
+                checkBox("End schema hovers with an 'Open in decompiler' link")
+                    .bindSelected(state::decompilerShowInHover)
+                    .comment(
+                        "Power user: the link opens the hovered field's owning C# class from the game's " +
+                        "assemblies in ILSpy or dotPeek. Installs are found automatically, so the path " +
+                        "below is only needed when that fails."
+                    )
+            }
+            row("Decompiler executable:") {
+                textFieldWithBrowseButton(
+                    // Single-file descriptor, built directly for the same deprecation reason as the
+                    // pickers above. Args: chooseFiles, chooseFolders, chooseJars, chooseJarsAsFiles,
+                    // chooseJarContents, chooseMultiple.
+                    FileChooserDescriptor(true, false, false, false, false, false)
+                        .withTitle("Select the Decompiler Executable")
+                )
+                    .align(AlignX.FILL)
+                    .bindText(state::decompilerExecutablePath)
+                    .comment("Leave empty to auto-detect ILSpy or dotPeek (PATH and the usual install locations).")
+            }
+            row("Command-line style:") {
+                comboBox(listOf("auto", "ilspy", "dotpeek"))
+                    .bindItem(state::decompilerTool.toNullableProperty())
+                    .comment("'auto' infers ILSpy or dotPeek from the executable's file name.")
+            }
+        }
     }
 
     override fun apply() {

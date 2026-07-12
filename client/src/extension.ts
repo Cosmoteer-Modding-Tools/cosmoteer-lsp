@@ -1,5 +1,16 @@
 import * as path from 'path';
-import { workspace, ExtensionContext, l10n, commands, languages, window, Position, Uri, TextDocument } from 'vscode';
+import {
+    workspace,
+    ExtensionContext,
+    l10n,
+    commands,
+    languages,
+    window,
+    Position,
+    Uri,
+    TextDocument,
+    MarkdownString,
+} from 'vscode';
 
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { ShaderPreviewCodeLensProvider } from './shader-preview/codelens';
@@ -54,6 +65,21 @@ export async function activate(context: ExtensionContext) {
             fileEvents: workspace.createFileSystemWatcher('**/.clientrc'),
         },
         progressOnInitialization: true,
+        middleware: {
+            // Server hovers can end with an "Open in decompiler" command link (opt-in via
+            // `decompiler.showInHover`). VS Code only executes command links from trusted
+            // markdown, and the protocol has no way to mark it, so trust exactly that one
+            // command here on the converted hover.
+            provideHover: async (document, position, token, next) => {
+                const hover = await next(document, position, token);
+                for (const content of hover?.contents ?? []) {
+                    if (content instanceof MarkdownString) {
+                        content.isTrusted = { enabledCommands: [OPEN_IN_DECOMPILER_COMMAND] };
+                    }
+                }
+                return hover;
+            },
+        },
     };
 
     claimShaderFiles(context);
@@ -104,6 +130,13 @@ export async function activate(context: ExtensionContext) {
 
     return client.start();
 }
+
+// The command id schema-hover "Open in decompiler" links invoke. The language client registers
+// the VS Code command itself from the server's `executeCommandProvider` capability and forwards
+// invocations to the server (which finds and spawns the decompiler), so the extension must not
+// register it too. This constant only feeds the `enabledCommands` trust list in the hover
+// middleware and must match the server's decompiler-link module.
+const OPEN_IN_DECOMPILER_COMMAND = 'cosmoteer.openInDecompiler';
 
 /**
  * Cosmoteer `.shader` files are HLSL, but VS Code's built-in ShaderLab support also claims the

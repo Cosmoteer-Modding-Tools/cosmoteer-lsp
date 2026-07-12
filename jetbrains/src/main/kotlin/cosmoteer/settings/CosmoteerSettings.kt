@@ -35,6 +35,9 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var inlayShowBaseValue: Boolean = true
         var allowEditingVanillaFiles: Boolean = false
         var formattingEnabled: Boolean = true
+        var decompilerShowInHover: Boolean = false
+        var decompilerExecutablePath: String = ""
+        var decompilerTool: String = "auto"
         /**
          * JetBrains-only, not sent to the server: whether LSP semantic tokens re-color the editor
          * on top of the TextMate highlighting. Off by default because the overlay re-applies
@@ -76,6 +79,11 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         ),
         "inlayHints" to mapOf("showBaseValue" to state.inlayShowBaseValue),
         "rename" to mapOf("allowEditingVanillaFiles" to state.allowEditingVanillaFiles),
+        "decompiler" to mapOf(
+            "showInHover" to state.decompilerShowInHover,
+            "executablePath" to state.decompilerExecutablePath,
+            "tool" to state.decompilerTool,
+        ),
         // Format-on-save is intentionally not exposed: LSP4IJ has no willSaveWaitUntil, JetBrains
         // users get the same behavior from Settings | Tools | Actions on Save | Reformat code.
         "formatting" to mapOf(

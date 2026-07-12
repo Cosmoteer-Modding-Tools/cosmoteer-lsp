@@ -18,6 +18,7 @@ import { commonAncestorClass } from '../../document/schema/schema';
 import { documentRootClass } from '../../document/schema/document-root';
 import { ValueType } from '../../document/schema/schema.types';
 import { aliasRootIndex, AliasMemberSource, parseAlias, registerAliasFallbackSource } from '../../document/schema/alias-root';
+import { resolveWithModContext } from '../../mod/mod-context';
 import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { FullNavigationStrategy } from './full.navigation-strategy';
 import { normalizeUri } from './reference-location';
@@ -504,23 +505,60 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         let deriverClass: string | undefined | null = null;
         for (const base of bases) {
             if (!isValueNode(base) || base.valueType.type !== 'Reference') continue;
-            const alias = parseAlias(String(base.valueType.value));
-            if (!alias) continue;
+            const raw = String(base.valueType.value);
+            const alias = parseAlias(raw);
+            // A super-path base (`Derived : &/GLOBALS/Alias/Member`) reaches its file through the mod's
+            // cosmoteer.rules convenience globals, so it carries no `<file>` for the cheap parse. Only
+            // the full navigator can find where it lands.
+            if (!alias && !/^&\s*\//.test(raw)) continue;
             if (deriverClass === null) deriverClass = isGroupNode(node) ? resolveGroupClass(node) : undefined;
             // A deriver whose class can't resolve (yet) still marks the target as an inheritance base,
             // recorded with a blank class. The rooting queries ignore blank entries, but the fact that
             // the file is derived from at all is what the component-reference validator's template
             // skip needs. The fixpoint retains the document, so a later pass can fill the class in.
             if (!deriverClass) state.sawAlias = true;
-            const target = await this.resolveTarget(base, alias.fileRef, cancellationToken);
-            if (!target) continue;
-            const member = alias.member ?? '';
+            const resolved = alias
+                ? { target: await this.resolveTarget(base, alias.fileRef, cancellationToken), member: alias.member ?? '' }
+                : await this.resolveSuperPathBase(raw, base, cancellationToken);
+            if (!resolved?.target) continue;
+            const { target, member } = resolved;
             const members =
                 this.inheritanceByTarget.get(target) ?? this.inheritanceByTarget.set(target, new Map()).get(target)!;
             const derivers = members.get(member) ?? members.set(member, new Map()).get(member)!;
             derivers.set(source, deriverClass ?? '');
             inherited.push({ target, member, deriverClass: deriverClass ?? '' });
         }
+    }
+
+    /**
+     * Resolves a super-path inheritance base (`&/GLOBALS/Alias/Member`) to the file and top-level
+     * group it lands on. Resolution goes through the mod-aware resolver, since these globals are
+     * typically the mod's own additions to the game root (`Add` actions targeting `cosmoteer.rules`)
+     * that plain navigation cannot see. The landing group's own file and name key the base record,
+     * exactly as a `<file>/Member` base would.
+     *
+     * @param raw the base reference as written, including the leading `&`.
+     * @param base the base's reference value node, the navigation origin.
+     * @param cancellationToken cancels the navigation.
+     * @returns the normalized target uri and member name, or undefined when the path does not land
+     *          on a named group or whole document.
+     */
+    private async resolveSuperPathBase(
+        raw: string,
+        base: AbstractNode,
+        cancellationToken: CancellationToken
+    ): Promise<{ target: string | undefined; member: string } | undefined> {
+        const resolved = await resolveWithModContext(raw, base, cancellationToken).catch(() => null);
+        if (!resolved) return undefined;
+        if (isFile(resolved as unknown as FileTree)) {
+            return { target: normalizeUri((resolved as FileWithPath).path), member: '' };
+        }
+        const node = resolved as AbstractNode;
+        if (isDocumentNode(node)) return { target: normalizeUri(node.uri), member: '' };
+        if (isGroupNode(node) && node.identifier && node.parent && isDocumentNode(node.parent)) {
+            return { target: normalizeUri(node.parent.uri), member: node.identifier.name };
+        }
+        return undefined;
     }
 
     /**

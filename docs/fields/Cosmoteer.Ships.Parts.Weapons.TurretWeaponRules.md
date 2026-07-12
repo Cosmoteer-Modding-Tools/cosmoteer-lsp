@@ -10,134 +10,134 @@
 ## FiringArc
 `number` · required
 
-<!-- TODO: needs documentation -->
+Total width, in degrees, of the arc the turret can rotate through, centered on its mount direction. `360d` lets it spin all the way around.
 
 ## TargetingRange
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Maximum distance, in tiles, at which the turret searches for new targets. Defaults to [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidRange]] if that is set, otherwise to the targeting emitter's range multiplied by the ship's [[Cosmoteer.Ships.ShipRules.DefaultTargetingRangeFactor]].
 
 ## TargetingArc
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Width, in degrees, of the arc within which the turret searches for new targets. Defaults to [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidArc]] if that is set, otherwise to [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.FiringArc]].
 
 ## ValidRange
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Maximum distance, in tiles, at which an acquired target remains valid to keep and fire at. Defaults to the targeting emitter's current range.
 
 ## ValidArc
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Width, in degrees, of the arc within which an acquired target remains valid to keep and fire at. Defaults to [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.FiringArc]], and missile launchers widen it to `360d` beyond their launch arc.
 
 ## RotateSpeed
 `number` · required
 
-<!-- TODO: needs documentation -->
+Degrees per second the turret rotates toward its desired aim direction.
 
 ## ReturnToCenter
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+With nothing to aim at, the turret rotates back to its centered rest direction. When false it stays at whatever rotation it last had, as on the manipulator beam.
 
 ## FireThresholdAngle
 `number` · required
 
-<!-- TODO: needs documentation -->
+Maximum angular distance, in degrees, between the turret's current facing and the aim direction for it to be willing to fire. Vanilla turrets use small values like `1d`.
 
 ## AllowFireWithBlockedLOS
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Skips all line-of-sight checks, letting the turret target and fire even when the path to the target is obstructed. Missile launchers enable it.
 
 ## AllowFireInFogOfWar
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets the turret keep targets that are outside its team's sight. When false a target hidden in fog of war is invalid.
 
 ## BlueprintArcSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite for the firing-arc indicator fanned out in front of the part while it is being placed in build mode. The fan spans [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidArc]] if set, otherwise [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.FiringArc]].
 
 ## BlueprintArcRadius
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Radius, in tiles, of the build-mode arc indicator drawn with [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.BlueprintArcSprite]].
 
 ## BlueprintArcSpriteSegments
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Number of quad segments the build-mode arc indicator is subdivided into. Vanilla turrets use 64.
 
 ## CoverageSectorArc
 `CircleRenderer` · optional
 
-<!-- TODO: needs documentation -->
+Renderer for the coverage sector shown when the weapon's coverage is displayed during commands. The sector spans [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ValidArc]] (or [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.FiringArc]]) and extends to the weapon's standard range.
 
 ## TargetSearchesPerSecond
 `number` · optional
 
-<!-- TODO: needs documentation -->
+How many times per second the turret runs a search for a new target. Defaults to 2, and the flak cannon raises it to 8.
 
 ## InstantSearchesAfterTargetLost
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Number of search passes run immediately when the turret loses its target, instead of waiting for the next scheduled search. The chaingun uses 5.
 
 ## TargetChecksPerSearch
 `number` · optional
 
-<!-- TODO: needs documentation -->
+How many candidate targets each search validates before giving up. The manipulator beam checks 10 per search.
 
 ## HoldTargetWhileFiring
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds the turret's rotation stays frozen after the weapon toggles on, so it does not swing away while firing. The timer is refreshed for as long as the weapon stays toggled on.
 
 ## HoldTargetAfterCancel
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds the turret holds its current rotation after losing its target instead of immediately swinging elsewhere. Laser blasters tie it to their emitter's `FireDelay`.
 
 ## AllowRotationToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The component ID of a toggle component. While that toggle is off the turret may not rotate, either freezing in place or returning to center depending on [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.ResetRotationIfNotAllowed]].
 
 ## ResetRotationIfNotAllowed
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When rotation is disallowed by [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.AllowRotationToggle]], the turret rotates back to its centered direction instead of freezing at its current rotation.
 
 ## TargetPathThickness
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Thickness, in tiles, of the line-of-sight ray used when checking whether the path to the target is blocked. Point defense sets it to match its bullet's size so shots need a wide enough clear corridor.
 
 ## AutoTargets
 `WeaponAutoTargetRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Ordered list of automatic targeting behaviors the turret tries, first entry first, until one yields a target. Each entry can be gated by its own [[Cosmoteer.Ships.Parts.Weapons.WeaponAutoTargetRules.Toggle]].
 
 ## AutoTargetCrewSafetyDist
 `float` · optional
 
-<!-- TODO: needs documentation -->
+When auto-targeting crew in space, a candidate is skipped if any allied crew member is within this distance, in tiles, of it. Vanilla anti-crew weapons use 8.
 
 ## PreventOverlappingTargets
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Prevents two turrets that both set this flag from auto-targeting the same object at once. The manipulator beam uses it.
 
 ## AimIncludesEmitterOffset
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Compensates the aim direction for the emitter's offset from the turret's pivot so the shot itself lines up with the target. The chaingun disables it and simply points the turret at the target.
 
 ## AllowAimAtProhibitedTarget
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets the turret acquire and track targets that [[Cosmoteer.Ships.Parts.Weapons.WeaponRules.ProhibitTargetPartsFilter]] prohibits, without treating them as something to fire at. The ion beam prism enables this.

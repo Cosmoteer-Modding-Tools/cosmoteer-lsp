@@ -108,12 +108,13 @@ export const schemaDiscriminatorHover = (node: AbstractNode): string | null => {
     if (!registry || fieldName !== registry.typeField) return null;
 
     const written = String(node.valueType.value);
-    const cls = classByDiscriminator(written, registry.name);
-    if (cls) return `**${registry.typeField} = ${written}** → \`${cls.split('.').pop()}\``;
-    // An unresolved discriminator that is a known rename from an older game version: show what it became.
+    // A known rename from an older game version wins over plain resolution: the class resolves
+    // through the rename (as an editing courtesy), but the hover must still say it was renamed.
     const deprecation = deprecatedDiscriminator(written);
     if (deprecation && registry.members[deprecation.replacement]) {
         return `**${registry.typeField} = ${written}** — renamed to \`${deprecation.replacement}\` (${deprecation.note})`;
     }
+    const cls = classByDiscriminator(written, registry.name);
+    if (cls) return `**${registry.typeField} = ${written}** → \`${cls.split('.').pop()}\``;
     return null;
 };

@@ -7,6 +7,7 @@ import bundle from './cosmoteer.schema.json';
 import { SchemaBundle, SchemaEnum, SchemaField, SchemaRegistry, SchemaTypeDef, ValueType } from './schema.types';
 import { applySchemaOverlay } from './schema-overlay';
 import { applyFieldDocs } from './field-docs';
+import { deprecatedDiscriminator } from './deprecations';
 
 // Merge hand-authored corrections for custom-deserialized types schemagen can't reflect (e.g. the
 // dual-form `Texture` group), then attach community-maintained prose descriptions. Both additive —
@@ -72,7 +73,11 @@ export const registryOf = (fullNameOrName: string): SchemaRegistry | undefined =
  */
 export const firstRegistryDeclaring = (disc: string): SchemaRegistry | undefined => {
     const candidates = discriminatorIndex.get(disc);
-    return candidates && candidates.length > 0 ? schema.registries[candidates[0].registryKey] : undefined;
+    if (candidates && candidates.length > 0) return schema.registries[candidates[0].registryKey];
+    // A known renamed discriminator (a mod written against an older game) still pins its registry
+    // through the current name, so sibling-based registry inference keeps working.
+    const replacement = deprecatedDiscriminator(disc)?.replacement;
+    return replacement ? firstRegistryDeclaring(replacement) : undefined;
 };
 
 /** Memo of {@link fieldsOf} per class. The schema is immutable after load, so it never goes stale. */
@@ -229,7 +234,13 @@ const registryDerivesFrom = (key: string, hint: string): boolean => {
  */
 export const classByDiscriminator = (disc: string, registryHint?: string): string | undefined => {
     const candidates = discriminatorIndex.get(disc);
-    if (!candidates || candidates.length === 0) return undefined;
+    if (!candidates || candidates.length === 0) {
+        // A known renamed discriminator (a mod written against an older game) resolves through its
+        // current name, so hover, completion and validation inside the group keep working while
+        // the deprecation hint on the `Type =` line nudges the rename.
+        const replacement = deprecatedDiscriminator(disc)?.replacement;
+        return replacement ? classByDiscriminator(replacement, registryHint) : undefined;
+    }
     if (registryHint && candidates.length > 1) {
         const hinted = candidates.find(
             (c) => c.registryKey === registryHint || schema.registries[c.registryKey]?.name === registryHint
@@ -242,6 +253,259 @@ export const classByDiscriminator = (disc: string, registryHint?: string): strin
     return candidates[0].cls;
 };
 
+/** A vanilla-shaped sample path for an asset kind, matching the extensions the game ships. */
+const assetExamplePath = (assetKind: string): string => {
+    switch (assetKind) {
+        case 'image':
+            return '"sprite.png"';
+        case 'sound':
+            return '"sounds/sound.wav"';
+        case 'shader':
+            return '"effect.shader"';
+        case 'font':
+            return '"font.ttf"';
+        default:
+            return '"..."';
+    }
+};
+
+/** The Color class, whose example is curated (byte channels + named colors), see {@link positionalInline}. */
+const COLOR_CLASS = 'Halfling.Graphics.Color';
+
+/**
+ * The inline positional form of a group class whose digit fields make it list-writable, the form
+ * the game's own files use for these types (`Offset = [1.5, 2]`, `VertexColor = [255, 255, 255, 217]`),
+ * so it beats a `{ … }` block as an example. Color is curated: its channels are written as 0-255
+ * values in the game's files, which its schema float fields cannot express.
+ *
+ * The digit fields are the list-form indexes of the class's own members (Vector2's `0`/`1` read
+ * into `X`/`Y`), so the inline form carries the full value, required named fields included.
+ *
+ * @param cls the group class FullName.
+ * @returns the inline `[ … ]` value, or undefined when the class has fewer than two digit fields.
+ */
+const positionalInline = (cls: string): string | undefined => {
+    if (cls === COLOR_CLASS) return '[255, 255, 255, 255]';
+    const digits = fieldsOf(cls)
+        .filter((f) => /^\d+$/.test(f.name))
+        .sort((a, b) => Number(a.name) - Number(b.name));
+    if (digits.length < 2) return undefined;
+    return `[${digits.map((f) => examplePlaceholder(f)).join(', ')}]`;
+};
+
+/**
+ * A placeholder value for one line of a generated example, derived from the field's schema type.
+ * A declared default beats every kind-based guess, since it is a value the game actually uses.
+ */
+const examplePlaceholder = (field: SchemaField): string => {
+    const vt = field.valueType;
+    if (field.default !== undefined) {
+        const quote = typeof field.default === 'string' && (vt.kind === 'string' || vt.kind === 'asset');
+        return quote ? `"${field.default}"` : String(field.default);
+    }
+    switch (vt.kind) {
+        case 'bool':
+            return 'true';
+        case 'int':
+        case 'float':
+        case 'number':
+            return '0';
+        case 'string':
+            return '""';
+        case 'enum':
+            return enumDef(vt.ref)?.members[0] ?? '...';
+        case 'reference':
+            return '&...';
+        case 'asset':
+            return assetExamplePath(vt.assetKind);
+        case 'group':
+            // A positional-form class (Vector2, Color) shows its inline list, the way the game's
+            // own files write it, instead of an opaque `{ ... }`.
+            return positionalInline(vt.ref) ?? '{ ... }';
+        case 'polymorphicGroup':
+        case 'map':
+            return '{ ... }';
+        case 'list':
+        case 'interpolated':
+            return '[ ... ]';
+        case 'range':
+        case 'tuple':
+            return '[0, 1]';
+        default:
+            return '...';
+    }
+};
+
+/** One example body line: an elided block attaches directly (`Sprite { ... }`), the idiomatic
+ *  form in the game's own files, every concrete value assigns (`Range = 0`, `Size = [0, 0]`). */
+const exampleFieldLine = (field: SchemaField): string => {
+    const placeholder = examplePlaceholder(field);
+    const attach = placeholder === '{ ... }' || placeholder === '[ ... ]';
+    return attach && field.default === undefined
+        ? `    ${field.name} ${placeholder}`
+        : `    ${field.name} = ${placeholder}`;
+};
+
+/** Grammatical count for the example's fold-away comments (`3 optional fields`, `1 optional field`). */
+const exampleFieldCount = (n: number, phrase: string): string => `${n} ${phrase}${n === 1 ? '' : 's'}`;
+
+/** How many required fields an example body spells out before folding the rest into a comment. */
+const EXAMPLE_MAX_REQUIRED = 6;
+/** How many optional fields an example body shows when the class requires nothing. */
+const EXAMPLE_MAX_OPTIONAL = 3;
+
+/**
+ * The indented body lines of a `{ … }` example for class `cls`: every required field with a
+ * placeholder value (capped, remainder folded into a comment), and a closing comment counting the
+ * optional fields so the block does not read as the complete vocabulary. A class that requires
+ * nothing shows a few optional fields instead, so the example still has substance.
+ *
+ * @param cls the group class FullName.
+ * @param typeLine a leading `Type = …` line for a polymorphic slot, already formatted.
+ * @returns the body lines, or undefined when the class is unknown or the example would be empty.
+ */
+const exampleBodyLines = (cls: string, typeLine?: string): string[] | undefined => {
+    if (!typeDef(cls)) return undefined;
+    // Digit fields are the positional list-form names, not keys anyone writes inside `{ }`.
+    const fields = fieldsOf(cls).filter((f) => !/^\d+$/.test(f.name));
+    const required = fields.filter((f) => !f.optional);
+    const lines: string[] = typeLine ? [typeLine] : [];
+    for (const f of required.slice(0, EXAMPLE_MAX_REQUIRED)) lines.push(exampleFieldLine(f));
+    if (required.length > EXAMPLE_MAX_REQUIRED) {
+        lines.push(`    // + ${exampleFieldCount(required.length - EXAMPLE_MAX_REQUIRED, 'more required field')}`);
+    }
+    const optionalCount = fields.length - required.length;
+    if (required.length === 0) {
+        // Prefer optional fields with a declared default: their example line shows a real value.
+        const shown = [...fields].sort((a, b) => Number(b.default !== undefined) - Number(a.default !== undefined));
+        for (const f of shown.slice(0, EXAMPLE_MAX_OPTIONAL)) lines.push(exampleFieldLine(f));
+        const rest = optionalCount - Math.min(optionalCount, EXAMPLE_MAX_OPTIONAL);
+        if (rest > 0) lines.push(`    // ... ${exampleFieldCount(rest, 'more optional field')}`);
+    } else if (optionalCount > 0) {
+        lines.push(`    // ... ${exampleFieldCount(optionalCount, 'optional field')}`);
+    }
+    return lines.length > 0 ? lines : undefined;
+};
+
+/** Wraps example lines in a `rules`-highlighted fenced block. */
+const exampleFence = (lines: string[]): string => '```rules\n' + lines.join('\n') + '\n```';
+
+/**
+ * A one-line example for a list of scalar values (`TypeCategories = [armor, non_flammable]`),
+ * with entries the schema can vouch for: the engine's built-in ids for a reference target, the
+ * first enum members, or a kind-derived placeholder, and a trailing comment naming the entries.
+ *
+ * @param name the field name the example assigns.
+ * @param element the list's element value type.
+ * @returns the example line, or undefined for element kinds an example would not clarify.
+ */
+const inlineListExample = (name: string, element: ValueType): string | undefined => {
+    if (element.kind === 'reference') {
+        // The engine's hardcoded ids are real values a mod can reference; failing those, an
+        // honest placeholder plus the comment still says what an entry is.
+        const builtin = schema.builtinIds?.[element.target] ?? [];
+        const entries = builtin.length > 0 ? [...builtin.slice(0, 2), '...'] : ['...'];
+        return `${name} = [${entries.join(', ')}]    // ${element.targetName} ids`;
+    }
+    if (element.kind === 'enum') {
+        const members = enumDef(element.ref)?.members ?? [];
+        if (members.length === 0) return undefined;
+        return `${name} = [${members.slice(0, 2).join(', ')}]    // ${element.name} values`;
+    }
+    if (element.kind === 'asset') {
+        const synthetic: SchemaField = { name, valueType: element, optional: true };
+        return `${name} = [${examplePlaceholder(synthetic)}, ...]`;
+    }
+    // Numbers, strings, bools: the type label already says everything an example line would.
+    return undefined;
+};
+
+/**
+ * A small `.rules`-syntax example of a field's structured value form, for hover and completion
+ * documentation. A field typed `ISoundEffect` names the type but not the `{ … }` shape the game
+ * expects. This renders that shape from the schema: the `Type =` discriminator for a polymorphic
+ * slot, the required fields with placeholder values, and a count of what else is accepted. Only
+ * fields whose value is a group (directly, as list elements, or as a scalar's group form) get an
+ * example; scalar fields are already fully described by their signature line.
+ *
+ * @param field the schema field to illustrate.
+ * @returns the fenced example markdown, or undefined when no structured example applies.
+ */
+export const fieldExampleMarkdown = (field: SchemaField): string | undefined => {
+    const vt = field.valueType;
+    // A scalar-primary dual-form field (`Modifiable<T>`): show both accepted shapes.
+    if ((vt.kind === 'number' || vt.kind === 'int' || vt.kind === 'float') && vt.groupForm) {
+        const body = exampleBodyLines(vt.groupForm);
+        if (!body) return undefined;
+        const scalar = `${field.name} = ${examplePlaceholder(field)}`;
+        return exampleFence([scalar, '// or with inline modifiers:', field.name, '{', ...body, '}']);
+    }
+    // A single asset path: show the written form, which the type label (`asset (shader)`) alone
+    // does not convey, plus the resolution rule the game applies.
+    if (vt.kind === 'asset') {
+        return exampleFence([`${field.name} = ${assetExamplePath(vt.assetKind)}    // path relative to this file`]);
+    }
+    const structured = vt.kind === 'list' || vt.kind === 'interpolated' ? vt.element : vt;
+    const asList = structured !== vt;
+    // A list of scalars (ids, enum members, numbers, paths) is written inline: one example line
+    // with real sample values where the schema knows any, and a comment naming what the entries are.
+    if (asList && structured.kind !== 'group' && structured.kind !== 'polymorphicGroup') {
+        const inline = inlineListExample(field.name, structured);
+        return inline ? exampleFence([inline]) : undefined;
+    }
+    let cls: string | undefined;
+    let typeLine: string | undefined;
+    if (structured.kind === 'group') {
+        // A scalar-form class with a reference payload is normally written as a bare id
+        // (`FireTrigger = Turret`), and a valueForm class reads its member's shape, not its own
+        // `{ … }`. A block example would mislead for both.
+        if (scalarReferenceTargetOf(structured.ref) || typeDef(structured.ref)?.valueForm) return undefined;
+        // A positional-form class leads with its inline form (`VertexColor = [255, 255, 255, 217]`),
+        // then names the equally-valid alternatives: the named-field group, and for Color the
+        // engine's named colors.
+        if (!asList) {
+            const inline = positionalInline(structured.ref);
+            if (inline) {
+                if (structured.ref === COLOR_CLASS) {
+                    return exampleFence([
+                        `${field.name} = ${inline}    // R, G, B, A`,
+                        `// or a named color: ${field.name} = White`,
+                        `// or a group: ${field.name} { Rf = 1, Gf = 1, Bf = 1, Af = 1 }`,
+                    ]);
+                }
+                const lines = [`${field.name} = ${inline}`];
+                // The named-field group alternative, required fields first (`{ X = 0, Y = 0 }`).
+                const named = fieldsOf(structured.ref)
+                    .filter((f) => !/^\d+$/.test(f.name))
+                    .sort((a, b) => Number(a.optional) - Number(b.optional))
+                    .slice(0, 4);
+                if (named.length > 0) {
+                    const body = named.map((f) => `${f.name} = ${examplePlaceholder(f)}`).join(', ');
+                    lines.push(`// or: ${field.name} { ${body} }`);
+                }
+                return exampleFence(lines);
+            }
+        }
+        cls = structured.ref;
+    } else if (structured.kind === 'polymorphicGroup') {
+        const registry = schema.registries[structured.ref];
+        const [disc, memberCls] = Object.entries(registry?.members ?? {})[0] ?? [];
+        if (!registry || !disc) return undefined;
+        cls = memberCls;
+        const total = Object.keys(registry.members).length;
+        typeLine = `    ${registry.typeField} = ${disc}${total > 1 ? `    // one of ${total} types` : ''}`;
+    } else {
+        return undefined;
+    }
+    const body = exampleBodyLines(cls, typeLine);
+    if (!body) return undefined;
+    // A list-typed slot wraps the element block in `[ … ]`, one element shown.
+    const lines = asList
+        ? [field.name, '[', ...['{', ...body, '}'].map((l) => `    ${l}`), ']']
+        : [field.name, '{', ...body, '}'];
+    return exampleFence(lines);
+};
+
 /**
  * Markdown documenting a single schema field — its value type, whether it's required, its default,
  * and (for enums / references) the legal values or target. Shared by field-name completion
@@ -252,15 +516,26 @@ export const fieldSignatureMarkdown = (field: SchemaField, owningType?: string):
     const extra: string[] = [];
     if (field.default !== undefined) extra.push(`default \`${field.default}\``);
     const vt = field.valueType;
-    if (vt.kind === 'enum') {
-        const members = enumDef(vt.ref)?.members ?? [];
-        if (members.length > 0) extra.push(`one of: ${members.map((m) => `\`${m}\``).join(', ')}`);
-    } else if (vt.kind === 'reference') {
-        extra.push(`reference → \`${vt.targetName}\``);
+    // Unwrap one collection layer so a `list<enum>` / `range<enum>` field still lists its members.
+    const inner = vt.kind === 'list' || vt.kind === 'range' || vt.kind === 'interpolated' ? vt.element : vt;
+    if (inner.kind === 'enum') {
+        const members = enumDef(inner.ref)?.members ?? [];
+        // Cap the inline listing: only ViKey (103 keyboard keys) exceeds it, and a hover-sized
+        // sample plus the total serves better than a screen-filling dump.
+        const shown = members.slice(0, 24).map((m) => `\`${m}\``).join(', ');
+        if (members.length > 0) {
+            extra.push(`one of: ${shown}${members.length > 24 ? `, … (${members.length} total)` : ''}`);
+        }
+    } else if (inner.kind === 'reference') {
+        extra.push(`reference → \`${inner.targetName}\``);
     }
     const signature = extra.length > 0 ? `${head}\n\n${extra.join(' · ')}` : head;
     // The prose description, when documented, goes below the type signature separated by a rule.
-    const body = field.description ? `${signature}\n\n---\n\n${field.description}` : signature;
+    const described = field.description ? `${signature}\n\n---\n\n${field.description}` : signature;
+    // A structured (group-valued) field additionally shows a generated `{ … }` example, so the
+    // type name alone (`ISoundEffect`) never leaves the reader guessing what to write.
+    const example = fieldExampleMarkdown(field);
+    const body = example ? `${described}\n\n${example}` : described;
     // A footer link to the most relevant modding-wiki page for the field's owning class (a buff →
     // /Buffs, a part → /Data_fields, …), so a modder can read further from hover or completion. Only a
     // SPECIALIZED page is linked — the generic /Modding landing page is not, since a link that always
