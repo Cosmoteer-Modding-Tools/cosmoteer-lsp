@@ -253,6 +253,71 @@ describe('reverse-include rooting', () => {
         }
     });
 
+    // A base that is BOTH a typed slot and an inheritance base for classes on sibling branches: the
+    // real `command_follow.rules` FollowCommand is the `Commands.Follow` slot (a FollowCommandRules,
+    // which owns every field) while its derivers (SalvageCommand, FtlGateJumpCommand) descend from
+    // BaseFollowCommandRules on branches that never contain FollowCommandRules. The slot class must
+    // join the fit candidates, or the base falls back to the shallow common ancestor.
+    it('prefers the slot class when it fits the base better than any deriver ancestry', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'revinc-slotfit-'));
+        const uriOf = (name: string) => pathToFileURL(join(dir, name)).href;
+        try {
+            writeFileSync(join(dir, 'cosmoteer.rules'), 'Commands = &<commands.rules>\n');
+            writeFileSync(
+                join(dir, 'commands.rules'),
+                'Follow = &<cmd_follow.rules>/FollowCommand\nSalvage = &<cmd_salvage.rules>/SalvageCommand\n'
+            );
+            // AdHocFormationRadiusFactor lives only on FollowCommandRules, not on the deriver's chain.
+            const followText = 'FollowCommand\n{\n\tAdHocFormationRadiusFactor = 6\n\tCircleAddedRadius = 1.5\n\tIssueSound\n\t{\n\t}\n}\n';
+            writeFileSync(join(dir, 'cmd_follow.rules'), followText);
+            writeFileSync(join(dir, 'cmd_salvage.rules'), 'SalvageCommand : <cmd_follow.rules>/FollowCommand\n{\n}\n');
+
+            aliasRootIndex.invalidate();
+            const parsed = (name: string) => parser(lexer(readFileSync(join(dir, name), 'utf8')), uriOf(name)).value;
+            await aliasRootIndex.build(parsed('cosmoteer.rules'), async (fileRef) => {
+                const m = /<([^>]+)>/.exec(fileRef);
+                return m ? parsed(m[1]) : undefined;
+            });
+            ReverseIncludeIndex.instance.reset();
+            await ReverseIncludeIndex.instance.ensureBuilt([dir], token);
+
+            const doc = parser(lexer(followText), uriOf('cmd_follow.rules')).value;
+            const follow = findEnclosingGroup(doc, followText.indexOf('AdHocFormationRadiusFactor'));
+            expect(follow?.identifier?.name).toBe('FollowCommand');
+            expect(resolveGroupClass(follow!)).toBe('Cosmoteer.Ships.Commands.FollowCommandRules');
+        } finally {
+            ReverseIncludeIndex.instance.reset();
+            aliasRootIndex.invalidate();
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    // The overclock macro idiom: a part declares `OVERCLOCK { BEAM = &<overclock.rules> }` and a
+    // component derives `X : ~/OVERCLOCK/BEAM, BulletEmitter`. The tilde path lands on the macro
+    // alias, which dereferences one hop to the file, and the deriver's class comes from its sibling
+    // plain-name base (its own `Type` is inherited). The overclock fragment then roots whole-file.
+    it('roots an overclock fragment inherited through a tilde macro alias', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'revinc-tilde-'));
+        try {
+            const ocText = 'Range = 250\nFireInterval = 1\n';
+            writeFileSync(join(dir, 'overclock.rules'), ocText);
+            writeFileSync(
+                join(dir, 'part.rules'),
+                'OVERCLOCK\n{\n\tBEAM = &<overclock.rules>\n}\nPart\n{\n\tComponents\n\t{\n\t\tBulletEmitter\n\t\t{\n\t\t\tType = BulletEmitter\n\t\t}\n\t\tOverclock_BulletEmitter : ~/OVERCLOCK/BEAM, BulletEmitter\n\t\t{\n\t\t}\n\t}\n}\n'
+            );
+
+            ReverseIncludeIndex.instance.reset();
+            await ReverseIncludeIndex.instance.ensureBuilt([dir], token);
+
+            const ocUri = pathToFileURL(join(dir, 'overclock.rules')).href;
+            const rootType = ReverseIncludeIndex.instance.rootType(ocUri);
+            expect(rootType).toMatchObject({ kind: 'group', ref: 'Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules' });
+        } finally {
+            ReverseIncludeIndex.instance.reset();
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
     // A mod that defines shared munitions in a fragment file and inherits them into components through
     // its cosmoteer.rules convenience globals (`BeamEmitter : &/SHOTS/Alias/Group`). The base carries
     // no `<file>` ref, so only the full navigator finds where it lands. The base group then roots to
@@ -300,6 +365,56 @@ describe('reverse-include rooting', () => {
             clearModRootCache();
             invalidateModContext();
             rmSync(modDir, { recursive: true, force: true });
+        }
+    });
+
+    // A base derived only through a DEEP member path (`X : <file>/Top/Nested`) says nothing about the
+    // top-level member: the deriver is the nested group's class. Recording it under `Top` mis-rooted
+    // vanilla's AttackCommand to a CircleRenderer (game_gui derives `…/AttackCommand/Circle`), so deep
+    // bases are skipped entirely.
+    it('does not record a deep member path as a deriver of the top-level member', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'revinc-deep-'));
+        try {
+            const baseText = 'Top\n{\n\tAvoidRadiusBuffer = 5\n\tNested\n\t{\n\t\tRadius = 1\n\t}\n}\n';
+            writeFileSync(join(dir, 'base.rules'), baseText);
+            writeFileSync(join(dir, 'deriver.rules'), 'D : <base.rules>/Top/Nested\n{\n\tType = Particles\n}\n');
+
+            ReverseIncludeIndex.instance.reset();
+            await ReverseIncludeIndex.instance.ensureBuilt([dir], token);
+
+            const baseUri = pathToFileURL(join(dir, 'base.rules')).href;
+            expect(ReverseIncludeIndex.instance.inheritanceBaseMembers(baseUri)).toEqual([]);
+        } finally {
+            ReverseIncludeIndex.instance.reset();
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    // The macro idiom: the deriving file names its base through a same-file alias
+    // (`BASE = &<frag.rules>/Thing` then `D : &BASE`). The alias hop supplies the file, so the base
+    // fragment still learns its derivers.
+    it('records a base reached through a same-file `&ALIAS` indirection', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'revinc-aliasbase-'));
+        try {
+            const fragText = 'Thing\n{\n\tEmitPerSecond = 5\n}\n';
+            writeFileSync(join(dir, 'frag.rules'), fragText);
+            writeFileSync(
+                join(dir, 'deriver.rules'),
+                'BASE = &<frag.rules>/Thing\nD : &BASE\n{\n\tType = Particles\n\tEmitPerSecond = 1\n}\n'
+            );
+
+            ReverseIncludeIndex.instance.reset();
+            await ReverseIncludeIndex.instance.ensureBuilt([dir], token);
+
+            const fragUri = pathToFileURL(join(dir, 'frag.rules')).href;
+            expect(ReverseIncludeIndex.instance.inheritanceBaseMembers(fragUri)).toContain('Thing');
+            const doc = parser(lexer(fragText), fragUri).value;
+            const thing = findEnclosingGroup(doc, fragText.indexOf('EmitPerSecond'));
+            // The deriver's class (a Type=Particles effect) roots the fragment.
+            expect(resolveGroupClass(thing!)).toBeTruthy();
+        } finally {
+            ReverseIncludeIndex.instance.reset();
+            rmSync(dir, { recursive: true, force: true });
         }
     });
 

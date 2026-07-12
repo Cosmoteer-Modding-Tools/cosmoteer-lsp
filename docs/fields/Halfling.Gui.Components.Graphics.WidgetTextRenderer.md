@@ -23,7 +23,7 @@ An ITextProvider object that, if not null, will keep this WidgetTextRenderer's T
 Whether the Text property will be parsed for XML format tags.
 
 ## Font
-`asset (font)` · optional
+`Font` · optional
 
 The font used to render the text.
 

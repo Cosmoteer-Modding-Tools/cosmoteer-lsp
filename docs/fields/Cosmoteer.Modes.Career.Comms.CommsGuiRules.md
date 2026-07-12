@@ -63,12 +63,12 @@
 <!-- TODO: needs documentation -->
 
 ## CursorValid
-`asset (image)` · required
+`Cursor` · required
 
 <!-- TODO: needs documentation -->
 
 ## CursorInvalid
-`asset (image)` · required
+`Cursor` · required
 
 <!-- TODO: needs documentation -->
 

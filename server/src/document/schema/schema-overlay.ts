@@ -24,6 +24,9 @@ import { SchemaBundle, SchemaEnum, SchemaField, SchemaTypeDef } from './schema.t
 /** The class an image-asset slot resolves to when it is written as a group rather than a bare path. */
 export const TEXTURE_GROUP_CLASS = 'Halfling.Graphics.Texture';
 
+/** The class a shader-asset slot resolves to when it is written as a group rather than a bare path. */
+export const SHADER_GROUP_CLASS = 'Halfling.Graphics.Shader';
+
 /** A cross-file reference to a buff (`ID<BuffType>`), the value form of part buff `BuffType` fields. */
 const BUFF_REF = { kind: 'reference', target: 'Cosmoteer.Ships.Buffs.BuffType', targetName: 'BuffType' } as const;
 
@@ -57,6 +60,17 @@ const RENDER_LAYER_REF = {
 
 /** Group types schemagen could not reflect (custom-deserialized), keyed by C# FullName. */
 const OVERLAY_TYPES: Record<string, SchemaTypeDef> = {
+    // The shader group form (`Shader { File = … }`), transcribed from the ShaderFactory
+    // deserializer: a scalar path, or a group with the file plus the two entry-point overrides.
+    [SHADER_GROUP_CLASS]: {
+        name: 'Shader',
+        namespace: 'Halfling.Graphics',
+        fields: [
+            { name: 'File', valueType: { kind: 'asset', assetKind: 'shader' }, optional: true },
+            { name: 'VertexEntryPoint', valueType: { kind: 'string' }, optional: true },
+            { name: 'PixelEntryPoint', valueType: { kind: 'string' }, optional: true },
+        ],
+    },
     [TEXTURE_GROUP_CLASS]: {
         name: 'Texture',
         namespace: 'Halfling.Graphics',
@@ -120,6 +134,19 @@ const OVERLAY_TYPES: Record<string, SchemaTypeDef> = {
 // value read off a nested/foreign object. Merged additively (a name already extracted is left as-is),
 // so each entry self-retires if schemagen later learns it. Keyed by C# FullName.
 const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
+    // `SoundEffect.ReadContentFrom` reads three keys beside the reflective members: `Sound` (a single
+    // sound file, stored as a one-element `Sounds`), `RandomSounds` (the explicit list spelling) and
+    // `Db` (a decibel multiplier folded into `VolumeRange`). The hook is a protected virtual reached
+    // through the interface delegation, which the IL scan does not follow.
+    'Halfling.Audio.ISoundEffect': [
+        { name: 'Sound', valueType: { kind: 'asset', assetKind: 'sound' }, optional: true },
+        {
+            name: 'RandomSounds',
+            valueType: { kind: 'list', element: { kind: 'asset', assetKind: 'sound' } },
+            optional: true,
+        },
+        { name: 'Db', valueType: { kind: 'range', element: { kind: 'float' } }, optional: true },
+    ],
     // `IntColor` reflects its byte `R`/`G`/`B`/`A`, but its content deserializer also reads float
     // `Rf`/`Gf`/`Bf`/`Af` (0..1) and `H`/`S`/`V` — the spelling vanilla overwhelmingly uses.
     'Halfling.Graphics.IntColor': [
@@ -148,18 +175,51 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
             optional: true,
         },
     ],
+    // A bullet's `Components` map, the same custom-read shape over the bullet component registry
+    // (verified in BulletRules.cs, which reads the `Components` group into BulletComponentRules).
+    'Cosmoteer.Bullets.BulletRules': [
+        {
+            name: 'Components',
+            valueType: {
+                kind: 'map',
+                key: { kind: 'string' },
+                value: {
+                    kind: 'polymorphicGroup',
+                    ref: 'Cosmoteer.Bullets.BulletComponentRules',
+                    name: 'BulletComponentRules',
+                },
+            },
+            optional: true,
+        },
+    ],
     // The buff provider parts read `BuffType` off the game buff registry in a custom constructor (a
     // non-generic read schemagen's IL scan does not catch).
     'Cosmoteer.Ships.Parts.Buffs.PartSelfBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
     'Cosmoteer.Ships.Parts.Buffs.PartAreaBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
     'Cosmoteer.Ships.Parts.Buffs.PartGridBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
     // `PartRules` reads the `Flammable` bool and the thruster part reads these force/fuel values off the
-    // part rules, none as a generic `*FromPath<T>` call.
+    // part rules, none as a generic `*FromPath<T>` call. `Components` is the part's custom-read
+    // component map: typing it makes every component resolve through the slot, so a partial fragment
+    // whose only component has no (or a broken) `Type=` still knows its registry without a valid
+    // sibling to infer from.
     'Cosmoteer.Ships.Parts.PartRules': [
         { name: 'Flammable', valueType: { kind: 'bool' }, optional: true },
         { name: 'ThrusterForce', valueType: MODIFIABLE_FLOAT, optional: true },
         { name: 'FuelUsage', valueType: MODIFIABLE_FLOAT, optional: true },
         { name: 'ThrustRecoveryTime', valueType: MODIFIABLE_TIME, optional: true },
+        {
+            name: 'Components',
+            valueType: {
+                kind: 'map',
+                key: { kind: 'string' },
+                value: {
+                    kind: 'polymorphicGroup',
+                    ref: 'Cosmoteer.Ships.Parts.PartComponentRules',
+                    name: 'PartComponentRules',
+                },
+            },
+            optional: true,
+        },
     ],
     // `ProxyRules` is embedded inline by every proxy part (below). Its `ComponentID` lives on a nested
     // helper class in C#, so neither reflection nor the IL scan sees it, but the OT writes it directly.

@@ -183,27 +183,27 @@ Circle drawn around a hovered derelict or enemy ship that the selected ships can
 Circle drawn around a hovered ship that a selected ship currently has a salvage command against, previewing that clicking would cancel that command.
 
 ## FocusModeCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while the camera focus input mode is held, where clicking a ship focuses the camera on it. Also used by mission GUI elements that focus the camera on a mission target.
 
 ## PartModeCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while the part selection input mode is active, where clicks select individual parts inside ships instead of whole ships.
 
 ## NuggetCollectCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while hovering a nugget that the selected ships can collect. Swapped for [[Cosmoteer.Simulation.SimGuiRules.NuggetCantCollectCursor]] when collection is not possible.
 
 ## NuggetCantCollectCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while hovering a nugget that none of the selected ships can collect, matching the [[Cosmoteer.Simulation.SimGuiRules.TentativeNuggetCantCollectSprite]] overlay.
 
 ## CancelSalvageCollectCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown when a click would cancel salvage or collection, while hovering a ship, part, or nugget with a pending salvage or pickup and while holding the cancel modifier in salvage collection mode.
 
@@ -338,7 +338,7 @@ Icon drawn centered on the salvage targets of ships under the cursor, alongside 
 Range of the part's salvage effect intensity, a 0..1 value, over which the scheduled-salvage box and reticle fade out as crew salvage the part. With the vanilla `[0, 0.5]` the overlay is fully faded once intensity reaches 0.5.
 
 ## SalvageCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while the salvage collection tool is active and when hovering a ship or part that can be salvaged. Replaced by [[Cosmoteer.Simulation.SimGuiRules.CancelSalvageCollectCursor]] while the cancel modifier is held.
 

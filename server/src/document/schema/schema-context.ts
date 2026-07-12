@@ -32,7 +32,7 @@ import {
 import { SchemaField, SchemaRegistry, ValueType } from './schema.types';
 import { documentRootClass } from './document-root';
 import { aliasedMemberType, inheritanceBaseCandidates } from './alias-root';
-import { TEXTURE_GROUP_CLASS } from './schema-overlay';
+import { SHADER_GROUP_CLASS, TEXTURE_GROUP_CLASS } from './schema-overlay';
 import { perfCount } from '../../utils/perf-counters';
 
 /**
@@ -174,13 +174,20 @@ const expectedValueTypeUncached = (node: GroupNode | ListNode, depth: number): V
         // the map fallback below. Recursing separately for each would double the work per nesting
         // level and blow up exponentially on deep files.
         const containerSlot = expectedValueType(parent, depth + 1);
-        const ownerClass = inheritedBaseClassForGroup(parent) ?? classFromSlot(parent, containerSlot);
+        const containerSlotClass = classFromSlot(parent, containerSlot);
+        const ownerClass = inheritedBaseClassForGroup(parent, containerSlotClass) ?? containerSlotClass;
         if (ownerClass) return fieldOf(ownerClass, memberName)?.valueType;
         // A class-less container can still sit in a map-typed slot (a ToggledComponents part's
         // `Components` map, a planet's `Styles`). Its members are keys, so each member takes the
         // map's value type. Without this, such members fall back to sibling registry inference,
         // which picks the wrong registry for an ambiguous discriminator like `Type = ArcShield`.
         if (containerSlot?.kind === 'map') return containerSlot.value;
+        // A range slot's group form (`TwinkleAddColor { Min = […] Max = […] }`): the engine reads
+        // the `Value` or `Min`/`Max` keys as the range's element type, so those members type as the
+        // element and everything below them (a positional color list, a nested group) resolves.
+        if (containerSlot?.kind === 'range' && /^(value|min|max)$/i.test(memberName)) {
+            return containerSlot.element;
+        }
         return undefined;
     }
 
@@ -289,15 +296,22 @@ const ownedFieldNames = (group: GroupNode): string[] =>
  * a `Derived : <file>/Base` — to the deriver class that best fits its own fields. A base file often writes
  * fields that live on a DERIVED class (the `commands/base_command.rules` `BaseCommand` group declares the
  * move widgets, which are on `MoveCommandRules`, not the shared `BaseCommandRules`), so the shallow common
- * ancestor would leave those unresolved. Among every deriver class and its ancestors, this picks the
- * most-derived (most fields) candidate that owns EVERY field the group declares — guaranteeing full
- * completion with no new unknown-field warning — and falls back to the common ancestor when none covers
- * the group (a base mixing unrelated derived fields stays safely shallow rather than mis-rooted).
+ * ancestor would leave those unresolved. Among every deriver class and its ancestors, plus the group's
+ * own slot class, this picks the most-derived (most fields) candidate that owns every field the group
+ * declares, guaranteeing full completion with no new unknown-field warning. It falls back to the
+ * common ancestor when none covers the group (a base mixing unrelated derived fields stays safely
+ * shallow rather than mis-rooted).
+ *
+ * The slot class joins the candidates because a base can be BOTH aliased in as a field and inherited
+ * by classes on other branches: `command_follow.rules`'s `FollowCommand` is the `Commands.Follow` slot
+ * (a `FollowCommandRules`, which owns every field) while its derivers (`SalvageCommand`,
+ * `FtlGateJumpCommand`) sit on sibling branches whose ancestries never contain it.
  *
  * @param group the candidate base group.
+ * @param slotClass the class the group's own slot resolves to, as {@link classFromSlot} returns it.
  * @returns the best-fitting class FullName, or undefined when the group isn't an inheritance base.
  */
-const inheritedBaseClassForGroup = (group: GroupNode): string | undefined => {
+const inheritedBaseClassForGroup = (group: GroupNode, slotClass?: string): string | undefined => {
     const parent = group.parent;
     if (!parent || !isDocumentNode(parent) || !group.identifier) return undefined;
     const deriverClasses = inheritanceBaseCandidates(parent, group.identifier.name);
@@ -311,6 +325,7 @@ const inheritedBaseClassForGroup = (group: GroupNode): string | undefined => {
     const names = ownedFieldNames(group);
     const candidates = new Set<string>();
     for (const cls of deriverClasses) for (const ancestor of classAncestry(cls)) candidates.add(ancestor);
+    if (slotClass) for (const ancestor of classAncestry(slotClass)) candidates.add(ancestor);
     let best: string | undefined;
     let bestFieldCount = -1;
     for (const candidate of candidates) {
@@ -337,9 +352,11 @@ export const resolveGroupClass = (group: GroupNode, depth = 0): string | undefin
     if (depth > 32) return undefined;
     const cached = groupClassCache.get(group);
     if (cached && cached.epoch === contextEpoch) return cached.value;
-    // A top-level group reachable only as a cross-file inheritance base: root it to the deriver class
-    // that best fits its own fields, ahead of the shallower common-ancestor type the slot walk yields.
-    const value = inheritedBaseClassForGroup(group) ?? classFromSlot(group, expectedValueType(group, depth));
+    // A top-level group reachable only as a cross-file inheritance base: root it to the class that
+    // best fits its own fields among the derivers and the slot class, ahead of the shallower
+    // common-ancestor type either would yield alone.
+    const slotClass = classFromSlot(group, expectedValueType(group, depth));
+    const value = inheritedBaseClassForGroup(group, slotClass) ?? slotClass;
     if (depth <= MEMO_DEPTH_LIMIT) groupClassCache.set(group, { epoch: contextEpoch, value });
     return value;
 };
@@ -352,11 +369,33 @@ export const resolveGroupClass = (group: GroupNode, depth = 0): string | undefin
  * @param expected the group's slot type, as {@link expectedValueType} returns it.
  * @returns the class FullName, or undefined when the group cannot be anchored.
  */
+/** Whether a group written in a range slot uses the engine's range keys (`Value`, or `Min`/`Max`). */
+const usesRangeKeys = (group: GroupNode): boolean =>
+    namedMembersOf(group).some(([name]) => /^(value|min|max)$/i.test(name));
+
 const classFromSlot = (group: GroupNode, expected: ValueType | undefined): string | undefined => {
     if (expected?.kind === 'group') return expected.ref;
+    // A range slot filled with a group: the engine reads `Value` or `Min`/`Max` keys (each of the
+    // element type), and otherwise the whole group AS the element. So an element-shaped group (a
+    // bullet `Speed { BaseValue … }` in a range<Modifiable> slot) resolves to the element's group
+    // class, while a `{ Min … Max … }` group keeps no class and its keys type through the member
+    // branch of expectedValueType instead.
+    if (expected?.kind === 'range' && !usesRangeKeys(group)) {
+        const element = expected.element;
+        if (element.kind === 'group') return element.ref;
+        if ((element.kind === 'number' || element.kind === 'int' || element.kind === 'float') && element.groupForm) {
+            return element.groupForm;
+        }
+    }
     if (expected?.kind === 'polymorphicGroup') {
         const registry = schema.registries[expected.ref];
-        return classOfGroup(group, registry?.name) ?? expected.ref;
+        const viaType = classOfGroup(group, registry?.name);
+        if (viaType) return viaType;
+        // A group whose `Type` comes through its inheritance (`MyTurret : BaseTurret { }`) must stay
+        // unresolved here so the inheritance resolution decides, rather than pinning the registry
+        // base and hiding every derived field.
+        if (group.inheritance?.length) return undefined;
+        return expected.ref;
     }
     // A scalar value with a group form (a `Modifiable<T>` written as `{ BaseValue = … BuffType = … }`):
     // when the slot is filled with a group, its fields come from the curated group-form class.
@@ -370,6 +409,8 @@ const classFromSlot = (group: GroupNode, expected: ValueType | undefined): strin
     // captured the scalar form (`asset`), so an image-asset slot written as a group is the group form —
     // the only dual-form image type in the engine — resolved to the overlay's Texture class.
     if (expected?.kind === 'asset' && expected.assetKind === 'image') return TEXTURE_GROUP_CLASS;
+    // A `Shader` is dual-form the same way: a bare path or `{ File … VertexEntryPoint … }`.
+    if (expected?.kind === 'asset' && expected.assetKind === 'shader') return SHADER_GROUP_CLASS;
     // No slot hint: infer the registry from a typed sibling in the same container so an ambiguous
     // discriminator resolves to the right registry for this context. A bullet's `GlowSprite { Type =
     // Sprite }` and a part's `Sprite { Type = Sprite }` both write `Sprite`, but they belong to
@@ -417,7 +458,10 @@ export const memberTypeIn = (
     // A map-typed group (`Styles { alien = &<…> }`) has no class of its own; its members are keys, so
     // every one takes the map's value type.
     const expected = expectedValueType(container, 0);
-    return expected?.kind === 'map' ? expected.value : undefined;
+    if (expected?.kind === 'map') return expected.value;
+    // A range slot's group form reads its `Value`/`Min`/`Max` keys as the element type.
+    if (expected?.kind === 'range' && /^(value|min|max)$/i.test(member)) return expected.element;
+    return undefined;
 };
 
 /**

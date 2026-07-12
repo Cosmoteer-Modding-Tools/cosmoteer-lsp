@@ -208,37 +208,37 @@ Indicator icon in the ships card info area shown while the selected ship cannot 
 Icon of the new ship button in the top menu bar, available in game modes that allow creating a ship from scratch, which enters the new ship placement mode.
 
 ## MoveCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while the move command mode is active and the player is choosing a destination for the selected ships.
 
 ## StrafeCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while the strafe command mode is active.
 
 ## RotateCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while the rotate command mode is active.
 
 ## AttackCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while the attack command mode is active.
 
 ## TargetCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while the weapon targeting mode is active, and when hovering a part that the selected weapons can target, including in the miniview.
 
 ## DirectControlAimCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while directly controlling a ship with weapon fire enabled, used for aiming the ship's weapons.
 
 ## DirectControlAimDisabledCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while directly controlling a ship with weapon fire disabled.
 
@@ -398,7 +398,7 @@ Color scale applied to a ship's button in the HUD ships list while that ship is 
 Indicator color for discovered FTL point landmarks that are not hostile to the local player, overriding the default allegiance-based indicator color.
 
 ## FtlJumpCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while plotting an FTL jump whenever the hovered destination is valid and the jump's fuel cost can be afforded. An invalid destination or unaffordable jump shows the generic invalid cursor instead.
 

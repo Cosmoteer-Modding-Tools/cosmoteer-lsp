@@ -173,22 +173,22 @@ Frame drawn over already-removed parts or doors that the remove tool would resto
 Frame drawn over the blueprint part or door under the cursor that the grab tool will pick up, including its mirrored counterparts.
 
 ## GrabPartCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while the grab-part tool is active. Also used by the select-parts tool while it is grabbing a selection.
 
 ## RemovePartCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while the remove-part tool is active.
 
 ## SelectPartsCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while the select-parts tool is active and not grabbing a selection.
 
 ## RepairCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while the repair tool is active.
 

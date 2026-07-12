@@ -28,6 +28,82 @@ import { WatchedDocumentIndex } from './watched-document-index';
 /** The shared reference resolver, used only for the slow path that a plain relative join can't reach. */
 const navigation = new FullNavigationStrategy();
 
+/** A parsed cross-file base: its file ref, first member segment, and whether the path went deeper. */
+interface ParsedBase {
+    readonly fileRef: string;
+    readonly member?: string;
+    /** True when the member path has more than one segment, so it names a nested group. */
+    readonly deep: boolean;
+}
+
+/** Splits `&<file>/A/B` into the file ref, first member segment, and a deep flag for longer paths.
+ *  Unlike {@link parseAlias}, the extra segments are not silently dropped, the caller must know. */
+const parseAliasPath = (raw: string): ParsedBase | undefined => {
+    const m = /^&?\s*(<[^>]*>)\s*(?:\/\s*(.+))?$/.exec(raw.trim());
+    if (!m) return undefined;
+    const segments = (m[2] ?? '').split('/').map((s) => s.trim()).filter(Boolean);
+    return { fileRef: m[1], member: segments[0], deep: segments.length > 1 };
+};
+
+/**
+ * The deriving group's own class, or, when its own `Type` comes through the inheritance itself, the
+ * class of a plain-name sibling base: `Overclock_BeamEmitter : ~/OVERCLOCK/BEAM, BulletEmitter` has
+ * no `Type=` of its own, but its second base names the sibling `BulletEmitter` component, whose
+ * class is the deriver's class too (inheritance preserves type).
+ *
+ * @param node the deriving group.
+ * @param bases the group's inheritance references.
+ * @returns the deriver's concrete class FullName, or undefined when none resolves synchronously.
+ */
+const deriverClassOf = (node: GroupNode, bases: readonly AbstractNode[]): string | undefined => {
+    const own = resolveGroupClass(node);
+    if (own) return own;
+    const container = node.parent;
+    if (!container || !isGroupNode(container)) return undefined;
+    for (const base of bases) {
+        if (!isValueNode(base) || base.valueType.type !== 'Reference') continue;
+        const m = /^&?\s*([A-Za-z_]\w*)\s*$/.exec(String(base.valueType.value).trim());
+        if (!m) continue;
+        for (const sibling of container.elements) {
+            if (isGroupNode(sibling) && sibling.identifier?.name === m[1]) {
+                const cls = resolveGroupClass(sibling);
+                if (cls) return cls;
+            }
+        }
+    }
+    return undefined;
+};
+
+/**
+ * Parses a cross-file inheritance base to its file and member path: the direct `<file>/Member` form,
+ * or the macro idiom `&ALIAS[/Member]` whose top-level sibling `ALIAS = &<file>[/Member]` supplies the
+ * file (one hop, the dominant shape in shot-fragment mods). Same-file `&Group` and `^/N` bases return
+ * undefined, they resolve in ordinary scope.
+ *
+ * @param raw the base reference as written.
+ * @param node the deriving group or list, whose document holds the sibling alias.
+ * @returns the parsed base, or undefined when the base names no cross-file target.
+ */
+const parseAliasBase = (raw: string, node: GroupNode | ListNode): ParsedBase | undefined => {
+    const direct = parseAliasPath(raw);
+    if (direct) return direct;
+    const m = /^&\s*([A-Za-z_]\w*)((?:\s*\/\s*[^/\s]+)*)\s*$/.exec(raw.trim());
+    if (!m) return undefined;
+    const document = getStartOfAstNode(node);
+    if (!isDocumentNode(document)) return undefined;
+    for (const element of document.elements) {
+        if (!isAssignmentNode(element) || element.left.name !== m[1]) continue;
+        const value = element.right;
+        if (!value || !isValueNode(value) || value.valueType.type !== 'Reference') return undefined;
+        const aliased = parseAliasPath(String(value.valueType.value));
+        if (!aliased) return undefined;
+        const tail = m[2].split('/').map((s) => s.trim()).filter(Boolean);
+        const segments = [...(aliased.member ? [aliased.member] : []), ...tail];
+        return { fileRef: aliased.fileRef, member: segments[0], deep: aliased.deep || segments.length > 1 };
+    }
+    return undefined;
+};
+
 /**
  * Reverse-include rooting, which roots an otherwise-unrooted fragment file from the field that
  * `&<includes>` it.
@@ -506,12 +582,18 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         for (const base of bases) {
             if (!isValueNode(base) || base.valueType.type !== 'Reference') continue;
             const raw = String(base.valueType.value);
-            const alias = parseAlias(raw);
+            const alias = parseAliasBase(raw, node);
             // A super-path base (`Derived : &/GLOBALS/Alias/Member`) reaches its file through the mod's
-            // cosmoteer.rules convenience globals, so it carries no `<file>` for the cheap parse. Only
-            // the full navigator can find where it lands.
-            if (!alias && !/^&\s*\//.test(raw)) continue;
-            if (deriverClass === null) deriverClass = isGroupNode(node) ? resolveGroupClass(node) : undefined;
+            // cosmoteer.rules convenience globals, and a tilde base (`Overclock : ~/OVERCLOCK/BEAM`)
+            // through a file-root macro alias. Neither carries a `<file>` for the cheap parse, so only
+            // the full navigator can find where they land.
+            if (!alias && !/^&?\s*[/~]/.test(raw)) continue;
+            // A deep member path (`: <file>/TopGroup/Nested`) derives the NESTED group, whose class
+            // says nothing about the top-level member the record would be keyed under. Recording it
+            // mis-roots the top group (a `…/AttackCommand/Circle` deriver is a circle renderer, not a
+            // command), so deep bases are skipped entirely.
+            if (alias && alias.deep) continue;
+            if (deriverClass === null) deriverClass = isGroupNode(node) ? deriverClassOf(node, bases) : undefined;
             // A deriver whose class can't resolve (yet) still marks the target as an inheritance base,
             // recorded with a blank class. The rooting queries ignore blank entries, but the fact that
             // the file is derived from at all is what the component-reference validator's template
@@ -519,7 +601,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             if (!deriverClass) state.sawAlias = true;
             const resolved = alias
                 ? { target: await this.resolveTarget(base, alias.fileRef, cancellationToken), member: alias.member ?? '' }
-                : await this.resolveSuperPathBase(raw, base, cancellationToken);
+                : await this.resolveNavigatedBase(raw, base, cancellationToken);
             if (!resolved?.target) continue;
             const { target, member } = resolved;
             const members =
@@ -531,19 +613,20 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
     }
 
     /**
-     * Resolves a super-path inheritance base (`&/GLOBALS/Alias/Member`) to the file and top-level
-     * group it lands on. Resolution goes through the mod-aware resolver, since these globals are
-     * typically the mod's own additions to the game root (`Add` actions targeting `cosmoteer.rules`)
-     * that plain navigation cannot see. The landing group's own file and name key the base record,
-     * exactly as a `<file>/Member` base would.
+     * Resolves a navigated inheritance base to the file and top-level group it lands on: a
+     * super-path (`&/GLOBALS/Alias/Member`) through the mod's cosmoteer.rules convenience globals,
+     * or a tilde path (`~/OVERCLOCK/BEAM`) through a file-root macro group. Resolution goes through
+     * the mod-aware resolver, since super-path globals are typically the mod's own additions to the
+     * game root that plain navigation cannot see. A landing on an alias value (`BEAM = &<file>`)
+     * dereferences one hop to the aliased file, the overclock macro idiom.
      *
-     * @param raw the base reference as written, including the leading `&`.
+     * @param raw the base reference as written.
      * @param base the base's reference value node, the navigation origin.
      * @param cancellationToken cancels the navigation.
      * @returns the normalized target uri and member name, or undefined when the path does not land
-     *          on a named group or whole document.
+     *          on a named group, a whole document, or a file alias.
      */
-    private async resolveSuperPathBase(
+    private async resolveNavigatedBase(
         raw: string,
         base: AbstractNode,
         cancellationToken: CancellationToken
@@ -557,6 +640,15 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         if (isDocumentNode(node)) return { target: normalizeUri(node.uri), member: '' };
         if (isGroupNode(node) && node.identifier && node.parent && isDocumentNode(node.parent)) {
             return { target: normalizeUri(node.parent.uri), member: node.identifier.name };
+        }
+        // The path landed on a macro alias member (`BEAM = &<overclock.rules>`): follow the one
+        // `&<file>` hop, so the aliased file records the deriver as a whole-file base.
+        if (isValueNode(node) && node.valueType.type === 'Reference') {
+            const aliased = parseAliasPath(String(node.valueType.value));
+            if (aliased && !aliased.member) {
+                const target = await this.resolveTarget(node, aliased.fileRef, cancellationToken);
+                if (target) return { target, member: '' };
+            }
         }
         return undefined;
     }

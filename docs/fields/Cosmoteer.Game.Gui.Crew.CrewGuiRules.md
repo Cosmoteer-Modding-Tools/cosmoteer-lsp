@@ -8,27 +8,27 @@
 > the [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## SelectCrewCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while the crew selection tool is active. Replaced by [[Cosmoteer.Game.Gui.Crew.CrewGuiRules.AssignToSquadCursor]] when hovering a crew quarters the selected crew can be assigned to.
 
 ## AssignToSquadCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown when hovering a crew quarters that the currently selected crew have a path to, indicating that clicking will assign them to that quarters.
 
 ## SetCrewRoleCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while a role is selected in the crew toolbox and clicking a crew quarters will assign that role to it.
 
 ## TargetToolCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown while the squad target tool is active. Replaced by [[Cosmoteer.Game.Gui.Crew.CrewGuiRules.TargetToolSelectionCursor]] once one or more crew quarters are selected.
 
 ## TargetToolSelectionCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown in the squad target tool while crew quarters are selected, indicating that clicking a valid part will add or remove it as a supply target of those quarters.
 

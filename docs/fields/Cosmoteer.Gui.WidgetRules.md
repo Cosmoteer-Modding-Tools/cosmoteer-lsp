@@ -13,12 +13,12 @@
 Shader applied to a label's text renderer to make it pulse for attention, used on the build toolbox vital-part warning message. Vanilla points it at pulsing.shader.
 
 ## RightClickCursor
-`asset (image)` · required
+`Cursor` · required
 
 Cursor shown while hovering a widget that offers an alt-click or right-click context action, such as items in the ship library, mods dialog, resource toolboxes and crew roster. Vanilla uses cursor_right_click.png.
 
 ## InvalidCursor
-`asset (image)` · required
+`Cursor` · required
 
 Cursor shown while the pointer is over a target where the current action cannot be performed, such as an unaffordable or out-of-range FTL jump, an invalid salvage target, or an invalid crew placement. Vanilla uses cursor_invalid.png.
 
@@ -133,27 +133,27 @@ Number of blur iterations applied behind a widget with [[Cosmoteer.Gui.WidgetRul
 Material used to tint the area behind a widget instead of blurring it when fancy UI effects are disabled, giving a flat translucent backing behind dialogs and menus.
 
 ## DefaultFont
-`asset (font)` · required
+`Font` · required
 
 Engine-wide default font. Every widget and text renderer that does not specify its own font uses this one. Vanilla loads the Play and Microsoft YaHei faces with fixed-width digits.
 
 ## ShadowFont
-`asset (font)` · required
+`Font` · required
 
 Font that renders text with a soft black drop shadow, applied throughout the UI to labels and buttons that need to stay readable over busy backgrounds such as build, crew, ship name, chat, and title-screen text. Vanilla derives it from [[Cosmoteer.Gui.WidgetRules.DefaultFont]] with a blurred black shadow pass.
 
 ## GlowFont
-`asset (font)` · required
+`Font` · required
 
 Font that renders text with a soft glow, applied to attention labels such as input-binding conflict warnings and the wishlist prompt. Vanilla derives it from [[Cosmoteer.Gui.WidgetRules.DefaultFont]] with a blur pass behind the foreground.
 
 ## ShadowGlowFont
-`asset (font)` · required
+`Font` · required
 
 Font that renders text with both a black shadow and a glow pass, applied to the build toolbox vital-part warning message. Vanilla derives it from [[Cosmoteer.Gui.WidgetRules.DefaultFont]] with a shadow pass and a glow pass.
 
 ## DefaultCursor
-`asset (image)` · required
+`Cursor` · required
 
 Engine-wide default mouse cursor, shown whenever no widget or tool overrides the pointer. Vanilla uses cursor_arrow.png.
 

@@ -2,10 +2,10 @@
   "meta": {
     "source": "Cosmoteer.dll \u002B HalflingCore.dll",
     "root": "Cosmoteer.Data.Rules",
-    "registries": 36,
-    "types": 841,
-    "enums": 99,
-    "typesBeforePrune": 1349,
+    "registries": 37,
+    "types": 847,
+    "enums": 100,
+    "typesBeforePrune": 1351,
     "registriesBeforePrune": 62
   },
   "registries": {
@@ -686,6 +686,16 @@
         "LightningRenderer": "Cosmoteer.Simulation.MediaEffects.ParticleRenderers.ParticleLightningRenderer",
         "TwoColorQuadRenderer": "Cosmoteer.Simulation.MediaEffects.ParticleRenderers.TwoColorParticleQuadRenderer",
         "StandardQuadRenderer": "Halfling.Particles.Renderers.StandardParticleQuadRenderer"
+      }
+    },
+    "Halfling.Graphics.Text.IFontEffect": {
+      "name": "IFontEffect",
+      "typeField": "Type",
+      "valueField": "",
+      "members": {
+        "Blur": "Halfling.Graphics.Text.BlurFontEffect",
+        "Color": "Halfling.Graphics.Text.ColorFontEffect",
+        "OuterStroke": "Halfling.Graphics.Text.OuterStrokeFontEffect"
       }
     }
   },
@@ -1594,40 +1604,45 @@
         {
           "name": "FocusModeCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "PartModeCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "NuggetCollectCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "NuggetCantCollectCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "CancelSalvageCollectCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -1874,8 +1889,9 @@
         {
           "name": "SalvageCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -30641,8 +30657,9 @@
         {
           "name": "SelectObjectsCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -35566,16 +35583,18 @@
         {
           "name": "CursorValid",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "CursorInvalid",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -36453,16 +36472,18 @@
         {
           "name": "RightClickCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "InvalidCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -36672,40 +36693,45 @@
         {
           "name": "DefaultFont",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "font"
+            "kind": "group",
+            "ref": "Halfling.Graphics.Text.Font",
+            "name": "Font"
           },
           "optional": false
         },
         {
           "name": "ShadowFont",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "font"
+            "kind": "group",
+            "ref": "Halfling.Graphics.Text.Font",
+            "name": "Font"
           },
           "optional": false
         },
         {
           "name": "GlowFont",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "font"
+            "kind": "group",
+            "ref": "Halfling.Graphics.Text.Font",
+            "name": "Font"
           },
           "optional": false
         },
         {
           "name": "ShadowGlowFont",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "font"
+            "kind": "group",
+            "ref": "Halfling.Graphics.Text.Font",
+            "name": "Font"
           },
           "optional": false
         },
         {
           "name": "DefaultCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -42761,56 +42787,63 @@
         {
           "name": "MoveCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "StrafeCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "RotateCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "AttackCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "TargetCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "DirectControlAimCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "DirectControlAimDisabledCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -43117,8 +43150,9 @@
         {
           "name": "FtlJumpCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -44207,16 +44241,18 @@
         {
           "name": "Cursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": true
         },
         {
           "name": "TargetObjectCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": true
         },
@@ -45368,8 +45404,9 @@
         {
           "name": "SetResourceTypeCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -45385,8 +45422,9 @@
         {
           "name": "ClearResourceTypeCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -45420,16 +45458,18 @@
         {
           "name": "MoveResourcesPickUpCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "MoveResourcesPutDownCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -45753,16 +45793,18 @@
         {
           "name": "SupplyChainToolCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "SupplyChainToolSelectionCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -45946,24 +45988,27 @@
         {
           "name": "GrabDecalCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "RemoveDecalCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "SelectDecalsCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -46203,40 +46248,45 @@
         {
           "name": "SelectCrewCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "AssignToSquadCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "SetCrewRoleCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "TargetToolCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "TargetToolSelectionCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -47163,32 +47213,36 @@
         {
           "name": "GrabPartCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "RemovePartCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "SelectPartsCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
         {
           "name": "RepairCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": false
         },
@@ -56760,64 +56814,72 @@
         {
           "name": "ResizeLeftCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": true
         },
         {
           "name": "ResizeRightCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": true
         },
         {
           "name": "ResizeTopCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": true
         },
         {
           "name": "ResizeBottomCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": true
         },
         {
           "name": "ResizeTopLeftCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": true
         },
         {
           "name": "ResizeTopRightCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": true
         },
         {
           "name": "ResizeBottomLeftCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": true
         },
         {
           "name": "ResizeBottomRightCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": true
         }
@@ -57696,8 +57758,9 @@
         {
           "name": "DragCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": true
         }
@@ -57865,16 +57928,18 @@
         {
           "name": "HighlightedCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": true
         },
         {
           "name": "PressedCursor",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "image"
+            "kind": "group",
+            "ref": "Halfling.Windows.Cursor",
+            "name": "Cursor"
           },
           "optional": true
         }
@@ -58308,8 +58373,9 @@
         {
           "name": "Font",
           "valueType": {
-            "kind": "asset",
-            "assetKind": "font"
+            "kind": "group",
+            "ref": "Halfling.Graphics.Text.Font",
+            "name": "Font"
           },
           "optional": true
         },
@@ -59585,6 +59651,114 @@
         }
       ]
     },
+    "Halfling.Graphics.Text.BlurFontEffect": {
+      "name": "BlurFontEffect",
+      "namespace": "Halfling.Graphics.Text",
+      "derivedType": "Blur",
+      "registry": "Halfling.Graphics.Text.IFontEffect",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "BlurAmount",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": false,
+          "nullable": false
+        }
+      ]
+    },
+    "Halfling.Graphics.Text.ColorFontEffect": {
+      "name": "ColorFontEffect",
+      "namespace": "Halfling.Graphics.Text",
+      "derivedType": "Color",
+      "registry": "Halfling.Graphics.Text.IFontEffect",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "Color",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Graphics.Color",
+            "name": "Color"
+          },
+          "optional": false,
+          "nullable": false
+        }
+      ]
+    },
+    "Halfling.Graphics.Text.FontRenderPass": {
+      "name": "FontRenderPass",
+      "namespace": "Halfling.Graphics.Text",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "SizeRelativeOffset",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Geometry.Vector2",
+            "name": "Vector2"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "Effects",
+          "valueType": {
+            "kind": "list",
+            "element": {
+              "kind": "polymorphicGroup",
+              "ref": "Halfling.Graphics.Text.IFontEffect",
+              "name": "IFontEffect"
+            }
+          },
+          "optional": true
+        }
+      ]
+    },
+    "Halfling.Graphics.Text.OuterStrokeFontEffect": {
+      "name": "OuterStrokeFontEffect",
+      "namespace": "Halfling.Graphics.Text",
+      "derivedType": "OuterStroke",
+      "registry": "Halfling.Graphics.Text.IFontEffect",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "Color",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Graphics.IntColor",
+            "name": "IntColor"
+          },
+          "optional": false,
+          "nullable": false
+        },
+        {
+          "name": "RelativeThickness",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "AbsoluteThickness",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "Falloff",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        }
+      ]
+    },
     "Halfling.Geometry.Arc": {
       "name": "Arc",
       "namespace": "Halfling.Geometry",
@@ -60441,6 +60615,104 @@
             "kind": "enum",
             "ref": "Cosmoteer.Ships.ValueModificationMode",
             "name": "ValueModificationMode"
+          },
+          "optional": true
+        }
+      ]
+    },
+    "Halfling.Graphics.Text.Font": {
+      "name": "Font",
+      "namespace": "Halfling.Graphics.Text",
+      "fields": [
+        {
+          "name": "File",
+          "valueType": {
+            "kind": "asset",
+            "assetKind": "font"
+          },
+          "optional": true
+        },
+        {
+          "name": "Files",
+          "valueType": {
+            "kind": "list",
+            "element": {
+              "kind": "asset",
+              "assetKind": "font"
+            }
+          },
+          "optional": true
+        },
+        {
+          "name": "Passes",
+          "valueType": {
+            "kind": "list",
+            "element": {
+              "kind": "group",
+              "ref": "Halfling.Graphics.Text.FontRenderPass",
+              "name": "FontRenderPass"
+            }
+          },
+          "optional": true
+        },
+        {
+          "name": "ForceSameWidths",
+          "valueType": {
+            "kind": "tuple",
+            "elements": [
+              {
+                "kind": "string"
+              },
+              {
+                "kind": "string"
+              }
+            ]
+          },
+          "optional": true
+        },
+        {
+          "name": "AntialiasQuality",
+          "valueType": {
+            "kind": "int"
+          },
+          "optional": true
+        }
+      ]
+    },
+    "Halfling.Windows.Cursor": {
+      "name": "Cursor",
+      "namespace": "Halfling.Windows",
+      "fields": [
+        {
+          "name": "File",
+          "valueType": {
+            "kind": "asset",
+            "assetKind": "image"
+          },
+          "optional": true
+        },
+        {
+          "name": "HotSpot",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Geometry.IntVector2",
+            "name": "IntVector2"
+          },
+          "optional": true
+        },
+        {
+          "name": "Scale",
+          "valueType": {
+            "kind": "number"
+          },
+          "optional": true
+        },
+        {
+          "name": "OSCursor",
+          "valueType": {
+            "kind": "enum",
+            "ref": "Halfling.Windows.OSCursor",
+            "name": "OSCursor"
           },
           "optional": true
         }
@@ -61619,6 +61891,39 @@
         "InvModulus",
         "Min",
         "Max"
+      ]
+    },
+    "Halfling.Windows.OSCursor": {
+      "name": "OSCursor",
+      "members": [
+        "AppStarting",
+        "Arrow",
+        "Cross",
+        "Default",
+        "Hand",
+        "Help",
+        "HorizontalSplit",
+        "IBeam",
+        "No",
+        "NoMove2D",
+        "NoMoveHorizontal",
+        "NoMoveVertical",
+        "PanEast",
+        "PanNE",
+        "PanNorth",
+        "PanNW",
+        "PanSE",
+        "PanSouth",
+        "PanSW",
+        "PanWest",
+        "SizeAll",
+        "SizeNESW",
+        "SizeNS",
+        "SizeNWSE",
+        "SizeWE",
+        "UpArrow",
+        "VerticalSplit",
+        "Wait"
       ]
     }
   },

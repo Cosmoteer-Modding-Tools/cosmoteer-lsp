@@ -33,7 +33,7 @@
 <!-- TODO: needs documentation -->
 
 ## SelectObjectsCursor
-`asset (image)` · required
+`Cursor` · required
 
 <!-- TODO: needs documentation -->
 

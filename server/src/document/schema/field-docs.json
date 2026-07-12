@@ -2164,6 +2164,29 @@
         "DestAlphaFactor": "The DestAlphaFactor parameter for the alpha channel in the equation: AlphaOperator([sourceAlpha] * SourceAlphaFactor, [destAlpha] * DestAlphaFactor)",
         "AlphaOperator": "The AlphaOperator function for the alpha channel in the equation: AlphaOperator([sourceAlpha] * SourceAlphaFactor, [destAlpha] * DestAlphaFactor)"
     },
+    "Halfling.Graphics.Text.BlurFontEffect": {
+        "BlurAmount": "The amount of blur."
+    },
+    "Halfling.Graphics.Text.ColorFontEffect": {
+        "Color": "The color that will be applied to the font."
+    },
+    "Halfling.Graphics.Text.Font": {
+        "File": "The font file to load, typically a `.ttf`, resolved relative to this file.",
+        "Files": "Several font files loaded together, with later files supplying the glyphs earlier ones lack. Used to chain a fallback font for CJK glyphs.",
+        "Passes": "The render passes applied when drawing text, in order. Each pass draws the whole text once with its own offset and [[Halfling.Graphics.Text.FontRenderPass.Effects]], which is how shadow and glow fonts layer a blurred colored copy under the foreground.",
+        "ForceSameWidths": "Two equal-length strings read as character pairs: each character in the first string is forced to render with the width of the matching character in the second. Vanilla maps `\"123456789\"` to `\"000000000\"` so digits align in columns.",
+        "AntialiasQuality": "The antialiasing quality level used when rasterizing glyphs."
+    },
+    "Halfling.Graphics.Text.FontRenderPass": {
+        "SizeRelativeOffset": "The position offset of this pass relative to the pixel size of the font.",
+        "Effects": "A modifiable list of effects to apply to the font during this render pass. The effects will be applied in the order in which they appear in this list. Adding or removing effects only has an effect on characters that have not yet been pre-rendered."
+    },
+    "Halfling.Graphics.Text.OuterStrokeFontEffect": {
+        "Color": "The color that will be applied to the font's edges.",
+        "RelativeThickness": "The thickness of the stroke effect relative to the size of the font. This will be added with AbsoluteThickness.",
+        "AbsoluteThickness": "The thickness of the stroke effect in pixels. This will be added with RelativeThickness.",
+        "Falloff": "A number that indicates how quickly the stroke effect will disappear as the distance from the edge of the font increases."
+    },
     "Halfling.Gui.Button": {
         "StateNormalTextRenderer": "The settings for the text shown when this button is in its \"Normal\" state.",
         "StateHighlightedTextRenderer": "The settings for the text shown when this button is in its \"Highlighted\" state.",
@@ -2903,5 +2926,11 @@
     "Halfling.Scene2D.Particles.ParticleVelocityToWorldSpace": {
         "VelocityIn": "The data that stores the velocity that should be converted to world space.",
         "VelocityOut": "The data that stores the converted velocity."
+    },
+    "Halfling.Windows.Cursor": {
+        "File": "The cursor bitmap, resolved relative to this file. Either this or [[Halfling.Windows.Cursor.OSCursor]] must be present.",
+        "HotSpot": "The pixel inside the bitmap that sits on the exact mouse position, as `[x, y]` from the top-left. Defaults to the top-left corner.",
+        "Scale": "A factor the cursor bitmap is scaled by when displayed.",
+        "OSCursor": "A cursor supplied by the operating system instead of a bitmap, named by its standard role."
     }
 }

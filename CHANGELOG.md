@@ -13,6 +13,15 @@ All notable changes to this project will be documented in this file.
 - Color swatches and the color picker now also appear on the positional list form (`VertexColor = [255, 255, 255, 217]`), the form the game itself saves. Detection is schema-typed, so a four-number rect never gets a swatch.
 - A group whose `Type=` uses a pre-rename name (`Type = AmmoDrain`, now `ResourceDrain`) no longer goes dark: hover, completion and validation inside the group work through the current class, while the rename hint and its quick fix stay on the `Type =` line.
 - Shared munition fragments inherited through a mod's convenience globals (`BeamEmitter : &/SW_SHOTS/…/Beam_name`) now root to the inheriting component's class, so hover, completion and validation work inside them. Previously such a group was dark or mis-typed by its legacy `Type =` line.
+- A `Range` field written in its group forms now resolves: `Speed { BaseValue = … }` reads as the element's group form, and the `{ Min = …, Max = … }` and `{ Value = … }` keys type as the range's element, so a background's `TwinkleAddColor` colors get hover, validation and swatches.
+- Fragments inherited through a same-file alias (`BASE = &<shots.rules>/Shot` then `Bullet : &BASE`) now root to the deriver's class, the dominant macro idiom in shot mods.
+- Font definitions are a modeled group now: `DefaultFont { File Passes [ { Effects [ … ] } ] }` completes and validates, including the font-effect `Type = Blur/Color/OuterStroke` registry with each effect's fields.
+- Cursor groups are modeled: `{ File, HotSpot, Scale }` or `{ OSCursor = Arrow }` complete and validate with the full OS-cursor vocabulary, instead of being mistaken for textures.
+- Sound groups accept their custom-read keys: `Sound = "x.wav"`, `RandomSounds` and `Db` now complete and validate beside `Sounds`/`Volume`/`Speed`.
+- A part's and a bullet's `Components` map is typed now, so every component knows its registry from the slot alone. A partial override fragment whose only component carries no `Type=` still gets completion, hover and `Type=` validation.
+- Shader values written in group form (`Shader { File = "…" }`) resolve to the shader group class with `File`/`VertexEntryPoint`/`PixelEntryPoint` completion, like the texture group form.
+- Vanilla's overclock shot fragments now root: a component deriving `X : ~/OVERCLOCK/BEAM, BulletEmitter` records the macro-aliased file as its base (the class coming from the sibling base), so the fragment gets full intelligence.
+- A base that is both a typed slot and an inheritance base (vanilla's `FollowCommand`) now resolves to the slot's class when it fits best, instead of a shallow common ancestor of its derivers.
 - Field documentation for the most-modded gameplay and GUI classes, written from the game's own code: parts, ships, crew, weapons, beams, bullets, resources, the data root, and the widget, game, build, resource, sim, crew, menu, missions and galaxy-map GUI rules. Coverage of the hover/completion field docs grows from 19% to 41%.
 - A reference to a group with a `BaseValue` member now shows that value as an inlay hint: `Arc = &~/Part/Components/ArcShield/Arc` renders `/BaseValue = 160d` after the reference. Toggleable via the new `inlayHints.showBaseValue` setting, on by default.
 - The `Modifiers` entries of a `BaseValue` group are now fully understood: `Type =` completes with the twelve modifier kinds the game knows, each entry's fields complete, hover and validate, and a typo gets the usual did-you-mean fix.
@@ -75,6 +84,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Deriving a nested group (`… : <file>/AttackCommand/Circle`) no longer mis-types the whole top-level group as the nested class, which broke hover and completion in vanilla's command files.
 - Completion with the cursor directly behind a group's closing `}` now offers the surrounding container's suggestions instead of leaking the just-closed group's field names.
 - Path completion in game-root references now accepts any casing of the `<./Data/` prefix.
 - File extensions in paths and asset values now match with any casing, like the game's own file loading: `<Foo.Rules>` references resolve, `sound.WAV` values classify as assets and uppercase-extension files appear in completion.

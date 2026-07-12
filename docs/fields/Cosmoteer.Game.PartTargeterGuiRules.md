@@ -48,12 +48,12 @@
 <!-- TODO: needs documentation -->
 
 ## Cursor
-`asset (image)` · optional
+`Cursor` · optional
 
 <!-- TODO: needs documentation -->
 
 ## TargetObjectCursor
-`asset (image)` · optional
+`Cursor` · optional
 
 <!-- TODO: needs documentation -->
 

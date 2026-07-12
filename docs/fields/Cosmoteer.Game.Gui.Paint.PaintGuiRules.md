@@ -78,17 +78,17 @@
 <!-- TODO: needs documentation -->
 
 ## GrabDecalCursor
-`asset (image)` · required
+`Cursor` · required
 
 <!-- TODO: needs documentation -->
 
 ## RemoveDecalCursor
-`asset (image)` · required
+`Cursor` · required
 
 <!-- TODO: needs documentation -->
 
 ## SelectDecalsCursor
-`asset (image)` · required
+`Cursor` · required
 
 <!-- TODO: needs documentation -->
 

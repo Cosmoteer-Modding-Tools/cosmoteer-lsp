@@ -193,7 +193,7 @@ Color of a [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ResourceTransferLine]
 Color of a [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ResourceTransferLine]] representing a crew-carried transfer or nugget pickup whose resource type matches the currently highlighted one. Paired with [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ResourceTransferLineUnselectedCrewColor]].
 
 ## SetResourceTypeCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown by the set-resource-type tool while a resource type is selected to paint onto flex storage tiles. Replaced by [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ClearResourceTypeCursor]] when no type is selected.
 
@@ -203,7 +203,7 @@ Mouse cursor shown by the set-resource-type tool while a resource type is select
 Sprite drawn over each flex storage tile that the set-resource-type tool would assign a type to. Replaced by [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.ClearResourceTypeTileHoverSprite]] when clearing instead.
 
 ## ClearResourceTypeCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown by the set-resource-type tool when no resource type is selected, so clicking clears tile assignments. Replaces [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SetResourceTypeCursor]].
 
@@ -223,12 +223,12 @@ Sound played when the set-resource-type tool assigns a resource type to one or m
 Sound played when the set-resource-type tool clears the resource type of one or more flex storage tiles. The counterpart to [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SetResourceTypeSound]].
 
 ## MoveResourcesPickUpCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown by the move-resources tool before a source tile is grabbed. Replaced by [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.MoveResourcesPutDownCursor]] once resources are held.
 
 ## MoveResourcesPutDownCursor
-`asset (image)` · required
+`Cursor` · required
 
 Mouse cursor shown by the move-resources tool while carrying resources to a destination tile. Replaces [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.MoveResourcesPickUpCursor]].
 
@@ -403,12 +403,12 @@ Line previewing the supply link that would be created from each selected supplie
 Scroll rate of the supply lines' arrow texture along each line, making the arrows appear to flow from producer toward target. Higher values scroll the flow animation faster.
 
 ## SupplyChainToolCursor
-`asset (image)` · required
+`Cursor` · required
 
 Cursor shown while the supply-chain tool is active and no suppliers are selected. Replaced by [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplyChainToolSelectionCursor]] once suppliers are selected.
 
 ## SupplyChainToolSelectionCursor
-`asset (image)` · required
+`Cursor` · required
 
 Cursor shown while supplier parts are selected in the supply-chain tool, signaling that clicking a part assigns or removes it as a supply target. Takes the place of [[Cosmoteer.Game.Gui.Resources.ResourceGuiRules.SupplyChainToolCursor]].
 

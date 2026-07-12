@@ -60,6 +60,15 @@ const KNOWN_MOD_BUGS = new Set<string>([
     "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot02.rules :: 'AmmoDrain' was renamed to 'ResourceDrain' in a newer game version (ammo was generalized into the resource system).",
     "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot02.rules :: 'ExplosiveAmmoDrain' was renamed to 'ExplosiveResourceDrain' in a newer game version (ammo was generalized into the resource system).",
     "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot03.rules :: 'AmmoDrain' was renamed to 'ResourceDrain' in a newer game version (ammo was generalized into the resource system).",
+    // Surfaced when the part `Components` map got its slot typing: these are the SW mod's
+    // copy-and-rename TEMPLATE files, whose `Type = COMPONENT_BASE_NAME` is a find/replace
+    // placeholder. The flag is accurate for the file as written (the game could not load it), and
+    // the files are scaffolding the manifest never reaches.
+    "3119349707/ships/common/common_code/bases/base_component - Kopie (2).rules :: 'COMPONENT_BASE_NAME' is not a valid PartComponentRules type.",
+    "3119349707/ships/common/common_code/bases/base_component - Kopie (3).rules :: 'COMPONENT_BASE_NAME' is not a valid PartComponentRules type.",
+    "3119349707/ships/common/common_code/bases/base_component - Kopie (4).rules :: 'COMPONENT_BASE_NAME' is not a valid PartComponentRules type.",
+    "3119349707/ships/common/common_code/bases/base_component - Kopie.rules :: 'COMPONENT_BASE_NAME' is not a valid PartComponentRules type.",
+    "3119349707/ships/common/common_code/bases/base_component.rules :: 'COMPONENT_BASE_NAME' is not a valid PartComponentRules type.",
     // Surfaced when inheritance bases reached through mod convenience-global super-paths started
     // rooting (the shots-fragment beams inherited as `BeamEmitter : &/SW_SHOTS/…`): the nested
     // `AmmoDrain` hit effects inside those beams now validate, and their legacy name is the same

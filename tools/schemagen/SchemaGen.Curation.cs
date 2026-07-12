@@ -61,6 +61,13 @@ internal sealed partial class SchemaGen
     // When an animated AtlasSprite's animation clock starts. Nested enum reached only via the sprite's
     // custom deserializer (no `[Serialize]` slot), so curated from the decompiled member list.
     const string ANIM_START_MODE = "Cosmoteer.Ships.Rendering.AtlasSprite/AnimStartTimeMode";
+    // A font definition group (`DefaultFont { File=… Passes […] }`), read by the global FontFactory
+    // deserializer. Group-only: the reader throws on a scalar, so the mapping is a plain group.
+    const string FONT_CLASS = "Halfling.Graphics.Text.Font";
+    // A cursor group (`{ File=… HotSpot=[8,8] Scale=.5 }` or `{ OSCursor=Arrow }`), read by the
+    // CursorManager deserializer. Group-only, like Font.
+    const string CURSOR_CLASS = "Halfling.Windows.Cursor";
+    const string OSCURSOR_ENUM = "Halfling.Windows.OSCursor";
 
     void SeedCuratedEnums()
     {
@@ -81,6 +88,18 @@ internal sealed partial class SchemaGen
         {
             ["name"] = "AnimStartTimeMode",
             ["members"] = new JsonArray("Zero", "MinValue", "WhenSpawned", "Random", "Default"),
+        };
+        // The operating-system cursors a Cursor group can name (`OSCursor = Arrow`). A real public
+        // enum in HalflingCore, but reached only through the CursorManager deserializer (no
+        // `[Serialize]` slot), so curated from the decompiled member list.
+        enums[OSCURSOR_ENUM] = new JsonObject
+        {
+            ["name"] = "OSCursor",
+            ["members"] = new JsonArray(
+                "AppStarting", "Arrow", "Cross", "Default", "Hand", "Help", "HorizontalSplit", "IBeam",
+                "No", "NoMove2D", "NoMoveHorizontal", "NoMoveVertical", "PanEast", "PanNE", "PanNorth",
+                "PanNW", "PanSE", "PanSouth", "PanSW", "PanWest", "SizeAll", "SizeNESW", "SizeNS",
+                "SizeNWSE", "SizeWE", "UpArrow", "VerticalSplit", "Wait"),
         };
     }
 
@@ -147,6 +166,49 @@ internal sealed partial class SchemaGen
                 OptField("StatusMaxValue", NumberType()),
                 OptField("EffectScaleExponent", NumberType()),
                 OptField("EffectScaleMode", ModeEnum()))
+        };
+        // Font: the definition group the global FontFactory deserializer reads (widgets.rules
+        // `DefaultFont { … }` and every `Font`-typed slot). Keys transcribed from FontFactory.Read:
+        // `File`/`Files` (the ttf sources, one of the two present), `Passes` (render passes, whose
+        // `Effects` reach the real IFontEffect `Type=` registry through the normal harvest),
+        // `ForceSameWidths` (a key-string/value-string pair) and `AntialiasQuality`. All read via
+        // Try/optional paths except the File-or-Files choice, which is not provable, so all optional.
+        types[FONT_CLASS] = new JsonObject
+        {
+            ["name"] = "Font",
+            ["namespace"] = "Halfling.Graphics.Text",
+            ["fields"] = new JsonArray(
+                OptField("File", new JsonObject { ["kind"] = "asset", ["assetKind"] = "font" }),
+                OptField("Files", new JsonObject
+                {
+                    ["kind"] = "list",
+                    ["element"] = new JsonObject { ["kind"] = "asset", ["assetKind"] = "font" },
+                }),
+                OptField("Passes", new JsonObject
+                {
+                    ["kind"] = "list",
+                    ["element"] = GroupOf("Halfling.Graphics.Text.FontRenderPass", "FontRenderPass"),
+                }),
+                OptField("ForceSameWidths", new JsonObject
+                {
+                    ["kind"] = "tuple",
+                    ["elements"] = new JsonArray(
+                        new JsonObject { ["kind"] = "string" },
+                        new JsonObject { ["kind"] = "string" }),
+                }),
+                OptField("AntialiasQuality", IntType2()))
+        };
+        // Cursor: the group the CursorManager deserializer reads. Either a bitmap cursor
+        // (`File` + optional `HotSpot`/`Scale`) or an operating-system cursor (`OSCursor = Arrow`).
+        types[CURSOR_CLASS] = new JsonObject
+        {
+            ["name"] = "Cursor",
+            ["namespace"] = "Halfling.Windows",
+            ["fields"] = new JsonArray(
+                OptField("File", AssetImage()),
+                OptField("HotSpot", IntVec2()),
+                OptField("Scale", NumberType()),
+                OptField("OSCursor", new JsonObject { ["kind"] = "enum", ["ref"] = OSCURSOR_ENUM, ["name"] = "OSCursor" }))
         };
         // PartConversion: `record struct PartConversion(ID<PartRules> From, ID<PartRules> To)`, the entries
         // of a sysgen ConvertTypeStage's `Conversions` list. Written as `{ From = <part id>  To = <part id> }`

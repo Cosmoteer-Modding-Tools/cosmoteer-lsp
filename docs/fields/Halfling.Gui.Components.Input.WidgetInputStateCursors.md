@@ -8,11 +8,11 @@
 > the [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## HighlightedCursor
-`asset (image)` · optional
+`Cursor` · optional
 
 The Cursor to show when the input state is "Highlighted".
 
 ## PressedCursor
-`asset (image)` · optional
+`Cursor` · optional
 
 The Cursor to show when the input state is "Pressed".

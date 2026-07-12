@@ -140,10 +140,14 @@ internal sealed partial class SchemaGen
             case "AbsolutePath": case "RelativePath": case "FilePath":
                 o["kind"] = "string"; o["semantic"] = "path"; return o;
             // engine asset references (custom deserializers in HalflingCore) — feed the asset feature
-            case "Texture": case "Cursor": o["kind"] = "asset"; o["assetKind"] = "image"; return o;
+            case "Texture": o["kind"] = "asset"; o["assetKind"] = "image"; return o;
             case "Sound": o["kind"] = "asset"; o["assetKind"] = "sound"; return o;
             case "Shader": o["kind"] = "asset"; o["assetKind"] = "shader"; return o;
-            case "Font": o["kind"] = "asset"; o["assetKind"] = "font"; return o;
+            // Fonts and cursors are group-only values: their deserializers (FontFactory,
+            // CursorManager) throw on a scalar, so they map to curated groups (see
+            // SchemaGen.Curation.cs), whose `File` members carry the asset kind instead.
+            case "Font": return GroupOf(FONT_CLASS, "Font");
+            case "Cursor": return GroupOf(CURSOR_CLASS, "Cursor");
             case "CompiledCode": o["kind"] = "code"; o["lang"] = "python"; return o;
             // An external/internal virtual cell pair, modeled as a curated group (see SchemaGen.Curation.cs).
             case "VirtualInternalCell":
