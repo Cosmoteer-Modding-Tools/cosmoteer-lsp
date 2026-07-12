@@ -21,7 +21,8 @@ import {
     registryHintFromContainer,
     resolveGroupClass,
 } from '../../document/schema/schema-context';
-import { discriminatorIsAmbiguous, fieldOf, fieldsOf, schema } from '../../document/schema/schema';
+import { classAncestry, discriminatorIsAmbiguous, fieldOf, fieldsOf, schema } from '../../document/schema/schema';
+import { isDeadDeclaredField } from '../../document/schema/deprecations';
 import { ValidationError } from './validator';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
@@ -204,6 +205,22 @@ export const isIgnoredSchemaField = (node: ValueNode): boolean => {
 };
 
 /**
+ * The declaring class when the named member of `group` is a known dead declaration: the field
+ * exists on the schema, but a whole-decomp consumer trace found no code that reads it (see the
+ * curated registry in deprecations.ts). The field is checked against the group class's whole
+ * ancestry, since it can be declared on a base.
+ *
+ * @param group the group containing the member.
+ * @param name the member's written field name.
+ * @returns the class FullName the dead field is registered under, or undefined.
+ */
+const deadDeclaredFieldClass = (group: GroupNode, name: string): string | undefined => {
+    const cls = resolveGroupClass(group);
+    if (!cls) return undefined;
+    return classAncestry(cls).find((ancestor) => isDeadDeclaredField(ancestor, name));
+};
+
+/**
  * Whole-document pass flagging fields the game ignores: a named assignment inside a schema-resolved
  * group whose class does not declare the name and that no reference in the file reads. Emitted as a
  * hint (the field is dead weight, not an error) with a remove quick fix. Only assignments are
@@ -226,15 +243,18 @@ export const validateIgnoredFields = async (
             for (const element of node.elements) {
                 if (!isAssignmentNode(element)) continue;
                 const name = element.left.name;
-                const cls = ignoredFieldClass(node, name, document);
+                const cls = ignoredFieldClass(node, name, document) ?? deadDeclaredFieldClass(node, name);
                 if (!cls) continue;
                 const classLabel = schema.types[cls]?.name ?? cls;
+                const declaredButDead = !!fieldOf(cls, name);
                 errors.push({
-                    message: l10n.t(
-                        "'{0}' is not a member of {1} and is never referenced in this file, so the game ignores it.",
-                        name,
-                        classLabel
-                    ),
+                    message: declaredButDead
+                        ? l10n.t("'{0}' is declared by {1} but the game's code never reads it.", name, classLabel)
+                        : l10n.t(
+                              "'{0}' is not a member of {1} and is never referenced in this file, so the game ignores it.",
+                              name,
+                              classLabel
+                          ),
                     node: element.left,
                     severity: 'hint',
                     data: {

@@ -13,6 +13,22 @@ internal sealed partial class SchemaGen
         enums[def.FullName] = o;
     }
 
+    // Whether the type's schema surface depends on generic parameters: any serialized member's type
+    // (or the base class) contains one. Such a definition cannot map without an instantiation
+    // context. A nested struct under a generic declarer formally INHERITS the declarer's parameters
+    // in Cecil without using them, so the formal parameter list is deliberately not consulted, only
+    // the members are (BaseValueMapTextureLayer<T>'s ColorPoint carries plain Color/Position).
+    static bool UsesGenericParameters(TypeDefinition def)
+    {
+        if (def.IsEnum) return false;
+        if (def.BaseType != null && def.BaseType.ContainsGenericParameter) return true;
+        foreach (var f in def.Fields)
+            if (Attr(f, SERIALIZE) != null && f.FieldType.ContainsGenericParameter) return true;
+        foreach (var p in def.Properties)
+            if (Attr(p, SERIALIZE) != null && p.PropertyType.ContainsGenericParameter) return true;
+        return false;
+    }
+
     JsonObject MapType(TypeReference tr)
     {
         var o = new JsonObject();
@@ -43,6 +59,14 @@ internal sealed partial class SchemaGen
                 || n.StartsWith("SortedDictionary`"))
             { o["kind"] = "map"; o["key"] = MapType(ga[0]); o["value"] = MapType(ga[1]); return o; }
 
+            // A type reference that merely CARRIES a declarer's generic arguments while the resolved
+            // definition's own serialized members never use them: a generic base's nested types
+            // (`BaseValueMapTextureLayer<T>`'s `ColorPoint` struct and `InterpolateMode` enum) reach
+            // this branch as instances, but they are plain types, so they map like any other and the
+            // texture-generator layers get concrete groups/enums instead of an opaque `generic`.
+            TypeDefinition? gdef = null;
+            try { gdef = git.Resolve(); } catch { }
+            if (gdef != null && !UsesGenericParameters(gdef)) return MapType(gdef);
             o["kind"] = "generic"; o["type"] = tr.Name;
             o["args"] = new JsonArray(ga.Select(a => (JsonNode)MapType(a)).ToArray());
             return o;

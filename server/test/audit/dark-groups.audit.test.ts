@@ -133,13 +133,22 @@ const runAudit = async (modDirs: string[]): Promise<AuditResult> => {
         const cls = resolveGroupClass(group);
         // Shader-constant names (`_hotColor`) come from the referenced .shader, never the schema, so
         // they don't count against a class fit, and a group WRITTEN under such a name belongs to the
-        // shader-constant machinery, not the schema.
-        const names = namedMemberNames(group).filter((n) => !n.startsWith('_'));
+        // shader-constant machinery, not the schema. Macro members (`SCREAMING_SNAKE` anchors like
+        // `HEAT_PER_SHOT` or `T_1`) are the modder's own find/replace scaffolding, equally schema-free.
+        const isMacroName = (n: string) => /^[A-Z][A-Z0-9_]*$/.test(n) && n !== n.toLowerCase();
+        const names = namedMemberNames(group).filter((n) => !n.startsWith('_') && !isMacroName(n));
         const name = group.identifier?.name ?? '(anonymous)';
         const line = group.position?.line ?? 0;
         if (name.startsWith('_')) {
             groupsResolved++;
             bump('ok-shader-constant');
+            return;
+        }
+        // A macro anchor group (`OVERCLOCK { HEAT_PER_SHOT = 90 … }`, `BASE { … }`) is deliberate
+        // scaffolding for `&~/OVERCLOCK/…` references, never a schema class.
+        if (isMacroName(name)) {
+            groupsResolved++;
+            bump('ok-macro-anchor');
             return;
         }
         if (cls) {
@@ -199,7 +208,7 @@ const runAudit = async (modDirs: string[]): Promise<AuditResult> => {
         const slot =
             container && isListNode(container)
                 ? listSlotType(container)
-                : container && isGroupNode(container) && group.identifier
+                : container && (isGroupNode(container) || isDocumentNode(container)) && group.identifier
                   ? memberTypeIn(container, group.identifier.name)
                   : undefined;
         if (slot) {
@@ -277,16 +286,19 @@ describe.skipIf(!HAVE_DATA)('vanilla dark-group gate', () => {
     // that does not fit. Improvements are welcome; re-pin the numbers downward when they land.
     it('keeps every dark cause at or below its pinned ceiling', async () => {
         const result = await runAudit([]);
+        // An optional dump of the vanilla-only findings for triage (the mods dump below shows
+        // vanilla files under mod-influenced indexes, which can differ).
+        if (process.env.AUDIT_VANILLA_OUT) writeFileSync(process.env.AUDIT_VANILLA_OUT, JSON.stringify(result, null, 1));
         const fraction = result.groupsResolved / result.groupsTotal;
         console.log('vanilla groups', result.groupsTotal, 'resolved', (100 * fraction).toFixed(2) + '%', result.counts);
-        expect(fraction).toBeGreaterThan(0.9);
-        expect(result.counts['bad-fit'] ?? 0).toBeLessThanOrEqual(45);
+        expect(fraction).toBeGreaterThan(0.985);
+        expect(result.counts['bad-fit'] ?? 0).toBeLessThanOrEqual(4);
         expect(result.counts['unknown-disc'] ?? 0).toBeLessThanOrEqual(2);
         expect(result.counts['disc-known-but-unresolved'] ?? 0).toBeLessThanOrEqual(5);
-        expect(result.counts['root-class-misses-member'] ?? 0).toBeLessThanOrEqual(6);
-        expect(result.counts['slot-typed-but-unresolved'] ?? 0).toBeLessThanOrEqual(260);
-        expect(result.counts['unrooted-top-group'] ?? 0).toBeLessThanOrEqual(130);
-        expect(result.counts['nested-untyped'] ?? 0).toBeLessThanOrEqual(1600);
+        expect(result.counts['root-class-misses-member'] ?? 0).toBeLessThanOrEqual(3);
+        expect(result.counts['slot-typed-but-unresolved'] ?? 0).toBeLessThanOrEqual(10);
+        expect(result.counts['unrooted-top-group'] ?? 0).toBeLessThanOrEqual(45);
+        expect(result.counts['nested-untyped'] ?? 0).toBeLessThanOrEqual(430);
     }, 600_000);
 });
 

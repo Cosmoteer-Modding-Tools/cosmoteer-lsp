@@ -21,14 +21,15 @@ Entries
         expect(rootOf(src, 'lore/fringe/lore_fringe.rules')).toBe('Cosmoteer.Codex.CodexPageRules');
     });
 
-    // The list-container files under codex/ hold a top-level `CodexPages` list, not `Entries`, so the
-    // page rule's required-field guard leaves them unrooted rather than mis-typing them as a page.
-    it('does not root a CodexPages list-container file as a page', () => {
+    // The list-container files under codex/ hold a top-level `CodexPages` list, not `Entries`, so
+    // they root as the codex container class rather than mis-typing as a page. Tips files inline
+    // whole pages in that list, and this is what types them.
+    it('roots a CodexPages list-container file as the codex container', () => {
         const src = `CodexPages
 [
 	&<monolith/lore_monolith.rules>
 	&<fringe/lore_fringe.rules>
 ]`;
-        expect(rootOf(src, 'lore/lore.rules')).toBeUndefined();
+        expect(rootOf(src, 'lore/lore.rules')).toBe('Cosmoteer.Codex.CodexRules');
     });
 });

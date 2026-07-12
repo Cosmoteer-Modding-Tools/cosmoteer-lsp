@@ -7,13 +7,6 @@
 > These docs describe individual fields. For guides, worked examples and the bigger picture, see
 > the [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
-## ProxyRules
-`ProxyRules` · optional
-
-The proxy target: which part and component to mirror. Written flat on the proxy itself
-(`ComponentID = …`, optionally `PartLocation` or `PartCriteria`), see
-[[Cosmoteer.Ships.Parts.Logic.ProxyRules]].
-
 ## IsOnWhenNotConnected
 `bool` · optional
 
@@ -23,3 +16,5 @@ that no active component carries. The vanilla missile launcher relies on that: i
 `MissilesPrereqProxy` targets a `MissilesPrereq` component that each `ToggledComponents`
 missile mode must supply, so a mode that forgets it reads permanently off and the launcher's
 crew stand down.
+
+---

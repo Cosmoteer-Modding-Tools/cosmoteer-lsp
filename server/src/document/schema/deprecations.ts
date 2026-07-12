@@ -47,3 +47,26 @@ const DEPRECATED_DISCRIMINATORS: Readonly<Record<string, Deprecation>> = {
  */
 export const deprecatedDiscriminator = (written: string): Deprecation | undefined =>
     DEPRECATED_DISCRIMINATORS[written];
+
+/**
+ * Fields the game declares (`[Serialize]`) but provably never reads: a grep over the whole
+ * decompiled game finds only the declaration and no vanilla file sets them. Writing one is dead
+ * weight in a mod. Keyed by the declaring class FullName; verified 2026-07-12, re-verify after a
+ * game update by re-running the decomp consumer trace.
+ */
+const DEAD_FIELDS: Readonly<Record<string, ReadonlySet<string>>> = {
+    'Cosmoteer.Ships.Parts.PartRules': new Set(['FireDamageFactor']),
+    'Cosmoteer.Crew.CrewRules': new Set(['PathfindRadius']),
+    'Cosmoteer.Ships.ShipRules': new Set(['SupplierSearchInterval']),
+    'Cosmoteer.Simulation.SimGuiRules': new Set(['TentativeScheduledSalvageNineSlice']),
+};
+
+/**
+ * Whether the named field of a class is declared but never read by the game.
+ *
+ * @param owningClass the declaring class FullName (an ancestor of the resolved group class).
+ * @param field the field name as written.
+ * @returns true when the field is a known dead declaration.
+ */
+export const isDeadDeclaredField = (owningClass: string, field: string): boolean =>
+    DEAD_FIELDS[owningClass]?.has(field) ?? false;

@@ -39,6 +39,11 @@ type RootRule = {
 
 /** Path-scoped roots: a fixed class, or a registry whose discriminators are too generic to dispatch globally. */
 const PATH_ROOTS: ReadonlyArray<RootRule> = [
+    // The game root itself. Guarded by `EffectBuckets`, which every real root declares but a mod's
+    // convenience-globals `cosmoteer.rules` (a macro container the manifest merges in) does not.
+    { test: /[/\\]cosmoteer\.rules$/i, cls: 'Cosmoteer.Data.Rules', requireTopLevelField: 'EffectBuckets' },
+    // The loading screen, read by hardcoded path into the synthetic overlay class (see schema-overlay.ts).
+    { test: /[/\\]gui[/\\]loading_screen\.rules$/i, cls: 'Cosmoteer.Data.LoadingScreen' },
     { test: /\/shots\//i, cls: 'Cosmoteer.Bullets.BulletRules' },
     // Codex page files (`codex/lore/**`, `codex/tutorials/**`) are whole-file `CodexPageRules`, pulled
     // into the codex through `CodexPages` lists that are assembled by multi-source `&<a>/CodexPages,
@@ -47,6 +52,10 @@ const PATH_ROOTS: ReadonlyArray<RootRule> = [
     // `tutorials.rules`, `tips.rules`, whose top-level field is `CodexPages`) lack — so those stay
     // unrooted here instead of mis-typing as a page.
     { test: /[/\\]codex[/\\]/i, cls: 'Cosmoteer.Codex.CodexPageRules', requireTopLevelField: 'Entries' },
+    // Codex list-container files (`tips.rules`, `lore.rules`) inline whole pages in their top-level
+    // `CodexPages` list, assembled by the multi-source concatenation the alias walk can't follow.
+    // Guarded by that field, which no page file declares, so pages keep the rule above.
+    { test: /[/\\]codex[/\\]/i, cls: 'Cosmoteer.Codex.CodexRules', requireTopLevelField: 'CodexPages' },
     // Builtin-ships database files (`builtin_ships/**`) are whole-file `BuiltinShipsDatabase`, whose
     // `Ships` list of ship blueprints is assembled by multi-source concatenation the alias walk can't
     // follow. The `Ships` / `Faction` / `Tags` / `IDPrefix` members are modeled in schema-overlay.ts.

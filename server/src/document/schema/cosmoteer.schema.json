@@ -3,8 +3,8 @@
     "source": "Cosmoteer.dll \u002B HalflingCore.dll",
     "root": "Cosmoteer.Data.Rules",
     "registries": 37,
-    "types": 847,
-    "enums": 100,
+    "types": 851,
+    "enums": 101,
     "typesBeforePrune": 1351,
     "registriesBeforePrune": 62
   },
@@ -9926,7 +9926,9 @@
               "kind": "group",
               "ref": "Cosmoteer.Ships.Paint.Decal",
               "name": "Decal"
-            }
+            },
+            "entryKey": "Old",
+            "entryValue": "New"
           },
           "optional": true
         },
@@ -12116,22 +12118,10 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "NetworkNodeProxy",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-        "name": "ProxyRules"
-      },
-      "fields": [
-        {
-          "name": "ProxyRules",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-            "name": "ProxyRules"
-          },
-          "optional": true
-        }
-      ]
+      "inlineFrom": [
+        "Cosmoteer.Ships.Parts.Logic.ProxyRules"
+      ],
+      "fields": []
     },
     "Cosmoteer.Ships.Networks.PartNetworkPortRules": {
       "name": "PartNetworkPortRules",
@@ -12168,11 +12158,9 @@
       "extends": "Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules",
       "derivedType": "NetworkResourceInput",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Networks.PartNetworkFilter",
-        "name": "PartNetworkFilter"
-      },
+      "inlineFrom": [
+        "Cosmoteer.Ships.Networks.PartNetworkFilter"
+      ],
       "fields": [
         {
           "name": "Mode",
@@ -12184,15 +12172,6 @@
           "optional": true,
           "nullable": false,
           "default": "DistributeEvenly"
-        },
-        {
-          "name": "NetworkFilter",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Networks.PartNetworkFilter",
-            "name": "PartNetworkFilter"
-          },
-          "optional": true
         }
       ]
     },
@@ -12202,11 +12181,9 @@
       "extends": "Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules",
       "derivedType": "NetworkResourceOutput",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Networks.PartNetworkFilter",
-        "name": "PartNetworkFilter"
-      },
+      "inlineFrom": [
+        "Cosmoteer.Ships.Networks.PartNetworkFilter"
+      ],
       "fields": [
         {
           "name": "Mode",
@@ -12218,15 +12195,6 @@
           "optional": true,
           "nullable": false,
           "default": "DistributeEvenly"
-        },
-        {
-          "name": "NetworkFilter",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Networks.PartNetworkFilter",
-            "name": "PartNetworkFilter"
-          },
-          "optional": true
         }
       ]
     },
@@ -12504,11 +12472,9 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "NetworkToggleReceiver",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Networks.PartNetworkFilter",
-        "name": "PartNetworkFilter"
-      },
+      "inlineFrom": [
+        "Cosmoteer.Ships.Networks.PartNetworkFilter"
+      ],
       "fields": [
         {
           "name": "Mode",
@@ -12527,15 +12493,6 @@
           },
           "optional": true,
           "nullable": false
-        },
-        {
-          "name": "NetworkFilter",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Networks.PartNetworkFilter",
-            "name": "PartNetworkFilter"
-          },
-          "optional": true
         },
         {
           "name": "IncludeInPhysical",
@@ -12611,22 +12568,10 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "NetworkTriggerReceiver",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Networks.PartNetworkFilter",
-        "name": "PartNetworkFilter"
-      },
-      "fields": [
-        {
-          "name": "NetworkFilter",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Networks.PartNetworkFilter",
-            "name": "PartNetworkFilter"
-          },
-          "optional": true
-        }
-      ]
+      "inlineFrom": [
+        "Cosmoteer.Ships.Networks.PartNetworkFilter"
+      ],
+      "fields": []
     },
     "Cosmoteer.Ships.Networks.PartNetworkTriggerRules": {
       "name": "PartNetworkTriggerRules",
@@ -12665,11 +12610,9 @@
       "extends": "Cosmoteer.Ships.Parts.OperationalPartComponentRules",
       "derivedType": "NetworkValueReceiver",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Networks.PartNetworkFilter",
-        "name": "PartNetworkFilter"
-      },
+      "inlineFrom": [
+        "Cosmoteer.Ships.Networks.PartNetworkFilter"
+      ],
       "fields": [
         {
           "name": "Mode",
@@ -12680,15 +12623,6 @@
           },
           "optional": false,
           "nullable": false
-        },
-        {
-          "name": "NetworkFilter",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Networks.PartNetworkFilter",
-            "name": "PartNetworkFilter"
-          },
-          "optional": true
         },
         {
           "name": "IncludeInPhysical",
@@ -16163,22 +16097,10 @@
       "extends": "Cosmoteer.Ships.Parts.ChainablePartComponentRules",
       "derivedType": "BeamEmitterProxy",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-        "name": "ProxyRules"
-      },
-      "fields": [
-        {
-          "name": "ProxyRules",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-            "name": "ProxyRules"
-          },
-          "optional": true
-        }
-      ]
+      "inlineFrom": [
+        "Cosmoteer.Ships.Parts.Logic.ProxyRules"
+      ],
+      "fields": []
     },
     "Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules": {
       "name": "BeamEmitterRules",
@@ -16981,22 +16903,10 @@
       "extends": "Cosmoteer.Ships.Parts.ChainablePartComponentRules",
       "derivedType": "EmitterProxy",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-        "name": "ProxyRules"
-      },
-      "fields": [
-        {
-          "name": "ProxyRules",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-            "name": "ProxyRules"
-          },
-          "optional": true
-        }
-      ]
+      "inlineFrom": [
+        "Cosmoteer.Ships.Parts.Logic.ProxyRules"
+      ],
+      "fields": []
     },
     "Cosmoteer.Ships.Parts.Weapons.EmitterRules": {
       "name": "EmitterRules",
@@ -19665,21 +19575,10 @@
       "extends": "Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules",
       "derivedType": "ResourceStorageProxy",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-        "name": "ProxyRules"
-      },
+      "inlineFrom": [
+        "Cosmoteer.Ships.Parts.Logic.ProxyRules"
+      ],
       "fields": [
-        {
-          "name": "ProxyRules",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-            "name": "ProxyRules"
-          },
-          "optional": true
-        },
         {
           "name": "LimitMaxResources",
           "valueType": {
@@ -20266,22 +20165,10 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "ComponentPresenceToggle",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-        "name": "ProxyRules"
-      },
-      "fields": [
-        {
-          "name": "ProxyRules",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-            "name": "ProxyRules"
-          },
-          "optional": true
-        }
-      ]
+      "inlineFrom": [
+        "Cosmoteer.Ships.Parts.Logic.ProxyRules"
+      ],
+      "fields": []
     },
     "Cosmoteer.Ships.Parts.Logic.ComponentToggleReferenceRules": {
       "name": "ComponentToggleReferenceRules",
@@ -20584,21 +20471,10 @@
       "extends": "Cosmoteer.Ships.Parts.ChainablePartComponentRules",
       "derivedType": "ChainableProxy",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-        "name": "ProxyRules"
-      },
+      "inlineFrom": [
+        "Cosmoteer.Ships.Parts.Logic.ProxyRules"
+      ],
       "fields": [
-        {
-          "name": "ProxyRules",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-            "name": "ProxyRules"
-          },
-          "optional": true
-        },
         {
           "name": "MatchLocation",
           "valueType": {
@@ -20842,21 +20718,10 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "ModeProxy",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-        "name": "ProxyRules"
-      },
+      "inlineFrom": [
+        "Cosmoteer.Ships.Parts.Logic.ProxyRules"
+      ],
       "fields": [
-        {
-          "name": "ProxyRules",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-            "name": "ProxyRules"
-          },
-          "optional": true
-        },
         {
           "name": "ModeWhenNotConnected",
           "valueType": {
@@ -21756,21 +21621,10 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "ToggleProxy",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-        "name": "ProxyRules"
-      },
+      "inlineFrom": [
+        "Cosmoteer.Ships.Parts.Logic.ProxyRules"
+      ],
       "fields": [
-        {
-          "name": "ProxyRules",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-            "name": "ProxyRules"
-          },
-          "optional": true
-        },
         {
           "name": "IsOnWhenNotConnected",
           "valueType": {
@@ -22125,21 +21979,10 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "TriggerProxy",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-        "name": "ProxyRules"
-      },
+      "inlineFrom": [
+        "Cosmoteer.Ships.Parts.Logic.ProxyRules"
+      ],
       "fields": [
-        {
-          "name": "ProxyRules",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-            "name": "ProxyRules"
-          },
-          "optional": true
-        },
         {
           "name": "TriggerID",
           "valueType": {
@@ -22488,21 +22331,10 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "ValueProxy",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-        "name": "ProxyRules"
-      },
+      "inlineFrom": [
+        "Cosmoteer.Ships.Parts.Logic.ProxyRules"
+      ],
       "fields": [
-        {
-          "name": "ProxyRules",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Parts.Logic.ProxyRules",
-            "name": "ProxyRules"
-          },
-          "optional": true
-        },
         {
           "name": "ValueWhenNotConnected",
           "valueType": {
@@ -25853,21 +25685,10 @@
       "extends": "Cosmoteer.Ships.Parts.PartComponentRules",
       "derivedType": "BlueprintSprite",
       "registry": "Cosmoteer.Ships.Parts.PartComponentRules",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.Rendering.AtlasSprite",
-        "name": "AtlasSprite"
-      },
+      "inlineFrom": [
+        "Cosmoteer.Ships.Rendering.AtlasSprite"
+      ],
       "fields": [
-        {
-          "name": "AtlasSprite",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.Rendering.AtlasSprite",
-            "name": "AtlasSprite"
-          },
-          "optional": true
-        },
         {
           "name": "ShowOnlyInToggleMode",
           "valueType": {
@@ -25937,22 +25758,10 @@
       "extends": "Cosmoteer.Ships.Blueprints.Graphics.BasePartNetworkRouteLine",
       "derivedType": "CappedLine",
       "registry": "Cosmoteer.Ships.Blueprints.Graphics.BasePartNetworkRouteLine",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
-        "name": "CappedLine"
-      },
-      "fields": [
-        {
-          "name": "Line",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Simulation.Overlays.CappedLine",
-            "name": "CappedLine"
-          },
-          "optional": true
-        }
-      ]
+      "inlineFrom": [
+        "Cosmoteer.Simulation.Overlays.CappedLine"
+      ],
+      "fields": []
     },
     "Cosmoteer.Ships.Blueprints.Graphics.PartNetworkSplitCappedLine": {
       "name": "PartNetworkSplitCappedLine",
@@ -25960,22 +25769,10 @@
       "extends": "Cosmoteer.Ships.Blueprints.Graphics.BasePartNetworkRouteLine",
       "derivedType": "SplitCappedLine",
       "registry": "Cosmoteer.Ships.Blueprints.Graphics.BasePartNetworkRouteLine",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Simulation.Overlays.SplitCappedLine",
-        "name": "SplitCappedLine"
-      },
-      "fields": [
-        {
-          "name": "Line",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Simulation.Overlays.SplitCappedLine",
-            "name": "SplitCappedLine"
-          },
-          "optional": true
-        }
-      ]
+      "inlineFrom": [
+        "Cosmoteer.Simulation.Overlays.SplitCappedLine"
+      ],
+      "fields": []
     },
     "Cosmoteer.Ships.AI.AICommsModuleRules": {
       "name": "AICommsModuleRules",
@@ -28309,15 +28106,6 @@
         "name": "MusicTrackRules"
       },
       "fields": [
-        {
-          "name": "Track",
-          "valueType": {
-            "kind": "polymorphicGroup",
-            "ref": "Cosmoteer.Music.MusicTrackRules",
-            "name": "MusicTrackRules"
-          },
-          "optional": true
-        },
         {
           "name": "CueCondition",
           "valueType": {
@@ -32205,7 +31993,9 @@
             },
             "value": {
               "kind": "int"
-            }
+            },
+            "entryKey": "Tier",
+            "entryValue": "Fame"
           },
           "optional": true
         },
@@ -33754,7 +33544,9 @@
             },
             "value": {
               "kind": "int"
-            }
+            },
+            "entryKey": "Tier",
+            "entryValue": "Fame"
           },
           "optional": true
         },
@@ -33767,7 +33559,9 @@
             },
             "value": {
               "kind": "int"
-            }
+            },
+            "entryKey": "Tier",
+            "entryValue": "Fame"
           },
           "optional": true
         }
@@ -33832,7 +33626,9 @@
               "element": {
                 "kind": "int"
               }
-            }
+            },
+            "entryKey": "Tier",
+            "entryValue": "Fame"
           },
           "optional": true
         },
@@ -33848,7 +33644,9 @@
               "element": {
                 "kind": "int"
               }
-            }
+            },
+            "entryKey": "Tier",
+            "entryValue": "Fame"
           },
           "optional": true
         },
@@ -33875,7 +33673,9 @@
               "element": {
                 "kind": "int"
               }
-            }
+            },
+            "entryKey": "Tier",
+            "entryValue": "MaxFame"
           },
           "optional": true
         },
@@ -33891,7 +33691,9 @@
               "element": {
                 "kind": "int"
               }
-            }
+            },
+            "entryKey": "Tier",
+            "entryValue": "MaxFame"
           },
           "optional": true
         },
@@ -33937,7 +33739,9 @@
               "element": {
                 "kind": "int"
               }
-            }
+            },
+            "entryKey": "Tier",
+            "entryValue": "Money"
           },
           "optional": true
         },
@@ -33953,7 +33757,9 @@
               "element": {
                 "kind": "int"
               }
-            }
+            },
+            "entryKey": "Tier",
+            "entryValue": "Money"
           },
           "optional": true
         },
@@ -34028,7 +33834,9 @@
               "element": {
                 "kind": "int"
               }
-            }
+            },
+            "entryKey": "Tier",
+            "entryValue": "Reputation"
           },
           "optional": true
         },
@@ -34044,7 +33852,9 @@
               "element": {
                 "kind": "int"
               }
-            }
+            },
+            "entryKey": "Tier",
+            "entryValue": "Reputation"
           },
           "optional": true
         },
@@ -37840,15 +37650,9 @@
           "valueType": {
             "kind": "list",
             "element": {
-              "kind": "generic",
-              "type": "ProbabilityPoint",
-              "args": [
-                {
-                  "kind": "opaque",
-                  "reason": "typeParam",
-                  "type": "TDecal"
-                }
-              ]
+              "kind": "group",
+              "ref": "Cosmoteer.Generators.Textures.BaseDecalsHeightMapLayer\u00601/ProbabilityPoint",
+              "name": "ProbabilityPoint"
             }
           },
           "optional": true
@@ -37873,6 +37677,29 @@
           "name": "Tries",
           "valueType": {
             "kind": "int"
+          },
+          "optional": true,
+          "nullable": false
+        }
+      ]
+    },
+    "Cosmoteer.Generators.Textures.BaseDecalsHeightMapLayer\u00601/ProbabilityPoint": {
+      "name": "ProbabilityPoint",
+      "namespace": "",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "Probability",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "Position",
+          "valueType": {
+            "kind": "float"
           },
           "optional": true,
           "nullable": false
@@ -37948,15 +37775,9 @@
           "valueType": {
             "kind": "list",
             "element": {
-              "kind": "generic",
-              "type": "ProbabilityPoint",
-              "args": [
-                {
-                  "kind": "opaque",
-                  "reason": "typeParam",
-                  "type": "TDecal"
-                }
-              ]
+              "kind": "group",
+              "ref": "Cosmoteer.Generators.Textures.BaseDecalsTextureLayer\u00601/ProbabilityPoint",
+              "name": "ProbabilityPoint"
             }
           },
           "optional": true
@@ -37995,6 +37816,29 @@
         }
       ]
     },
+    "Cosmoteer.Generators.Textures.BaseDecalsTextureLayer\u00601/ProbabilityPoint": {
+      "name": "ProbabilityPoint",
+      "namespace": "",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "Probability",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "Position",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
+        }
+      ]
+    },
     "Cosmoteer.Generators.Textures.BaseNormalsTextureLayer\u00601": {
       "name": "BaseNormalsTextureLayer\u00601",
       "namespace": "Cosmoteer.Generators.Textures",
@@ -38021,37 +37865,50 @@
         {
           "name": "Interpolate",
           "valueType": {
-            "kind": "generic",
-            "type": "InterpolateMode",
-            "args": [
-              {
-                "kind": "opaque",
-                "reason": "typeParam",
-                "type": "TCustomData"
-              }
-            ]
+            "kind": "enum",
+            "ref": "Cosmoteer.Generators.Textures.BaseValueMapTextureLayer\u00601/InterpolateMode",
+            "name": "InterpolateMode"
           },
           "optional": true,
           "nullable": false,
-          "default": 1
+          "default": "Rgb"
         },
         {
           "name": "Colors",
           "valueType": {
             "kind": "list",
             "element": {
-              "kind": "generic",
-              "type": "ColorPoint",
-              "args": [
-                {
-                  "kind": "opaque",
-                  "reason": "typeParam",
-                  "type": "TCustomData"
-                }
-              ]
+              "kind": "group",
+              "ref": "Cosmoteer.Generators.Textures.BaseValueMapTextureLayer\u00601/ColorPoint",
+              "name": "ColorPoint"
             }
           },
           "optional": true
+        }
+      ]
+    },
+    "Cosmoteer.Generators.Textures.BaseValueMapTextureLayer\u00601/ColorPoint": {
+      "name": "ColorPoint",
+      "namespace": "",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "Color",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Graphics.Color",
+            "name": "Color"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "Position",
+          "valueType": {
+            "kind": "float"
+          },
+          "optional": true,
+          "nullable": false
         }
       ]
     },
@@ -39461,7 +39318,9 @@
               "element": {
                 "kind": "int"
               }
-            }
+            },
+            "entryKey": "Tier",
+            "entryValue": "Fame"
           },
           "optional": true
         },
@@ -39477,7 +39336,9 @@
               "element": {
                 "kind": "int"
               }
-            }
+            },
+            "entryKey": "Tier",
+            "entryValue": "MaxFame"
           },
           "optional": true
         },
@@ -39738,7 +39599,9 @@
                   "kind": "int"
                 }
               }
-            }
+            },
+            "entryKey": "OriginalTier",
+            "entryValue": "NewTiers"
           },
           "optional": true
         }
@@ -39789,11 +39652,9 @@
     "Cosmoteer.Generators.Simulation.ShipSpawner/AIInfo": {
       "name": "AIInfo",
       "namespace": "",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Cosmoteer.Ships.AI.AIParameters",
-        "name": "AIParameters"
-      },
+      "inlineFrom": [
+        "Cosmoteer.Ships.AI.AIParameters"
+      ],
       "fields": [
         {
           "name": "Type",
@@ -39804,15 +39665,6 @@
           },
           "optional": true,
           "nullable": false
-        },
-        {
-          "name": "Parameters",
-          "valueType": {
-            "kind": "group",
-            "ref": "Cosmoteer.Ships.AI.AIParameters",
-            "name": "AIParameters"
-          },
-          "optional": true
         },
         {
           "name": "PatrolOriginTag",
@@ -42034,15 +41886,6 @@
       },
       "fields": [
         {
-          "name": "Generator",
-          "valueType": {
-            "kind": "polymorphicGroup",
-            "ref": "Cosmoteer.Generators.Names.NameGenerator",
-            "name": "NameGenerator"
-          },
-          "optional": true
-        },
-        {
           "name": "Chance",
           "valueType": {
             "kind": "float"
@@ -44029,15 +43872,6 @@
             "kind": "string"
           },
           "optional": false
-        },
-        {
-          "name": "Brush",
-          "valueType": {
-            "kind": "polymorphicGroup",
-            "ref": "Cosmoteer.Game.Gui.Brushes.TileBrush",
-            "name": "TileBrush"
-          },
-          "optional": true
         },
         {
           "name": "NameKey",
@@ -48065,15 +47899,6 @@
       },
       "fields": [
         {
-          "name": "Rules",
-          "valueType": {
-            "kind": "polymorphicGroup",
-            "ref": "Cosmoteer.Game.Gui.Build.Stats.IShipStatWidgetRules",
-            "name": "IShipStatWidgetRules"
-          },
-          "optional": true
-        },
-        {
           "name": "ToggleButtonID",
           "valueType": {
             "kind": "reference",
@@ -49545,21 +49370,10 @@
     "Cosmoteer.Data.TextSprite": {
       "name": "TextSprite",
       "namespace": "Cosmoteer.Data",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Halfling.Graphics.Sprite",
-        "name": "Sprite"
-      },
+      "inlineFrom": [
+        "Halfling.Graphics.Sprite"
+      ],
       "fields": [
-        {
-          "name": "Sprite",
-          "valueType": {
-            "kind": "group",
-            "ref": "Halfling.Graphics.Sprite",
-            "name": "Sprite"
-          },
-          "optional": true
-        },
         {
           "name": "ProportionalSize",
           "valueType": {
@@ -55677,15 +55491,9 @@
         {
           "name": "Children",
           "valueType": {
-            "kind": "generic",
-            "type": "WidgetChildren\u00601",
-            "args": [
-              {
-                "kind": "opaque",
-                "reason": "typeParam",
-                "type": "TChild"
-              }
-            ]
+            "kind": "group",
+            "ref": "Halfling.Gui.Components.Children.WidgetChildren\u00601",
+            "name": "WidgetChildren\u00601"
           },
           "optional": true
         },
@@ -58226,21 +58034,10 @@
       "name": "WidgetSingleSprite",
       "namespace": "Halfling.Gui.Components.Graphics",
       "extends": "Halfling.Gui.Components.WidgetComponent",
-      "valueForm": {
-        "kind": "group",
-        "ref": "Halfling.Gui.Components.Graphics.GuiSprite",
-        "name": "GuiSprite"
-      },
+      "inlineFrom": [
+        "Halfling.Gui.Components.Graphics.GuiSprite"
+      ],
       "fields": [
-        {
-          "name": "_sprite",
-          "valueType": {
-            "kind": "group",
-            "ref": "Halfling.Gui.Components.Graphics.GuiSprite",
-            "name": "GuiSprite"
-          },
-          "optional": true
-        },
         {
           "name": "DesiredSize",
           "valueType": {
@@ -58677,6 +58474,66 @@
         },
         {
           "name": "MatchHeight",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false
+        }
+      ]
+    },
+    "Halfling.Gui.Components.Children.WidgetChildren\u00601": {
+      "name": "WidgetChildren\u00601",
+      "namespace": "Halfling.Gui.Components.Children",
+      "extends": "Halfling.Gui.Components.WidgetComponent",
+      "purelyReflective": true,
+      "fields": [
+        {
+          "name": "ClipPadding",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Gui.Borders",
+            "name": "Borders"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "BorderPadding",
+          "valueType": {
+            "kind": "group",
+            "ref": "Halfling.Gui.Borders",
+            "name": "Borders"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "CullChildren",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "ClipChildren",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "ChildrenForceParentRendering",
+          "valueType": {
+            "kind": "bool"
+          },
+          "optional": true,
+          "nullable": false
+        },
+        {
+          "name": "ReverseRenderOrder",
           "valueType": {
             "kind": "bool"
           },
@@ -61009,6 +60866,14 @@
         "Invulnerable"
       ]
     },
+    "Cosmoteer.Generators.Textures.BaseValueMapTextureLayer\u00601/InterpolateMode": {
+      "name": "InterpolateMode",
+      "members": [
+        "Off",
+        "Rgb",
+        "Hsv"
+      ]
+    },
     "Cosmoteer.Generators.Textures.HeightMapLayerBlendMode": {
       "name": "HeightMapLayerBlendMode",
       "members": [
@@ -61992,12 +61857,8 @@
     },
     "generics": {
       "WidgetLayoutChildren\u00601": 3,
-      "ProbabilityPoint": 2,
       "WidgetDockedChildren\u00601": 2,
-      "InterpolateMode": 1,
-      "ColorPoint": 1,
-      "ListBox\u00601": 1,
-      "WidgetChildren\u00601": 1
+      "ListBox\u00601": 1
     }
   }
 }

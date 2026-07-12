@@ -144,6 +144,27 @@ export const schemaFieldNameCompletions = async (
     }
     // Lower-cased: an already-written `maxhealth` counts as `MaxHealth` (game lookup ignores case).
     const present = new Set(namedMembersOf(group ?? document).map(([name]) => name.toLowerCase()));
+    // A map entry group (`Upgrades [ { <cursor> } ]`) has no class of its own; its members are the
+    // map's entry names, `Key`/`Value` or the `[KeyValuePairNames]` spellings like `Old`/`New`.
+    if (!cls && group?.parent && isListNode(group.parent)) {
+        const slot = listSlotType(group.parent);
+        if (slot?.kind === 'map') {
+            const entries: Array<[string, ValueType]> = [
+                [slot.entryKey ?? 'Key', slot.key],
+                [slot.entryValue ?? 'Value', slot.value],
+            ];
+            return entries
+                .filter(([name]) => !present.has(name.toLowerCase()))
+                .map(([name, valueType]) => ({
+                    label: name,
+                    kind: CompletionItemKind.Field,
+                    detail: valueTypeLabel(valueType),
+                    insertText: fieldSnippet(name, valueType),
+                    isSnippet: true,
+                    triggerSuggest: ['polymorphicGroup', 'enum', 'bool', 'reference'].includes(valueType.kind),
+                }));
+        }
+    }
     // All-digit fields (Vector2's `0`/`1`, Color's `0`-`3`, …) are the positional names the game
     // deserializer reads when the value is written in list form (`[7.2, 7.2]`). They stay in the
     // schema so list elements type-resolve, but offering them as field names inside `{}` is noise.

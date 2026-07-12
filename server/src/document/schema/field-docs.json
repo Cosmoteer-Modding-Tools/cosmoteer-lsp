@@ -1212,8 +1212,7 @@
         "Region": "The region that will be included in the calculations."
     },
     "Cosmoteer.Ships.Parts.Logic.PartToggleProxyRules": {
-        "ProxyRules": "The proxy target: which part and component to mirror. Written flat on the proxy itself\n(`ComponentID = …`, optionally `PartLocation` or `PartCriteria`), see\n[[Cosmoteer.Ships.Parts.Logic.ProxyRules]].",
-        "IsOnWhenNotConnected": "The toggle state this proxy reports while no target component is connected (default `false`).\nDisconnected covers a `PartLocation` cell with no matching part, and equally a `ComponentID`\nthat no active component carries. The vanilla missile launcher relies on that: its\n`MissilesPrereqProxy` targets a `MissilesPrereq` component that each `ToggledComponents`\nmissile mode must supply, so a mode that forgets it reads permanently off and the launcher's\ncrew stand down."
+        "IsOnWhenNotConnected": "The toggle state this proxy reports while no target component is connected (default `false`).\nDisconnected covers a `PartLocation` cell with no matching part, and equally a `ComponentID`\nthat no active component carries. The vanilla missile launcher relies on that: its\n`MissilesPrereqProxy` targets a `MissilesPrereq` component that each `ToggledComponents`\nmissile mode must supply, so a mode that forgets it reads permanently off and the launcher's\ncrew stand down.\n\n---"
     },
     "Cosmoteer.Ships.Parts.Logic.PartToggleTriggerRules": {
         "AllowOperationalBypass": "Whether the component can trigger without being operational, as long as it has no operational toggle, or the toggle is already true."
@@ -2236,6 +2235,14 @@
         "MaxHeight": "The maximum height to which the widget will be automatically set.",
         "HeightValueType": "Specifies how the MinHeight and MaxHeight values should be interpreted.",
         "Anchor": "The anchor point around which the widget will be scaled when automatically sizing. The anchor point is a normalized, Widget-relative location with each dimension in the range of [0,1]."
+    },
+    "Halfling.Gui.Components.Children.WidgetChildren`1": {
+        "ClipPadding": "The distances from the widget's borders outside of which children will not be rendered (assuming ClipChildren is true).",
+        "BorderPadding": "The distances from the widget's ClipScreenRect that together define the client rectangle in which children are contained. The border padding is cumulative with the clip padding.",
+        "CullChildren": "Whether all out-of-view children are culled so that they will not be rendered.",
+        "ClipChildren": "Whether any pixels outside of the ClientScreenRect will be clipped (not rendered).",
+        "ChildrenForceParentRendering": "Whether any children whose rendering is being forced will also force their parent to render.",
+        "ReverseRenderOrder": "Whether children will be rendered last-to-first instead of first-to-last."
     },
     "Halfling.Gui.Components.Droppers.WidgetDropTargetController": {
         "AutoParentTargetToRoot": "Whether the DropTarget should be automatically parented to the attached Widget's GuiRoot as a drop target."

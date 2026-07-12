@@ -71,7 +71,19 @@ internal sealed partial class SchemaGen
                 if (ScalarFieldOf(t) is { } scalarField) o["scalarField"] = scalarField;
             }
             else if (scalarStringTargets.Contains(t.FullName)) o["scalarStringForm"] = true;
-            if (EmptyAliasMemberType(t) is { } valueMember) o["valueForm"] = MapType(valueMember);
+            if (EmptyAliasMemberType(t) is { } valueMember)
+            {
+                var vf = MapType(valueMember);
+                // A group-typed empty-alias member writes its fields INLINE in the owner's group (a
+                // network component's PartNetworkFilter `Categories`, a widget sprite's embedded
+                // AtlasSprite `File`), so the owner inherits the member class's fields at load
+                // (`inlineFrom`, merged by the server's schema overlay) instead of carrying an
+                // unwritable named member plus a group `valueForm` that would mis-describe the value.
+                if (vf["kind"]?.GetValue<string>() == "group" && vf["ref"] is { } inlineRef)
+                    o["inlineFrom"] = new JsonArray(inlineRef.GetValue<string>());
+                else
+                    o["valueForm"] = vf;
+            }
             if (PurelyReflective(t)) o["purelyReflective"] = true;
             o["fields"] = OwnFields(t);
             types[t.FullName] = o;
@@ -118,6 +130,11 @@ internal sealed partial class SchemaGen
             if (types[fn] is not JsonObject T) continue;
             Enq(T["extends"]?.GetValue<string>());
             Enq(T["registry"]?.GetValue<string>());
+            if (T["inlineFrom"] is JsonArray inlined) foreach (var i in inlined) Enq(i?.GetValue<string>());
+            // A value-form delegation is a reachability edge like a field: a wrapper whose only
+            // registry reference is its empty-alias member (a stat widget's IShipStatWidgetRules)
+            // must keep that registry and its members alive.
+            Visit(T["valueForm"]);
             foreach (var f in (JsonArray)T["fields"]!) Visit(((JsonObject)f!)["valueType"]);
         }
 

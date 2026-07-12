@@ -175,13 +175,19 @@ export const registerAliasFallbackSource = (source: AliasMemberSource | undefine
  * @returns the schema type aliased onto the member, or undefined when the file isn't an aliased fragment.
  */
 export const aliasedMemberType = (document: AbstractNodeDocument, memberName: string): ValueType | undefined => {
-    const direct =
-        aliasRootIndex.memberType(document.uri, memberName) ?? aliasFallback?.memberType(document.uri, memberName);
-    if (direct) return direct;
+    // The forward walk's explicit member alias is authoritative. The file's root class comes next:
+    // when the whole file is a known class, its own field declaration beats a reverse-include member
+    // record, which can only see how OTHER files read into this one (an includer's slot for one leaf
+    // must never re-type a member the root class declares).
+    const forward = aliasRootIndex.memberType(document.uri, memberName);
+    if (forward) return forward;
     const root = aliasRootIndex.rootType(document.uri) ?? aliasFallback?.rootType(document.uri);
     if (root?.kind === 'map') return root.value;
-    if (root?.kind === 'group') return fieldOf(root.ref, memberName)?.valueType;
-    return undefined;
+    if (root?.kind === 'group') {
+        const declared = fieldOf(root.ref, memberName)?.valueType;
+        if (declared) return declared;
+    }
+    return aliasFallback?.memberType(document.uri, memberName);
 };
 
 /**

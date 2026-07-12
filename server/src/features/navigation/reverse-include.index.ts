@@ -529,9 +529,12 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
                     element.right.valueType.type === 'Reference' &&
                     (isGroupNode(container) || isDocumentNode(container))
                 ) {
-                    const alias = parseAlias(String(element.right.valueType.value));
+                    // A deep include (`Delay = &<base_ship.rules>/FtlEffects/TotalDuration`) reads one
+                    // leaf value, and its slot says nothing about the first member. Recording it there
+                    // mis-typed base_ship's whole FtlEffects group as a Time, so deep paths are skipped.
+                    const alias = parseAliasPath(String(element.right.valueType.value));
                     if (alias) state.sawAlias = true;
-                    const slot = alias && memberTypeIn(container, element.left.name);
+                    const slot = alias && !alias.deep && memberTypeIn(container, element.left.name);
                     if (alias && slot) await this.recordInclude(element.right, alias, slot, source, contributed, cancellationToken);
                 } else if (isGroupNode(element.right) || isListNode(element.right)) {
                     await this.collectIncludes(element.right, source, contributed, inherited, state, cancellationToken);
@@ -539,9 +542,10 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
                 continue;
             }
             if (inList && isValueNode(element) && element.valueType.type === 'Reference') {
-                const alias = parseAlias(String(element.valueType.value));
+                // Deep list-element includes are skipped for the same reason as the assignment form.
+                const alias = parseAliasPath(String(element.valueType.value));
                 if (alias) state.sawAlias = true;
-                const slot = alias && listElementType(container);
+                const slot = alias && !alias.deep && listElementType(container);
                 if (alias && slot) await this.recordInclude(element, alias, slot, source, contributed, cancellationToken);
                 continue;
             }

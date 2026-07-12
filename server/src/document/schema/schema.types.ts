@@ -25,7 +25,16 @@ export type ValueType =
     | { kind: 'reference'; target: string; targetName: string }
     | { kind: 'group' | 'polymorphicGroup'; ref: string; name: string }
     | { kind: 'list' | 'range' | 'interpolated'; element: ValueType }
-    | { kind: 'map'; key: ValueType; value: ValueType }
+    | {
+          kind: 'map';
+          key: ValueType;
+          value: ValueType;
+          /** Entry-form member names when the map is written as a list of `{ Key = … Value = … }`
+           *  groups. Custom spellings come from `[KeyValuePairNames]` (`Old`/`New` for roof decal
+           *  upgrades). Absent means the engine defaults, `Key` and `Value`. */
+          entryKey?: string;
+          entryValue?: string;
+      }
     | { kind: 'tuple'; elements: ValueType[] }
     | { kind: 'constructed'; type: string; params: Array<{ name: string; valueType: ValueType }> }
     | { kind: 'asset'; assetKind: string }
@@ -95,6 +104,12 @@ export interface SchemaTypeDef {
      * MultiHitEffectRules' effect list, a proxy's group-only ProxyRules). Extracted by schemagen.
      */
     valueForm?: ValueType;
+    /**
+     * Classes whose fields are written INLINE in this type's own group: a `[Serialize(Alias = "")]`
+     * group-typed member (a network component's embedded `PartNetworkFilter`, a widget sprite's
+     * `AtlasSprite`). The named classes' fields are merged into `fields` at load (schema-overlay.ts).
+     */
+    inlineFrom?: string[];
     /**
      * True when this type and its whole `extends` chain deserialize purely by reflection over their
      * `[Serialize]` members, so the emitted `fields` list is the complete set of keys the engine reads.

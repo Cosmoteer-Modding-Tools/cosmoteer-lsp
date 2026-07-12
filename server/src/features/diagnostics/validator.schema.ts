@@ -86,6 +86,10 @@ const classReadsScalar = (classRef: string, isString: boolean, depth = 0): boole
     if (!def || depth > 4) return false;
     if (def.scalarForm) return true;
     if (def.scalarStringForm && isString) return true;
+    // A group-typed empty-alias member (`inlineFrom`) binds the node too, so a scalar the member's
+    // class reads is a scalar the owner reads (a proxy delegating to the group-only ProxyRules
+    // stays refused, since ProxyRules reads no scalar either).
+    if ((def.inlineFrom ?? []).some((source) => classReadsScalar(source, isString, depth + 1))) return true;
     const form = def.valueForm;
     if (!form) return false;
     if (form.kind === 'group') return classReadsScalar(form.ref, isString, depth + 1);
@@ -96,8 +100,11 @@ const classReadsScalar = (classRef: string, isString: boolean, depth = 0): boole
 // (`MultiHitEffectRules` binds a `HitEffectRules[]` member to the node itself), which makes its
 // list spelling something the game reads rather than a positional group form to second-guess.
 const classReadsList = (classRef: string, depth = 0): boolean => {
-    const form = schema.types[classRef]?.valueForm;
-    if (!form || depth > 4) return false;
+    const def = schema.types[classRef];
+    if (!def || depth > 4) return false;
+    if ((def.inlineFrom ?? []).some((source) => classReadsList(source, depth + 1))) return true;
+    const form = def.valueForm;
+    if (!form) return false;
     if (form.kind === 'group') return classReadsList(form.ref, depth + 1);
     return form.kind === 'list' || form.kind === 'range' || form.kind === 'interpolated';
 };

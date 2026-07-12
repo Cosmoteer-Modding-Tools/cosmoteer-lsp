@@ -11,8 +11,3 @@
 `enum MultiResourceStorageMode` · optional · default `DistributeEvenly` · one of: `InOrder`, `InReverseOrder`, `PrioritizeMostEmptyCapacity`, `PrioritizeLeastEmptyCapacity`, `PrioritizeMostResources`, `PrioritizeLeastResources`, `DistributeEvenly`, `DistributeRandomly`, `DistributeProportionallyByAvailable`, `DistributeProportionallyByCapacity`
 
 <!-- TODO: needs documentation -->
-
-## NetworkFilter
-`PartNetworkFilter` · optional
-
-<!-- TODO: needs documentation -->

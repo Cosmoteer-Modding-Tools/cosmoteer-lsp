@@ -8,7 +8,7 @@
     "Extract value {0} to shared root field ({1} occurrences)": "Wert {0} in gemeinsames Wurzelfeld extrahieren ({1} Vorkommen)",
     "Reference name is not known": "Referenz ist nicht bekannt",
     "Did you mean \"{0}\"?": "Meintest du \"{0}\"?",
-    "Change to \"{0}\"": "Ändern zu \"{0}\"",
+    "Change to \"{0}\"": "Zu \"{0}\" ändern",
     "Change to '{0}'": "Ändern zu '{0}'",
     "No {0} named '{1}' in the project.": "Kein {0} mit dem Namen '{1}' im Projekt.",
     "Wrap in quotes": "In Anführungszeichen setzen",
@@ -34,7 +34,7 @@
     "The game cannot read a standalone reference here": "Das Spiel kann eine alleinstehende Referenz hier nicht lesen",
     "The game reads this whole line as one text element": "Das Spiel liest diese gesamte Zeile als ein einziges Textelement",
     "In a list, a value runs to the end of the line and '{0}' does not end it, so '{1}' and the body become a single text element. List elements cannot have names; remove '{1}' to make this an anonymous element.": "In einer Liste läuft ein Wert bis zum Zeilenende und '{0}' beendet ihn nicht, daher werden '{1}' und der Rumpf zu einem einzigen Textelement. Listenelemente können keine Namen haben; entferne '{1}', um ein anonymes Element daraus zu machen.",
-    "Remove '{0}'": "Entferne '{0}'",
+    "Remove '{0}'": "'{0}' entfernen",
     "A bare reference is only allowed as a list element or as a field value (Field = &/Path). The game fails to load the whole file on this.": "Eine alleinstehende Referenz ist nur als Listenelement oder als Feldwert (Field = &/Path) erlaubt. Das Spiel kann die gesamte Datei deswegen nicht laden.",
     "If you want to assign a value to an identifier, you need to provide a value after the equals sign": "Wenn Sie einem Bezeichner einen Wert zuweisen möchten, müssen Sie einen Wert nach dem Gleichheitszeichen angeben",
     "If you want to not assign a value to an identifier, you need to remove the equals sign": "Wenn Sie einem Bezeichner keinen Wert zuweisen möchten, müssen Sie das Gleichheitszeichen entfernen",
@@ -64,11 +64,10 @@
     "Insert \",\"": "\",\" einfügen",
     "Missing separators between list elements": "Fehlende Trennzeichen zwischen Listenelementen",
     "The game reads this as ONE element, \"{0}\". Separate the elements with \",\" or \";\", or put each on its own line": "Das Spiel liest dies als EIN Element, \"{0}\". Trenne die Elemente mit \",\" oder \";\" oder setze jedes in eine eigene Zeile",
-    "Change to \"{0}\"": "Zu \"{0}\" ändern",
     "Unnecessary separator": "Unnötiges Trennzeichen",
     "The line break already ends this entry, so the separator has no effect. Separators are only needed between entries on the same line": "Der Zeilenumbruch beendet diesen Eintrag bereits, das Trennzeichen hat also keine Wirkung. Trennzeichen sind nur zwischen Einträgen in derselben Zeile nötig",
     "Remove separator": "Trennzeichen entfernen",
     "'{0}' is not a member of {1} and is never referenced in this file, so the game ignores it.": "'{0}' ist kein Mitglied von {1} und wird in dieser Datei nirgends referenziert, das Spiel ignoriert es daher.",
-    "Remove '{0}'": "'{0}' entfernen",
-    "'{0}' is a {1} field; the game does not evaluate math here and reads the value as literal text.": "'{0}' ist ein {1}-Feld; das Spiel wertet hier keine Mathematik aus und liest den Wert als wörtlichen Text."
+    "'{0}' is a {1} field; the game does not evaluate math here and reads the value as literal text.": "'{0}' ist ein {1}-Feld; das Spiel wertet hier keine Mathematik aus und liest den Wert als wörtlichen Text.",
+    "'{0}' is declared by {1} but the game's code never reads it.": "'{0}' wird von {1} deklariert, aber der Spielcode liest es nie."
 }

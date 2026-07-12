@@ -28,11 +28,13 @@ import {
     fieldsOf,
     firstRegistryDeclaring,
     schema,
+    typeDef,
 } from './schema';
 import { SchemaField, SchemaRegistry, ValueType } from './schema.types';
 import { documentRootClass } from './document-root';
 import { aliasedMemberType, inheritanceBaseCandidates } from './alias-root';
 import { SHADER_GROUP_CLASS, TEXTURE_GROUP_CLASS } from './schema-overlay';
+import { stepIntoNode } from '../../semantics/reference-resolver';
 import { perfCount } from '../../utils/perf-counters';
 
 /**
@@ -175,13 +177,27 @@ const expectedValueTypeUncached = (node: GroupNode | ListNode, depth: number): V
         // level and blow up exponentially on deep files.
         const containerSlot = expectedValueType(parent, depth + 1);
         const containerSlotClass = classFromSlot(parent, containerSlot);
-        const ownerClass = inheritedBaseClassForGroup(parent, containerSlotClass) ?? containerSlotClass;
+        const ownerClass =
+            inheritedBaseClassForGroup(parent, containerSlotClass) ??
+            containerSlotClass ??
+            (parent.inheritance?.length ? sameFileInheritedClass(parent, depth + 1) : undefined);
         if (ownerClass) return fieldOf(ownerClass, memberName)?.valueType;
         // A class-less container can still sit in a map-typed slot (a ToggledComponents part's
         // `Components` map, a planet's `Styles`). Its members are keys, so each member takes the
         // map's value type. Without this, such members fall back to sibling registry inference,
         // which picks the wrong registry for an ambiguous discriminator like `Type = ArcShield`.
-        if (containerSlot?.kind === 'map') return containerSlot.value;
+        // An ENTRY group (the map reached the container through its entry-list form) instead types
+        // its `Key`/`Value` members (or the `[KeyValuePairNames]` spellings, `Old`/`New`).
+        if (containerSlot?.kind === 'map') {
+            if (parent.parent && isListNode(parent.parent)) {
+                const keyName = containerSlot.entryKey ?? 'Key';
+                const valueName = containerSlot.entryValue ?? 'Value';
+                if (memberName.toLowerCase() === keyName.toLowerCase()) return containerSlot.key;
+                if (memberName.toLowerCase() === valueName.toLowerCase()) return containerSlot.value;
+                return undefined;
+            }
+            return containerSlot.value;
+        }
         // A range slot's group form (`TwinkleAddColor { Min = […] Max = […] }`): the engine reads
         // the `Value` or `Min`/`Max` keys as the range's element type, so those members type as the
         // element and everything below them (a positional color list, a nested group) resolves.
@@ -222,6 +238,9 @@ const expectedValueTypeUncached = (node: GroupNode | ListNode, depth: number): V
             const index = parent.elements.indexOf(node);
             if (index >= 0) return listType.elements[index];
         }
+        // A map written in its entry-list form (`Upgrades [ { Old=… New=… } ]`): the map type passes
+        // through to each entry group, whose named members then resolve in the member branch below.
+        if (listType?.kind === 'map') return listType;
         return undefined;
     }
     return undefined;
@@ -340,6 +359,54 @@ const inheritedBaseClassForGroup = (group: GroupNode, slotClass?: string): strin
 };
 
 /**
+ * Follows a group's same-file inheritance bases synchronously to the class the base carries. The
+ * async resolver covers every base form for completion, but hover, validation and slot typing run
+ * synchronously, so a component inheriting a same-file template (`BulletEmitter : ~/EMITTER`,
+ * `X : SiblingTemplate`, `Y : ^/0/Y`) was dark to them. Cross-file bases (`<file>`, `&/GLOBAL`)
+ * still need the async path and are skipped. The first base that yields a class wins.
+ *
+ * @param group the deriving group.
+ * @param depth the {@link resolveGroupClass} recursion depth, forwarded as the cycle guard.
+ * @returns the inherited class FullName, or undefined.
+ */
+const sameFileInheritedClass = (group: GroupNode, depth: number): string | undefined => {
+    for (const base of group.inheritance ?? []) {
+        if (!isValueNode(base) || base.valueType.type !== 'Reference') continue;
+        const raw = String(base.valueType.value).trim().replace(/^&\s*/, '');
+        // Only same-file forms resolve synchronously: a tilde/caret/parent path or a plain member
+        // path. A `<file>` ref or a game-root super-path needs the async resolver.
+        if (!raw || raw.includes('<') || raw.startsWith('/')) continue;
+        const segments = raw.split('/').map((s) => s.trim()).filter(Boolean);
+        if (segments.length === 0) continue;
+        let node: AbstractNode | null | undefined;
+        let index = 0;
+        if (segments[0] === '~' || segments[0] === '^' || segments[0] === '..') {
+            node = group;
+        } else {
+            // A relative first segment names a member of an enclosing scope: an inheritance ref
+            // resolves against the deriving group's container chain, nearest scope first.
+            let scope: AbstractNode | undefined = group.parent;
+            while (scope && !node) {
+                if (isGroupNode(scope) || isDocumentNode(scope)) node = stepIntoNode(scope, segments[0]) ?? undefined;
+                scope = scope.parent;
+            }
+            if (!node) continue;
+            index = 1;
+        }
+        let previous = '';
+        for (; index < segments.length && node; index++) {
+            node = stepIntoNode(node, segments[index], previous === '^');
+            previous = segments[index];
+        }
+        if (node && isGroupNode(node) && node !== group) {
+            const cls = resolveGroupClass(node, depth + 1);
+            if (cls) return cls;
+        }
+    }
+    return undefined;
+};
+
+/**
  * Resolve the schema class a group represents, top-down. A class is known when the group:
  *  1. sits in a slot whose declaring field types it — a concrete `group` field gives the class
  *      directly. A `polymorphicGroup` field gives the registry, and the group's `Type=` picks the
@@ -354,9 +421,13 @@ export const resolveGroupClass = (group: GroupNode, depth = 0): string | undefin
     if (cached && cached.epoch === contextEpoch) return cached.value;
     // A top-level group reachable only as a cross-file inheritance base: root it to the class that
     // best fits its own fields among the derivers and the slot class, ahead of the shallower
-    // common-ancestor type either would yield alone.
+    // common-ancestor type either would yield alone. A group neither roots, with a same-file base
+    // inherits the base's class (inheritance preserves type).
     const slotClass = classFromSlot(group, expectedValueType(group, depth));
-    const value = inheritedBaseClassForGroup(group, slotClass) ?? slotClass;
+    const value =
+        inheritedBaseClassForGroup(group, slotClass) ??
+        slotClass ??
+        (group.inheritance?.length ? sameFileInheritedClass(group, depth) : undefined);
     if (depth <= MEMO_DEPTH_LIMIT) groupClassCache.set(group, { epoch: contextEpoch, value });
     return value;
 };
@@ -374,7 +445,25 @@ const usesRangeKeys = (group: GroupNode): boolean =>
     namedMembersOf(group).some(([name]) => /^(value|min|max)$/i.test(name));
 
 const classFromSlot = (group: GroupNode, expected: ValueType | undefined): string | undefined => {
-    if (expected?.kind === 'group') return expected.ref;
+    if (expected?.kind === 'group') {
+        // A wrapper class delegating its value form to a registry (`[Serialize(Alias="")]` on a
+        // polymorphic member: a name-generator entry, a stat widget wrapper, a brush) reads BOTH
+        // its own fields and the dispatched member's, written flat in one group. A single class
+        // must answer here, so the side that owns more of the group's written names wins: the stat
+        // widgets' fields live on the member (StatBarRules), the brushes' on the wrapper
+        // (BrushRules' NameKey/Icon). The wrapper stays the answer on a tie or without a `Type=`.
+        const delegated = typeDef(expected.ref)?.valueForm;
+        if (delegated?.kind === 'polymorphicGroup') {
+            const registry = schema.registries[delegated.ref];
+            const viaType = classOfGroup(group, registry?.name);
+            if (viaType) {
+                const names = ownedFieldNames(group);
+                const owned = (cls: string) => names.filter((name) => !!fieldOf(cls, name)).length;
+                if (owned(viaType) > owned(expected.ref)) return viaType;
+            }
+        }
+        return expected.ref;
+    }
     // A range slot filled with a group: the engine reads `Value` or `Min`/`Max` keys (each of the
     // element type), and otherwise the whole group AS the element. So an element-shaped group (a
     // bullet `Speed { BaseValue … }` in a range<Modifiable> slot) resolves to the element's group
@@ -456,9 +545,19 @@ export const memberTypeIn = (
     const cls = resolveGroupClass(container);
     if (cls) return fieldOf(cls, member)?.valueType;
     // A map-typed group (`Styles { alien = &<…> }`) has no class of its own; its members are keys, so
-    // every one takes the map's value type.
+    // every one takes the map's value type. An entry group (reached through the map's entry-list
+    // form) instead types its `Key`/`Value` members (or the `[KeyValuePairNames]` spellings).
     const expected = expectedValueType(container, 0);
-    if (expected?.kind === 'map') return expected.value;
+    if (expected?.kind === 'map') {
+        if (container.parent && isListNode(container.parent)) {
+            const keyName = expected.entryKey ?? 'Key';
+            const valueName = expected.entryValue ?? 'Value';
+            if (member.toLowerCase() === keyName.toLowerCase()) return expected.key;
+            if (member.toLowerCase() === valueName.toLowerCase()) return expected.value;
+            return undefined;
+        }
+        return expected.value;
+    }
     // A range slot's group form reads its `Value`/`Min`/`Max` keys as the element type.
     if (expected?.kind === 'range' && /^(value|min|max)$/i.test(member)) return expected.element;
     return undefined;

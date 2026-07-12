@@ -1,3 +1,4 @@
+import { existsSync } from 'fs';
 import { CancellationToken } from 'vscode-languageserver';
 import {
     AbstractNode,
@@ -50,6 +51,24 @@ const VANILLA_DEAD_KEYS: ReadonlySet<string> = new Set([
     '_sizePulseInterval',
     '_sizePulseUOffsetFactor',
 ]);
+
+/**
+ * The on-disk sibling variants of a shader family: for `X_diffuse.shader` or `X_normals.shader`
+ * the plain `X.shader` plus the other variant, and for a plain `X.shader` its two variants.
+ * Only existing files are returned.
+ *
+ * @param shaderPath the resolved filesystem path of the material's shader.
+ * @returns the sibling variant paths, possibly empty.
+ */
+const shaderVariantSiblings = (shaderPath: string): string[] => {
+    const match = /^(.*?)(_diffuse|_normals)?\.shader$/i.exec(shaderPath);
+    if (!match) return [];
+    const base = match[1];
+    const candidates = [`${base}.shader`, `${base}_diffuse.shader`, `${base}_normals.shader`].filter(
+        (candidate) => candidate.toLowerCase() !== shaderPath.toLowerCase()
+    );
+    return candidates.filter((candidate) => existsSync(candidate));
+};
 
 /** Yields every material group (one that accepts shader constants) in a document. */
 function* materialGroupsOf(document: AbstractNodeDocument): Generator<GroupNode> {
@@ -116,8 +135,18 @@ export const validateShaderConstants = async (
         const shaderPath = await resolveAssetPath(shaderNode, document.uri, cancellationToken).catch(() => null);
         if (!shaderPath) continue; // shader not found, the names cannot be judged
 
-        const names = await allShaderUniformNames(shaderPath, dataDir).catch(() => null);
-        if (!names || names.size === 0) continue; // unreadable or empty, no coverage to judge against
+        const declared = await allShaderUniformNames(shaderPath, dataDir).catch(() => null);
+        if (!declared || declared.size === 0) continue; // unreadable or empty, no coverage to judge against
+        // A split-pass material names one variant of a shader family (`X_diffuse.shader` beside
+        // `X.shader` / `X_normals.shader`) while its constants target the family: vanilla's
+        // construction materials set `_hotColor` on the `_diffuse` variant, declared only by the
+        // plain sibling. A constant any sibling variant declares is meaningful, so their uniform
+        // names join the accepted set (the named shader alone still drives the type check).
+        const names = new Set(declared);
+        for (const sibling of shaderVariantSiblings(shaderPath)) {
+            const siblingNames = await allShaderUniformNames(sibling, dataDir).catch(() => null);
+            for (const name of siblingNames ?? []) names.add(name);
+        }
         const settable = await shaderConstants(shaderPath, dataDir).catch(() => []);
         const kinds = new Map(settable.map((constant) => [constant.name, constant.kind]));
 

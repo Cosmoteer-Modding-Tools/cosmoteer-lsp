@@ -578,10 +578,16 @@ describe('validateSchema — engine value forms extracted by schemagen', () => {
         expect(errors[0].message).toContain('cannot read a plain value');
     });
 
-    it('flags a scalar on a group-delegating value form (a proxy reads only a ProxyRules group)', () => {
-        // PartChainableProxyRules delegates its value form to the group-only ProxyRules, so the
-        // scalar resolution must follow the delegation and still refuse.
-        expect(schema.types['Cosmoteer.Ships.Parts.Logic.PartChainableProxyRules']?.valueForm?.kind).toBe('group');
+    it('models a group-typed empty-alias member as an inline expansion, not a group value form', () => {
+        // PartChainableProxyRules embeds the group-only ProxyRules with an empty alias: its fields
+        // are written inline (merged at load via `inlineFrom`), and the scalar resolution follows
+        // the delegation and still refuses a scalar. A scalar-reading value form (ShipFile's path
+        // string) stays a valueForm.
+        const proxy = schema.types['Cosmoteer.Ships.Parts.Logic.PartChainableProxyRules'];
+        expect(proxy?.valueForm).toBeUndefined();
+        expect(proxy?.inlineFrom).toContain('Cosmoteer.Ships.Parts.Logic.ProxyRules');
+        // The inline merge happened: the proxy's own field set carries ProxyRules' members.
+        expect(proxy?.fields.some((f) => f.name === 'ComponentID')).toBe(true);
         expect(schema.types['Cosmoteer.Ships.ShipFile']?.valueForm?.kind).toBe('string');
     });
 });

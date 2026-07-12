@@ -28,6 +28,26 @@ internal sealed partial class SchemaGen
                 name = otName;
             }
             var vt = MapType(type);
+            // A dictionary member can carry custom entry-form names (`[KeyValuePairNames(Key="Old",
+            // Value="New")]`), used when the map is written as a list of entry groups. Recorded on
+            // the map type so the entry members type (the engine's defaults are `Key`/`Value`).
+            if (vt["kind"]?.GetValue<string>() == "map"
+                && Attr(cap, "Halfling.Serialization.DefaultSerializers.KeyValuePairNamesAttribute") is { } kvp)
+            {
+                if (Named(kvp, "Key") is string entryKey) vt["entryKey"] = entryKey;
+                if (Named(kvp, "Value") is string entryValue) vt["entryValue"] = entryValue;
+            }
+            // A group-typed member with an explicit empty `Alias` writes its fields inline in the
+            // owner's group, never under its C# member name. The type-level `inlineFrom` emission
+            // (see the type loop) models it, so the unwritable named field is dropped here. A
+            // polymorphic one (a name-generator entry's `NameGenerator`, a stat widget wrapper's
+            // `IShipStatWidgetRules`) is dropped for the same reason, with the type-level
+            // `valueForm` carrying the registry the node dispatches through.
+            if (Named(sa, "Alias") is string emptyAlias && emptyAlias.Length == 0
+                && (vt["kind"]?.GetValue<string>() == "group" || vt["kind"]?.GetValue<string>() == "polymorphicGroup"))
+            {
+                continue;
+            }
             // An inline-flattened engine value type contributes its fields to this group instead of a
             // single opaque field (the OT has no sub-group for it).
             if (vt["kind"]?.GetValue<string>() == "opaque" && vt["type"]?.GetValue<string>() is string ot

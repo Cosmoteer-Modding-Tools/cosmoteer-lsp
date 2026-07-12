@@ -60,6 +60,22 @@ const RENDER_LAYER_REF = {
 
 /** Group types schemagen could not reflect (custom-deserialized), keyed by C# FullName. */
 const OVERLAY_TYPES: Record<string, SchemaTypeDef> = {
+    // The loading screen file, read by hardcoded path in Assets' constructor: the low and high
+    // resolution backgrounds are Halfling Image widgets and the bar a ProgressBar. A synthetic root
+    // class (no such C# class exists, the ctor reads the three paths directly) so the file roots.
+    'Cosmoteer.Data.LoadingScreen': {
+        name: 'LoadingScreen',
+        namespace: 'Cosmoteer.Data',
+        fields: [
+            { name: 'Background', valueType: { kind: 'group', ref: 'Halfling.Gui.Image', name: 'Image' }, optional: true },
+            { name: 'Background2x', valueType: { kind: 'group', ref: 'Halfling.Gui.Image', name: 'Image' }, optional: true },
+            {
+                name: 'LoadingBar',
+                valueType: { kind: 'group', ref: 'Halfling.Gui.ProgressBar', name: 'ProgressBar' },
+                optional: true,
+            },
+        ],
+    },
     // The shader group form (`Shader { File = … }`), transcribed from the ShaderFactory
     // deserializer: a scalar path, or a group with the file plus the two entry-point overrides.
     [SHADER_GROUP_CLASS]: {
@@ -345,6 +361,19 @@ export const applySchemaOverlay = (bundle: SchemaBundle): SchemaBundle => {
         const present = new Set(type.fields.map((f) => f.name));
         for (const field of source.fields) {
             if (!present.has(field.name)) type.fields.push({ ...field, optional: true });
+        }
+    }
+    // The extractor-driven counterpart of the curated table above: schemagen marks every class with a
+    // group-typed empty-alias member (`inlineFrom`), and the member class's fields merge in the same
+    // way. Runs after the curated field additions so a curated source field propagates too.
+    for (const type of Object.values(bundle.types)) {
+        for (const sourceName of type.inlineFrom ?? []) {
+            const source = bundle.types[sourceName];
+            if (!source) continue;
+            const present = new Set(type.fields.map((f) => f.name));
+            for (const field of source.fields) {
+                if (!present.has(field.name)) type.fields.push({ ...field, optional: true });
+            }
         }
     }
     return bundle;
