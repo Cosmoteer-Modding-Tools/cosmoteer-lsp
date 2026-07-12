@@ -11,11 +11,8 @@ import { readFilesAhead, uriToFsPath } from './workspace-files';
 /** The word tokens a file's raw text is split into (contiguous identifier characters). */
 const WORD_RE = /[A-Za-z0-9_]+/g;
 
-/** Whether a query name is a single word, so word-containment equals raw substring containment. */
-const IS_WORD_NAME = /^[A-Za-z0-9_]+$/;
-
-/** How many `stat` calls run concurrently during a disk sync. */
-const STAT_CONCURRENCY = 64;
+/** A folder's normalized prefix, the form file keys are compared against for containment. */
+const prefixOf = (folder: string): string => normalizeUri(uriToFsPath(folder)).replace(/\/+$/, '');
 
 /** How long the watcher-driven mode may go without a full walk+stat sweep. The watcher only covers
  *  the workspace folders, so this bounds how stale the game Data tree (Steam updates, external
@@ -51,8 +48,9 @@ interface MentionCacheFile {
  * the game tree) on every query just to find the files whose text mentions the symbol name. This
  * index answers that from memory: the files of every word that contains the name — equivalent to
  * the raw substring test for a pure-word name, because identifier characters are contiguous in the
- * text. A name that is not a pure word (spaces, path separators) is answered with undefined and the
- * caller falls back to the full scan.
+ * text. A punctuated name (`cosmoteer.rock_1x1`) intersects its word tokens' candidate sets. Only a
+ * name with no word token at all is answered with undefined and the caller falls back to the full
+ * scan.
  *
  * Every query first syncs with the disk by walking the folders and comparing each file's size and
  * mtime to the indexed state, re-reading only the files that changed — so a created, deleted, or
@@ -66,8 +64,18 @@ interface MentionCacheFile {
 export class MentionIndex {
     private static _instance: MentionIndex;
 
-    /** The folder-set signature the index currently covers, so a different set rebuilds cleanly. */
-    private builtFor: string | undefined;
+    /**
+     * The folders the index covers, each with its normalized prefix for containment tests.
+     * Coverage only grows until {@link reset}: the id validators query alternating folder sets
+     * (workspace plus game tree, game tree alone, the installed workshop mods), and rebinding the
+     * index to each set in turn meant a full drop-and-rebuild per alternation (measured at 71
+     * rebuilds in one whole-workspace validation of a real mod). A query over covered folders is
+     * answered by prefix-filtering the candidates instead, and a query naming a new folder extends
+     * coverage with one incremental sweep.
+     */
+    private covered: Array<{ folder: string; prefix: string }> = [];
+    /** The first bind's folder set, the stable cache-artifact key across coverage growth. */
+    private artifactFolders: string[] | undefined;
     /** The in-flight disk sync, shared so concurrent queries don't sync twice. */
     private syncPromise: Promise<void> | undefined;
     /** Normalized file key → the file's identity and words. */
@@ -101,7 +109,8 @@ export class MentionIndex {
 
     /** Forget everything (e.g. on workspace re-initialization). */
     public reset(): void {
-        this.builtFor = undefined;
+        this.covered = [];
+        this.artifactFolders = undefined;
         this.syncPromise = undefined;
         this.files.clear();
         this.byWord.clear();
@@ -115,6 +124,11 @@ export class MentionIndex {
     /** Switches queries after the first full sweep to dirty-file-only syncs (watcher required). */
     public enableWatcherDrivenSync(): void {
         this.watcherDriven = true;
+    }
+
+    /** Whether a folder prefix is inside the covered set (equal to or under a covered folder). */
+    private isCovered(prefix: string): boolean {
+        return this.covered.some((entry) => prefix === entry.prefix || prefix.startsWith(`${entry.prefix}/`));
     }
 
     /**
@@ -144,33 +158,53 @@ export class MentionIndex {
     }
 
     /**
-     * The on-disk paths of every indexed file whose text can contain `name`: the files of each word
-     * that includes the name as a substring. Syncs the index with the disk first.
+     * The on-disk paths of every indexed file under `folderPaths` whose text can contain `name`. A
+     * pure word queries its own candidate set. A dotted or otherwise punctuated name
+     * (`cosmoteer.rock_1x1`, a faction-prefixed part id) intersects the candidate sets of its word
+     * tokens, since a text containing the full name necessarily contains every token as a word. The
+     * caller re-reads and substring-checks every candidate either way, so the pre-filter can never
+     * change which documents are found. Syncs the index with the disk first.
      *
      * @param name the symbol name being searched.
-     * @param folderPaths the project folders the index covers.
+     * @param folderPaths the project folders to search (coverage grows to include them).
      * @param cancellationToken cancels a sync this query would start.
-     * @returns the candidate paths, or undefined when `name` is not a pure word (caller falls back).
+     * @returns the candidate paths, or undefined when `name` has no word token (caller falls back).
      */
     public async candidateFiles(
         name: string,
         folderPaths: string[],
         cancellationToken: CancellationToken
     ): Promise<string[] | undefined> {
-        if (!IS_WORD_NAME.test(name)) return undefined;
+        const tokens = [...new Set(name.match(WORD_RE) ?? [])];
+        if (tokens.length === 0) return undefined;
         await this.ensureFresh(folderPaths, cancellationToken);
         // Case-folded: the game resolves names ignoring case, so a file mentioning `enginesmall`
         // is a candidate when searching `EngineSmall` (the per-file resolution confirms real hits).
-        const needle = name.toLowerCase();
-        const keys = new Set<string>();
-        for (const [word, sources] of this.byWord) {
-            if (!word.includes(needle)) continue;
-            for (const key of sources) keys.add(key);
+        // Longest token first: the rarer the token, the smaller the starting set the later
+        // (membership-filtered, cheaper) scans intersect against.
+        tokens.sort((a, b) => b.length - a.length);
+        let keys: Set<string> | undefined;
+        for (const token of tokens) {
+            const needle = token.toLowerCase();
+            const tokenKeys = new Set<string>();
+            for (const [word, sources] of this.byWord) {
+                if (!word.includes(needle)) continue;
+                for (const key of sources) {
+                    if (!keys || keys.has(key)) tokenKeys.add(key);
+                }
+            }
+            keys = tokenKeys;
+            if (keys.size === 0) break;
         }
+        // Coverage may be broader than this query's folders (see `covered`), so candidates outside
+        // the requested set are filtered out here.
+        const requested = folderPaths.map(prefixOf);
         const paths: string[] = [];
-        for (const key of keys) {
+        for (const key of keys ?? []) {
             const file = this.files.get(key);
-            if (file) paths.push(file.path);
+            if (!file) continue;
+            if (!requested.some((prefix) => key === prefix || key.startsWith(`${prefix}/`))) continue;
+            paths.push(file.path);
         }
         return paths;
     }
@@ -196,19 +230,28 @@ export class MentionIndex {
      * @returns once the index matches the disk.
      */
     private async ensureFresh(folderPaths: string[], cancellationToken: CancellationToken): Promise<void> {
-        const signature = folderPaths
-            .map((folder) => normalizeUri(uriToFsPath(folder)))
-            .sort()
-            .join(' ');
-        if (this.builtFor !== signature) {
-            // Never drop state under a running sync. The folder set only changes on multi-root
-            // updates and between test fixtures, so waiting out the in-flight sync is fine.
+        if (folderPaths.some((folder) => !this.isCovered(prefixOf(folder)))) {
+            // Never grow coverage under a running sync. Wait it out, then re-check: a concurrent
+            // ensureFresh may have covered the same folders meanwhile.
             if (this.syncPromise) await this.syncPromise.catch(() => undefined);
-            // The first bind keeps what {@link ingestDiskText} pre-fed, since the walk of the
-            // same startup feeds it. The full sweep below validates every entry and drops the
-            // ones outside the folder set, so nothing stale survives the bind.
-            if (this.builtFor !== undefined) this.reset();
-            this.builtFor = signature;
+            let grew = false;
+            for (const folder of folderPaths) {
+                const prefix = prefixOf(folder);
+                if (this.isCovered(prefix)) continue;
+                // A broader new folder subsumes narrower covered ones. Drop those so the sweep
+                // doesn't walk the same files twice.
+                this.covered = this.covered.filter(
+                    (entry) => !(entry.prefix === prefix || entry.prefix.startsWith(`${prefix}/`))
+                );
+                this.covered.push({ folder: uriToFsPath(folder), prefix });
+                grew = true;
+            }
+            if (grew) {
+                this.artifactFolders ??= this.covered.map((entry) => entry.folder);
+                // The added folders' files are unknown, so the watcher fast path below must not
+                // skip the sweep that reads them.
+                this.fullSyncDone = false;
+            }
         }
         // With a watcher, the full walk+stat sweep runs once; afterwards only the files the
         // watcher dirtied are re-checked. Without one (tests, minimal clients), every query
@@ -231,7 +274,10 @@ export class MentionIndex {
             return;
         }
         if (!this.syncPromise) {
-            this.syncPromise = this.syncWithDisk(folderPaths, cancellationToken).finally(() => {
+            // The sweep walks the whole covered set (not just this query's folders), so entries of
+            // other covered folders stay valid instead of being dropped as unseen.
+            const sweepFolders = this.covered.map((entry) => entry.folder);
+            this.syncPromise = this.syncWithDisk(sweepFolders, cancellationToken).finally(() => {
                 this.syncPromise = undefined;
             });
         }
@@ -300,7 +346,7 @@ export class MentionIndex {
             // Entries the project walk already fed are fresher than the cache and are kept.
             if (!this.seedAttempted) {
                 this.seedAttempted = true;
-                await this.trySeedFromCache(folderPaths);
+                await this.trySeedFromCache(this.artifactFolders ?? folderPaths);
             }
             const feedsBefore = this.unsavedFeeds;
             const onDisk: Array<{ key: string; path: string; size: number; mtimeMs: number }> = [];
@@ -338,7 +384,10 @@ export class MentionIndex {
             // entry is stat-validated above before it is trusted. Only worth rewriting when this
             // sweep re-read anything or unpersisted fed entries exist.
             if (changed.length > 0 || feedsBefore > 0 || firstBuild) {
-                await this.trySaveCache(folderPaths);
+                // Keyed by the first bind's folder set, so the artifact survives coverage growth
+                // (a session that also indexed the workshop saves under the same key the next
+                // session's startup seed looks up).
+                await this.trySaveCache(this.artifactFolders ?? folderPaths);
                 // Feeds that arrived during this sync stay counted for the next save.
                 this.unsavedFeeds -= feedsBefore;
             }

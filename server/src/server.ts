@@ -380,7 +380,6 @@ connection.onInitialized(async (_params) => {
             LocalizationKeyIndex.instance.reset();
             ReverseIncludeIndex.instance.reset();
             AddBaseIndex.instance.reset();
-        MemberInjectionIndex.instance.reset();
             MemberInjectionIndex.instance.reset();
             MentionIndex.instance.reset();
             clearFsCaches();
