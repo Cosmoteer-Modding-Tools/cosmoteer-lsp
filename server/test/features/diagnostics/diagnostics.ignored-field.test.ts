@@ -61,13 +61,95 @@ describe('ignored-field diagnostics', () => {
         expect(await validateIgnoredFields(doc, token)).toHaveLength(0);
     });
 
-    it('stays silent when the class owns only a minority of the group (wrong-class resolution)', async () => {
-        // The group carries three foreign members against ParticleValueCurve's two owned ones (Enabled
-        // and Points from the helper), so the class fits under half of it. That signals the whole group
-        // resolved to the wrong class, the way a beam emitter self-resolves to the media-effect
-        // BeamEffectRules, so nothing is flagged rather than reporting the foreign members as dead.
+    it('flags foreign members outnumbering owned ones when the slot pins the dispatch', async () => {
+        // The Updaters slot declares the particle-updater registry and the group's own Type picks
+        // ParticleValueCurve from it, which is exactly how the game dispatches the group. The class
+        // cannot be a mis-resolution, so the foreign members are genuinely dead even though they
+        // outnumber the owned Enabled and Points, and the class-fit guard must not swallow them.
         const doc = parse(valueCurve('Foo = 1', 'Bar = 2', 'Baz = 3'));
+        const errors = await validateIgnoredFields(doc, token);
+        expect(errors.map((e) => e.message.match(/'(\w+)'/)?.[1]).sort()).toEqual(['Bar', 'Baz', 'Foo']);
+    });
+
+    it('stays silent when a self-resolved class owns only a minority of the group', async () => {
+        // A beam-emitter fragment root self-resolves through its own Type = Beam to the media-effect
+        // BeamEffectRules, which owns none of its weapon fields. Without a container slot vouching
+        // for the registry the resolution is untrusted, so the foreign members signal a wrong-class
+        // resolution rather than dead fields and nothing is flagged.
+        const doc = parse('Fragment\n{\n\tType = Beam\n\tRange = 300\n\tDuration = 5\n\tHitInterval = .1\n}\n', 'file:///mod/shots/fragment.rules');
         expect(await validateIgnoredFields(doc, token)).toHaveLength(0);
+    });
+
+    it('flags the dead copy-paste fields on a slot-pinned beam media effect', async () => {
+        // The Star Wars mod's Siege_TurboLaser_beam_blue.rules shape: a BeamMediaEffects element whose
+        // five copied fields (none of them ever read by the game) outnumber the four real ones. The
+        // BeamMediaEffects slot delegates to the media-effect registry and Type = Beam picks
+        // BeamEffectRules from it, so the dead majority must be flagged, not distrusted.
+        const doc = parse(`Part
+{
+    Components
+    {
+        emitter
+        {
+            Type = BeamEmitter
+            BeamMediaEffects
+            [
+                {
+                    Type = Beam
+                    Sprite { Texture { File = "b.png" } }
+                    FadeInTime = .25
+                    FadeOutTime = .25
+                    Bucket = Middle1
+                    ExtraEndLength = 1
+                    ExtraBeginLength = 2
+                    ThicknessOverIntensity = [0, 1]
+                    ClampIntensity = [0, 100]
+                    IntensityExponent = 0.75
+                }
+            ]
+        }
+    }
+}
+`, 'file:///data/parts/t.rules');
+        const errors = await validateIgnoredFields(doc, token);
+        const flagged = errors.map((e) => e.message.match(/'(\w+)'/)?.[1]).sort();
+        expect(flagged).toEqual([
+            'ClampIntensity',
+            'ExtraBeginLength',
+            'ExtraEndLength',
+            'IntensityExponent',
+            'ThicknessOverIntensity',
+        ]);
+        for (const error of errors) expect(error.message).toContain('BeamEffectRules');
+    });
+
+    it('spares wrapper-owned fields on a self-resolved group but still flags alien ones', async () => {
+        // The Star Wars mod's stat_widgets.rules shape: a fragment wired in through mod.rules AddTo
+        // actions, so the file is unrooted and each widget self-resolves through its own
+        // Type = StatBar straight to StatBarRules. In the rooted vanilla file the slot types the
+        // group as the ToggledShipStatWidgetRules wrapper, whose ToggleButtonID the game reads from
+        // the same flat group, so the wrapper-owned field must survive. The suppression is
+        // field-specific: a field no possible wrapper owns must still hint.
+        const doc = parse(
+            `StatWidgets
+[
+    {
+        Type = StatBar
+        NameKey = "BuildBox/Hypermatter"
+        ToggleButtonID = SW_Hypermatter
+        NumberFormat = "0.0"
+        RecommendedStat = RecHypermatter
+        ProvidedStat = HypermatterGeneration
+        BlocksPerValue = 10
+        TotallyAlienField = 1
+    }
+]
+`,
+            'file:///mod/gui/game/designer/stat_widgets.rules'
+        );
+        const errors = await validateIgnoredFields(doc, token);
+        expect(errors.map((e) => e.message.match(/'(\w+)'/)?.[1])).toEqual(['TotallyAlienField']);
+        expect(errors[0].message).toContain('StatBarRules');
     });
 
     it('suppresses the asset-not-found check on an ignored field', async () => {

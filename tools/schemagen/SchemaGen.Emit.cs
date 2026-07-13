@@ -232,6 +232,17 @@ internal sealed partial class SchemaGen
             $"enums={pEnums.Count} | curation: unresolvedTypes={unkTypes.Count} unresolvedGenerics={unkGen.Count}");
         Console.WriteLine($"wrote {outPath} ({json.Length / 1024} KB)");
 
+        // Audit trail for the dead-field scan (SchemaGen.DeadFields.cs): every declared-but-unread
+        // member that survived the prune, one line each, so a regeneration review sees the flagged
+        // set at a glance and a game update that changes it is noticed.
+        var deadPairs = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var t in pTypes)
+            foreach (var f in (JsonArray)((JsonObject)t.Value!)["fields"]!)
+                if (f is JsonObject fo && fo["dead"] is { } d && d.GetValue<bool>())
+                    deadPairs.Add($"{t.Key}.{fo["name"]!.GetValue<string>()}");
+        Console.WriteLine($"dead fields: {deadPairs.Count}");
+        foreach (var pair in deadPairs) Console.WriteLine($"  dead: {pair}");
+
         // ---- emit the field-docs seed (prose descriptions for reachable types only) ----
         // Alongside the schema, next to it. Keyed by type FullName → serialized field name → XML summary.
         // Only types that survived the reachability prune are kept, so the seed lines up 1:1 with the shipped

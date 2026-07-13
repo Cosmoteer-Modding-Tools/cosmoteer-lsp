@@ -16,13 +16,15 @@ import {
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import {
+    groupClassCandidates,
     groupDiscriminator,
+    groupSlotIsAnchored,
+    possibleWrapperClasses,
     registryForGroup,
     registryHintFromContainer,
     resolveGroupClass,
 } from '../../document/schema/schema-context';
 import { classAncestry, discriminatorIsAmbiguous, fieldOf, fieldsOf, schema } from '../../document/schema/schema';
-import { isDeadDeclaredField } from '../../document/schema/deprecations';
 import { ValidationError } from './validator';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
@@ -169,8 +171,15 @@ export const ignoredFieldClass = (group: GroupNode, name: string, document: Abst
     // `BeamEffectRules`, which owns none of its `Range`/`IdealRange`/`Duration` weapon fields, and a
     // floor part pulled in through a `DamageLevels` reference roots as `DamageLevelSprites`, which owns
     // none of its part fields. A genuine dead field is one stray among members the class does own, so
-    // only a group the class clearly fits is judged.
-    if (!classFitsGroup(group, cls)) return undefined;
+    // only a group the class clearly fits is judged. A slot-pinned dispatch is exempt from the guard:
+    // when the container's declared field type names the registry and the group's own `Type=` picked
+    // the class from that registry's members, the resolution replays the game's deserializer exactly,
+    // so a poor fit does not signal a mis-resolution but a group that genuinely carries mostly dead
+    // fields, which is precisely the group the hint helps most. The mis-resolutions the guard defends
+    // against never have both anchors agreeing.
+    const slotPinned =
+        !!disc && !!slotRegistry && Object.values(schema.registries[slotRegistry]?.members ?? {}).includes(cls);
+    if (!slotPinned && !classFitsGroup(group, cls)) return undefined;
     const def = schema.types[cls];
     // The class must be purely reflective (its member list is the complete read set) and concrete. An
     // abstract class or interface is never the runtime type, so the group's real deserializer is some
@@ -179,7 +188,20 @@ export const ignoredFieldClass = (group: GroupNode, name: string, document: Abst
     // `Sound`/`Db`, and a component typed as the abstract `PartComponentRules` base adds fields downstream.
     if (!def?.purelyReflective || def.abstract) return undefined;
     if (fieldsOf(cls).length === 0) return undefined;
-    if (fieldOf(cls, name)) return undefined;
+    // A wrapper-delegation slot reads the wrapper's fields and the dispatched member's from the
+    // same group, so a field owned by ANY candidate class (the primary is the first) is a real read
+    // key, no matter which side won the single-valued class pick.
+    if (groupClassCandidates(group).some((candidate) => fieldOf(candidate, name))) return undefined;
+    // A self-resolved group (no slot anchors its class: an unrooted fragment wired in through mod
+    // actions) may really fill a wrapper slot whose value form delegates to the resolved class's
+    // registry, and the wrapper's own fields are read from the same flat group (a stat widget's
+    // ToggleButtonID). The slot that would reveal the wrapper is invisible here, so a field any
+    // possible wrapper class owns is not provably ignored. A slot-anchored group is exempt: there
+    // the candidate derivation above already names the exact companion, and the suppression must
+    // not eat genuine findings on groups whose slot proves no wrapper is in play.
+    if (!groupSlotIsAnchored(group) && possibleWrapperClasses(cls).some((wrapper) => fieldOf(wrapper, name))) {
+        return undefined;
+    }
     if (referencedSegments(document).has(name.toLowerCase())) return undefined;
     return cls;
 };
@@ -205,19 +227,42 @@ export const isIgnoredSchemaField = (node: ValueNode): boolean => {
 };
 
 /**
+ * The lower-cased names of every schema field flagged `dead` (declared by the game but never read
+ * by its code, per schemagen's whole-assembly read scan), so the per-assignment check below can
+ * bail on cheap name membership before resolving any group class or ancestry. Built once at module
+ * init; the schema is immutable after load.
+ */
+const deadFieldNames = new Set<string>();
+for (const type of Object.values(schema.types)) {
+    for (const field of type.fields) {
+        if (field.dead) deadFieldNames.add(field.name.toLowerCase());
+    }
+}
+
+/**
  * The declaring class when the named member of `group` is a known dead declaration: the field
- * exists on the schema, but a whole-decomp consumer trace found no code that reads it (see the
- * curated registry in deprecations.ts). The field is checked against the group class's whole
- * ancestry, since it can be declared on a base.
+ * exists on the schema, but schemagen's whole-assembly read scan found no code that reads it (the
+ * `dead` flag on the schema field). The field is checked against the group class's whole ancestry,
+ * since it can be declared on a base, and the declaring ancestor is returned so the hint names the
+ * class that owns the declaration. The name-set bail keeps the class resolution off the hot path
+ * (this runs for every assignment in the document), and the reference-segment suppression matches
+ * {@link ignoredFieldClass}: references resolve at parse time in ObjectText, so a mod that writes a
+ * dead field and reads it via `(&~/…)` in the same file uses it for real.
  *
  * @param group the group containing the member.
  * @param name the member's written field name.
- * @returns the class FullName the dead field is registered under, or undefined.
+ * @param document the containing document, for the reference-usage scan.
+ * @returns the class FullName that declares the dead field, or undefined.
  */
-const deadDeclaredFieldClass = (group: GroupNode, name: string): string | undefined => {
+const deadDeclaredFieldClass = (group: GroupNode, name: string, document: AbstractNodeDocument): string | undefined => {
+    if (!deadFieldNames.has(name.toLowerCase())) return undefined;
+    if (referencedSegments(document).has(name.toLowerCase())) return undefined;
     const cls = resolveGroupClass(group);
-    if (!cls) return undefined;
-    return classAncestry(cls).find((ancestor) => isDeadDeclaredField(ancestor, name));
+    if (!cls || !fieldOf(cls, name)?.dead) return undefined;
+    const lowered = name.toLowerCase();
+    return classAncestry(cls).find((ancestor) =>
+        schema.types[ancestor]?.fields.some((field) => field.dead && field.name.toLowerCase() === lowered)
+    );
 };
 
 /**
@@ -243,7 +288,7 @@ export const validateIgnoredFields = async (
             for (const element of node.elements) {
                 if (!isAssignmentNode(element)) continue;
                 const name = element.left.name;
-                const cls = ignoredFieldClass(node, name, document) ?? deadDeclaredFieldClass(node, name);
+                const cls = ignoredFieldClass(node, name, document) ?? deadDeclaredFieldClass(node, name, document);
                 if (!cls) continue;
                 const classLabel = schema.types[cls]?.name ?? cls;
                 const declaredButDead = !!fieldOf(cls, name);

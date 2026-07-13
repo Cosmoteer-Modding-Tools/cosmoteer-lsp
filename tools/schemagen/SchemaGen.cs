@@ -10,6 +10,7 @@ using Mono.Cecil;
 //   SchemaGen.Curation.cs   hand-curated tables and synthetic types, with their evidence notes
 //   SchemaGen.TypeMapping.cs C# type reference → schema value type
 //   SchemaGen.Optionality.cs defaults, nullability and custom-deserializer reads
+//   SchemaGen.DeadFields.cs whole-assembly read scan flagging declared-but-never-read members
 //   SchemaGen.ValueForms.cs  scalar/value/scalar-string form detection from deserializer bodies
 //   SchemaGen.Fields.cs     the per-type field emission
 //   SchemaGen.Emit.cs       graph assembly, reachability prune, builtin-id sweep, output
@@ -51,6 +52,7 @@ internal sealed partial class SchemaGen
     public void Run()
     {
         LoadAssemblies();
+        ScanMemberReads();
         LoadXmlDocs();
         SeedCuratedEnums();
         BuildRegistries();

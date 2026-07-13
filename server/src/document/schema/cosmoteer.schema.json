@@ -1819,7 +1819,8 @@
             "ref": "Cosmoteer.Simulation.Overlays.NineSlice",
             "name": "NineSlice"
           },
-          "optional": false
+          "optional": false,
+          "dead": true
         },
         {
           "name": "TentativeSalvageNineSlice",
@@ -3282,7 +3283,8 @@
             "kind": "bool"
           },
           "optional": true,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         }
       ]
     },
@@ -3835,7 +3837,8 @@
             "kind": "bool"
           },
           "optional": true,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         }
       ]
     },
@@ -5328,6 +5331,7 @@
           },
           "optional": true,
           "nullable": false,
+          "dead": true,
           "default": true
         },
         {
@@ -5377,7 +5381,8 @@
             "kind": "bool"
           },
           "optional": true,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         }
       ]
     },
@@ -6686,7 +6691,8 @@
           "valueType": {
             "kind": "bool"
           },
-          "optional": true
+          "optional": true,
+          "dead": true
         }
       ]
     },
@@ -7068,21 +7074,24 @@
           "valueType": {
             "kind": "int"
           },
-          "optional": true
+          "optional": true,
+          "dead": true
         },
         {
           "name": "SkinColorIndex",
           "valueType": {
             "kind": "int"
           },
-          "optional": true
+          "optional": true,
+          "dead": true
         },
         {
           "name": "HairColorIndex",
           "valueType": {
             "kind": "int"
           },
-          "optional": true
+          "optional": true,
+          "dead": true
         },
         {
           "name": "Allegiance",
@@ -7776,7 +7785,8 @@
             "kind": "float"
           },
           "optional": false,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         },
         {
           "name": "FollowFactor",
@@ -8932,7 +8942,8 @@
             "name": "Time"
           },
           "optional": false,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         },
         {
           "name": "SelfDestructForce",
@@ -15139,7 +15150,8 @@
             "type": "ModifiableFloat",
             "groupForm": "Cosmoteer.Ships.ModifiableValue"
           },
-          "optional": true
+          "optional": true,
+          "dead": true
         },
         {
           "name": "IsCrewSalvageable",
@@ -19875,7 +19887,8 @@
             "kind": "int"
           },
           "optional": true,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         },
         {
           "name": "InitToMaxResources",
@@ -22871,7 +22884,8 @@
             "kind": "bool"
           },
           "optional": true,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         },
         {
           "name": "BlendCheckRectType",
@@ -24499,7 +24513,8 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "dead": true
         },
         {
           "name": "ExitToggle",
@@ -24508,7 +24523,8 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "dead": true
         },
         {
           "name": "CrewLeaveEffects",
@@ -29945,7 +29961,8 @@
             "kind": "float"
           },
           "optional": false,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         },
         {
           "name": "AreaExpand",
@@ -29953,7 +29970,8 @@
             "kind": "float"
           },
           "optional": false,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         },
         {
           "name": "Circle",
@@ -30104,7 +30122,8 @@
             "kind": "float"
           },
           "optional": false,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         },
         {
           "name": "AreaExpand",
@@ -30112,7 +30131,8 @@
             "kind": "float"
           },
           "optional": false,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         },
         {
           "name": "Circle",
@@ -34286,7 +34306,8 @@
             "kind": "bool"
           },
           "optional": true,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         },
         {
           "name": "OverrideDisplayFormatKey",
@@ -34511,7 +34532,8 @@
             "kind": "bool"
           },
           "optional": true,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         },
         {
           "name": "OverrideDisplayFormatKey",
@@ -35159,7 +35181,8 @@
             "kind": "float"
           },
           "optional": false,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         },
         {
           "name": "EncounterTriggersGenerator",
@@ -35343,7 +35366,8 @@
             "ref": "Halfling.Graphics.Sprite",
             "name": "Sprite"
           },
-          "optional": false
+          "optional": false,
+          "dead": true
         },
         {
           "name": "HailingFailedIcon",
@@ -36404,7 +36428,8 @@
             "ref": "Halfling.Graphics.Sprite",
             "name": "Sprite"
           },
-          "optional": false
+          "optional": false,
+          "dead": true
         },
         {
           "name": "ResizerTRBLIcon",
@@ -36422,7 +36447,8 @@
             "ref": "Halfling.Graphics.Sprite",
             "name": "Sprite"
           },
-          "optional": false
+          "optional": false,
+          "dead": true
         },
         {
           "name": "DialogOpenSoundEffect",
@@ -42238,7 +42264,8 @@
             "kind": "int"
           },
           "optional": false,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         }
       ]
     },
@@ -49599,7 +49626,8 @@
             "kind": "float"
           },
           "optional": false,
-          "nullable": false
+          "nullable": false,
+          "dead": true
         },
         {
           "name": "CollisionRadius",
@@ -51511,7 +51539,8 @@
             "target": "Cosmoteer.Bullets.BulletComponentRules",
             "targetName": "BulletComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "dead": true
         },
         {
           "name": "BeamAttenuationDamagePool",
@@ -51927,6 +51956,7 @@
           },
           "optional": true,
           "nullable": false,
+          "dead": true,
           "default": 1
         }
       ]

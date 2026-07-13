@@ -590,6 +590,16 @@ describe('validateSchema — engine value forms extracted by schemagen', () => {
         expect(proxy?.fields.some((f) => f.name === 'ComponentID')).toBe(true);
         expect(schema.types['Cosmoteer.Ships.ShipFile']?.valueForm?.kind).toBe('string');
     });
+
+    it('merges the full effective field set of an inline source, including its extends ancestry', () => {
+        // TextSprite embeds Halfling.Graphics.Sprite with an empty alias, and Sprite extends
+        // Halfling.Graphics.Material: the base's members (Texture, Color, Shader, …) are written
+        // directly in a TextSprite group (vanilla gui/text_sprites.rules writes Texture that way).
+        expect(fieldOf('Cosmoteer.Data.TextSprite', 'Texture')).toBeDefined();
+        expect(fieldOf('Cosmoteer.Data.TextSprite', 'Color')).toBeDefined();
+        // The source's own fields still merge as before.
+        expect(fieldOf('Cosmoteer.Data.TextSprite', 'Size')).toBeDefined();
+    });
 });
 
 describe('validateSchema — value-form list elements resolve their registry', () => {

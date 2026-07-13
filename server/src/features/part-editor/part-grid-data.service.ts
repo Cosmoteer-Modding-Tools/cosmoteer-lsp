@@ -505,9 +505,9 @@ const COMPONENT_POINT_FIELDS: ReadonlyArray<{ readonly field: string; readonly g
 ];
 
 /**
- * The single-cell component fields. `PartLocation` belongs to the nested `ProxyRules` group in the
- * schema but vanilla writes it flat on the proxy component, so presence is checked on the member
- * too, not only on the class.
+ * The single-cell component fields. `PartLocation` is an empty-alias `ProxyRules` member written
+ * flat on the proxy component, and the schema inlines its fields onto the proxy classes, so the
+ * plain class/member check finds it there.
  */
 const COMPONENT_CELL_FIELDS: ReadonlyArray<{ readonly field: string; readonly group: string }> = [
     { field: 'PartLocation', group: 'Logic' },
@@ -692,9 +692,7 @@ const componentFieldLayers = async (part: GroupNode, token: CancellationToken): 
         }
 
         for (const spec of COMPONENT_CELL_FIELDS) {
-            if (!hasField(group, cls, spec.field) && spec.field !== 'PartLocation') continue;
-            if (spec.field === 'PartLocation' && !childNamed(group, 'PartLocation') && !hasField(group, cls, 'ProxyRules'))
-                continue;
+            if (!hasField(group, cls, spec.field)) continue;
             const member = await effectiveMember(group, spec.field, token);
             const cell = member ? readVector(member.node) : null;
             layers.push({

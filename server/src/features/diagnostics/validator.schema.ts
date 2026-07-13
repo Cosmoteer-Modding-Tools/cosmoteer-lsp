@@ -89,7 +89,7 @@ const classReadsScalar = (classRef: string, isString: boolean, depth = 0): boole
     // A group-typed empty-alias member (`inlineFrom`) binds the node too, so a scalar the member's
     // class reads is a scalar the owner reads (a proxy delegating to the group-only ProxyRules
     // stays refused, since ProxyRules reads no scalar either).
-    if ((def.inlineFrom ?? []).some((source) => classReadsScalar(source, isString, depth + 1))) return true;
+    if (def.inlineFrom?.some((source) => classReadsScalar(source, isString, depth + 1))) return true;
     const form = def.valueForm;
     if (!form) return false;
     if (form.kind === 'group') return classReadsScalar(form.ref, isString, depth + 1);
@@ -102,7 +102,7 @@ const classReadsScalar = (classRef: string, isString: boolean, depth = 0): boole
 const classReadsList = (classRef: string, depth = 0): boolean => {
     const def = schema.types[classRef];
     if (!def || depth > 4) return false;
-    if ((def.inlineFrom ?? []).some((source) => classReadsList(source, depth + 1))) return true;
+    if (def.inlineFrom?.some((source) => classReadsList(source, depth + 1))) return true;
     const form = def.valueForm;
     if (!form) return false;
     if (form.kind === 'group') return classReadsList(form.ref, depth + 1);

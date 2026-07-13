@@ -4,8 +4,8 @@ import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { validateIgnoredFields } from '../../../src/features/diagnostics/validator.ignored-field';
 
-// Fields the game declares but provably never reads (decomp-verified, curated in deprecations.ts)
-// get the same dead-weight hint as unknown members, with the remove quick fix.
+// Fields the game declares but provably never reads (the schema's `dead` flag, from schemagen's
+// whole-assembly read scan) get the same dead-weight hint as unknown members, with the remove fix.
 const token = CancellationToken.None;
 const parse = (src: string) => parser(lexer(src), 'file:///data/parts/t.rules').value;
 
@@ -24,5 +24,13 @@ describe('dead declared fields', () => {
         const doc = parse('Part\n{\n\tMaxHealth = 100\n}\n');
         const errors = await validateIgnoredFields(doc, token);
         expect(errors.filter((e) => e.message.includes('MaxHealth'))).toEqual([]);
+    });
+
+    it('stays silent when a reference in the file reads the dead field', async () => {
+        // References resolve at parse time in ObjectText, so a mod that writes a dead field and reads
+        // it via `(&~/…)` in the same file uses it for real; the remove fix would break the mod.
+        const doc = parse('Part\n{\n\tFireDamageFactor = 1.5\n\tMaxHealth = (&~/Part/FireDamageFactor) * 100\n}\n');
+        const errors = await validateIgnoredFields(doc, token);
+        expect(errors.filter((e) => e.message.includes('FireDamageFactor'))).toEqual([]);
     });
 });

@@ -53,6 +53,13 @@ export interface SchemaField {
      */
     nullable?: boolean;
     default?: string | number | boolean;
+    /**
+     * True when the game declares the member but no game code ever reads its value, so writing it
+     * is dead weight in a mod. Detected by schemagen's whole-assembly read scan (no field load,
+     * getter call, or name mention anywhere in the scanned assemblies), so it tracks game updates
+     * through schema regeneration. Absent means the member is read normally.
+     */
+    dead?: boolean;
     aliases?: string[];
     /**
      * True when this field carries a `[Serialize(OverrideDeserializer = …)]` whose wrapper reads

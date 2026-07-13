@@ -31,11 +31,21 @@ internal sealed partial class SchemaGen
 
     static TypeReference? EmptyAliasMemberType(TypeDefinition t)
     {
+        // The schema models at most one empty-alias member per type: the type loop emits a single
+        // inlineFrom/valueForm from it while OwnFields drops the unwritable named fields. No game
+        // type declares two today, but a future update that adds a second one would silently lose
+        // its fields from the schema, so a duplicate fails the run loudly instead.
+        var found = new List<(string Name, TypeReference Type)>();
         foreach (var f in t.Fields)
-            if (Attr(f, SERIALIZE) is { } fa && Named(fa, "Alias") as string == "") return f.FieldType;
+            if (Attr(f, SERIALIZE) is { } fa && Named(fa, "Alias") as string == "") found.Add((f.Name, f.FieldType));
         foreach (var p in t.Properties)
-            if (Attr(p, SERIALIZE) is { } pa && Named(pa, "Alias") as string == "") return p.PropertyType;
-        return null;
+            if (Attr(p, SERIALIZE) is { } pa && Named(pa, "Alias") as string == "") found.Add((p.Name, p.PropertyType));
+        if (found.Count > 1)
+            throw new InvalidOperationException(
+                $"{t.FullName} has {found.Count} [Serialize(Alias=\"\")] members ({string.Join(", ", found.Select(m => m.Name))}), " +
+                "but the schema can only represent one per type (inlineFrom/valueForm). The extra members would vanish " +
+                "from the schema without a trace. Extend the empty-alias handling before regenerating.");
+        return found.Count == 1 ? found[0].Type : null;
     }
 
     static bool HasScalarForm(TypeDefinition t) =>

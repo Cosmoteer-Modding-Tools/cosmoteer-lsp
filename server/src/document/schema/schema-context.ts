@@ -143,6 +143,34 @@ const listValueFormOf = (slot: ValueType | undefined): ValueType | undefined => 
     return form && ELEMENT_KINDS.has(form.kind) ? form : undefined;
 };
 
+/** A map-kind slot type, as the ValueType union declares it. */
+type MapValueType = Extract<ValueType, { kind: 'map' }>;
+
+/**
+ * The written member names of a map's entry-list form and the type each carries: `Key` then
+ * `Value`, or the `[KeyValuePairNames]` spellings the map declares (`Old`/`New`). The single source
+ * of truth shared by slot typing, member lookup and entry-name completion, so the names completion
+ * offers and the names validation accepts cannot drift apart.
+ *
+ * @param map the map-kind slot type.
+ * @returns the entry member names paired with their value types, key first.
+ */
+export const mapEntryNames = (map: MapValueType): ReadonlyArray<readonly [string, ValueType]> => [
+    [map.entryKey ?? 'Key', map.key],
+    [map.entryValue ?? 'Value', map.value],
+];
+
+/**
+ * The type an entry-form map member reads as, matched case-insensitively like the game's node
+ * lookup.
+ *
+ * @param map the map-kind slot type.
+ * @param member the written member name.
+ * @returns the entry member's value type, or undefined when the member is neither entry name.
+ */
+export const mapEntryMemberType = (map: MapValueType, member: string): ValueType | undefined =>
+    mapEntryNames(map).find(([name]) => name.toLowerCase() === member.toLowerCase())?.[1];
+
 /**
  * The uncached slot resolution behind {@link expectedValueType}.
  *
@@ -172,15 +200,12 @@ const expectedValueTypeUncached = (node: GroupNode | ListNode, depth: number): V
             // An unrooted top-level member: root it by how the game root aliases this fragment file in.
             return aliasedMemberType(parent, memberName);
         }
-        // The container's own slot is resolved ONCE here and shared between its class resolution and
-        // the map fallback below. Recursing separately for each would double the work per nesting
-        // level and blow up exponentially on deep files.
+        // The container's slot memo feeds both the class resolution (resolveGroupClass reads the
+        // same slot internally) and the map fallback below, so neither recomputes it per member.
+        // Delegating the class chain to resolveGroupClass shares its per-group memo too, so K
+        // members of one container cost one resolution, not K.
         const containerSlot = expectedValueType(parent, depth + 1);
-        const containerSlotClass = classFromSlot(parent, containerSlot);
-        const ownerClass =
-            inheritedBaseClassForGroup(parent, containerSlotClass) ??
-            containerSlotClass ??
-            (parent.inheritance?.length ? sameFileInheritedClass(parent, depth + 1) : undefined);
+        const ownerClass = resolveGroupClass(parent, depth + 1);
         if (ownerClass) return fieldOf(ownerClass, memberName)?.valueType;
         // A class-less container can still sit in a map-typed slot (a ToggledComponents part's
         // `Components` map, a planet's `Styles`). Its members are keys, so each member takes the
@@ -189,13 +214,7 @@ const expectedValueTypeUncached = (node: GroupNode | ListNode, depth: number): V
         // An ENTRY group (the map reached the container through its entry-list form) instead types
         // its `Key`/`Value` members (or the `[KeyValuePairNames]` spellings, `Old`/`New`).
         if (containerSlot?.kind === 'map') {
-            if (parent.parent && isListNode(parent.parent)) {
-                const keyName = containerSlot.entryKey ?? 'Key';
-                const valueName = containerSlot.entryValue ?? 'Value';
-                if (memberName.toLowerCase() === keyName.toLowerCase()) return containerSlot.key;
-                if (memberName.toLowerCase() === valueName.toLowerCase()) return containerSlot.value;
-                return undefined;
-            }
+            if (parent.parent && isListNode(parent.parent)) return mapEntryMemberType(containerSlot, memberName);
             return containerSlot.value;
         }
         // A range slot's group form (`TwinkleAddColor { Min = […] Max = […] }`): the engine reads
@@ -359,6 +378,79 @@ const inheritedBaseClassForGroup = (group: GroupNode, slotClass?: string): strin
 };
 
 /**
+ * Resolves a same-file reference path to its target node, for the synchronous inheritance walk. Only
+ * same-file forms resolve here: a `<file>` ref or a game-root super-path needs the async resolver
+ * and yields undefined. The walk dereferences any reference value it lands on mid-path (an `^/0`
+ * step lands on the owner container's base entry, itself a `~/TEMPLATE` reference that must resolve
+ * before the next segment can step into it), recursing with the same same-file rules; `depth`
+ * bounds cyclic bases the way it bounds {@link resolveGroupClass}.
+ *
+ * @param raw the reference text as written (with or without the `&` sigil).
+ * @param owner the group or list the reference belongs to (the deriving node for a base entry).
+ * @param depth the {@link resolveGroupClass} recursion depth, forwarded as the cycle guard.
+ * @returns the target node, or undefined when the path does not resolve within this file.
+ */
+const sameFileReferenceTarget = (
+    raw: string,
+    owner: GroupNode | ListNode,
+    depth: number
+): AbstractNode | undefined => {
+    if (depth > 32) return undefined;
+    const cleaned = raw.trim().replace(/^&\s*/, '');
+    if (!cleaned || cleaned.includes('<') || cleaned.startsWith('/')) return undefined;
+    const segments = cleaned.split('/').map((s) => s.trim()).filter(Boolean);
+    if (segments.length === 0) return undefined;
+    let node: AbstractNode | null | undefined;
+    let index = 0;
+    let previous = '';
+    if (segments[0] === '^') {
+        // A leading `^` on a base reference selects the OWNER'S CONTAINER'S inheritance anchor (the
+        // inheriting member inherits from the same-named member of its container's base), matching
+        // stepIntoNode's climb from the base value node, whose parent is the deriving node itself.
+        // A top-level owner has no such anchor, so the path stays unresolved.
+        if (!owner.parent || !(isGroupNode(owner.parent) || isListNode(owner.parent))) return undefined;
+        node = owner.parent;
+        index = 1;
+        previous = '^';
+    } else if (segments[0] === '~' || segments[0] === '..') {
+        node = owner;
+    } else {
+        // A relative first segment names a member of an enclosing scope: an inheritance ref
+        // resolves against the deriving node's container chain, nearest scope first.
+        let scope: AbstractNode | undefined = owner.parent;
+        while (scope && !node) {
+            if (isGroupNode(scope) || isDocumentNode(scope)) node = stepIntoNode(scope, segments[0]) ?? undefined;
+            scope = scope.parent;
+        }
+        if (!node) return undefined;
+        index = 1;
+    }
+    for (; index < segments.length && node; index++) {
+        node = dereferenceValue(node, depth);
+        if (!node) return undefined;
+        node = stepIntoNode(node, segments[index], previous === '^');
+        previous = segments[index];
+    }
+    return node ? dereferenceValue(node, depth) : undefined;
+};
+
+/**
+ * Follows a reference-valued node to its target within the same file: an `^/0` step lands on a base
+ * entry whose value is itself a reference (`~/TEMPLATE`), which resolves relative to its own owning
+ * node before the walk continues. Non-reference nodes pass through unchanged.
+ *
+ * @param node the node the walk landed on.
+ * @param depth the recursion depth forwarded to the nested resolution.
+ * @returns the dereferenced node, or undefined when a reference in the chain does not resolve.
+ */
+const dereferenceValue = (node: AbstractNode, depth: number): AbstractNode | undefined => {
+    if (!isValueNode(node) || node.valueType.type !== 'Reference') return node;
+    const owner = node.parent;
+    if (!owner || !(isGroupNode(owner) || isListNode(owner))) return undefined;
+    return sameFileReferenceTarget(String(node.valueType.value), owner, depth + 1);
+};
+
+/**
  * Follows a group's same-file inheritance bases synchronously to the class the base carries. The
  * async resolver covers every base form for completion, but hover, validation and slot typing run
  * synchronously, so a component inheriting a same-file template (`BulletEmitter : ~/EMITTER`,
@@ -372,34 +464,9 @@ const inheritedBaseClassForGroup = (group: GroupNode, slotClass?: string): strin
 const sameFileInheritedClass = (group: GroupNode, depth: number): string | undefined => {
     for (const base of group.inheritance ?? []) {
         if (!isValueNode(base) || base.valueType.type !== 'Reference') continue;
-        const raw = String(base.valueType.value).trim().replace(/^&\s*/, '');
-        // Only same-file forms resolve synchronously: a tilde/caret/parent path or a plain member
-        // path. A `<file>` ref or a game-root super-path needs the async resolver.
-        if (!raw || raw.includes('<') || raw.startsWith('/')) continue;
-        const segments = raw.split('/').map((s) => s.trim()).filter(Boolean);
-        if (segments.length === 0) continue;
-        let node: AbstractNode | null | undefined;
-        let index = 0;
-        if (segments[0] === '~' || segments[0] === '^' || segments[0] === '..') {
-            node = group;
-        } else {
-            // A relative first segment names a member of an enclosing scope: an inheritance ref
-            // resolves against the deriving group's container chain, nearest scope first.
-            let scope: AbstractNode | undefined = group.parent;
-            while (scope && !node) {
-                if (isGroupNode(scope) || isDocumentNode(scope)) node = stepIntoNode(scope, segments[0]) ?? undefined;
-                scope = scope.parent;
-            }
-            if (!node) continue;
-            index = 1;
-        }
-        let previous = '';
-        for (; index < segments.length && node; index++) {
-            node = stepIntoNode(node, segments[index], previous === '^');
-            previous = segments[index];
-        }
-        if (node && isGroupNode(node) && node !== group) {
-            const cls = resolveGroupClass(node, depth + 1);
+        const target = sameFileReferenceTarget(String(base.valueType.value), group, depth);
+        if (target && isGroupNode(target) && target !== group) {
+            const cls = resolveGroupClass(target, depth + 1);
             if (cls) return cls;
         }
     }
@@ -427,7 +494,7 @@ export const resolveGroupClass = (group: GroupNode, depth = 0): string | undefin
     const value =
         inheritedBaseClassForGroup(group, slotClass) ??
         slotClass ??
-        (group.inheritance?.length ? sameFileInheritedClass(group, depth) : undefined);
+        sameFileInheritedClass(group, depth);
     if (depth <= MEMO_DEPTH_LIMIT) groupClassCache.set(group, { epoch: contextEpoch, value });
     return value;
 };
@@ -522,6 +589,89 @@ const classFromSlot = (group: GroupNode, expected: ValueType | undefined): strin
 };
 
 /**
+ * The classes whose members are legal in a group, primary first. Usually just the resolved class,
+ * but a group filling a wrapper-with-polymorphic-value-form slot is read TWICE by the engine (the
+ * wrapper's own fields and the dispatched member's, written flat in one group), while
+ * {@link resolveGroupClass} stays single-valued with whichever side owns more of the written names.
+ * The losing side's fields are still read, so member lookup, field completion and the ignored-field
+ * judgement consult the delegation companion too. Reuses the memoized slot and class resolutions,
+ * so the companion derivation adds no new caches.
+ *
+ * @param group the group whose member-owning classes are wanted.
+ * @returns the primary class first, plus the delegation companion when the slot carries one; empty
+ *          when the group resolves to no class at all.
+ */
+export const groupClassCandidates = (group: GroupNode): string[] => {
+    const primary = resolveGroupClass(group);
+    if (!primary) return [];
+    const expected = expectedValueType(group, 0);
+    if (expected?.kind === 'group') {
+        const delegated = typeDef(expected.ref)?.valueForm;
+        if (delegated?.kind === 'polymorphicGroup') {
+            const registry = schema.registries[delegated.ref];
+            const member = classOfGroup(group, registry?.name);
+            const companion = primary === expected.ref ? member : primary === member ? expected.ref : undefined;
+            if (companion && companion !== primary) return [primary, companion];
+        }
+    }
+    return [primary];
+};
+
+// Reverse index for wrapper delegation: registry member class → the wrapper classes whose value
+// form (a `[Serialize(Alias="")]` polymorphic member) delegates to a registry declaring it. Built
+// lazily on first use; the schema is immutable after load, so it never goes stale.
+let wrapperClassesByMember: Map<string, string[]> | undefined;
+
+const wrapperClassIndex = (): Map<string, string[]> => {
+    if (wrapperClassesByMember) return wrapperClassesByMember;
+    wrapperClassesByMember = new Map();
+    for (const [fullName, def] of Object.entries(schema.types)) {
+        const form = def.valueForm;
+        if (form?.kind !== 'polymorphicGroup') continue;
+        const registry = schema.registries[form.ref];
+        if (!registry) continue;
+        for (const member of Object.values(registry.members)) {
+            const wrappers = wrapperClassesByMember.get(member);
+            if (!wrappers) wrapperClassesByMember.set(member, [fullName]);
+            else if (!wrappers.includes(fullName)) wrappers.push(fullName);
+        }
+    }
+    return wrapperClassesByMember;
+};
+
+/**
+ * The wrapper classes that could carry a group resolved to `cls` as their delegated payload: every
+ * type whose value form dispatches to a registry declaring `cls` (or an ancestor of it) as a member.
+ * Such a wrapper reads its own fields and the dispatched member's from the same flat group, so when
+ * a group self-resolves without a slot (an unrooted fragment wired in through mod actions), a field
+ * any of these classes owns may still be read by the game.
+ *
+ * @param cls the resolved member class FullName.
+ * @returns the wrapper class FullNames; empty when no wrapper delegates to a registry containing
+ *          the class.
+ */
+export const possibleWrapperClasses = (cls: string): readonly string[] => {
+    const index = wrapperClassIndex();
+    const out: string[] = [];
+    for (const ancestor of classAncestry(cls)) {
+        for (const wrapper of index.get(ancestor) ?? []) {
+            if (!out.includes(wrapper)) out.push(wrapper);
+        }
+    }
+    return out;
+};
+
+/**
+ * Whether a group's slot resolves to a declared schema type, anchoring its class resolution to the
+ * container chain. An unanchored group's class is self-resolved (its own `Type=` against a global
+ * or sibling-inferred registry), which cannot see a wrapper the real slot might carry.
+ *
+ * @param group the group node to test.
+ * @returns true when the field declaring the group's container chain types its slot.
+ */
+export const groupSlotIsAnchored = (group: GroupNode): boolean => expectedValueType(group, 0) !== undefined;
+
+/**
  * The schema type expected at top-level (or nested) member `member` of `container`, which is either a
  * group node or the document root. A rooted container reads the type straight off its class; a map
  * container types every member as its value type (the member is a key, e.g. a planet style `Styles {
@@ -542,20 +692,23 @@ export const memberTypeIn = (
         if (root) return fieldOf(root, member)?.valueType;
         return aliasedMemberType(container, member);
     }
-    const cls = resolveGroupClass(container);
-    if (cls) return fieldOf(cls, member)?.valueType;
+    // A wrapper-delegation slot answers through whichever candidate class owns the member (the
+    // primary first); a resolved group whose candidates all miss the member stays undefined without
+    // falling into the map branch below.
+    const candidates = groupClassCandidates(container);
+    if (candidates.length > 0) {
+        for (const cls of candidates) {
+            const field = fieldOf(cls, member);
+            if (field) return field.valueType;
+        }
+        return undefined;
+    }
     // A map-typed group (`Styles { alien = &<…> }`) has no class of its own; its members are keys, so
     // every one takes the map's value type. An entry group (reached through the map's entry-list
     // form) instead types its `Key`/`Value` members (or the `[KeyValuePairNames]` spellings).
     const expected = expectedValueType(container, 0);
     if (expected?.kind === 'map') {
-        if (container.parent && isListNode(container.parent)) {
-            const keyName = expected.entryKey ?? 'Key';
-            const valueName = expected.entryValue ?? 'Value';
-            if (member.toLowerCase() === keyName.toLowerCase()) return expected.key;
-            if (member.toLowerCase() === valueName.toLowerCase()) return expected.value;
-            return undefined;
-        }
+        if (container.parent && isListNode(container.parent)) return mapEntryMemberType(expected, member);
         return expected.value;
     }
     // A range slot's group form reads its `Value`/`Min`/`Max` keys as the element type.

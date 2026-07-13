@@ -16,5 +16,3 @@ that no active component carries. The vanilla missile launcher relies on that: i
 `MissilesPrereqProxy` targets a `MissilesPrereq` component that each `ToggledComponents`
 missile mode must supply, so a mode that forgets it reads permanently off and the launcher's
 crew stand down.
-
----

@@ -4,8 +4,10 @@ import { namedMembersOf } from '../../utils/ast.utils';
 import {
     findEnclosingContainer,
     findEnclosingGroup,
+    groupClassCandidates,
     listElementType,
     listSlotType,
+    mapEntryNames,
     memberScopeClassAt,
     registryForGroup,
 } from '../../document/schema/schema-context';
@@ -21,7 +23,7 @@ import {
     typeDef,
     valueTypeLabel,
 } from '../../document/schema/schema';
-import { SchemaRegistry, ValueType } from '../../document/schema/schema.types';
+import { SchemaField, SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { Completion } from './autocompletion.service';
 import { completeFieldValue, discriminatorCompletions } from './autocompletion.schema';
 import { componentIdCompletions } from './autocompletion.component-id';
@@ -149,11 +151,7 @@ export const schemaFieldNameCompletions = async (
     if (!cls && group?.parent && isListNode(group.parent)) {
         const slot = listSlotType(group.parent);
         if (slot?.kind === 'map') {
-            const entries: Array<[string, ValueType]> = [
-                [slot.entryKey ?? 'Key', slot.key],
-                [slot.entryValue ?? 'Value', slot.value],
-            ];
-            return entries
+            return mapEntryNames(slot)
                 .filter(([name]) => !present.has(name.toLowerCase()))
                 .map(([name, valueType]) => ({
                     label: name,
@@ -165,17 +163,33 @@ export const schemaFieldNameCompletions = async (
                 }));
         }
     }
+    // A wrapper-delegation slot reads BOTH the wrapper's fields and the dispatched member's from the
+    // same group, while the class resolution stays single-valued, so the fields of every candidate
+    // class are offered: the primary's first, deduped by name.
+    const classes = cls ? [cls] : [];
+    if (group) {
+        for (const candidate of groupClassCandidates(group)) {
+            if (!classes.includes(candidate)) classes.push(candidate);
+        }
+    }
     // All-digit fields (Vector2's `0`/`1`, Color's `0`-`3`, …) are the positional names the game
     // deserializer reads when the value is written in list form (`[7.2, 7.2]`). They stay in the
     // schema so list elements type-resolve, but offering them as field names inside `{}` is noise.
-    const missing = cls
-        ? fieldsOf(cls).filter((field) => !present.has(field.name.toLowerCase()) && !/^\d+$/.test(field.name))
-        : [];
-    const completions: Completion[] = missing.map((field) => ({
+    const offeredNames = new Set<string>();
+    const missing: Array<{ field: SchemaField; owner: string }> = [];
+    for (const candidate of classes) {
+        for (const field of fieldsOf(candidate)) {
+            const key = field.name.toLowerCase();
+            if (present.has(key) || offeredNames.has(key) || /^\d+$/.test(field.name)) continue;
+            offeredNames.add(key);
+            missing.push({ field, owner: candidate });
+        }
+    }
+    const completions: Completion[] = missing.map(({ field, owner }) => ({
         label: field.name,
         kind: CompletionItemKind.Field,
         detail: `${valueTypeLabel(field.valueType)}${field.optional ? '' : ' · required'}`,
-        documentation: fieldSignatureMarkdown(field, cls ?? undefined),
+        documentation: fieldSignatureMarkdown(field, owner),
         insertText: fieldSnippet(field.name, field.valueType),
         isSnippet: true,
         // The snippet's stop lands at a value position that has its own completions (a subtype for
@@ -186,7 +200,7 @@ export const schemaFieldNameCompletions = async (
     }));
 
     // One pick that scaffolds all the still-missing required fields at once (each a numbered tab stop).
-    const requiredMissing = missing.filter((field) => !field.optional);
+    const requiredMissing = missing.filter(({ field }) => !field.optional).map(({ field }) => field);
     if (requiredMissing.length >= 2) {
         completions.unshift({
             label: `Insert ${requiredMissing.length} required fields`,

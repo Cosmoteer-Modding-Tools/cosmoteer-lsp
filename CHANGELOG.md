@@ -32,7 +32,8 @@ All notable changes to this project will be documented in this file.
 - The game root `cosmoteer.rules` and the loading screen file root to their classes, so their top-level groups (`Game`, `Simulation`, `Roles`, the loading `Background`) get completion, hover and validation.
 - Wrapper classes that dispatch their value through an embedded polymorphic member resolve to whichever side fits the written fields: a stat widget's `Type = StatBar` group gets `StatBarRules`' fields, a designer brush keeps its wrapper's `NameKey`/`Icon`, and a name-generator entry dispatches its `Type = Markov`.
 - Completion inside a map entry group offers the entry names: `Old`/`New` in decal upgrades, `Key`/`Value` elsewhere.
-- The four fields the game declares but provably never reads (`FireDamageFactor`, `PathfindRadius`, `SupplierSearchInterval`, `TentativeScheduledSalvageNineSlice`) now get the dead-field hint with a remove quick fix.
+- Fields the game declares but provably never reads (`FireDamageFactor`, `PathfindRadius`, `SupplierSearchInterval` and 27 more) now get the dead-field hint with a remove quick fix. The set is extracted straight from the game's code by the schema generator, so it follows game updates instead of a hand-kept list.
+- A group whose unread fields outnumber its real ones now still gets the ignored-field hints when its slot and its `Type =` agree on the class: a beam media effect carrying legacy fields like `ExtraEndLength` and `ThicknessOverIntensity` reports every one of them instead of staying silent.
 - Field documentation for the most-modded gameplay and GUI classes, written from the game's own code: parts, ships, crew, weapons, beams, bullets, resources, the data root, and the widget, game, build, resource, sim, crew, menu, missions and galaxy-map GUI rules. Coverage of the hover/completion field docs grows from 19% to 41%.
 - A reference to a group with a `BaseValue` member now shows that value as an inlay hint: `Arc = &~/Part/Components/ArcShield/Arc` renders `/BaseValue = 160d` after the reference. Toggleable via the new `inlayHints.showBaseValue` setting, on by default.
 - The `Modifiers` entries of a `BaseValue` group are now fully understood: `Type =` completes with the twelve modifier kinds the game knows, each entry's fields complete, hover and validate, and a typo gets the usual did-you-mean fix.
@@ -113,6 +114,7 @@ All notable changes to this project will be documented in this file.
 - A quoted expression argument like `ceil("(&A) / (&B)")` is no longer flagged as an invalid argument type.
 - Function-call validation no longer runs in language-strings files, where text like `Desejado(s)` was misread as an unknown math function.
 - "Asset not found" is no longer reported for a field the game ignores, such as the vanilla reactor shockwaves' `Filename`.
+- The ignored-field hint no longer flags a wrapper-read field like a stat widget's `ToggleButtonID` in a fragment file wired in through mod actions, where the wrapper class that reads it is invisible to the resolver.
 - The HLSL `%` operator, `isinf`, integer locals and `(int)` casts of function calls now translate to GLSL, fixing the crew shader preview silently falling back to a plain textured quad.
 - Shader `#if defined(…)` conditions are now evaluated during preview preprocessing instead of being ignored.
 - The stand-in vertex tangent no longer zeroes the normal map's x channel in lit shader previews.

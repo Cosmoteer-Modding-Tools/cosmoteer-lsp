@@ -306,25 +306,6 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
     ],
 };
 
-/**
- * Inline-member expansions: a class with a `[Serialize(Alias="")]` member of a group type writes that
- * group's fields directly inline rather than as a named sub-group. The fields of the named type are
- * copied into the class at load. Keyed by class FullName → the type whose fields to inline.
- */
-const OVERLAY_INLINE_TYPES: Record<string, string> = {
-    // `BlueprintPartSpriteRules` embeds an `AtlasSprite` with an empty alias, so its `File`/`Size`/
-    // `Offset`/… are written directly in the blueprint sprite group (~4000 vanilla+mod uses).
-    'Cosmoteer.Ships.Blueprints.Graphics.BlueprintPartSpriteRules': 'Cosmoteer.Ships.Rendering.AtlasSprite',
-    // Every proxy part embeds `ProxyRules` with an empty alias, so its `ComponentID`/`PartLocation`/
-    // `ProxyToggle`/… are written directly in the proxy group.
-    'Cosmoteer.Ships.Parts.Logic.PartTriggerProxyRules': 'Cosmoteer.Ships.Parts.Logic.ProxyRules',
-    'Cosmoteer.Ships.Parts.Logic.PartToggleProxyRules': 'Cosmoteer.Ships.Parts.Logic.ProxyRules',
-    'Cosmoteer.Ships.Parts.Logic.PartValueProxyRules': 'Cosmoteer.Ships.Parts.Logic.ProxyRules',
-    'Cosmoteer.Ships.Parts.Logic.ComponentPresenceToggleRules': 'Cosmoteer.Ships.Parts.Logic.ProxyRules',
-    'Cosmoteer.Ships.Parts.Resources.ResourceStorageProxyRules': 'Cosmoteer.Ships.Parts.Logic.ProxyRules',
-    'Cosmoteer.Ships.Parts.Logic.PartChainableProxyRules': 'Cosmoteer.Ships.Parts.Logic.ProxyRules',
-};
-
 /** Enums the overlay types reference that the extractor's prune dropped, keyed by C# FullName. */
 const OVERLAY_ENUMS: Record<string, SchemaEnum> = {
     'Halfling.Graphics.TextureUVMode': { name: 'TextureUVMode', members: ['Clamp', 'Wrap'] },
@@ -352,27 +333,34 @@ export const applySchemaOverlay = (bundle: SchemaBundle): SchemaBundle => {
         const present = new Set(type.fields.map((f) => f.name));
         for (const field of extra) if (!present.has(field.name)) type.fields.push(field);
     }
-    // Inline an embedded empty-alias member's fields into its containing class, copying them from the
-    // already-loaded named type so the two stay in sync.
-    for (const [fullName, inlineFrom] of Object.entries(OVERLAY_INLINE_TYPES)) {
-        const type = bundle.types[fullName];
-        const source = bundle.types[inlineFrom];
-        if (!type || !source) continue;
-        const present = new Set(type.fields.map((f) => f.name));
-        for (const field of source.fields) {
-            if (!present.has(field.name)) type.fields.push({ ...field, optional: true });
-        }
-    }
-    // The extractor-driven counterpart of the curated table above: schemagen marks every class with a
-    // group-typed empty-alias member (`inlineFrom`), and the member class's fields merge in the same
-    // way. Runs after the curated field additions so a curated source field propagates too.
-    for (const type of Object.values(bundle.types)) {
-        for (const sourceName of type.inlineFrom ?? []) {
-            const source = bundle.types[sourceName];
-            if (!source) continue;
+    // Inline-member expansion: schemagen marks every class with a group-typed empty-alias member
+    // (`inlineFrom`), whose fields are written directly in the containing group. Each source
+    // contributes its full effective field set: its own fields plus its `extends` ancestry, walked
+    // nearest-first so a derived override shadows its base (the same order as `fieldsOf`). The merge
+    // repeats to a fixed point so a source's own inlined fields propagate transitively no matter how
+    // the bundle happens to be ordered. Runs after the curated field additions so a curated source
+    // field (e.g. `ProxyRules.ComponentID`) propagates too.
+    let merged = true;
+    while (merged) {
+        merged = false;
+        for (const type of Object.values(bundle.types)) {
+            if (!type.inlineFrom?.length) continue;
             const present = new Set(type.fields.map((f) => f.name));
-            for (const field of source.fields) {
-                if (!present.has(field.name)) type.fields.push({ ...field, optional: true });
+            for (const sourceName of type.inlineFrom) {
+                const visited = new Set<string>();
+                let cur: string | undefined = sourceName;
+                while (cur && !visited.has(cur)) {
+                    visited.add(cur);
+                    const source: SchemaTypeDef | undefined = bundle.types[cur];
+                    if (!source) break;
+                    for (const field of source.fields) {
+                        if (present.has(field.name)) continue;
+                        present.add(field.name);
+                        type.fields.push({ ...field, optional: true });
+                        merged = true;
+                    }
+                    cur = source.extends;
+                }
             }
         }
     }

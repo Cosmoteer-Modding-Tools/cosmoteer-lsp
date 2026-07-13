@@ -43,7 +43,7 @@ internal sealed partial class SchemaGen
             // polymorphic one (a name-generator entry's `NameGenerator`, a stat widget wrapper's
             // `IShipStatWidgetRules`) is dropped for the same reason, with the type-level
             // `valueForm` carrying the registry the node dispatches through.
-            if (Named(sa, "Alias") is string emptyAlias && emptyAlias.Length == 0
+            if (alias == ""
                 && (vt["kind"]?.GetValue<string>() == "group" || vt["kind"]?.GetValue<string>() == "polymorphicGroup"))
             {
                 continue;
@@ -72,7 +72,7 @@ internal sealed partial class SchemaGen
             fo["optional"] =
                 (Named(sa, "Optional") is bool opt && opt)
                 || ctorInitialized.Contains(mem.Name)
-                || (Named(sa, "Alias") is string ax && ax.Length == 0)
+                || alias == ""
                 || IsNullableReference(cap)
                 || type.Name == "Nullable`1"
                 || vtKind == "list"
@@ -80,6 +80,9 @@ internal sealed partial class SchemaGen
             // A bare valueless field (`ScaleIn` with no `=`) deserializes as null, so mark the fields
             // where that is a game load error and the language server can flag them.
             if (!VoidAssignable(type)) fo["nullable"] = false;
+            // A member no game code ever reads (see SchemaGen.DeadFields.cs) is flagged so the
+            // language server can hint that writing it is dead weight. Absent otherwise.
+            if (MemberIsUnread(mem, name, aliasNames)) fo["dead"] = true;
             // A per-field deserializer override whose Read body branches on OTFieldNode grants only
             // this field a scalar string form: the written word is looked up by name (a Widget
             // Anchor's `TopLeft` preset), so a number still throws in game.

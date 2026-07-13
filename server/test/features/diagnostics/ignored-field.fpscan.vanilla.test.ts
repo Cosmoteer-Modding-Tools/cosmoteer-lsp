@@ -121,6 +121,15 @@ describe.skipIf(!HAVE_DATA)('ignored-field validator over vanilla Data', () => {
         expect(offenders.slice(0, 30)).toEqual([]);
     });
 
+    it('never flags a wrapper-side field when the dispatched member class wins the group', () => {
+        // A wrapper class delegating its value form to a registry reads BOTH its own fields and the
+        // dispatched member's from one flat group. The stat-widget groups resolve to the member
+        // (StatBarRules and friends own more of the written names), and the wrapper's game-read
+        // `ToggleButtonID` must stay known through the delegation companion.
+        const offenders = findings.filter((f) => f.includes("'ToggleButtonID'"));
+        expect(offenders).toEqual([]);
+    });
+
     it('still detects the particle-updater dead fields', () => {
         // The dev editor leaves its Type-switch residue (`DataOut`, `FromValue`, `ValueType`, ...) on
         // particle updaters, which is the validator's canonical target. A healthy scan finds many.

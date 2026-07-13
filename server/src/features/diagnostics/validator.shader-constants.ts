@@ -1,4 +1,4 @@
-import { existsSync } from 'fs';
+import * as path from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import {
     AbstractNode,
@@ -13,6 +13,7 @@ import { isModRules } from '../../document/document-kind';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { acceptsShaderConstants } from '../../document/schema/schema';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
+import { cachedDirLookup } from '../../workspace/fs-cache';
 import { resolveAssetPath } from '../navigation/asset-resolver';
 import { allShaderUniformNames, shaderConstants } from '../shader/shader-index';
 import { ShaderConstantKind } from '../shader/shader-parser';
@@ -55,19 +56,29 @@ const VANILLA_DEAD_KEYS: ReadonlySet<string> = new Set([
 /**
  * The on-disk sibling variants of a shader family: for `X_diffuse.shader` or `X_normals.shader`
  * the plain `X.shader` plus the other variant, and for a plain `X.shader` its two variants.
- * Only existing files are returned.
+ * Candidates are matched against the shader's cached directory listing, case-insensitively so a
+ * mod's freely-cased variant (`Laser_Normals.shader`) is found on a case-sensitive filesystem,
+ * and the actual on-disk paths of the variants present are returned.
  *
  * @param shaderPath the resolved filesystem path of the material's shader.
  * @returns the sibling variant paths, possibly empty.
  */
-const shaderVariantSiblings = (shaderPath: string): string[] => {
-    const match = /^(.*?)(_diffuse|_normals)?\.shader$/i.exec(shaderPath);
+export const shaderVariantSiblings = async (shaderPath: string): Promise<string[]> => {
+    const fileName = path.basename(shaderPath);
+    const match = /^(.*?)(_diffuse|_normals)?\.shader$/i.exec(fileName);
     if (!match) return [];
     const base = match[1];
-    const candidates = [`${base}.shader`, `${base}_diffuse.shader`, `${base}_normals.shader`].filter(
-        (candidate) => candidate.toLowerCase() !== shaderPath.toLowerCase()
-    );
-    return candidates.filter((candidate) => existsSync(candidate));
+    const dir = path.dirname(shaderPath);
+    const lookup = await cachedDirLookup(dir).catch(() => null);
+    if (!lookup) return [];
+    const siblings: string[] = [];
+    for (const suffix of ['', '_diffuse', '_normals']) {
+        const candidate = `${base}${suffix}.shader`.toLowerCase();
+        if (candidate === fileName.toLowerCase()) continue;
+        const actual = lookup.get(candidate);
+        if (actual) siblings.push(path.join(dir, actual));
+    }
+    return siblings;
 };
 
 /** Yields every material group (one that accepts shader constants) in a document. */
@@ -143,7 +154,7 @@ export const validateShaderConstants = async (
         // plain sibling. A constant any sibling variant declares is meaningful, so their uniform
         // names join the accepted set (the named shader alone still drives the type check).
         const names = new Set(declared);
-        for (const sibling of shaderVariantSiblings(shaderPath)) {
+        for (const sibling of await shaderVariantSiblings(shaderPath)) {
             const siblingNames = await allShaderUniformNames(sibling, dataDir).catch(() => null);
             for (const name of siblingNames ?? []) names.add(name);
         }

@@ -106,6 +106,14 @@ describe('sweep-round layers', () => {
         expect(proxy.cell).toEqual({ x: -1, y: 0 });
     });
 
+    it('offers the part-location layer on a proxy without a written PartLocation', async () => {
+        const text = readFileSync(basePath, 'utf-8').replace(/^\s*PartLocation = \[-1, 0\]\r?\n/m, '');
+        expect(text).not.toContain('PartLocation');
+        const data = (await buildPartGridData(parseText(text, basePath), 0, 1, token))!;
+        const proxy = layerOf<CellLayerData>(data, 'Components/proxy/PartLocation');
+        expect(proxy.cell).toBeNull();
+    });
+
     it('builds the buff area and circle layers', () => {
         const area = layerOf<RectLayerData>(base, 'Components/buff/BuffArea');
         expect(area.rect).toEqual({ x: -1, y: 0, width: 1, height: 2 });

@@ -117,6 +117,11 @@ wrote .../cosmoteer.schema.json (1199 KB)
   `ReadFromPath` can sit in a branch the IL scan cannot see (Color's alpha), so requiredness is not
   provable. Types whose keys are written flat on the *owning* group (`FlexRange`/`FlexValue`) stay on
   the inline-expansion table instead.
+- **Dead members** → a whole-assembly IL read scan flags every `[Serialize]` member no game code
+  ever reads (no field load, getter call, backing-field load, or name mention anywhere in the
+  scanned assemblies) with `dead: true`, driving the language server's dead-field hint. The flagged
+  set is printed per run and pinned by a server test, so a game update that changes it is reviewed
+  rather than shipped silently.
 - C# field type → value kind (enum/reference/group/list/number/asset/…); a small curation table
   handles engine value types (assets, `Range<T>`, `Angle`, enum-like structs like `Direction`).
 - Reachability prune from `Cosmoteer.Data.Rules` drops non-`.rules` serialization (multiplayer

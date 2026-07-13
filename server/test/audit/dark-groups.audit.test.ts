@@ -135,7 +135,12 @@ const runAudit = async (modDirs: string[]): Promise<AuditResult> => {
         // they don't count against a class fit, and a group WRITTEN under such a name belongs to the
         // shader-constant machinery, not the schema. Macro members (`SCREAMING_SNAKE` anchors like
         // `HEAT_PER_SHOT` or `T_1`) are the modder's own find/replace scaffolding, equally schema-free.
-        const isMacroName = (n: string) => /^[A-Z][A-Z0-9_]*$/.test(n) && n !== n.toLowerCase();
+        // The schema itself owns some all-caps names, so those must survive as class-fit evidence:
+        // every all-caps field in cosmoteer.schema.json is at most 2 characters and underscore-free
+        // (ID, AI, X/Y/Z, R/G/B/A/H/S/V), while real macro anchors are longer (`BASE`, `OVERCLOCK`)
+        // or underscored (`T_1`), so a macro needs length 3+ or an underscore.
+        const isMacroName = (n: string) =>
+            /^[A-Z][A-Z0-9_]*$/.test(n) && (n.length >= 3 || n.includes('_'));
         const names = namedMemberNames(group).filter((n) => !n.startsWith('_') && !isMacroName(n));
         const name = group.identifier?.name ?? '(anonymous)';
         const line = group.position?.line ?? 0;
@@ -281,8 +286,9 @@ const runAudit = async (modDirs: string[]): Promise<AuditResult> => {
 
 describe.skipIf(!HAVE_DATA)('vanilla dark-group gate', () => {
     // Ceilings pinned 2026-07-12 (after the range-group-form, deep-member-deriver and super-path
-    // fixes). A rise in any dark cause, or a drop in the resolved fraction, means a resolution
-    // regression: something that used to have hover/completion went dark, or resolves to a class
+    // fixes; re-verified unchanged after tightening isMacroName so short schema fields like ID and
+    // AI count as evidence). A rise in any dark cause, or a drop in the resolved fraction, means a
+    // resolution regression: something that used to have hover/completion went dark, or resolves to a class
     // that does not fit. Improvements are welcome; re-pin the numbers downward when they land.
     it('keeps every dark cause at or below its pinned ceiling', async () => {
         const result = await runAudit([]);
