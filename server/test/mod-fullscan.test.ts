@@ -24,11 +24,16 @@ import { isModRules } from '../src/document/document-kind';
 import { ModRulesRegistrar } from '../src/mod/mod-rules.registrar';
 import { ParserResultRegistrar } from '../src/registrar/parser-result-registrar';
 import { validateModActions } from '../src/features/diagnostics/validator.mod-action';
+import { validateRequiredFields } from '../src/features/diagnostics/validator.required-fields';
+import { TemplateBaseIndex } from '../src/features/diagnostics/template-base.index';
+import { buildActionRootingForScan, resetActionRootingForScan } from './scan-rooting-helper';
 
 // Manual full-pipeline scan of a local mod for false-positive triage, self-skipped unless both
 // MOD_SCAN_DIR and MOD_SCAN_OUT are set (so it never runs in CI). Mirrors the default-on part of
 // server.ts validateTextDocument: parser errors + Validator (value/functioncall/assignment/math/
-// group-duplicates) + document duplicates + inheritance cycles + schema pass + mod.rules actions.
+// group-duplicates) + document duplicates + inheritance cycles + schema pass + required fields +
+// mod.rules actions, with mod-action rooting built in production order so action-wired fragments
+// validate against their target slot types, exactly like a live workspace.
 // Writes every finding with file/line/severity/message to the MOD_SCAN_OUT json for offline grouping.
 // Usage: MOD_SCAN_DIR=<mod folder> MOD_SCAN_OUT=<report.json> npx vitest run test/mod-fullscan.test.ts
 const DATA_DIR = process.env.COSMOTEER_DATA_DIR ?? 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer/Data';
@@ -102,6 +107,14 @@ describe.skipIf(!HAVE)('full validation scan over a local mod', () => {
         await aliasRootIndex.build(parseReal(join(DATA_DIR, 'cosmoteer.rules')), resolveRef);
         ReverseIncludeIndex.instance.reset();
         await ReverseIncludeIndex.instance.ensureBuilt([DATA_DIR, MOD_DIR], token);
+        // Mod-action rooting in production order: build after reverse-include, converge, refresh memos.
+        await buildActionRootingForScan([DATA_DIR, MOD_DIR], token);
+        // Production reads this per file from the same cached index. One snapshot over the same
+        // folders is equivalent and feeds the required-fields pass its cross-file template names.
+        TemplateBaseIndex.instance.reset();
+        const workspaceBaseNames = await TemplateBaseIndex.instance
+            .baseNames([DATA_DIR, MOD_DIR], token)
+            .catch(() => undefined);
 
         Validator.instance.registerValidation(ValidationForValue);
         Validator.instance.registerValidation(ValidationForIdentifier);
@@ -165,6 +178,9 @@ describe.skipIf(!HAVE)('full validation scan over a local mod', () => {
                         await validateInheritanceCycles(parserResult.value, token).catch(() => [])
                     );
                     validationErrors = validationErrors.concat(await validateSchema(parserResult.value, token).catch(() => []));
+                    validationErrors = validationErrors.concat(
+                        await validateRequiredFields(parserResult.value, token, workspaceBaseNames).catch(() => [])
+                    );
                     if (isModRules(uri)) {
                         ModRulesRegistrar.instance.registerManifest(parserResult.value);
                         validationErrors = validationErrors.concat(
@@ -184,12 +200,14 @@ describe.skipIf(!HAVE)('full validation scan over a local mod', () => {
                     });
                 }
                 scanned++;
-                // Cross-file navigation registers every parsed doc in ParserResultRegistrar; over
+                // Cross-file navigation registers every parsed doc in ParserResultRegistrar. Over
                 // 4600+ files that exhausts the heap, so drop the AST cache periodically.
                 if (scanned % 100 === 0) ParserResultRegistrar.instance.clear();
                 if (scanned % 500 === 0) console.log(`[swscan] ${scanned}/${files.length} files, ${findings.length} findings`);
             }
         } finally {
+            resetActionRootingForScan();
+            TemplateBaseIndex.instance.reset();
             ReverseIncludeIndex.instance.reset();
             aliasRootIndex.invalidate();
         }

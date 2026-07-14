@@ -25,8 +25,11 @@ import { perfCount } from '../utils/perf-counters';
 // stamp, which the diff treats as changed, so possibly-unsaved buffer content can never be served
 // as disk state on a later start.
 
-/** Bump when an index's serialized shape changes, so an old cache is discarded, not misread. */
-const CACHE_FORMAT_VERSION = 2;
+/** Bump when an index's serialized shape changes, so an old cache is discarded, not misread.
+ *  v3: the reverse-include index gained macro-usage records and `#`-registry deriver entries, which a
+ *  v2 cache lacks, so serving one would leave macro-alias containers unrooted until a file changed.
+ *  v4: it gained deep-macro leaf records, mod-macro maps and container fs paths in its saved state. */
+const CACHE_FORMAT_VERSION = 4;
 
 /** How many `stat` calls run concurrently while building the manifest. */
 const STAT_CONCURRENCY = 64;

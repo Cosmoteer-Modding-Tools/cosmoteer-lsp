@@ -60,7 +60,7 @@ export const buildActionSnippet = (verb: ActionVerb): string => {
     return `{\n${lines.join('\n')}\n}`;
 };
 
-/** One full-action-block suggestion per verb — offered at the `Actions [ … ]` list level. */
+/** One full-action-block suggestion per verb, offered at the `Actions [ … ]` list level. */
 export const verbSnippetSuggestions = (): CompletionSuggestion[] =>
     ACTION_VERBS.map((verb) => ({
         label: verb,
@@ -93,11 +93,7 @@ const enclosingActionGroup = (node: AbstractNode): GroupNode | undefined => {
     return undefined;
 };
 
-/**
- *  Checks if a given list node represents an `Actions` list.
- * @param list  The list node to check
- * @returns  `true` if the list node is an `Actions` list, `false` otherwise
- */
+/** Whether `list` is an `Actions` list, matched case-insensitively. */
 const isActionsList = (list: ListNode): boolean => list.identifier?.name.toLowerCase() === 'actions';
 
 const verbOf = (actionGroup: GroupNode): string | undefined => {
@@ -108,18 +104,21 @@ const verbOf = (actionGroup: GroupNode): string | undefined => {
     return undefined;
 };
 
-/**
- *  Get the set of lower-cased field names that are present in a given action group.
- * @param actionGroup  The action group to get the present field names from
- * @returns  A set of lower-cased field names that are present in the action group
- */
+/** The lower-cased field names present in `actionGroup`. */
 const presentFieldNames = (actionGroup: GroupNode): Set<string> =>
     new Set(namedMembersOf(actionGroup).map(([name]) => name.toLowerCase()));
 
-/** All field names valid for a verb (target/source/flags/named + the verb field itself). */
+/** All field names valid for a verb (target/source/flags/named/optionals + the verb field itself). */
 const fieldNamesForVerb = (verb: ActionVerb): string[] => {
     const schema = VERB_SCHEMA[verb];
-    return ['Action', ...schema.targets, ...schema.sources, ...schema.flags, ...(schema.named ? [schema.named] : [])];
+    return [
+        'Action',
+        ...schema.targets,
+        ...schema.sources,
+        ...schema.flags,
+        ...(schema.named ? [schema.named] : []),
+        ...(schema.optionals ?? []),
+    ];
 };
 
 /**
@@ -192,10 +191,10 @@ export const modRulesOffsetCompletions = (document: AbstractNodeDocument, offset
 
 /**
  * mod.rules-specific completion (only fires inside a manifest). It completes the verb
- * after `Action = ` (`Add`, `Overrides`, …); the target path inside an action target
+ * after `Action = ` (`Add`, `Overrides`, …), the target path inside an action target
  * field (`AddTo`/`OverrideIn`/… = "<./Data/…>"), reusing the cosmoteer/workshop traversal
- * against the game root; `true`/`false` for a boolean flag field (`IgnoreIfNotExisting`,
- * …); and field names inside an action entry (best-effort, on the field identifier).
+ * against the game root, `true`/`false` for a boolean flag field (`IgnoreIfNotExisting`,
+ * …), and field names inside an action entry (best-effort, on the field identifier).
  *
  * Source `&` references are completed by the generic reference completer, so they are left alone.
  */

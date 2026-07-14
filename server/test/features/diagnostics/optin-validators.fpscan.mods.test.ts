@@ -16,9 +16,11 @@ import { validateSchemaSiblingReferences } from '../../../src/features/diagnosti
 import { validateCrossFileIdReferences } from '../../../src/features/diagnostics/validator.schema-id-reference';
 import { validateLocalizationKeys } from '../../../src/features/diagnostics/validator.localization-key';
 import { validateShaderDocument } from '../../../src/features/shader/shader-diagnostics';
+import { buildActionRootingForScan, resetActionRootingForScan } from '../../scan-rooting-helper';
 
 // Triage scan of the default-on cross-file/shader validators over every installed workshop mod, one
-// mod at a time in production shape (folder set = [Data, that mod], exactly what a mod workspace sees).
+// mod at a time in production shape (folder set = [Data, that mod], exactly what a mod workspace sees,
+// with mod-action rooting built per mod in production order so action-wired fragments validate typed).
 // Findings here are either genuine mod bugs (fine, that is the feature) or our false positives (must
 // be fixed before the validator may run by default). The written report is for that triage, so this
 // test only asserts the scan ran. Self-skips without the game or workshop tree. MODSCAN_FROM/TO
@@ -86,6 +88,8 @@ describe.skipIf(!HAVE)('default-on validators over installed workshop mods', () 
                 SchemaIdIndex.instance.reset();
                 LocalizationKeyIndex.instance.reset();
                 await ReverseIncludeIndex.instance.ensureBuilt(folders, token);
+                // Mod-action rooting in production order (resets first, keeping the per-mod isolation).
+                await buildActionRootingForScan(folders, token);
 
                 for (const file of filesUnder(modDir, '.rules')) {
                     const rel = file.replace(/\\/g, '/').split('/799600/')[1] ?? file;
@@ -112,6 +116,7 @@ describe.skipIf(!HAVE)('default-on validators over installed workshop mods', () 
                 writeFileSync(OUT_FILE, findings.join('\n'), 'utf8');
             }
         } finally {
+            resetActionRootingForScan();
             ReverseIncludeIndex.instance.reset();
             SchemaIdIndex.instance.reset();
             LocalizationKeyIndex.instance.reset();

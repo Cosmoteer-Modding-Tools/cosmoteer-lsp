@@ -1,0 +1,7 @@
+// Wired only through an AddMany whose target file does not exist: stays unrooted.
+Skipped
+[
+	{
+		NameKey = "StatsCategories/Never"
+	}
+]

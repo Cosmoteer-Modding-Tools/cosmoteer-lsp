@@ -1,5 +1,12 @@
 import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
-import { AbstractNodeDocument, ListNode, isGroupNode, isListNode } from '../../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    ListNode,
+    isGroupNode,
+    isIdentifierNode,
+    isListNode,
+} from '../../core/ast/ast';
 import { namedMembersOf } from '../../utils/ast.utils';
 import {
     findEnclosingContainer,
@@ -145,7 +152,16 @@ export const schemaFieldNameCompletions = async (
         if (componentNames) return componentNames;
     }
     // Lower-cased: an already-written `maxhealth` counts as `MaxHealth` (game lookup ignores case).
-    const present = new Set(namedMembersOf(group ?? document).map(([name]) => name.toLowerCase()));
+    // The member being typed (the bare identifier under the cursor) is not "already written": a
+    // fully typed `Filter` would otherwise count as present and vanish from the popup at its final
+    // character, right when the user wants to accept the scaffolding snippet.
+    const members = namedMembersOf(group ?? document);
+    const underCursor = ([, member]: [string, AbstractNode]): boolean =>
+        isIdentifierNode(member) &&
+        !!member.position &&
+        offset >= member.position.start &&
+        offset <= member.position.end;
+    const present = new Set(members.filter((entry) => !underCursor(entry)).map(([name]) => name.toLowerCase()));
     // A map entry group (`Upgrades [ { <cursor> } ]`) has no class of its own; its members are the
     // map's entry names, `Key`/`Value` or the `[KeyValuePairNames]` spellings like `Old`/`New`.
     if (!cls && group?.parent && isListNode(group.parent)) {
@@ -226,6 +242,30 @@ export const schemaFieldNameCompletions = async (
         completions.push(...(await shaderConstantCompletions(group, document.uri, present, cancellationToken)));
     }
     return completions;
+};
+
+/**
+ * Whether `node` is a bare identifier member — a field name being typed (`Ig` on its own line)
+ * with no `=`/value yet. Such an identifier IS an AST leaf, so the offset-based field-name
+ * completion (which fires only when no leaf is under the cursor) never ran for it and typing a
+ * field name went dark; the completion router sends these to that same offset path instead. A
+ * `&…` reference member and an inheritance base entry are identifiers too and stay excluded —
+ * they are value-like, not field names.
+ *
+ * @param node the AST leaf found under the cursor.
+ * @returns true when the node is a partially typed field name.
+ */
+export const isBareFieldNameIdentifier = (node: AbstractNode): boolean => {
+    if (!isIdentifierNode(node) || node.name.startsWith('&')) return false;
+    const parent = node.parent;
+    if (!parent) return false;
+    if (
+        (isGroupNode(parent) || isListNode(parent)) &&
+        (parent.inheritance as AbstractNode[] | undefined)?.includes(node)
+    ) {
+        return false;
+    }
+    return true;
 };
 
 /** Matches an in-progress value assignment at the end of a line: `Key = ` (value still empty). */

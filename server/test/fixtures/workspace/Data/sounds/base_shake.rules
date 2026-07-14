@@ -1,0 +1,7 @@
+// Rootless fragment whose TOP LEVEL is the group body (like the game's
+// common_effects/base_shake.rules): no wrapping group, just the fields plus the
+// `Type=` discriminator. Inherited whole-file via the cosmoteer.rules BASE_SHAKE macro.
+Type = ScreenShake
+DurationFalloff = 2
+MinDistance = 0
+MaxDistance = 2

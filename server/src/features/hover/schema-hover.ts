@@ -25,8 +25,13 @@ import { deprecatedDiscriminator } from '../../document/schema/deprecations';
  *
  * The hovered node is a field's value or its key. The parser links both to the enclosing container
  * (group or whole-file-root document), so we find the field via the sibling assignment.
+ *
+ * @param node the hovered node.
+ * @param containerClass the container's class when the caller already resolved it through a path
+ * this sync function cannot reach (cross-file inheritance like `: /BASE_SOUNDS/AudioExterior`
+ * needs the async resolver); falls back to the sync slot/discriminator resolution.
  */
-export const schemaFieldHover = (node: AbstractNode): string | null => {
+export const schemaFieldHover = (node: AbstractNode, containerClass?: string): string | null => {
     const container = node.parent;
     // A positional element of a group-typed field written in list form (`BaseSize = [7.2, 7.2]`):
     // the game deserializer reads element N through the class's digit field `"N"`, so show that.
@@ -56,7 +61,8 @@ export const schemaFieldHover = (node: AbstractNode): string | null => {
     }
     if (!fieldName) return null;
 
-    const cls = isDocumentNode(container) ? documentRootClass(container) : resolveGroupClass(container);
+    const cls =
+        containerClass ?? (isDocumentNode(container) ? documentRootClass(container) : resolveGroupClass(container));
     if (!cls) return null;
     const field = fieldOf(cls, fieldName);
     if (!field) {

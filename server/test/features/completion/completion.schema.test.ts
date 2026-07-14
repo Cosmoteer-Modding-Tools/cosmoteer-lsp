@@ -14,9 +14,11 @@ import {
 import { AutoCompletionSchema } from '../../../src/features/completion/autocompletion.schema';
 import { componentIdCompletionsForTarget } from '../../../src/features/completion/autocompletion.component-id';
 import {
+    isBareFieldNameIdentifier,
     schemaFieldNameCompletions,
     schemaValueCompletionsAtOffset,
 } from '../../../src/features/completion/autocompletion.schema-fields';
+import { findNodeAtPosition } from '../../../src/utils/ast.utils';
 import { Completion } from '../../../src/features/completion/autocompletion.service';
 import { classByDiscriminator } from '../../../src/document/schema/schema';
 import { resolveGroupClass } from '../../../src/document/schema/schema-context';
@@ -289,6 +291,30 @@ describe('schemaFieldNameCompletions — field-NAME completion inside a typed gr
         const labels = (await schemaFieldNameCompletions(doc, offset, token)).map((c) => (typeof c === 'string' ? c : c.label));
         expect(labels).toContain('RotateSpeed');
         expect(labels).not.toContain('FiringArc'); // present as a bare valueless member
+    });
+
+    it('routes a typed field-name prefix (a bare Identifier leaf) via isBareFieldNameIdentifier', () => {
+        // A partial field name on its own line (`Ig`) IS an AST leaf, so the node-based completion
+        // branch catches it and the offset-based field-name path never fired — typing a field name
+        // went dark. The predicate marks exactly these leaves for rerouting to the offset path.
+        const typed = findNodeAtPosition(parse('Foo\n{\n\tIg\n}'), { line: 2, character: 2 });
+        expect(typed?.type).toBe('Identifier');
+        expect(isBareFieldNameIdentifier(typed!)).toBe(true);
+        // A bare `&…` reference member is value-like, not a field name — it must not reroute.
+        const ref = findNodeAtPosition(parse('Foo\n{\n\t&Other\n\tOther = 1\n}'), { line: 2, character: 3 });
+        expect(ref && isBareFieldNameIdentifier(ref)).toBeFalsy();
+    });
+
+    it('keeps offering the identifier UNDER THE CURSOR (a field name mid-typing is not "present")', async () => {
+        // Typing `Fir` (or the full `FiringArc`) parses as a bare identifier member. It must not
+        // count itself as already written: the fully typed name would otherwise vanish from the
+        // popup at its final character, right when the user wants to accept the snippet.
+        const src = SRC.replace('Type = TurretWeapon\n\t\t\t', 'Type = TurretWeapon\n\t\t\tFiringArc\n\t\t\t');
+        const offset = src.indexOf('FiringArc') + 'FiringArc'.length; // cursor right after the typed name
+        const doc = parse(src);
+        const labels = (await schemaFieldNameCompletions(doc, offset, token)).map((c) => (typeof c === 'string' ? c : c.label));
+        expect(labels).toContain('FiringArc');
+        expect(labels).toContain('RotateSpeed');
     });
 
     it('scopes a cursor right after a closing brace to the parent, not the closed group', async () => {

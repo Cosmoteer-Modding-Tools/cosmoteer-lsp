@@ -33,6 +33,15 @@ describe('normalizeTargetPath', () => {
             '<./Data/../../../workshop/content/1/2/foo.rules>/F'
         );
     });
+
+    it('resolves a `./` path that does not name Data against the install root (the game CWD)', () => {
+        expect(normalizeTargetPath('<./Bin/x.rules>/A')).toBe('<./Data/../Bin/x.rules>/A');
+    });
+
+    it('accepts a `&`-prefixed target string (legal for the game, same resolution)', () => {
+        expect(normalizeTargetPath('&<a.rules>/A')).toBe('<./Data/a.rules>/A');
+        expect(normalizeTargetPath('&<./data/gui/x.rules>')).toBe('<./Data/gui/x.rules>');
+    });
 });
 
 describe('resolveActionTarget (game root)', () => {
@@ -41,7 +50,7 @@ describe('resolveActionTarget (game root)', () => {
         globalSettings.cosmoteerPath = WORKSPACE_DATA_DIR;
     });
 
-    it('resolves a bare `<file>` target against the GAME tree (not mod-relative)', async () => {
+    it('resolves a bare `<file>` target against the game tree (not mod-relative)', async () => {
         const result = await resolveActionTarget(targetOf('Replace', '<a.rules>/A/Direct'), token);
         expect(valueOf(result)).toBe(1);
     });

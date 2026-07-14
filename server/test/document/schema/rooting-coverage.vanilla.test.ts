@@ -132,10 +132,11 @@ describe.skipIf(!HAVE_DATA)('rooting coverage over vanilla Data', () => {
         expect(docs.size).toBeGreaterThan(0);
         // Regression floor. The recognition and zero-warnings tests cannot see this number, since an
         // unrooted file contributes nothing to recognition and carries no schema class to validate.
-        // Measured about 97.5%. The residual 24 are intentional or irreducible. Localization
-        // `strings/*.rules`, the game manifest `cosmoteer.rules`, the multi-source concat containers, and
-        // the `*_overclock*` fragments pulled in through a typeless macro alias or an in-file group base,
-        // which have no typed slot to root them. A drop names the offending folder in the report above.
-        expect(pct).toBeGreaterThanOrEqual(97);
+        // Measured about 99.1%. The residual 9 are intentional: the eight localization
+        // `strings/*.rules` (text tables with no schema class) and `encounter_distress.rules`, which
+        // nothing in vanilla references (its own comment says it is disabled), so the game never
+        // loads it and rooting it would fake intelligence the game does not have. A drop names the
+        // offending folder in the report above.
+        expect(pct).toBeGreaterThanOrEqual(98.5);
     }, 120_000);
 });

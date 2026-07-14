@@ -6,7 +6,12 @@ import { tmpdir } from 'os';
 import { pathToFileURL } from 'url';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { validateCrossFileIdReferences } from '../../../src/features/diagnostics/validator.schema-id-reference';
+import {
+    judgeIdReference,
+    unresolvedIdError,
+    validateCrossFileIdReferences,
+} from '../../../src/features/diagnostics/validator.schema-id-reference';
+import { BUILTIN_SHIP_CLASS } from '../../../src/document/schema/entity-schema';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
 import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
@@ -36,6 +41,7 @@ const partWithToggle = (toggleId: string, uri?: string) =>
 describe('validateCrossFileIdReferences', () => {
     let workspaceUri: string;
     let emptyUri: string;
+    let shipsUri: string;
     let tmpRoot: string;
 
     beforeAll(() => {
@@ -55,6 +61,19 @@ describe('validateCrossFileIdReferences', () => {
             'Part\n{\n\tID = test.armor\n\tOtherIDs = [old.armor]\n\tMaxHealth = 100\n}\n'
         );
         workspaceUri = pathToFileURL(join(tmpRoot, 'data')).href;
+        // A builtins workspace in the two shapes the game ships: a prefixed file (every id becomes
+        // `IDPrefix + " " + filename`) and an unprefixed one (the id is the bare filename).
+        const shipsDir = join(tmpRoot, 'ships', 'builtin_ships');
+        mkdirSync(shipsDir, { recursive: true });
+        writeFileSync(
+            join(shipsDir, 'builtins_mod.rules'),
+            'Faction = blackwolf\nIDPrefix = "Blackwolf"\nTags = [civilian]\n\nShips\n[\n\t:~{ File="Starstone.ship.png"; Tier=5 }\n]\n'
+        );
+        writeFileSync(
+            join(shipsDir, 'builtins_vanilla.rules'),
+            'Faction = fringe\nTags = [civilian]\n\nShips\n[\n\t:~{ File="Courier.ship.png"; Tier=3 }\n]\n'
+        );
+        shipsUri = pathToFileURL(join(tmpRoot, 'ships')).href;
         const emptyDir = join(tmpRoot, 'empty');
         mkdirSync(emptyDir, { recursive: true });
         emptyUri = pathToFileURL(emptyDir).href;
@@ -135,6 +154,59 @@ describe('validateCrossFileIdReferences', () => {
             const doc = parse(`Part\n{\n\tEditorParentParts = ["${id}"]\n}`);
             expect(await validateCrossFileIdReferences(doc, [workspaceUri], token)).toHaveLength(0);
         }
+    });
+
+    // A trade ship references a built-in ship by an id nothing writes: the game composes it from the
+    // ship's filename and the declaring file's `IDPrefix`. A mod that copies the prefixed
+    // (defense-style) builtins header into its civilian file, then references its trade ships by the
+    // bare filename, crashes the game with a KeyNotFoundException on the first trade-ship spawn.
+    // Judged directly, since a `TradeShips` fragment roots through mod actions, not in this harness.
+    const judgeShipId = (value: string) =>
+        judgeIdReference(
+            { node: parse(`X = "${value}"`), targetClass: BUILTIN_SHIP_CLASS, value, fieldName: 'ShipID' },
+            [shipsUri],
+            new Map(),
+            token
+        );
+
+    it('judges a ShipID that omits the file\'s IDPrefix as unresolved', async () => {
+        expect(await judgeShipId('Starstone')).toBe('unresolved');
+    });
+
+    it('resolves the composed id, and an unprefixed file\'s bare filename', async () => {
+        expect(await judgeShipId('Blackwolf Starstone')).toBe('resolved');
+        expect(await judgeShipId('Courier')).toBe('resolved');
+    });
+
+    // The bare "no such ship" message sends the author hunting for a missing file; the prefix is far
+    // outside the did-you-mean band, so without this the diagnostic names no cause and offers no fix.
+    it('explains the IDPrefix composition and offers the prefixed id as the fix', () => {
+        const node = parse('X = "Starstone"');
+        const declared = new Set(['Blackwolf Starstone', 'Blackwolf Bonsai', 'Courier']);
+        const error = unresolvedIdError({ node, targetClass: BUILTIN_SHIP_CLASS, value: 'Starstone', fieldName: 'ShipID' }, declared);
+        expect(error.message).toContain("declares it as 'Blackwolf Starstone'");
+        expect(error.message).toContain('IDPrefix');
+        expect(error.data?.quickFix?.newText).toBe('Blackwolf Starstone');
+    });
+
+    it('keeps the plain message (and edit-distance fix) for an ordinary typo', () => {
+        const node = parse('X = "Courie"');
+        const error = unresolvedIdError(
+            { node, targetClass: BUILTIN_SHIP_CLASS, value: 'Courie', fieldName: 'ShipID' },
+            new Set(['Courier', 'Blackwolf Starstone'])
+        );
+        expect(error.message).not.toContain('IDPrefix');
+        expect(error.data?.quickFix?.newText).toBe('Courier');
+    });
+
+    it('does not offer a prefix match to a non-ship class (a `battery` typo is not `big battery`)', () => {
+        const node = parse('X = "battery"');
+        const error = unresolvedIdError(
+            { node, targetClass: 'Cosmoteer.Resources.ResourceRules', value: 'battery' },
+            new Set(['big battery'])
+        );
+        expect(error.message).not.toContain('IDPrefix');
+        expect(error.data?.quickFix).toBeUndefined();
     });
 
     it('never flags a SelectionTypeID label despite its PartRules type', async () => {

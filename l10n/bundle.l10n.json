@@ -90,6 +90,7 @@
   "group": "group",
   "plain": "plain",
   "No component named '{0}' in this part.": "No component named '{0}' in this part.",
+  "No {0} named '{1}' in the project. Its builtins file declares it as '{2}': that file's IDPrefix is prepended to every ship it declares.": "No {0} named '{1}' in the project. Its builtins file declares it as '{2}': that file's IDPrefix is prepended to every ship it declares.",
   "No {0} named '{1}' in the project.": "No {0} named '{1}' in the project.",
   "Missing required field '{0}' on {1}.": "Missing required field '{0}' on {1}.",
   "a list \"[ ]\"": "a list \"[ ]\"",

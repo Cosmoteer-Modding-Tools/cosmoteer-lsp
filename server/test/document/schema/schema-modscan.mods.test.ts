@@ -11,9 +11,11 @@ import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-in
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
+import { buildActionRootingForScan, resetActionRootingForScan } from '../../scan-rooting-helper';
 
 // False-positive guard over every installed workshop mod. Validates each mod's `.rules` with the forward
-// alias and reverse-include indexes built over the merged `[Data, …mods]` tree in production order. The
+// alias, reverse-include, and mod-action rooting indexes built over the merged `[Data, …mods]` tree in
+// production order, so files wired in only through manifest actions validate against their slot types. The
 // game loads all of this content, so a warning is either our false positive, which must be zero, or a
 // genuine mod bug pinned in KNOWN_MOD_BUGS. Anything outside that allowlist fails the test. Self-skips
 // when the game or workshop tree is absent, override with COSMOTEER_DATA_DIR or COSMOTEER_MODS_DIR.
@@ -41,7 +43,7 @@ const KNOWN_MOD_BUGS = new Set<string>([
     // Surfaced when hit-effect list elements started resolving through the value-form delegation:
     // `Fire`/`AreaFires` hit effects and the `Ammo*` drains were removed or renamed by newer game
     // versions (verified absent in the current Cosmoteer.dll), so these mods target an older game.
-    // `DestroyShips` is an alias of the DefeatShips objective class only; the spawner the
+    // `DestroyShips` is an alias of the DefeatShips objective class only. The spawner the
     // ObjectiveSpawner registry dispatches accepts just `DefeatShips`, so these two backup files
     // wrote a spelling the game cannot dispatch.
     "3093774017/career/merchantraiders - BAK.rules :: 'DestroyShips' is not a valid ObjectiveSpawner type.",
@@ -61,7 +63,7 @@ const KNOWN_MOD_BUGS = new Set<string>([
     "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot02.rules :: 'ExplosiveAmmoDrain' was renamed to 'ExplosiveResourceDrain' in a newer game version (ammo was generalized into the resource system).",
     "3119349707/ships/terran/weapons/super/mega_ion_impulse_cannon/mega_ion_impulse_wave_child_shot03.rules :: 'AmmoDrain' was renamed to 'ResourceDrain' in a newer game version (ammo was generalized into the resource system).",
     // Surfaced when the part `Components` map got its slot typing: these are the SW mod's
-    // copy-and-rename TEMPLATE files, whose `Type = COMPONENT_BASE_NAME` is a find/replace
+    // copy-and-rename template files, whose `Type = COMPONENT_BASE_NAME` is a find/replace
     // placeholder. The flag is accurate for the file as written (the game could not load it), and
     // the files are scaffolding the manifest never reaches.
     "3119349707/ships/common/common_code/bases/base_component - Kopie (2).rules :: 'COMPONENT_BASE_NAME' is not a valid PartComponentRules type.",
@@ -125,6 +127,9 @@ describe.skipIf(!HAVE)('schema false-positive scan over installed workshop mods'
             .filter((p) => { try { return statSync(p).isDirectory(); } catch { return false; } });
         ReverseIncludeIndex.instance.reset();
         await ReverseIncludeIndex.instance.ensureBuilt([DATA_DIR, ...modDirs], token);
+        // Mod-action rooting in production order: build after reverse-include, converge, refresh memos.
+        // With this active, exactly the KNOWN_MOD_BUGS entries fire (verified 2026-07, 42 mods).
+        await buildActionRootingForScan([DATA_DIR, ...modDirs], token);
 
         const modFiles = modDirs.flatMap((d) => rulesFiles(d));
         const unexpected: string[] = [];
@@ -142,6 +147,7 @@ describe.skipIf(!HAVE)('schema false-positive scan over installed workshop mods'
             }
         } finally {
             // The mod-populated indexes must not leak into a later test sharing this worker.
+            resetActionRootingForScan();
             ReverseIncludeIndex.instance.reset();
             aliasRootIndex.invalidate();
         }

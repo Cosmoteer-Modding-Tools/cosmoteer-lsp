@@ -1,0 +1,3 @@
+// AddBase-appended to stats_part's Part: the whole file roots as PartRules (inheritance preserves type).
+Density = 1
+NameKey = "Parts/PartBase"

@@ -17,6 +17,7 @@ import { resolveSchemaIdReference } from '../navigation/schema-id-reference.navi
 import { evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { schemaDiscriminatorHover, schemaFieldHover } from './schema-hover';
+import { resolveClassThroughInheritance } from '../completion/inheritance-resolution';
 import { decompilerHoverLink } from './decompiler-link';
 import { shaderConstantHover } from '../shader/shader-hover';
 import { localizationKeyHover } from './localization-key-hover';
@@ -93,7 +94,15 @@ export class HoverService {
         const shaderInfo = await shaderConstantHover(node, document.uri, cancellationToken).catch(() => null);
 
         // Schema documentation for the field this node belongs to (type / required / enum / default).
-        const schemaInfo = shaderInfo ?? schemaFieldHover(node);
+        // The container's class resolves through cross-file inheritance too (`: /BASE_SOUNDS/…`
+        // groups redeclare no `Type=`), which the sync resolution inside schemaFieldHover can't
+        // reach — resolve it here (the sync answer comes back first when it exists) and pass it in.
+        const container = node.parent;
+        const containerClass =
+            container && isGroupNode(container)
+                ? await resolveClassThroughInheritance(container, cancellationToken).catch(() => undefined)
+                : undefined;
+        const schemaInfo = shaderInfo ?? schemaFieldHover(node, containerClass);
         if (schemaInfo) lines.push(schemaInfo);
 
         // For a `Type = <disc>` value, show the concrete class the discriminator selects.

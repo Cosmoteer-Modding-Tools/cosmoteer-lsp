@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { ENTITY_FIELDS, entityDeclarationsOf, isEntityClass } from '../../../src/document/schema/entity-schema';
+import { BUILTIN_SHIP_CLASS, ENTITY_FIELDS, entityDeclarationsOf, isEntityClass } from '../../../src/document/schema/entity-schema';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
 
 const parse = (src: string) => parser(lexer(src), 'file:///t.rules').value;
@@ -66,6 +66,38 @@ describe('entity-schema: entityDeclarationsOf', () => {
         const doc = parse('factions\n[\n\t{ id = monolith }\n]');
         const decls = [...entityDeclarationsOf(doc)];
         expect(decls.map((d) => d.id)).toEqual(['monolith']);
+    });
+});
+
+// A built-in ship writes no `ID`: the game composes it as `IDPrefix + " " + (ID ?? ship-name-of-File)`,
+// so the id has to be derived the same way or the class ends up with no declarations at all.
+describe('entity-schema: built-in ship ids are derived, not written', () => {
+    const shipIds = (src: string) =>
+        [...entityDeclarationsOf(parse(src))]
+            .filter((d) => d.elementClass === BUILTIN_SHIP_CLASS)
+            .map((d) => d.id);
+
+    it('derives the id from the File name when no ID is written', () => {
+        expect(shipIds('Ships\n[\n\t{ File="Courier.ship.png"; Tier=3 }\n]')).toEqual(['Courier']);
+    });
+
+    it('prefixes every ship with the IDPrefix the file root declares (inherited via `:~`)', () => {
+        const src = 'Faction = fringe\nIDPrefix = "Fringe"\n\nShips\n[\n\t:~{ File="Small Laser Platform.ship.png"; Tier=2 }\n]';
+        expect(shipIds(src)).toEqual(['Fringe Small Laser Platform']);
+    });
+
+    it('prefixes a written ID too, and keeps OtherIDs aliases unprefixed (the game does not prefix them)', () => {
+        const src = 'IDPrefix = "Fringe"\nShips\n[\n\t:~{ File="a.ship.png"; ID = "Real Name"; OtherIDs=["Legacy"] }\n]';
+        expect(shipIds(src)).toEqual(['Fringe Real Name', 'Legacy']);
+    });
+
+    it('sanitizes the derived name the way the game does (format characters are dropped, letters kept)', () => {
+        // U+200B (zero-width space, category Cf) is dropped; the accented letter survives.
+        expect(shipIds('Ships\n[\n\t{ File="Fá​elán.ship.png" }\n]')).toEqual(['Fáelán']);
+    });
+
+    it('ignores an element whose File is not a ship file', () => {
+        expect(shipIds('Ships\n[\n\t{ File="notaship.png" }\n]')).toEqual([]);
     });
 });
 

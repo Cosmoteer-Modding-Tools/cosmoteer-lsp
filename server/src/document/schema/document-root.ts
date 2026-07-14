@@ -114,7 +114,7 @@ const topLevelField = (document: AbstractNodeDocument, name: string): AbstractNo
 };
 
 /** The document's top-level `Type = <disc>` value, for polymorphic whole-file roots. */
-const topLevelType = (document: AbstractNodeDocument): string | undefined => {
+export const topLevelType = (document: AbstractNodeDocument): string | undefined => {
     const value = topLevelField(document, 'Type');
     if (value && isValueNode(value) && (value.valueType.type === 'String' || value.valueType.type === 'Reference')) {
         return String(value.valueType.value);
@@ -132,8 +132,17 @@ const MIN_ROOT_COVERAGE = 0.5;
  * `Type=` discriminator (`None`/`Random`/…) that belongs to a different registry. Documents with too
  * few nameable top-level members (< 3) carry too little signal to judge and are accepted unchecked;
  * pure-override/helper fragments fail naturally on their near-zero coverage.
+ *
+ * ALL_CAPS members are user macro constants (an overclock shot's `RADIUS`/`DAMAGE_POOL` anchors,
+ * read only through `&~/…` references), never schema fields, so they are excluded from the ratio: a
+ * real bullet file whose macros outnumber its fields must still root. The exception is a field the
+ * class declares in that exact spelling (`ID`); a case-insensitive hit alone (a `RANGE` macro against
+ * the `Range` field) stays a macro, or every macro shadowing a field would fake ownership. When
+ * constants were excluded, the small-document trust needs one declared member as evidence, so a pure
+ * macro container (an overclock file whose only non-constant is an inheriting `Beam` group) does not
+ * slip through as a whole-file root.
  */
-const classFitsDocument = (cls: string, document: AbstractNodeDocument): boolean => {
+export const classFitsDocument = (cls: string, document: AbstractNodeDocument): boolean => {
     const names = document.elements
         .filter((node): node is AbstractNode => isAssignmentNode(node) || isGroupNode(node))
         .map((node) => (isAssignmentNode(node) ? node.left.name : isGroupNode(node) ? node.identifier?.name : undefined))
@@ -142,9 +151,15 @@ const classFitsDocument = (cls: string, document: AbstractNodeDocument): boolean
         // would understate coverage on `Type`-dispatched roots (a spawner file's only fields besides
         // `Type` may be a couple of base members). Drop it when it isn't a real field of the candidate.
         .filter((name) => name.toLowerCase() !== 'type' || !!fieldOf(cls, name));
-    if (names.length < 3) return true;
-    const known = names.filter((name) => fieldOf(cls, name)).length;
-    return known / names.length >= MIN_ROOT_COVERAGE;
+    const isMacroName = (name: string): boolean =>
+        /^[A-Z][A-Z0-9_]*$/.test(name) && fieldOf(cls, name)?.name !== name;
+    const judged = names.filter((name) => !isMacroName(name));
+    const excludedConstants = judged.length < names.length;
+    if (judged.length < 3) {
+        return excludedConstants ? judged.some((name) => fieldOf(cls, name)) : true;
+    }
+    const known = judged.filter((name) => fieldOf(cls, name)).length;
+    return known / judged.length >= MIN_ROOT_COVERAGE;
 };
 
 /** Normalize a document URI's path separators so the `/dir/` path rules match disk paths too

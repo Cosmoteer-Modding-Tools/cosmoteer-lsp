@@ -1,0 +1,11 @@
+// A part with a schema-typed list (StatsByCategory : list<PartStatsCategory>), the target of the
+// AddMany/Add/AddBase actions in the action-rooting fixture mod.
+Part
+{
+	StatsByCategory
+	[
+		{
+			NameKey = "StatsCategories/Existing"
+		}
+	]
+}

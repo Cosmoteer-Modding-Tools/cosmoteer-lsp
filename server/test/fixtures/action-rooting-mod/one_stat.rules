@@ -1,0 +1,5 @@
+// Referenced as one AddMany list element: must root as a single PartStatsCategory.
+OneStat
+{
+	NameKey = "StatsCategories/One"
+}

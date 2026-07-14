@@ -1,0 +1,7 @@
+// AddMany-wired into stats_part's StatsByCategory: must root as list<PartStatsCategory>.
+ExtraStats
+[
+	{
+		NameKey = "StatsCategories/Extra"
+	}
+]

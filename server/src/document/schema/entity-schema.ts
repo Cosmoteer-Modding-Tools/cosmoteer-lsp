@@ -146,6 +146,87 @@ export interface EntityDeclaration {
     readonly alias?: boolean;
 }
 
+/** A group member's value node, whatever value kind the lexer gave it (an asset path lexes as a Sprite). */
+const valueMemberOf = (group: AbstractNode, name: string): ValueNode | undefined => {
+    if (!isGroupNode(group)) return undefined;
+    for (const member of group.elements) {
+        if (isAssignmentNode(member) && member.left.name.toLowerCase() === name.toLowerCase() && isValueNode(member.right)) {
+            return member.right;
+        }
+    }
+    return undefined;
+};
+
+/** Built-in ships, whose id the game computes rather than reads from a written `ID` member. */
+export const BUILTIN_SHIP_CLASS = 'Cosmoteer.Data.BuiltinShipRules';
+
+/** The extension every ship file carries; the id is built from the name in front of it. */
+const SHIP_FILE_EXTENSION = '.ship.png';
+
+/**
+ * The characters `TextUtils.SanitizeShipName` keeps (decompile verified): letters, digits, spaces,
+ * punctuation and symbols. Everything else — control and format characters, combining marks — is
+ * dropped from the name the game derives from a ship filename.
+ */
+const SHIP_NAME_CHARACTER =
+    /[\p{Lu}\p{Ll}\p{Lt}\p{Lm}\p{Lo}\p{Nd}\p{Nl}\p{No}\p{Zs}\p{Pc}\p{Pd}\p{Ps}\p{Pe}\p{Pi}\p{Pf}\p{Po}\p{Sm}\p{Sc}\p{Sk}\p{So}]/u;
+
+/**
+ * The ship name the game derives from a `File` path: the filename with `.ship.png` removed, sanitized
+ * (`Ship.GetNameFromFilename` → `TextUtils.SanitizeShipName`).
+ *
+ * @param file the `File` member's value, a path relative to the declaring file.
+ * @returns the derived ship name, or undefined when the path is not a ship file.
+ */
+const shipNameFromFile = (file: string): string | undefined => {
+    const filename = file.split(/[/\\]/).pop() ?? '';
+    if (!filename.toLowerCase().endsWith(SHIP_FILE_EXTENSION)) return undefined;
+    const stem = filename.slice(0, filename.length - SHIP_FILE_EXTENSION.length);
+    const sanitized = [...stem].filter((character) => SHIP_NAME_CHARACTER.test(character)).join('');
+    return sanitized || undefined;
+};
+
+/**
+ * The id a `Ships [ … ]` element declares. Unlike every other entity, a built-in ship rarely writes
+ * its id: the game composes it as `IDPrefix + " " + (ID ?? name-of-the-File)` (`BuiltinShipRules`'s
+ * constructor, decompile verified), and no vanilla `builtin_ships/*.rules` writes an `ID` member at
+ * all. Harvesting only the written `ID`s would leave the class with no declarations, which reads as
+ * "no coverage" and silently switches off every `ID<BuiltinShipRules>` check.
+ *
+ * The prefix is the element's own `IDPrefix`, else the one the file's root declares — the elements of
+ * these files inherit the root (`:~{ File = … }`), which is how a single `IDPrefix` line prefixes
+ * every ship in the file.
+ *
+ * @param element the `Ships` list element.
+ * @param filePrefix the `IDPrefix` the document's root declares, when it has one.
+ * @returns the ship's declaration, or undefined when the element names no ship file.
+ */
+const builtinShipDeclarationOf = (element: AbstractNode, filePrefix: string | undefined): EntityDeclaration | undefined => {
+    if (!isGroupNode(element)) return undefined;
+    // Read value-kind-agnostically: `File` lexes as a Sprite (an asset path), not a String.
+    const written = valueMemberOf(element, 'ID');
+    const fileNode = valueMemberOf(element, 'File');
+    const nameNode = written ?? fileNode;
+    if (!nameNode) return undefined;
+    const name = written
+        ? String(written.valueType.value)
+        : shipNameFromFile(String(fileNode!.valueType.value));
+    if (!name) return undefined;
+    const own = valueMemberOf(element, 'IDPrefix');
+    const prefix = own ? String(own.valueType.value) : filePrefix;
+    return { elementClass: BUILTIN_SHIP_CLASS, id: prefix ? `${prefix} ${name}` : name, node: nameNode };
+};
+
+/** The `IDPrefix` a builtin-ships document declares at its root, inherited by every `:~` element. */
+const documentShipIdPrefix = (document: AbstractNodeDocument): string | undefined => {
+    for (const element of document.elements) {
+        if (isAssignmentNode(element) && element.left.name.toLowerCase() === 'idprefix' && isValueNode(element.right)) {
+            return String(element.right.valueType.value);
+        }
+    }
+    return undefined;
+};
+
 /**
  * The GUI id classes whose instances mods also declare as loose named groups (`WindowsOnOff
  * { ToggleID = "windows_on_off" Style = … Choices [ … ] }`) that a `mod.rules` action then adds into
@@ -228,6 +309,7 @@ function* mapKeyedMembers(container: AbstractNode, elementClass: string): Genera
  *    `map<reference X, scalar>` consumer field like `DamageResistances`).
  */
 export function* entityDeclarationsOf(document: AbstractNodeDocument): Generator<EntityDeclaration> {
+    const shipIdPrefix = documentShipIdPrefix(document);
     function* visit(node: AbstractNode): Generator<EntityDeclaration> {
         if (isListNode(node) && node.identifier) {
             const candidates = ENTITY_FIELDS.get(node.identifier.name.toLowerCase());
@@ -236,6 +318,16 @@ export function* entityDeclarationsOf(document: AbstractNodeDocument): Generator
                     // Index each element under every candidate class whose identity key it carries. A
                     // query then keeps only the subclass(es) of the reference's target.
                     for (const entity of candidates) {
+                        // A built-in ship composes its id instead of writing one (see
+                        // builtinShipDeclarationOf), so the written-`ID` harvest never sees it.
+                        if (entity.elementClass === BUILTIN_SHIP_CLASS) {
+                            const ship = builtinShipDeclarationOf(element, shipIdPrefix);
+                            if (ship) {
+                                yield ship;
+                                yield* otherIdAliasesOf(element, entity.elementClass);
+                            }
+                            continue;
+                        }
                         const idNode = idValueNodeOf(element, entity.identityKey);
                         if (idNode) {
                             yield { elementClass: entity.elementClass, id: String(idNode.valueType.value), node: idNode };

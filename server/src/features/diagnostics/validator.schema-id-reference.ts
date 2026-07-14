@@ -13,7 +13,7 @@ import {
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { registryOf, typeDef } from '../../document/schema/schema';
-import { entityDeclarationsOf, SELF_KEYED_MAP_FIELDS } from '../../document/schema/entity-schema';
+import { BUILTIN_SHIP_CLASS, entityDeclarationsOf, SELF_KEYED_MAP_FIELDS } from '../../document/schema/entity-schema';
 import { MARKER_CLASSES } from '../../document/schema/category-usage';
 import { SchemaIdIndex } from '../completion/schema-id.index';
 import { isSameOrSubclass, schemaReferenceFieldOf, mapKeyReferencesOf } from '../navigation/schema-id-reference.navigation';
@@ -357,19 +357,61 @@ export const validateCrossFileIdReferences = async (
         const verdict = await judgeIdReference(reference, folderPaths, idsByClass, cancellationToken);
         if (verdict !== 'unresolved') continue;
 
-        const targetName = typeDef(reference.targetClass)?.name ?? reference.targetClass.split('.').pop()!;
-        const ids = idsByClass.get(reference.targetClass) ?? new Set<string>();
-        const suggestion = closestMatch(reference.value, [...ids], true);
-        errors.push({
-            message: l10n.t("No {0} named '{1}' in the project.", targetName, reference.value),
-            node: reference.node,
-            severity: 'warning',
-            ...(suggestion
-                ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
-                : {}),
-        });
+        errors.push(unresolvedIdError(reference, idsByClass.get(reference.targetClass) ?? new Set<string>()));
     }
     return errors;
+};
+
+/**
+ * The declared ship id that is exactly the written one with an `IDPrefix` in front, when there is one.
+ * A built-in ship's id is composed (`IDPrefix + " " + name`), so a builtins file that carries a prefix
+ * its `ShipID`s omit leaves every reference unresolvable — the crash a mod hits on its first trade-ship
+ * spawn. Restricted to ships, the only class the engine composes ids for: a general "some declared id
+ * ends with the written one" match would suggest `big battery` for a mistyped `battery`.
+ *
+ * @param reference the unresolved id reference.
+ * @param ids the declared ids of its target class.
+ * @returns the shortest prefixed id, or undefined when the reference is not a ship or nothing matches.
+ */
+const prefixComposedShipId = (reference: IdReference, ids: ReadonlySet<string>): string | undefined => {
+    if (reference.targetClass !== BUILTIN_SHIP_CLASS) return undefined;
+    const suffix = ` ${reference.value.toLowerCase()}`;
+    let best: string | undefined;
+    for (const id of ids) {
+        if (id.toLowerCase().endsWith(suffix) && (best === undefined || id.length < best.length)) best = id;
+    }
+    return best;
+};
+
+/**
+ * The finding for one reference whose id nothing declares: the message, and the did-you-mean quick fix
+ * when a declared id is close enough. A prefix-composed ship id gets a message that names the cause,
+ * since "no ship named X" alone sends the author looking for a missing file rather than at the
+ * `IDPrefix` line that renamed every ship in it.
+ *
+ * @param reference the unresolved id reference.
+ * @param ids the declared ids of its target class.
+ * @returns the validation error to report.
+ */
+export const unresolvedIdError = (reference: IdReference, ids: ReadonlySet<string>): ValidationError => {
+    const targetName = typeDef(reference.targetClass)?.name ?? reference.targetClass.split('.').pop()!;
+    const prefixed = prefixComposedShipId(reference, ids);
+    const suggestion = prefixed ?? closestMatch(reference.value, [...ids], true);
+    return {
+        message: prefixed
+            ? l10n.t(
+                  "No {0} named '{1}' in the project. Its builtins file declares it as '{2}': that file's IDPrefix is prepended to every ship it declares.",
+                  targetName,
+                  reference.value,
+                  prefixed
+              )
+            : l10n.t("No {0} named '{1}' in the project.", targetName, reference.value),
+        node: reference.node,
+        severity: 'warning',
+        ...(suggestion
+            ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
+            : {}),
+    };
 };
 
 /** Whether a reference carries a value the existence judgment applies to at all: non-empty. */

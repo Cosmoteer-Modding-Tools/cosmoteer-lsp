@@ -70,6 +70,7 @@ import { CosmoteerSettings, defaultSettings, globalSettings, setGlobalSettings }
 import { basenameOf, isManifestBasename, isModRules, isRulesFileName } from './document/document-kind';
 import { ModRulesRegistrar } from './mod/mod-rules.registrar';
 import { isActionFragmentDocument, parseModActions } from './mod/action-parser';
+import { ActionRootingIndex } from './mod/action-rooting.index';
 import { AddBaseIndex } from './mod/add-base.index';
 import { MemberInjectionIndex } from './mod/member-injection.index';
 import { computeModReachability, reachabilityKey } from './mod/mod-reachability';
@@ -82,6 +83,7 @@ import { modRulesOffsetCompletions } from './features/completion/autocompletion.
 import { mathFunctionCompletionsAtLinePrefix } from './features/completion/autocompletion.math-function';
 import {
     crossFileReferenceTargetAtOffset,
+    isBareFieldNameIdentifier,
     isLocalizationKeyFieldAtOffset,
     schemaFieldNameCompletions,
     schemaValueCompletionsAtOffset,
@@ -189,7 +191,7 @@ let resolveWorkspaceInitialized: () => void;
  * Settles once `onInitialized` finished initializing the Cosmoteer workspace (successfully or
  * not). A `didOpen` validation of an already-open file can arrive while that scan is still
  * running, and building the project indexes at that moment would bake in a folder set without the
- * game `Data` root — every index would then silently lack the vanilla tree for the whole session.
+ * game `Data` root. Every index would then silently lack the vanilla tree for the whole session.
  * {@link ensureFragmentRooting} awaits this before any index build.
  */
 const workspaceInitialized = new Promise<void>((resolve) => {
@@ -245,9 +247,9 @@ connection.onInitialize(async (params: InitializeParams) => {
             },
             completionProvider: {
                 resolveProvider: true,
-                // '.' drives `.shader` member/swizzle completion; '"' pops value completion (localization
-                // keys, assets, references) the moment a quote opens; '#' pops `.shader` preprocessor
-                // directives; the rest are `.rules` reference sigils.
+                // '.' drives `.shader` member/swizzle completion. '"' pops value completion (localization
+                // keys, assets, references) the moment a quote opens. '#' pops `.shader` preprocessor
+                // directives. The rest are `.rules` reference sigils.
                 triggerCharacters: ['<', '&', '/', '^', '~', '..', '=', '.', '"', '#'],
             },
             diagnosticProvider: {
@@ -358,7 +360,7 @@ connection.onInitialized(async (_params) => {
     }
     if (hasDidChangeWatchedFilesCapability) {
         // Let the client watch `.rules` files on disk so the reference index stays correct
-        // across changes it can't see as editor edits — git pull/checkout, external tools,
+        // across changes it can't see as editor edits, such as git pull/checkout, external tools,
         // file creation/deletion. This is the cache-safe alternative to re-walking the tree.
         // Asset files are watched too: their existence is memoized (asset.navigation-strategy),
         // and without a watcher event a created or deleted sprite/sound/shader would never drop
@@ -377,7 +379,7 @@ connection.onInitialized(async (_params) => {
             }
             // Multi-root: the set of folders changed. Refetch the cached folder list, drop the
             // cached symbol table (it is folder-scoped), and re-run whole-workspace diagnostics
-            // over the new folder set — clearing first so diagnostics for removed folders don't
+            // over the new folder set, clearing first so diagnostics for removed folders don't
             // linger.
             workspaceFoldersCache = undefined;
             validationScopeEpoch++;
@@ -388,6 +390,7 @@ connection.onInitialized(async (_params) => {
             ReverseIncludeIndex.instance.reset();
             AddBaseIndex.instance.reset();
             MemberInjectionIndex.instance.reset();
+            ActionRootingIndex.instance.reset();
             MentionIndex.instance.reset();
             clearFsCaches();
             invalidateSchemaContextCache();
@@ -400,7 +403,7 @@ connection.onInitialized(async (_params) => {
 
     // The mod context resolves mod additions against the effective game tree. If a `.rules` file was
     // already open when the extension activated, its validation can race the async workspace scan
-    // above and build the context against a not-yet-loaded game tree — caching an empty result that
+    // above and build the context against a not-yet-loaded game tree, caching an empty result that
     // never recovers (every `&/INDICATORS/SWX`-style override ref then false-flags). Drop it now that
     // the scan is done so the next resolve rebuilds against the fully-loaded tree.
     invalidateModContext();
@@ -457,7 +460,7 @@ connection.onDidChangeConfiguration(async (change) => {
 
     const workspaceFolders = await getWorkspaceFoldersCached();
     // With the pull model (the client advertises `workspace/configuration`), the change
-    // notification carries no payload — `change.settings` is null — so we must re-pull the
+    // notification carries no payload (`change.settings` is null), so we must re-pull the
     // settings here. Only fall back to the pushed payload when the client uses the push model.
     // (Without this, toggling a setting like `diagnostics.validateWholeWorkspace` did nothing,
     // because `globalSettings` was never refreshed.)
@@ -478,7 +481,7 @@ connection.onDidChangeConfiguration(async (change) => {
         const workDoneProgress = await connection.window.createWorkDoneProgress();
         workDoneProgress.begin('Initializing workspace', 0, 'Initializing workspace', false);
         await CosmoteerWorkspaceService.instance.initialize(settings!.cosmoteerPath, workDoneProgress);
-        // The Cosmoteer root changed where references resolve to — drop the cached symbol
+        // The Cosmoteer root changed where references resolve to, so drop the cached symbol
         // table (find-all-references / rename are stateless and re-resolve per query).
         WorkspaceSymbolService.instance.reset();
         SchemaIdIndex.instance.reset();
@@ -486,6 +489,7 @@ connection.onDidChangeConfiguration(async (change) => {
         LocalizationKeyIndex.instance.reset();
         ReverseIncludeIndex.instance.reset();
         AddBaseIndex.instance.reset();
+        ActionRootingIndex.instance.reset();
         MentionIndex.instance.reset();
         clearFsCaches();
         invalidateSchemaContextCache();
@@ -540,8 +544,8 @@ function getDocumentSettings(resource: string): Thenable<CosmoteerSettings> {
  * pipeline hasn't cached it yet. `validateTextDocument` only calls `setResult` after awaiting the
  * settings round-trip and the (potentially slow) alias-root index, so on a freshly-started server
  * the first already-open file has no cached result for a while. Read-only providers that need only
- * the AST — most visibly the colour provider, which the editor does not re-request once it has been
- * answered with an empty result — would otherwise return nothing until the file is edited or
+ * the AST (most visibly the colour provider, which the editor does not re-request once it has been
+ * answered with an empty result) would otherwise return nothing until the file is edited or
  * reopened. Parsing here is pure and cheap (lex + parse, no settings, no indexing) and the result is
  * cached so the subsequent validate pass just overwrites it with an identical AST.
  *
@@ -590,7 +594,7 @@ let diagnosticsResultIdCounter = 0;
  * Lexes and parses an open document once per version and publishes the result to every consumer:
  * the parser-result registrar (completion/hover/navigation read the live AST back), the project
  * indexes (marked dirty for their next query), and the mod-manifest registrar. Validation used to
- * do all of this inline; it lives here so the AST is current the moment an edit arrives, even when
+ * do all of this inline. It lives here so the AST is current the moment an edit arrives, even when
  * a pull-model client runs the actual validation later.
  *
  * @param document the open document to parse and register.
@@ -632,6 +636,7 @@ function registerOpenDocument(document: TextDocument): void {
     ReverseIncludeIndex.instance.markDirty(document.uri);
     AddBaseIndex.instance.markDirty(document.uri);
     MemberInjectionIndex.instance.markDirty(document.uri);
+    ActionRootingIndex.instance.markDirty(document.uri);
     if (isModRules(document.uri)) {
         // Parse the manifest's actions. A mod.rules edit changes the effective game tree.
         ModRulesRegistrar.instance.registerManifest(parserResult.value);
@@ -650,7 +655,7 @@ function registerOpenDocument(document: TextDocument): void {
 
 /**
  * Returns the diagnostics of an open document, computing them at most once per document version.
- * A newer version cancels the previous run through the per-uri token source; a run that was
+ * A newer version cancels the previous run through the per-uri token source. A run that was
  * cancelled mid-way drops its (partial) cache entry so the next request recomputes.
  *
  * @param document the open document to validate.
@@ -683,7 +688,7 @@ function computeDiagnosticsCached(document: TextDocument): Promise<Diagnostic[]>
 
 /**
  * Debounced push validation for clients without pull-diagnostics support. The first diagnostics of
- * a freshly opened document go out immediately; while typing, each keystroke resets a short timer
+ * a freshly opened document go out immediately. While typing, each keystroke resets a short timer
  * so only the settled text is validated.
  *
  * @param document the open document whose validation to schedule.
@@ -735,7 +740,7 @@ documents.onDidClose(async (e) => {
     if (wholeWorkspaceEnabled()) {
         // Whole-workspace mode: the file's problems should persist after closing. Clear the
         // editor-uri diagnostics, then re-validate from disk under the canonical (`filePathToUri`)
-        // uri the full pass uses — so the file isn't tracked twice under different uri encodings.
+        // uri the full pass uses, so the file isn't tracked twice under different uri encodings.
         const path = uriToFsPath(e.document.uri);
         const canonicalUri = filePathToUri(path);
         const scopeKeys = await validationScopeKeys(CancellationToken.None);
@@ -790,7 +795,7 @@ documents.onDidChangeContent(
         } catch (err) {
             if (globalSettings.trace.server === 'messages' && !(err instanceof CancellationError)) console.error(err);
         }
-        // A pull-capable client requests `textDocument/diagnostic` itself after the change; pushing
+        // A pull-capable client requests `textDocument/diagnostic` itself after the change. Pushing
         // here as well would run the whole validation twice per edit.
         if (hasPullDiagnosticsCapability) return;
         schedulePushValidation(e.document);
@@ -851,13 +856,13 @@ async function validateTextDocument(
     textDocument: TextDocument,
     cancelToken: CancellationToken,
     // When false (the whole-workspace pass over unopened files), the parsed AST is not cached in
-    // ParserResultRegistrar — it is used to produce diagnostics and then discarded so it can be
+    // ParserResultRegistrar. It is used to produce diagnostics and then discarded so it can be
     // GC'd. Caching every project file's AST permanently is what exhausted the heap. The open-file
     // flow keeps `persist: true` because completion/navigation read the live AST back.
     persist = true
 ): Promise<Diagnostic[]> {
     // `.shader` files reach the server (for semantic tokens / hover / include navigation) but are HLSL,
-    // not OT — never run the `.rules` lexer/parser/validators on them, which would flag every line as a
+    // not OT, so never run the `.rules` lexer/parser/validators on them, which would flag every line as a
     // rules syntax error. Their only diagnostics are the opt-in lexical shader checks.
     if (isShaderDocument(textDocument.uri)) {
         const shaderSettings = persist ? await getDocumentSettings(textDocument.uri) : globalSettings;
@@ -958,7 +963,7 @@ async function validateTextDocument(
             return (await Promise.all(pormises).catch(() => [])).flat();
         });
         // Top-level duplicate keys span sibling elements (each validated independently above), and
-        // inheritance cycles span multiple nodes/files — both need a whole-document view, so they run
+        // inheritance cycles span multiple nodes/files, and both need a whole-document view, so they run
         // as separate passes over the root, like the mod-action pass below.
         const documentDuplicate = await ValidationForDocumentDuplicates.callback(parserResult.value, cancelToken).catch(
             () => undefined
@@ -1046,7 +1051,7 @@ async function validateTextDocument(
         } else if (gameIndexAvailable() && isActionFragmentDocument(parserResult.value)) {
             // An included action fragment (launcher.rules, register.rules) holds a literal `Actions`
             // list that a manifest concatenates via `Actions: &<file>/Actions`. Validate its actions
-            // the same way — verbs, required fields, and targets resolved against the game root — so
+            // the same way (verbs, required fields, and targets resolved against the game root), so
             // its `AddTo`/`OverrideIn` paths are checked instead of misread as unresolved mod-relative
             // references. Gated on the game index being ready, since target resolution needs the game
             // tree (an unready tree would flag every real vanilla target as missing).
@@ -1098,7 +1103,7 @@ async function validateTextDocument(
 // surface in the Problems panel without opening each file. It is off by default because parsing the
 // whole project keeps every file's AST in memory and costs CPU up front.
 
-/** How many workspace files to validate concurrently — bounded so a big mod can't exhaust memory.
+/** How many workspace files to validate concurrently, bounded so a big mod can't exhaust memory.
  *  Each in-flight validation holds an AST plus its cross-file resolution working set, so keep this
  *  low. The parsed ASTs are discarded after each file (validateTextDocument `persist: false`).
  *  Six measured best on the reference mod: four left the pass idle on read IO for ~6% of the cold
@@ -1242,6 +1247,7 @@ async function seedPersistedScanResults(folderUris: string[]): Promise<void> {
 const scanRevisionSum = (): number =>
     aliasRootIndex.revision +
     ReverseIncludeIndex.instance.revision +
+    ActionRootingIndex.instance.revision +
     SchemaIdIndex.instance.revision +
     TemplateBaseIndex.instance.revision +
     LocalizationKeyIndex.instance.revision;
@@ -1290,7 +1296,7 @@ async function validateWorkspaceFile(file: string, openNorms: Set<string>, token
     if (token.isCancellationRequested) return;
     const textDocument = TextDocument.create(uri, 'rules', 0, text);
     try {
-        // persist=false: don't cache this unopened file's AST (memory) — produce diagnostics and discard.
+        // persist=false: don't cache this unopened file's AST (memory). Produce diagnostics and discard.
         const diagnostics = await validateTextDocument(textDocument, token, false);
         if (token.isCancellationRequested) return;
         // Only a result whose shared inputs did not move while it computed may be cached: a file
@@ -1322,7 +1328,7 @@ async function validateWorkspaceFile(file: string, openNorms: Set<string>, token
 
 /**
  * Validate every `.rules` file in the open workspace folder(s) and publish their diagnostics. No-op
- * when the feature is disabled. Scoped to the workspace folders (the mod) — not the Cosmoteer game
+ * when the feature is disabled. Scoped to the workspace folders (the mod), not the Cosmoteer game
  * `Data` tree, which would be enormous. Any previous pass is cancelled first.
  */
 async function runWorkspaceValidation(): Promise<void> {
@@ -1432,7 +1438,7 @@ async function clearWorkspaceDiagnostics(): Promise<void> {
 }
 
 /**
- * A read-override that returns an OPEN editor buffer's text for an absolute path, so shader features
+ * A read-override that returns an open editor buffer's text for an absolute path, so shader features
  * see unsaved edits instead of the on-disk file. Keyed by normalized (forward-slash, lower-case) path.
  */
 function openBufferReadOverride(): (absPath: string) => string | undefined {
@@ -1553,6 +1559,51 @@ connection.onCompletion(
             // may simply not be parsed yet, and the client must ask again rather than cache nothing.
             if (!parserResult) return { isIncomplete: true, items: [] };
             await ensureFragmentRooting(cancellationToken);
+            // Offset-based completion, shared by the no-leaf branch below and the bare-identifier
+            // fallback: at an empty `Key = ` value position offer that field's legal values, else
+            // offer the enclosing group's not-yet-present schema field names.
+            const offsetBasedCompletions = async (): Promise<Completion[]> => {
+                const document = documents.get(textDocumentPosition.textDocument.uri);
+                if (!document) return [];
+                const offset = document.offsetAt(textDocumentPosition.position);
+                const linePrefix = document.getText({
+                    start: { line: textDocumentPosition.position.line, character: 0 },
+                    end: textDocumentPosition.position,
+                });
+                // Inside an unclosed function call (`Damage = ceil(sq`) the AST has no leaf and
+                // the line is no `Key = ` value position either, so check the call context first
+                // and offer the math-function names there instead of field names.
+                const mathCompletions = mathFunctionCompletionsAtLinePrefix(parserResult, offset, linePrefix);
+                const valueCompletions =
+                    mathCompletions.length > 0
+                        ? mathCompletions
+                        : await schemaValueCompletionsAtOffset(parserResult, offset, linePrefix, cancellationToken);
+                if (valueCompletions === undefined) {
+                    // Not a `Key = ` value position → offer field names instead.
+                    return schemaFieldNameCompletions(parserResult, offset, cancellationToken);
+                }
+                if (valueCompletions.length > 0) return valueCompletions;
+                // A value position with no sync values: maybe a cross-file `ID<X>` field. Offer the
+                // project's ids of the target class (e.g. `ResourceType = ` → resource ids).
+                const target = crossFileReferenceTargetAtOffset(parserResult, offset, linePrefix);
+                if (target) {
+                    return (
+                        (await componentIdCompletionsForTarget(target, parserResult, cancellationToken).catch(
+                            () => undefined
+                        )) ??
+                        (await SchemaIdIndex.instance
+                            .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
+                            .catch(() => []))
+                    );
+                }
+                if (isLocalizationKeyFieldAtOffset(parserResult, offset, linePrefix)) {
+                    // A `KeyString` field (`NameKey = `) → the project's strings keys.
+                    return LocalizationKeyIndex.instance
+                        .allKeyCompletions(await searchFolderUris(), cancellationToken)
+                        .catch(() => []);
+                }
+                return [];
+            };
             const node = findNodeAtPosition(parserResult, textDocumentPosition?.position);
             if (node) {
                 // The cursor offset lets the reference completer complete the path segment AT the
@@ -1588,6 +1639,18 @@ connection.onCompletion(
                         .keyCompletionsForNode(node, await searchFolderUris(), cancellationToken)
                         .catch(() => []);
                 }
+                // A partially typed field name on its own line (`Ig`) parses as a bare Identifier
+                // member, which no node completer serves, so typing a field name went dark the
+                // moment its first character landed (the offset path only fires when NO leaf is
+                // under the cursor). Route such identifiers to the same offset-based completion an
+                // empty insertion point gets; the client filters by the typed prefix.
+                if (
+                    completions.length === 0 &&
+                    isBareFieldNameIdentifier(node) &&
+                    !isModRules(textDocumentPosition.textDocument.uri)
+                ) {
+                    completions = await offsetBasedCompletions();
+                }
             } else if (isModRules(textDocumentPosition.textDocument.uri)) {
                 // Empty insertion point in a mod.rules: offer the action entry's remaining field names,
                 // or a full action-block snippet at the `Actions [ … ]` list level. Needs the byte
@@ -1600,49 +1663,8 @@ connection.onCompletion(
                     );
                 }
             } else {
-                // Empty insertion point in a normal `.rules`. Offset-based (no AST leaf under the
-                // cursor): at an empty `Key = ` value position offer that field's legal values, else
-                // offer the enclosing group's not-yet-present schema field names.
-                const document = documents.get(textDocumentPosition.textDocument.uri);
-                if (document) {
-                    const offset = document.offsetAt(textDocumentPosition.position);
-                    const linePrefix = document.getText({
-                        start: { line: textDocumentPosition.position.line, character: 0 },
-                        end: textDocumentPosition.position,
-                    });
-                    // Inside an unclosed function call (`Damage = ceil(sq`) the AST has no leaf and
-                    // the line is no `Key = ` value position either, so check the call context first
-                    // and offer the math-function names there instead of field names.
-                    const mathCompletions = mathFunctionCompletionsAtLinePrefix(parserResult, offset, linePrefix);
-                    const valueCompletions =
-                        mathCompletions.length > 0
-                            ? mathCompletions
-                            : await schemaValueCompletionsAtOffset(parserResult, offset, linePrefix, cancellationToken);
-                    if (valueCompletions === undefined) {
-                        // Not a `Key = ` value position → offer field names instead.
-                        completions = await schemaFieldNameCompletions(parserResult, offset, cancellationToken);
-                    } else if (valueCompletions.length > 0) {
-                        completions = valueCompletions;
-                    } else {
-                        // A value position with no sync values — a cross-file `ID<X>` field? Offer the
-                        // project's ids of the target class (e.g. `ResourceType = ` → resource ids).
-                        const target = crossFileReferenceTargetAtOffset(parserResult, offset, linePrefix);
-                        if (target) {
-                            completions =
-                                (await componentIdCompletionsForTarget(target, parserResult, cancellationToken).catch(
-                                    () => undefined
-                                )) ??
-                                (await SchemaIdIndex.instance
-                                    .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
-                                    .catch(() => []));
-                        } else if (isLocalizationKeyFieldAtOffset(parserResult, offset, linePrefix)) {
-                            // A `KeyString` field (`NameKey = `) → the project's strings keys.
-                            completions = await LocalizationKeyIndex.instance
-                                .allKeyCompletions(await searchFolderUris(), cancellationToken)
-                                .catch(() => []);
-                        }
-                    }
-                }
+                // Empty insertion point in a normal `.rules` (no AST leaf under the cursor).
+                completions = await offsetBasedCompletions();
             }
             // Cross-file id fallback: when nothing else matched, offer the project's ids for the
             // reference class at the cursor. This covers a `map<reference X>` key position
@@ -1658,7 +1680,7 @@ connection.onCompletion(
                         end: textDocumentPosition.position,
                     });
                     // A particle data channel field (`AIn = `, `DataOut = `) offers the file's channel
-                    // names — a same-file symbol set, no project index needed.
+                    // names, a same-file symbol set, no project index needed.
                     const channels = particleChannelCompletionsAtOffset(parserResult, offset, linePrefix);
                     if (channels && channels.length > 0) {
                         completions = channels;
@@ -1742,10 +1764,10 @@ connection.onDefinition(async (params: TextDocumentPositionParams, cancellationT
 });
 
 // Document links: underline every reference and asset in the file so they are visibly clickable
-// (Ctrl-click) without placing the cursor first. Ranges are computed from the cached AST here; each
+// (Ctrl-click) without placing the cursor first. Ranges are computed from the cached AST here. Each
 // link's target is resolved lazily in onDocumentLinkResolve, so an unopened link costs nothing.
 connection.onDocumentLinks((params, cancellationToken) => {
-    // `.shader` files have no `.rules` references; their `#include` navigation is handled by definition.
+    // `.shader` files have no `.rules` references. Their `#include` navigation is handled by definition.
     if (isShaderDocument(params.textDocument.uri)) return null;
     const parserResult = ensureParserResult(params.textDocument.uri);
     if (!parserResult) return null;
@@ -1757,7 +1779,7 @@ connection.onDocumentLinks((params, cancellationToken) => {
     }
 });
 
-// Resolve a single link's target on demand — the same resolution go-to-definition performs.
+// Resolve a single link's target on demand, using the same resolution go-to-definition performs.
 connection.onDocumentLinkResolve(async (link, cancellationToken) => {
     const data = link.data as { uri: string; line: number; character: number } | undefined;
     if (!data) return link;
@@ -1799,14 +1821,14 @@ const gameIndexAvailable = (): boolean => !!CosmoteerWorkspaceService.instance.d
 
 // Folders the cross-file index searches: the open workspace (the mod) plus the Cosmoteer
 // game `Data` tree. Vanilla symbols (e.g. `Part` in `base_part.rules`) and most references
-// to them live in the game install, outside the open mod folder — without this, find-all-
+// to them live in the game install, outside the open mod folder. Without this, find-all-
 // references on a vanilla symbol finds only its declaration.
 async function searchFolderUris(): Promise<string[]> {
     const folders = await getWorkspaceFoldersCached();
     const uris = (folders ?? []).map((folder) => folder.uri);
     // Use the actually-initialized Data root (reliable), not globalSettings.cosmoteerPath
     // (which a config-change event can transiently blank). This is where the vanilla files
-    // and the references between them live — the referencing files need not be open.
+    // and the references between them live. The referencing files need not be open.
     const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
     if (dataRoot) uris.push(dataRoot);
     return uris;
@@ -1828,13 +1850,15 @@ async function ensureFragmentRooting(cancellationToken: CancellationToken): Prom
     // already-open file arrives earlier, and building then would permanently omit the game
     // `Data` root from every project index (they are one-time builds).
     await workspaceInitialized;
-    // Only the two rooting sources feed the schema-context memos: the forward alias walk and the
-    // reverse-include index. Snapshot their revisions so the epoch below is only bumped when one
-    // of them actually moved. The whole-workspace scan calls this once per file, and bumping
-    // unconditionally invalidated every memo on shared base nodes several thousand times per scan.
-    const rootingRevisionBefore = aliasRootIndex.revision + ReverseIncludeIndex.instance.revision;
+    // Only the rooting sources feed the schema-context memos: the forward alias walk, the
+    // reverse-include index, and the mod-action rooting index. Snapshot their revisions so the
+    // epoch below is only bumped when one of them actually moved. The whole-workspace scan calls
+    // this once per file, and bumping unconditionally invalidated every memo on shared base nodes
+    // several thousand times per scan.
+    const rootingRevisionBefore =
+        aliasRootIndex.revision + ReverseIncludeIndex.instance.revision + ActionRootingIndex.instance.revision;
     // The action indexes feed the resolver's `^/N`/injected-member extensions. When an edit to a
-    // manifest or action fragment changes what they hold, references that resolved THROUGH them are
+    // manifest or action fragment changes what they hold, references that resolved through them are
     // stale in the navigation memo (they never read the edited file, so the per-file memo drop misses
     // them). Snapshot their revisions and clear the memo below if a reconcile moved either.
     const actionRevisionBefore = AddBaseIndex.instance.revision + MemberInjectionIndex.instance.revision;
@@ -1856,9 +1880,26 @@ async function ensureFragmentRooting(cancellationToken: CancellationToken): Prom
     await AddBaseIndex.instance.ensureBuilt(folders, cancellationToken).catch(() => undefined);
     // The Overrides index feeds the resolver's nested-Overrides member extension (mod folders only).
     await MemberInjectionIndex.instance.ensureBuilt(folders, cancellationToken).catch(() => undefined);
+    // The action-rooting index types action-wired fragments and inline action values from their
+    // target slots. Built after the rooting indexes above, since the target slot types resolve
+    // through them (mod folders only).
+    await ActionRootingIndex.instance.ensureBuilt(folders, cancellationToken).catch(() => undefined);
+    // The action-rooting build re-roots fragments whose own includes then contribute new
+    // reverse-include records (it marks those fragments dirty). Reconcile them here, repeating
+    // while the reconcile still uncovers deeper chains, so the rooting revisions settle within
+    // this call. Left to the next call, the late revision move would invalidate the scan-result
+    // cache one pass after it was seeded and force a needless whole-workspace re-validation.
+    for (let round = 0; round < 4; round++) {
+        const reverseRevisionBefore = ReverseIncludeIndex.instance.revision;
+        await ReverseIncludeIndex.instance.ensureBuilt(folders, cancellationToken).catch(() => undefined);
+        if (ReverseIncludeIndex.instance.revision === reverseRevisionBefore) break;
+    }
     // The builds above may have (re)rooted fragments, which changes what the per-node schema
     // resolution memos would answer, so start a fresh memo epoch for the features that follow.
-    if (aliasRootIndex.revision + ReverseIncludeIndex.instance.revision !== rootingRevisionBefore) {
+    if (
+        aliasRootIndex.revision + ReverseIncludeIndex.instance.revision + ActionRootingIndex.instance.revision !==
+        rootingRevisionBefore
+    ) {
         invalidateSchemaContextCache();
     }
     // A reconcile that changed an action index (a manifest/fragment edit added or removed an
@@ -1888,7 +1929,7 @@ connection.onDidChangeWatchedFiles(async (params) => {
         // They can also grow or shrink the manifest's reachability closure.
         validationScopeEpoch++;
     }
-    // A cosmoteer.rules add/change/delete can alter how fragments are rooted — rebuild lazily.
+    // A cosmoteer.rules add/change/delete can alter how fragments are rooted. Rebuild lazily.
     if (rulesChanges.some((c) => basenameOf(c.uri).toLowerCase() === 'cosmoteer.rules')) {
         aliasRootIndex.invalidate();
     }
@@ -1912,6 +1953,7 @@ connection.onDidChangeWatchedFiles(async (params) => {
             ReverseIncludeIndex.instance.remove(change.uri);
             AddBaseIndex.instance.remove(change.uri);
             MemberInjectionIndex.instance.remove(change.uri);
+            ActionRootingIndex.instance.remove(change.uri);
             // Clear any whole-workspace diagnostics we published for the now-deleted file. We must
             // send to the same uri string we published with, so match by normalized form (the
             // watcher's uri may differ in encoding from our `filePathToUri` form).
@@ -1929,6 +1971,7 @@ connection.onDidChangeWatchedFiles(async (params) => {
             ReverseIncludeIndex.instance.markDirty(change.uri);
             AddBaseIndex.instance.markDirty(change.uri);
             MemberInjectionIndex.instance.markDirty(change.uri);
+            ActionRootingIndex.instance.markDirty(change.uri);
             if (openNorms) toRevalidate.push(uriToFsPath(change.uri));
         }
     }
@@ -2001,8 +2044,8 @@ connection.onReferences(async (params, cancellationToken) => {
 // Workspace symbols: flat, project-wide name search ("Go to Symbol in Workspace").
 connection.onWorkspaceSymbol(async (params, cancellationToken) => {
     try {
-        // Scoped to the open project (the mod), not the whole game tree — a project-wide
-        // symbol table over all of Cosmoteer would be huge; "go to symbol in workspace" is
+        // Scoped to the open project (the mod), not the whole game tree. A project-wide
+        // symbol table over all of Cosmoteer would be huge, and "go to symbol in workspace" is
         // about the files you're editing.
         const folders = await getWorkspaceFoldersCached();
         const folderUris = (folders ?? []).map((folder) => folder.uri);
@@ -2042,8 +2085,8 @@ connection.onRenameRequest(async (params, cancellationToken) => {
             cancellationToken
         );
         // Safety: rename searches the whole game tree but must never write to the read-only vanilla
-        // install — strip any edits under the Data root so we only touch the open mod. A developer
-        // working ON the game data can opt into editing vanilla via the setting.
+        // install. Strip any edits under the Data root so we only touch the open mod. A developer
+        // working on the game data can opt into editing vanilla via the setting.
         if (!edit || globalSettings.rename?.allowEditingVanillaFiles) return edit;
         return dropEditsUnderRoot(edit, CosmoteerWorkspaceService.instance.dataRootPath);
     } catch (e) {
@@ -2080,7 +2123,7 @@ const removalRange = (doc: TextDocument, start: number, end: number): Range => {
     return { start: doc.positionAt(s), end: doc.positionAt(e) };
 };
 
-// Code actions: surface the quick fixes carried on diagnostics' `data` — the "did you mean …"
+// Code actions: surface the quick fixes carried on diagnostics' `data`, the "did you mean …"
 // replacements (a typo'd reference name, asset filename, or localization key) as one-click edits of
 // the flagged range, and the "insert missing localization key" fix as a cross-file edit that adds the
 // key to every language strings file of the mod, plus the extract-repeated-value refactoring.
@@ -2144,7 +2187,7 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
     return actions;
 });
 
-// Hover: show what a value resolves to — its computed number and/or reference target.
+// Hover: show what a value resolves to, its computed number and/or reference target.
 connection.onHover(async (params, cancellationToken) => {
     // `.shader` files: explain the symbol under the cursor (uniform, intrinsic, type, function, …).
     if (isShaderDocument(params.textDocument.uri)) {
@@ -2256,7 +2299,7 @@ connection.onRequest('cosmoteer/partGridEdit', async (params: PartGridEditParams
     }
 });
 
-// Mod overview: render the "what does this mod.rules do" markdown report — the manifest header,
+// Mod overview: render the "what does this mod.rules do" markdown report, the manifest header,
 // every action with its resolution status, and the reachability section listing dead files.
 connection.onRequest('cosmoteer/modOverview', async (params: { textDocument: { uri: string } }, cancellationToken) => {
     try {
@@ -2305,7 +2348,7 @@ connection.onColorPresentation((params) => {
 });
 
 // Inlay hints: show the computed result of math/function assignments inline (`= 14`).
-// Computed once per document version over the whole document and cached; each request (the client
+// Computed once per document version over the whole document and cached. Each request (the client
 // re-asks on every scroll) filters the cached hints down to its visible range.
 const inlayHintCache: Map<
     string,
@@ -2530,7 +2573,7 @@ connection.onSignatureHelp(async (params) => {
 
 // Document formatting: whitespace-only normalization (indentation, spacing around structural
 // punctuation, trailing whitespace). `.rules` formatting is guarded by a lexical-equivalence check
-// and returns no edits rather than risk changing what the game reads; `.shader` files get a plain
+// and returns no edits rather than risk changing what the game reads. `.shader` files get a plain
 // brace-depth re-indent. `mod.rules` actions are ordinary ObjectText and format like any `.rules`.
 const formattingEdits = (uri: string, options: { tabSize: number; insertSpaces: boolean }): TextEdit[] => {
     const document = documents.get(uri);

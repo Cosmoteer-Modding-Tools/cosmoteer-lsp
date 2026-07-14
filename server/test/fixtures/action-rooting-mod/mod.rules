@@ -1,0 +1,61 @@
+ID = test.actionrooting
+Name = "Action rooting fixture"
+
+// A mod whose actions wire fragments (and inline values) into the fixture game tree, to exercise
+// the ActionRootingIndex: every value must type from its action's target slot.
+Actions
+[
+	// AddMany of a whole fragment ref: extra_stats.rules/ExtraStats roots as list<PartStatsCategory>.
+	{
+		Action = AddMany
+		AddTo = "<parts/stats_part.rules>/Part/StatsByCategory"
+		ManyToAdd = &<extra_stats.rules>/ExtraStats
+	}
+	// AddMany with an inline list: the ref element roots its fragment member, the inline element
+	// types as the target list's element class right here in the manifest.
+	{
+		Action = AddMany
+		AddTo = "<parts/stats_part.rules>/Part/StatsByCategory"
+		ManyToAdd
+		[
+			&<one_stat.rules>/OneStat
+			{
+				NameKey = "StatsCategories/Inline"
+			}
+		]
+	}
+	// Add with an inline group into the typed list: the group types as the element class.
+	{
+		Action = Add
+		AddTo = "<parts/stats_part.rules>/Part/StatsByCategory"
+		ToAdd
+		{
+			NameKey = "StatsCategories/Added"
+		}
+	}
+	// AddBase of a whole fragment file: the fragment roots as the target's own class (PartRules).
+	{
+		Action = AddBase
+		AddBaseTo = "<parts/stats_part.rules>/Part"
+		BaseToAdd = &<part_base.rules>
+	}
+	// Overrides with a whole-file target: the fragment roots as the target file's root class.
+	{
+		Action = Overrides
+		OverrideIn = "<resources/testiron.rules>"
+		Overrides = &<testiron_override.rules>
+	}
+	// An index-based target is skipped (post-patch renumbering), so its fragment stays unrooted.
+	{
+		Action = Replace
+		Replace = "<modes/career/career.rules>/EconDifficultyLevels/1"
+		With = &<skip_index.rules>/Skipped
+	}
+	// A missing target is skipped, so its fragment stays unrooted.
+	{
+		Action = AddMany
+		AddTo = "<parts/missing_part.rules>/Part/StatsByCategory"
+		IgnoreIfNotExisting = true
+		ManyToAdd = &<skip_missing.rules>/Skipped
+	}
+]
