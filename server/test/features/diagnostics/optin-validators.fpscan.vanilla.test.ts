@@ -125,12 +125,18 @@ describe.skipIf(!HAVE_DATA)('opt-in validators over vanilla Data', () => {
         // keeps the tripwire: a new game version adds entries here consciously, a regression fails.
         // `trade` and `unique` are builtin-ship tags that vanilla also references through
         // spawner-typed search fields, a cross-class tag reuse the harvests cannot unify, so those
-        // references self-exempt like the three genuine leftovers.
+        // references self-exempt like the genuine leftovers.
+        // `distress` and `indicators` are the two leftovers the self-keyed value references surfaced.
+        // Vanilla's `encounter_distress.rules` names `Metatype = Distress`, and no metatype by that
+        // name exists (the file's own comment calls the encounter broken); four vanilla parts draw on
+        // `Layer = "indicators"`, and no ship file declares a render layer by that name.
         const { gameTreeExemptions, labelFieldExemptions } = await import(
             '../../../src/features/diagnostics/validator.schema-id-reference'
         );
         expect([...gameTreeExemptions].sort()).toEqual([
+            'distress',
             'graveyard_platform',
+            'indicators',
             'shrapnel',
             'station_captor_defense',
             'trade',

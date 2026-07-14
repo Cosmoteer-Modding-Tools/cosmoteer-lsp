@@ -8,15 +8,16 @@ import { parser } from '../../../src/core/parser/parser';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
-import { SELF_KEYED_MAP_FIELDS } from '../../../src/document/schema/entity-schema';
 import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
 import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
 import { isModRules } from '../../../src/document/document-kind';
+import { buildActionRootingForScan } from '../../scan-rooting-helper';
 import {
     idReferencesOf,
     isJudgeableReference,
     isValidatedIdClass,
+    isValidatedIdReference,
     judgeIdReference,
     IdReferenceJudgment,
 } from '../../../src/features/diagnostics/validator.schema-id-reference';
@@ -96,7 +97,9 @@ describe.skipIf(!HAVE)('cross-file id class coverage audit', () => {
                     try { doc = parseReal(file); } catch { continue; }
                     if (isModRules(doc.uri)) continue;
                     for (const reference of idReferencesOf(doc)) {
-                        if (!isJudgeableReference(reference)) continue;
+                        // A self-keyed map key declares rather than references, so it is no more a
+                        // judgeable reference here than in the validator.
+                        if (!isValidatedIdReference(reference) || !isJudgeableReference(reference)) continue;
                         const t = tally(reference.targetClass);
                         t.refs++;
                         const verdict = await judgeIdReference(reference, folders, idsByClass, token);
@@ -123,6 +126,10 @@ describe.skipIf(!HAVE)('cross-file id class coverage audit', () => {
             ReverseIncludeIndex.instance.reset();
             SchemaIdIndex.instance.reset();
             await ReverseIncludeIndex.instance.ensureBuilt([DATA_DIR, modDir], token);
+            // Mod-action rooting, in the same production order the false-positive scans use. Without
+            // it the ids a mod declares from its manifest (a map's entries: render layers, ship AIs)
+            // look undeclared, and the audit reports findings no real workspace would ever see.
+            await buildActionRootingForScan([DATA_DIR, modDir], token);
             await auditTree(modDir, [DATA_DIR, modDir], modId);
             ParserResultRegistrar.instance.clear();
             console.log(`[audit] ${modId} done (${++scannedMods}/${modDirs.length})`);
@@ -131,22 +138,15 @@ describe.skipIf(!HAVE)('cross-file id class coverage audit', () => {
         SchemaIdIndex.instance.reset();
         aliasRootIndex.invalidate();
 
-        // Key positions of self-keyed maps declare instances rather than reference them, so an
-        // unknown key is a new declaration. SELF_KEYED_MAP_FIELDS drives the validator's structural
-        // bar; the report labels them for readability.
-        const selfKeyedTargets = new Set(SELF_KEYED_MAP_FIELDS.values());
-
         const rows = [...tallies.entries()].sort((a, b) => b[1].verdicts.unresolved - a[1].verdicts.unresolved || b[1].refs - a[1].refs);
         const lines: string[] = [];
         for (const [cls, t] of rows) {
             const v = t.verdicts;
-            const status = selfKeyedTargets.has(cls)
-                ? 'self-keyed (barred)'
-                : !isValidatedIdClass(cls)
-                  ? 'component-registry (barred)'
-                  : v.resolved + v['declared-loosely'] + v['vanilla-leftover'] + v['dependency-declared'] + v.unresolved > 0
-                    ? 'validated'
-                    : 'no coverage';
+            const status = !isValidatedIdClass(cls)
+                ? 'component-registry (barred)'
+                : v.resolved + v['declared-loosely'] + v['vanilla-leftover'] + v['dependency-declared'] + v.unresolved > 0
+                  ? 'validated'
+                  : 'no coverage';
             lines.push(
                 `${cls} :: refs=${t.refs} resolved=${v.resolved} no-coverage=${v['no-coverage']} label=${v['label-field']} loose=${v['declared-loosely']} leftover=${v['vanilla-leftover']} dependency=${v['dependency-declared']} unresolved=${v.unresolved} :: ${status}`
             );

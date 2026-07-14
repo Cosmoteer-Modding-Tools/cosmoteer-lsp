@@ -21,7 +21,7 @@
  * `cosmoteer.rules` changes. The file resolver is injected so this schema-layer module needs no
  * dependency on the navigation layer.
  */
-import { AbstractNodeDocument, isAssignmentNode, isDocumentNode, isGroupNode, isValueNode } from '../../core/ast/ast';
+import { AbstractNodeDocument, isAssignmentNode, isDocumentNode, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
 import { fieldOf, schema } from './schema';
 import { classFitsDocument, topLevelType } from './document-root';
 import { ValueType } from './schema.types';
@@ -155,6 +155,39 @@ class AliasRootIndex {
                     seen.add(normalizeUri(target.uri));
                     await this.walk(target, fieldType.ref, target.uri, resolve, seen, depth + 1);
                 }
+                // The alias may land on a MEMBER that is itself a list of file aliases
+                // (`SectorTypes = &<sectors/sectors.rules>/Sectors`, whose `Sectors [ &<sector_basic…>/Sector … ]`
+                // names the real declarations). Recording the member's type is not enough: without
+                // descending, every sector file stays unrooted and its `ID` unharvested.
+                if (alias.member && fieldType.kind === 'list' && fieldType.element.kind === 'group') {
+                    const member = target.elements.find(
+                        (child) =>
+                            (isListNode(child) && child.identifier?.name.toLowerCase() === alias.member!.toLowerCase()) ||
+                            (isAssignmentNode(child) && child.left.name.toLowerCase() === alias.member!.toLowerCase() && isListNode(child.right))
+                    );
+                    const list = member && isListNode(member) ? member : member && isAssignmentNode(member) && isListNode(member.right) ? member.right : undefined;
+                    if (list) {
+                        await this.walkAliasList(list, fieldType.element.ref, target.uri, resolve, seen, depth + 1);
+                    }
+                }
+                continue;
+            }
+            // `Field [ &<file>/Member … ]`: a list whose ELEMENTS are file aliases, how the game root
+            // pulls in its ships, sectors and background styles (`Ships [ &<ships/terran/terran.rules>/Terran … ]`).
+            // Each element roots the group it names in the target file as the list's element class, so
+            // that group's own `ID` is harvestable and its members type. Without this the whole subtree
+            // hanging off those files stayed unrooted.
+            const list = isListNode(element) && element.identifier
+                ? { name: element.identifier.name, node: element }
+                : isAssignmentNode(element) && isListNode(element.right)
+                  ? { name: element.left.name, node: element.right }
+                  : undefined;
+            if (list) {
+                const fieldType = fieldOf(ownerClass, list.name)?.valueType;
+                const element = fieldType?.kind === 'list' ? fieldType.element : undefined;
+                if (element?.kind === 'group') {
+                    await this.walkAliasList(list.node, element.ref, sourceUri, resolve, seen, depth);
+                }
                 continue;
             }
             // `Field { … }`: an inline group that further aliases (e.g. `Game { GameGui = &<…> }`).
@@ -163,6 +196,52 @@ class AliasRootIndex {
                 if (fieldType?.kind === 'group') {
                     await this.walk(element, fieldType.ref, sourceUri, resolve, seen, depth + 1);
                 }
+            }
+        }
+    }
+
+    /**
+     * Records every `&<file>[/Member]` element of an alias list as the list's element type, and walks
+     * into what it names so that fragment's own aliases root in turn (a ship's `Doors [ &<door.rules> ]`
+     * roots the door file). A member-less element roots the whole target file; a member-qualified one
+     * roots that top-level group.
+     *
+     * @param list the list node holding the alias elements.
+     * @param elementClass the list's element class, which each alias lands in.
+     * @param sourceUri the document the refs are written in, for relative file resolution.
+     * @param resolve resolves a `<file>` ref to its parsed document.
+     * @param seen guards recursion, keyed per (file, member) so two ships in one file both walk.
+     * @param depth the current walk depth.
+     */
+    private async walkAliasList(
+        list: { elements: AbstractNodeDocument['elements'] },
+        elementClass: string,
+        sourceUri: string,
+        resolve: FileRefResolver,
+        seen: Set<string>,
+        depth: number
+    ): Promise<void> {
+        if (depth > MAX_DEPTH) return;
+        for (const element of list.elements) {
+            if (!isValueNode(element) || element.valueType.type !== 'Reference') continue;
+            const alias = parseAlias(String(element.valueType.value));
+            if (!alias) continue;
+            const target = await resolve(alias.fileRef, sourceUri).catch(() => undefined);
+            if (!target || !isDocumentNode(target)) continue;
+            const elementType: ValueType = { kind: 'group', ref: elementClass, name: elementClass.split('.').pop() ?? elementClass };
+            this.put(target.uri, alias.member ?? '', elementType);
+            const key = `${normalizeUri(target.uri)}#${(alias.member ?? '').toLowerCase()}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            // Walk what the alias names, under the element class: the whole file for a member-less
+            // element, else the top-level group it points at.
+            const container = alias.member
+                ? target.elements.find(
+                      (child) => isGroupNode(child) && child.identifier?.name.toLowerCase() === alias.member!.toLowerCase()
+                  )
+                : target;
+            if (container && (isDocumentNode(container) || isGroupNode(container))) {
+                await this.walk(container, elementClass, target.uri, resolve, seen, depth + 1);
             }
         }
     }

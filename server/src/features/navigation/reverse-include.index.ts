@@ -341,6 +341,20 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
     }
 
     /**
+     * Every file some indexed document pulls in through an `&<…>` reference, as a field include or as
+     * an inheritance base, whether or not the project walk visits it. The game's loader ignores the
+     * extension, so a mod may keep rules in a file the walk skips (one workshop mod declares its ship
+     * render layers in a `.d` file its `RenderLayers : &<…/2.d>/d` inherits). Such a file is invisible
+     * to every index built from the walk, so the id validator's declaration probe consults these
+     * targets before flagging an id.
+     *
+     * @returns the normalized uris of every recorded include and inheritance-base target.
+     */
+    public includeTargetUris(): string[] {
+        return [...new Set([...this.byTarget.keys(), ...this.inheritanceByTarget.keys()])];
+    }
+
+    /**
      * Every recorded field include of the fragment at `uri`: the normalized including-source uri,
      * the included member, and the schema type of the slot the include fills. This is the fragment's
      * way back to its including context, so a mode-variant components fragment finds the part file

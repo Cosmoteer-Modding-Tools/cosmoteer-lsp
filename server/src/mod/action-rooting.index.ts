@@ -278,9 +278,18 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
                 return isGroupNode(node) ? memberTypeIn(node, name) : undefined;
             }
             case 'AddMany': {
-                if (wholeFile || !isListNode(node)) return undefined;
-                const element = listElementType(node);
-                return element ? { kind: 'list', element } : undefined;
+                if (wholeFile) return undefined;
+                if (isListNode(node)) {
+                    const element = listElementType(node);
+                    if (element) return { kind: 'list', element };
+                }
+                // Into a MAP the payload holds map entries rather than list elements (a mod adding
+                // its ship AIs or render layers: `AddTo = "<…>/RenderLayers"` with a `ManyToAdd` of
+                // `{ Key = … Value { … } }` pairs). The payload takes the map's own type, which is
+                // what the schema layer reads entry members through, and what tells the id validator
+                // that a self-keyed map's keys declare rather than reference.
+                const slot = isListNode(node) || isGroupNode(node) ? this.slotOfNode(node) : undefined;
+                return slot?.kind === 'map' ? slot : undefined;
             }
             case 'Replace':
                 return wholeFile ? undefined : this.slotOfNode(node);

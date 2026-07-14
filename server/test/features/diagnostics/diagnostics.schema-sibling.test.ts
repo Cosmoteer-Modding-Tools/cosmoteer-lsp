@@ -166,3 +166,38 @@ describe('schema sibling-reference existence validation', () => {
         expect(await validate(src)).toHaveLength(0);
     });
 });
+
+// A bullet names its components exactly like a part does (the engine assigns each component's id from
+// its node name inside `Components`). They are barred from the global id validator because they are
+// owner-local (one bullet's `DamagePool` must not vouch for another's), so this part-local check is
+// the only thing standing between a modder and a silently dead reference.
+describe('bullet component references (owner-local, like a part\'s)', () => {
+    // Bullets are whole-file roots under /shots/, with `Components` at the top level.
+    const bullet = (factorWith: string) => `ID = "cosmoteer.test_bullet"
+Components
+{
+	DamagePool
+	{
+		Type = DamagePool
+		Damage = 10
+	}
+	Hit
+	{
+		Type = SimpleHit
+		FactorEffectsWith = ${factorWith}
+	}
+}`;
+    const validateBullet = (src: string) =>
+        validateSchemaSiblingReferences(parser(lexer(src), 'file:///shots/test_bullet/test_bullet.rules').value, token);
+
+    it('accepts a reference to a component the bullet declares', async () => {
+        expect(await validateBullet(bullet('DamagePool'))).toHaveLength(0);
+    });
+
+    it('flags a reference to a component no component of this bullet declares', async () => {
+        const errors = await validateBullet(bullet('DamagePoool'));
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('DamagePoool');
+        expect(errors[0].data?.quickFix?.newText).toBe('DamagePool');
+    });
+});

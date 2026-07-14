@@ -7,14 +7,18 @@ import { pathToFileURL } from 'url';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import {
+    invalidateLooseDeclarationCache,
+    isValidatedIdReference,
     judgeIdReference,
     unresolvedIdError,
     validateCrossFileIdReferences,
 } from '../../../src/features/diagnostics/validator.schema-id-reference';
+import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
 import { BUILTIN_SHIP_CLASS } from '../../../src/document/schema/entity-schema';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
 import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
+import { ActionRootingIndex } from '../../../src/mod/action-rooting.index';
 import { globalSettings } from '../../../src/settings';
 
 // End-to-end test of the opt-in cross-file id-reference validator. A temp folder holds the
@@ -43,6 +47,8 @@ describe('validateCrossFileIdReferences', () => {
     let emptyUri: string;
     let shipsUri: string;
     let tmpRoot: string;
+    let gameDir: string;
+    let modDir: string;
 
     beforeAll(() => {
         tmpRoot = mkdtempSync(join(tmpdir(), 'idref-'));
@@ -59,6 +65,12 @@ describe('validateCrossFileIdReferences', () => {
         writeFileSync(
             join(partsDir, 'armor.rules'),
             'Part\n{\n\tID = test.armor\n\tOtherIDs = [old.armor]\n\tMaxHealth = 100\n}\n'
+        );
+        // The ship file whose `RenderLayers` keys declare the layers every part sprite draws on, in
+        // the entry spelling the game ships (`[ { Key = "floors" Value { … } } ]`).
+        writeFileSync(
+            join(partsDir, 'terran.rules'),
+            'RenderLayers\n[\n\t{\n\t\tKey = "floors"\n\t\tValue\n\t\t{\n\t\t\tRenderStage = Lowest\n\t\t}\n\t}\n\t{\n\t\tKey = "walls"\n\t\tValue\n\t\t{\n\t\t\tRenderStage = Lowest\n\t\t}\n\t}\n]\n'
         );
         workspaceUri = pathToFileURL(join(tmpRoot, 'data')).href;
         // A builtins workspace in the two shapes the game ships: a prefixed file (every id becomes
@@ -80,11 +92,25 @@ describe('validateCrossFileIdReferences', () => {
         // A miniature game data root (the service requires the `Data` suffix): its part declares a
         // real id while using the two label fields with values that resolve to nothing, the shape
         // the derivation reads off the real install.
-        const gameDir = join(tmpRoot, 'game', 'Data');
+        gameDir = join(tmpRoot, 'game', 'Data');
         mkdirSync(gameDir, { recursive: true });
         writeFileSync(
             join(gameDir, 'armor.rules'),
             'Part\n{\n\tID = cosmoteer.armor\n\tSelectionTypeID = "armor"\n\tFlipWhenLoadingIDs = [armor_wedge_R]\n}\n'
+        );
+        // The game root, carrying a self-keyed map whose one key declares a ship AI. `EffectBuckets`
+        // is what roots the file as `Cosmoteer.Data.Rules`, which is what types the map.
+        writeFileSync(
+            join(gameDir, 'cosmoteer.rules'),
+            'EffectBuckets\n{\n\tBuckets = []\n}\n\nShipAIs\n{\n\tbase_ai\n\t{\n\t\tUpdateInterval = 1\n\t}\n}\n'
+        );
+        // A mod that adds its own AI to that map from its manifest. The payload list is called
+        // `ManyToAdd`, so only the action's target slot says these entries declare ship AIs.
+        modDir = join(tmpRoot, 'ai_mod');
+        mkdirSync(modDir, { recursive: true });
+        writeFileSync(
+            join(modDir, 'mod.rules'),
+            'ID = test.aimod\nName = "t"\nActions\n[\n\t{\n\t\tAction = AddMany\n\t\tAddTo = "<cosmoteer.rules>/ShipAIs"\n\t\tManyToAdd\n\t\t[\n\t\t\t{\n\t\t\t\tKey = "mod_ai"\n\t\t\t\tValue\n\t\t\t\t{\n\t\t\t\t\tUpdateInterval = 1\n\t\t\t\t}\n\t\t\t}\n\t\t]\n\t}\n]\n'
         );
         globalSettings.cosmoteerPath = gameDir;
         const svc = CosmoteerWorkspaceService.instance;
@@ -219,5 +245,91 @@ describe('validateCrossFileIdReferences', () => {
     it('never flags a FlipWhenLoadingIDs legacy id despite its PartRules type', async () => {
         const doc = parse('Part\n{\n\tFlipWhenLoadingIDs = [my_old_part_R]\n}');
         expect(await validateCrossFileIdReferences(doc, [workspaceUri], token)).toHaveLength(0);
+    });
+
+    // A self-keyed map (`RenderLayers`, `ShipAIs`, …) declares its instances through its keys, so a key
+    // is never a finding. The values written for the same class elsewhere (`Layer = "floors"` on every
+    // part sprite, `AI = trader` on a trade ship) are ordinary references into the pool those keys fill,
+    // and a typo there renders on a dead layer or spawns a ship with no AI, silently.
+    describe('self-keyed map classes: keys declare, values reference', () => {
+        /** A part sprite naming the ship render layer it draws on. */
+        const partOnLayer = (layer: string) =>
+            parse(
+                `Part\n{\n\tComponents\n\t{\n\t\tGraphics\n\t\t{\n\t\t\tType = Graphics\n\t\t\tFloor\n\t\t\t{\n\t\t\t\tLayer = "${layer}"\n\t\t\t}\n\t\t}\n\t}\n}`
+            );
+
+        it('accepts a layer the ship file declares as a key', async () => {
+            expect(await validateCrossFileIdReferences(partOnLayer('floors'), [workspaceUri], token)).toHaveLength(0);
+        });
+
+        it('flags a layer no key declares, with a did-you-mean fix', async () => {
+            const errors = await validateCrossFileIdReferences(partOnLayer('flors'), [workspaceUri], token);
+            expect(errors).toHaveLength(1);
+            expect(errors[0].message).toContain("'flors'");
+            expect(errors[0].data?.quickFix?.newText).toBe('floors');
+        });
+
+        // A mod declares its own instances by adding entries to the map from its manifest, where the
+        // payload list carries the action's name (`ManyToAdd`) instead of the map's. Nothing roots
+        // that list, so without the action's target slot every reference to an id the mod adds this
+        // way would be flagged as unknown (the render layers of a real workshop mod, 287 references).
+        describe('a manifest action that adds map entries declares them', () => {
+            const SHIP_AI_CLASS = 'Cosmoteer.Ships.AI.ShipAIRules';
+            const judgeAi = async (value: string) => {
+                ActionRootingIndex.instance.reset();
+                await ActionRootingIndex.instance.ensureBuilt([gameDir, modDir], token);
+                return judgeIdReference(
+                    { node: parse(`AI = "${value}"`), targetClass: SHIP_AI_CLASS, value, fieldName: 'AI' },
+                    [pathToFileURL(gameDir).href, pathToFileURL(modDir).href],
+                    new Map(),
+                    token
+                );
+            };
+
+            it('resolves the AI the game root declares as a key', async () => {
+                expect(await judgeAi('base_ai')).toBe('resolved');
+            });
+
+            it('does not flag the AI the manifest adds to the map', async () => {
+                expect(await judgeAi('mod_ai')).toBe('declared-loosely');
+            });
+
+            it('still flags an AI nothing declares', async () => {
+                expect(await judgeAi('mod_ia')).toBe('unresolved');
+            });
+        });
+
+        // The game's loader ignores the extension, so a mod can keep rules in a file the project walk
+        // never visits and inherit them in (`RenderLayers : &<mineables/2.d>/d`). No index sees such a
+        // file, so its layers looked undeclared and every part drawing on them was flagged.
+        it('does not flag a layer declared in an unwalked file an indexed file inherits', async () => {
+            const layerDir = join(tmpRoot, 'data', 'mineables');
+            mkdirSync(layerDir, { recursive: true });
+            writeFileSync(
+                join(layerDir, '2.d'),
+                'd\n[\n\t{\n\t\tKey = "sr"\n\t\tValue\n\t\t{\n\t\t\tRenderStage = Lowest\n\t\t}\n\t}\n]\n'
+            );
+            writeFileSync(
+                join(tmpRoot, 'data', 'ships', 'hyper.rules'),
+                'RenderLayers : &<../mineables/2.d>/d\n[\n]\n'
+            );
+            ReverseIncludeIndex.instance.reset();
+            await ReverseIncludeIndex.instance.ensureBuilt([join(tmpRoot, 'data')], token);
+            invalidateLooseDeclarationCache();
+
+            expect(await validateCrossFileIdReferences(partOnLayer('sr'), [workspaceUri], token)).toHaveLength(0);
+            // A layer no file declares, walked or not, still flags.
+            expect(await validateCrossFileIdReferences(partOnLayer('srr'), [workspaceUri], token)).toHaveLength(1);
+            ReverseIncludeIndex.instance.reset();
+        });
+
+        it('judges the value position but never the declaring key position', () => {
+            const node = parse('X = "my_new_layer"');
+            const layerClass = 'Cosmoteer.Ships.ShipRenderLayerRules';
+            const key = { node, targetClass: layerClass, value: 'my_new_layer', fieldName: 'RenderLayers', isMapKey: true };
+            const value = { node, targetClass: layerClass, value: 'my_new_layer', fieldName: 'Layer' };
+            expect(isValidatedIdReference(key)).toBe(false);
+            expect(isValidatedIdReference(value)).toBe(true);
+        });
     });
 });

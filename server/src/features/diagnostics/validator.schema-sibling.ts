@@ -8,14 +8,18 @@ import {
     isGroupNode,
     isListNode,
     ListNode,
+    ValueNode,
     isValueNode,
 } from '../../core/ast/ast';
+import type { ValueType } from '../../document/schema/schema.types';
 import { isModRules } from '../../document/document-kind';
+import { documentRootClass } from '../../document/schema/document-root';
 import { classOfGroup, listSlotType, registryForContainer, resolveGroupClass } from '../../document/schema/schema-context';
 import { fieldOf, registryOf, scalarReferenceTargetOf } from '../../document/schema/schema';
 import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
 import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
 import { componentReferenceIdOf } from '../navigation/schema-reference.navigation';
+import { isSameOrSubclass } from '../navigation/schema-id-reference.navigation';
 import { BUILTIN_IDS } from '../../document/schema/entity-schema';
 import { overrideTargetsOf } from '../../mod/override-sources';
 import { isFile, FileWithPath } from '../../workspace/cosmoteer-workspace.service';
@@ -311,10 +315,11 @@ export const validateSchemaSiblingReferences = async (
 ): Promise<ValidationError[]> => {
     if (isModRules(document.uri)) return [];
 
-    // Only validate documents that are a complete part (a top-level `Part` group). A file with a
-    // bare top-level `Components` is a fragment merged into a parent part elsewhere, so its component
-    // ids resolve against that parent — checking it standalone would false-positive.
-    if (!isCompletePart(document)) return [];
+    // Only validate documents that own a complete component set (a part, a bullet). A file with a
+    // bare top-level `Components` is a fragment merged into a parent owner elsewhere, so its component
+    // ids resolve against that parent, and checking it standalone would false-positive.
+    const componentRegistry = ownerComponentRegistryOf(document);
+    if (!componentRegistry) return [];
 
     // A file other files inherit from (`Derived : <this_file.rules>/Part/…`) is a template: its
     // references may name components only the deriving parts declare (a mod's `jump_wire_stuff.rules`
@@ -324,55 +329,43 @@ export const validateSchemaSiblingReferences = async (
 
     // Cheap pre-pass: only do the (cross-file) id collection if the document actually contains a
     // candidate sibling-reference field. Most files have none.
-    if (!hasCandidateSiblingReference(document)) return [];
+    if (!hasCandidateSiblingReference(document, componentRegistry)) return [];
 
     const partComponentIds = await collectPartComponentIds(document, cancellationToken);
     const componentIds = partComponentIds.all;
     const errors: ValidationError[] = [];
+    // A bullet owns its components exactly like a part does, so only the wording differs.
+    const ownerIsBullet = componentRegistry !== 'PartComponentRules';
+
+    const flag = (value: ValueNode, written: string): void => {
+        const suggestion = closestMatch(written, [...partComponentIds.components.values()], true);
+        errors.push({
+            message: ownerIsBullet
+                ? l10n.t("No component named '{0}' in this bullet.", written)
+                : l10n.t("No component named '{0}' in this part.", written),
+            node: value,
+            severity: 'warning',
+            ...(suggestion
+                ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
+                : {}),
+        });
+    };
 
     const checkGroup = (group: GroupNode): void => {
-        const container = group.parent;
-        if (!container || !isGroupNode(container)) return;
-        // A cross-part proxy (a group declaring `PartLocation`/`PartCriteria`) resolves its component
-        // ids (`ComponentID = LoadedAmmo`) against the adjacent targeted part rather than this one. A
-        // railgun's `ResourceStorageProxy`, for example, reaches into the ammo part next to it. That
-        // part is outside this document's scope, so its ids are absent from the part-wide union and a
-        // check here would false-positive. The validator's contract is same-part references only, so
-        // skip these groups.
-        if (targetsAnotherPart(group)) return;
-        const registry = registryForContainer(container);
-        if (!registry) return;
-        const cls = classOfGroup(group, registry.name) ?? resolveGroupClass(group);
+        const cls = classOfPartGroup(group);
         if (!cls) return;
+        // A group that resolves its ids against another part cannot be judged against this one, so
+        // its references are skipped rather than false-positived (see {@link reachesOutsideThisOwner}).
+        if (reachesOutsideThisOwner(group)) return;
 
-        for (const element of group.elements) {
+        for (const [fieldName, value] of componentFieldValuesOf(group, cls, componentRegistry)) {
             if (cancellationToken.isCancellationRequested) return;
-            if (!isAssignmentNode(element)) continue;
-            if (NON_SIBLING_FIELDS.has(element.left.name.toLowerCase())) continue;
-            const value = element.right;
-            if (!isValueNode(value) || value.valueType.type !== 'String') continue;
-
-            // Only a field targeting the container's own registry is a component id: a direct
-            // reference, or a scalar-form group whose scalar payload is that reference
-            // (`FireTrigger = Turret` reads into ComponentTriggerReferenceRules.ID).
-            if (!isComponentField(cls, element.left.name, registry)) continue;
+            if (NON_SIBLING_FIELDS.has(fieldName.toLowerCase())) continue;
             const written = String(value.valueType.value);
             if (!PLAIN_ID.test(written)) continue;
             if (RUNTIME_INJECTED_IDS.has(written.toLowerCase())) continue;
             if (componentIds.has(written.toLowerCase())) continue;
-
-            const siblings = namedMembersOf(container)
-                .map(([name]) => name)
-                .filter((name) => name !== group.identifier?.name);
-            const suggestion = closestMatch(written, siblings, true);
-            errors.push({
-                message: l10n.t("No component named '{0}' in this part.", written),
-                node: value,
-                severity: 'warning',
-                ...(suggestion
-                    ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
-                    : {}),
-            });
+            flag(value, written);
         }
     };
 
@@ -389,16 +382,7 @@ export const validateSchemaSiblingReferences = async (
             if (!PLAIN_ID.test(written)) continue;
             if (RUNTIME_INJECTED_IDS.has(written.toLowerCase())) continue;
             if (componentIds.has(written.toLowerCase())) continue;
-
-            const suggestion = closestMatch(written, [...partComponentIds.components.values()], true);
-            errors.push({
-                message: l10n.t("No component named '{0}' in this part.", written),
-                node: element,
-                severity: 'warning',
-                ...(suggestion
-                    ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
-                    : {}),
-            });
+            flag(element, written);
         }
     };
 
@@ -440,6 +424,59 @@ export const isComponentField = (cls: string, fieldName: string, registry: Retur
     return !!target && registryOf(target) === registry;
 };
 
+/**
+ * The component class a field of `cls` names, whatever shape it is written in: a direct reference
+ * (`OperationalToggle = IsOperational`), a scalar-form group whose payload is that reference
+ * (`FireTrigger = Turret` reads into ComponentTriggerReferenceRules.ID), or a list of either
+ * (`ResourceCheckEmitters [ Emitter1, Emitter2 ]`).
+ *
+ * Reading the target off the schema field rather than off the container's registry is what lets the
+ * check reach component references written outside a component group: a weapon's nested
+ * `ResourceUsage { ResourceStorage = … }`, a route generator's `ComponentIDs`, the part's own
+ * `SignificanceToggle`. The container-registry gate of {@link isComponentField} sees none of those,
+ * because the enclosing container holds no component registry.
+ *
+ * @param cls the declaring class FullName.
+ * @param fieldName the field being written.
+ * @returns the referenced component class FullName, or undefined when the field names no component.
+ */
+export const componentTargetOfField = (cls: string, fieldName: string): string | undefined => {
+    const valueType = fieldOf(cls, fieldName)?.valueType;
+    const targetOf = (type: ValueType | undefined): string | undefined =>
+        type?.kind === 'reference'
+            ? type.target
+            : type?.kind === 'group'
+              ? scalarReferenceTargetOf(type.ref)
+              : undefined;
+    return valueType?.kind === 'list' ? targetOf(valueType.element) : targetOf(valueType);
+};
+
+/** The class of a buff-mediated component proxy, the `ViaBuffs { … }` group (see {@link reachesOutsideThisOwner}). */
+const BUFF_PROXY_CLASS = 'Cosmoteer.Ships.Parts.Logic.BuffMultiProxyRules';
+
+/**
+ * True when `group` resolves its component ids against some other part than the one it is written
+ * in, so this part's ids cannot judge them. Every mechanism the engine has for that is structural,
+ * and this is the full set:
+ *  - a proxy naming another cell's part, through `PartLocation` or `PartCriteria` (a railgun's
+ *    `ResourceStorageProxy` reaching into the ammo part beside it),
+ *  - a `Type = ChainableProxy`, which resolves against whichever part is chained to this one (a
+ *    solar panel spike's `AnchorLocation` lives in the anchor part),
+ *  - a `ViaBuffs { ComponentID = … }` group, which names a component of whichever part provides the
+ *    buff (an arc mod's `TransformerArcEnergyStorage` lives in the transformer part). The group is
+ *    typed {@link BUFF_PROXY_CLASS} by the schema, so this needs no field-name list.
+ * The walk goes up to the owner, so a helper group nested inside such a proxy is covered too.
+ */
+const reachesOutsideThisOwner = (group: GroupNode): boolean => {
+    for (let node: AbstractNode | undefined = group; node; node = node.parent) {
+        if (!isGroupNode(node)) continue;
+        if (targetsAnotherPart(node)) return true;
+        const cls = resolveGroupClass(node);
+        if (cls && isSameOrSubclass(cls, BUFF_PROXY_CLASS)) return true;
+    }
+    return false;
+};
+
 /** True when tuple slot `index` of `list`'s declared type is a part-component reference. */
 export const tupleComponentTargetAt = (list: ListNode, index: number): boolean => {
     const slot = listSlotType(list);
@@ -468,13 +505,77 @@ export const targetsAnotherPart = (group: GroupNode): boolean =>
         return isGroupNode(element) && (element.identifier?.name === 'PartLocation' || element.identifier?.name === 'PartCriteria');
     });
 
-/** True if the document is a self-contained part: it has a top-level `Part` group. */
-const isCompletePart = (document: AbstractNodeDocument): boolean =>
-    document.elements.some((element) => isGroupNode(element) && element.identifier?.name === 'Part');
+/** The class of a whole-file bullet root, whose `Components` are named per bullet exactly like a part's. */
+const BULLET_RULES_CLASS = 'Cosmoteer.Bullets.BulletRules';
 
-/** True if any group in the document has an assignment whose schema field is a same-container `ID<…>`,
- *  or any list holds a plain-id string in a part-component tuple slot. */
-const hasCandidateSiblingReference = (document: AbstractNodeDocument): boolean => {
+/**
+ * The registry of the components a document owns, which is also the only registry whose ids its
+ * references may name: `PartComponentRules` for a self-contained part (a top-level `Part` group),
+ * `BulletComponentRules` for a whole-file bullet root (a shot file, which carries its `Components`
+ * at the top level and roots as {@link BULLET_RULES_CLASS}).
+ *
+ * A bullet names its components exactly like a part does: the engine assigns each component's id
+ * from its node name inside the owner's `Components` map, so the same owner-local check applies. It
+ * is the only check those references get, since they are barred from the global id validator
+ * precisely because they are owner-local (one bullet's `DamagePool` must not vouch for another's).
+ *
+ * A fragment (a bare top-level `Components` merged into an owner elsewhere) owns no complete set:
+ * its ids resolve against the parent, so judging it standalone would false-positive.
+ *
+ * @param document the document to classify.
+ * @returns the owned component registry name, or undefined when the document owns no component set.
+ */
+const ownerComponentRegistryOf = (document: AbstractNodeDocument): string | undefined => {
+    if (document.elements.some((element) => isGroupNode(element) && element.identifier?.name === 'Part')) {
+        return 'PartComponentRules';
+    }
+    const rootClass = documentRootClass(document);
+    return rootClass && isSameOrSubclass(rootClass, BULLET_RULES_CLASS) ? 'BulletComponentRules' : undefined;
+};
+
+/** The class of a group inside an owner document: the registry-hinted class when the group sits in a
+ *  polymorphic container (a component in `Components`), else its slot-driven class (a nested helper
+ *  group, the `Part` group itself). */
+const classOfPartGroup = (group: GroupNode): string | undefined => {
+    const container = group.parent;
+    const registry = container && isGroupNode(container) ? registryForContainer(container) : undefined;
+    return (registry ? classOfGroup(group, registry.name) : undefined) ?? resolveGroupClass(group);
+};
+
+/**
+ * Every value node of `group` written for a field that names a component of `registry`, in each
+ * shape the engine accepts: the scalar (`OperationalToggle = IsOperational`), the assignment-form
+ * list (`ResourceCheckEmitters = [A, B]`) and the brace-form list (`ResourceCheckEmitters [ A, B ]`).
+ *
+ * @param group the group whose fields to read.
+ * @param cls the group's class FullName.
+ * @param registry the owner's component registry, the only one whose ids resolve here.
+ * @returns a generator of the field name and the value node written for it.
+ */
+function* componentFieldValuesOf(group: GroupNode, cls: string, registry: string): Generator<[string, ValueNode]> {
+    const names = (fieldName: string): boolean => {
+        const target = componentTargetOfField(cls, fieldName);
+        return !!target && registryOf(target)?.name === registry;
+    };
+    const strings = function* (nodes: AbstractNode[]): Generator<ValueNode> {
+        for (const node of nodes) if (isValueNode(node) && node.valueType.type === 'String') yield node;
+    };
+    for (const element of group.elements) {
+        if (isAssignmentNode(element)) {
+            if (!names(element.left.name)) continue;
+            const right = element.right;
+            const values = isListNode(right) ? [...strings(right.elements)] : [...strings(right ? [right] : [])];
+            for (const value of values) yield [element.left.name, value];
+        } else if (isListNode(element) && element.identifier && names(element.identifier.name)) {
+            for (const value of strings(element.elements)) yield [element.identifier.name, value];
+        }
+    }
+}
+
+/** True if any group in the document writes a plain id for a field naming a component of `registry`,
+ *  or any list holds a plain-id string in a component tuple slot. The cheap pre-pass that keeps the
+ *  cross-file id collection off the files that have no component reference at all. */
+const hasCandidateSiblingReference = (document: AbstractNodeDocument, registry: string): boolean => {
     let found = false;
     const visit = (node: AbstractNode): void => {
         if (found) return;
@@ -489,20 +590,12 @@ const hasCandidateSiblingReference = (document: AbstractNodeDocument): boolean =
             }
         }
         if (isGroupNode(node)) {
-            const container = node.parent;
-            const registry = container && isGroupNode(container) ? registryForContainer(container) : undefined;
-            if (registry) {
-                const cls = classOfGroup(node, registry.name) ?? resolveGroupClass(node);
-                if (cls) {
-                    for (const element of node.elements) {
-                        if (!isAssignmentNode(element)) continue;
-                        const value = element.right;
-                        if (!isValueNode(value) || value.valueType.type !== 'String') continue;
-                        if (!PLAIN_ID.test(String(value.valueType.value))) continue;
-                        if (isComponentField(cls, element.left.name, registry)) {
-                            found = true;
-                            return;
-                        }
+            const cls = classOfPartGroup(node);
+            if (cls) {
+                for (const [, value] of componentFieldValuesOf(node, cls, registry)) {
+                    if (PLAIN_ID.test(String(value.valueType.value))) {
+                        found = true;
+                        return;
                     }
                 }
             }

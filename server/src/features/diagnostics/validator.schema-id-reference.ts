@@ -1,25 +1,31 @@
 import { existsSync } from 'fs';
+import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
 import {
     AbstractNode,
     AbstractNodeDocument,
+    AssignmentNode,
     isAssignmentNode,
     isDocumentNode,
     isGroupNode,
     isListNode,
     isValueNode,
 } from '../../core/ast/ast';
-import { isModRules } from '../../document/document-kind';
+import { isModRules, isRulesFileName } from '../../document/document-kind';
 import { registryOf, typeDef } from '../../document/schema/schema';
 import { BUILTIN_SHIP_CLASS, entityDeclarationsOf, SELF_KEYED_MAP_FIELDS } from '../../document/schema/entity-schema';
 import { MARKER_CLASSES } from '../../document/schema/category-usage';
 import { SchemaIdIndex } from '../completion/schema-id.index';
 import { isSameOrSubclass, schemaReferenceFieldOf, mapKeyReferencesOf } from '../navigation/schema-id-reference.navigation';
 import { stringValueNodesOf } from '../navigation/schema-reference.navigation';
+import { ActionRootingIndex } from '../../mod/action-rooting.index';
+import type { ValueType } from '../../document/schema/schema.types';
 import { normalizeUri } from '../navigation/reference-location';
-import { documentsMentioning } from '../navigation/workspace-files';
+import { documentsMentioning, uriToFsPath } from '../navigation/workspace-files';
+import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
+import { parseText } from '../../utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { closestMatch } from '../../utils/did-you-mean';
 import { ValidationError } from './validator';
@@ -32,6 +38,9 @@ export interface IdReference {
     readonly value: string;
     /** The declaring field, when the reference sits in a value position of a known field. */
     readonly fieldName?: string;
+    /** True when the reference is the KEY of a map (`MaxBuffValues { Engine = … }`) rather than a
+     *  value written for a field. A key of a self-keyed map is a declaration, not a reference. */
+    readonly isMapKey?: boolean;
 }
 
 /**
@@ -47,34 +56,75 @@ export function* idReferencesOf(document: AbstractNodeDocument): Generator<IdRef
         if (ref) yield { node: value, targetClass: ref.targetClass, value: ref.value, fieldName: ref.fieldName };
     }
     for (const key of mapKeyReferencesOf(document)) {
-        yield { node: key.node, targetClass: key.targetClass, value: key.value, fieldName: key.fieldName };
+        yield {
+            node: key.node,
+            targetClass: key.targetClass,
+            value: key.value,
+            fieldName: key.fieldName,
+            isMapKey: true,
+        };
     }
 }
 
 /**
- * Every `ID<X>` reference class is judged; no class is allowlisted or excluded by name. The layers
- * that make that safe are each mechanical:
+ * True when the reference is the key of a self-keyed map (`RenderLayers { MyLayer { … } }`,
+ * `TradeShips { Starstone { … } }`), which the engine reads as a declaration: writing the key is what
+ * brings the instance into existence, so an unknown key is a new instance rather than a typo, and
+ * judging it would flag every mod that adds one.
+ *
+ * Only the key position declares. A value written for a field of the same class elsewhere
+ * (`RenderLayer = my_layer` on a part sprite) is an ordinary reference into that pool and is judged
+ * like any other: nothing about the class is exempt, only the position that declares it.
+ *
+ * @param reference the reference to classify.
+ * @returns true when the reference sits in a declaring key position.
+ */
+const isSelfKeyedDeclaration = (reference: IdReference): boolean =>
+    !!reference.isMapKey &&
+    !!reference.fieldName &&
+    SELF_KEYED_MAP_FIELDS.get(reference.fieldName.toLowerCase()) === reference.targetClass;
+
+/**
+ * The component registries whose ids are container-local: the engine names each component after its
+ * node name inside the owner's `Components { … }` map (`PartRules` and `BulletRules` both do this,
+ * decompile verified), and a reference resolves against the owner's own components rather than a global pool.
+ * Judging them here would be worse than not judging them: two bullets each defining `DamagePool` means
+ * one bullet's copy would excuse a reference in another bullet that has none, so the check could never
+ * catch the bug it exists for. The part-local sibling validator owns these instead.
+ */
+const CONTAINER_LOCAL_REGISTRIES: ReadonlySet<string> = new Set(['PartComponentRules', 'BulletComponentRules']);
+
+/** Whether id references targeting `cls` are judged at all (see the layer notes above). */
+export const isValidatedIdClass = (cls: string): boolean => {
+    const registry = registryOf(cls)?.name;
+    return !(registry && CONTAINER_LOCAL_REGISTRIES.has(registry));
+};
+
+/**
+ * Whether one reference is judged. Every `ID<X>` class is judged; no class is allowlisted or excluded
+ * by name. The layers that make that safe are each mechanical:
  *  - a class whose declarations the harvest cannot see at all has no ids to judge against (the
  *    no-coverage skip in {@link judgeIdReference}),
  *  - part-component targets are part-local (nesting, inherited bases, includes), the sibling
  *    validator's domain, derived here from the schema's registry,
- *  - self-keyed map targets declare through their keys, so an unknown key is a new instance,
- *    derived from the schema's map shapes,
+ *  - a self-keyed map KEY declares rather than references, so an unknown key is a new instance
+ *    ({@link isSelfKeyedDeclaration}, derived from the schema's map shapes). The class itself stays
+ *    judged: a value written for it elsewhere is an ordinary reference into the pool its keys fill,
  *  - label fields that borrow the id type without the engine ever resolving them derive from the
  *    base game's own usage ({@link isVanillaLabelField}),
  *  - an id written in a declaration shape anywhere in the project, rooted or not, is never flagged
  *    ({@link declaredAnywhereLoosely}: unrooted whole-file roots, a mod's own alias collections,
- *    groups a mod.rules action adds),
+ *    entries a mod.rules action adds to a map),
  *  - vanilla's own leftovers exempt through {@link referencedInGameTree}, dependency mods through
  *    {@link declaredInInstalledMods}.
  * The vanilla scan (zero contract plus the pinned exemption set) and the mods scan triage stay the
  * honesty check for all of it.
+ *
+ * @param reference the reference to gate.
+ * @returns true when the reference is a reference into a judged pool.
  */
-const SELF_KEYED_TARGETS: ReadonlySet<string> = new Set(SELF_KEYED_MAP_FIELDS.values());
-
-/** Whether id references targeting `cls` are judged at all (see the layer notes above). */
-export const isValidatedIdClass = (cls: string): boolean =>
-    registryOf(cls)?.name !== 'PartComponentRules' && !SELF_KEYED_TARGETS.has(cls);
+export const isValidatedIdReference = (reference: IdReference): boolean =>
+    isValidatedIdClass(reference.targetClass) && !isSelfKeyedDeclaration(reference);
 
 /**
  * Ids the base game's own files reference without declaring, exempted mechanically instead of via a
@@ -284,16 +334,85 @@ const declaredAnywhereLoosely = async (
             break;
         }
     }
+    if (!declared) declared = await declaredInUnwalkedInclude(id, cancellationToken);
     if (looseDeclarationVerdicts.size >= INSTALLED_MOD_VERDICTS_CAP) looseDeclarationVerdicts.clear();
     looseDeclarationVerdicts.set(key, declared);
     return declared;
 };
 
 /**
+ * Whether a file the project walk never visits, but some indexed file includes through `&<…>`,
+ * declares the id. The game's loader ignores the extension, so rules content can live in a file the
+ * walk skips (a workshop mod keeps its ship render layers in `2.d`, pulled in by
+ * `RenderLayers : &<Hyperoid/Mineables/2.d>/d`). No index sees such a file, so its declarations would
+ * look like nothing and every reference to them would be flagged.
+ *
+ * Consulted only for an id that resolved nowhere else, and the include targets are few, so the cost
+ * lands on the already-slow unknown-id path and is memoized with the rest of the probe's verdict.
+ *
+ * @param id the unknown id.
+ * @param cancellationToken cancels the reads.
+ * @returns true when an unwalked include target writes the id in a declaration shape.
+ */
+const declaredInUnwalkedInclude = async (id: string, cancellationToken: CancellationToken): Promise<boolean> => {
+    const targets = ReverseIncludeIndex.instance
+        .includeTargetUris()
+        .filter((uri) => !isRulesFileName(uri.split('/').pop() ?? ''));
+    for (const uri of targets) {
+        if (cancellationToken.isCancellationRequested) return false;
+        const text = await readFile(uriToFsPath(uri), 'utf8').catch(() => undefined);
+        if (text === undefined || !text.includes(id)) continue;
+        const document = parseText(text, uri);
+        if (looseDeclarationIn(document, id) || writesMapEntryKey(document, id)) return true;
+    }
+    return false;
+};
+
+/**
+ * True when `document` writes `Key = <id>` anywhere: the entry spelling of a map key. Accepted as a
+ * declaration only inside a file no index can see ({@link declaredInUnwalkedInclude}), where nothing
+ * can type the list the entry sits in, so the shape is all there is to go on. The `.d` file the
+ * workshop mod inherits into its `RenderLayers` holds its layers exactly this way.
+ *
+ * Elsewhere the same shape needs the map to be self-keyed ({@link declaresSelfKeyedEntry}), since a
+ * `Key` of an ordinary reference-keyed map references rather than declares, and accepting it blindly
+ * would swallow real typos.
+ *
+ * @param document the parsed unwalked file.
+ * @param id the id being looked for.
+ * @returns true when some entry key writes the id.
+ */
+const writesMapEntryKey = (document: AbstractNodeDocument, id: string): boolean => {
+    let found = false;
+    const visit = (node: AbstractNode): void => {
+        if (found) return;
+        if (
+            isAssignmentNode(node) &&
+            node.left.name.toLowerCase() === 'key' &&
+            isValueNode(node.right) &&
+            String(node.right.valueType.value) === id
+        ) {
+            found = true;
+            return;
+        }
+        const children: AbstractNode[] =
+            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
+                ? node.elements
+                : isAssignmentNode(node)
+                  ? (node.right ? [node.right] : [])
+                  : [];
+        for (const child of children) visit(child);
+    };
+    for (const element of document.elements) visit(element);
+    return found;
+};
+
+/**
  * True when `document` writes `id` in a declaration shape: an `ID = <id>` assignment, a named
- * container `<id>`, or an alias assignment `<id> = &…` whose reference value derives the instance
- * from another one (a mod's `MyBuff = &BaseBuff`). A scalar-valued assignment (`fire = 50%`) is not
- * declaration-shaped: map keys with plain values are the reference side of their relation.
+ * container `<id>`, the `Key` of a self-keyed map entry ({@link declaresSelfKeyedEntry}), or an
+ * alias assignment `<id> = &…` whose reference value derives the instance from another one (a mod's
+ * `MyBuff = &BaseBuff`). A scalar-valued assignment (`fire = 50%`) is not declaration-shaped: map
+ * keys with plain values are the reference side of their relation.
  */
 const looseDeclarationIn = (document: AbstractNodeDocument, id: string): boolean => {
     let found = false;
@@ -305,6 +424,10 @@ const looseDeclarationIn = (document: AbstractNodeDocument, id: string): boolean
                 return;
             }
             if (node.left.name === id && node.right.valueType.type === 'Reference') {
+                found = true;
+                return;
+            }
+            if (String(node.right.valueType.value) === id && declaresSelfKeyedEntry(node)) {
                 found = true;
                 return;
             }
@@ -323,6 +446,52 @@ const looseDeclarationIn = (document: AbstractNodeDocument, id: string): boolean
     };
     for (const element of document.elements) visit(element);
     return found;
+};
+
+/** True when a slot type is a self-keyed map (`map<reference X, group X>`), the shape whose keys are
+ *  its instances. The type-level twin of {@link SELF_KEYED_MAP_FIELDS}, for a slot an action gave. */
+const isSelfKeyedMapType = (type: ValueType | undefined): boolean =>
+    type?.kind === 'map' &&
+    type.key.kind === 'reference' &&
+    type.value.kind === 'group' &&
+    type.value.ref === type.key.target;
+
+/**
+ * True when `node` is the `Key` of an entry of a self-keyed map written in list spelling
+ * (`RenderLayers [ { Key = "asteroid_lights_add" Value { … } } ]`), the other declaring spelling
+ * beside the named member (`RenderLayers { asteroid_lights_add { … } }`).
+ *
+ * The loose probe needs this because a mod adds its layers from a `mod.rules` action payload, where
+ * the list carries the ACTION's field name rather than the map's:
+ *
+ *     { Action = AddMany; AddTo = "<ships/terran/terran.rules>/Terran/RenderLayers"
+ *       ManyToAdd [ { Key = "asteroid_lights_add" Value { … } } ] }
+ *
+ * so the entry is a declaration despite sitting in a list called `ManyToAdd`. What types it is the
+ * action's target slot, which is exactly what {@link ActionRootingIndex} records, so the payload is
+ * recognized through the slot rather than through a list of action field names.
+ *
+ * Both routes demand the self-keyed map shape, which keeps the probe's class-blindness from swallowing
+ * typos: a `Key` of an ordinary reference-keyed map still references rather than declares.
+ *
+ * @param node the `Key = …` assignment to classify.
+ * @returns true when the assignment declares a self-keyed map instance.
+ */
+const declaresSelfKeyedEntry = (node: AssignmentNode): boolean => {
+    if (node.left.name.toLowerCase() !== 'key') return false;
+    const entry = node.parent;
+    const list = entry?.parent;
+    if (!entry || !isGroupNode(entry) || !list || !isListNode(list)) return false;
+    const owner = list.parent;
+    const fieldName =
+        list.identifier?.name ??
+        (owner && (isGroupNode(owner) || isDocumentNode(owner))
+            ? owner.elements.find(
+                  (element): element is AssignmentNode => isAssignmentNode(element) && element.right === list
+              )?.left.name
+            : undefined);
+    if (fieldName && SELF_KEYED_MAP_FIELDS.has(fieldName.toLowerCase())) return true;
+    return isSelfKeyedMapType(ActionRootingIndex.instance.nodeSlotType(list));
 };
 
 /**
@@ -346,7 +515,7 @@ export const validateCrossFileIdReferences = async (
     if (isModRules(document.uri)) return [];
 
     const references = [...idReferencesOf(document)].filter(
-        (ref) => isValidatedIdClass(ref.targetClass) && isJudgeableReference(ref)
+        (ref) => isValidatedIdReference(ref) && isJudgeableReference(ref)
     );
     if (references.length === 0) return [];
 

@@ -69,6 +69,12 @@ const PATH_ROOTS: ReadonlyArray<RootRule> = [
     // so those stay unrooted instead of mis-typed as an AI file.
     { test: /[/\\]ai[/\\]/i, cls: 'Cosmoteer.Ships.AI.ShipAIRules', requireTopLevelField: 'StrategyModules' },
     { test: /\/nebulas\//i, cls: 'Cosmoteer.Nebulas.NebulaTypeRules', requireTopLevelField: 'ID' },
+    // An encounter file is included by the sector that uses it (`&<../../encounters/encounter_ambush.rules>`),
+    // which roots it, but only once some sector actually references it. Vanilla's `encounter_distress.rules`
+    // is referenced nowhere (a parked file), and a mod's new encounter is unreferenced until it is wired
+    // in, so both stayed dark. The path rule roots them the moment they exist. Guarded by the top-level
+    // `ID` every encounter declares.
+    { test: /[/\\]encounters[/\\]/i, cls: 'Cosmoteer.Modes.Career.Encounter.EncounterRules', requireTopLevelField: 'ID' },
     { test: /[/\\]crew[/\\]crew\.rules$/i, cls: 'Cosmoteer.Crew.CrewRules' },
     { test: /\/name_generators\//i, registry: 'Cosmoteer.Generators.Names.NameGenerator' },
     // Career sector-generation files are whole-file `SimObjectSpawner`s dispatched by their top-level
