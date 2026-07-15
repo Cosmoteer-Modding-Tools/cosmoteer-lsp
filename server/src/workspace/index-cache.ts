@@ -28,8 +28,10 @@ import { perfCount } from '../utils/perf-counters';
 /** Bump when an index's serialized shape changes, so an old cache is discarded, not misread.
  *  v3: the reverse-include index gained macro-usage records and `#`-registry deriver entries, which a
  *  v2 cache lacks, so serving one would leave macro-alias containers unrooted until a file changed.
- *  v4: it gained deep-macro leaf records, mod-macro maps and container fs paths in its saved state. */
-const CACHE_FORMAT_VERSION = 4;
+ *  v4: it gained deep-macro leaf records, mod-macro maps and container fs paths in its saved state.
+ *  v5: the reverse-include index gained a real-path map for every include target and source, so a
+ *  cross-file read off a lower-cased key resolves the right file on a case-sensitive filesystem. */
+const CACHE_FORMAT_VERSION = 5;
 
 /** How many `stat` calls run concurrently while building the manifest. */
 const STAT_CONCURRENCY = 64;

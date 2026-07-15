@@ -360,7 +360,10 @@ const declaredInUnwalkedInclude = async (id: string, cancellationToken: Cancella
         .filter((uri) => !isRulesFileName(uri.split('/').pop() ?? ''));
     for (const uri of targets) {
         if (cancellationToken.isCancellationRequested) return false;
-        const text = await readFile(uriToFsPath(uri), 'utf8').catch(() => undefined);
+        // Read the target's real path, not its normalized key: the key is lower-cased, so on a
+        // case-sensitive filesystem `uriToFsPath` would point at a file that does not exist.
+        const path = ReverseIncludeIndex.instance.realPathFor(uri) ?? uriToFsPath(uri);
+        const text = await readFile(path, 'utf8').catch(() => undefined);
         if (text === undefined || !text.includes(id)) continue;
         const document = parseText(text, uri);
         if (looseDeclarationIn(document, id) || writesMapEntryKey(document, id)) return true;

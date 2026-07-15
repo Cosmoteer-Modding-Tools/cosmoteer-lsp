@@ -188,9 +188,11 @@ const scopeDocuments = async (document: AbstractNodeDocument, token: Cancellatio
     return docs;
 };
 
-/** Loads a document from a reverse-include source key (a normalized, leading-slash-stripped path). */
+/** Loads a document from a reverse-include source key (a normalized, leading-slash-stripped path).
+ *  Prefers the index's recorded real path, since the key is lower-cased and a case-sensitive
+ *  filesystem would not find the file under it. Falls back to restoring the leading slash. */
 const loadByNormalizedKey = async (key: string): Promise<AbstractNodeDocument | null> => {
-    const path = /^[a-z]:\//.test(key) ? key : `/${key}`;
+    const path = ReverseIncludeIndex.instance.realPathFor(key) ?? (/^[a-z]:\//.test(key) ? key : `/${key}`);
     return ParserResultRegistrar.instance.getResultByPath(path) ?? (await cachedParseFilePath(path).catch(() => null));
 };
 

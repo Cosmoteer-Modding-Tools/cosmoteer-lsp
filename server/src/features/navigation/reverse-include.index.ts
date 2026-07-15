@@ -184,6 +184,12 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
     /** Macro-container key → its real filesystem path, for parsing the container during deep-usage
      *  leaf resolution (the key is lower-cased by normalizeUri, not a valid path off Windows). */
     private readonly macroTargetPaths = new Map<string, string>();
+    /** Normalized include target/source key → its real filesystem path. A disk read of a fragment
+     *  must use this, not the key: normalizeUri lower-cases and strips the leading slash, which a
+     *  case-insensitive FS forgives but a case-sensitive one does not, so reading the key resolves
+     *  the wrong (or a relative) path off Windows. Populated wherever a target or source is
+     *  recorded and persisted with the rest of the state. */
+    private readonly realPathByKey = new Map<string, string>();
     /** Deep macro-usage leaf records: node key (`uri|start,end` inside the container file) → reading
      *  source uri → the slot type the usage gives the leaf. Answered through the node-slot fallback
      *  of the schema layer, since the leaf is a nested group no `(file, member)` record can name. */
@@ -433,6 +439,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         this.modMacroTargets.clear();
         this.macroBySource.clear();
         this.macroTargetPaths.clear();
+        this.realPathByKey.clear();
         this.leafByNode.clear();
         this.leafBySource.clear();
         this.leafByTargetUri.clear();
@@ -468,6 +475,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             ]),
             macroBySource: [...this.macroBySource.entries()],
             macroTargetPaths: [...this.macroTargetPaths.entries()],
+            realPathByKey: [...this.realPathByKey.entries()],
             leafByNode: [...this.leafByNode.entries()].map(([key, sources]) => [key, [...sources.entries()]]),
             leafBySource: [...this.leafBySource.entries()],
             signatures: [...this.sourceSignatures.entries()],
@@ -492,6 +500,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             macroTargets?: Array<[string, Array<[string, string[]]>]>;
             macroBySource?: Array<[string, Array<{ name: string; target: string }>]>;
             macroTargetPaths?: Array<[string, string]>;
+            realPathByKey?: Array<[string, string]>;
             leafByNode?: Array<[string, Array<[string, ValueType]>]>;
             leafBySource?: Array<[string, string[]]>;
             signatures?: Array<[string, string]>;
@@ -506,6 +515,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             !Array.isArray(parsed.macroTargets) ||
             !Array.isArray(parsed.macroBySource) ||
             !Array.isArray(parsed.macroTargetPaths) ||
+            !Array.isArray(parsed.realPathByKey) ||
             !Array.isArray(parsed.leafByNode) ||
             !Array.isArray(parsed.leafBySource) ||
             !Array.isArray(parsed.signatures) ||
@@ -533,6 +543,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         }
         for (const [source, entries] of parsed.macroBySource) this.macroBySource.set(source, entries);
         for (const [key, path] of parsed.macroTargetPaths) this.macroTargetPaths.set(key, path);
+        for (const [key, path] of parsed.realPathByKey) this.realPathByKey.set(key, path);
         for (const [key, sources] of parsed.leafByNode) {
             this.leafByNode.set(key, new Map(sources));
             const target = key.split('|')[0];
@@ -621,6 +632,9 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
      */
     protected async indexDocument(document: AbstractNodeDocument, cancellationToken: CancellationToken): Promise<boolean> {
         const source = normalizeUri(document.uri);
+        // Remember the source's real path too: a fragment can itself be the file another read wants
+        // to open (the including part behind a reverse-include), and its key is equally lower-cased.
+        this.realPathByKey.set(source, uriToFsPath(document.uri));
         const previousSignature = this.sourceSignatures.get(source) ?? '';
         this.removeSource(source);
         // A post-build re-index of this file means its content changed, which shifts the positions
@@ -1271,19 +1285,44 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         // same directories are probed for every include in every file of a scan.
         const cheapDir = await cachedDirLookup(dirname(cheapPath)).catch(() => undefined);
         if (cheapDir?.has(basename(cheapPath).toLowerCase())) {
-            return { key: normalizeUri(cheapPath), fsPath: cheapPath };
+            return this.recordTargetPath(normalizeUri(cheapPath), cheapPath);
         }
 
         const resolved = await navigation.navigate(fileRef, referenceNode, sourceUri, cancellationToken).catch(() => null);
         if (!resolved) return undefined;
         if (isFile(resolved as unknown as FileTree)) {
             const path = (resolved as FileWithPath).path;
-            return { key: normalizeUri(path), fsPath: path };
+            return this.recordTargetPath(normalizeUri(path), path);
         }
         if (isDocumentNode(resolved as AbstractNode)) {
             const uri = (resolved as AbstractNodeDocument).uri;
-            return { key: normalizeUri(uri), fsPath: uriToFsPath(uri) };
+            return this.recordTargetPath(normalizeUri(uri), uriToFsPath(uri));
         }
         return undefined;
+    }
+
+    /**
+     * Records a resolved target's real filesystem path against its normalized key, so a later disk
+     * read ({@link realPathFor}) uses the original-case path rather than the lower-cased key.
+     *
+     * @param key the normalized index key.
+     * @param fsPath the target's real filesystem path.
+     * @returns the `{ key, fsPath }` pair, so callers can `return this.recordTargetPath(...)`.
+     */
+    private recordTargetPath(key: string, fsPath: string): { key: string; fsPath: string } {
+        this.realPathByKey.set(key, fsPath);
+        return { key, fsPath };
+    }
+
+    /**
+     * The real filesystem path recorded for a normalized include target or source key, for reading
+     * the file off disk. The key itself is lower-cased and slash-stripped by {@link normalizeUri},
+     * so it is not a valid path off Windows. This returns the path as it was resolved.
+     *
+     * @param key the normalized target or source key.
+     * @returns the real filesystem path, or undefined when none was recorded.
+     */
+    public realPathFor(key: string): string | undefined {
+        return this.realPathByKey.get(key);
     }
 }
