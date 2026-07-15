@@ -1,4 +1,5 @@
 import { context } from 'esbuild';
+import { computeCacheBuildId } from './esbuild.cache-id.mjs';
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
@@ -6,9 +7,17 @@ const test = process.argv.includes('--test');
 
 async function main() {
     if (!test) {
+        // Scoped cache invalidation id, baked into the bundle via `define`: the on-disk caches gate
+        // on it, and it only changes when cache-relevant source (or a dependency) changes (see
+        // esbuild.cache-id.mjs and server/src/workspace/index-cache.ts). Computed once, so it is
+        // injected only for one-shot builds (production packaging and the perf benches). Under
+        // `--watch` the id is left undefined and the server falls back to hashing its own bundle,
+        // which changes on every incremental rebuild, so a dev never serves a stale cache.
+        const define = watch ? {} : { __CACHE_BUILD_ID__: JSON.stringify(computeCacheBuildId()) };
         const ctx = await context({
             entryPoints: ['client/src/extension.ts', 'server/src/server.ts'],
             bundle: true,
+            define,
             // Native ESM bundles. The `.mjs` suffix makes Node (and the VS Code extension host,
             // 1.100+) load them as ESM without a `type: module` package.json, which would flip
             // the CJS test build under out/test too. The banner restores the CJS globals that
