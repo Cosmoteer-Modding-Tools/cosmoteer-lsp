@@ -21,7 +21,7 @@ import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
 import { componentReferenceIdOf } from '../navigation/schema-reference.navigation';
 import { isSameOrSubclass } from '../navigation/schema-id-reference.navigation';
 import { BUILTIN_IDS } from '../../document/schema/entity-schema';
-import { overrideTargetsOf } from '../../mod/override-sources';
+import { includingDocumentsOf, overrideTargetsOf } from '../../mod/override-sources';
 import { isFile, FileWithPath } from '../../workspace/cosmoteer-workspace.service';
 import { namedMembersOf, getStartOfAstNode } from '../../utils/ast.utils';
 import { closestMatch } from '../../utils/did-you-mean';
@@ -174,6 +174,11 @@ const collectComponentIdsUncached = async (
     // `OverrideIn = <vanilla part>` with `Overrides = &<this file>`), so its component references
     // resolve against the merged result. The override target joins the union like an inherited base.
     for (const target of await overrideTargetsOf(document.uri, token).catch(() => [])) queue.push(target);
+
+    // A fragment another part includes as a whole member (`Components { <jump_wire_stuff.rules>/Part/Components }`)
+    // merges into that part at load, so its references resolve against the including part. Each
+    // includer joins the union the same way an override target does.
+    for (const includer of await includingDocumentsOf(document.uri, token).catch(() => [])) queue.push(includer);
 
     // A `Components` container's named members are the part's actual component declarations: named
     // group/list members, plus assignment-form (`X = { … }`) and reference-form (`X = &…`) members,

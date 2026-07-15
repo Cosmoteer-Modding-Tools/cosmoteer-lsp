@@ -2,6 +2,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import {
     AbstractNode,
     AbstractNodeDocument,
+    AssignmentNode,
     GroupNode,
     ListNode,
     ValueNode,
@@ -31,7 +32,7 @@ import { cachedParseFilePath } from '../workspace/fs-cache';
 import { CosmoteerWorkspaceService, FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { Action } from './action';
 import { isActionFragmentDocument, parseModActions } from './action-parser';
-import { resolveActionTarget } from './action-target-resolver';
+import { normalizeTargetPath, resolveActionTarget } from './action-target-resolver';
 
 const navigation = new FullNavigationStrategy();
 
@@ -59,6 +60,43 @@ const isTypableTargetPath = (raw: string): boolean => {
     if (!m) return false;
     const segments = (m[1] ?? '').split('/').map((s) => s.trim());
     return segments.every((segment) => !/^\d+$/.test(segment) && !['^', '..', ':', '#'].includes(segment));
+};
+
+/**
+ * The names of a container's top-level members, in every spelling the engine reads as one: a named
+ * group/list (`SWTurretPerimeter { … }`) and an assignment (`SWTurretPerimeter = &<…>`).
+ *
+ * @param container the document or group whose members are wanted.
+ * @returns the member names, empty when the node holds none.
+ */
+const topLevelMemberNames = (container: AbstractNode): string[] => {
+    if (!isDocumentNode(container) && !isGroupNode(container)) return [];
+    const names: string[] = [];
+    for (const element of container.elements) {
+        if ((isGroupNode(element) || isListNode(element)) && element.identifier) names.push(element.identifier.name);
+        else if (isAssignmentNode(element)) names.push(element.left.name);
+    }
+    return names;
+};
+
+/**
+ * Splits a target path into the container it names and its final member segment
+ * (`<buffs/buffs.rules>/Aredja2AITerminal` → `<buffs/buffs.rules>` + `Aredja2AITerminal`). The file
+ * ref is kept whole, since its own `/` separators are not member separators.
+ *
+ * @param raw the target path as written.
+ * @returns the parent path and last segment, or undefined when the path names no member.
+ */
+const splitLastSegment = (raw: string): { parent: string; last: string } | undefined => {
+    const m = /^(&?\s*<[^>]*>)\s*\/(.*)$/.exec(raw.trim());
+    if (!m) return undefined;
+    const segments = m[2]
+        .split('/')
+        .map((segment) => segment.trim())
+        .filter((segment) => segment !== '');
+    const last = segments.pop();
+    if (!last) return undefined;
+    return { parent: [m[1], ...segments].join('/'), last };
 };
 
 /**
@@ -101,6 +139,10 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
     private readonly byNode = new Map<string, ValueType>();
     /** Source manifest uri → its contributions, so a re-index can drop them. */
     private readonly bySource = new Map<string, { targets: Array<{ target: string; member: string }>; nodes: string[] }>();
+    /** Class FullName → id → declaring manifest uri, for the ids mod actions create in a game map. */
+    private readonly idsByClass = new Map<string, Map<string, string>>();
+    /** Source manifest uri → the `(class, id)` declarations it made, so a re-index can drop them. */
+    private readonly idsBySource = new Map<string, Array<{ cls: string; id: string }>>();
     /** Per-source signature of the recorded entries, so an identical re-index does not move the revision. */
     private readonly sourceSignatures = new Map<string, string>();
 
@@ -200,9 +242,17 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
         if (!isModRules(document.uri) && !isActionFragmentDocument(document)) return previousSignature !== '';
 
         const contributed = { targets: [] as Array<{ target: string; member: string }>, nodes: [] as string[] };
+        const contributedIds: Array<{ cls: string; id: string }> = [];
         const lines: string[] = [];
         for (const action of parseModActions(document)) {
             if (cancellationToken.isCancellationRequested) break;
+            // Harvested before the slot check: a `CreateIfNotExisting` override names a member that
+            // does not exist yet, so its target does not resolve and it has no source slot — but it
+            // still declares the id.
+            for (const declared of await this.idDeclarationsOf(action, cancellationToken)) {
+                contributedIds.push(declared);
+                lines.push(`id ${declared.cls} ${declared.id}`);
+            }
             const value = action.sources[0];
             if (!value) continue;
             const slot = await this.sourceSlotFor(action, cancellationToken);
@@ -230,6 +280,12 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
         }
 
         if (contributed.targets.length || contributed.nodes.length) this.bySource.set(source, contributed);
+        if (contributedIds.length) {
+            this.idsBySource.set(source, contributedIds);
+            for (const { cls, id } of contributedIds) {
+                (this.idsByClass.get(cls) ?? this.idsByClass.set(cls, new Map()).get(cls)!).set(id, source);
+            }
+        }
         const signature = lines.sort().join('\n');
         if (signature) this.sourceSignatures.set(source, signature);
         const changed = signature !== previousSignature;
@@ -311,6 +367,133 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
             default:
                 return undefined; // Remove/RemoveMany carry no value side. Unknown is not typable.
         }
+    }
+
+    /**
+     * The cross-file ids an action declares.
+     *
+     * A mod does not only reference the game's id collections, it adds to them — and it does so from
+     * the manifest, where no `.rules` file of the mod ever names the id. Three action shapes create
+     * members of a `map<reference X, …>` collection, and each makes the member's name a declaration of
+     * X, exactly like a group named in the collection's own file:
+     *  - `Add` with a `Name` (`AddTo = "<gui/game/designer/editor_groups.rules>"  Name = "dpmStorageSD"`),
+     *  - `Overrides`/`AddBase` naming a not-yet-existing member (`OverrideIn = "<buffs/buffs.rules>/Aredja2AITerminal"`
+     *    with `CreateIfNotExisting`), whose target therefore does not resolve — so the container is
+     *    resolved from the parent path and the last segment read as the id,
+     *  - a whole-file `Overrides` merging the mod's own copy of the collection over the game's, whose
+     *    every top-level member is a member of the merged result.
+     * Without this, every use of such an id false-positives as an unknown reference.
+     *
+     * @param action the parsed action.
+     * @param cancellationToken cancels the target navigation.
+     * @returns the declared `(class, id)` pairs, empty when the action creates no map member.
+     */
+    private async idDeclarationsOf(
+        action: Action,
+        cancellationToken: CancellationToken
+    ): Promise<Array<{ cls: string; id: string }>> {
+        const target = action.targets[0];
+        if (!target) return [];
+        const raw = String(target.valueType.value);
+        if (!isTypableTargetPath(raw)) return [];
+
+        if (action.type === 'Add' && action.nameNode) {
+            const id = String(action.nameNode.valueType.value).trim();
+            if (!id) return [];
+            const cls = await this.mapKeyClassOfPath(raw, target, cancellationToken);
+            return cls ? [{ cls, id }] : [];
+        }
+        if (action.type === 'Overrides' || action.type === 'AddBase') {
+            // The target IS the collection — a whole keyed file (`OverrideIn = "<./Data/buffs/buffs.rules>"`)
+            // or a keyed member of one (`"<…/build_gui.rules>/EditorGroups"`). The mod's own copy is
+            // merged over it, so every top-level member of the merged value is a member of the result.
+            const collectionClass = await this.mapKeyClassOfPath(raw, target, cancellationToken);
+            if (collectionClass) {
+                const members = await this.sourceMemberNames(action, cancellationToken);
+                return members.map((id) => ({ cls: collectionClass, id }));
+            }
+            // The target does not resolve because it names a member that does not exist yet
+            // (`CreateIfNotExisting`), so the container is the parent path and the last segment the id.
+            const split = splitLastSegment(raw);
+            if (!split) return [];
+            const cls = await this.mapKeyClassOfPath(split.parent, target, cancellationToken);
+            return cls ? [{ cls, id: split.last }] : [];
+        }
+        return [];
+    }
+
+    /**
+     * The top-level member names of an action's source value: an inline `{ … }` payload's own members,
+     * or those of the fragment a `&<file>[/Member]` reference lands on.
+     *
+     * @param action the parsed action.
+     * @param cancellationToken cancels the source navigation.
+     * @returns the member names, empty when the source names none.
+     */
+    private async sourceMemberNames(action: Action, cancellationToken: CancellationToken): Promise<string[]> {
+        const source = action.sources[0];
+        if (!source) return [];
+        if (isGroupNode(source)) return topLevelMemberNames(source);
+        if (!isValueNode(source) || source.valueType.type !== 'Reference') return [];
+        let landing = await this.dereferenceLanding(
+            await navigation
+                .navigate(String(source.valueType.value), source, getStartOfAstNode(source).uri, cancellationToken)
+                .catch(() => null),
+            cancellationToken
+        );
+        // A member path can land on the assignment that names the member (`EditorGroups = &<editor_groups.rules>`),
+        // whose value re-exports the collection from another file. Step through to the value and follow it.
+        for (let hop = 0; landing && isAssignmentNode(landing as AbstractNode) && hop < MAX_REFERENCE_HOPS; hop++) {
+            const right = (landing as AssignmentNode).right;
+            if (!right) return [];
+            landing = await this.dereferenceLanding(right, cancellationToken);
+        }
+        if (!landing) return [];
+        const container = (await this.landingDocument(landing)) ?? (landing as AbstractNode);
+        return topLevelMemberNames(container);
+    }
+
+    /**
+     * The id class a target path's container keys its members by: the `X` of a `map<reference X, …>`.
+     *
+     * @param path the target path as written, naming the container.
+     * @param context the target value node the path is navigated from.
+     * @param cancellationToken cancels the navigation.
+     * @returns the map key's target class, or undefined when the path names no keyed collection.
+     */
+    private async mapKeyClassOfPath(
+        path: string,
+        context: ValueNode,
+        cancellationToken: CancellationToken
+    ): Promise<string | undefined> {
+        let resolved: Landing = await navigation
+            .navigate(normalizeTargetPath(path), context, getStartOfAstNode(context).uri, cancellationToken)
+            .catch(() => null);
+        resolved = await this.dereferenceLanding(resolved, cancellationToken);
+        if (!resolved) return undefined;
+
+        const node = resolved as AbstractNode;
+        let type: ValueType | undefined;
+        if (isFile(resolved as unknown as FileTree) || isDocumentNode(node)) {
+            const document = await this.landingDocument(resolved);
+            // The collection type, not the root class: a keyed collection file (`buffs.rules`) roots as
+            // the map itself, which is what names the key class.
+            type = document
+                ? (aliasRootIndex.rootType(document.uri) ?? ReverseIncludeIndex.instance.rootType(document.uri))
+                : undefined;
+        } else if (isGroupNode(node) || isListNode(node)) {
+            type = this.slotOfNode(node);
+        }
+        return type?.kind === 'map' && type.key.kind === 'reference' ? type.key.target : undefined;
+    }
+
+    /**
+     * Every id mod actions declare for `targetClass` itself (subclass filtering is the caller's).
+     *
+     * @returns the class-keyed declarations, id → declaring manifest uri.
+     */
+    public get actionDeclaredIds(): ReadonlyMap<string, ReadonlyMap<string, string>> {
+        return this.idsByClass;
     }
 
     /**
@@ -463,6 +646,15 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
 
     protected removeSource(source: string): void {
         this.sourceSignatures.delete(source);
+        const priorIds = this.idsBySource.get(source);
+        if (priorIds) {
+            for (const { cls, id } of priorIds) {
+                const ids = this.idsByClass.get(cls);
+                if (ids?.get(id) === source) ids.delete(id);
+                if (ids && ids.size === 0) this.idsByClass.delete(cls);
+            }
+            this.idsBySource.delete(source);
+        }
         const prior = this.bySource.get(source);
         if (!prior) return;
         for (const { target, member } of prior.targets) {
@@ -480,6 +672,8 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
         this.byTarget.clear();
         this.byNode.clear();
         this.bySource.clear();
+        this.idsByClass.clear();
+        this.idsBySource.clear();
         this.sourceSignatures.clear();
     }
 }

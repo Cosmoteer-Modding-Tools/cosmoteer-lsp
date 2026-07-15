@@ -139,6 +139,48 @@ describe('schema sibling-reference existence validation', () => {
         });
     });
 
+    // A components fragment is merged into a part elsewhere (`Components : ^/0/Components` +
+    // `<fragment.rules>/Part/Components`), so its ids resolve against that part — the fragment brings
+    // the wiring, the part brings the components it wires. Judged standalone, every id the part
+    // supplies false-positives (30 in one workshop mod). The consuming part joins the union instead.
+    describe('a components fragment resolves against the part that pulls it in', () => {
+        let modDir: string;
+        // The fragment references `LogicSignal`, which only the consuming part below declares.
+        const fragment = (toggle: string) =>
+            `Part\n{\n\tComponents\n\t{\n\t\tBuffProvider\n\t\t{\n\t\t\tType = AreaBuffProvider\n\t\t\tOperationalToggle = ${toggle}\n\t\t\tBuffType = Logic\n\t\t\tBuffAmount = 1\n\t\t\tBuffArea = [0, -2, 1, 1]\n\t\t}\n\t}\n}`;
+
+        beforeAll(async () => {
+            modDir = await mkdtemp(join(tmpdir(), 'cosmo-frag-'));
+            await writeFile(join(modDir, 'mod.rules'), 'ID = test.fragment\nName = "t"\nActions\n[\n]\n');
+            await writeFile(join(modDir, 'wire_stuff.rules'), fragment('LogicSignal'));
+            // The consuming part: it inherits the fragment's Components as a deep base (the form the
+            // reverse-include index deliberately does not record) and declares `LogicSignal` itself.
+            await writeFile(
+                join(modDir, 'logic_part.rules'),
+                'Part\n{\n\tComponents : <wire_stuff.rules>/Part/Components\n\t{\n\t\tLogicSignal\n\t\t{\n\t\t\tType = MultiToggle\n\t\t\tMode = All\n\t\t}\n\t}\n}\n'
+            );
+        });
+        afterAll(async () => {
+            await rm(modDir, { recursive: true, force: true });
+        });
+
+        it('accepts a reference to a component only the consuming part declares', async () => {
+            await initWorkspace();
+            const uri = pathToFileURL(join(modDir, 'wire_stuff.rules')).href;
+            const doc = parser(lexer(fragment('LogicSignal')), uri).value;
+            expect(await validateSchemaSiblingReferences(doc, token)).toHaveLength(0);
+        });
+
+        it('still flags a component neither the fragment nor the consuming part declares', async () => {
+            await initWorkspace();
+            const uri = pathToFileURL(join(modDir, 'wire_stuff.rules')).href;
+            const doc = parser(lexer(fragment('LogicSignl')), uri).value;
+            const errors = await validateSchemaSiblingReferences(doc, token);
+            expect(errors).toHaveLength(1);
+            expect(errors[0].message).toMatch(/No component named 'LogicSignl'/);
+        });
+    });
+
     it('skips a cross-part proxy whose ComponentID targets an adjacent part', async () => {
         await initWorkspace();
         // A `ResourceStorageProxy` with `PartLocation`/`PartCriteria` reaches into the neighbouring

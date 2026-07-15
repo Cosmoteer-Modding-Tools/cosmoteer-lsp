@@ -7,6 +7,7 @@ import { markerUsagesOf } from '../../document/schema/category-usage';
 import { normalizeUri } from '../navigation/reference-location';
 import { WatchedDocumentIndex } from '../navigation/watched-document-index';
 import { schemaReferenceFieldOf, isSameOrSubclass } from '../navigation/schema-id-reference.navigation';
+import { ActionRootingIndex } from '../../mod/action-rooting.index';
 import { Completion } from './autocompletion.service';
 
 /** The top-level `ID = <value>` string of a whole-file-root document, if any. */
@@ -130,6 +131,31 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
     }
 
     /**
+     * The ids mod actions declare for `targetClass` (or a subclass). A mod adds to the game's id
+     * collections from its manifest (`Add` with a `Name` into an editor-groups map, an override that
+     * creates a buff), a declaration site no `.rules` file of the mod names — see
+     * {@link ActionRootingIndex.actionDeclaredIds}.
+     *
+     * @param targetClass the reference target class FullName.
+     * @param folderPaths the project folders to index.
+     * @param cancellationToken cancellation for the index build.
+     * @returns the set of ids mod actions declare for that class.
+     */
+    private async actionIdsForClass(
+        targetClass: string,
+        folderPaths: string[],
+        cancellationToken: CancellationToken
+    ): Promise<Set<string>> {
+        await ActionRootingIndex.instance.ensureBuilt(folderPaths, cancellationToken);
+        const ids = new Set<string>();
+        for (const [cls, declared] of ActionRootingIndex.instance.actionDeclaredIds) {
+            if (!isSameOrSubclass(cls, targetClass)) continue;
+            for (const id of declared.keys()) ids.add(id);
+        }
+        return ids;
+    }
+
+    /**
      * Completions for a cross-file `ID<X>` value: every project id whose declaring file's root class
      * is the field's target (or a subclass). Returns `[]` immediately (no index build) when the
      * cursor isn't on such a reference field, so unrelated completions stay cheap.
@@ -175,6 +201,12 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
                 seen.add(id);
                 out.push({ label: id, kind: CompletionItemKind.Reference, detail: `→ ${targetName} (built-in)` });
             }
+        }
+        // Ids a mod's manifest actions add to a game collection: declared in no `.rules` file of the mod.
+        for (const id of await this.actionIdsForClass(targetClass, folderPaths, cancellationToken)) {
+            if (seen.has(id)) continue;
+            seen.add(id);
+            out.push({ label: id, kind: CompletionItemKind.Reference, detail: `→ ${targetName}` });
         }
         return out;
     }
@@ -224,6 +256,7 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
             if (!isSameOrSubclass(cls, targetClass)) continue;
             for (const id of builtin) ids.add(id);
         }
+        for (const id of await this.actionIdsForClass(targetClass, folderPaths, cancellationToken)) ids.add(id);
         return ids;
     }
 
@@ -261,6 +294,10 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         for (const [cls, builtin] of BUILTIN_IDS) {
             if (!isSameOrSubclass(cls, targetClass)) continue;
             for (const id of builtin) ids.add(id);
+        }
+        // Manifest-declared ids come from the workspace's mods, so a base-game-only read skips them.
+        if (!sourcePrefix) {
+            for (const id of await this.actionIdsForClass(targetClass, folderPaths, cancellationToken)) ids.add(id);
         }
         return ids;
     }

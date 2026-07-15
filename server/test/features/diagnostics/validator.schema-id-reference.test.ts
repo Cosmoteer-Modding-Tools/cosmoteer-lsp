@@ -19,6 +19,8 @@ import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index'
 import { ParserResultRegistrar } from '../../../src/registrar/parser-result-registrar';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { ActionRootingIndex } from '../../../src/mod/action-rooting.index';
+import { aliasRootIndex } from '../../../src/document/schema/alias-root';
+import { parseFilePath } from '../../../src/utils/ast.utils';
 import { globalSettings } from '../../../src/settings';
 
 // End-to-end test of the opt-in cross-file id-reference validator. A temp folder holds the
@@ -49,6 +51,7 @@ describe('validateCrossFileIdReferences', () => {
     let tmpRoot: string;
     let gameDir: string;
     let modDir: string;
+    let buffModDir: string;
 
     beforeAll(() => {
         tmpRoot = mkdtempSync(join(tmpdir(), 'idref-'));
@@ -102,8 +105,29 @@ describe('validateCrossFileIdReferences', () => {
         // is what roots the file as `Cosmoteer.Data.Rules`, which is what types the map.
         writeFileSync(
             join(gameDir, 'cosmoteer.rules'),
-            'EffectBuckets\n{\n\tBuckets = []\n}\n\nShipAIs\n{\n\tbase_ai\n\t{\n\t\tUpdateInterval = 1\n\t}\n}\n'
+            'EffectBuckets\n{\n\tBuckets = []\n}\n\nShipAIs\n{\n\tbase_ai\n\t{\n\t\tUpdateInterval = 1\n\t}\n}\n\nBuffs = &<buffs.rules>\n'
         );
+        // The game's buff collection: a `map<reference BuffType, BuffRules>` whose member names are
+        // the ids. A mod adds its own buffs to it from the manifest (see `buffModDir`).
+        writeFileSync(join(gameDir, 'buffs.rules'), 'VanillaBuff\n{\n\tCombineMode = Add\n\tBaseValue = 0\n}\n');
+        // A mod that declares buffs the only way a manifest can: an `Add` naming the new member, and
+        // an override that creates a member that does not exist yet. Neither id is written in any
+        // `.rules` file of the mod, so only the action's target says they are declarations.
+        buffModDir = join(tmpRoot, 'buff_mod');
+        mkdirSync(buffModDir, { recursive: true });
+        writeFileSync(
+            join(buffModDir, 'mod.rules'),
+            'ID = test.buffmod\nName = "t"\nActions\n[\n' +
+                '\t{\n\t\tAction = Add\n\t\tAddTo = "<buffs.rules>"\n\t\tName = AddedBuff\n\t\tToAdd\n\t\t{\n\t\t\tCombineMode = Add\n\t\t\tBaseValue = 0\n\t\t}\n\t}\n' +
+                '\t{\n\t\tAction = Overrides\n\t\tOverrideIn = "<buffs.rules>/CreatedBuff"\n\t\tCreateIfNotExisting = true\n\t\tOverrides\n\t\t{\n\t\t\tCombineMode = Add\n\t\t\tBaseValue = 0\n\t\t}\n\t}\n' +
+                // The big-content-mod shape: the mod's own copy of the whole collection is merged over
+                // the game's, so every top-level member it names is a member of the merged result.
+                '\t{\n\t\tAction = Overrides\n\t\tOverrideIn = "<buffs.rules>"\n\t\tOverrides = &<my_buffs.rules>\n\t}\n' +
+                // The same merge, but into a keyed MEMBER of a game file rather than a whole file.
+                '\t{\n\t\tAction = Overrides\n\t\tOverrideIn = "<cosmoteer.rules>/ShipAIs"\n\t\tOverrides\n\t\t{\n\t\t\tmerged_ai\n\t\t\t{\n\t\t\t\tUpdateInterval = 1\n\t\t\t}\n\t\t}\n\t}\n' +
+                ']\n'
+        );
+        writeFileSync(join(buffModDir, 'my_buffs.rules'), 'MergedBuff\n{\n\tCombineMode = Add\n\tBaseValue = 0\n}\n');
         // A mod that adds its own AI to that map from its manifest. The payload list is called
         // `ManyToAdd`, so only the action's target slot says these entries declare ship AIs.
         modDir = join(tmpRoot, 'ai_mod');
@@ -296,6 +320,67 @@ describe('validateCrossFileIdReferences', () => {
 
             it('still flags an AI nothing declares', async () => {
                 expect(await judgeAi('mod_ia')).toBe('unresolved');
+            });
+        });
+
+        // The same seam for the two manifest shapes that name a NEW member of a keyed collection: an
+        // `Add` with a `Name`, and an override that creates a member that does not exist yet (whose
+        // target therefore does not resolve at all). A workshop mod's buff declared this way drew 486
+        // "No BuffType named …" false positives before the action's target was read as a declaration.
+        describe('a manifest action that names a new map member declares it', () => {
+            const BUFF_CLASS = 'Cosmoteer.Ships.Buffs.BuffType';
+
+            // The game root's `Buffs = &<buffs.rules>` alias is what types the collection as a
+            // `map<reference BuffType, …>`, and only a built alias-root index knows it (production
+            // builds it during the workspace scan).
+            beforeAll(async () => {
+                aliasRootIndex.invalidate();
+                await aliasRootIndex.build(await parseFilePath(join(gameDir, 'cosmoteer.rules')), async (fileRef) =>
+                    fileRef.includes('buffs') ? await parseFilePath(join(gameDir, 'buffs.rules')) : undefined
+                );
+            });
+
+            const judgeBuff = async (value: string) => {
+                ActionRootingIndex.instance.reset();
+                await ActionRootingIndex.instance.ensureBuilt([gameDir, buffModDir], token);
+                return judgeIdReference(
+                    { node: parse(`BuffType = ${value}`), targetClass: BUFF_CLASS, value, fieldName: 'BuffType' },
+                    [pathToFileURL(gameDir).href, pathToFileURL(buffModDir).href],
+                    new Map(),
+                    token
+                );
+            };
+
+            it('resolves the buff the game collection declares', async () => {
+                expect(await judgeBuff('VanillaBuff')).toBe('resolved');
+            });
+
+            it('does not flag the buff an `Add` names into the collection', async () => {
+                expect(await judgeBuff('AddedBuff')).toBe('resolved');
+            });
+
+            it('does not flag the buff a `CreateIfNotExisting` override creates', async () => {
+                expect(await judgeBuff('CreatedBuff')).toBe('resolved');
+            });
+
+            it('does not flag a buff the mod merges in with a whole-file override', async () => {
+                expect(await judgeBuff('MergedBuff')).toBe('resolved');
+            });
+
+            it('does not flag an entry the mod merges into a keyed member of a game file', async () => {
+                ActionRootingIndex.instance.reset();
+                await ActionRootingIndex.instance.ensureBuilt([gameDir, buffModDir], token);
+                const verdict = await judgeIdReference(
+                    { node: parse('AI = "merged_ai"'), targetClass: 'Cosmoteer.Ships.AI.ShipAIRules', value: 'merged_ai', fieldName: 'AI' },
+                    [pathToFileURL(gameDir).href, pathToFileURL(buffModDir).href],
+                    new Map(),
+                    token
+                );
+                expect(verdict).toBe('resolved');
+            });
+
+            it('still flags a buff nothing declares', async () => {
+                expect(await judgeBuff('AddedBuf')).toBe('unresolved');
             });
         });
 

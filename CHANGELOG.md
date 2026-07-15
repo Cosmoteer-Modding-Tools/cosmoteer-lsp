@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.5.0 Beta
 
 ### Added
 
@@ -24,7 +24,6 @@ All notable changes to this project will be documented in this file.
 - Sound groups accept their custom-read keys: `Sound = "x.wav"`, `RandomSounds` and `Db` now complete and validate beside `Sounds`/`Volume`/`Speed`.
 - A part's and a bullet's `Components` map is typed now, so every component knows its registry from the slot alone. A partial override fragment whose only component carries no `Type=` still gets completion, hover and `Type=` validation.
 - Shader values written in group form (`Shader { File = "…" }`) resolve to the shader group class with `File`/`VertexEntryPoint`/`PixelEntryPoint` completion, like the texture group form.
-- Vanilla's overclock shot fragments now root: a component deriving `X : ~/OVERCLOCK/BEAM, BulletEmitter` records the macro-aliased file as its base (the class coming from the sibling base), so the fragment gets full intelligence.
 - A base that is both a typed slot and an inheritance base (vanilla's `FollowCommand`) now resolves to the slot's class when it fits best, instead of a shallow common ancestor of its derivers.
 - Hover and validation now follow same-file inheritance: a component deriving a sibling template (`BulletEmitter : ~/EMITTER` or `X : SiblingName`) knows its class everywhere, not only in completion.
 - Classes that embed a group member with an empty alias (network components' filter, widget sprites, name-generator entries, 21 engine classes in all) now inline that member's fields, so `Categories` on a network component or `File` on a widget icon completes and validates.
@@ -35,7 +34,6 @@ All notable changes to this project will be documented in this file.
 - Types nested under generic classes resolve concretely: a background or planet texture generator's gradient `Colors [ { Color … Position … } ]` and `Interpolate` complete and validate (with color swatches on the stops) instead of being opaque.
 - The game root `cosmoteer.rules` and the loading screen file root to their classes, so their top-level groups (`Game`, `Simulation`, `Roles`, the loading `Background`) get completion, hover and validation.
 - Wrapper classes that dispatch their value through an embedded polymorphic member resolve to whichever side fits the written fields: a stat widget's `Type = StatBar` group gets `StatBarRules`' fields, a designer brush keeps its wrapper's `NameKey`/`Icon`, and a name-generator entry dispatches its `Type = Markov`.
-- Completion inside a map entry group offers the entry names: `Old`/`New` in decal upgrades, `Key`/`Value` elsewhere.
 - Fields the game declares but provably never reads (`FireDamageFactor`, `PathfindRadius`, `SupplierSearchInterval` and 27 more) now get the dead-field hint with a remove quick fix. The set is extracted straight from the game's code by the schema generator, so it follows game updates instead of a hand-kept list.
 - A group whose unread fields outnumber its real ones now still gets the ignored-field hints when its slot and its `Type =` agree on the class: a beam media effect carrying legacy fields like `ExtraEndLength` and `ThicknessOverIntensity` reports every one of them instead of staying silent.
 - Macro-alias container files (`COMMON_EFFECTS = &<common_effects.rules>`, `PRIORITIES = &<priorities.rules>`) now root their members from the slots that read them: a `&/COMMON_EFFECTS/PowerOn` usage in a media-effects field types the container's `PowerOn` list, so hover, completion and validation work inside the container itself.
@@ -43,8 +41,7 @@ All notable changes to this project will be documented in this file.
 - Deep container paths type their leaf now: a `&/SW_PARTICLES/Shot/Laser/Hit/Med/Blue` usage in a media-effects slot types the nested `Blue` prefab where it lives, so its entries get completion, hover and validation. The folder-like groups along the path stay untyped, since the game gives them no class.
 - Overclock shot fragments root fully now: a bullet file whose macro anchors outnumber its real fields still roots (the flak field), a member-qualified macro base (`BEAM = &<overclock.rules>/Beam` inherited via `~/OVERCLOCK/BEAM`) roots the named group from its deriver, and a `~/NAME` base naming a top-level macro that points at a component resolves through it (the chaingun beam).
 - A component base file whose deriver's `Type` comes through the inheritance itself now roots by dispatching its own top-level `Type =` in the deriver's slot registry: parts deriving `BlueprintWalls : <blueprint_walls.rules>` root the walls file as its blueprint-sprite class.
-- Vanilla rooting coverage grows from 98.5% to 99.1%; every remaining unrooted file is intentional (localization string tables and one vanilla-disabled encounter file the game never loads).
-- Field documentation for the most-modded gameplay and GUI classes, written from the game's own code: parts, ships, crew, weapons, beams, bullets, resources, the data root, and the widget, game, build, resource, sim, crew, menu, missions and galaxy-map GUI rules. Coverage of the hover/completion field docs grows from 19% to 41%.
+- Field documentation for the most-modded gameplay and GUI classes, written from the game's own code: parts, ships, crew, weapons, beams, bullets, resources, the data root, and the widget, game, build, resource, sim, crew, menu, missions and galaxy-map GUI rules.
 - A reference to a group with a `BaseValue` member now shows that value as an inlay hint: `Arc = &~/Part/Components/ArcShield/Arc` renders `/BaseValue = 160d` after the reference. Toggleable via the new `inlayHints.showBaseValue` setting, on by default.
 - The `Modifiers` entries of a `BaseValue` group are now fully understood: `Type =` completes with the twelve modifier kinds the game knows, each entry's fields complete, hover and validate, and a typo gets the usual did-you-mean fix.
 - Per-direction crew speed groups (`CrewSpeedFactor { Left Right Up Down }`) now complete and validate, alongside the bare single-factor form.
@@ -106,10 +103,11 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- An id a mod creates from its manifest is no longer reported as unknown. Such an id is written in no `.rules` file of the mod, so every use of it was flagged. The action's target now says the name is a declaration, in every shape a manifest uses: an `Add` that names the new member, an override that creates one with `CreateIfNotExisting`, and a whole-file or single-member override that merges the mod's own copy of a collection (its buffs, its editor groups) over the game's. Those ids now also autocomplete.
+- A components fragment that another part pulls in (`Components : <wire_stuff.rules>/Part/Components`) now resolves its component ids against that part. The fragment brings the wiring and the part brings the components it wires, so judging the fragment on its own flagged every id the part supplies.
 - Built-in ship ids are now checked. A ship declares no `ID`: the game composes it from the ship's filename and the declaring file's `IDPrefix`, so nothing was ever harvested and every `ShipID` went unvalidated. A trade ship that names a ship the builtins file does not declare under that id is now flagged with a did-you-mean fix, which catches the crash a mod hits when its civilian builtins file carries an `IDPrefix` its `ShipID`s omit.
-- A `ShipID` that omits its builtins file's `IDPrefix` now says so ("declares it as 'Blackwolf Starstone': that file's IDPrefix is prepended to every ship it declares") and offers the prefixed id as a fix, instead of only reporting that no such ship exists — the prefix is far too many edits away for the did-you-mean suggestion to reach.
 - A list inheriting a cross-file list (`Ships : <faction_ships.rules>/Ships`) now roots that base file, so a mod that fans its ships out over per-category files gets completion, hover and validation in all of them instead of leaving them silently unvalidated.
-- Effect-bucket names are now checked. A bucket exists only by being named in `effect_buckets.rules` (`LowerBuckets [ BulletLower1, … ]`), a shape nothing harvested, so all 3,533 `Bucket`/`RenderBucket` references in the game went unvalidated. A bucket the file does not name is now flagged (a bare `RenderBucket = Upper` where only `Upper1`…`Upper5` exist).
+- Effect-bucket names are now checked. A bucket exists only by being named in `effect_buckets.rules` (`LowerBuckets [ BulletLower1, … ]`), a shape nothing harvested, so every `Bucket`/`RenderBucket` reference in the game went unvalidated. A bucket the file does not name is now flagged (a bare `RenderBucket = Upper` where only `Upper1`…`Upper5` exist).
 - Files the game root pulls in through a list of file aliases (`Ships [ &<ships/terran/terran.rules>/Terran ]`) now root. The forward alias walk only followed `Field = &<file>` assignments, so ships, sectors, background styles, doors and mission categories were unrooted and their ids unchecked — a mod referencing a ship or sector that does not exist got no warning.
 - Bullet target categories and blueprint network signals are now checked. The category a bullet writes (`TargetCategory = laser`) is what brings it into existence, so the lists that reference it (`OnlyBulletCategories`, `AccelerateTowardsBulletCategories`, `ValidSignals`) are now validated against the categories the project actually declares. This catches a bullet id passed where a category is expected, which silently does nothing in game.
 - Planet styles and part-network route lines are now checked: their ids are the keys of a collection inside a whole-file-aliased fragment (`Styles { alien = … }`), which the id harvest could not see.
