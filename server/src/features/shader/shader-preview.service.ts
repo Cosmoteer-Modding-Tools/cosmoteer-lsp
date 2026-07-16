@@ -168,7 +168,7 @@ export interface ShaderPreviewData {
     readonly particleLifetime: number | null;
     /** The particle renderer's `BaseSize` in world units, feeding the `_baseSize` builtin. */
     readonly baseSize: readonly number[] | null;
-    /** The material's written `Size` (world units), verbatim — it may contain math the webview evaluates. */
+    /** The material's written `Size` (world units), verbatim. It may contain math the webview evaluates. */
     readonly size: string | null;
 }
 
@@ -238,7 +238,7 @@ const blendOf = (label: string, spec: readonly [string, string, string, string, 
  * Walks up from a node to the material group to preview: the nearest enclosing group whose schema
  * class accepts shader constants, falling back to the nearest group that directly carries a `Shader`.
  * The fallback covers documents whose groups do not resolve to a material class (`planets.rules`,
- * `asteroids.rules`, unrooted mod fragments) — a group referencing a shader is a material by
+ * `asteroids.rules`, unrooted mod fragments). A group referencing a shader is a material by
  * construction, whatever the schema knows about it.
  */
 const enclosingMaterial = (node: AbstractNode | undefined): GroupNode | null => {

@@ -25,8 +25,8 @@ internal sealed partial class SchemaGen
                     members[(Named(da, "TypeName") as string) ?? d.Name] = d.FullName;
                 }
             }
-            // Some registries dispatch on the plain subclass name with no `[SerialDerivedType]` attribute —
-            // the engine discovers members by reflection and `Type=` is the class name (e.g. ship-generator
+            // Some registries dispatch on the plain subclass name with no `[SerialDerivedType]` attribute.
+            // The engine discovers members by reflection and `Type=` is the class name (e.g. ship-generator
             // stages: `Type = AsteroidStage`). Add every non-abstract participating subclass of this base that
             // wasn't already named via `[SerialDerivedType]`, keyed by its class name, so those `Type=` values
             // resolve to the concrete class and its fields complete/validate.

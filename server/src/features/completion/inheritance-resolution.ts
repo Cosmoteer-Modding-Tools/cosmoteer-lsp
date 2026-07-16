@@ -13,7 +13,7 @@ import { getParsedFileDocument } from '../../workspace/parsed-file-cache';
  *
  * Cosmoteer part files lean on inheritance: `MyTurret : ^/0/Turret { … }` or
  * `Cannon : &<…/base.rules>/Part { … }`. The deriving group often doesn't redeclare its `Type`, so
- * the plain (synchronous) {@link resolveGroupClass} — which keys off the group's own `Type`/slot,
+ * the plain (synchronous) {@link resolveGroupClass}, which keys off the group's own `Type`/slot,
  * can't classify it, and completion goes silent. This follows each `: base` reference (via the same
  * resolver go-to-definition uses, so cross-file bases resolve too) to the base group and classifies
  * that, recursively. Async because resolving a base may read another file.
@@ -70,7 +70,7 @@ export const resolveClassThroughInheritance = async (
 /**
  * The schema class a whole-file inheritance base represents: the fragment's rooted class when the
  * file roots (an aliased-in fragment), else the class its top-level `Type=` discriminator selects.
- * The discriminator is disambiguated by the DERIVING group's slot registry — the fragment file
+ * The discriminator is disambiguated by the deriving group's slot registry. The fragment file
  * itself is rootless, so its own context can't tell colliding discriminators apart, but the
  * deriver's slot (`MediaEffects [ : /BASE_SHAKE { … } ]`) can.
  *

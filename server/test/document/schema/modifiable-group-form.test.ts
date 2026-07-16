@@ -17,7 +17,7 @@ import { validateSchema } from '../../../src/features/diagnostics/validator.sche
 
 // A `Modifiable<T>` field (here TurretWeaponRules.TargetingRange, a ModifiableFloat) has two valid
 // written forms: a bare scalar (`TargetingRange = 5`) or a group carrying the unmodified value plus
-// inline buff/status/effect-scale modifiers. The scalar form stays a `number`; the group form is
+// inline buff/status/effect-scale modifiers. The scalar form stays a `number`. The group form is
 // resolved to the curated `ModifiableValue` class so completion/hover/validation work inside the `{ }`.
 const token = CancellationToken.None;
 const parse = (src: string) => parser(lexer(src), 'file:///t.rules').value;
@@ -28,7 +28,7 @@ const findGroup = (node: AbstractNode, id: string): GroupNode | undefined => {
     const kids =
         isGroupNode(node) || isListNode(node) || isDocumentNode(node)
             ? node.elements
-            : isAssignmentNode(node)
+            : isAssignmentNode(node) && node.right
               ? [node.right]
               : [];
     for (const k of kids) {

@@ -41,7 +41,7 @@ const findGroup = (node: AbstractNode, id: string): GroupNode | undefined => {
     const kids =
         isGroupNode(node) || isListNode(node) || isDocumentNode(node)
             ? node.elements
-            : isAssignmentNode(node)
+            : isAssignmentNode(node) && node.right
               ? [node.right]
               : [];
     for (const k of kids) {
@@ -95,7 +95,7 @@ describe('shader-constant completion + hover', () => {
 
     it.runIf(HAVE_DATA)('enriches the hover of a constant written in the group form (`_z { … }`)', async () => {
         clearShaderCache();
-        // The group form (`_x { … }`) is an equally valid way to set a constant; hovering its key
+        // The group form (`_x { … }`) is an equally valid way to set a constant. Hovering its key
         // resolves to the group node, not an assignment, which must still surface the shader info.
         const doc = parse(partSprite('\t\t\t\tShader = "particle_light_emissive.shader"\n\t\t\t\t_z\n\t\t\t\t{\n\t\t\t\t}'));
         const group = findGroup(doc, 'BlueprintArcSprite')!;

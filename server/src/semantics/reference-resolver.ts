@@ -10,8 +10,8 @@ import { getStartOfAstNode } from '../utils/ast.utils';
 import { isNumber } from '../utils/utils';
 
 /**
- * Supplies inheritance-list entries appended to a node beyond its own written bases — the bases a
- * mod's `AddBase` actions merge in — indexed once and queried synchronously here. Registered by the
+ * Supplies inheritance-list entries appended to a node beyond its own written bases (the bases a
+ * mod's `AddBase` actions merge in), indexed once and queried synchronously here. Registered by the
  * {@link import('../mod/add-base.index').AddBaseIndex} so `stepIntoNode` (the single per-segment
  * resolver shared by navigation, validation, hover and completion) resolves `^/N` into an added base
  * consistently. `extraIndex` is 0-based past the static list.
@@ -23,7 +23,7 @@ let inheritanceExtensionSource: InheritanceExtensionSource | undefined;
 /**
  * Registers the source of `AddBase`-appended inheritance entries. The resolver lives in the semantics
  * layer and must not import the index (which depends on navigation, which depends on the resolver), so
- * the index registers itself here at startup — the same inversion the schema layer uses for the
+ * the index registers itself here at startup, the same inversion the schema layer uses for the
  * reverse-include fallback.
  *
  * @param source the extension source, or undefined to clear it (tests).
@@ -45,7 +45,7 @@ let memberExtensionSource: MemberExtensionSource | undefined;
 
 /**
  * Registers the source of `Overrides`-injected members. Same registration inversion as
- * {@link registerInheritanceExtensionSource} — the resolver must not import the index.
+ * {@link registerInheritanceExtensionSource}: the resolver must not import the index.
  *
  * @param source the extension source, or undefined to clear it (tests).
  */
@@ -92,14 +92,14 @@ export const stepIntoNode = (
     } else if (segment === '..') {
         return node.parent;
     } else if (segment === '^') {
-        // `^` selects the current node's OWN inheritance anchor (its base list), mirroring the game's
+        // `^` selects the current node's own inheritance anchor (its base list), mirroring the game's
         // `OTNode.FindAtPath`, where `^` yields the node's `InheritanceList` (the following `/N` then
-        // indexes it, selecting the Nth base). For a group/list — whether reached mid-path (`../^/0/X`)
-        // or as a top-level root (`~/Part/^/0/X`) — that anchor is the node itself, so return it and let
+        // indexes it, selecting the Nth base). For a group/list, whether reached mid-path (`../^/0/X`)
+        // or as a top-level root (`~/Part/^/0/X`), that anchor is the node itself, so return it and let
         // the `/N` isInheritance step read its `inheritance`.
         if (isGroupNode(node) || isListNode(node)) return node;
-        // A value/void node — the start of an `X : ^/0/X` inheritance ref, two levels below its owning
-        // group — has no inheritance of its own, so climb to that group (the grandparent) whose base the
+        // A value/void node (the start of an `X : ^/0/X` inheritance ref, two levels below its owning
+        // group) has no inheritance of its own, so climb to that group (the grandparent) whose base the
         // `/N` then selects. (The inheriting member inherits from the same-named member of its
         // container's base, so `^/0` must resolve against the container, i.e. the grandparent.)
         if (node.parent?.parent) return node.parent.parent;
@@ -127,7 +127,7 @@ export const stepIntoNode = (
             const lower = index.lower.get(segment.toLowerCase());
             if (lower !== undefined) return lower;
             // The node defines no such member itself, so a member a mod's nested `Overrides` action
-            // merges in resolves here (undefined when nothing is injected — the prior behaviour).
+            // merges in resolves here (undefined when nothing is injected, the prior behaviour).
             return memberExtensionSource?.(node, segment) ?? null;
         }
     }

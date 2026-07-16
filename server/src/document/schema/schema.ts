@@ -10,8 +10,8 @@ import { applyFieldDocs } from './field-docs';
 import { deprecatedDiscriminator } from './deprecations';
 
 // Merge hand-authored corrections for custom-deserialized types schemagen can't reflect (e.g. the
-// dual-form `Texture` group), then attach community-maintained prose descriptions. Both additive —
-// see schema-overlay.ts and field-docs.ts.
+// dual-form `Texture` group), then attach community-maintained prose descriptions. Both additive
+// (see schema-overlay.ts and field-docs.ts).
 const schema: SchemaBundle = applyFieldDocs(applySchemaOverlay(bundle));
 
 /** discriminator value -> the registry/class candidates that declare it (15 values collide across registries). */
@@ -138,7 +138,7 @@ const fieldIndexOf = (fullName: string): Map<string, SchemaField> => {
 
 /**
  * A single field on a class, searching the inheritance chain. Matches the field's primary OT name
- * or any of its alternate aliases — the engine accepts a field written under any of its
+ * or any of its alternate aliases: the engine accepts a field written under any of its
  * `[Serialize(AlternateAliases=…)]` spellings (e.g. `LeftEdgeEffect` for `LeftAdd`), so all are
  * recognized for validation and completion. The match ignores case, like the game's node lookup.
  */
@@ -146,7 +146,7 @@ export const fieldOf = (fullName: string, fieldName: string): SchemaField | unde
     fieldIndexOf(fullName).get(fieldName.toLowerCase());
 
 /**
- * Whether a value type is a Cosmoteer localization key (C# `KeyString`) — a slash-path into a
+ * Whether a value type is a Cosmoteer localization key (C# `KeyString`), a slash-path into a
  * language strings file (`NameKey = "Parts/LaserBlasterSmall"`). Drives strings-key completion.
  */
 export const isLocalizationKeyType = (valueType: ValueType | undefined): boolean =>
@@ -507,7 +507,7 @@ export const fieldExampleMarkdown = (field: SchemaField): string | undefined => 
 };
 
 /**
- * Markdown documenting a single schema field — its value type, whether it's required, its default,
+ * Markdown documenting a single schema field: its value type, whether it's required, its default,
  * and (for enums / references) the legal values or target. Shared by field-name completion
  * documentation and the field hover so they read identically.
  */
@@ -538,15 +538,15 @@ export const fieldSignatureMarkdown = (field: SchemaField, owningType?: string):
     const body = example ? `${described}\n\n${example}` : described;
     // A footer link to the most relevant modding-wiki page for the field's owning class (a buff →
     // /Buffs, a part → /Data_fields, …), so a modder can read further from hover or completion. Only a
-    // SPECIALIZED page is linked — the generic /Modding landing page is not, since a link that always
+    // specialized page is linked. The generic /Modding landing page is not, since a link that always
     // points at the same top-level page on every field is noise rather than help.
     const wiki = wikiUrlForType(owningType);
     return wiki ? `${body}\n\n_[Cosmoteer modding wiki ↗](${wiki})_` : body;
 };
 
 const WIKI = 'https://cosmoteer.wiki.gg/wiki';
-/** The general modding-wiki landing page. Kept for reference, but deliberately NOT linked from hovers
- *  (see {@link wikiUrlForType}) — only class-specific pages are worth a footer link. */
+/** The general modding-wiki landing page. Kept for reference, but deliberately not linked from hovers
+ *  (see {@link wikiUrlForType}): only class-specific pages are worth a footer link. */
 export const MODDING_WIKI_URL = `${WIKI}/Modding`;
 
 /** The inheritance chain of FullNames for a class (itself first, then each `extends`). */
@@ -566,7 +566,7 @@ const typeChain = (fullName: string): string[] => {
 export const classAncestry = (fullName: string): string[] => typeChain(fullName);
 
 /**
- * The most-derived class that is an ancestor of (or equal to) every class in `classes` — their nearest
+ * The most-derived class that is an ancestor of (or equal to) every class in `classes`, their nearest
  * common base in the single-inheritance `extends` chain. Used to root a shared inheritance-base node
  * (`BaseCommand`, inherited by commands of several concrete classes) to the one class all its derivers
  * agree on, so the base's fields resolve without over-specializing to any single deriver.
@@ -585,9 +585,9 @@ export const commonAncestorClass = (classes: readonly string[]): string | undefi
 };
 
 /**
- * The most relevant SPECIALIZED modding-wiki page for a class, matched against its inheritance chain so
+ * The most relevant specialized modding-wiki page for a class, matched against its inheritance chain so
  * a derived part/component/buff still resolves to its family's page. Ordered most-specific first.
- * Returns undefined when no specific page applies — the caller then links nothing rather than the
+ * Returns undefined when no specific page applies: the caller then links nothing rather than the
  * generic /Modding landing page, so a wiki link only appears where it points somewhere useful. Only
  * pages verified to exist on cosmoteer.wiki.gg are linked.
  */
@@ -641,7 +641,7 @@ export const valueTypeLabel = (vt: ValueType): string => {
         }
         case 'opaque':
             // A custom-deserialized engine type (e.g. a particle channel `ParticleDataID`). It has no
-            // modelled fields, but its C# type name is meaningful to show — far more useful than the
+            // modelled fields, but its C# type name is meaningful to show, far more useful than the
             // bare word `opaque`. A generic type parameter (`reason === 'typeParam'`) has no real name.
             return vt.reason === 'typeParam' ? 'any' : vt.type;
         default:

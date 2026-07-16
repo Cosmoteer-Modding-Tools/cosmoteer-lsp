@@ -13,7 +13,7 @@ const rootGroupClass = (src: string, path: string): string | undefined => {
 
 describe('ship folder group rooting', () => {
     // A ship file is a single named group whose name is the ship's own (`Asteroid`, `Terran`, …), so no
-    // fixed-identifier root rule can anchor it — the folder does. Rooted as ShipRules, its fields resolve
+    // fixed-identifier root rule can anchor it. The folder does. Rooted as ShipRules, its fields resolve
     // for completion and validation, and the `&<include>`s inside it (ExternalWalls, particle defs) root
     // in turn.
     it('roots a named ship group under ships/ as ShipRules', () => {

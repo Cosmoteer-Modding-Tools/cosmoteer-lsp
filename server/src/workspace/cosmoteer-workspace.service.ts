@@ -69,7 +69,7 @@ export class CosmoteerWorkspaceService {
         title: string,
         work: (progress: WorkDoneProgressReporter) => Promise<T>
     ): Promise<T> {
-        // No connection, or a client/mock without work-done progress support — run against a no-op
+        // No connection, or a client/mock without work-done progress support. Run against a no-op
         // reporter so the build still happens, just without a visible indicator.
         if (typeof this._connection?.window?.createWorkDoneProgress !== 'function') return work(NOOP_PROGRESS);
         const progress = await this._connection.window.createWorkDoneProgress();

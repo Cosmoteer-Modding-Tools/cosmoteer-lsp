@@ -168,9 +168,9 @@ const checkParantheses = (node: ValueNode) => {
 
 const checkAssets = async (node: ValueNode, cancellationToken: CancellationToken) => {
     if (node.valueType.type === 'Shader' || node.valueType.type === 'Sound' || node.valueType.type === 'Sprite') {
-        // Language-strings files (`en.rules`, …) hold localization TEXT: a value like
-        // `"PNG image files (*.png)"` or a description mentioning `.ship.png` merely CONTAINS an
-        // asset-like extension, it is not an asset path. The game never resolves these — skip the
+        // Language-strings files (`en.rules`, …) hold localization text: a value like
+        // `"PNG image files (*.png)"` or a description mentioning `.ship.png` merely contains an
+        // asset-like extension, it is not an asset path. The game never resolves these. Skip the
         // asset check so strings files don't show false "Asset not found" warnings.
         if (await isStringsFile(getStartOfAstNode(node).uri, cancellationToken)) return undefined;
         // A field the game provably ignores (not in the resolved schema class, never referenced in
@@ -193,13 +193,13 @@ const checkAssets = async (node: ValueNode, cancellationToken: CancellationToken
         }
         const uri = getStartOfAstNode(node).uri;
         // Resolution tries the file's own directory first, then any inherited asset base
-        // directory — e.g. `CrewEnterEffects : /BASE_SOUNDS/AudioInterior` makes the
+        // directory, e.g. `CrewEnterEffects : /BASE_SOUNDS/AudioInterior` makes the
         // RandomSounds paths relative to the inherited base sound file's directory
         // (mirrored into the mod tree).
         if (await resolveAssetPath(node, uri, cancellationToken).catch(() => true)) {
             return undefined;
         }
-        // Not found — offer a "did you mean" suggestion (closest existing file of this kind in
+        // Not found. Offer a "did you mean" suggestion (closest existing file of this kind in
         // the same directories) as both extra info and a quick fix.
         const suggestion = await suggestAssetFilename(node, uri, cancellationToken).catch(() => null);
         const base = l10n.t(
@@ -209,7 +209,7 @@ const checkAssets = async (node: ValueNode, cancellationToken: CancellationToken
         return {
             message: l10n.t('Asset not found'),
             node: node,
-            // The game tolerates a missing asset at load time (placeholder/built-in — vanilla itself
+            // The game tolerates a missing asset at load time (placeholder/built-in: vanilla itself
             // references engine-provided files like `SmoothFalloffRamp.png` that aren't on disk), so
             // surface this as a warning + quick-fix rather than a hard error.
             severity: 'warning',
@@ -238,7 +238,7 @@ const checkReference = async (
         } else if (
             // Action targets resolve against the game root (handled by the mod-action
             // validator), so the generic check skips them. This holds wherever an action
-            // lives — a mod.rules manifest or an included fragment file (launcher.rules) whose
+            // lives: a mod.rules manifest or an included fragment file (launcher.rules) whose
             // `Actions` list a manifest concatenates. Source refs are validated here as usual.
             !isActionTargetValueNode(node) &&
             !ignorePath(node.valueType.value) &&
@@ -256,7 +256,7 @@ const checkReference = async (
             const resolved = await rulesNavigationStrategy
                 .navigate(node.valueType.value, startNode, uri, cancellationToken)
                 .catch(() => undefined);
-            // Not found in vanilla data — fall back to the mod's own additions (the effective
+            // Not found in vanilla data. Fall back to the mod's own additions (the effective
             // game tree), so mod-added globals like `&/SW_SOUNDS/…` resolve anywhere inside the
             // mod. Uses the mod-context-only resolver since vanilla already failed above.
             const modResolved =
@@ -268,7 +268,7 @@ const checkReference = async (
             if (
                 resolved === null &&
                 (modResolved === null || modResolved === undefined) &&
-                // `X : ^/0/X [extra]` may extend a base that doesn't define `X` — Cosmoteer
+                // `X : ^/0/X [extra]` may extend a base that doesn't define `X`. Cosmoteer
                 // tolerates inheriting from a missing base member. A `…/^/N/Member` reference into a
                 // base a mod's `AddBase` appends resolves through the shared resolver (the AddBase
                 // index augments the caret base's inheritance list), so a valid `^/1` member is
@@ -386,7 +386,7 @@ const inheritanceExtendsMissingMember = async (
     }
 
     // Other inheritance forms: skip if the base prefix (everything before the last segment)
-    // resolves to a real container — the member is just absent on an existing base.
+    // resolves to a real container. The member is just absent on an existing base.
     return basePrefixResolvesToContainer(value, startNode, uri, cancellationToken);
 };
 

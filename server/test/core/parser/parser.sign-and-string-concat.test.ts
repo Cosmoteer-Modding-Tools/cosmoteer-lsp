@@ -11,14 +11,27 @@ import {
     ValueNode,
 } from '../../../src/core/ast/ast';
 
-/**
- * Regressions found by a deep parse-audit of all 954 vanilla files + 7822 workshop-mod files.
- * Each case is a SILENT desync: a value the parser did not fold leaked out as a sibling and
+/*
+ * Each case here is a silent desync: a value the parser did not fold leaked out as a sibling and
  * swallowed the following field's identifier, so a valid file produced false diagnostics and
- * broke completion/goto inside the corrupted region — with zero parser errors.
+ * broke completion/goto inside the corrupted region, all with zero parser errors.
+ */
+
+/**
+ * Parse a source string into its document node.
+ *
+ * @param src the .rules source to parse.
+ * @returns the parsed document node.
  */
 const parse = (src: string): AbstractNodeDocument => parser(lexer(src), 'file:///x.rules').value;
 
+/**
+ * The name of each member of a group, list or document, in source order.
+ *
+ * @param node the container whose members are wanted.
+ * @returns each member's identifier name, an anonymous marker for an unnamed group or list, or the
+ * bracketed node type for anything else.
+ */
 const memberNames = (node: { elements: AbstractNode[] }): string[] =>
     node.elements.map((el) => {
         if (isGroupNode(el) || isListNode(el)) return el.identifier?.name ?? '<anon>';
@@ -26,21 +39,36 @@ const memberNames = (node: { elements: AbstractNode[] }): string[] =>
         return `<${el.type}>`;
     });
 
+/**
+ * A named top-level group of a document.
+ *
+ * @param doc the parsed document to search.
+ * @param name the group's identifier name.
+ * @returns the group node.
+ */
 const groupNamed = (doc: AbstractNodeDocument, name: string) =>
     doc.elements.find((e) => isGroupNode(e) && e.identifier?.name === name) as AbstractNode & {
         elements: AbstractNode[];
     };
 
+/**
+ * The value of a group's field.
+ *
+ * @param group the group holding the field.
+ * @param key the field name.
+ * @returns the field's value node, or undefined when the group has no such field or it parsed as a
+ * bare key with no value.
+ */
 const rhsOf = (group: { elements: AbstractNode[] }, key: string): AbstractNode | undefined => {
     const a = group.elements.find((e) => isAssignmentNode(e) && e.left.name === key);
-    return a && isAssignmentNode(a) ? a.right : undefined;
+    return a && isAssignmentNode(a) ? (a.right ?? undefined) : undefined;
 };
 
 describe('parser: unary sign before a unit-suffixed number or word constant', () => {
-    it('folds `-0.6%` and does NOT steal the following `Modifiers` list (vanilla heat.rules)', () => {
+    it('folds `-0.6%` and does not steal the following `Modifiers` list (vanilla heat.rules)', () => {
         const doc = parse('R\n{\n\tBaseValue = -0.6%\n\tModifiers\n\t[\n\t\t{ Type = X }\n\t]\n}\n');
         const r = groupNamed(doc, 'R');
-        // The `Modifiers` list must keep its name — before the fix `-0.6%` leaked and stole it.
+        // The `Modifiers` list must keep its name. Before the fix `-0.6%` leaked and stole it.
         expect(memberNames(r)).toEqual(['BaseValue', 'Modifiers']);
         const bv = rhsOf(r, 'BaseValue') as ValueNode;
         expect(isValueNode(bv) && String(bv.valueType.value)).toBe('-0.6%');
@@ -63,8 +91,8 @@ describe('parser: unary sign before a unit-suffixed number or word constant', ()
         expect(memberNames(groupNamed(doc, 'G'))).toEqual(['A', 'B']);
     });
 
-    it('does NOT fold a bare `-`/`+` value across a newline into the next field (vanilla ru.rules key names)', () => {
-        // `MinusUnderscore = -` is a whole value; the next line `N = ""` must survive as its own field.
+    it('does not fold a bare `-`/`+` value across a newline into the next field (vanilla ru.rules key names)', () => {
+        // `MinusUnderscore = -` is a whole value. The next line `N = ""` must survive as its own field.
         const doc = parse('Keys\n{\n\tMinusUnderscore = -\n\tN = ""\n\tPlusEquals = +\n\tO = ""\n}\n');
         expect(memberNames(groupNamed(doc, 'Keys'))).toEqual(['MinusUnderscore', 'N', 'PlusEquals', 'O']);
     });
@@ -86,7 +114,7 @@ describe('parser: adjacent string-literal concatenation (ObjectText C-style)', (
         expect(String((rhsOf(g, 'Text') as ValueNode).valueType.value)).toBe('ab');
     });
 
-    it('does NOT join across an unsuppressed newline (a real value terminator)', () => {
+    it('does not join across an unsuppressed newline (a real value terminator)', () => {
         const doc = parse('G\n{\n\tA = "x"\n\tB = "y"\n}\n');
         const g = groupNamed(doc, 'G');
         expect(memberNames(g)).toEqual(['A', 'B']);
@@ -96,7 +124,7 @@ describe('parser: adjacent string-literal concatenation (ObjectText C-style)', (
 
 describe('parser: `: <ref>; { body }` inheritance-override list element', () => {
     // Per the game reader (Halfling.ObjectText): `;` terminates an inheritance reference, so a list
-    // element `: ~/Base/N; { override }` is a SINGLE anonymous group that inherits from the ref and
+    // element `: ~/Base/N; { override }` is a single anonymous group that inherits from the ref and
     // whose `{}` overrides fields. Our parser only consumed a `,` between refs, so the `;` + `{ … }`
     // leaked and desynced the list's bracket matching (real workshop mod pipebase.rules).
     const src =
@@ -130,7 +158,7 @@ describe('parser: `: <ref>; { body }` inheritance-override list element', () => 
 describe('parser: `,`-field-separated member that heads a group/list', () => {
     // A field terminated by a `,` separator, then a sibling member that heads a list/group
     // (`BuffAmount = { … }, Criterias [ … ]`, real mod gaugeincreaser.rules). The identifier after
-    // the `,` must stay an Identifier heading its list — before the fix the `tokens[current-2] === ,`
+    // the `,` must stay an Identifier heading its list. Before the fix the `tokens[current-2] === ,`
     // guard reclassified it as a Value and orphaned the `[`, making the list anonymous.
     it('keeps the identifier after a comma when it is followed by `[`', () => {
         const doc = parse('Outer\n{\n\tBuffAmount = { BaseValue = 1 },\n\tCriterias\n\t[\n\t\t{ Cat = A }\n\t]\n}\n');
@@ -148,8 +176,8 @@ describe('parser: `,`-field-separated member that heads a group/list', () => {
 
 describe('parser: implicit multiplication `N(expr)` (mXparser / flat-value)', () => {
     // A value immediately followed by `(` on the same line is implied multiplication (`3(&~/Range)` =
-    // `3 * (&~/Range)`). The game reads the field value flat and mXparser evaluates it; our parser must
-    // fold it into one MathExpression instead of leaking the `( … )` as a sibling value.
+    // `3 * (&~/Range)`). The game reads the field value flat and mXparser evaluates it, so our parser
+    // must fold it into one MathExpression instead of leaking the `( … )` as a sibling value.
     it('folds `3(&~/Range)` and keeps following siblings', () => {
         const doc = parse('Comp\n{\n\tDistance = 3(&~/Range)\n\tHasTarget = false\n}\n');
         const comp = groupNamed(doc, 'Comp');
@@ -159,14 +187,15 @@ describe('parser: implicit multiplication `N(expr)` (mXparser / flat-value)', ()
 
     it('does not implicit-multiply across a newline (a value on its own line stays alone)', () => {
         const doc = parse('Comp\n{\n\tA = 3\n\t(&x)\n\tB = 1\n}\n');
-        // `3` and `(&x)` are on different lines — no implicit multiplication; the `A` value is just 3.
+        // `3` and `(&x)` are on different lines, so there is no implicit multiplication. The `A`
+        // value is just 3.
         expect(rhsOf(groupNamed(doc, 'Comp'), 'A')?.type).toBe('Value');
     });
 });
 
 describe('parser: `\\`-continuation across comments and blank lines (game IsUnsuppressedNewLine)', () => {
     // The game evaluates the whole whitespace/comment run between two tokens: a `\` before the run's
-    // first newline suppresses termination for the ENTIRE run — including intervening `//` comment
+    // first newline suppresses termination for the entire run, including intervening `//` comment
     // lines and blank lines. So a continued string keeps concatenating across them.
     it('concatenates a continued string across an intervening `//` comment line', () => {
         const src = 'Doc\n{\n\tText = "first "\\\n//   a comment\n\t       "second"\n\tEntries\n\t[\n\t\t{ K = 1 }\n\t]\n}\n';
@@ -183,8 +212,8 @@ describe('parser: `\\`-continuation across comments and blank lines (game IsUnsu
         expect(String((rhsOf(g, 'Blank') as ValueNode).valueType.value)).toBe('aabb');
     });
 
-    it('a `\\` AFTER the first newline does NOT retroactively suppress it', () => {
-        // `A = "x"` ends at its newline (no leading `\`); the next line is a separate field.
+    it('a `\\` after the first newline does not retroactively suppress it', () => {
+        // `A = "x"` ends at its newline (no leading `\`). The next line is a separate field.
         const doc = parse('G\n{\n\tA = "x"\n\tB = "y"\n}\n');
         expect(memberNames(groupNamed(doc, 'G'))).toEqual(['A', 'B']);
     });
@@ -195,6 +224,13 @@ describe('parser: a lone reference sigil is a literal value, not a reference', (
     // resolve, so typing it as a Reference produced a bogus "Reference should start with an ampersand"
     // error. It must be a plain String value. (`/`, `^`, `&` lex as their own tokens handled by other
     // branches and never triggered the FP.)
+    /**
+     * The value type a field parses to, once wrapped in a group.
+     *
+     * @param src the field source to place inside the group.
+     * @param key the field name to read back.
+     * @returns the field value's type, or undefined when the field has no value node.
+     */
     const rhsValueType = (src: string, key: string) => {
         const g = parse(`G\n{\n\t${src}\n}\n`);
         const r = rhsOf(groupNamed(g, 'G'), key) as ValueNode | undefined;

@@ -1,5 +1,5 @@
 /**
- * Cross-file list-element entities — the second kind of `ID<X>` target, alongside whole-file roots.
+ * Cross-file list-element entities: the second kind of `ID<X>` target, alongside whole-file roots.
  *
  * Many `ID<X>` references point not at a whole-file root (a resource/nebula file with a top-level
  * `ID`) but at an element of an aggregate list reachable from the game root `Cosmoteer.Data.Rules`:
@@ -16,8 +16,8 @@
  *  - {@link entityDeclarationsOf}: walk a document and yield every entity declaration it contains.
  *
  * Identity key per class: the `ID` field if present, else the unique self-referential `…ID` field
- * (the GUI entities carry `ColorID`/`ToggleID`/… as their own SerialID). Classes with neither — e.g.
- * group-keyed kinds (damage types, part categories) or `Key`/`Value` lists (render layers) — are not
+ * (the GUI entities carry `ColorID`/`ToggleID`/… as their own SerialID). Classes with neither, e.g.
+ * group-keyed kinds (damage types, part categories) or `Key`/`Value` lists (render layers), are not
  * covered here (a later phase).
  */
 import {
@@ -140,7 +140,7 @@ const idValueNodeOf = (element: AbstractNode, identityKey: string): ValueNode | 
 export interface EntityDeclaration {
     readonly elementClass: string;
     readonly id: string;
-    /** The node to jump to for go-to-definition — an id value node, or a group-keyed member. */
+    /** The node to jump to for go-to-definition: an id value node, or a group-keyed member. */
     readonly node: AbstractNode;
     /** True for an `OtherIDs` legacy alias, which resolves references but is not the primary id. */
     readonly alias?: boolean;
@@ -165,7 +165,7 @@ const SHIP_FILE_EXTENSION = '.ship.png';
 
 /**
  * The characters `TextUtils.SanitizeShipName` keeps (decompile verified): letters, digits, spaces,
- * punctuation and symbols. Everything else — control and format characters, combining marks — is
+ * punctuation and symbols. Everything else (control and format characters, combining marks) is
  * dropped from the name the game derives from a ship filename.
  */
 const SHIP_NAME_CHARACTER =
@@ -193,7 +193,7 @@ const shipNameFromFile = (file: string): string | undefined => {
  * all. Harvesting only the written `ID`s would leave the class with no declarations, which reads as
  * "no coverage" and silently switches off every `ID<BuiltinShipRules>` check.
  *
- * The prefix is the element's own `IDPrefix`, else the one the file's root declares — the elements of
+ * The prefix is the element's own `IDPrefix`, else the one the file's root declares. The elements of
  * these files inherit the root (`:~{ File = … }`), which is how a single `IDPrefix` line prefixes
  * every ship in the file.
  *
@@ -331,10 +331,10 @@ function* aliasRootedIdOf(container: AbstractNode, cls: string): Generator<Entit
 
 /**
  * Every cross-file entity declared in `document`:
- *  - list-element entities (`Factions [ { ID } ]`, `PartToggles [ { ToggleID } ]`, …) — by field name;
+ *  - list-element entities (`Factions [ { ID } ]`, `PartToggles [ { ToggleID } ]`, …): by field name;
  *  - group-name-keyed entities of a `map<reference X, V>` collection the document is (a whole-file map
  *    alias like `Buffs = &<buffs.rules>`) or holds as a top-level member (a member alias like
- *    `PartFeatures = &<part_features.rules>/PartFeatures`) — discovered via {@link aliasRootIndex}, so
+ *    `PartFeatures = &<part_features.rules>/PartFeatures`), discovered via {@link aliasRootIndex}, so
  *    only the authoritative collections aliased from the game root count (never a per-object
  *    `map<reference X, scalar>` consumer field like `DamageResistances`).
  */

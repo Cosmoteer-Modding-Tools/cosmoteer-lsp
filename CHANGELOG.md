@@ -6,7 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Field-name completion now works while typing. A partially typed name (`Ig` inside a sound effect) used to return nothing on every keystroke, so the suggestion popup only ever appeared on Ctrl+Space at an empty line; the typed prefix now gets the same field suggestions and the fully typed name no longer vanishes from the popup at its last character.
+- Fields the game ignores now fade out instead of carrying an underline. The whole assignment greys, value included, matching what the remove quick fix deletes.
+- A field written at the game's own default now fades the same way, with a remove quick fix. Only fields inside groups that do not inherit are faded, since an explicitly written default can deliberately override a base's value. Turn it off with `cosmoteerLSPRules.diagnostics.validateDefaultValues`.
+- Field-name completion now works while typing. A partially typed name (`Ig` inside a sound effect) used to return nothing on every keystroke, so the suggestion popup only ever appeared on Ctrl+Space at an empty line. The typed prefix now gets the same field suggestions and the fully typed name no longer vanishes from the popup at its last character.
 - Groups inheriting a whole file (`: /BASE_SHAKE`, whose macro aliases a rootless fragment carrying `Type = ScreenShake` at the file's top level) now know their class, so completion and hover work inside them like in any typed group.
 - Field hover now follows cross-file inheritance: hovering `Volume` or `RampUpTime` inside a `: /BASE_SOUNDS/AudioExterior { … }` group shows the field's schema signature, where before only same-file bases resolved.
 - Files that enter the game only through mod.rules actions now get full intelligence from the action's target: an `AddMany` or `Add` fragment types as the target list's element, an `AddBase` fragment as the target's own class, a whole-file `Overrides` fragment as the target file's class, and inline action values (`ToAdd { … }`) complete, hover and validate inside the manifest itself. Action entries also learned the game's optional `Index` field, and `<./…>` targets outside `Data` now resolve against the install root like the game does.
@@ -98,17 +100,19 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Reopening a project is about 30% faster to become fully usable. The mod-action indexes used to read and parse the whole mod folder once each. They now share one pass over it.
 - Whole-workspace validation is several times faster on mods that reference ids from other installed mods, and the repeated "Indexing mentions" popups during validation are gone.
 - Id existence checks for dotted ids (`cosmoteer.rock_1x1`, faction-prefixed part ids) no longer read every file in the project.
 
 ### Fixed
 
+- A `.txt` file no rules file references is no longer parsed as rules, so the game's own `credits.txt`, the roof-decal whitelists, readmes and stale backups stop filling the Problems panel with parse errors. Mods do keep real rules in `.txt` files, so any `.txt` something pulls in through an include, an inheritance base or a mod action still validates as before.
 - An id a mod creates from its manifest is no longer reported as unknown. Such an id is written in no `.rules` file of the mod, so every use of it was flagged. The action's target now says the name is a declaration, in every shape a manifest uses: an `Add` that names the new member, an override that creates one with `CreateIfNotExisting`, and a whole-file or single-member override that merges the mod's own copy of a collection (its buffs, its editor groups) over the game's. Those ids now also autocomplete.
 - A components fragment that another part pulls in (`Components : <wire_stuff.rules>/Part/Components`) now resolves its component ids against that part. The fragment brings the wiring and the part brings the components it wires, so judging the fragment on its own flagged every id the part supplies.
 - Built-in ship ids are now checked. A ship declares no `ID`: the game composes it from the ship's filename and the declaring file's `IDPrefix`, so nothing was ever harvested and every `ShipID` went unvalidated. A trade ship that names a ship the builtins file does not declare under that id is now flagged with a did-you-mean fix, which catches the crash a mod hits when its civilian builtins file carries an `IDPrefix` its `ShipID`s omit.
 - A list inheriting a cross-file list (`Ships : <faction_ships.rules>/Ships`) now roots that base file, so a mod that fans its ships out over per-category files gets completion, hover and validation in all of them instead of leaving them silently unvalidated.
 - Effect-bucket names are now checked. A bucket exists only by being named in `effect_buckets.rules` (`LowerBuckets [ BulletLower1, … ]`), a shape nothing harvested, so every `Bucket`/`RenderBucket` reference in the game went unvalidated. A bucket the file does not name is now flagged (a bare `RenderBucket = Upper` where only `Upper1`…`Upper5` exist).
-- Files the game root pulls in through a list of file aliases (`Ships [ &<ships/terran/terran.rules>/Terran ]`) now root. The forward alias walk only followed `Field = &<file>` assignments, so ships, sectors, background styles, doors and mission categories were unrooted and their ids unchecked — a mod referencing a ship or sector that does not exist got no warning.
+- Files the game root pulls in through a list of file aliases (`Ships [ &<ships/terran/terran.rules>/Terran ]`) now root. The forward alias walk only followed `Field = &<file>` assignments, so ships, sectors, background styles, doors and mission categories were unrooted and their ids unchecked. A mod referencing a ship or sector that does not exist got no warning.
 - Bullet target categories and blueprint network signals are now checked. The category a bullet writes (`TargetCategory = laser`) is what brings it into existence, so the lists that reference it (`OnlyBulletCategories`, `AccelerateTowardsBulletCategories`, `ValidSignals`) are now validated against the categories the project actually declares. This catches a bullet id passed where a category is expected, which silently does nothing in game.
 - Planet styles and part-network route lines are now checked: their ids are the keys of a collection inside a whole-file-aliased fragment (`Styles { alien = … }`), which the id harvest could not see.
 - Bullet component references are now checked against the bullet that owns them, the same part-local check a part's components get. They are not global ids: a bullet's components are named per bullet, so one bullet's `DamagePool` must not vouch for a reference in another bullet that has none. A reference to a component the bullet does not declare is flagged with a did-you-mean fix.
@@ -249,7 +253,7 @@ All notable changes to this project will be documented in this file.
 -   The shader preview failing on functions with HLSL default parameter values
 -   A stray `=` reported as a possible parser bug instead of `Unexpected "="`, matching the game's parser
 -   A decimal operand glued to a slash (`1.5/2`) lexed as one path-like token, breaking the surrounding math expression
--   A false `Not expected comma` when several fields share one line (`A = 1, C = 2`); `,` terminates a node exactly like `;`
+-   A false `Not expected comma` when several fields share one line (`A = 1, C = 2`). `,` terminates a node exactly like `;`
 -   A `-` or `/` before a parenthesized group (`7- (12/64)`) glued into a bogus function name
 -   A large class of false `Reference name is not known` warnings: file-URI decoding for any drive letter, group-merge globals resolving only their first file, references through a mod's `Overrides` of vanilla files, backslash-separated reference paths, and a startup race that cached an empty game tree
 -   The cursor on an element inside a list or group value resolving to the container instead of the element, which broke hover, completion and navigation on list elements

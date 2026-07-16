@@ -24,7 +24,7 @@ beforeAll(async () => {
     invalidateModContext();
 });
 
-describe('mod action diagnostics — explanatory detail lines', () => {
+describe('mod action diagnostics: explanatory detail lines', () => {
     it('lists every valid verb when the verb is unknown', async () => {
         const errors = await validate(action('Frobnicate', '\t\tFoo = 1'));
         expect(detailFor(errors, 'Unknown mod action verb')).toBe(

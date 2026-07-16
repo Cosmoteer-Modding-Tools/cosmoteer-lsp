@@ -5,7 +5,7 @@ import { isModRules } from '../document/document-kind';
 import { registerInheritanceExtensionSource } from '../semantics/reference-resolver';
 import { WatchedDocumentIndex } from '../features/navigation/watched-document-index';
 import { normalizeUri } from '../features/navigation/reference-location';
-import { uriToFsPath } from '../features/navigation/workspace-files';
+import { modFolderPaths, uriToFsPath } from '../features/navigation/workspace-files';
 import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
 import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { isActionFragmentDocument, parseModActions } from './action-parser';
@@ -15,7 +15,7 @@ import { resolveActionTarget } from './action-target-resolver';
 interface AppendedBase {
     /** The normalized uri of the manifest/fragment whose action appended this base (for removal). */
     readonly source: string;
-    /** The `BaseToAdd` reference value node; navigation dereferences it against its own file. */
+    /** The `BaseToAdd` reference value node. Navigation dereferences it against its own file. */
     readonly base: ValueNode;
 }
 
@@ -58,7 +58,12 @@ export class AddBaseIndex extends WatchedDocumentIndex {
         return AddBaseIndex._instance;
     }
 
-    /** A stable identity key for a game-tree node, matching another resolution of the same cached node. */
+    /**
+     * A stable identity key for a game-tree node, matching another resolution of the same cached node.
+     *
+     * @param node the node to key.
+     * @returns the node's identity key.
+     */
     private static nodeKey(node: AbstractNode): string {
         const document = getStartOfAstNode(node);
         return `${normalizeUri(document.uri)}|${node.position?.start ?? -1},${node.position?.end ?? -1}`;
@@ -96,24 +101,34 @@ export class AddBaseIndex extends WatchedDocumentIndex {
      * @returns once the index is built and fresh.
      */
     public async ensureBuilt(folderPaths: string[], cancellationToken: CancellationToken): Promise<void> {
-        const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
-        const dataKey = dataRoot ? normalizeUri(dataRoot) : undefined;
-        const modFolders = folderPaths.filter((folder) => normalizeUri(uriToFsPath(folder)) !== dataKey);
-        await this.ensureFresh((progress) => this.buildFromProject(modFolders, progress), cancellationToken, 'Indexing bases');
+        await this.ensureFresh(
+            (progress) => this.buildFromProject(modFolderPaths(folderPaths), progress),
+            cancellationToken,
+            'Indexing bases'
+        );
     }
 
+    /**
+     * Re-indexes one document, replacing whatever it contributed before with the bases its `AddBase`
+     * actions append. Only manifests and included action fragments carry `AddBase` actions, so any
+     * other document contributes nothing.
+     *
+     * @param document the parsed document to index.
+     * @param cancellationToken cancels the action walk.
+     * @returns true when this source's contribution differs from the one it replaced.
+     */
     protected async indexDocument(document: AbstractNodeDocument, cancellationToken: CancellationToken): Promise<boolean> {
         const source = normalizeUri(document.uri);
         const previous = this.bySource.get(source) ?? [];
         this.removeSource(source);
-        // Only manifests and included action fragments carry `AddBase` actions.
         if (!isModRules(document.uri) && !isActionFragmentDocument(document)) return previous.length > 0;
 
         const contributedKeys: string[] = [];
         for (const action of parseModActions(document)) {
             if (cancellationToken.isCancellationRequested) break;
             if (action.type !== 'AddBase') continue;
-            // An `Index`-inserting AddBase can re-slot the list; skip it rather than mis-model a slot.
+            // An `Index`-inserting AddBase can re-slot the list, so it is skipped rather than
+            // mis-modelled as an append.
             if (action.presentFields.has('index')) continue;
             const target = action.targets[0];
             const base = action.sources[0];
@@ -126,7 +141,6 @@ export class AddBaseIndex extends WatchedDocumentIndex {
             contributedKeys.push(key);
         }
         if (contributedKeys.length) this.bySource.set(source, contributedKeys);
-        // Changed unless this source contributed nothing before and nothing now.
         return contributedKeys.length > 0 || previous.length > 0;
     }
 

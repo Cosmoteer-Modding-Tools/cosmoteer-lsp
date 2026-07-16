@@ -44,7 +44,7 @@ describe('circular inheritance across files', () => {
         expect(errors.length).toBeGreaterThanOrEqual(1);
         expect(errors[0].message).toBe('Circular inheritance');
         // The back-edge closing this loop is b.rules' reference, but the error becomes a diagnostic
-        // of a.rules, whose text maps the offsets — so it must be anchored to a node in a.rules.
+        // of a.rules, whose text maps the offsets, so it must be anchored to a node in a.rules.
         const uri = pathToFileURL(join(dir, 'a.rules')).href;
         expect(getStartOfAstNode(errors[0].node).uri).toBe(uri);
     }, 20_000);

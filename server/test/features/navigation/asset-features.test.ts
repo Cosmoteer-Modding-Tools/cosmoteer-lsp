@@ -8,7 +8,7 @@ import { AssetNavigationStrategy } from '../../../src/features/navigation/asset.
 import { DefinitionService } from '../../../src/features/navigation/definition.service';
 import { HoverService } from '../../../src/features/hover/hover.service';
 import { globalSettings } from '../../../src/settings';
-import { walkAst } from '../../helpers';
+import { singleLocation, walkAst } from '../../helpers';
 import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';
 
 const token = CancellationToken.None;
@@ -63,16 +63,14 @@ describe('asset features', () => {
 
     describe('go-to-definition', () => {
         it('jumps to the sprite file on disk', async () => {
-            const location = await DefinitionService.instance.getDefinition(doc, cursorOn(assetNode(doc, 'spark.png')), token);
-            expect(location).not.toBeNull();
-            expect(location!.uri.endsWith('spark.png')).toBe(true);
-            expect(location!.range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 0 } });
+            const location = singleLocation(await DefinitionService.instance.getDefinition(doc, cursorOn(assetNode(doc, 'spark.png')), token));
+            expect(location.uri.endsWith('spark.png')).toBe(true);
+            expect(location.range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 0 } });
         });
 
         it('jumps to a relative sound file', async () => {
-            const location = await DefinitionService.instance.getDefinition(doc, cursorOn(assetNode(doc, '../sounds/fx/beep.wav')), token);
-            expect(location).not.toBeNull();
-            expect(location!.uri.endsWith('beep.wav')).toBe(true);
+            const location = singleLocation(await DefinitionService.instance.getDefinition(doc, cursorOn(assetNode(doc, '../sounds/fx/beep.wav')), token));
+            expect(location.uri.endsWith('beep.wav')).toBe(true);
         });
 
         it('returns null for a missing asset', async () => {

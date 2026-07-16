@@ -23,9 +23,9 @@ export type AssetType = 'Sprite' | 'Sound' | 'Shader';
 
 /**
  * Path-completion for asset values (sprites/sounds/shaders). Lists the directory the
- * partially-typed path points at — sub-directories (so you can drill down) and files of
+ * partially-typed path points at: sub-directories (so you can drill down) and files of
  * the matching kind. Directories are resolved relative to the containing file, to any
- * inherited asset base, or — for `./Data/…` — to the game data root, mirroring how the
+ * inherited asset base, or (for `./Data/…`) to the game data root, mirroring how the
  * asset is actually resolved.
  *
  * The asset kind is only known once an extension is present (`foo.png` → Sprite); while the
@@ -79,7 +79,7 @@ export class AssetAutoCompletionStrategy extends AutoCompletionStrategy<
                     }
                 }
             } catch {
-                // Directory does not exist (e.g. a partial/typo'd path) — nothing to list here.
+                // Directory does not exist (e.g. a partial/typo'd path). Nothing to list here.
             }
         }
         return completions;

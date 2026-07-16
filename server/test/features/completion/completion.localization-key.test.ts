@@ -24,13 +24,18 @@ const token = CancellationToken.None;
 const parse = (src: string, uri: string) => parser(lexer(src), uri).value;
 const labelsOf = (cs: Completion[]) => cs.map((c) => (typeof c === 'string' ? c : c.label));
 
-/** First value node that is the RHS of an assignment named `field`, searching depth-first. */
+/**
+ * Find the first value node that is the RHS of an assignment named `field`, searching depth-first.
+ * @param node the node to search from.
+ * @param field the assignment name to look for.
+ * @returns the assigned value node, or undefined when no such assignment exists.
+ */
 const findValue = (node: AbstractNode, field: string): ValueNode | undefined => {
     if (isAssignmentNode(node) && node.left.name === field && isValueNode(node.right)) return node.right;
     const children =
         isDocumentNode(node) || isGroupNode(node) || isListNode(node)
             ? node.elements
-            : isAssignmentNode(node)
+            : isAssignmentNode(node) && node.right
               ? [node.right]
               : [];
     for (const child of children) {
@@ -66,7 +71,7 @@ describe('localization key index', () => {
         dir = mkdtempSync(join(tmpdir(), 'loc-keys-'));
         mkdirSync(join(dir, 'strings'), { recursive: true });
         mkdirSync(join(dir, 'parts'), { recursive: true });
-        // Two languages share the same key tree — keys must be de-duplicated across them.
+        // Two languages share the same key tree. Keys must be de-duplicated across them.
         const en = `__Name = "English"\n__DebugOnly = false\nMisc { Okay = "Okay" Cancel = "Cancel" }\nParts { Foo = "Foo Part" }\n`;
         const de = `__Name = "Deutsch"\n__DebugOnly = false\nMisc { Okay = "OK" Cancel = "Abbrechen" }\nParts { Foo = "Foo-Teil" }\n`;
         writeFileSync(join(dir, 'strings', 'en.rules'), en);

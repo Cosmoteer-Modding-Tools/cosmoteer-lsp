@@ -10,7 +10,7 @@ import { functionScopeAt, parseShader } from './shader-parser';
  *
  *  - After a `.` (member access, `color.` / `input.` / `_noiseTex.`) it is context-aware: it offers the
  *    swizzles of a vector, the members of a struct, or the sampling methods of a texture, resolved from
- *    the base expression's type — nothing else, so the list is exactly what can follow the dot.
+ *    the base expression's type, nothing else, so the list is exactly what can follow the dot.
  *  - Otherwise it offers the HLSL builtins (types, keywords, intrinsic functions) plus the symbols the
  *    file and its includes declare (their `_`-uniforms, functions, and struct types).
  *
@@ -145,7 +145,7 @@ const macroCompletions = (scope: string, kind: 'macro' | 'define' | 'condition')
 
 /**
  * Path completion inside an `#include "…"` string: the sibling directories and `.shader` files of the
- * directory the typed prefix resolves to. Both include forms work — a path relative to the edited
+ * directory the typed prefix resolves to. Both include forms work: a path relative to the edited
  * file and the root-anchored `./Data/…` form resolved against the game data directory.
  *
  * @param typedPath the part of the include path already written (may be empty or end mid-segment).
@@ -189,8 +189,8 @@ interface LocalSymbol {
 
 /**
  * The parameters and locals of the function enclosing the cursor, so completion offers `input`, `uv`,
- * and other in-scope names — not only file globals. Parameters come from the enclosing signature;
- * locals are the typed declarations written in the body before the cursor. Returns an empty list when
+ * and other in-scope names, not only file globals. Parameters come from the enclosing signature.
+ * Locals are the typed declarations written in the body before the cursor. Returns an empty list when
  * the cursor is not inside a function body.
  *
  * @param scope the file plus its includes, for the struct type names a local may be declared with.
@@ -219,7 +219,7 @@ const localSymbols = (scope: string, currentText: string, offset: number): Local
 };
 
 /**
- * Whether the cursor is typing the *name* of a new variable in a declaration — a type token sits at a
+ * Whether the cursor is typing the *name* of a new variable in a declaration: a type token sits at a
  * statement or parameter-list start immediately before the word being typed (`float x`, `(float2 uv`,
  * `, float3 n`). In that position the user is naming a declaration, not referencing a symbol, so
  * completion should stay quiet. An initializer position (`… = float…`) is not a declaration name and is
@@ -264,7 +264,7 @@ const globalCompletions = (text: string, locals: readonly LocalSymbol[] = []): C
     for (const constant of shader.constants) add(constant.name, CompletionItemKind.Variable, `${constant.hlslType} (uniform)`);
     for (const fn of shader.functions) add(fn, CompletionItemKind.Function, 'shader function');
     // Engine-provided uniforms (`_texture`, `_time`, …) live in an include, so the file scan above
-    // misses them — offer them here so they still autocomplete. Added last so a file redeclaration wins.
+    // misses them. Offer them here so they still autocomplete. Added last so a file redeclaration wins.
     for (const [name, info] of Object.entries(ENGINE_UNIFORMS)) {
         add(name, CompletionItemKind.Variable, `${info.type} (engine uniform)`, info.doc);
     }

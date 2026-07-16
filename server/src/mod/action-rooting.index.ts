@@ -27,7 +27,7 @@ import { FullNavigationStrategy } from '../features/navigation/full.navigation-s
 import { normalizeUri } from '../features/navigation/reference-location';
 import { ReverseIncludeIndex } from '../features/navigation/reverse-include.index';
 import { WatchedDocumentIndex } from '../features/navigation/watched-document-index';
-import { uriToFsPath } from '../features/navigation/workspace-files';
+import { modFolderPaths, uriToFsPath } from '../features/navigation/workspace-files';
 import { cachedParseFilePath } from '../workspace/fs-cache';
 import { CosmoteerWorkspaceService, FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { Action } from './action';
@@ -39,7 +39,12 @@ const navigation = new FullNavigationStrategy();
 /** What a resolved target or source landing can be: a node inside a file, or a whole file. */
 type Landing = AbstractNode | FileWithPath | null;
 
-/** The group-kind {@link ValueType} for a class FullName. */
+/**
+ * The group-kind {@link ValueType} for a class FullName.
+ *
+ * @param cls the class FullName.
+ * @returns the group type naming that class.
+ */
 const groupType = (cls: string): ValueType => ({ kind: 'group', ref: cls, name: cls.split('.').pop() ?? cls });
 
 /** How many reference-to-reference hops a landing is followed through before giving up. */
@@ -133,7 +138,12 @@ const splitLastSegment = (raw: string): { parent: string; last: string } | undef
 export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMemberSource {
     private static _instance: ActionRootingIndex;
 
-    /** Fragment uri (normalized) → member (lower-cased, '' for the whole file) → source uri → type. */
+    /** Fragment uri (normalized) → member (lower-cased, '' for the whole file) → source uri → type.
+     *  The key is the fragment this index roots, never the action's target. A target is only the input
+     *  the slot type is read from, and it needs no record of its own: {@link normalizeTargetPath}
+     *  resolves every target against the game `Data` root, a tree the forward walk from
+     *  `cosmoteer.rules` already roots. A mod therefore cannot target a file of its own, so nothing
+     *  here is ever the thing left unrooted. */
     private readonly byTarget = new Map<string, Map<string, Map<string, ValueType>>>();
     /** Inline/deep node key → the slot type the action gives that node. */
     private readonly byNode = new Map<string, ValueType>();
@@ -160,7 +170,12 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
         return ActionRootingIndex._instance;
     }
 
-    /** A stable identity key for a node, matching another parse of the same file content. */
+    /**
+     * A stable identity key for a node, matching another parse of the same file content.
+     *
+     * @param node the node to key.
+     * @returns the node's identity key.
+     */
     private static nodeKey(node: AbstractNode): string {
         const document = getStartOfAstNode(node);
         return `${normalizeUri(document.uri)}|${node.position?.start ?? -1},${node.position?.end ?? -1}`;
@@ -224,16 +239,22 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
      * @returns once the index is built and fresh.
      */
     public async ensureBuilt(folderPaths: string[], cancellationToken: CancellationToken): Promise<void> {
-        const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
-        const dataKey = dataRoot ? normalizeUri(dataRoot) : undefined;
-        const modFolders = folderPaths.filter((folder) => normalizeUri(uriToFsPath(folder)) !== dataKey);
         await this.ensureFresh(
-            (progress) => this.buildFromProject(modFolders, progress),
+            (progress) => this.buildFromProject(modFolderPaths(folderPaths), progress),
             cancellationToken,
             'Indexing action rooting'
         );
     }
 
+    /**
+     * Re-indexes one document, replacing whatever it contributed before with the rooting entries,
+     * node slots and id declarations its actions produce. Only manifests and included action
+     * fragments carry mod actions, so any other document contributes nothing.
+     *
+     * @param document the parsed document to index.
+     * @param cancellationToken cancels the action walk.
+     * @returns true when this source's recorded entries differ from the ones they replaced.
+     */
     protected async indexDocument(document: AbstractNodeDocument, cancellationToken: CancellationToken): Promise<boolean> {
         const source = normalizeUri(document.uri);
         const previousSignature = this.sourceSignatures.get(source) ?? '';
@@ -247,8 +268,8 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
         for (const action of parseModActions(document)) {
             if (cancellationToken.isCancellationRequested) break;
             // Harvested before the slot check: a `CreateIfNotExisting` override names a member that
-            // does not exist yet, so its target does not resolve and it has no source slot — but it
-            // still declares the id.
+            // does not exist yet, so its target does not resolve and it has no source slot. It still
+            // declares the id regardless.
             for (const declared of await this.idDeclarationsOf(action, cancellationToken)) {
                 contributedIds.push(declared);
                 lines.push(`id ${declared.cls} ${declared.id}`);
@@ -339,7 +360,7 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
                     const element = listElementType(node);
                     if (element) return { kind: 'list', element };
                 }
-                // Into a MAP the payload holds map entries rather than list elements (a mod adding
+                // Into a map the payload holds map entries rather than list elements (a mod adding
                 // its ship AIs or render layers: `AddTo = "<…>/RenderLayers"` with a `ManyToAdd` of
                 // `{ Key = … Value { … } }` pairs). The payload takes the map's own type, which is
                 // what the schema layer reads entry members through, and what tells the id validator
@@ -372,13 +393,13 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
     /**
      * The cross-file ids an action declares.
      *
-     * A mod does not only reference the game's id collections, it adds to them — and it does so from
+     * A mod does not only reference the game's id collections, it adds to them, and it does so from
      * the manifest, where no `.rules` file of the mod ever names the id. Three action shapes create
      * members of a `map<reference X, …>` collection, and each makes the member's name a declaration of
      * X, exactly like a group named in the collection's own file:
      *  - `Add` with a `Name` (`AddTo = "<gui/game/designer/editor_groups.rules>"  Name = "dpmStorageSD"`),
      *  - `Overrides`/`AddBase` naming a not-yet-existing member (`OverrideIn = "<buffs/buffs.rules>/Aredja2AITerminal"`
-     *    with `CreateIfNotExisting`), whose target therefore does not resolve — so the container is
+     *    with `CreateIfNotExisting`), whose target therefore does not resolve, so the container is
      *    resolved from the parent path and the last segment read as the id,
      *  - a whole-file `Overrides` merging the mod's own copy of the collection over the game's, whose
      *    every top-level member is a member of the merged result.
@@ -404,7 +425,7 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
             return cls ? [{ cls, id }] : [];
         }
         if (action.type === 'Overrides' || action.type === 'AddBase') {
-            // The target IS the collection — a whole keyed file (`OverrideIn = "<./Data/buffs/buffs.rules>"`)
+            // The target is the collection itself, a whole keyed file (`OverrideIn = "<./Data/buffs/buffs.rules>"`)
             // or a keyed member of one (`"<…/build_gui.rules>/EditorGroups"`). The mod's own copy is
             // merged over it, so every top-level member of the merged value is a member of the result.
             const collectionClass = await this.mapKeyClassOfPath(raw, target, cancellationToken);
@@ -488,7 +509,8 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
     }
 
     /**
-     * Every id mod actions declare for `targetClass` itself (subclass filtering is the caller's).
+     * Every id mod actions declare, keyed by the class that declares it. Picking the classes of
+     * interest, subclass filtering included, is the caller's job.
      *
      * @returns the class-keyed declarations, id → declaring manifest uri.
      */
@@ -517,7 +539,12 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
         return resolved;
     }
 
-    /** The parsed document behind a whole-file landing (a {@link FileWithPath} or a document root). */
+    /**
+     * The parsed document behind a whole-file landing (a {@link FileWithPath} or a document root).
+     *
+     * @param resolved the navigation landing.
+     * @returns the parsed document, or undefined when the landing is not a whole file.
+     */
     private async landingDocument(resolved: AbstractNode | FileWithPath): Promise<AbstractNodeDocument | undefined> {
         if (isDocumentNode(resolved as AbstractNode)) return resolved as AbstractNodeDocument;
         if (isFile(resolved as unknown as FileTree)) {
@@ -614,7 +641,16 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
         }
     }
 
-    /** Records a `(fragment, member) → type` rooting entry for one source. */
+    /**
+     * Records a `(fragment, member) → type` rooting entry for one source.
+     *
+     * @param target the fragment's normalized uri.
+     * @param member the member name, or '' for the whole file.
+     * @param slot the schema type the action's target slot gives the value.
+     * @param source the recording manifest's normalized uri.
+     * @param contributed collects this source's entries for removal.
+     * @param lines collects the signature lines.
+     */
     private recordTarget(
         target: string,
         member: string,
@@ -631,7 +667,14 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
         lines.push(`T ${target} ${memberKey} ${JSON.stringify(slot)}`);
     }
 
-    /** Records a node-keyed slot type (inline values, nested landings), tracked for removal. */
+    /**
+     * Records a node-keyed slot type (inline values, nested landings), tracked for removal.
+     *
+     * @param node the value node whose slot type is recorded.
+     * @param slot the schema type the action's target slot gives the node.
+     * @param contributed collects this source's entries for removal.
+     * @param lines collects the signature lines.
+     */
     private recordNodeSlot(
         node: AbstractNode,
         slot: ValueType,

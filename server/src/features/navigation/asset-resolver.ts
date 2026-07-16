@@ -12,7 +12,7 @@ import { assetExtensionsForType } from '../../utils/constants';
 const assetNav = new AssetNavigationStrategy();
 const fullNav = new FullNavigationStrategy();
 
-/** True if a value node is an asset (sprite / sound / shader) — the kinds with on-disk targets. */
+/** True if a value node is an asset (sprite / sound / shader), the kinds with on-disk targets. */
 export const isAssetValue = (node: AbstractNode | null | undefined): node is ValueNode =>
     !!node &&
     isValueNode(node) &&
@@ -29,7 +29,7 @@ const inheritanceBaseDirs = (node: ValueNode, uri: string, cancellationToken: Ca
     ).catch(() => []);
 
 /**
- * Resolve an asset value node to its absolute on-disk path — relative to the containing
+ * Resolve an asset value node to its absolute on-disk path, relative to the containing
  * file first, then to any inherited asset base directory (mirrors how the value validator
  * decides whether the asset exists). Returns `null` when nothing matches.
  */
@@ -52,7 +52,7 @@ export const resolveAssetPath = async (
 
 /**
  * For a not-found asset, the closest-named existing file of the same kind in the
- * directories the asset could live in — returned as the full corrected value (the typed
+ * directories the asset could live in, returned as the full corrected value (the typed
  * path with only its filename swapped), or `null` when nothing is close enough.
  */
 export const suggestAssetFilename = async (
@@ -88,7 +88,7 @@ export const suggestAssetFilename = async (
                 }
             }
         } catch {
-            // Directory does not exist (e.g. a typo'd sub-path) — nothing to suggest from here.
+            // Directory does not exist (e.g. a typo'd sub-path), nothing to suggest from here.
         }
     }
 

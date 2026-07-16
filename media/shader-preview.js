@@ -19,7 +19,7 @@
     const gl = gl2 || canvas.getContext('webgl', contextOptions);
     const isGL2 = !!gl2;
     // Enable screen-space derivatives (dFdx/dFdy/fwidth) so a translated shader that declares
-    // `#extension GL_OES_standard_derivatives` — decals and the distortion shaders — links and runs.
+    // `#extension GL_OES_standard_derivatives` (decals and the distortion shaders) links and runs.
     // Core in WebGL2, an extension in WebGL1.
     if (gl && !isGL2) gl.getExtension('OES_standard_derivatives');
     // Min/Max blend equations are an extension in WebGL1, used by the engine's Min/Max blend modes.
@@ -400,7 +400,7 @@ void main() {
         const text = String(raw).trim();
         let parts;
         if (text.indexOf('=') >= 0) {
-            // Group form `{Rf=1 Gf=0 …}` — take the value after each `=`.
+            // Group form `{Rf=1 Gf=0 …}`: take the value after each `=`.
             parts = (text.match(/=\s*([-+*/().\d\s]+)/g) || []).map((m) => m.replace('=', ''));
         } else {
             parts = text.replace(/^[[{]|[\]}]$/g, '').split(',');
@@ -423,8 +423,8 @@ void main() {
     }
 
     /**
-     * Starting values for constants the ENGINE feeds at runtime rather than the material (camera and
-     * zoom state, parallax, fog-of-war transforms — see Cosmoteer's ShaderConstantIDs). A material
+     * Starting values for constants the engine feeds at runtime rather than the material (camera and
+     * zoom state, parallax, fog-of-war transforms. See Cosmoteer's ShaderConstantIDs). A material
      * never writes these, so without a stand-in their controls would start at zero and blank shaders
      * that divide or gate on them (the nebula LOD and parallax math).
      */

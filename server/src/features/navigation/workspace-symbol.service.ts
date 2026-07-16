@@ -17,14 +17,14 @@ import { WatchedDocumentIndex } from './watched-document-index';
 const MAX_RESULTS = 2000;
 
 /**
- * Workspace symbol search (`workspace/symbol`) — the flat, project-wide name table that
+ * Workspace symbol search (`workspace/symbol`): the flat, project-wide name table that
  * powers "Go to Symbol in Workspace". Emits one {@link WorkspaceSymbol} per named member
  * (identified `Group`/`List`, `key = value` assignment), carrying its enclosing container
  * as `containerName` for disambiguation.
  *
  * Backed by a cached per-document symbol table (built once over {@link projectDocuments},
  * kept current by the client file watcher via the {@link WatchedDocumentIndex} base) so
- * queries don't re-parse the whole project each time — only the substring filter runs per
+ * queries don't re-parse the whole project each time. Only the substring filter runs per
  * query.
  */
 export class WorkspaceSymbolService extends WatchedDocumentIndex {

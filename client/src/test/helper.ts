@@ -27,7 +27,7 @@ export async function activate(docUri: vscode.Uri, timeout = 2_000) {
     try {
         doc = await vscode.workspace.openTextDocument(docUri);
         editor = await vscode.window.showTextDocument(doc);
-        await sleep(timeout); // Wait for init
+        await sleep(timeout);
     } catch (e) {
         console.error(e);
     }
@@ -38,7 +38,8 @@ async function sleep(ms: number) {
 }
 
 export const getDocPath = (p: string) => {
-    return path.resolve(__dirname, '../../client/testFixture', p);
+    // `__dirname` is `out/client/test` (tsc strips the `src` rootDir), so the repo root is three up.
+    return path.resolve(__dirname, '../../../client/testFixture', p);
 };
 export const getDocUri = (p: string) => {
     return vscode.Uri.file(getDocPath(p));

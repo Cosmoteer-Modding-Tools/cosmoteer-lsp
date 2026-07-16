@@ -140,7 +140,7 @@ const OPEN_IN_DECOMPILER_COMMAND = 'cosmoteer.openInDecompiler';
 
 /**
  * Cosmoteer `.shader` files are HLSL, but VS Code's built-in ShaderLab support also claims the
- * `.shader` extension (for Unity), so in a mixed setup a shader can open as `shaderlab` — which means
+ * `.shader` extension (for Unity), so in a mixed setup a shader can open as `shaderlab`, which means
  * no Cosmoteer highlighting and no server features (our language never activates for it). Since this
  * extension only activates in a Cosmoteer project (a workspace with `.rules` files), we reassign such
  * files to the Cosmoteer Shader language on open so the user does not have to pick it by hand.

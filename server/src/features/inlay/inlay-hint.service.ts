@@ -68,7 +68,7 @@ export class InlayHintService {
                     isSuffixedNumberLiteral(right)
                 ) {
                     // Math/function results and plain reference assignments (`COST = &<file>/COST`)
-                    // both annotate with the number they resolve to — a cross-file or inherited
+                    // both annotate with the number they resolve to. A cross-file or inherited
                     // value is otherwise invisible without tracing it by hand. A bare percentage
                     // literal (`Chance = 50%`) is annotated with its decimal value (`= 0.5`), the
                     // form the game's math actually uses, which the source doesn't show.
@@ -87,7 +87,7 @@ export class InlayHintService {
     }
 
     /**
-     * List values store math inline-flattened with no grouping node — `[10 * 2, &A + 5, 30]`
+     * List values store math inline-flattened with no grouping node. `[10 * 2, &A + 5, 30]`
      * parses to `[10, *, 2, &A, +, 5, 30]`, the commas dropped. We re-segment by the only rule a
      * flat arithmetic stream allows: an operand directly after an operand begins a new entry. Each
      * segment that actually computes (contains an operator or function call) gets its own ` = N`.
@@ -133,7 +133,7 @@ export class InlayHintService {
 
     /**
      * Evaluate one expression segment and, if it computes to a number, push its ` = N` hint at the
-     * segment's end. Single bare values (a plain `5`, a lone `&Ref`) are skipped — only segments
+     * segment's end. Single bare values (a plain `5`, a lone `&Ref`) are skipped. Only segments
      * carrying real computation (an operator or function call) are worth annotating.
      */
     private async emitHint(
@@ -206,7 +206,7 @@ export class InlayHintService {
     }
 }
 
-/** A value node that points elsewhere (`&Name`, `&<file>/X`, `&/super`, …) — its resolved value is hidden. */
+/** A value node that points elsewhere (`&Name`, `&<file>/X`, `&/super`, …). Its resolved value is hidden. */
 const isReferenceValueNode = (node: AbstractNode): node is ValueNode =>
     isValueNode(node) && node.valueType.type === 'Reference';
 

@@ -5,26 +5,50 @@ import { parser } from '../../../src/core/parser/parser';
 import { ValidationForFunctionCall } from '../../../src/features/diagnostics/validator.functioncall';
 import { evaluateNumericValue } from '../../../src/semantics/value-evaluator';
 import { AbstractNode, isFunctionCallNode, isAssignmentNode } from '../../../src/core/ast/ast';
-import { walkAst } from '../../helpers';
+import { valueOf, walkAst } from '../../helpers';
 import { initWorkspace } from '../../workspace-helper';
 
 const token = CancellationToken.None;
+
+/**
+ * Parse a source string into its document node.
+ *
+ * @param src the .rules source to parse.
+ * @returns the parsed document node.
+ */
 const parse = (src: string): AbstractNode => parser(lexer(src), 'file:///t.rules').value as AbstractNode;
+
+/**
+ * The text of every VALUE token a source lexes into.
+ *
+ * @param src the .rules source to lex.
+ * @returns the value tokens' texts, in source order.
+ */
 const valueTexts = (src: string): string[] =>
     lexer(src)
         .filter((t) => t.type === 'VALUE')
         .map((t) => String(t.value));
 
-/** All function-call names parsed from a source. */
+/**
+ * All function-call names parsed from a source.
+ *
+ * @param src the .rules source to parse.
+ * @returns the called function names, in traversal order.
+ */
 const callNames = (src: string): string[] => {
     const names: string[] = [];
     for (const node of walkAst(parse(src))) if (isFunctionCallNode(node)) names.push(node.name);
     return names;
 };
 
-/** The first assignment's resolved numeric value, if any. */
+/**
+ * The first assignment's resolved numeric value, if any.
+ *
+ * @param src the .rules source to parse.
+ * @returns the first assignment's numeric value, or null when there is no assignment or it does not evaluate.
+ */
 const evalFirst = async (src: string): Promise<number | null> => {
-    for (const node of walkAst(parse(src))) if (isAssignmentNode(node)) return evaluateNumericValue(node.right, token);
+    for (const node of walkAst(parse(src))) if (isAssignmentNode(node)) return evaluateNumericValue(valueOf(node), token);
     return null;
 };
 
@@ -68,7 +92,7 @@ describe('dash/slash before a (possibly spaced) paren is an operator, not a func
     });
 
     it('still evaluates a leading negative number', async () => {
-        // A leading `-` is always a separate operator token; the parser reconstructs `-7`.
+        // A leading `-` is always a separate operator token. The parser reconstructs `-7`.
         expect(await evalFirst('X = -7\n')).toBe(-7);
     });
 });

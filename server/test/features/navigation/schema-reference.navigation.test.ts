@@ -16,6 +16,7 @@ import { DefinitionService } from '../../../src/features/navigation/definition.s
 import { HoverService } from '../../../src/features/hover/hover.service';
 import { ReferenceIndex } from '../../../src/features/navigation/reference-index';
 import { RenameService } from '../../../src/features/navigation/rename.service';
+import { singleLocation } from '../../helpers';
 
 const parse = (src: string) => parser(lexer(src), 'file:///t.rules').value;
 
@@ -24,7 +25,7 @@ const findValue = (node: AbstractNode, field: string): ValueNode | undefined => 
     const children =
         isGroupNode(node) || isListNode(node) || isDocumentNode(node)
             ? node.elements
-            : isAssignmentNode(node)
+            : isAssignmentNode(node) && node.right
               ? [node.right]
               : [];
     for (const child of children) {
@@ -44,7 +45,7 @@ const SRC = `Part
 	}
 }`;
 
-describe('resolveSchemaSiblingReference — go-to-definition for ID<> sibling refs', () => {
+describe('resolveSchemaSiblingReference: go-to-definition for ID<> sibling refs', () => {
     it('resolves OperationalToggle = IsOperational to the IsOperational component group', () => {
         const ref = findValue(parse(SRC), 'OperationalToggle');
         const target = resolveSchemaSiblingReference(ref);
@@ -68,20 +69,25 @@ describe('resolveSchemaSiblingReference — go-to-definition for ID<> sibling re
         const line = 6; // the Turret line
         const lineText = SRC.split('\n')[line];
         const character = lineText.indexOf('= IsOperational') + 2; // cursor on the `IsOperational` value
-        const location = await DefinitionService.instance.getDefinition(doc, { line, character }, CancellationToken.None);
-        expect(location).not.toBeNull();
-        expect(location!.range.start.line).toBe(4); // the `IsOperational { … }` definition line
+        const location = singleLocation(await DefinitionService.instance.getDefinition(doc, { line, character }, CancellationToken.None));
+        expect(location.range.start.line).toBe(4); // the `IsOperational { … }` definition line
     });
 });
 
 describe('resolveSchemaSiblingReference: component ids in tuple slots', () => {
-    /** First value node whose written value is `text`, searching depth-first (tuple entries have no field name). */
+    /**
+     * First value node whose written value is `text`, searching depth-first (tuple entries have no field name).
+     *
+     * @param node the node to search from.
+     * @param text the written value to match.
+     * @returns the matching value node, or undefined when nothing matches.
+     */
     const findValueByText = (node: AbstractNode, text: string): ValueNode | undefined => {
         if (isValueNode(node) && String(node.valueType.value) === text) return node;
         const children =
             isGroupNode(node) || isListNode(node) || isDocumentNode(node)
                 ? node.elements
-                : isAssignmentNode(node)
+                : isAssignmentNode(node) && node.right
                   ? [node.right]
                   : [];
         for (const child of children) {
@@ -158,9 +164,8 @@ Part : BasePart
         const doc = parse(INHERITED);
         const line = INHERITED.split('\n').findIndex((l) => l.includes('OperationalToggle'));
         const character = INHERITED.split('\n')[line].indexOf('= HiddenToggle') + 3;
-        const location = await DefinitionService.instance.getDefinition(doc, { line, character }, CancellationToken.None);
-        expect(location).not.toBeNull();
-        expect(location!.range.start.line).toBe(4); // the base's `HiddenToggle { … }` line
+        const location = singleLocation(await DefinitionService.instance.getDefinition(doc, { line, character }, CancellationToken.None));
+        expect(location.range.start.line).toBe(4); // the base's `HiddenToggle { … }` line
     });
 
     it('resolves a route-tuple reference to a component of the inherited base', async () => {
@@ -195,9 +200,8 @@ Part : BasePart
         const doc = parse(src);
         const line = src.split('\n').findIndex((l) => l.includes('[Port, HeatSink'));
         const character = src.split('\n')[line].indexOf('HeatSink') + 2;
-        const location = await DefinitionService.instance.getDefinition(doc, { line, character }, CancellationToken.None);
-        expect(location).not.toBeNull();
-        expect(location!.range.start.line).toBe(4); // the base's `HeatSink { … }` line
+        const location = singleLocation(await DefinitionService.instance.getDefinition(doc, { line, character }, CancellationToken.None));
+        expect(location.range.start.line).toBe(4); // the base's `HeatSink { … }` line
     });
 });
 

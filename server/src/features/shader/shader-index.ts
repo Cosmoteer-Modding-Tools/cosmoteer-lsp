@@ -209,7 +209,7 @@ export const allShaderUniformNames = async (
  * the includes written in `entryText` (so unsaved `#include` lines are honoured) and excluding the
  * entry file itself (the caller already has it). Open buffers are preferred over disk via
  * `readOverride`. Unlike {@link expandShaderSource} this does no preprocessing, so uniforms and structs
- * behind an `#ifdef` are still present — completion and type-resolution want the permissive view.
+ * behind an `#ifdef` are still present. Completion and type-resolution want the permissive view.
  *
  * @param entryText the source of the shader being edited (the open buffer).
  * @param entryPath the absolute path of that shader, the base for resolving its includes.

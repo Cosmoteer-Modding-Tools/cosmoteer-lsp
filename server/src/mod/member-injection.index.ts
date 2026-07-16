@@ -6,7 +6,7 @@ import { isModRules } from '../document/document-kind';
 import { registerMemberExtensionSource } from '../semantics/reference-resolver';
 import { WatchedDocumentIndex } from '../features/navigation/watched-document-index';
 import { normalizeUri } from '../features/navigation/reference-location';
-import { uriToFsPath } from '../features/navigation/workspace-files';
+import { modFolderPaths, uriToFsPath } from '../features/navigation/workspace-files';
 import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
 import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
 import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
@@ -26,17 +26,17 @@ interface InjectedMember {
 const navigation = new FullNavigationStrategy();
 
 /**
- * Project index of the members that `mod.rules` actions merge into a game-tree node — a nested
+ * Project index of the members that `mod.rules` actions merge into a game-tree node, either a nested
  * `Overrides` (its `Overrides` group's members) or an `Add` with a `Name` (the single `Name = ToAdd`
- * member) — so a reference to such a member resolves everywhere the resolver runs.
+ * member), so a reference to such a member resolves everywhere the resolver runs.
  *
- * mod-context already folds WHOLE-FILE overrides (`OverrideIn=<…/indicators.rules>`) into the effective
+ * mod-context already folds whole-file overrides (`OverrideIn=<…/indicators.rules>`) into the effective
  * tree, but a nested-container override (`OverrideIn=<…/missile_launcher.rules>/Part/Components` adding a
- * `FlareMissilesToggle`) is not — its members would lose their container sub-path if attributed at the
- * file level. This index records those per target node and registers itself as the resolver's member-
- * extension source ({@link registerMemberExtensionSource}), so `stepIntoNode` resolves an injected
- * member when the node defines none of its own. Whole-file targets are skipped (mod-context owns them).
- * Scoped to the workspace mod folders, since the game `Data` tree carries no mod actions.
+ * `FlareMissilesToggle`) is not, since its members would lose their container sub-path if attributed at
+ * the file level. This index records those per target node and registers itself as the resolver's
+ * member-extension source ({@link registerMemberExtensionSource}), so `stepIntoNode` resolves an
+ * injected member when the node defines none of its own. Whole-file targets are skipped (mod-context
+ * owns them). Scoped to the workspace mod folders, since the game `Data` tree carries no mod actions.
  */
 export class MemberInjectionIndex extends WatchedDocumentIndex {
     private static _instance: MemberInjectionIndex;
@@ -56,7 +56,12 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
         return MemberInjectionIndex._instance;
     }
 
-    /** A stable identity key for a game-tree node, matching another resolution of the same cached node. */
+    /**
+     * A stable identity key for a game-tree node, matching another resolution of the same cached node.
+     *
+     * @param node the node to key.
+     * @returns the node's identity key.
+     */
     private static nodeKey(node: AbstractNode): string {
         const document = getStartOfAstNode(node);
         return `${normalizeUri(document.uri)}|${node.position?.start ?? -1},${node.position?.end ?? -1}`;
@@ -77,7 +82,12 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
         return members.find((member) => member.name.toLowerCase() === lower)?.node;
     }
 
-    /** The names of every member a nested `Overrides` merges into `node` (for completion listing). */
+    /**
+     * The names of every member a nested `Overrides` merges into `node`, for completion listing.
+     *
+     * @param node the node whose injected member names are queried.
+     * @returns the injected member names, empty when nothing is injected.
+     */
     public injectedMemberNames(node: AbstractNode): string[] {
         return (this.byNode.get(MemberInjectionIndex.nodeKey(node)) ?? []).map((member) => member.name);
     }
@@ -91,18 +101,20 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
      * @returns once the index is built and fresh.
      */
     public async ensureBuilt(folderPaths: string[], cancellationToken: CancellationToken): Promise<void> {
-        const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
-        const dataKey = dataRoot ? normalizeUri(dataRoot) : undefined;
-        const modFolders = folderPaths.filter((folder) => normalizeUri(uriToFsPath(folder)) !== dataKey);
         await this.ensureFresh(
-            (progress) => this.buildFromProject(modFolders, progress),
+            (progress) => this.buildFromProject(modFolderPaths(folderPaths), progress),
             cancellationToken,
             'Indexing overrides'
         );
     }
 
-    /** The members an `Overrides` source merges in: an inline `{}` group's members, or the top-level
-     *  members of the file a `&<modfile>` source dereferences to. */
+    /**
+     * The members an `Overrides` source merges in: an inline `{}` group's members, or the top-level
+     * members of the file a `&<modfile>` source dereferences to.
+     *
+     * @param source the action's source value node.
+     * @returns the merged members as `[name, node]` pairs, empty when the source names none.
+     */
     private async overrideMembers(source: AbstractNode): Promise<[string, AbstractNode][]> {
         if (isGroupNode(source)) return namedMembersOf(source);
         if (isValueNode(source) && source.valueType.type === 'Reference') {
@@ -119,6 +131,15 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
         return [];
     }
 
+    /**
+     * Re-indexes one document, replacing whatever it contributed before with the members its actions
+     * merge into their target nodes. Only manifests and included action fragments carry mod actions,
+     * so any other document contributes nothing.
+     *
+     * @param document the parsed document to index.
+     * @param cancellationToken cancels the action walk.
+     * @returns true when this source's contribution differs from the one it replaced.
+     */
     protected async indexDocument(document: AbstractNodeDocument, cancellationToken: CancellationToken): Promise<boolean> {
         const source = normalizeUri(document.uri);
         const previous = this.bySource.get(source) ?? [];
@@ -129,10 +150,10 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
         for (const action of parseModActions(document)) {
             if (cancellationToken.isCancellationRequested) break;
             // The members an action merges into its target node, by name. `Overrides` merges the
-            // members of its `Overrides` source; `Add` with a `Name` merges the single member
+            // members of its `Overrides` source. `Add` with a `Name` merges the single member
             // `Name = ToAdd` (the game keys it under `Name`, verified from ModAddAction). Other verbs
-            // inject no named member (`AddMany` appends list elements, `AddBase` extends the
-            // inheritance list — handled by the AddBase index — and `Replace`/`Remove` add nothing).
+            // inject no named member: `AddMany` appends list elements, `AddBase` extends the
+            // inheritance list (handled by the AddBase index), and `Replace`/`Remove` add nothing.
             let members: [string, AbstractNode][];
             if (action.type === 'Overrides' && action.sources[0]) {
                 members = await this.overrideMembers(action.sources[0]);
@@ -145,7 +166,7 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
             const target = action.targets[0];
             if (!target) continue;
             const resolved = await resolveActionTarget(target, cancellationToken).catch(() => null);
-            // Whole-file targets are owned by mod-context; only a node target is indexed here.
+            // Whole-file targets are owned by mod-context, so only a node target is indexed here.
             if (!resolved || isFile(resolved as unknown as FileTree) || isDocumentNode(resolved as AbstractNode)) continue;
             const key = MemberInjectionIndex.nodeKey(resolved as AbstractNode);
             const bucket = this.byNode.get(key) ?? this.byNode.set(key, []).get(key)!;

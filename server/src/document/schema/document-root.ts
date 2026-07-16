@@ -5,11 +5,11 @@
  * `ROOT_GROUP_CLASSES`).
  *
  * Two resolution paths, tried in order:
- *  1. **Content dispatch** — a top-level `Type = <disc>` that names a member of a whole-file-root
+ *  1. **Content dispatch**: a top-level `Type = <disc>` that names a member of a whole-file-root
  *     registry (media effects, music, doodads). Path-independent and self-describing, so the
  *     effect/music files scattered across many folders (crew, statuses, nebulas, …) root correctly
  *     wherever they live.
- *  2. **Path-scoped rule** — for files a fixed class with no `Type` discriminator (a resource, a
+ *  2. **Path-scoped rule**: for files a fixed class with no `Type` discriminator (a resource, a
  *     status, a nebula), or a registry whose discriminators are too generic to dispatch globally
  *     (name generators). Fixed classes are guarded by a required top-level field so the effect and
  *     index files that share the same folder are not mis-rooted.
@@ -32,7 +32,7 @@ type RootRule = {
      *  only. Used for registries whose discriminators are too generic for global dispatch (e.g.
      *  `NameGenerator` declares `None`, which collides with sysgen stage configs elsewhere). */
     readonly registry?: string;
-    /** Apply `cls` only if the document has this top-level field — distinguishes `ID`-shaped data
+    /** Apply `cls` only if the document has this top-level field. Distinguishes `ID`-shaped data
      *  files from the `Type`-shaped effect files and the index files that share their folder. */
     readonly requireTopLevelField?: string;
 };
@@ -49,7 +49,7 @@ const PATH_ROOTS: ReadonlyArray<RootRule> = [
     // into the codex through `CodexPages` lists that are assembled by multi-source `&<a>/CodexPages,
     // &<b>/CodexPages` concatenation the alias walk doesn't follow. Guarded by the top-level `Entries`
     // field, which every page declares but the list-container files (`codex.rules`, `lore.rules`,
-    // `tutorials.rules`, `tips.rules`, whose top-level field is `CodexPages`) lack — so those stay
+    // `tutorials.rules`, `tips.rules`, whose top-level field is `CodexPages`) lack, so those stay
     // unrooted here instead of mis-typing as a page.
     { test: /[/\\]codex[/\\]/i, cls: 'Cosmoteer.Codex.CodexPageRules', requireTopLevelField: 'Entries' },
     // Codex list-container files (`tips.rules`, `lore.rules`) inline whole pages in their top-level
@@ -200,11 +200,11 @@ export const documentRootClass = (document: AbstractNodeDocument): string | unde
 };
 
 /**
- * The registry a whole-file-root's top-level `Type=` dispatches within — known by the canonical
+ * The registry a whole-file-root's top-level `Type=` dispatches within, known by the canonical
  * folder even when the written `Type` is a typo (so completion can offer it and validation can flag
  * it). Falls back to content when a valid `Type` already names a global root registry's member.
  * Returns undefined for non-`Type`-dispatched roots (parts, shots, resources, …), so callers stay
- * conservative. Only the canonical dirs are mapped — effect files scattered elsewhere simply aren't
+ * conservative. Only the canonical dirs are mapped, so effect files scattered elsewhere simply aren't
  * covered (no false guidance), matching the low-FP bias of the rest of the seam.
  */
 const ROOT_REGISTRY_BY_PATH: ReadonlyArray<{ readonly test: RegExp; readonly registry: string }> = [
@@ -217,7 +217,7 @@ const ROOT_REGISTRY_BY_PATH: ReadonlyArray<{ readonly test: RegExp; readonly reg
 export const documentRootRegistry = (document: AbstractNodeDocument): SchemaRegistry | undefined => {
     // Content first: a valid top-level `Type` pins the registry exactly (an effect file living under
     // /doodads/ is a MediaEffect, not a DoodadRules). Path is only the fallback for the typo case,
-    // where the written `Type` matches nothing — so completion/validation still know what to offer.
+    // where the written `Type` matches nothing, so completion/validation still know what to offer.
     const type = topLevelType(document);
     if (type) {
         for (const registry of ROOT_REGISTRIES) {

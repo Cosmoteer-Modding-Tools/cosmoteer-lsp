@@ -10,7 +10,7 @@ import { SchemaBundle } from '../../../src/document/schema/schema.types';
 // that changes this set fails here, so the new set gets reviewed instead of shipping silently.
 const schema = bundle as unknown as SchemaBundle;
 
-describe('schema dead fields — the read-scan verdict is pinned', () => {
+describe('schema dead fields: the read-scan verdict is pinned', () => {
     it('flags exactly the audited declared-but-never-read fields', () => {
         const flagged: string[] = [];
         for (const [cls, def] of Object.entries(schema.types)) {

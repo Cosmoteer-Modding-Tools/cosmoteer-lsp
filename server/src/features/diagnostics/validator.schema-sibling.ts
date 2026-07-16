@@ -30,7 +30,7 @@ import * as l10n from '@vscode/l10n';
 
 const navigation = new FullNavigationStrategy();
 
-// A plain, single-segment identifier. Sibling `ID<…>` values are bare component names — anything with
+// A plain, single-segment identifier. Sibling `ID<…>` values are bare component names. Anything with
 // a `/`, `&`, `<`, math, or whitespace is a path/reference/expression we must not treat as a sibling id.
 export const PLAIN_ID = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
@@ -302,8 +302,8 @@ export const resolvePartComponentDeclaration = async (
 };
 
 /**
- * Validate schema `ID<…>` sibling references — a field like `OperationalToggle = IsOperational` whose
- * value names a component in the same part — flagging a value that names no component anywhere in the
+ * Validate schema `ID<…>` sibling references (a field like `OperationalToggle = IsOperational` whose
+ * value names a component in the same part), flagging a value that names no component anywhere in the
  * part (a typo'd or stale component id).
  *
  * Conservative, to stay false-positive-free on real mods (the bar the other schema validators meet):

@@ -45,7 +45,7 @@ PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
 
     it('strips comments so a `// comment` between `)` and `{` cannot break dead-code elimination', () => {
         // `unused` is unreachable from pix and calls `helper`. With comments intact, the `// note` after
-        // `)` once hid `unused` from the function scan, so it was kept while `helper` was pruned — a
+        // `)` once hid `unused` from the function scan, so it was kept while `helper` was pruned, a
         // dangling call. Stripping comments first makes both prune together.
         const glsl = translateToGlsl(`
 typedef float4 PIX_OUTPUT;

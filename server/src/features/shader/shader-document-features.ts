@@ -60,7 +60,7 @@ export const shaderDocumentHover = (text: string, offset: number, includeText = 
     // Widen the file-symbol lookup (uniforms, functions) to the include chain.
     const shader = parseShader(includeText ? `${text}\n${includeText}` : text);
 
-    // A uniform the file declares — show its declared type and default.
+    // A uniform the file declares: show its declared type and default.
     const constant = shader.constants.find((c) => c.name === word);
     if (constant) {
         const declaration = `${constant.hlslType} ${constant.name}${constant.default ? ` = ${constant.default}` : ''}`;
@@ -156,7 +156,7 @@ export const shaderSymbolDefinition = async (
 ): Promise<Location | null> => {
     const hit = wordAt(text, offset);
     if (!hit) return null;
-    // A member access (`_tex.Sample`) or a builtin is not a navigable declaration — only file uniforms
+    // A member access (`_tex.Sample`) or a builtin is not a navigable declaration. Only file uniforms
     // and file/include functions are. findShaderDeclaration returns null for anything else, but skipping
     // the obvious non-targets avoids walking the include chain for every keyword.
     const isMemberAccess = hit.start > 0 && text[hit.start - 1] === '.';

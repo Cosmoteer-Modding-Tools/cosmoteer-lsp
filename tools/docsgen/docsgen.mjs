@@ -27,7 +27,7 @@ const REPO = join(HERE, '..', '..');
 const SCHEMA_PATH = join(REPO, 'server', 'src', 'document', 'schema', 'cosmoteer.schema.json');
 const SEED_PATH = join(REPO, 'server', 'src', 'document', 'schema', 'field-docs.seed.json');
 // Curated, committed prose transcribed from the Cosmoteer modding wiki (cosmoteer.wiki.gg). Takes
-// precedence over the auto-extracted XML seed because it is written for modders. Fields only — the
+// precedence over the auto-extracted XML seed because it is written for modders. Fields only. The
 // wiki remains the place for guides and worked examples.
 const WIKI_SEED_PATH = join(HERE, 'wiki-seed.json');
 const DOCS_DIR = join(REPO, 'docs', 'fields');
@@ -45,7 +45,7 @@ const PREAMBLE =
 
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 
-/** A short human label for a field value type — mirrors valueTypeLabel in schema.ts (cosmetic only). */
+/** A short human label for a field value type. Mirrors valueTypeLabel in schema.ts (cosmetic only). */
 const label = (vt) => {
     switch (vt.kind) {
         case 'enum': return `enum ${vt.name}`;
@@ -177,7 +177,7 @@ const scaffold = () => {
             out.push(`## ${field.name}`, signatureLine(field, schema.enums), '', prose, '');
         }
 
-        // Fields that once had docs but are gone from the schema — keep their prose, flag them.
+        // Fields that once had docs but are gone from the schema: keep their prose, flag them.
         const removed = [...prior.keys()].filter((n) => !schemaNames.has(n) && isDocumented(prior.get(n)));
         if (removed.length > 0) {
             out.push('---', '', '## Removed fields', '');

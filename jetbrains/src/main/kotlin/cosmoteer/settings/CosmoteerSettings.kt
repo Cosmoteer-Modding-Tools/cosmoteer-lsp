@@ -32,6 +32,7 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateLocalizationKeys: Boolean = true
         var validateRedundantSeparators: Boolean = true
         var validateIgnoredFields: Boolean = true
+        var validateDefaultValues: Boolean = true
         var inlayShowBaseValue: Boolean = true
         var allowEditingVanillaFiles: Boolean = false
         var formattingEnabled: Boolean = true
@@ -76,6 +77,7 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateLocalizationKeys" to state.validateLocalizationKeys,
             "validateRedundantSeparators" to state.validateRedundantSeparators,
             "validateIgnoredFields" to state.validateIgnoredFields,
+            "validateDefaultValues" to state.validateDefaultValues,
         ),
         "inlayHints" to mapOf("showBaseValue" to state.inlayShowBaseValue),
         "rename" to mapOf("allowEditingVanillaFiles" to state.allowEditingVanillaFiles),
@@ -93,7 +95,11 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
     )
 
     companion object {
-        /** The single application-wide instance backing every project's language server. */
+        /**
+         * Looks up the application-level settings service.
+         *
+         * @returns the single application-wide instance backing every project's language server.
+         */
         fun getInstance(): CosmoteerSettings =
             ApplicationManager.getApplication().getService(CosmoteerSettings::class.java)
     }

@@ -124,8 +124,8 @@ const parseAliasBase = (raw: string, node: GroupNode | ListNode): ParsedBase | u
  * schema feature (completion, validation, hover, the shader preview) works inside it.
  *
  * This index scans the project the other way round. For every including file it walks the whole document
- * and records each `&<fragment>` include — a `Field = &<fragment>` assignment at any depth, or a bare
- * `&<fragment>` written as a list element (a codex `CodexPages [ &<page> ]`) — together with the schema
+ * and records each `&<fragment>` include, be it a `Field = &<fragment>` assignment at any depth or a bare
+ * `&<fragment>` written as a list element (a codex `CodexPages [ &<page> ]`), together with the schema
  * {@link ValueType} the include's slot expects (the declaring field's type, or the list's element type).
  * {@link aliasedMemberType} then consults this index through the registered {@link AliasMemberSource} when
  * the forward walk misses, and roots the fragment the same way a forward member-less alias would. A
@@ -147,13 +147,13 @@ const parseAliasBase = (raw: string, node: GroupNode | ListNode): ParsedBase | u
  *
  * **Inheritance-base rooting.** A second class of fragment is unrooted for a different reason: it is a
  * pure inheritance base, pulled in only through `Derived : <base_file.rules>/BaseNode` and never as a
- * field value. The `commands/` folder is the canonical case — `base_command.rules`'s `BaseCommand`
+ * field value. The `commands/` folder is the canonical case: `base_command.rules`'s `BaseCommand`
  * group is inherited by `MoveCommand`, `DirectControlCommand`, `BaseFollowCommand` and (transitively)
  * every command, but nothing aliases it in as a field, so neither the forward walk nor the include
  * scan above roots it. This index also records, per base file and base member, the concrete schema
  * class of every deriving group that inherits it (via {@link resolveGroupClass}). The base then roots
- * to the *most-derived common ancestor* of all its derivers ({@link commonAncestorClass}) — the one
- * class they all agree on — computed at query time so it converges as more derivers root, and so a base
+ * to the *most-derived common ancestor* of all its derivers ({@link commonAncestorClass}), the one
+ * class they all agree on, computed at query time so it converges as more derivers root, and so a base
  * inherited by unrelated classes roots to nothing rather than to a guessed type. This too runs to the
  * same fixpoint: a base file that is itself only reachable through another base (a
  * `BaseFollowCommand : <base_command.rules>/BaseCommand` that is in turn inherited by the concrete
@@ -384,7 +384,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
      * The base-member names the file at `uri` is rooted by through inheritance-base rooting (a
      * `Derived : <uri>/Member` somewhere in the project), or an empty array. These are the members no
      * forward walk or field include reaches, so this identifies exactly the fragments this seam newly
-     * roots — used by the mod/vanilla no-regression scans.
+     * roots, used by the mod/vanilla no-regression scans.
      *
      * @param uri the base fragment's document uri.
      * @returns the recorded inherited base members, or an empty array when none.
@@ -619,10 +619,10 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
     }
 
     /**
-     * Re-indexes one including document, recording every `&<fragment>` include it makes — at any depth,
-     * whether written as a `Field = &<fragment>` assignment or as a bare list element — keyed by the
+     * Re-indexes one including document, recording every `&<fragment>` include it makes (at any depth,
+     * whether written as a `Field = &<fragment>` assignment or as a bare list element), keyed by the
      * included fragment's uri, together with the schema type of the slot that holds it. An include whose
-     * slot can't yet be typed (its container isn't rooted) contributes nothing this pass; the fixpoint
+     * slot can't yet be typed (its container isn't rooted) contributes nothing this pass. The fixpoint
      * build re-runs once the container roots. During the one-time build a document that contains any
      * alias include is remembered for those fixpoint passes, and a change to what the document
      * contributes (against its last recorded signature) marks the pass as still converging.
@@ -842,7 +842,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             inherited.push({ target, member, deriverClass: recorded });
             // A list inheriting a cross-file list (`Ships : <faction_ships.rules>/Ships`) roots that
             // base by its own element type: inheritance preserves type, so the base holds the same
-            // elements. The class-keyed rooting above cannot carry this — a list has no class — and a
+            // elements. The class-keyed rooting above cannot carry this (a list has no class), and a
             // mod that fans its content out over per-category files (each a base of the next) would
             // otherwise leave every one of them unrooted. Recorded as an ordinary alias entry, so it
             // resolves through the same agreement check as a field include.

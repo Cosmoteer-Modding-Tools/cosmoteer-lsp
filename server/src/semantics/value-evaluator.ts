@@ -19,12 +19,12 @@ const navigation = new FullNavigationStrategy();
 
 interface EvalContext {
     token: CancellationToken;
-    /** Reference value nodes already dereferenced on this path — breaks `A = &B` / `B = &A` cycles. */
+    /** Reference value nodes already dereferenced on this path. Breaks `A = &B` / `B = &A` cycles. */
     visited: Set<AbstractNode>;
 }
 
 /**
- * Compute the concrete numeric value a node resolves to — following references (through
+ * Compute the concrete numeric value a node resolves to, following references (through
  * inheritance, via the shared {@link FullNavigationStrategy}), arithmetic with `* /` before
  * `+ -`, and the evaluatable functions of the math-function registry. Returns `null` for
  * anything not purely numeric
@@ -88,8 +88,8 @@ const evaluate = async (node: AbstractNode, context: EvalContext): Promise<numbe
 
 const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<number | null> => {
     if (node.valueType.type === 'Number') return node.valueType.value;
-    // A bare mXparser constant (`pi`, `e`) lexes as an unquoted token — sometimes typed `String`,
-    // sometimes `Reference` — so check it before the reference-navigation path. A quoted "pi" is a
+    // A bare mXparser constant (`pi`, `e`) lexes as an unquoted token, sometimes typed `String`,
+    // sometimes `Reference`, so check it before the reference-navigation path. A quoted "pi" is a
     // real string and must not match.
     if (!node.quoted) {
         const text = String(node.valueType.value);
@@ -107,8 +107,8 @@ const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<num
     if (node.valueType.type !== 'Reference') return null;
     // `visited` is the current resolution path, not every node ever seen: a node already on the
     // path is a true cycle (`A = &B` / `B = &A`) and must stop. We add on entry and remove on exit
-    // (below) so the same node reached again on a separate branch — a diamond, e.g. `&R/0/1` used
-    // twice in one expression — still evaluates instead of collapsing to null.
+    // (below) so the same node reached again on a separate branch (a diamond, e.g. `&R/0/1` used
+    // twice in one expression) still evaluates instead of collapsing to null.
     if (context.visited.has(node)) return null;
     context.visited.add(node);
     try {
@@ -125,7 +125,7 @@ const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<num
 /**
  * Split a flat operand/operator stream into comma-separated argument groups. The parser drops
  * argument commas inconsistently (only the first may carry a `delimiter`), but valid math always
- * has an operator between two operands — so an operand directly after an operand marks a new
+ * has an operator between two operands, so an operand directly after an operand marks a new
  * argument. `sum(1, 2, 3)` → `[[1], [2], [3]]`; `max(a + b, c)` → `[[a, +, b], [c]]`.
  */
 const segmentArguments = (parts: AbstractNode[]): AbstractNode[][] => {
@@ -150,7 +150,7 @@ const segmentArguments = (parts: AbstractNode[]): AbstractNode[][] => {
 };
 
 /**
- * The number of comma-separated arguments a call passes — math operands inside one argument
+ * The number of comma-separated arguments a call passes. Math operands inside one argument
  * (`max(a + b, c)` → 2) stay a single argument. Used for arity validation.
  */
 export const functionArgumentCount = (node: FunctionCallNode): number => segmentArguments(node.arguments).length;

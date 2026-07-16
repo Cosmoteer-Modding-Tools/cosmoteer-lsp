@@ -34,7 +34,7 @@ describe('validateRequiredFields', () => {
     });
 
     it('stays silent when an inheritance base cannot be resolved (no false positive)', async () => {
-        // Mode is absent here, but the unresolved base might supply it — so the group is skipped.
+        // Mode is absent here, but the unresolved base might supply it, so the group is skipped.
         const src = 'Part\n{\n\tComponents\n\t{\n\t\tX : &NoSuchBase\n\t\t{\n\t\t\tType = MultiToggle\n\t\t}\n\t}\n}';
         expect(await validateRequiredFields(parse(src), token)).toHaveLength(0);
     });

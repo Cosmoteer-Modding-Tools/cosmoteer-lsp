@@ -14,8 +14,8 @@ import { findActionsList, parseModActions } from './action-parser';
  * The game reads a mod's `mod.rules` (and version-specific `mod_*.rules`) manifests and nothing
  * else by convention: every other file is loaded only because an action's source references it, a
  * reached file `&<includes>` or inherits it, or it is a language file under the `StringsFolder`.
- * A `.rules` file outside that closure is dead content — a backup, a template, or something the
- * modder forgot to wire in — which the game silently never parses.
+ * A `.rules` file outside that closure is dead content (a backup, a template, or something the
+ * modder forgot to wire in), which the game silently never parses.
  *
  * The closure is computed over text: every `<…>` occurrence in a reached file is resolved
  * against the file's own directory and the mod root, and kept when it lands on a `.rules` file
@@ -234,8 +234,8 @@ export const computeModReachability = async (
         }
         // A manifest may build its `Actions` by concatenating other files' action lists via virtual
         // inheritance (`Actions: &<launcher.rules>/Actions, …`). Those `<file>` refs live in the
-        // list's inheritance, not its body, so parseModActions never sees them — yet the game loads
-        // each referenced file to merge its actions in. Seed them here; their own `<…>` refs (the
+        // list's inheritance, not its body, so parseModActions never sees them, yet the game loads
+        // each referenced file to merge its actions in. Seed them here. Their own `<…>` refs (the
         // parts/resources the actions add) then expand in the wave below.
         for (const base of findActionsList(document)?.inheritance ?? []) {
             if (!isValueNode(base) || base.valueType.type !== 'Reference') continue;

@@ -8,9 +8,9 @@ import { initWorkspace, workspaceFile, WORKSPACE_DATA_DIR } from '../../workspac
 
 const token = CancellationToken.None;
 
-// `X : ^/0/X [extra]` — inheriting-and-extending a member the base doesn't define is
+// `X : ^/0/X [extra]`: inheriting-and-extending a member the base doesn't define is
 // valid in Cosmoteer (the missing base member just contributes nothing). It must not be
-// flagged, BUT an inheritance whose BASE itself is missing is still a real error.
+// flagged, but an inheritance whose base itself is missing is still a real error.
 describe('inheritance that extends a missing base member', () => {
     let editorGroupsInh: ValueNode;
     let badBaseInh: ValueNode;
@@ -51,8 +51,8 @@ describe('inheritance that extends a missing base member', () => {
     });
 
     it('does not flag an extend nested inside a VIRTUAL container (`Deep : ^/0/Deep` in `Virtual`)', async () => {
-        // Virtual itself extends a missing base member, so its `^/0` deref is null — but the
-        // inheritance SLOT exists, which is what makes `Deep`'s extend valid (roof_headlight
+        // Virtual itself extends a missing base member, so its `^/0` deref is null, but the
+        // inheritance slot exists, which is what makes `Deep`'s extend valid (roof_headlight
         // `Toggles : ^/0/Toggles` inside the virtual `IsOperational`).
         expect(await ValidationForValue.callback(deepInVirtualInh, token)).toBeUndefined();
     });
@@ -71,8 +71,8 @@ describe('inheritance that extends a missing base member', () => {
 });
 
 // A plain value reference (not an inheritance clause) that steps through a `^/N` caret base. When a
-// member genuinely exists on the base, it resolves; when it does not — and no `AddBase` action
-// extends that base (none in this fixture) — it is a real miss and flags, exactly like a member
+// member genuinely exists on the base, it resolves. When it does not, and no `AddBase` action
+// extends that base (none in this fixture), it is a real miss and flags, exactly like a member
 // reached without a caret hop. The `AddBase`-added-base case (`^/1` into an appended base) resolves
 // through the shared resolver's AddBase index and is verified end-to-end by the LSP drivers.
 describe('value reference through a caret-inheritance base', () => {
@@ -95,7 +95,7 @@ describe('value reference through a caret-inheritance base', () => {
         nonCaretMissing = valueOf(thing, 'NonCaretMissing');
     });
 
-    it('does not flag `&^/0/Density` — the member exists on the caret base', async () => {
+    it('does not flag `&^/0/Density`: the member exists on the caret base', async () => {
         expect(await ValidationForValue.callback(caretGood, token)).toBeUndefined();
     });
 

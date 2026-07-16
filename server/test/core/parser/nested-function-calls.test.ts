@@ -3,17 +3,37 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { evaluateNumericValue } from '../../../src/semantics/value-evaluator';
-import { walkAst } from '../../helpers';
+import { valueOf, walkAst } from '../../helpers';
 import { AbstractNode, FunctionCallNode, isAssignmentNode, isFunctionCallNode } from '../../../src/core/ast/ast';
 
 const token = CancellationToken.None;
 
+/**
+ * The value of the `X = …` assignment, which every source here declares.
+ *
+ * @param src the .rules source to parse.
+ * @returns the assignment's value node.
+ */
 const rhsOfX = (src: string): AbstractNode => {
     const doc = parser(lexer(src), 'file:///nested.rules').value;
-    for (const node of walkAst(doc)) if (isAssignmentNode(node) && node.left.name === 'X') return node.right;
+    for (const node of walkAst(doc)) if (isAssignmentNode(node) && node.left.name === 'X') return valueOf(node);
     throw new Error('no X assignment in: ' + src);
 };
+
+/**
+ * Evaluate the `X = …` assignment of a source.
+ *
+ * @param src the .rules source to parse.
+ * @returns X's numeric value, or null when it does not evaluate.
+ */
 const evalX = (src: string) => evaluateNumericValue(rhsOfX(src), token);
+
+/**
+ * How many errors the parser reports for a source.
+ *
+ * @param src the .rules source to parse.
+ * @returns the parser error count.
+ */
 const parseErrorCount = (src: string) => parser(lexer(src), 'file:///nested.rules').parserErrors.length;
 
 describe('nested function calls in argument position', () => {

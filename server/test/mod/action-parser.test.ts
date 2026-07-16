@@ -3,7 +3,8 @@ import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
 import { isActionFragmentDocument, parseModActions } from '../../src/mod/action-parser';
 import { Action, isActionEntryGroup, isActionTargetValueNode } from '../../src/mod/action';
-import { AbstractNodeDocument, AssignmentNode, isGroupNode } from '../../src/core/ast/ast';
+import { AbstractNodeDocument, AssignmentNode, isAssignmentNode, isGroupNode } from '../../src/core/ast/ast';
+import { valueOf } from '../helpers';
 
 const parseDoc = (src: string): AbstractNodeDocument => parser(lexer(src), 'file:///mod.rules').value;
 const parseActions = (src: string): Action[] => parseModActions(parseDoc(src));
@@ -143,14 +144,16 @@ describe('parseModActions', () => {
         }
     });
 
-    it('does not treat a target-named field OUTSIDE an action entry as an action target', () => {
+    it('does not treat a target-named field outside an action entry as an action target', () => {
         // A group with `AddTo = …` but no `Action` field, not inside an Actions list, must not be
         // exempted from the generic reference checks.
         const doc = parseDoc('Root\n{\n\tAddTo = "<a.rules>/X"\n}\n');
         const root = doc.elements.find(isGroupNode)!;
         expect(isActionEntryGroup(root)).toBe(false);
-        const addTo = root.elements.find((e): e is AssignmentNode => e.type === 'Assignment' && e.left.name === 'AddTo')!;
-        expect(isActionTargetValueNode(addTo.right)).toBe(false);
+        const addTo = root.elements.find(
+            (e): e is AssignmentNode => isAssignmentNode(e) && e.left.name === 'AddTo'
+        )!;
+        expect(isActionTargetValueNode(valueOf(addTo))).toBe(false);
     });
 
     it('matches the Actions list and field names case-insensitively like the game', () => {

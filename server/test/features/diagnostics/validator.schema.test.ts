@@ -10,7 +10,7 @@ const parse = (src: string, uri = 'file:///t.rules') => parser(lexer(src), uri).
 
 const wrap = (body: string) => `Part\n{\n\tComponents\n\t{\n\t\tX\n\t\t{\n\t\t\tType = MultiToggle\n${body}\n\t\t}\n\t}\n}`;
 
-describe('validateSchema — invalid enum values', () => {
+describe('validateSchema: invalid enum values', () => {
     it('flags an enum value that is not a member', async () => {
         const doc = parse(wrap('\t\t\tMode = Nonsense'));
         const errors = await validateSchema(doc, token);
@@ -46,7 +46,7 @@ describe('validateSchema — invalid enum values', () => {
     });
 
     it('does not flag non-enum fields or references', async () => {
-        // Invert is a bool, ViaBuffs/Toggles are not enums — none should error.
+        // Invert is a bool, ViaBuffs/Toggles are not enums. None should error.
         const doc = parse(wrap('\t\t\tInvert = true\n\t\t\tMode = &SomeRef'));
         expect(await validateSchema(doc, token)).toHaveLength(0);
     });
@@ -60,7 +60,7 @@ describe('validateSchema — invalid enum values', () => {
 const comp = (type: string, body: string) =>
     `Part\n{\n\tComponents\n\t{\n\t\tX\n\t\t{\n\t\t\tType = ${type}\n${body}\n\t\t}\n\t}\n}`;
 
-describe('validateSchema — bare valueless fields (void = null)', () => {
+describe('validateSchema: bare valueless fields (void = null)', () => {
     it('flags a bare field whose C# type is a non-nullable value type (bool)', async () => {
         const errors = await validateSchema(parse(comp('MultiToggle', '\t\t\tInvert')), token);
         expect(errors).toHaveLength(1);
@@ -83,7 +83,7 @@ describe('validateSchema — bare valueless fields (void = null)', () => {
     });
 });
 
-describe('validateSchema — positional elements of a group-typed field in list form', () => {
+describe('validateSchema: positional elements of a group-typed field in list form', () => {
     it('flags a fractional element in an IntVector2 written as a list', async () => {
         const errors = await validateSchema(parse(comp('DoorPresenceToggle', '\t\t\tAdjacentCell = [1.5, 2]')), token);
         expect(errors).toHaveLength(1);
@@ -143,7 +143,7 @@ describe('validateSchema — positional elements of a group-typed field in list 
     });
 });
 
-describe('validateSchema — math in a textual field', () => {
+describe('validateSchema: math in a textual field', () => {
     // ResourceConsumer's OverridePriorityName is a schema `string` field; the game reads its value
     // literally and never evaluates math, so a computable expression there is a silent bug.
     const consumer = (value: string) =>
@@ -178,13 +178,13 @@ describe('validateSchema — math in a textual field', () => {
     });
 });
 
-describe('validateSchema — deprecated (renamed) discriminator', () => {
+describe('validateSchema: deprecated (renamed) discriminator', () => {
     // A component whose `Type=` is a value that was renamed in a newer game version (a mod written
     // against an older Cosmoteer). `Components` is a PartComponentRules slot, so the discriminator is
     // validated against that registry.
     // A valid sibling (`Known`) pins the container's registry to PartComponentRules (the container is
     // custom-deserialized, so a sibling's valid `Type` is what identifies the registry), then the `X`
-    // component's `Type` is validated against it — mirroring how real component files are structured.
+    // component's `Type` is validated against it, mirroring how real component files are structured.
     const partWith = (type: string) =>
         `Part\n{\n\tComponents\n\t{\n\t\tKnown\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t}\n\t\tX\n\t\t{\n\t\t\tType = ${type}\n\t\t}\n\t}\n}`;
 
@@ -210,7 +210,7 @@ describe('validateSchema — deprecated (renamed) discriminator', () => {
     });
 });
 
-describe('validateSchema — invalid boolean values', () => {
+describe('validateSchema: invalid boolean values', () => {
     // ReturnToCenter is a bool field on TurretWeaponRules.
     const turret = (body: string) =>
         `Part\n{\n\tComponents\n\t{\n\t\tT\n\t\t{\n\t\t\tType = TurretWeapon\n${body}\n\t\t}\n\t}\n}`;
@@ -229,7 +229,7 @@ describe('validateSchema — invalid boolean values', () => {
     });
 });
 
-describe('validateSchema — non-numeric value in a numeric field', () => {
+describe('validateSchema: non-numeric value in a numeric field', () => {
     // RotateSpeed/FiringArc are numeric (angle) fields on TurretWeaponRules; `Direction` and `Angle`
     // both map to the `number` kind, so a bare word that is not a number/reference/expression is wrong.
     const turret = (body: string) =>
@@ -257,9 +257,9 @@ describe('validateSchema — non-numeric value in a numeric field', () => {
     });
 });
 
-describe('validateSchema — integer-only field resolving to a fraction', () => {
+describe('validateSchema: integer-only field resolving to a fraction', () => {
     // BlueprintArcSpriteSegments is an `int` primitive and TargetChecksPerSearch a `ModifiableInt` on
-    // TurretWeaponRules — both require a whole number. The check RESOLVES the value (math + references)
+    // TurretWeaponRules. Both require a whole number. The check resolves the value (math + references)
     // before judging it, and stays silent on anything it cannot reduce to a concrete number.
     const turret = (body: string) =>
         `Part\n{\n\tComponents\n\t{\n\t\tT\n\t\t{\n\t\t\tType = TurretWeapon\n${body}\n\t\t}\n\t}\n}`;
@@ -305,14 +305,14 @@ describe('validateSchema — integer-only field resolving to a fraction', () => 
     });
 
     it('stays silent on a bare named constant in an int field (e.g. an enum-like int)', async () => {
-        // `int`-kind primitives accept named values that resolve to nothing numeric — never flagged.
+        // `int`-kind primitives accept named values that resolve to nothing numeric, never flagged.
         expect(
             await validateSchema(parse(turret('\t\t\tDefaultDirectControlBinding = SomeName')), token)
         ).toHaveLength(0);
     });
 });
 
-describe('validateSchema — Range<int> endpoints', () => {
+describe('validateSchema: Range<int> endpoints', () => {
     // ModeRange is a `Range<int>` on PartModeCycleRules (a `Components` member, Type = ModeCycle).
     const cycle = (body: string) =>
         `Part\n{\n\tComponents\n\t{\n\t\tM\n\t\t{\n\t\t\tType = ModeCycle\n${body}\n\t\t}\n\t}\n}`;
@@ -355,7 +355,7 @@ describe('validateSchema — Range<int> endpoints', () => {
     });
 });
 
-describe('validateSchema — invalid Type= discriminators', () => {
+describe('validateSchema: invalid Type= discriminators', () => {
     // A Components container whose registry (PartComponentRules) is proven by a valid sibling.
     const comps = (typo: string) =>
         `Part\n{\n\tComponents\n\t{\n\t\tIsOp\n\t\t{\n\t\t\tType = MultiToggle\n\t\t}\n\t\tTurret\n\t\t{\n\t\t\tType = ${typo}\n\t\t}\n\t}\n}`;
@@ -380,7 +380,7 @@ describe('validateSchema — invalid Type= discriminators', () => {
     });
 });
 
-describe('validateSchema — whole-file-root top-level Type=', () => {
+describe('validateSchema: whole-file-root top-level Type=', () => {
     const doodad = (type: string) => parse(`ID = test\nType = ${type}\nAllegiance = Neutral\n`, 'file:///c%3A/mod/doodads/x/test.rules');
 
     it('flags an invalid top-level Type in a doodad file, with a did-you-mean', async () => {
@@ -406,7 +406,7 @@ describe('validateSchema — whole-file-root top-level Type=', () => {
     });
 });
 
-describe('validateSchema — named members inside a group-typed list form', () => {
+describe('validateSchema: named members inside a group-typed list form', () => {
     // EnterExitPoint/UITileRect are group-typed (Vector2/Rect) fields of the Airlock component, so a
     // list value reads through the class's digit or member names; anything else is silently dead.
     const airlock = (body: string) => comp('Airlock', body);
@@ -445,7 +445,7 @@ describe('validateSchema — named members inside a group-typed list form', () =
     });
 });
 
-describe('validateSchema — extra positional elements in a group-typed list form', () => {
+describe('validateSchema: extra positional elements in a group-typed list form', () => {
     const airlock = (body: string) => comp('Airlock', body);
 
     it('flags every element past the class digit fields (Vector2 reads two)', async () => {
@@ -471,7 +471,7 @@ describe('validateSchema — extra positional elements in a group-typed list for
     });
 });
 
-describe('validateSchema — structural form mismatches (value shape the deserializer never reads)', () => {
+describe('validateSchema: structural form mismatches (value shape the deserializer never reads)', () => {
     const airlock = (body: string) => comp('Airlock', body);
 
     it('flags a list written into a bool field', async () => {
@@ -527,7 +527,7 @@ describe('validateSchema — structural form mismatches (value shape the deseria
     });
 });
 
-describe('validateSchema — scalar written into a group-typed field', () => {
+describe('validateSchema: scalar written into a group-typed field', () => {
     const airlock = (body: string) => comp('Airlock', body);
 
     it('flags a plain value on a group field without a scalar form (Vector2)', async () => {
@@ -554,7 +554,7 @@ describe('validateSchema — scalar written into a group-typed field', () => {
     });
 });
 
-describe('validateSchema — engine value forms extracted by schemagen', () => {
+describe('validateSchema: engine value forms extracted by schemagen', () => {
     it('flags any scalar on a plain Rect field (anchor presets are a per-field override, not a Rect form)', async () => {
         // AnchorPresets.Serializer is attached via [Serialize(OverrideDeserializer = …)] on
         // Widget.AnchorRect only, so a preset name on any other Rect field throws in game.
@@ -602,7 +602,7 @@ describe('validateSchema — engine value forms extracted by schemagen', () => {
     });
 });
 
-describe('validateSchema — value-form list elements resolve their registry', () => {
+describe('validateSchema: value-form list elements resolve their registry', () => {
     const status = (body: string) =>
         parse(
             `ID = cosmoteer.test\nLayer = Part\nStatusCombineMode = ApplyNewInstance\n${body}\n`,

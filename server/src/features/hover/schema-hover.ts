@@ -47,7 +47,7 @@ export const schemaFieldHover = (node: AbstractNode, containerClass?: string): s
         fieldName = node.identifier.name;
     }
     // A valueless field written as a bare key (`Scale2In` with no `= value`, common for optional
-    // particle-channel bindings) parses to a standalone Identifier under the group — there is no
+    // particle-channel bindings) parses to a standalone Identifier under the group. There is no
     // assignment to match below, so take its name directly and still show the field's type.
     if (!fieldName && isIdentifierNode(node)) {
         fieldName = node.name;
@@ -96,7 +96,7 @@ const positionalElementHover = (node: AbstractNode, list: ListNode): string | nu
 /**
  * Markdown for a `Type = <disc>` discriminator value: the concrete schema class it selects. `Type` is
  * not a `[Serialize]` field (the serializer dispatches on it), so {@link schemaFieldHover} shows
- * nothing for it — this fills that gap, e.g. hovering `Type = TurretWeapon` → `→ TurretWeaponRules`.
+ * nothing for it. This fills that gap, e.g. hovering `Type = TurretWeapon` → `→ TurretWeaponRules`.
  */
 export const schemaDiscriminatorHover = (node: AbstractNode): string | null => {
     if (!isValueNode(node) || node.valueType.type !== 'String') return null;

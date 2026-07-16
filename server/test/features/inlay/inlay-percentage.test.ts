@@ -17,7 +17,7 @@ const hintsFor = async (src: string): Promise<InlayHint[]> => {
 const labels = (hints: InlayHint[]): string[] => hints.map((h) => (typeof h.label === 'string' ? h.label : ''));
 
 // A bare percentage literal (`50%`) is a String-typed value, so it never reached the math/reference
-// inlay path. We now surface its decimal (÷100) value — the form the game's math actually uses.
+// inlay path. We now surface its decimal (÷100) value, the form the game's math actually uses.
 describe('inlay hints for percentage literals', () => {
     beforeAll(async () => {
         await initWorkspace();

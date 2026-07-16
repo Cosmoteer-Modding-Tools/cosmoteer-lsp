@@ -74,7 +74,7 @@ const SHIELD = `Part
 \t}
 }`;
 
-describe('ValueModifier registry — schema modeling of Modifiers entries', () => {
+describe('ValueModifier registry: schema modeling of Modifiers entries', () => {
     it('resolves the ModifiableValue group form of a Modifiable slot', () => {
         const arc = findGroup(parse(SHIELD), 'Arc');
         expect(arc).toBeDefined();
@@ -135,7 +135,7 @@ describe('ValueModifier registry — schema modeling of Modifiers entries', () =
     });
 });
 
-describe('DirectionalCrewSpeeds — dual-form crew speed factors', () => {
+describe('DirectionalCrewSpeeds: dual-form crew speed factors', () => {
     const PART = `Part
 {
 \tCrewSpeedFactor

@@ -25,13 +25,18 @@ import { clearModRootCache } from '../../../src/mod/mod-root';
 const token = CancellationToken.None;
 const parse = (src: string, uri: string) => parser(lexer(src), uri).value;
 
-/** First value node that is the RHS of an assignment named `field`, descending into the whole tree. */
+/**
+ * Find the first value node that is the RHS of an assignment named `field`, descending into the whole tree.
+ * @param node the node to search from.
+ * @param field the assignment name to look for.
+ * @returns the assigned value node, or undefined when no such assignment exists.
+ */
 const findValue = (node: AbstractNode, field: string): ValueNode | undefined => {
     if (isAssignmentNode(node) && node.left.name === field && isValueNode(node.right)) return node.right;
     const children =
         isDocumentNode(node) || isGroupNode(node) || isListNode(node)
             ? node.elements
-            : isAssignmentNode(node)
+            : isAssignmentNode(node) && node.right
               ? [node.right]
               : [];
     for (const child of children) {
@@ -41,7 +46,12 @@ const findValue = (node: AbstractNode, field: string): ValueNode | undefined => 
     return undefined;
 };
 
-/** Every leaf key path a parsed strings document declares (mirrors the index harvest, for assertions). */
+/**
+ * Collect every leaf key path a parsed strings document declares, mirroring the index harvest for assertions.
+ * @param container the document or group node to walk.
+ * @param prefix the slash-joined key path accumulated from the enclosing groups.
+ * @returns the leaf key paths, skipping `__`-prefixed engine directives.
+ */
 const keyPaths = (container: { elements: AbstractNode[] }, prefix = ''): string[] => {
     const out: string[] = [];
     if (isAssignmentNode(container as unknown as AbstractNode) || isValueNode(container as unknown as AbstractNode)) return out;
@@ -50,7 +60,7 @@ const keyPaths = (container: { elements: AbstractNode[] }, prefix = ''): string[
         let value: AbstractNode | undefined;
         if (isAssignmentNode(element)) {
             name = element.left.name;
-            value = element.right;
+            value = element.right ?? undefined;
         } else if (isGroupNode(element) && element.identifier) {
             name = element.identifier.name;
             value = element;
@@ -63,7 +73,12 @@ const keyPaths = (container: { elements: AbstractNode[] }, prefix = ''): string[
     return out;
 };
 
-/** Apply a pure-insertion TextEdit (start === end) to `text`. */
+/**
+ * Apply a pure-insertion TextEdit (start === end) to `text`.
+ * @param text the document text to insert into.
+ * @param edit the insertion edit, whose range start is the insertion point.
+ * @returns the text with `edit.newText` inserted.
+ */
 const applyInsert = (text: string, edit: { range: { start: { line: number; character: number } }; newText: string }) => {
     const lines = text.split('\n');
     let offset = 0;

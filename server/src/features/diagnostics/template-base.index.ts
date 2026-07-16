@@ -98,8 +98,8 @@ export class TemplateBaseIndex extends WatchedDocumentIndex {
     /**
      * The original (parseable) uris of every file that inherits a base named `name`, matched
      * case-insensitively. These are the candidate files the virtual-inheritance resolver re-parses to
-     * find the concrete overrides of the base — a superset, since a name collision or a same-named base
-     * in another chain can appear here, so the resolver confirms each candidate by resolving its
+     * find the concrete overrides of the base (a superset, since a name collision or a same-named base
+     * in another chain can appear here), so the resolver confirms each candidate by resolving its
      * inheritance reference back to the base node.
      *
      * @param name the base group's leaf name.

@@ -14,7 +14,7 @@ import { globalSettings } from '../../src/settings';
 import { initWorkspace, valueOf, WORKSPACE_DATA_DIR } from '../workspace-helper';
 import { FIXTURES_DIR } from '../helpers';
 
-// End-to-end resolution of the members mod actions merge into game-tree nodes, through the REAL
+// End-to-end resolution of the members mod actions merge into game-tree nodes, through the real
 // resolver (FullNavigationStrategy) and completion strategy over an on-disk fixture mod. The mod
 // (test/fixtures/action-resolution-mod/mod.rules) patches `parts/derived_part.rules`:
 //   - AddBase appends `overclock_base.rules`/Part to derived_part's Part (slot 1, since a static
@@ -37,7 +37,7 @@ const refNode = (value: string): ValueNode => ({
     type: 'Value',
     valueType: { type: 'Reference', value },
     position: pos,
-    parent: origin as unknown as AbstractNode,
+    parent: origin,
 });
 const complete = (value: string) =>
     completion.complete({ node: refNode(value), isInheritanceNode: false, cancellationToken: token });
@@ -83,8 +83,8 @@ describe('AddBase: `^/N` into an appended base', () => {
         expect(await navigate(`&${PART}/^/3/OVERCLOCK_MEMBER`)).toBeNull();
     });
 
-    it('ignores an Index-carrying AddBase — it is not modelled (`base_part/^/0` stays unresolved)', async () => {
-        // The mod adds the same base to base_part with an explicit Index; that form is skipped, and
+    it('ignores an Index-carrying AddBase, which is not modelled (`base_part/^/0` stays unresolved)', async () => {
+        // The mod adds the same base to base_part with an explicit Index. That form is skipped, and
         // base_part's Part has no written inheritance, so `^/0` resolves to nothing.
         expect(await navigate(`&${BASE_PART}/^/0/OVERCLOCK_MEMBER`)).toBeNull();
     });
@@ -104,7 +104,7 @@ describe('Member injection: nested Overrides and Add(Name)', () => {
         expect(valueOf(await navigate(`&${PART}/Components/FileOverriddenComp/ToggleOn`))).toBe(true);
     });
 
-    it('resolves DEEP through an injected member (`Components/AddedComp/Type`)', async () => {
+    it('resolves deep through an injected member (`Components/AddedComp/Type`)', async () => {
         expect(valueOf(await navigate(`&${PART}/Components/AddedComp/Type`))).toBe('StaticToggle');
     });
 
@@ -117,7 +117,7 @@ describe('Member injection: nested Overrides and Add(Name)', () => {
     });
 
     it('still resolves the node own members without the index (`Components/HeatProducer`)', async () => {
-        // HeatProducer is derived_part's own component; the member index is consulted only on a miss.
+        // HeatProducer is derived_part's own component. The member index is consulted only on a miss.
         expect(await navigate(`&${PART}/Components/HeatProducer`)).not.toBeNull();
     });
 });
@@ -149,7 +149,7 @@ describe('completion offers the appended base and injected members', () => {
         expect(options).toContain('OVERCLOCK_MEMBER');
     });
 
-    it('offers the appended base SLOTS in `^/` completion (static + AddBase = 0/, 1/, 2/)', async () => {
+    it('offers the appended base slots in `^/` completion (static + AddBase = 0/, 1/, 2/)', async () => {
         const options = await complete(`&${PART}/^/`);
         expect(options).toEqual(expect.arrayContaining(['0/', '1/', '2/']));
     });

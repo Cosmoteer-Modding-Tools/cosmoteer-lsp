@@ -57,7 +57,7 @@ export class DefinitionService {
         const node = findNodeAtPosition(document, position);
         if (isReferenceValue(node)) {
             const primary = await this.resolveReferenceLocation(document, node, cancellationToken);
-            // A virtual-inheritance path (`&Base/:/Member`) also points at the concrete overrides — the
+            // A virtual-inheritance path (`&Base/:/Member`) also points at the concrete overrides, the
             // "most-derived version" the `:` selects at runtime. Offer those alongside the base's own
             // (default) declaration `primary` lands on, so go-to-definition reaches the deriving values.
             const overrides = await this.resolveVirtualOverrides(document, node, cancellationToken).catch(() => []);
@@ -73,14 +73,14 @@ export class DefinitionService {
             }
             return primary;
         }
-        // An asset value (`Sprite`/`Sound`/`Shader`) points at an on-disk file, not an AST node —
-        // resolve it (relative to the file or any inherited asset base) and jump to that file.
+        // An asset value (`Sprite`/`Sound`/`Shader`) points at an on-disk file, not an AST node.
+        // Resolve it (relative to the file or any inherited asset base) and jump to that file.
         if (isAssetValue(node)) {
             const path = await resolveAssetPath(node, document.uri, cancellationToken).catch(() => null);
             return path ? { uri: filePathToUri(path), range: ZERO_RANGE } : null;
         }
         // A schema `ID<…>` sibling reference (e.g. `OperationalToggle = IsOperational`) is a bare
-        // identifier, not a `&`-reference — resolve it via the schema to the sibling component group.
+        // identifier, not a `&`-reference. Resolve it via the schema to the sibling component group.
         const sibling = resolveSchemaSiblingReference(node);
         if (sibling) return definitionLocationOf(sibling);
         // The same-file search missed: a component declared in an inherited base part, an include or
@@ -156,7 +156,7 @@ export class DefinitionService {
     }
 
     /**
-     * Resolve a reference value node to its target — the AST node it points at, or the
+     * Resolve a reference value node to its target: the AST node it points at, or the
      * {@link FileWithPath} for a whole-file reference, or `null`. The node-level core
      * shared by go-to-definition, the reference index, and rename.
      */
@@ -219,10 +219,10 @@ export class DefinitionService {
         while (!target) {
             const lastSlash = path.lastIndexOf('/');
             const prefix = lastSlash > 0 ? path.slice(0, lastSlash) : '';
-            // Dead-end: no meaningful prefix is left — empty, or only a sigil (`&`, `/`,
-            // `&/`). A bare `&` would spuriously resolve to the bearer's own scope and mask
-            // the real target, so we must stop before that. Vanilla navigation is exhausted;
-            // inside a mod, a super-path / file ref (`&/SW_COLORS/Lime/RGBA`,
+            // Dead-end: no meaningful prefix is left. What remains is empty, or only a sigil
+            // (`&`, `/`, `&/`). A bare `&` would spuriously resolve to the bearer's own scope
+            // and mask the real target, so we must stop before that. Vanilla navigation is
+            // exhausted. Inside a mod, a super-path / file ref (`&/SW_COLORS/Lime/RGBA`,
             // `<cosmoteer.rules>/SW_X`) may point at a global the mod itself inserts, which
             // exists only in its effective tree. Resolve the full reference there, mirroring
             // how the value validator resolves `&/SW_X/…`.

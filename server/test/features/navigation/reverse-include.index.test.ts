@@ -200,7 +200,7 @@ describe('reverse-include rooting', () => {
             await ReverseIncludeIndex.instance.ensureBuilt([dir], token);
 
             const doc = parser(lexer(fragText), uriOf('planet_frag.rules')).value;
-            // Rooted from the `Styles` map's value type — the `alien` member is a key, not a field.
+            // Rooted from the `Styles` map's value type: the `alien` member is a key, not a field.
             expect(ReverseIncludeIndex.instance.rootType(doc.uri)).toMatchObject({
                 ref: 'Cosmoteer.Generators.Planets.PlanetStyleRules',
             });
@@ -211,10 +211,10 @@ describe('reverse-include rooting', () => {
         }
     });
 
-    // A pure inheritance base — a fragment reached only through `Derived : <base.rules>/Base`, never as a
-    // field value — is rooted to the deriver class that best fits its OWN fields. Mirrors the real
+    // A pure inheritance base (a fragment reached only through `Derived : <base.rules>/Base`, never as a
+    // field value) is rooted to the deriver class that best fits its own fields. Mirrors the real
     // `commands/` layout: `MoveCommand` (MoveCommandRules) and `DirectControlCommand` (BaseCommandRules)
-    // both inherit `base_cmd.rules`'s `BaseCommand`; since MoveCommandRules owns the base's field(s) and is
+    // both inherit `base_cmd.rules`'s `BaseCommand`. Since MoveCommandRules owns the base's field(s) and is
     // the most-derived (most fields) candidate that does, the base roots there so all its fields resolve.
     it('roots a pure inheritance base to the best-fitting deriver class', async () => {
         const dir = mkdtempSync(join(tmpdir(), 'revinc-inherit-'));
@@ -518,9 +518,9 @@ describe('reverse-include rooting', () => {
             const baseCmdDoc = parser(lexer(baseCmdText), pathToFileURL(join(commandsDir, 'base_command.rules')).href).value;
             const baseCmd = findEnclosingGroup(baseCmdDoc, baseCmdText.indexOf('AvoidRadiusBuffer'));
             expect(baseCmd?.identifier?.name).toBe('BaseCommand');
-            // Roots to a deriver class that owns EVERY field the base declares — including the move-widget
+            // Roots to a deriver class that owns every field the base declares, including the move-widget
             // groups (MoverWidget/RotatorWidget/DeleterWidget) that the shallow BaseCommandRules lacks. The
-            // exact winner among owns-all candidates is an arbitrary tiebreak; the guarantee is that the
+            // exact winner among owns-all candidates is an arbitrary tiebreak. The guarantee is that the
             // widget field resolves (`fieldOf` non-undefined) so nested completion works and it validates clean.
             const baseClass = resolveGroupClass(baseCmd!);
             expect(baseClass && fieldOf(baseClass, 'MoverWidget')).toBeTruthy();
@@ -533,8 +533,8 @@ describe('reverse-include rooting', () => {
             if (existsSync(followPath)) {
                 const followText = readFileSync(followPath, 'utf8');
                 const followDoc = parser(lexer(followText), pathToFileURL(followPath).href).value;
-                // base_follow_command is reached only through the chain — its own derivers (the follow
-                // commands) root it, and it in turn roots base_command — so this is what the fixpoint buys.
+                // base_follow_command is reached only through the chain. Its own derivers (the follow
+                // commands) root it, and it in turn roots base_command, so this is what the fixpoint buys.
                 expect(ReverseIncludeIndex.instance.inheritanceBaseMembers(followDoc.uri)).toContain('BaseFollowCommand');
                 expect(ReverseIncludeIndex.instance.passesUsed).toBeGreaterThan(1);
                 // It roots for real (completion/validation), and validates clean.

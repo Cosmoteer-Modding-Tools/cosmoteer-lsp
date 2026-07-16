@@ -15,13 +15,13 @@ const asNode = (result: AbstractNode | { readonly type?: string } | null | undef
     result && (result as { type?: string }).type !== 'File' ? (result as AbstractNode) : null;
 
 /**
- * For an unresolved reference, the closest-named member that would have resolved — a typo
+ * For an unresolved reference, the closest-named member that would have resolved, a typo
  * suggestion (`&Foo/PrhibitedBy` → `&Foo/ProhibitedBy`). Returns the suggested last segment
  * and the full corrected reference (the typed value with only the final name swapped), or
  * `null` when nothing is close enough.
  *
  * Candidates come from the scope the failing segment is looked up in: the members of the
- * container its prefix resolves to (multi-segment), or — for a bare `&Name` — the members
+ * container its prefix resolves to (multi-segment), or, for a bare `&Name`, the members
  * of the nearest enclosing named scope plus the document root.
  */
 export const suggestReferenceName = async (
@@ -55,7 +55,7 @@ export const suggestReferenceName = async (
         if (hasElements(scope)) for (const [name] of namedMembersOf(scope)) candidates.add(name);
     } else {
         // Bare relative `&Name`: the nearest enclosing named scope (lists are positional, climb
-        // out of them) and the document root — where such a name is actually looked up.
+        // out of them) and the document root, where such a name is actually looked up.
         let scope: AbstractNode | undefined = startNode.parent ?? undefined;
         while (scope && isListNode(scope)) scope = scope.parent ?? undefined;
         if (hasElements(scope)) for (const [name] of namedMembersOf(scope)) candidates.add(name);

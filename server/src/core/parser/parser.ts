@@ -76,16 +76,16 @@ const isListElementIdentifier = (parent: AbstractNode | undefined): boolean => p
 export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => {
     let current = 0;
     const errors: ParserError[] = [];
-    // Plain numbers: an integer/decimal mantissa — including a leading-dot decimal such as `.5`
-    // or `.75` (common in Cosmoteer, e.g. `Bleed = .75 * .5`) — with an optional scientific
-    // exponent (`3.4028235E+38`, `1.5e10`). A `d`-suffixed number (`90d`) is NOT a plain number:
+    // Plain numbers: an integer/decimal mantissa, including a leading-dot decimal such as `.5`
+    // or `.75` (common in Cosmoteer, e.g. `Bleed = .75 * .5`), with an optional scientific
+    // exponent (`3.4028235E+38`, `1.5e10`). A `d`-suffixed number (`90d`) is not a plain number:
     // the game's ExpressionEvaluator converts it degrees-to-radians, so it must stay a String and
     // go through the suffix rules in the value evaluator (typing it `Number 90` showed 90 where
     // the game computes 1.5708). The previous pattern also put the `^` anchor mid-expression
     // (`[-.]?^…`), which made the leading `-`/`.` branch dead and typed `.5` as a String,
     // breaking value typing, math validation and resolved-value computation.
     const IS_NUMBER = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
-    // A numeric literal carrying a unit suffix — percent `%`, degrees `d`, radians `r` (mXparser /
+    // A numeric literal carrying a unit suffix: percent `%`, degrees `d`, radians `r` (mXparser /
     // Cosmoteer expression suffixes). The lexer keeps the suffix inside the value token, so `40%`
     // lexes as one String value. Used so a leading sign (`-40%`) folds into that value instead of
     // leaking the sign as a lone Expression and desyncing the parse.
@@ -256,10 +256,10 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             current++;
             let value = token.value as string;
             // ObjectText concatenates consecutive string literals (C-style): `"a" "b"` and the
-            // line-continued form `"a"\ <newline> "b"` are a SINGLE string. They lex as adjacent
-            // STRING tokens; the continuation segments carry no unsuppressed newline (a `\` before
+            // line-continued form `"a"\ <newline> "b"` are a single string. They lex as adjacent
+            // STRING tokens. The continuation segments carry no unsuppressed newline (a `\` before
             // the newline suppresses it, or the segments share a line). Without joining them the
-            // trailing segments leak as sibling values — junk nodes in localization files, and in
+            // trailing segments leak as sibling values: junk nodes in localization files, and in
             // the heat_management tutorial a continued string even stole the following `Entries`
             // list's identifier. Stop at an unsuppressed newline, which genuinely ends the value.
             while (tokens[current]?.type === TOKEN_TYPES.STRING && !tokens[current]?.precededByNewline) {
@@ -381,19 +381,19 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             // unit-suffixed number (`-40%`, `-1.5r`, `-2d`) or a bare-word numeric constant
             // (`-Infinity`, `-pi`). The suffix / letters keep the token out of `IS_NUMBER`, so
             // without this the sign is returned as a lone Expression and the operand leaks as a
-            // sibling value, silently desyncing the parse — it swallows the following named
+            // sibling value, silently desyncing the parse. It swallows the following named
             // group/list's identifier (seen on vanilla `BaseValue = -0.6%` stealing the next
             // `Modifiers` list, and `MinIntensity = -Infinity`). Fold the sign into a single String
-            // value, mirroring the POSITIVE form (`40%` / `Infinity` also lex as plain Strings);
-            // downstream percent/unit regexes already accept a leading `-`. References and paths
-            // (`&…`, `/…`, `<…`) are excluded — a negated reference belongs in a MathExpression.
+            // value, mirroring the positive form (`40%` / `Infinity` also lex as plain Strings).
+            // Downstream percent/unit regexes already accept a leading `-`. References and paths
+            // (`&…`, `/…`, `<…`) are excluded: a negated reference belongs in a MathExpression.
             else if (
                 tokenValue &&
                 tokens[current - 2] &&
                 tokens[current]?.type === TOKEN_TYPES.VALUE &&
-                // The operand must be on the SAME line as the sign: a bare `-`/`+` that is itself the
+                // The operand must be on the same line as the sign: a bare `-`/`+` that is itself the
                 // whole value (vanilla ru.rules key names `MinusUnderscore = -`, `PlusEquals = +`) is
-                // followed by the NEXT line's field — folding across the newline would steal that
+                // followed by the next line's field. Folding across the newline would steal that
                 // field's identifier and desync the parse.
                 !tokens[current]?.precededByNewline &&
                 (token.value === '-' || token.value === '+') &&
@@ -423,7 +423,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             // case for a unary sign before a parenthesized group, e.g. `-(&A/B)` or `-(5)`. The
             // negative-number branch above only folds `-<number>`; a parenthesized operand is not a
             // bare number, so without this the sign would be returned as a lone Expression node and the
-            // `( … )` left unconsumed — it then leaks out as sibling fields and swallows the following
+            // `( … )` left unconsumed. It then leaks out as sibling fields and swallows the following
             // group's identifier (a silent desync seen on vanilla `ION_ENERGY = -(&Part/…)`). Parse the
             // operand and wrap it as a MathExpression `[sign, operand]`, mirroring how the game reads a
             // unary-negated parenthesized value.
@@ -445,7 +445,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     },
                 } as ExpressionNode;
                 const operand = walk(undefined, parent);
-                // Nothing to negate (e.g. empty `()` already reported) — leave the bare sign rather
+                // Nothing to negate (e.g. empty `()` already reported). Leave the bare sign rather
                 // than fabricate an operand.
                 if (!operand) return signNode;
                 return {
@@ -461,7 +461,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     },
                 } as MathExpressionNode;
             }
-            // case for Values starting with / — a super-path reference like `/SW_X` or `/Foo/Bar`.
+            // case for Values starting with /: a super-path reference like `/SW_X` or `/Foo/Bar`.
             // The reference segment must be on the same line as the `/`: references are always
             // written contiguously, and the lexer drops newlines, so without this guard a bare `/`
             // value (`SlashQuestion = /` in cosmoteer `strings/*.rules`) would swallow the next
@@ -534,16 +534,16 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 ) {
                     const args: ValueNode[] = [];
                     // A simple first argument is `VALUE` or `( VALUE )`. Only that shape
-                    // is built directly here. Anything more complex — nested parens or
-                    // math such as `ceil(((&a)*4+(&b))/3)` — is left to the general
+                    // is built directly here. Anything more complex (nested parens or
+                    // math such as `ceil(((&a)*4+(&b))/3)`) is left to the general
                     // argument loop below, which `walk`s each argument (and `walk`
                     // already resolves nested parens). Without this guard the next token
                     // after the consumed `(` could be another `(`, and inferValueType
                     // would throw on a LEFT_PAREN, aborting the whole file's parse.
                     // Only the exact shape `( VALUE )` is taken as a simple parenthesized first
-                    // argument (closing `)` immediately after the value). Anything larger — a
+                    // argument (closing `)` immediately after the value). Anything larger (a
                     // nested call `(name(...))`, or an expression `( VALUE op … )` such as the
-                    // `(1 / (&X))` in `ceil((1 / (&X)))` — must fall through to the general
+                    // `(1 / (&X))` in `ceil((1 / (&X)))`) must fall through to the general
                     // argument loop, which `walk`s it as a proper parenthesized math group.
                     // Taking the shortcut for `( VALUE op …` wrongly demanded a `)` right after
                     // VALUE and reported a bogus "Expected right paren for reference" (which then
@@ -611,7 +611,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                             nextNode.type === 'Expression' ||
                             nextNode.type === 'FunctionCall' ||
                             // A parenthesized math group is a valid argument too, e.g.
-                            // `ceil(((&a)*4+(&b))/3)` — its inner `((…)*4+(…))` walks to
+                            // `ceil(((&a)*4+(&b))/3)`. Its inner `((…)*4+(…))` walks to
                             // a MathExpression.
                             nextNode.type === 'MathExpression'
                         ) {
@@ -638,7 +638,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                         }
                     }
                     // Remember the closing `)` so the node's end position spans the whole call,
-                    // not just its name — callers (e.g. inlay hints) place markers after it. A
+                    // not just its name: callers (e.g. inlay hints) place markers after it. A
                     // function call that is never closed (`X = ceil(5`) is reported here.
                     const closeParen =
                         tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN ? tokens[current] : undefined;
@@ -668,7 +668,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 const parenStartIndex = current;
                 const errorCountBeforeParen = errors.length;
                 current++;
-                // Empty parentheses `()` — the `(` is immediately closed. Consume the `)` here and
+                // Empty parentheses `()`: the `(` is immediately closed. Consume the `)` here and
                 // report the empty group: otherwise the stray-`)` literal rule (further down in
                 // `walk`) would turn this closing paren into a value and desync the rest of the file.
                 if (tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN) {
@@ -688,7 +688,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     return null;
                 }
                 // If the parenthesized content is not a math operand (a Value, Expression,
-                // MathExpression or FunctionCall) we walked past the value into the next field —
+                // MathExpression or FunctionCall) we walked past the value into the next field,
                 // e.g. `LeftBracket = (` (cosmoteer `strings/ja.rules`, `ru.rules`) where `(` is a
                 // literal value, not the start of an expression group, so `walk` returned the
                 // following `M = ""` field as an Assignment. The real OT parser (OTFieldNode) reads
@@ -768,9 +768,9 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                         lastNode = nextNode;
                     }
                     // Span the closing `)` so an end-of-expression marker lands after the whole
-                    // parenthesized group (e.g. `(6/1)` or `((&~/SIZE/0)/2)`). A missing `)` —
+                    // parenthesized group (e.g. `(6/1)` or `((&~/SIZE/0)/2)`). A missing `)`,
                     // whether a stray non-paren token interrupted the group or the file ended
-                    // mid-expression (`X = (5 + 3`) — leaves `closeParen` undefined and is reported.
+                    // mid-expression (`X = (5 + 3`), leaves `closeParen` undefined and is reported.
                     const closeParen =
                         tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN ? tokens[current] : undefined;
                     if (!closeParen) {
@@ -792,7 +792,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     }
                     return mathNode;
                 }
-                // A single parenthesized value whose `)` never arrives (`X = (&A`) — the value
+                // A single parenthesized value whose `)` never arrives (`X = (&A`): the value
                 // parsed but the group was left open at end of file.
                 errors.push({
                     message: l10n.t('Expected right paren'),
@@ -866,10 +866,10 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     tokens[current - 2].type === TOKEN_TYPES.EXPRESSION ||
                     tokens[current - 2].type === TOKEN_TYPES.LEFT_PAREN ||
                     _lastNode?.type === 'Value' ||
-                    // Right after a `,` field separator, an identifier that HEADS a group/list/
-                    // inheritance (`, Criterias [ … ]`, real mod gaugeincreaser.rules) is a NEW
-                    // member, not a comma-separated value — so classify it as a value only when it is
-                    // NOT immediately followed by `{`/`[`/`:` (else its opener is orphaned and the
+                    // Right after a `,` field separator, an identifier that heads a group/list/
+                    // inheritance (`, Criterias [ … ]`, real mod gaugeincreaser.rules) is a new
+                    // member, not a comma-separated value. So classify it as a value only when it is
+                    // not immediately followed by `{`/`[`/`:` (else its opener is orphaned and the
                     // member goes anonymous). The multi-value continuation cases above are left as-is.
                     (tokens[current - 2].type === TOKEN_TYPES.COMMA &&
                         tokens[current]?.type !== TOKEN_TYPES.LEFT_BRACE &&
@@ -993,7 +993,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                         // Numeric inheritance (e.g. `: 1` for a list element) inherits from
                         // the sibling at that index in the containing list/group. Normalize
                         // to a relative `&<index>` reference, resolved (via isInheritanceMember)
-                        // against the container — `stepIntoNode` indexes the list by number.
+                        // against the container: `stepIntoNode` indexes the list by number.
                         nextNode.valueType = {
                             type: 'Reference',
                             value: '&' + String(nextNode.valueType.value),
@@ -1017,12 +1017,12 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 if (tokens[current] === undefined) {
                     break;
                 }
-                // A `;` (like `,`) terminates an inheritance reference inside the inheritance list —
+                // A `;` (like `,`) terminates an inheritance reference inside the inheritance list:
                 // the game's `OTReferenceNode.Parse` breaks a ref on `;`/`,`/newline, and the
                 // inheritance list keeps collecting refs until it reaches the body `{`/`[`. So the
                 // list-element form `: ~/Base/N; { override }` (real in workshop mods, e.g.
-                // pipebase.rules `ProxyableComponents`) is ONE element: a group inheriting from the
-                // ref with a `{}` override. Consuming the `;` here lets the body attach; without it
+                // pipebase.rules `ProxyableComponents`) is one element: a group inheriting from the
+                // ref with a `{}` override. Consuming the `;` here lets the body attach. Without it
                 // the `;` and `{ … }` leaked out and desynced the enclosing list's bracket matching.
                 if (
                     tokens[current]?.type === TOKEN_TYPES.COMMA ||
@@ -1054,7 +1054,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
         }
 
         if (token.type === TOKEN_TYPES.RIGHT_PAREN && _lastNode?.type !== 'Value') {
-            // A `)` reaching here is unmatched — every paren-group/function-call loop consumes its
+            // A `)` reaching here is unmatched. Every paren-group/function-call loop consumes its
             // own closing `)` before calling `walk`, so this is a stray paren. The real OT parser
             // (OTFieldNode) reads such a token as part of the value string, e.g. `RightBracket = )`
             // or `AsteroidGold_S = 金小惑星（S)` in cosmoteer `strings/*.rules`. Emit it as a literal
@@ -1114,7 +1114,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
 
     /**
      * After a value, a math operator at the same level (not inside parens) starts a
-     * binary expression — consume the whole `value (op value)*` chain as one
+     * binary expression. Consume the whole `value (op value)*` chain as one
      * MathExpression. Without this the trailing `op value` stays orphaned at the
      * container level and can swallow the following token (e.g. `XXLChance = 1/16`
      * leaves `/16`, which then consumes the next identifier `CommonAsteroidTypes`).
@@ -1124,10 +1124,10 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
         first: AbstractNode | null,
         parent?: GroupNode | ListNode | AbstractNodeDocument
     ): AbstractNode | null => {
-        // Implicit multiplication — a value-like operand immediately followed by `(` on the same
+        // Implicit multiplication: a value-like operand immediately followed by `(` on the same
         // line (`3(&~/Range)` = `3 * (&~/Range)`). The game reads the field value flat and mXparser
-        // applies implied multiplication; without this the `( … )` leaks as a sibling value. Only a
-        // numeric/value/expression `first` qualifies (not a group/list) and only when NOT preceded by
+        // applies implied multiplication. Without this the `( … )` leaks as a sibling value. Only a
+        // numeric/value/expression `first` qualifies (not a group/list) and only when not preceded by
         // a newline (which ends the value).
         const nextIsImplicitMult = () =>
             first !== null &&
@@ -1214,7 +1214,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             parent,
             position: { ...first.position },
         };
-        // Stop the math chain at an unsuppressed line break — ObjectText ends a value at the
+        // Stop the math chain at an unsuppressed line break: ObjectText ends a value at the
         // newline, so `X = 1\n+ 2` is `X = 1` (the `+ 2` is not folded into the value).
         for (;;) {
             const operatorToken = tokens[current];
@@ -1253,7 +1253,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             // implicit `*` there is no operator token, so leave `(` for `walk` to consume as a group.
             if (!isImplicitMult) current += operatorTokenCount;
             // `!` is postfix (factorial): it applies to the value already pushed, so there is no
-            // right operand to consume — keep scanning for the next operator instead.
+            // right operand to consume. Keep scanning for the next operator instead.
             if (!assembled && !isImplicitMult && operatorToken.value === '!') {
                 mathNode.position.end = operatorToken.end ?? mathNode.position.end;
                 mathNode.position.characterEnd = operatorToken.lineOffset + 1;
@@ -1316,7 +1316,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
     while (current < tokens.length) {
         // A `;` or `,` terminates a top-level field or void entry (ObjectText treats both as the
         // node terminator, see OTGroupedReferenceNode: `Foo;` / `Bar = 1,`). Consume it and clear
-        // `lastNode` so the completed entry is not bound to whatever follows — e.g. a void `Foo;`
+        // `lastNode` so the completed entry is not bound to whatever follows, e.g. a void `Foo;`
         // must not become the identifier of a subsequent `Bar { … }` group.
         if (tokens[current].type === TOKEN_TYPES.SEMICOLON || tokens[current].type === TOKEN_TYPES.COMMA) {
             current++;
@@ -1354,7 +1354,7 @@ export interface TokenParserResult {
     parserErrors: ParserError[];
 }
 
-// Hoisted out of inferValueType, which runs for every value token of every parsed file — building
+// Hoisted out of inferValueType, which runs for every value token of every parsed file. Building
 // the pattern there compiled a fresh RegExp per token.
 const IS_SOUND = new RegExp(ALLOWED_AUDIO_EXTENSIONS.join('|').replaceAll('.', '\\.'), 'i');
 
@@ -1378,7 +1378,7 @@ function inferValueType(IS_NUMBER: RegExp, token: Token): ValueNodeTypes {
         valueType = 'Shader';
         value = value as string;
     } else if (
-        // A reference sigil must be FOLLOWED by a path/name — a lone `~`, `/`, `^`, `&`, or `..`
+        // A reference sigil must be followed by a path/name: a lone `~`, `/`, `^`, `&`, or `..`
         // (no member) is not a resolvable reference, it is a literal value (the keyboard key-name
         // strings `TildeBacktick = ~`, `SlashQuestion = /` in cosmoteer `strings/*.rules`). Typing
         // those as references produced spurious "Reference should start with an ampersand" errors.

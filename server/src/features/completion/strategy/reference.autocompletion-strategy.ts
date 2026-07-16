@@ -32,7 +32,7 @@ const EMPTY_STRING = '';
 const isReferenceValueNode = (node: AbstractNode | null | undefined): node is ValueNode =>
     !!node && isValueNode(node) && node.valueType.type === 'Reference';
 
-/** The reference value to dereference from a node — the node itself, or an assignment's reference right-hand side. */
+/** The reference value to dereference from a node: the node itself, or an assignment's reference right-hand side. */
 const referenceValueOf = (node: AbstractNode): ValueNode | undefined => {
     if (isReferenceValueNode(node)) return node;
     if (isAssignmentNode(node) && isReferenceValueNode(node.right)) return node.right;
@@ -339,7 +339,7 @@ const traverseOwnPath = async (
     const indexOfRules = parts.findIndex((part) => isRulesPathSegment(part));
     if (indexOfRules !== -1) {
         // Resolve the referenced file (the path up to and including the `.rules>`
-        // token — slicing it off would parse the directory and throw), then list /
+        // token: slicing it off would parse the directory and throw), then list /
         // drill into the in-file path that follows.
         const filePath = join(
             filePathToDirectoryPath(currentLocation),
@@ -369,7 +369,7 @@ const optionsInFile = async (
 ): Promise<string[]> => {
     const meaningful = inFileParts.filter((part) => part !== EMPTY_STRING);
     if (meaningful.length === 0) {
-        // `<…file.rules>` or `<…file.rules>/` — list the file's root members, plus any the mod
+        // `<…file.rules>` or `<…file.rules>/`: list the file's root members, plus any the mod
         // merges into that file via a whole-file Override (effective tree).
         const own = getOptionsForLevel(document);
         const modAdded = await modOverrideMemberNamesForFile(document, originUri).catch(() => []);
@@ -396,7 +396,7 @@ const traverseCosmoteerPath = async (
     const indexOfRules = parts.findIndex((part) => isRulesPathSegment(part));
     if (indexOfRules !== -1 && !isWorkshopPath) {
         // parts look like ['<.', 'Data', <dirs…>, 'file.rules>', <in-file…>]. findFile
-        // wants the workspace-relative path BELOW Data, with the trailing `>` stripped —
+        // wants the workspace-relative path below Data, with the trailing `>` stripped,
         // not the `<.`/`Data` prefix and not the in-file tail (the previous code passed
         // those, so the lookup never matched).
         const fileSegments = parts.slice(2, indexOfRules + 1).map((part) => part.replace('>', EMPTY_STRING));
@@ -484,8 +484,8 @@ const getPathOptions = async (path: string) => {
 /**
  * Walks a reference path to the container the cursor is in, then the caller lists that container's
  * members (the completion-specific part). The per-segment stepping is delegated to the shared
- * `stepIntoNode` (semantics/reference-resolver.ts) — the same resolver navigation, hover and validation
- * use — so completion can never diverge from them on what a segment resolves to (a class of bug this
+ * `stepIntoNode` (semantics/reference-resolver.ts), the same resolver navigation, hover and validation
+ * use, so completion can never diverge from them on what a segment resolves to (a class of bug this
  * used to reimplement). Cross-file/reference dereferencing is delegated to `FullNavigationStrategy`,
  * and a trailing `/` (list the deref target) and a `:` virtual base are handled after the loop.
  */
@@ -522,10 +522,10 @@ const traverseReferencePath = async (
         let stepped: AbstractNode | null | undefined = stepIntoNode(currentNode, path, isInheritance);
 
         // stepIntoNode is synchronous and does not follow a reference result (an inheritance base, or a
-        // member whose value is `&…`). Dereference it through the shared navigation engine ONLY when a
+        // member whose value is `&…`). Dereference it through the shared navigation engine only when a
         // real next segment will descend into it; when the reference is the last walked segment before a
         // trailing `/`, leave it un-dereferenced so the leaf below lists its target through
-        // `optionsThroughReference` — which also merges the members a whole-file `Overrides` adds.
+        // `optionsThroughReference`, which also merges the members a whole-file `Overrides` adds.
         const derefToContinue = i + 1 < parts.length && parts[i + 1] !== EMPTY_STRING;
         if (derefToContinue && isReferenceValueNode(stepped)) {
             const target = await navigation
@@ -542,7 +542,7 @@ const traverseReferencePath = async (
     }
     // The walk stopped on a reference (or an assignment to
     // one) and the user typed a trailing `/`. Dereference it and list the target's
-    // members — covers `&Alias/` (in-file) and `&Ref/` (cross-file). Without this the
+    // members. Covers `&Alias/` (in-file) and `&Ref/` (cross-file). Without this the
     // guard below would just return [].
     if (parts[parts.length - 1] === EMPTY_STRING) {
         const reference = referenceValueOf(currentNode);

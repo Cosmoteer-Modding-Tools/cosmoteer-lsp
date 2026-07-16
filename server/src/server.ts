@@ -3,6 +3,7 @@ import {
     TextDocuments,
     Diagnostic,
     DiagnosticSeverity,
+    DiagnosticTag,
     ProposedFeatures,
     InitializeParams,
     DidChangeConfigurationNotification,
@@ -61,6 +62,7 @@ import { CosmoteerWorkspaceService } from './workspace/cosmoteer-workspace.servi
 import { ValidationForAssignment } from './features/diagnostics/validator.assignment';
 import { validateRedundantSeparators } from './features/diagnostics/validator.separator';
 import { validateIgnoredFields } from './features/diagnostics/validator.ignored-field';
+import { validateDefaultValuedFields } from './features/diagnostics/validator.default-value';
 import { ValidationForMath } from './features/diagnostics/validator.math';
 import { ValidationForDocumentDuplicates, ValidationForGroupDuplicates } from './features/diagnostics/validator.duplicate-key';
 import { validateInheritanceCycles } from './features/diagnostics/validator.inheritance-cycle';
@@ -114,7 +116,8 @@ import {
     listElementReferenceTarget,
 } from './document/schema/schema-context';
 import { toCompletionItem } from './features/completion/completion-item';
-import { collectRulesFiles, uriToFsPath } from './features/navigation/workspace-files';
+import { collectRulesFiles, modFolderPaths, uriToFsPath } from './features/navigation/workspace-files';
+import { collectReferencedTxtKeys } from './features/navigation/txt-reference-scan';
 import {
     beginFsTrustWindow,
     clearFsCaches,
@@ -318,10 +321,12 @@ connection.onInitialized(async (_params) => {
         })) as CosmoteerSettings;
         setGlobalSettings(settings ?? defaultSettings);
         if (settings?.cosmoteerPath) {
+            const gameTreeStarted = Date.now();
             await CosmoteerWorkspaceService.instance.initialize(
                 settings.cosmoteerPath,
                 await connection.window.createWorkDoneProgress()
             );
+            perfCount('startup.gameTreeMs', Date.now() - gameTreeStarted);
         } else {
             if (
                 !(await CosmoteerWorkspaceService.instance.initializeWithoutPath(
@@ -744,8 +749,14 @@ documents.onDidClose(async (e) => {
         const path = uriToFsPath(e.document.uri);
         const canonicalUri = filePathToUri(path);
         const scopeKeys = await validationScopeKeys(CancellationToken.None);
-        if (scopeKeys && !scopeKeys.has(reachabilityKey(path))) {
-            // The file is outside the reachable validation scope. It validated while it was open
+        // A `.txt` nothing references leaves with its tab for the same reason an out-of-scope file
+        // does. It validated while open, since opening it as `rules` is a deliberate "this is rules",
+        // but the game would never load it, so nothing persists it once the tab is gone. Without this
+        // its problems stick forever: the scan gate below never publishes the file, so no later pass
+        // is left to retract what the open flow pushed.
+        const outOfScope = scopeKeys && !scopeKeys.has(reachabilityKey(path));
+        if (outOfScope || (await isUnreferencedTxt(path, CancellationToken.None))) {
+            // The file is outside what the panel persists. It validated while it was open
             // (open files always validate), but its problems leave the panel with the tab instead
             // of persisting the way scanned files' problems do.
             await connection.sendDiagnostics({ uri: e.document.uri, diagnostics: [] });
@@ -852,13 +863,22 @@ const VALIDATION_SEVERITY: Record<NonNullable<ValidationError['severity']>, Diag
     hint: DiagnosticSeverity.Hint,
 };
 
+/**
+ * Lexes, parses and validates one document, running every enabled validator pass over it and
+ * mapping the findings onto LSP diagnostics. Serves both the open-document flow and the
+ * whole-workspace pass over unopened files, so on-disk files go through the exact same path.
+ *
+ * @param textDocument the document to validate.
+ * @param cancelToken cancels the parse and the validator passes.
+ * @param persist when false (the whole-workspace pass over unopened files), the parsed AST is not
+ *     cached in ParserResultRegistrar. It is used to produce diagnostics and then discarded so it
+ *     can be GC'd. Caching every project file's AST permanently is what exhausted the heap. The
+ *     open-file flow keeps `persist: true` because completion/navigation read the live AST back.
+ * @returns the document's diagnostics, capped at the configured problem limit.
+ */
 async function validateTextDocument(
     textDocument: TextDocument,
     cancelToken: CancellationToken,
-    // When false (the whole-workspace pass over unopened files), the parsed AST is not cached in
-    // ParserResultRegistrar. It is used to produce diagnostics and then discarded so it can be
-    // GC'd. Caching every project file's AST permanently is what exhausted the heap. The open-file
-    // flow keeps `persist: true` because completion/navigation read the live AST back.
     persist = true
 ): Promise<Diagnostic[]> {
     // `.shader` files reach the server (for semantic tokens / hover / include navigation) but are HLSL,
@@ -1040,6 +1060,15 @@ async function validateTextDocument(
             const ignoredFieldErrors = await validateIgnoredFields(parserResult.value, cancelToken).catch(() => []);
             validationErrors = validationErrors.concat(ignoredFieldErrors);
         }
+        // Separate pass: fields that restate the game's default, faded as dead weight with a remove
+        // quick fix. Judged only inside groups that do not inherit, so an explicit default overriding
+        // a base's value is never flagged.
+        if (settings.diagnostics?.validateDefaultValues) {
+            const defaultValueErrors = await timedPass('scan.vDefaultValueMs', () =>
+                validateDefaultValuedFields(parserResult.value, cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(defaultValueErrors);
+        }
         if (isModRules(textDocument.uri)) {
             // Separate pass: validate the manifest's action verbs/targets against the
             // effective game tree (the AstType-keyed Validator allows only one pass per type).
@@ -1071,12 +1100,13 @@ async function validateTextDocument(
         const diagnostic: Diagnostic = {
             severity: VALIDATION_SEVERITY[error.severity ?? 'error'],
             range: {
-                start: textDocument.positionAt(error.node.position.start),
-                end: textDocument.positionAt(error.node.position.end),
+                start: textDocument.positionAt(error.range?.start ?? error.node.position.start),
+                end: textDocument.positionAt(error.range?.end ?? error.node.position.end),
             },
             message: error.message,
             source: 'cosmoteer-language-server',
         };
+        if (error.unnecessary) diagnostic.tags = [DiagnosticTag.Unnecessary];
         // Round-trip quick-fix data (e.g. "did you mean") to the code-action handler.
         if (error.data) diagnostic.data = error.data;
         if (hasDiagnosticRelatedInformationCapability && error.additionalInfo) {
@@ -1121,6 +1151,48 @@ const wholeWorkspaceEnabled = (): boolean => globalSettings.diagnostics?.validat
 let validationScopeEpoch = 0;
 /** The cached result of {@link validationScopeKeys}, valid while its epoch is current. */
 let validationScopeCache: { epoch: number; keys: Set<string> | undefined } | undefined;
+/** The cached result of {@link referencedTxtKeys}, valid while {@link validationScopeEpoch} holds. */
+let referencedTxtCache: { epoch: number; keys: Set<string> | undefined } | undefined;
+
+/**
+ * The `.txt` files something in the project references by path, or undefined when the project holds
+ * no `.txt` and the gate is moot. Cached until a disk or folder change bumps the scope epoch, like
+ * {@link validationScopeKeys}.
+ *
+ * @param token cancels the text scan. A cancelled (possibly partial) scan is not cached.
+ * @returns the referenced keys, or undefined when no gate applies.
+ */
+async function referencedTxtKeys(token: CancellationToken): Promise<Set<string> | undefined> {
+    if (referencedTxtCache?.epoch === validationScopeEpoch) return referencedTxtCache.keys;
+    const epoch = validationScopeEpoch;
+    const folders = await getWorkspaceFoldersCached();
+    const keys = await collectReferencedTxtKeys((folders ?? []).map((folder) => uriToFsPath(folder.uri)), token).catch(
+        () => undefined
+    );
+    if (!token.isCancellationRequested) referencedTxtCache = { epoch, keys };
+    return keys;
+}
+
+/**
+ * Whether a walked file is a `.txt` no rules text names, which the game would therefore never load
+ * as rules. The walk claims every `.txt` because mods do keep real rules in them, but `.txt` is also
+ * the extension of the game's own credits screen, of readmes, of decal whitelists and of stale
+ * backups, and parsing those as rules fills the panel with noise. A `.rules` file is never gated:
+ * nothing else uses that extension.
+ *
+ * Answers false while the reference set is unavailable, so an unscanned or cancelled state shows
+ * diagnostics rather than hiding them.
+ *
+ * @param file the on-disk path of the walked file.
+ * @param token cancels the reference scan the first call runs.
+ * @returns true when the file is a `.txt` nothing references.
+ */
+async function isUnreferencedTxt(file: string, token: CancellationToken): Promise<boolean> {
+    if (!file.toLowerCase().endsWith('.txt')) return false;
+    const keys = await referencedTxtKeys(token);
+    if (!keys) return false;
+    return !keys.has(foldPathCase(file));
+}
 
 /**
  * The reachability keys the 'modRulesReachable' validation scope allows, or undefined when every
@@ -1264,6 +1336,16 @@ const scanRevisionSum = (): number =>
 async function validateWorkspaceFile(file: string, openNorms: Set<string>, token: CancellationToken): Promise<void> {
     const uri = filePathToUri(file);
     if (openNorms.has(normalizeUri(uri))) return;
+    // A `.txt` nothing references is not rules content the game would ever load, so it never enters
+    // the panel. Anything it published before the gate could answer (or under an older reference set)
+    // is cleared instead of left to stick.
+    if (await isUnreferencedTxt(file, token)) {
+        if (workspaceDiagnosticUris.has(uri)) {
+            workspaceDiagnosticUris.delete(uri);
+            await connection.sendDiagnostics({ uri, diagnostics: [] });
+        }
+        return;
+    }
     let stats: Awaited<ReturnType<typeof stat>>;
     try {
         stats = await stat(file);
@@ -1440,6 +1522,8 @@ async function clearWorkspaceDiagnostics(): Promise<void> {
 /**
  * A read-override that returns an open editor buffer's text for an absolute path, so shader features
  * see unsaved edits instead of the on-disk file. Keyed by normalized (forward-slash, lower-case) path.
+ *
+ * @returns the lookup function, which answers undefined for a path no open buffer covers.
  */
 function openBufferReadOverride(): (absPath: string) => string | undefined {
     const openByPath = new Map<string, string>();
@@ -1606,7 +1690,7 @@ connection.onCompletion(
             };
             const node = findNodeAtPosition(parserResult, textDocumentPosition?.position);
             if (node) {
-                // The cursor offset lets the reference completer complete the path segment AT the
+                // The cursor offset lets the reference completer complete the path segment at the
                 // cursor rather than the whole written value, so editing a middle segment of a long
                 // reference path offers that segment's members instead of a stale suggestion.
                 const cursorOffset = documents.get(textDocumentPosition.textDocument.uri)?.offsetAt(textDocumentPosition.position);
@@ -1641,9 +1725,9 @@ connection.onCompletion(
                 }
                 // A partially typed field name on its own line (`Ig`) parses as a bare Identifier
                 // member, which no node completer serves, so typing a field name went dark the
-                // moment its first character landed (the offset path only fires when NO leaf is
+                // moment its first character landed (the offset path only fires when no leaf is
                 // under the cursor). Route such identifiers to the same offset-based completion an
-                // empty insertion point gets; the client filters by the typed prefix.
+                // empty insertion point gets. The client filters by the typed prefix.
                 if (
                     completions.length === 0 &&
                     isBareFieldNameIdentifier(node) &&
@@ -1835,6 +1919,24 @@ async function searchFolderUris(): Promise<string[]> {
 }
 
 /**
+ * Times one startup index build into a `startup.*` counter. Unlike the scan's `timedPass`, these
+ * always record: startup happens once per session, so the counters cost nothing and are the only
+ * attribution of where a cold start goes (see server/test/perf/startup-bench.mjs).
+ *
+ * @param counter the counter to add the elapsed milliseconds to.
+ * @param run the build to time.
+ * @returns whatever `run` returns.
+ */
+const timedStartupPhase = async <T>(counter: string, run: () => Promise<T> | T): Promise<T> => {
+    const started = Date.now();
+    try {
+        return await run();
+    } finally {
+        perfCount(counter, Date.now() - started);
+    }
+};
+
+/**
  * Makes both fragment-rooting indexes current before any synchronous schema resolution runs. A
  * standalone fragment file is rooted either forward, through `cosmoteer.rules`'s own aliases, or in
  * reverse, through the field that `&<includes>` it, so every schema feature awaits this so a fragment's
@@ -1862,28 +1964,69 @@ async function ensureFragmentRooting(cancellationToken: CancellationToken): Prom
     // stale in the navigation memo (they never read the edited file, so the per-file memo drop misses
     // them). Snapshot their revisions and clear the memo below if a reconcile moved either.
     const actionRevisionBefore = AddBaseIndex.instance.revision + MemberInjectionIndex.instance.revision;
-    await ensureAliasRootIndex(cancellationToken).catch(() => undefined);
+    await timedStartupPhase('startup.aliasRootMs', () => ensureAliasRootIndex(cancellationToken)).catch(
+        () => undefined
+    );
     const folders = await searchFolderUris();
-    await WatchedDocumentIndex.buildTogether(
-        [
-            ReverseIncludeIndex.instance,
-            SchemaIdIndex.instance,
-            TemplateBaseIndex.instance,
-            LocalizationKeyIndex.instance,
-        ],
-        folders,
-        'Indexing project'
+    await timedStartupPhase('startup.buildTogetherMs', () =>
+        WatchedDocumentIndex.buildTogether(
+            [
+                ReverseIncludeIndex.instance,
+                SchemaIdIndex.instance,
+                TemplateBaseIndex.instance,
+                LocalizationKeyIndex.instance,
+            ],
+            folders,
+            'Indexing project'
+        )
     ).catch(() => undefined);
-    await ReverseIncludeIndex.instance.ensureBuilt(folders, cancellationToken).catch(() => undefined);
-    // The AddBase index feeds the resolver's `^/N`-into-added-base extension (mod folders only, since
-    // the game Data tree carries no mod actions). Built here so it is fresh before any feature resolves.
-    await AddBaseIndex.instance.ensureBuilt(folders, cancellationToken).catch(() => undefined);
-    // The Overrides index feeds the resolver's nested-Overrides member extension (mod folders only).
-    await MemberInjectionIndex.instance.ensureBuilt(folders, cancellationToken).catch(() => undefined);
+    await timedStartupPhase('startup.reverseIncludeMs', () =>
+        ReverseIncludeIndex.instance.ensureBuilt(folders, cancellationToken)
+    ).catch(() => undefined);
+    // The AddBase index feeds the resolver's `^/N`-into-added-base extension, the Overrides index the
+    // nested-Overrides member extension (both mod folders only, since the game Data tree carries no
+    // mod actions). They share one walk of the mod tree instead of parsing all of it once each, which
+    // is most of what a warm start used to spend.
+    //
+    // Sharing does move what each sees of the other: both resolve their action targets through the
+    // reference resolver, which reads both extension sources, so during the shared walk each sees the
+    // other populated only up to the current file rather than empty (AddBase, which used to run first)
+    // or complete (Overrides, which used to run second). Only the Overrides direction can lose:
+    // a target path stepping through `^/N` into a base that an AddBase in a later-walked file appends.
+    // No such target is known to exist. Splitting the walk again is the fix if one ever shows up.
+    //
+    // ActionRootingIndex is deliberately not in this group, though it walks the same folders and
+    // folding it in is tempting (it is the single biggest remaining startup phase). It resolves its
+    // targets against a half-built AddBase/Overrides extension when it shares the walk, and the
+    // damage is silent: a bogus `&/INDICATORS/DefinitelyNotReal` stops being flagged, because its
+    // alias fallback answers from state the walk had not finished. A whole-mod scan is blind to this
+    // class of damage and reports no difference. Only the end-to-end mod-driver's negative control
+    // catches it, so measure with the mod-driver, not the scan, before touching this ordering again.
+    //
+    // They stay out of the cacheable group above on purpose: their state holds live AST nodes, which
+    // no saved state can rehydrate, and a cacheId-less member in that group would disable the project
+    // cache for all four. The ensureBuilt calls that follow find the build already done and only
+    // reconcile dirty files, mirroring the reverse-include pattern above.
+    await timedStartupPhase('startup.modActionWalkMs', () =>
+        WatchedDocumentIndex.buildTogether(
+            [AddBaseIndex.instance, MemberInjectionIndex.instance],
+            modFolderPaths(folders),
+            'Indexing mod actions'
+        )
+    ).catch(() => undefined);
+    await timedStartupPhase('startup.addBaseMs', () =>
+        AddBaseIndex.instance.ensureBuilt(folders, cancellationToken)
+    ).catch(() => undefined);
+    await timedStartupPhase('startup.memberInjectionMs', () =>
+        MemberInjectionIndex.instance.ensureBuilt(folders, cancellationToken)
+    ).catch(() => undefined);
     // The action-rooting index types action-wired fragments and inline action values from their
     // target slots. Built after the rooting indexes above, since the target slot types resolve
-    // through them (mod folders only).
-    await ActionRootingIndex.instance.ensureBuilt(folders, cancellationToken).catch(() => undefined);
+    // through them (mod folders only), and on its own walk. See the note above for what breaks
+    // when it joins the shared one.
+    await timedStartupPhase('startup.actionRootingMs', () =>
+        ActionRootingIndex.instance.ensureBuilt(folders, cancellationToken)
+    ).catch(() => undefined);
     // The action-rooting build re-roots fragments whose own includes then contribute new
     // reverse-include records (it marks those fragments dirty). Reconcile them here, repeating
     // while the reconcile still uncovers deeper chains, so the rooting revisions settle within

@@ -117,7 +117,7 @@ export type MxAssembledOperator = (typeof MX_ASSEMBLED_OPERATORS)[number];
 export interface ExpressionNode extends AbstractNode {
     type: 'Expression';
     // `^` is mXparser exponentiation (emitted only when not followed by `/`, since a leading
-    // `^/…` is a super-path reference). `!` is mXparser's postfix factorial — it has no right
+    // `^/…` is a super-path reference). `!` is mXparser's postfix factorial. It has no right
     // operand and applies to the value immediately before it. The assembled operators
     // (boolean/relational/bitwise, `#`, `^^`) are only produced in the narrow
     // "math operand, operator, `(` or number" shape, see {@link MX_ASSEMBLED_OPERATORS}.

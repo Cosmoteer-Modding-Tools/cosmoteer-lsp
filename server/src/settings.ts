@@ -15,15 +15,16 @@ export interface CosmoteerSettings {
         validateWholeWorkspace: boolean;
         // Which files the whole-workspace pass covers. 'allFiles' (the default) validates every
         // `.rules` under the workspace folders. 'modRulesReachable' restricts the pass to the files
-        // the game can actually load — the closure of the mod.rules action sources, their includes
-        // and inheritance, and the strings folder — so backups, templates and other dead content
-        // stop flooding the Problems panel. Files open in the editor always validate either way.
+        // the game can actually load. That is the closure of the mod.rules action sources, their
+        // includes and inheritance, plus the strings folder, so backups, templates and other dead
+        // content stop flooding the Problems panel. Files open in the editor always validate either
+        // way.
         workspaceValidationScope: 'allFiles' | 'modRulesReachable';
         // When true (the default), flag a component `ID<…>` reference (e.g. `OperationalToggle =
         // IsOperational`) whose id names no component anywhere in the part, its inherited bases, or
         // its include-valued components blocks. Only runs once the game `Data` tree is indexed
-        // (inherited vanilla bases must resolve); runtime-injected engine components and fields with
-        // non-sibling semantics are excluded, which took the vanilla scan to zero false positives.
+        // (inherited vanilla bases must resolve). Runtime-injected engine components and fields with
+        // non-sibling semantics are excluded.
         validateComponentReferences: boolean;
         // When true (the default), flag a cross-file `ID<…>` reference (a GUI toggle/color/targeter/
         // trigger id) whose id names no declaration of that kind anywhere in the project. Only runs
@@ -31,15 +32,14 @@ export interface CosmoteerSettings {
         // otherwise be a false positive.
         validateCrossFileReferences: boolean;
         // When true (the default), flag a group that is missing a schema-required field, checking the
-        // inheritance chain so a field supplied by a base does not count as missing. Validated to zero
-        // false positives across vanilla and 42 real workshop mods (7820 files); the schema's required
-        // flag is derived from real C# signals and cross-file templates are absorbed by a project-wide
-        // index. Can be turned off to skip the one-time project index build it performs.
+        // inheritance chain so a field supplied by a base does not count as missing. The schema's
+        // required flag is derived from real C# signals and cross-file templates are absorbed by a
+        // project-wide index. Can be turned off to skip the one-time project index build it performs.
         validateRequiredFields: boolean;
         // When true (the default), flag an inline `_`-prefixed shader constant a material sets that the
         // referenced `.shader` declares no uniform for (a typo such as `_hotColr`), and one whose value
         // is the wrong shape for its type. Only fires when the shader resolves on disk (otherwise the
-        // names cannot be judged); the handful of dead constant keys the game itself ships are skipped.
+        // names cannot be judged). The handful of dead constant keys the game itself ships are skipped.
         validateShaderConstants: boolean;
         // When true (the default), run lightweight diagnostics on `.shader` files themselves: an
         // `#include` whose target does not exist, a `_`-prefixed uniform read that no file in the
@@ -57,13 +57,19 @@ export interface CosmoteerSettings {
         // When true (the default), hint at a `,`/`;` separator that a line break already makes
         // redundant (ObjectText ends every entry at an unsuppressed newline, so separators are only
         // needed between entries on the same line). Hint severity keeps it out of the Problems
-        // panel; vanilla itself ships hundreds of such separators.
+        // panel. Vanilla itself ships hundreds of such separators.
         validateRedundantSeparators: boolean;
         // When true (the default), hint at a field the game provably ignores: its group resolves to
         // a schema class that does not declare the name, and no reference in the file reads it (so
         // the constant idiom `X = foo.png` + `&X` stays untouched). Comes with a remove quick fix.
         // Hint severity keeps it out of the Problems panel.
         validateIgnoredFields: boolean;
+        // When true (the default), fade a field that restates the game's own default, so deleting it
+        // is a no-op. Only judged inside groups with no inheritance list: a base can set a non-default
+        // value that an explicitly-written default deliberately overrides. Required fields, fields the
+        // game never reads, and fields any reference in the file reads are left alone. Hint severity
+        // keeps it out of the Problems panel.
+        validateDefaultValues: boolean;
     };
     inlayHints: {
         // When true (the default), a reference whose target is a group in the game's
@@ -75,7 +81,7 @@ export interface CosmoteerSettings {
     };
     rename: {
         // When true, a rename may also edit files inside the Cosmoteer game `Data` install. Off by
-        // default to protect the read-only vanilla files — only a developer working on the game data
+        // default to protect the read-only vanilla files. Only a developer working on the game data
         // itself should turn this on.
         allowEditingVanillaFiles: boolean;
     };
@@ -94,7 +100,7 @@ export interface CosmoteerSettings {
     };
     formatting: {
         // Master switch for document formatting (Format Document on `.rules` and `.shader` files).
-        // On by default; turning it off makes the server return no formatting edits.
+        // On by default. Turning it off makes the server return no formatting edits.
         enabled: boolean;
         // When true, the document is auto-formatted right before every save (LSP willSaveWaitUntil),
         // independent of the editor's own `editor.formatOnSave`. Off by default so saving never
@@ -123,6 +129,7 @@ export const defaultSettings: CosmoteerSettings = {
         validateLocalizationKeys: true,
         validateRedundantSeparators: true,
         validateIgnoredFields: true,
+        validateDefaultValues: true,
     },
     inlayHints: {
         showBaseValue: true,

@@ -49,7 +49,7 @@ const fileStemOf = (documentUri: string): string =>
 const escapeForPattern = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * The documents that pull a fragment's members into themselves — as a field include
+ * The documents that pull a fragment's members into themselves: as a field include
  * (`Components = &<fragment.rules>/Part/Components`) or as an inheritance base written across lines
  * (`Components : ^/0/Components` + `<jump_wire_stuff.rules>/Part/Components`).
  *
@@ -60,8 +60,8 @@ const escapeForPattern = (value: string): string => value.replace(/[.*+?^${}()|[
  * way {@link overrideTargetsOf} folds in an override target.
  *
  * The reverse-include index answers the field-include form directly, but deliberately does not record
- * a DEEP inheritance base (`: <file>/Top/Nested`, whose nested class would mis-root the top member),
- * which is exactly the form the components fragments use — so the consumers are also searched by the
+ * a deep inheritance base (`: <file>/Top/Nested`, whose nested class would mis-root the top member),
+ * which is exactly the form the components fragments use, so the consumers are also searched by the
  * fragment's file name within its mod.
  *
  * @param documentUri the fragment whose consuming documents are wanted.

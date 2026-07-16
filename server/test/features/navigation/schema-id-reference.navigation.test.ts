@@ -28,7 +28,7 @@ const findValue = (node: AbstractNode, field: string): ValueNode | undefined => 
     const children =
         isGroupNode(node) || isListNode(node) || isDocumentNode(node)
             ? node.elements
-            : isAssignmentNode(node)
+            : isAssignmentNode(node) && node.right
               ? [node.right]
               : [];
     for (const child of children) {
@@ -57,13 +57,19 @@ const PART_TUPLE = `Part
 	]
 }`;
 
-/** First value node whose written value is `text`, searching depth-first (tuple entries have no field name). */
+/**
+ * First value node whose written value is `text`, searching depth-first (tuple entries have no field name).
+ *
+ * @param node the node to search from.
+ * @param text the written value to match.
+ * @returns the matching value node, or undefined when nothing matches.
+ */
 const findValueByText = (node: AbstractNode, text: string): ValueNode | undefined => {
     if (isValueNode(node) && String(node.valueType.value) === text) return node;
     const children =
         isGroupNode(node) || isListNode(node) || isDocumentNode(node)
             ? node.elements
-            : isAssignmentNode(node)
+            : isAssignmentNode(node) && node.right
               ? [node.right]
               : [];
     for (const child of children) {
@@ -73,7 +79,7 @@ const findValueByText = (node: AbstractNode, text: string): ValueNode | undefine
     return undefined;
 };
 
-describe('resolveSchemaIdReference — cross-file ID<X> go-to-definition', () => {
+describe('resolveSchemaIdReference: cross-file ID<X> go-to-definition', () => {
     let dir: string;
     const token = CancellationToken.None;
     let folders: string[];
@@ -81,7 +87,7 @@ describe('resolveSchemaIdReference — cross-file ID<X> go-to-definition', () =>
     beforeAll(async () => {
         dir = await mkdtemp(join(tmpdir(), 'cosmo-idref-'));
         await mkdir(join(dir, 'resources'), { recursive: true });
-        // A resource file IS a ResourceRules (rooted by the /resources/ path), keyed by its `ID`.
+        // A resource file is a ResourceRules (rooted by the /resources/ path), keyed by its `ID`.
         await writeFile(join(dir, 'resources', 'battery.rules'), 'ID = battery\nNameKey = "x"\nBuyPrice = 1\n');
         await writeFile(join(dir, 'resources', 'iron.rules'), 'ID = iron\nNameKey = "y"\nBuyPrice = 2\n');
         await mkdir(join(dir, 'parts'), { recursive: true });

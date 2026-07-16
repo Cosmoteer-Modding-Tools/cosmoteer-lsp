@@ -9,7 +9,7 @@ import * as l10n from '@vscode/l10n';
 const isMathConstant = (node: AbstractNode): boolean =>
     isValueNode(node) && KNOWN_CONSTANT_NAMES.has(String(node.valueType.value).toLowerCase());
 
-// A numeric literal carrying a unit suffix — percent `%`, degrees `d` or radians `r` (mXparser/
+// A numeric literal carrying a unit suffix: percent `%`, degrees `d` or radians `r` (mXparser/
 // Cosmoteer expression suffixes). The lexer keeps the suffix inside the value token, so `300%`
 // or `1.5r` lexes as a String even though it is a perfectly valid numeric math operand.
 const NUMBER_WITH_UNIT = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?[%dr]$/;
@@ -26,7 +26,7 @@ export const ValidationForMath: Validation<MathExpressionNode> = {
     callback: async (node: MathExpressionNode, cancellationToken) => {
         // Language-strings files hold localization text, not expressions: an unquoted value like
         // `PNG画像ファイル（*.png）` lexes a stray `*` as a multiply operator, producing a bogus
-        // "Got String" operand error. The game reads the whole thing as a flat string — skip math
+        // "Got String" operand error. The game reads the whole thing as a flat string. Skip math
         // validation here.
         if (await isStringsFile(getStartOfAstNode(node).uri, cancellationToken)) return undefined;
         let lastNode: AbstractNode | null = null;

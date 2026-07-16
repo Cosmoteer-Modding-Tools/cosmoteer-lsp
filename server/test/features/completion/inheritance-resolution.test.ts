@@ -9,12 +9,12 @@ import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspac
 
 // Cross-file inheritance classification: a deriving group with no `Type=` of its own takes its
 // schema class from the base its `: ref` points at. The whole-file case (`: /BASE_SHAKE`, where
-// the macro aliases a ROOTLESS fragment whose top level is the group body) used to be skipped —
-// the resolver hands back a File/Document, not a group — leaving the deriver classless and its
+// the macro aliases a rootless fragment whose top level is the group body) used to be skipped
+// (the resolver hands back a File/Document, not a group), leaving the deriver classless and its
 // field completion dark. Mirrors the game's `: /BASE_SHAKE` screen-shake idiom.
 const token = CancellationToken.None;
 
-describe('resolveClassThroughInheritance — cross-file bases', () => {
+describe('resolveClassThroughInheritance: cross-file bases', () => {
     let consumer: AbstractNodeDocument;
     let myShake: GroupNode;
     let mySound: GroupNode;

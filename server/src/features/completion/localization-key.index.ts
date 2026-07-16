@@ -8,7 +8,7 @@ import { WatchedDocumentIndex } from '../navigation/watched-document-index';
 import { Completion } from './autocompletion.service';
 import { fieldOfValueNode } from './autocompletion.schema';
 
-/** A `strings/` (or `Strings/`) path segment — the reliable convention for language files. */
+/** A `strings/` (or `Strings/`) path segment, the reliable convention for language files. */
 const STRINGS_PATH_SEGMENT = /(^|\/)strings\//;
 
 /** One key's text in one language. */
@@ -31,7 +31,7 @@ interface StringsFileKeys {
  * synchronous signals cover the field: a `strings/` path segment (the base game's `Data/strings` and
  * almost every mod) and a top-level `__Name` member (the required first line of a strings file, which
  * catches a mod placing them in a differently-named folder). Deliberately avoids the async
- * `StringsFolder` resolution `isStringsFile` does — this runs against every project file during the
+ * `StringsFolder` resolution `isStringsFile` does. This runs against every project file during the
  * one-time build, so it must not re-read manifests per file.
  */
 const isStringsDocument = (document: AbstractNodeDocument): boolean =>
@@ -78,7 +78,7 @@ const collectListKeys = (list: { elements: AbstractNode[] }, prefix: string, out
 const isEnglish = (language: string): boolean => /^en\b|english/i.test(language);
 
 /**
- * Project-wide index of localization keys — the data behind strings-key completion, existence
+ * Project-wide index of localization keys, the data behind strings-key completion, existence
  * validation, and hover (a `KeyString` field such as `NameKey = "…"`). Built once over
  * {@link WatchedDocumentIndex.buildFromProject} (only the strings files among the walked documents
  * contribute) and kept current by the file watcher, so features never re-read the strings tree per
@@ -170,7 +170,7 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
 
     /**
      * Completions for a value node that is a localization-key field, else `[]`. Gated internally (like
-     * the cross-file id index) so an unrelated value stays cheap — the strings index only builds when
+     * the cross-file id index) so an unrelated value stays cheap. The strings index only builds when
      * the cursor is actually on a `KeyString` field.
      */
     public async keyCompletionsForNode(
@@ -236,7 +236,7 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
         return this.allKeysMemo;
     }
 
-    /** The set of every localization key declared in the project — for existence validation. The
+    /** The set of every localization key declared in the project, for existence validation. The
      *  returned set is shared and must not be mutated. */
     public async allKeys(folderPaths: string[], cancellationToken: CancellationToken): Promise<Set<string>> {
         return (await this.mergedKeys(folderPaths, cancellationToken)).keys;

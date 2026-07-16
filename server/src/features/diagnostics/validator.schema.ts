@@ -39,7 +39,7 @@ import { evaluateNumericValue, formatNumber } from '../../semantics/value-evalua
 import * as l10n from '@vscode/l10n';
 
 // The engine numeric scalar types whose ObjectText deserializer is confirmed pure-numeric: a literal
-// number (`90`, `90d`, `-1.5`), a reference, or a math expression — never a named constant. Bare CLR
+// number (`90`, `90d`, `-1.5`), a reference, or a math expression, never a named constant. Bare CLR
 // `int`/`float` primitives are deliberately excluded: some carry a custom name-accepting deserializer
 // (e.g. `Allegiance = Neutral` is typed `int`), so validating those would produce false positives.
 // These all surface as a `number` kind carrying one of these `type` labels in the schema.

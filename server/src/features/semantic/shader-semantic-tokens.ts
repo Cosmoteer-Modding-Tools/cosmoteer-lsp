@@ -8,7 +8,7 @@ import { TokenType, typeIndex } from './legend';
  * comments, strings, and structure. These tokens are the overlay that paints the things a static
  * grammar can't tell apart: a `_uniform` (the constants a `.rules` material sets) versus an ordinary
  * local, an HLSL builtin type, a control keyword, an entry-point function, and a preprocessor
- * directive — coloured uniformly across every occurrence. Drives VS Code and the native IntelliJ LSP.
+ * directive, coloured uniformly across every occurrence. Drives VS Code and the native IntelliJ LSP.
  */
 
 /** HLSL builtin types Cosmoteer shaders use, coloured as `type`. */
@@ -121,7 +121,7 @@ export const positionOf = (starts: number[], offset: number): { line: number; ch
 const classifyIdentifier = (word: string, followedByParen: boolean): TokenType | null => {
     if (HLSL_TYPES.has(word)) return 'type';
     if (HLSL_KEYWORDS.has(word)) return 'keyword';
-    // A leading underscore is Cosmoteer's convention for a settable uniform — the whole point of the
+    // A leading underscore is Cosmoteer's convention for a settable uniform. The whole point of the
     // overlay is to colour these the same wherever they appear (declaration and every use).
     if (word.startsWith('_')) return 'variable';
     if (followedByParen) return 'function';

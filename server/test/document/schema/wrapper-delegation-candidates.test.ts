@@ -8,7 +8,7 @@ import { schemaFieldNameCompletions } from '../../../src/features/completion/aut
 import { Completion } from '../../../src/features/completion/autocompletion.service';
 
 // A wrapper class delegating its value form to a registry (`[Serialize(Alias="")]` on a polymorphic
-// member) reads BOTH its own fields and the dispatched member's, written flat in one group. The
+// member) reads both its own fields and the dispatched member's, written flat in one group. The
 // class resolution stays single-valued (whichever side owns more written names wins), so the losing
 // side's fields must stay reachable through the delegation companion, or they go dark: the music
 // FSM's `FsmState` wrapper (CueCondition/MaxConsecutivePlays/NextTracks) around a MusicTrackRules
@@ -19,11 +19,15 @@ const MEMBER = 'Cosmoteer.Music.MusicLayersTrackRules';
 const parse = (src: string) => parser(lexer(src), 'file:///data/music/t.rules').value;
 const labelsOf = (cs: Completion[]) => cs.map((c) => (typeof c === 'string' ? c : c.label));
 
-/** The first element group of the document's top-level `IntroTracks` list. */
+/**
+ * Finds the first element group of the document's top-level `IntroTracks` list.
+ * @param doc the parsed document to search
+ * @returns the first group element of the `IntroTracks` list
+ */
 const firstIntroTrack = (doc: ReturnType<typeof parse>): GroupNode => {
     const list = doc.elements.find((e) => isListNode(e) && e.identifier?.name === 'IntroTracks');
     expect(list, 'IntroTracks list').toBeDefined();
-    const element = (list as { elements: unknown[] }).elements.find((e) => isGroupNode(e as GroupNode));
+    const element = (list as unknown as { elements: unknown[] }).elements.find((e) => isGroupNode(e as GroupNode));
     expect(element, 'IntroTracks element group').toBeDefined();
     return element as GroupNode;
 };

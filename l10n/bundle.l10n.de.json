@@ -126,6 +126,7 @@
     "This inheritance chain eventually refers back to itself, so it can never be resolved": "Diese Vererbungskette verweist letztlich auf sich selbst und kann daher nie aufgelöst werden",
     "'{0}' is declared by {1} but the game's code never reads it.": "'{0}' wird von {1} deklariert, aber der Spielcode liest es nie.",
     "'{0}' is not a member of {1} and is never referenced in this file, so the game ignores it.": "'{0}' ist kein Mitglied von {1} und wird in dieser Datei nirgends referenziert, das Spiel ignoriert es daher.",
+    "'{0}' is already {1} by default on {2}, so writing it changes nothing.": "'{0}' ist auf {2} standardmäßig bereits {1}, das Schreiben ändert daher nichts.",
     "The \"{0}\" function takes exactly {1} argument(s), but got {2}": "Die Funktion \"{0}\" nimmt genau {1} Argument(e), erhalten wurden aber {2}",
     "The \"{0}\" function takes at least {1} argument(s), but got {2}": "Die Funktion \"{0}\" nimmt mindestens {1} Argument(e), erhalten wurden aber {2}",
     "Unknown function \"{0}\"": "Unbekannte Funktion \"{0}\"",

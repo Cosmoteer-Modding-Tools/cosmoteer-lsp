@@ -11,7 +11,7 @@ import { getStartOfAstNode } from '../../utils/ast.utils';
 import { isStringsFile } from '../../mod/strings-folder';
 import * as l10n from '@vscode/l10n';
 
-// A numeric literal with a unit suffix — percent `%`, degrees `d`, radians `r` — lexes as an
+// A numeric literal with a unit suffix (percent `%`, degrees `d`, radians `r`) lexes as an
 // unquoted String but is a valid numeric argument (e.g., the `30%` in `ceil((&A) * 30%)`).
 const NUMBER_WITH_UNIT = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?[%dr]$/;
 
@@ -98,7 +98,7 @@ export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
             ) {
                 // The parser flattens a nested call (`floor(sqrt(x) * 2)`) by emitting the inner
                 // function name as a bare unquoted String operand, and bare constants (`pi`, `e`) also
-                // lex as unquoted strings. Neither is a bad argument — skip them so valid math isn't
+                // lex as unquoted strings. Neither is a bad argument. Skip them so valid math isn't
                 // flagged. A quoted argument is valid too: the game reads the field value flat, so the
                 // quotes just escape the text and the content is evaluated as an expression. Vanilla
                 // `missile_launcher_thermal` has `ceil("(&~/BASE/…/MaxResources) / (&…)")`. Only an

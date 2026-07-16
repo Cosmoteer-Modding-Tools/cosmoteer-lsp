@@ -56,7 +56,7 @@ internal sealed partial class SchemaGen
 
     // Member names the type's constructor assigns any value to (a constant, or `new …()` / another
     // object), with auto-property backing fields normalized to the property name. A field the class
-    // initializes has a default, so the ObjectText deserializer tolerates its absence — i.e. it is
+    // initializes has a default, so the ObjectText deserializer tolerates its absence, i.e. it is
     // optional even without an explicit `[Serialize(Optional=true)]`. Mirrors InlineDefaults' choice of
     // the smallest-arity (typically parameterless) constructor, so a parameterized ctor's `this.x = x`
     // parameter copies are not mistaken for defaults.
@@ -85,7 +85,7 @@ internal sealed partial class SchemaGen
 
     // True when a member carries a C# nullable-reference annotation marking the member's own type as
     // nullable (`Foo?`). The compiler emits `[Nullable(b)]` where b (a lone byte, or the first entry of a
-    // per-component byte[]) is 2 for nullable, 1 for non-null, 0 for oblivious — so only 2 means optional.
+    // per-component byte[]) is 2 for nullable, 1 for non-null, 0 for oblivious, so only 2 means optional.
     static bool IsNullableReference(ICustomAttributeProvider cap)
     {
         var na = cap.CustomAttributes.FirstOrDefault(a => a.AttributeType.Name == "NullableAttribute");
@@ -135,7 +135,7 @@ internal sealed partial class SchemaGen
                 // The path is still the only string argument, so the nearest preceding `ldstr` finds it either way.
                 if (!readers.Contains(gim.ElementMethod.Name) || gim.GenericArguments.Count == 0) continue;
                 // The path is the call's first argument, so it is the nearest preceding `ldstr` (the other
-                // arguments — the out value, flags, an optional numeric default — are never strings).
+                // arguments are never strings: the out value, flags, an optional numeric default).
                 string? path = null;
                 for (var p = ins.Previous; p != null; p = p.Previous)
                     if (p.OpCode == OpCodes.Ldstr) { path = p.Operand as string; break; }

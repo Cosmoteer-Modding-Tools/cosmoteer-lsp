@@ -10,8 +10,28 @@ import { isRulesFileName } from '../../document/document-kind';
 import { globalSettings } from '../../settings';
 import { MentionIndex } from './mention.index';
 import { normalizeUri } from './reference-location';
+import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 
-/** Convert a workspace-folder `file://` URI to an on-disk path (Windows-aware). */
+/**
+ * The workspace's mod folders: every project folder except the game `Data` root. The mod-action
+ * indexes are scoped to these, since the game tree carries no mod actions and walking it would only
+ * cost time. Shared so the indexes and the startup chain that walks them together agree on the set.
+ *
+ * @param folderPaths the project folders (the mod plus the game `Data` tree).
+ * @returns the subset that is not the game `Data` root.
+ */
+export const modFolderPaths = (folderPaths: string[]): string[] => {
+    const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+    const dataKey = dataRoot ? normalizeUri(dataRoot) : undefined;
+    return folderPaths.filter((folder) => normalizeUri(uriToFsPath(folder)) !== dataKey);
+};
+
+/**
+ * Convert a workspace-folder `file://` URI to an on-disk path (Windows-aware).
+ *
+ * @param uri the workspace-folder URI.
+ * @returns the on-disk path, or `uri` unchanged when it is not a `file://` URI.
+ */
 export const uriToFsPath = (uri: string): string => {
     if (!uri.startsWith('file://')) return uri;
     let path = uri.slice('file://'.length);
@@ -20,16 +40,21 @@ export const uriToFsPath = (uri: string): string => {
     } catch {
         /* leave as-is on malformed escapes */
     }
-    // `file:///C:/x` decodes to `/C:/x` — strip the slash before a drive letter.
+    // `file:///C:/x` decodes to `/C:/x`, so strip the slash before a drive letter.
     if (/^\/[a-zA-Z]:\//.test(path)) path = path.slice(1);
     return path.replace(/\//g, sep);
 };
 
-/** Yield every rules file path under `dir`, recursively. Unreadable dirs are skipped. Listings
- *  come from the shared readdir cache; the watcher invalidates a directory whose contents change,
- *  so repeated walks (every scan pass, plus the index builds between them) stop re-listing disk.
- *  `.txt` files count too: the game's loader ignores the extension and mods declare whole parts in
- *  them. A non-rules `.txt` (a readme) parses to noise that contributes nothing to any index. */
+/**
+ * Yield every rules file path under `dir`, recursively. Unreadable dirs are skipped. Listings come
+ * from the shared readdir cache. The watcher invalidates a directory whose contents change, so
+ * repeated walks (every scan pass, plus the index builds between them) stop re-listing disk. `.txt`
+ * files count too: the game's loader ignores the extension and mods declare whole parts in them. A
+ * non-rules `.txt` (a readme) parses to noise that contributes nothing to any index.
+ *
+ * @param dir the directory to walk.
+ * @returns each rules file path under `dir`.
+ */
 export async function* collectRulesFiles(dir: string): AsyncGenerator<string> {
     const entries = await cachedReaddir(dir).catch(() => []);
     for (const entry of entries) {
@@ -78,11 +103,17 @@ export async function* readFilesAhead(files: string[]): AsyncGenerator<{ file: s
  * them (or a no-folder session). De-duplicated by canonical uri, so a file open in the
  * editor is yielded once regardless of folder/buffer spelling. On-disk files are read
  * through the {@link readFilesAhead} pipeline so disk latency overlaps parsing. With
- * `options.diskOnly` the walk reads purely from disk — no open-buffer preference and no
- * out-of-folder buffers — which the persistent index cache needs so the state it saves
+ * `options.diskOnly` the walk reads purely from disk, with no open-buffer preference and
+ * no out-of-folder buffers, which the persistent index cache needs so the state it saves
  * reflects only the files on disk. `options.onDiskText` observes every disk-read file's raw
  * text (parseable or not, open buffers excluded), so a consumer of raw text (the mention
  * index) rides along instead of re-reading the same files.
+ *
+ * @param folderPaths the workspace folders to walk.
+ * @param cancellationToken cancels the walk.
+ * @param options `diskOnly` to ignore open buffers, `onDiskText` to observe each disk-read
+ * file's raw text.
+ * @returns every parsed `.rules` document in the project, de-duplicated by canonical uri.
  */
 export async function* projectDocuments(
     folderPaths: string[],
@@ -102,7 +133,7 @@ export async function* projectDocuments(
             else toRead.push(file);
         }
     }
-    // A single unparseable file must not abort the whole project walk — otherwise one bad file
+    // A single unparseable file must not abort the whole project walk. Otherwise one bad file
     // silently kills find-all-references / rename / workspace symbols for the entire project. Skip
     // it (the parser still throws on some constructs, e.g. inferValueType), but let cancellation
     // through. Parsing stays on the main thread deliberately: a worker-thread pool was measured
@@ -128,15 +159,20 @@ export async function* projectDocuments(
 }
 
 /**
- * Like {@link projectDocuments}, but only yields documents whose raw text mentions `name`
- * — a cheap substring pre-filter that lets find-all-references / rename scale to the whole
+ * Like {@link projectDocuments}, but only yields documents whose raw text mentions `name`,
+ * a cheap substring pre-filter that lets find-all-references / rename scale to the whole
  * Cosmoteer `Data` tree: the vast majority of files don't mention a given symbol, so they're
  * never parsed or resolved. The per-reference check that follows is the real filter. This
  * just skips the irrelevant bulk. Candidate files come from the {@link MentionIndex} word index
  * when the name is a pure word (no directory re-walk, no whole-tree read), and from a full walk
  * otherwise. Every candidate is still re-read and substring-checked before parsing, so the index
  * only pre-filters and can never change which documents are found. Open editor buffers are always
- * yielded unfiltered (unsaved edits, few of them — the per-reference check filters).
+ * yielded unfiltered (unsaved edits, few of them, and the per-reference check filters).
+ *
+ * @param folderPaths the workspace folders to search.
+ * @param name the symbol name the raw text must mention.
+ * @param cancellationToken cancels the search.
+ * @returns every open buffer, plus each parsed document whose text contains `name`.
  */
 export async function* documentsMentioning(
     folderPaths: string[],
@@ -177,7 +213,7 @@ export async function* documentsMentioning(
         try {
             yield parseText(text, file);
         } catch {
-            /* unparseable — skip */
+            /* unparseable, skip */
         }
     }
 }

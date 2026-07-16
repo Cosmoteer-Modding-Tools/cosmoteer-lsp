@@ -22,6 +22,7 @@ import { ReferenceIndex } from '../../../src/features/navigation/reference-index
 import { RenameService } from '../../../src/features/navigation/rename.service';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
 import { crossFileReferenceTargetAtOffset } from '../../../src/features/completion/autocompletion.schema-fields';
+import { singleLocation } from '../../helpers';
 
 // The shape-times-feature matrix over every id position added in the 0.5.0 id work: for each shape
 // (tuple slots, scalar-form elements, entry-form map keys, part ids, spawner tags, damage types,
@@ -29,13 +30,19 @@ import { crossFileReferenceTargetAtOffset } from '../../../src/features/completi
 // a regression in any one wiring shows up as a named cell rather than a user report.
 const token = CancellationToken.None;
 
-/** First value node whose written value is `text`, searching depth-first. */
+/**
+ * First value node whose written value is `text`, searching depth-first.
+ *
+ * @param node the node to search from.
+ * @param text the written value to match.
+ * @returns the matching value node, or undefined when nothing matches.
+ */
 const findValueByText = (node: AbstractNode, text: string): ValueNode | undefined => {
     if (isValueNode(node) && String(node.valueType.value) === text) return node;
     const children =
         isGroupNode(node) || isListNode(node) || isDocumentNode(node)
             ? node.elements
-            : isAssignmentNode(node)
+            : isAssignmentNode(node) && node.right
               ? [node.right]
               : [];
     for (const child of children) {
@@ -45,7 +52,14 @@ const findValueByText = (node: AbstractNode, text: string): ValueNode | undefine
     return undefined;
 };
 
-/** The line/character position of the first occurrence of `needle` in `src`, plus `offset` chars. */
+/**
+ * The line/character position of the first occurrence of `needle` in `src`, plus `offset` chars.
+ *
+ * @param src the source text to search.
+ * @param needle the text whose first occurrence is wanted.
+ * @param offset how many characters past the occurrence the position should sit.
+ * @returns the line and character of that position.
+ */
 const positionOf = (src: string, needle: string, offset = 1) => {
     const at = src.indexOf(needle);
     const before = src.slice(0, at);
@@ -96,9 +110,8 @@ describe('id shape and feature matrix', () => {
 
         it('goto jumps from the key to the declaring hit effect', async () => {
             const doc = parse(SRC);
-            const location = await DefinitionService.instance.getDefinition(doc, positionOf(SRC, 'fire = 50%'), token, folders);
-            expect(location).not.toBeNull();
-            expect(location!.uri.toLowerCase()).toContain('effect.rules');
+            const location = singleLocation(await DefinitionService.instance.getDefinition(doc, positionOf(SRC, 'fire = 50%'), token, folders));
+            expect(location.uri.toLowerCase()).toContain('effect.rules');
         });
 
         it('find-references finds the usage and the declaration', async () => {
@@ -115,14 +128,10 @@ describe('id shape and feature matrix', () => {
 
         it('goto jumps from the nested faction to its declaration', async () => {
             const doc = parse(SRC);
-            const location = await DefinitionService.instance.getDefinition(
-                doc,
-                positionOf(SRC, 'monolith'),
-                token,
-                folders
+            const location = singleLocation(
+                await DefinitionService.instance.getDefinition(doc, positionOf(SRC, 'monolith'), token, folders)
             );
-            expect(location).not.toBeNull();
-            expect(location!.uri.toLowerCase()).toContain('factions.rules');
+            expect(location.uri.toLowerCase()).toContain('factions.rules');
         });
 
         it('hover shows where the nested faction id is defined', async () => {
@@ -286,8 +295,7 @@ describe('id shape and feature matrix', () => {
         it('goto jumps from the scalar trigger to the component', async () => {
             const doc = parse(SRC);
             const at = positionOf(SRC, 'FireTrigger = Turret', 'FireTrigger = '.length + 1);
-            const location = await DefinitionService.instance.getDefinition(doc, at, token, []);
-            expect(location).not.toBeNull();
+            const location = singleLocation(await DefinitionService.instance.getDefinition(doc, at, token, []));
         });
 
         it('hover on the scalar trigger describes the component', async () => {
@@ -347,7 +355,7 @@ describe('id shape and feature matrix', () => {
             const { componentIdCompletionsForTarget } = await import(
                 '../../../src/features/completion/autocompletion.component-id'
             );
-            const names = (await componentIdCompletionsForTarget(ref!.targetClass, doc, token))!.map((c) => c.label);
+            const names = (await componentIdCompletionsForTarget(ref!.targetClass, doc, token))!.map((c) => (typeof c === 'string' ? c : c.label));
             expect(names).toContain('Turret');
         });
     });
@@ -360,8 +368,10 @@ describe('id shape and feature matrix', () => {
             const { schemaReferenceFieldOf } = await import('../../../src/features/navigation/schema-id-reference.navigation');
             const ref = schemaReferenceFieldOf(findValueByText(doc, 'hub_tag')!);
             expect(ref?.targetClass).toBe('Cosmoteer.Generators.Simulation.SimObjectSpawner');
-            const location = await DefinitionService.instance.getDefinition(doc, positionOf(src, 'SpawnAtTag = hub_tag', 'SpawnAtTag = '.length + 1), token, folders);
-            expect(location?.uri.toLowerCase()).toContain('sysgen.rules');
+            const location = singleLocation(
+                await DefinitionService.instance.getDefinition(doc, positionOf(src, 'SpawnAtTag = hub_tag', 'SpawnAtTag = '.length + 1), token, folders)
+            );
+            expect(location.uri.toLowerCase()).toContain('sysgen.rules');
         });
 
         it('a scalar ship entry (`Ships = [id]`) resolves the builtin-ship target', async () => {
@@ -391,7 +401,7 @@ describe('id shape and feature matrix', () => {
                     folders,
                     token
                 )
-            ).map((c) => c.label);
+            ).map((c) => (typeof c === 'string' ? c : c.label));
             expect(labels).toContain('HitIntervalElapsed');
             expect(labels).toContain('CrewResourcesReceived');
         });
@@ -484,7 +494,7 @@ Part : BasePart
         });
 
         it('inside the empty `[ ]` no scaffold is offered, so the id fallback can run', async () => {
-            // A scalar-form element class must not scaffold `{ … }` blocks; the server then falls
+            // A scalar-form element class must not scaffold `{ … }` blocks. The server then falls
             // through to the enclosing-list target resolution (covered in the schema-context tests)
             // and offers part ids.
             const src = 'Part\n{\n\tEditorParentParts = [ ]\n}';

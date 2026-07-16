@@ -1,15 +1,15 @@
 /**
- * Renamed schema symbols — the current spelling to use in place of an old one, and why it changed.
+ * Renamed schema symbols: the current spelling to use in place of an old one, and why it changed.
  *
  * Cosmoteer occasionally renames a serialization type (or, in future, a field or enum value) between
  * game versions. A mod written against an older version still spells the old name, which the current
  * schema can only see as "not a valid type". Knowing the rename lets the tooling say "renamed to X"
- * instead, offer a one-click fix, and tell the modder their mod targets an older game version — far
+ * instead, offer a one-click fix, and tell the modder their mod targets an older game version. Far
  * more actionable than a bare invalid-type warning.
  *
  * This is the single registry of known renames, kept separate from the extracted schema (which only
- * knows the CURRENT names) so it is easy to extend as more are found. One lookup per symbol kind;
- * only `Type=` discriminator renames are known so far. To add a field or enum-value rename later, add a
+ * knows the current names) so it is easy to extend as more are found. One lookup per symbol kind.
+ * Only `Type=` discriminator renames are known so far. To add a field or enum-value rename later, add a
  * `DEPRECATED_FIELDS` / `DEPRECATED_ENUM_VALUES` map and a matching lookup beside the discriminator one.
  */
 

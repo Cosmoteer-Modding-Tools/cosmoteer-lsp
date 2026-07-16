@@ -5,7 +5,7 @@ import { FullNavigationStrategy } from '../../../src/features/navigation/full.na
 import { AbstractNode, AbstractNodeDocument } from '../../../src/core/ast/ast';
 import { findNodeByIdentifier, parseFilePath } from '../../../src/utils/ast.utils';
 import { isAssignmentNode } from '../../../src/core/ast/ast';
-import { findReferenceNode, parseFixture } from '../../helpers';
+import { findReferenceNode, parseFixture, singleLocation, valueOf } from '../../helpers';
 import { initWorkspace, workspaceFile } from '../../workspace-helper';
 
 // End-to-end go-to-definition: cursor position -> reference node -> navigated target
@@ -15,13 +15,18 @@ const service = DefinitionService.instance;
 const navigation = new FullNavigationStrategy();
 const token = CancellationToken.None;
 
-/** A cursor position sitting on the start of `node`. */
+/**
+ * A cursor position sitting on the start of `node`.
+ *
+ * @param node the node the cursor should sit on.
+ * @returns the line and character of the node's start.
+ */
 const cursorOn = (node: AbstractNode) => ({
     line: node.position.line,
     character: node.position.characterStart,
 });
 
-describe('DefinitionService — go-to-definition', () => {
+describe('DefinitionService: go-to-definition', () => {
     let refChain: AbstractNodeDocument;
     let docA: AbstractNodeDocument;
 
@@ -35,13 +40,12 @@ describe('DefinitionService — go-to-definition', () => {
         const ref = findReferenceNode(refChain, '&Test1/TestValue');
         const target = await navigation.navigate(String(ref.valueType.value), ref, refChain.uri, token);
 
-        const location = await service.getDefinition(refChain, cursorOn(ref), token);
+        const location = singleLocation(await service.getDefinition(refChain, cursorOn(ref), token));
 
-        expect(location).not.toBeNull();
-        expect(location!.uri).toBe(refChain.uri);
+        expect(location.uri).toBe(refChain.uri);
         // Points at the resolved target node (the `1`), proving the cursor→target mapping.
-        expect(location!.range.start.line).toBe((target as AbstractNode).position.line);
-        expect(location!.range.start.character).toBe((target as AbstractNode).position.characterStart);
+        expect(location.range.start.line).toBe((target as AbstractNode).position.line);
+        expect(location.range.start.character).toBe((target as AbstractNode).position.characterStart);
     });
 
     it('in-file: resolves a reference embedded in a math expression (&B inside `(&A) / (&B) + …`)', async () => {
@@ -52,39 +56,36 @@ describe('DefinitionService — go-to-definition', () => {
         const ref = findReferenceNode(mathDoc, '&B'); // appears only inside the Result expression
         const target = await navigation.navigate(String(ref.valueType.value), ref, mathDoc.uri, token);
 
-        const location = await service.getDefinition(mathDoc, cursorOn(ref), token);
+        const location = singleLocation(await service.getDefinition(mathDoc, cursorOn(ref), token));
 
-        expect(location).not.toBeNull();
-        expect(location!.uri).toBe(mathDoc.uri);
-        expect(location!.range.start.line).toBe((target as AbstractNode).position.line);
-        expect(location!.range.start.character).toBe((target as AbstractNode).position.characterStart);
+        expect(location.uri).toBe(mathDoc.uri);
+        expect(location.range.start.line).toBe((target as AbstractNode).position.line);
+        expect(location.range.start.character).toBe((target as AbstractNode).position.characterStart);
     });
 
     it('cross-file: jumps into b.rules for &<./Data/b.rules>/B/InnerValue', async () => {
         const ref = findReferenceNode(docA, '&<./Data/b.rules>/B/InnerValue');
         const target = await navigation.navigate(String(ref.valueType.value), ref, docA.uri, token);
 
-        const location = await service.getDefinition(docA, cursorOn(ref), token);
+        const location = singleLocation(await service.getDefinition(docA, cursorOn(ref), token));
 
-        expect(location).not.toBeNull();
-        expect(location!.uri.startsWith('file://')).toBe(true);
-        expect(location!.uri.endsWith('b.rules')).toBe(true);
-        expect(location!.range.start.line).toBe((target as AbstractNode).position.line);
+        expect(location.uri.startsWith('file://')).toBe(true);
+        expect(location.uri.endsWith('b.rules')).toBe(true);
+        expect(location.range.start.line).toBe((target as AbstractNode).position.line);
     });
 
     it('file target: a whole-file reference resolves to the file at range 0:0', async () => {
         const doc = parseFixture('def-fileref.rules', 'file:///def-fileref.rules');
         const ref = findReferenceNode(doc, '&<./Data/c.rules>');
 
-        const location = await service.getDefinition(doc, cursorOn(ref), token);
+        const location = singleLocation(await service.getDefinition(doc, cursorOn(ref), token));
 
-        expect(location).not.toBeNull();
-        expect(location!.uri.endsWith('c.rules')).toBe(true);
-        expect(location!.range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 0 } });
+        expect(location.uri.endsWith('c.rules')).toBe(true);
+        expect(location.range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 0 } });
     });
 
     it('inherit-and-extend: falls back to the base being extended (`^/0/EditorGroups` -> base)', async () => {
-        // The base lacks EditorGroups, so the full ref has no target; go-to-def should jump
+        // The base lacks EditorGroups, so the full ref has no target. Go-to-def should jump
         // to what `^/0` extends (the base group), not do nothing.
         const derived = await parseFilePath(workspaceFile('parts', 'eg_derived.rules'));
         const thing = findNodeByIdentifier(derived, 'Thing')! as AbstractNode & { elements: AbstractNode[] };
@@ -93,17 +94,16 @@ describe('DefinitionService — go-to-definition', () => {
         ) as unknown as { inheritance: AbstractNode[] };
         const inh = editorGroups.inheritance[0];
 
-        const location = await service.getDefinition(derived, cursorOn(inh), token);
-        expect(location).not.toBeNull();
-        expect(location!.uri.endsWith('eg_base.rules')).toBe(true);
+        const location = singleLocation(await service.getDefinition(derived, cursorOn(inh), token));
+        expect(location.uri.endsWith('eg_base.rules')).toBe(true);
     });
 
     it('returns null when the cursor is not on a reference (a plain number)', async () => {
-        // `Direct = 1` lives inside group A — cursor on the number, not a reference.
+        // `Direct = 1` lives inside group A, with the cursor on the number, not a reference.
         const aObj = findNodeByIdentifier(docA, 'A')!;
         const direct = findNodeByIdentifier(aObj, 'Direct')!;
         expect(isAssignmentNode(direct)).toBe(true);
-        const numberValue = isAssignmentNode(direct) ? direct.right : direct;
+        const numberValue = isAssignmentNode(direct) ? valueOf(direct) : direct;
         const location = await service.getDefinition(docA, cursorOn(numberValue), token);
         expect(location).toBeNull();
     });

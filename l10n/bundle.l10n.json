@@ -139,6 +139,7 @@
   "Function-call arguments must be a number or a reference (\"&\"), not a {0}": "Function-call arguments must be a number or a reference (\"&\"), not a {0}",
   "Duplicate field \"{0}\"": "Duplicate field \"{0}\"",
   "\"{0}\" is defined more than once in this scope; only the last definition takes effect": "\"{0}\" is defined more than once in this scope; only the last definition takes effect",
+  "'{0}' is already {1} by default on {2}, so writing it changes nothing.": "'{0}' is already {1} by default on {2}, so writing it changes nothing.",
   "Reference should not be quoted": "Reference should not be quoted",
   "Remove the quotes — a \"&\" reference is written without quotation marks": "Remove the quotes — a \"&\" reference is written without quotation marks",
   "Reference should start with an ampersand": "Reference should start with an ampersand",

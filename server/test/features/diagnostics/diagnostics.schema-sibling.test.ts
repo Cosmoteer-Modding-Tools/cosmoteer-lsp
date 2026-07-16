@@ -55,7 +55,7 @@ describe('schema sibling-reference existence validation', () => {
 
     it('skips non-identifier values (paths/references/expressions)', async () => {
         await initWorkspace();
-        // A `&`/path value is not a bare sibling id — must not be flagged by this pass.
+        // A `&`/path value is not a bare sibling id. It must not be flagged by this pass.
         expect(await validate(part('&IsOperational'))).toHaveLength(0);
     });
 
@@ -140,7 +140,7 @@ describe('schema sibling-reference existence validation', () => {
     });
 
     // A components fragment is merged into a part elsewhere (`Components : ^/0/Components` +
-    // `<fragment.rules>/Part/Components`), so its ids resolve against that part — the fragment brings
+    // `<fragment.rules>/Part/Components`), so its ids resolve against that part. The fragment brings
     // the wiring, the part brings the components it wires. Judged standalone, every id the part
     // supplies false-positives (30 in one workshop mod). The consuming part joins the union instead.
     describe('a components fragment resolves against the part that pulls it in', () => {

@@ -33,7 +33,7 @@ internal sealed partial class SchemaGen
         ["Halfling.Graphics.IAnimatedSprite"] = ("Halfling.Graphics.AnimatedSprite", "AnimatedSprite"),
     };
 
-    // Engine value types that are deserialized inline — they have no `[Serialize]` members (a custom
+    // Engine value types that are deserialized inline. They have no `[Serialize]` members (a custom
     // deserializer reads sibling keys from the parent), so reflection yields an `opaque` blob and the
     // real fields are invisible. A particle updater's `Range` (`FlexRange`) is written as `ValueType` +
     // `FromValue` + `ToValue` directly in the updater group, and `Value` (`FlexValue`) as `ValueType` +
@@ -73,7 +73,7 @@ internal sealed partial class SchemaGen
     {
         // The `ValueType` discriminator a FlexRange/FlexValue carries. No reflective enum is reachable for it
         // (the type is custom-deserialized), so it is curated from the vanilla vocabulary plus the sibling
-        // dimensional names; the 954-file scan keeps it false-positive-free.
+        // dimensional names.
         enums[FLEX_VALUE_TYPE] = new JsonObject
         {
             ["name"] = "FlexValueType",
@@ -141,7 +141,7 @@ internal sealed partial class SchemaGen
         // generic `T`, modeled as a plain `number` (good for any variant). Modifiers points at the real
         // `[SerialBaseType]` registry on `Cosmoteer.Ships.ValueModifier`, whose derived classes the normal
         // reflection harvest emits (BuffRemap, StatusRemap, NamedValue, ...), so entries complete and
-        // validate like every other `Type=` group. All optional — the scalar shorthand is the common form,
+        // validate like every other `Type=` group. All optional. The scalar shorthand is the common form,
         // so none of these is required.
         types[MODIFIABLE_VALUE] = new JsonObject
         {

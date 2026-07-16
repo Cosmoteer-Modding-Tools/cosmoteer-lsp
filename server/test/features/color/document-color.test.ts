@@ -28,7 +28,7 @@ describe('document colors', () => {
     });
 
     it('anchors a named multi-line color group swatch on its identifier, not the lone brace', () => {
-        // `_centerColor` on line 0, its `{` on line 1 — the swatch must sit on the name (line 0) so the
+        // `_centerColor` on line 0, its `{` on line 1. The swatch must sit on the name (line 0) so the
         // editor renders the decorator next to the field, not detached on the brace-only line.
         const doc = parse('_centerColor\n{\n\tRf = 1\n\tGf = 0.5\n\tBf = 0\n}');
         const range = documentColors(doc)[0].range;

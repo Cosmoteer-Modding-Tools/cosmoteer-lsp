@@ -2,11 +2,11 @@
  * Hand-authored schema corrections for types the `schemagen` extractor cannot reflect.
  *
  * `schemagen` walks `[ReflectiveSerialization]` `[Serialize]` fields. A handful of engine types are
- * instead read by a CUSTOM `IBaseDeserializer` (the same situation as the custom-deserialized
- * `Components` containers — see this folder's README), so their fields never appear as reflective
+ * instead read by a custom `IBaseDeserializer` (the same situation as the custom-deserialized
+ * `Components` containers, see this folder's README), so their fields never appear as reflective
  * members and the extractor falls back to a lossy approximation. The prime example is
  * `Halfling.Graphics.Texture`: a dual-form value that is written either as a bare image path
- * (`Texture = foo.png`) OR as a group (`Texture { File=… MipLevels=… SampleMode=… }`). schemagen
+ * (`Texture = foo.png`) or as a group (`Texture { File=… MipLevels=… SampleMode=… }`). schemagen
  * only saw the scalar form and emitted `{ kind: 'asset', assetKind: 'image' }`, so the LSP could not
  * resolve a class for the group form and offered no field-name completion inside `Texture { … }`.
  *
@@ -16,7 +16,7 @@
  * so a future schemagen run that learns these types wins automatically.
  *
  * The group form is resolved structurally: an image-asset slot occupied by a group node is a
- * `Texture` (the only dual-form image type in the engine) — see `resolveGroupClass` in
+ * `Texture` (the only dual-form image type in the engine). See `resolveGroupClass` in
  * `schema-context.ts`. So no per-field rewrite of the (many) `Texture`-typed fields is needed.
  */
 import { SchemaBundle, SchemaEnum, SchemaField, SchemaTypeDef } from './schema.types';
@@ -145,7 +145,7 @@ const OVERLAY_TYPES: Record<string, SchemaTypeDef> = {
 
 // Extra fields a reflectively-extracted type accepts that schemagen still can't see. schemagen now
 // recovers most custom-deserializer reads directly from method IL (the generic `*FromPath<T>("Name")`
-// calls — see `CustomReadCalls` in tools/schemagen), so this list is only what that cannot reach: the
+// calls, see `CustomReadCalls` in tools/schemagen), so this list is only what that cannot reach: the
 // alternate spellings of a custom content deserializer, fields read via a non-generic overload, or a
 // value read off a nested/foreign object. Merged additively (a name already extracted is left as-is),
 // so each entry self-retires if schemagen later learns it. Keyed by C# FullName.
@@ -164,7 +164,7 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
         { name: 'Db', valueType: { kind: 'range', element: { kind: 'float' } }, optional: true },
     ],
     // `IntColor` reflects its byte `R`/`G`/`B`/`A`, but its content deserializer also reads float
-    // `Rf`/`Gf`/`Bf`/`Af` (0..1) and `H`/`S`/`V` — the spelling vanilla overwhelmingly uses.
+    // `Rf`/`Gf`/`Bf`/`Af` (0..1) and `H`/`S`/`V`, the spelling vanilla overwhelmingly uses.
     'Halfling.Graphics.IntColor': [
         { name: 'Rf', valueType: { kind: 'number' }, optional: true },
         { name: 'Gf', valueType: { kind: 'number' }, optional: true },

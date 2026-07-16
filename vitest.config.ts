@@ -1,6 +1,6 @@
-// Root Vitest config so `vitest` run from the repo root only picks up the SERVER unit tests. The
+// Root Vitest config so `vitest` run from the repo root only picks up the server unit tests. The
 // client's `client/src/test/**` (and compiled `client/out/test/**`) are VS Code extension-host e2e
-// tests — they `import * as vscode from 'vscode'`, which only exists inside the Extension Development
+// tests. They `import * as vscode from 'vscode'`, which only exists inside the Extension Development
 // Host, so they are run by `scripts/e2e.sh` (npm run test), never by Vitest. Without this, a bare
 // `vitest` at the root scans every `*.test.ts`/`.js` and reports those host tests as failures.
 //

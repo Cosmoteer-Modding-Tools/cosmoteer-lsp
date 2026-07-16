@@ -51,7 +51,7 @@ describe('generic validation of mod.rules SOURCES (the wholesale skip is gone)',
         expect(byValue.get('&<nonexistent.rules>/Provider')).toBe('Reference name is not known');
     });
 
-    it('does not flag a quoted action TARGET (`<a.rules>`) — validated against the game root instead', () => {
+    it('does not flag a quoted action TARGET (`<a.rules>`): validated against the game root instead', () => {
         expect(byValue.has('<a.rules>')).toBe(true);
         expect(byValue.get('<a.rules>')).toBeUndefined();
     });

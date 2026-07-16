@@ -3,7 +3,7 @@
 //   - reachability pruning from the document root (Cosmoteer.Data.Rules) so non-.rules
 //     serialization (MPInput, runtime refs, save-game state) is dropped.
 // Both assemblies are scanned because many `*Rules` fields nest engine types from the Halfling
-// runtime (a particle effect's whole `Def { … }` body — its updaters, renderers, material). The
+// runtime (a particle effect's whole `Def { … }` body: its updaters, renderers, material). The
 // prune keeps only the Halfling types actually reachable from a `.rules` root.
 // Emits cosmoteer.schema.json: { meta, registries, types, enums, builtinIds, unresolved }.
 // The extraction itself lives in the SchemaGen partial class, one file per concern (see SchemaGen.cs).

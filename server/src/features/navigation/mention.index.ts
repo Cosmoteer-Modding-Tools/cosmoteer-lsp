@@ -46,14 +46,14 @@ interface MentionCacheFile {
  * Project-wide word index over the raw text of every `.rules` file, the pre-filter behind
  * find-all-references and rename. Those features previously re-read the whole project (the mod plus
  * the game tree) on every query just to find the files whose text mentions the symbol name. This
- * index answers that from memory: the files of every word that contains the name — equivalent to
+ * index answers that from memory: the files of every word that contains the name, equivalent to
  * the raw substring test for a pure-word name, because identifier characters are contiguous in the
  * text. A punctuated name (`cosmoteer.rock_1x1`) intersects its word tokens' candidate sets. Only a
  * name with no word token at all is answered with undefined and the caller falls back to the full
  * scan.
  *
  * Every query first syncs with the disk by walking the folders and comparing each file's size and
- * mtime to the indexed state, re-reading only the files that changed — so a created, deleted, or
+ * mtime to the indexed state, re-reading only the files that changed, so a created, deleted, or
  * externally modified file (a `git pull`, a game update) is reflected with no watcher involved,
  * exactly like the stateless full scan it replaces, at the cost of a stat sweep instead of reading
  * every file. The result stays conservative either way: the caller re-reads and substring-checks
@@ -330,7 +330,7 @@ export class MentionIndex {
 
     /**
      * Walks the folders, stats every `.rules` file, and re-reads exactly the files whose identity
-     * (size or mtime) differs from the indexed state — everything on a first run, near nothing on
+     * (size or mtime) differs from the indexed state: everything on a first run, near nothing on
      * a later query. Files that vanished from disk are dropped.
      *
      * @param folderPaths the project folders to walk.

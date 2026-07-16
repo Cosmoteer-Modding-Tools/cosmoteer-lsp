@@ -90,8 +90,8 @@ describe('AutoCompletionModRules', () => {
     });
 
     it('does not complete a verb for a non-target, non-Action field', async () => {
-        // `With` is a source field — no path/verb completion offered (the reference completer
-        // handles `&` sources; this completer stays out of the way).
+        // `With` is a source field: no path/verb completion offered (the reference completer
+        // handles `&` sources, so this completer stays out of the way).
         const src = 'Actions\n[\n\t{\n\t\tAction = Replace\n\t\tReplace = "<a.rules>"\n\t\tWith = somevalue\n\t}\n]\n';
         const action = parseModActions(parser(lexer(src), 'file:///mod.rules').value)[0];
         const withNode = action.sources[0] as ValueNode;

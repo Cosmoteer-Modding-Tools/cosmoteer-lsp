@@ -8,7 +8,7 @@ export const startsWithAmpersandAndLetter = (value: string) => /^&[A-Za-z_.]/.te
  * number of `/`-separated segments (identifier, `^`, `..`, `:`, `#`), with whitespace allowed
  * around the separators.
  *
- * A name segment is `\.?\w[\w.]*` — a run of word characters and dots requiring at least one word
+ * A name segment is `\.?\w[\w.]*`, a run of word characters and dots requiring at least one word
  * character, with at most a single leading dot. This is deliberately unambiguous: the earlier
  * `(\w|(?<=\w\.*)\.|\.(?=\w\.*))+` form let an interior `.` match two alternatives, so a long dotted
  * value that ultimately failed drove exponential backtracking (a ReDoS that froze the whole server,
@@ -34,7 +34,7 @@ export const isValidReference = (value: string): boolean => {
 };
 
 /**
- * The final identifier segment of an inheritance reference — the base group's name — or undefined
+ * The final identifier segment of an inheritance reference (the base group's name), or undefined
  * when the reference does not end in a plain name. `BASE_SPRITES` -> `BASE_SPRITES`, `^/0/Toggles` ->
  * `Toggles`, `&<…/base.rules>/Part` -> `Part`, `..` -> undefined. Used to recognize a group that
  * serves as an inheritance base (a template completed by its deriving groups).

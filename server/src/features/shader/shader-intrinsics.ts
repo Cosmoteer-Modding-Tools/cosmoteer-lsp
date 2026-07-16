@@ -149,7 +149,7 @@ export interface EngineUniform {
 
 /**
  * The engine-provided uniforms a Cosmoteer shader reads but a material never sets. They are declared in
- * `base.shader` (an include), so the current file's own scan never sees them — this table lets
+ * `base.shader` (an include), so the current file's own scan never sees them. This table lets
  * completion still offer them, type-resolution resolve `_texture.` to the texture methods, and hover
  * explain where each value comes from.
  */

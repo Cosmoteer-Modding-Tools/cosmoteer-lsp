@@ -100,7 +100,7 @@ const scalarValueCompletions = (valueType: ValueType): Completion[] => {
 const listElementCompletions = (list: ListNode): Completion[] => {
     const slot = listSlotType(list);
     // A group-typed field written in positional list form (`BaseSize = [7.2, 7.2]`): the elements
-    // are the class's digit fields — plain values with nothing to name-complete.
+    // are the class's digit fields, plain values with nothing to name-complete.
     if (!slot || slot.kind !== 'list') return [];
     const element = slot.element;
     // A scalar-form element class with a reference payload (`EditorParentParts` entries) is
@@ -230,7 +230,7 @@ export const schemaFieldNameCompletions = async (
     }
 
     // A polymorphic group that hasn't chosen its concrete subtype yet has no class-specific fields to
-    // offer beyond the base — but it must declare `Type` to dispatch. `Type` is not a schema field
+    // offer beyond the base, but it must declare `Type` to dispatch. `Type` is not a schema field
     // (the serializer handles it), so inject it explicitly, sorted to the very top.
     if (group) {
         const registry = registryForGroup(group);
@@ -245,12 +245,12 @@ export const schemaFieldNameCompletions = async (
 };
 
 /**
- * Whether `node` is a bare identifier member — a field name being typed (`Ig` on its own line)
- * with no `=`/value yet. Such an identifier IS an AST leaf, so the offset-based field-name
+ * Whether `node` is a bare identifier member, a field name being typed (`Ig` on its own line)
+ * with no `=`/value yet. Such an identifier is an AST leaf, so the offset-based field-name
  * completion (which fires only when no leaf is under the cursor) never ran for it and typing a
- * field name went dark; the completion router sends these to that same offset path instead. A
- * `&…` reference member and an inheritance base entry are identifiers too and stay excluded —
- * they are value-like, not field names.
+ * field name went dark. The completion router sends these to that same offset path instead. A
+ * `&…` reference member and an inheritance base entry are identifiers too and stay excluded.
+ * They are value-like, not field names.
  *
  * @param node the AST leaf found under the cursor.
  * @returns true when the node is a partially typed field name.

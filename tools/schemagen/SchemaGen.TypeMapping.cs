@@ -163,7 +163,7 @@ internal sealed partial class SchemaGen
             case "KeyString": o["kind"] = "string"; o["semantic"] = "localizationKey"; return o;
             case "AbsolutePath": case "RelativePath": case "FilePath":
                 o["kind"] = "string"; o["semantic"] = "path"; return o;
-            // engine asset references (custom deserializers in HalflingCore) — feed the asset feature
+            // engine asset references (custom deserializers in HalflingCore): feed the asset feature
             case "Texture": o["kind"] = "asset"; o["assetKind"] = "image"; return o;
             case "Sound": o["kind"] = "asset"; o["assetKind"] = "sound"; return o;
             case "Shader": o["kind"] = "asset"; o["assetKind"] = "shader"; return o;

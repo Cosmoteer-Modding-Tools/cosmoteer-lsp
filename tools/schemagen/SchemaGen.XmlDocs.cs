@@ -8,8 +8,8 @@ internal sealed partial class SchemaGen
     // The game ships compiler-generated XML doc files next to each assembly (Cosmoteer.xml,
     // HalflingCore.xml). Index every member's <summary> by its XML doc-ID (`F:Type.Field` for a field,
     // `P:Type.Prop` for a property) so OwnFields can attach the prose to the matching serialized field.
-    // The descriptions are emitted to a separate `field-docs.seed.json`, never into the schema itself —
-    // the docs scaffolder turns that seed into editable Markdown (see docs/fields and field-docs.ts). The
+    // The descriptions are emitted to a separate `field-docs.seed.json`, never into the schema itself.
+    // The docs scaffolder turns that seed into editable Markdown (see docs/fields and field-docs.ts). The
     // separation keeps a schemagen regen from clobbering hand-written community docs.
     void LoadXmlDocs()
     {
@@ -57,7 +57,7 @@ internal sealed partial class SchemaGen
                         sb.Append(ce.Attribute("name")?.Value ?? "");
                         break;
                     default:
-                        Walk(ce);   // c / para / list / etc. — keep their inner text
+                        Walk(ce);   // c / para / list / etc. (keep their inner text)
                         break;
                 }
             }

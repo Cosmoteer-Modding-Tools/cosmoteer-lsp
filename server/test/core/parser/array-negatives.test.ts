@@ -35,7 +35,7 @@ describe('negative numbers in lists', () => {
     });
 
     it('still hints genuine math sitting next to a negative literal', async () => {
-        // `[-1, 2 * 3]` — `-1` is a literal (no hint), `2 * 3` computes to 6.
+        // `[-1, 2 * 3]`: `-1` is a literal (no hint), `2 * 3` computes to 6.
         const doc = parse('M = [-1, 2 * 3]\n');
         const hints = await InlayHintService.instance.getInlayHints(doc, Range.create(0, 0, 100, 0), token);
         expect(hints.map((h) => h.label)).toEqual(['= 6']);

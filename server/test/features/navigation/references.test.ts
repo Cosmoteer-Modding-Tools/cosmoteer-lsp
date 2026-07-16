@@ -28,7 +28,7 @@ const groupBIdentifier = (b: AbstractNodeDocument) => {
     throw new Error('group B not found');
 };
 
-describe('ReferenceIndex — find-all-references', () => {
+describe('ReferenceIndex: find-all-references', () => {
     let bDoc: AbstractNodeDocument;
     let aDoc: AbstractNodeDocument;
 
@@ -71,8 +71,8 @@ describe('ReferenceIndex — find-all-references', () => {
     });
 
     it('finds a cross-file INHERITANCE reference to a group (the real Part scenario)', async () => {
-        // base.rules `Base` is inherited cross-file by a.rules `AChild : &<./Data/base.rules>/Base`
-        // — exactly how every part does `Part : <../base_part.rules>/Part`.
+        // base.rules `Base` is inherited cross-file by a.rules `AChild : &<./Data/base.rules>/Base`,
+        // exactly how every part does `Part : <../base_part.rules>/Part`.
         const baseDoc = await parseFilePath(workspaceFile('base.rules'));
         const baseObj = [...walkAst(baseDoc)].find(
             (n) => isGroupNode(n) && (n as GroupNode).identifier?.name === 'Base'

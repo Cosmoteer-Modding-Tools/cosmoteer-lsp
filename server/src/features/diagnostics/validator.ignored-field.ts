@@ -34,7 +34,7 @@ import * as l10n from '@vscode/l10n';
 const segmentsCache = new WeakMap<AbstractNodeDocument, Set<string>>();
 
 // The SCREAMING_CASE spelling every user-defined constant uses (`HEAT_TARGET_STORAGE`,
-// `INTERVALS_TO_FILL`). Constants are read through references, often from OTHER files (a derived
+// `INTERVALS_TO_FILL`). Constants are read through references, often from other files (a derived
 // part reads its base's constants via `&~/Part/^/0/NAME`), which a single-file usage scan cannot
 // see, so constant-shaped names are never judged.
 const CONSTANT_NAME = /^[A-Z0-9_]*_[A-Z0-9_]*$/;
@@ -71,7 +71,13 @@ const classFitsGroup = (group: GroupNode, cls: string): boolean => {
     return owned / names.length >= MIN_CLASS_FIT;
 };
 
-/** Add every `/`-separated word of a reference path to `out`, lower-cased, with the `<file>` part removed. */
+/**
+ * Add every `/`-separated word of a reference path to `out`, lower-cased, with the `<file>` part
+ * removed.
+ *
+ * @param text the reference path text.
+ * @param out the set collecting the lower-cased segments.
+ */
 const addSegments = (text: string, out: Set<string>): void => {
     const withoutFile = text.replace(/<[^>]*>/g, ' ');
     for (const raw of withoutFile.split('/')) {
@@ -155,7 +161,7 @@ export const referencedSegments = (document: AbstractNodeDocument): Set<string> 
 export const ignoredFieldClass = (group: GroupNode, name: string, document: AbstractNodeDocument): string | undefined => {
     if (/^\d+$/.test(name)) return undefined;
     // A `_`-prefixed name is a shader constant the engine passes to the shader by name (`_hotColor`
-    // on a Sprite/Material group), never a schema member; the shader-constant validator owns those.
+    // on a Sprite/Material group), never a schema member. The shader-constant validator owns those.
     if (name.startsWith('_')) return undefined;
     if (CONSTANT_NAME.test(name)) return undefined;
     const typeField = registryForGroup(group)?.typeField ?? 'Type';
@@ -189,7 +195,7 @@ export const ignoredFieldClass = (group: GroupNode, name: string, document: Abst
     if (!def?.purelyReflective || def.abstract) return undefined;
     if (fieldsOf(cls).length === 0) return undefined;
     // A wrapper-delegation slot reads the wrapper's fields and the dispatched member's from the
-    // same group, so a field owned by ANY candidate class (the primary is the first) is a real read
+    // same group, so a field owned by any candidate class (the primary is the first) is a real read
     // key, no matter which side won the single-valued class pick.
     if (groupClassCandidates(group).some((candidate) => fieldOf(candidate, name))) return undefined;
     // A self-resolved group (no slot anchors its class: an unrooted fragment wired in through mod
@@ -230,7 +236,7 @@ export const isIgnoredSchemaField = (node: ValueNode): boolean => {
  * The lower-cased names of every schema field flagged `dead` (declared by the game but never read
  * by its code, per schemagen's whole-assembly read scan), so the per-assignment check below can
  * bail on cheap name membership before resolving any group class or ancestry. Built once at module
- * init; the schema is immutable after load.
+ * init. The schema is immutable after load.
  */
 const deadFieldNames = new Set<string>();
 for (const type of Object.values(schema.types)) {
@@ -292,6 +298,8 @@ export const validateIgnoredFields = async (
                 if (!cls) continue;
                 const classLabel = schema.types[cls]?.name ?? cls;
                 const declaredButDead = !!fieldOf(cls, name);
+                const start = element.left.position.start;
+                const end = element.right?.position?.end ?? element.left.position.end;
                 errors.push({
                     message: declaredButDead
                         ? l10n.t("'{0}' is declared by {1} but the game's code never reads it.", name, classLabel)
@@ -301,12 +309,16 @@ export const validateIgnoredFields = async (
                               classLabel
                           ),
                     node: element.left,
+                    // Fade the value along with the key: the game reads neither, and the span then
+                    // matches what the remove fix deletes.
+                    range: { start, end },
                     severity: 'hint',
+                    unnecessary: true,
                     data: {
                         remove: {
                             title: l10n.t("Remove '{0}'", name),
-                            start: element.left.position.start,
-                            end: element.right?.position?.end ?? element.left.position.end,
+                            start,
+                            end,
                         },
                     },
                 });

@@ -144,7 +144,7 @@ const translateCasts = (src: string): string => {
     while ((match = cast.exec(src))) {
         const after = match.index + match[0].length;
         if (src[after] === '(') {
-            // `(int)(x)` — the parentheses already delimit the operand, floor replaces the cast.
+            // `(int)(x)`: the parentheses already delimit the operand, floor replaces the cast.
             out += src.slice(cursor, match.index) + 'floor';
             cursor = after;
         } else if (/[A-Za-z_\d.]/.test(src[after] ?? '')) {

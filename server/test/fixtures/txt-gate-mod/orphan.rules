@@ -1,0 +1,7 @@
+// A `.rules` file nothing references. It must still validate: no other tool writes that
+// extension, so an unwired `.rules` gets the benefit of the doubt.
+Root
+{
+	A = 1
+	A = 2
+}

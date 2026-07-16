@@ -31,7 +31,7 @@ const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 /** The class whose positional list form encodes a colour. */
 const COLOR_CLASS = 'Halfling.Graphics.Color';
 
-/** The float component names, in channel order, and the byte ones — whichever a group carries. */
+/** The float component names, in channel order, and the byte ones, whichever a group carries. */
 const FLOAT_COMPONENTS = ['Rf', 'Gf', 'Bf', 'Af'] as const;
 const BYTE_COMPONENTS = ['R', 'G', 'B', 'A'] as const;
 
@@ -216,13 +216,13 @@ const spliceChannels = (source: string, spanStart: number, edits: ChannelEdit[])
  * The colour-picker presentation for the colour at `range`: a single text edit that rewrites the
  * group's component values in place, leaving the identifier, braces and layout untouched. Re-finds the
  * group by its {@link colorRange} (whose start VS Code passes back), so a missing component (e.g. no
- * `Af`) is simply not written. The edit's range equals {@link colorRange} exactly — see that function
+ * `Af`) is simply not written. The edit's range equals {@link colorRange} exactly. See that function
  * for why the two must match.
  *
  * @param document the parsed document the colour lives in.
  * @param source the full document text (value node offsets index into it).
  * @param range the colour range the client sent back (matches a {@link documentColors} entry, or the
- * range of the previously applied edit — which shares the same start).
+ * range of the previously applied edit, which shares the same start).
  * @param color the colour the user picked.
  * @returns one presentation whose edit rewrites the component values, or an empty list if the colour
  * can no longer be located (the document changed under the picker).

@@ -32,7 +32,7 @@ describe('same-file inheritance by bare name', () => {
     });
 
     it('accepts a numeric inheritance target (`: N`) without a parse error', () => {
-        // `: N` is valid numeric (index) inheritance, normalized to `&N` — see
+        // `: N` is valid numeric (index) inheritance, normalized to `&N`. See
         // inheritance.numeric.test.ts for resolution.
         const result = parser(lexer('Test : 12356 {\n}\n'), 'file:///t.rules');
         expect(result.parserErrors).toEqual([]);
@@ -78,7 +78,7 @@ describe('same-file inheritance by bare name', () => {
 // A list element re-declaring a base's element through inheritance: `: ../^/0/List/N`. This idiom
 // is pervasive in vanilla (`: ../^/0/MediaEffects/5`, `: ../^/0/ContinuousEffects/0`). The `^` in the
 // path is applied to the inheriting group reached mid-path, and per the game's `OTNode.FindAtPath` it
-// must select THAT group's own inheritance base — not its grandparent. A prior off-by-one on `^`
+// must select that group's own inheritance base, not its grandparent. A prior off-by-one on `^`
 // (grandparent instead of self) flagged every such line as an unknown reference.
 describe('list-element `: ../^/0/List/N` inheritance (game `^` = own inheritance anchor)', () => {
     const SRC = [

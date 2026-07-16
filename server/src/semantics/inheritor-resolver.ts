@@ -20,7 +20,7 @@ import { cachedParseFilePath } from '../workspace/fs-cache';
 /** The shared resolver, used to confirm a candidate inheritor by resolving its base back to the target. */
 const navigation = new FullNavigationStrategy();
 
-/** A named group or list — the only nodes a `:` base can be, since the base is addressed by name. */
+/** A named group or list: the only nodes a `:` base can be, since the base is addressed by name. */
 type NamedContainer = GroupNode | ListNode;
 
 /**
@@ -55,7 +55,7 @@ const collectCandidates = (
 };
 
 /**
- * The concrete inheritors of a virtual-inheritance base — every group/list in the workspace that
+ * The concrete inheritors of a virtual-inheritance base: every group/list in the workspace that
  * inherits from `base` (the node a `&…/:` path resolves its `:` against). The reverse edge in
  * {@link TemplateBaseIndex} narrows the search to the files that inherit the base's name, and each
  * candidate is then confirmed by resolving its inheritance reference back to `base`, so a same-named

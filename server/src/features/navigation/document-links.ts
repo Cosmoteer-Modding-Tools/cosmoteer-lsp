@@ -12,12 +12,12 @@ import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-worksp
 /**
  * `textDocument/documentLink`: turn every reference (`&Name`, `&<…>`, `/…`, inheritance refs) and
  * every asset value (`Sprite`/`Sound`/`Shader`) into clickable underlines, so a reader sees at a
- * glance what is navigable and can Ctrl-click it without first placing the cursor — the discoverable
+ * glance what is navigable and can Ctrl-click it without first placing the cursor, the discoverable
  * counterpart to go-to-definition.
  *
- * A reference is split **per path segment**: `&<file>/Weapon/Damage` yields three links — the `<file>`
- * part jumps to the file, `Weapon` to that group, `Damage` to the field — where go-to-definition only
- * ever lands on the final target. Each segment resolves its own longest-prefix; the final segment goes
+ * A reference is split **per path segment**: `&<file>/Weapon/Damage` yields three links. The `<file>`
+ * part jumps to the file, `Weapon` to that group, `Damage` to the field, where go-to-definition only
+ * ever lands on the final target. Each segment resolves its own longest-prefix. The final segment goes
  * through the full {@link DefinitionService} so mod-action / ID / channel targets keep resolving.
  *
  * Links are produced cheaply here (ranges only). Targets are resolved lazily in
@@ -34,7 +34,7 @@ export interface DocumentLinkData {
     character: number;
     /** The reference prefix this segment resolves (e.g. `&<file>/Weapon`). Absent for an asset link. */
     prefix?: string;
-    /** True when this segment is the whole token — resolved through full go-to-definition. */
+    /** True when this segment is the whole token, resolved through full go-to-definition. */
     isFull: boolean;
 }
 
@@ -124,8 +124,8 @@ export const computeDocumentLinks = (document: AbstractNodeDocument): DocumentLi
 /** A `file://` link target from a resolved {@link Location}, encoding the in-file position as a `#L` fragment. */
 export const linkTargetFromLocation = (location: Location): string => {
     const { start, end } = location.range;
-    // A whole-file target (asset, or a `&<…>` file reference) resolves to a zero range — link to the
-    // file itself. A member target carries a real position — encode it as VS Code's 1-based `#L<line>,<col>`.
+    // A whole-file target (asset, or a `&<…>` file reference) resolves to a zero range, so link to the
+    // file itself. A member target carries a real position, so encode it as VS Code's 1-based `#L<line>,<col>`.
     if (start.line === 0 && start.character === 0 && end.line === 0 && end.character === 0) return location.uri;
     return `${location.uri}#L${start.line + 1},${start.character + 1}`;
 };

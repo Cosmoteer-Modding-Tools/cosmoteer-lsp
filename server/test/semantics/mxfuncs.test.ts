@@ -1,14 +1,21 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { evaluateNumericValue, formatNumber } from '../../src/semantics/value-evaluator';
-import { AbstractNodeDocument, isAssignmentNode } from '../../src/core/ast/ast';
-import { parseFixture, walkAst } from '../helpers';
+import { AbstractNode, AbstractNodeDocument, isAssignmentNode } from '../../src/core/ast/ast';
+import { parseFixture, valueOf, walkAst } from '../helpers';
 import { initWorkspace } from '../workspace-helper';
 
 const token = CancellationToken.None;
 
-const rhsOf = (doc: AbstractNodeDocument, name: string) => {
-    for (const node of walkAst(doc)) if (isAssignmentNode(node) && node.left.name === name) return node.right;
+/**
+ * The value of a named assignment anywhere in a document.
+ *
+ * @param doc the parsed document to search.
+ * @param name the assignment's field name.
+ * @returns the assignment's value node.
+ */
+const rhsOf = (doc: AbstractNodeDocument, name: string): AbstractNode => {
+    for (const node of walkAst(doc)) if (isAssignmentNode(node) && node.left.name === name) return valueOf(node);
     throw new Error(`assignment ${name} not found`);
 };
 
@@ -21,6 +28,12 @@ describe('mXparser-compatible functions and constants', () => {
         doc = parseFixture('mxfuncs.rules', 'file:///mxfuncs.rules');
     });
 
+    /**
+     * Evaluate a named assignment of the fixture.
+     *
+     * @param name the assignment's field name.
+     * @returns the assignment's numeric value, or null when it does not evaluate.
+     */
     const eval_ = (name: string) => evaluateNumericValue(rhsOf(doc, name), token);
 
     it('evaluates trig (radians), exp and natural log', async () => {
@@ -48,6 +61,6 @@ describe('mXparser-compatible functions and constants', () => {
     });
 
     it('leaves domain/unknown functions unevaluated (no wrong number)', async () => {
-        expect(await eval_('Unknown')).toBeNull(); // deg(90) — not pure arithmetic
+        expect(await eval_('Unknown')).toBeNull(); // deg(90), not pure arithmetic
     });
 });

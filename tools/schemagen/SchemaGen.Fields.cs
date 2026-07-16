@@ -3,6 +3,17 @@ using Mono.Cecil;
 
 internal sealed partial class SchemaGen
 {
+    /// <summary>
+    /// Builds the schema field list a type declares itself, without its base classes' fields. Each
+    /// `[Serialize]` field and property becomes an entry carrying its OT name and aliases, mapped
+    /// value type, optionality (`optional`, `absentThrows`, `nullable`), default and default source,
+    /// dead-member flag and scalar string form. Inline-expanded engine value types contribute their
+    /// fields in place of a single opaque one, members serialized under an empty alias are dropped in
+    /// favour of the type-level emission, and keys recovered from custom deserializer reads are
+    /// appended. Any XML summary matched to a member is collected into the field-doc seed.
+    /// </summary>
+    /// <param name="t">The type whose declared serialized members are extracted.</param>
+    /// <returns>The type's own schema fields, in declaration order with the custom reads last.</returns>
     JsonArray OwnFields(TypeDefinition t)
     {
         var arr = new JsonArray();
@@ -59,14 +70,14 @@ internal sealed partial class SchemaGen
             var fo = new JsonObject { ["name"] = name, ["valueType"] = vt };
             // A field is optional (its absence from the OT is legal) when any of these hold. Only the
             // explicit `Optional=true` attribute was previously honored, which marked ~2300 fields required
-            // and produced false positives across vanilla; the other signals recover the fields that are
+            // and produced false positives across vanilla. The other signals recover the fields that are
             // optional in practice but carry no `Optional=true`:
-            //   - the class constructor-initializes it (it has a default value);
-            //   - an explicit empty `Alias` — the member is serialized inline/unnamed (its content merges
+            //   - the class constructor-initializes it (it has a default value).
+            //   - an explicit empty `Alias`. The member is serialized inline/unnamed (its content merges
             //     into the parent, e.g. a proxy's embedded `ProxyRules` or a sprite's `AtlasSprite`), so it
-            //     is never written as a named field and can never be "missing";
+            //     is never written as a named field and can never be "missing".
             //   - the C# type is nullable: a `[Nullable]`-annotated reference (byte 2) or a `Nullable<T>`
-            //     value type, where null/absent is a legal value;
+            //     value type, where null/absent is a legal value.
             //   - a collection (array / list / map): an absent collection is simply empty.
             var vtKind = vt["kind"]?.GetValue<string>();
             fo["optional"] =
@@ -77,6 +88,18 @@ internal sealed partial class SchemaGen
                 || type.Name == "Nullable`1"
                 || vtKind == "list"
                 || vtKind == "map";
+            // The deserializer's own optionality, which is not the same question as `optional` above.
+            // `BaseSerializer.FieldDeserializationInfo` does `Optional = attr?.Optional ?? true`, and
+            // every member here carries a `[Serialize]`, so a member that does not set `Optional = true`
+            // is required: `ReflectiveRead` hits
+            //     if (!Optional || forceNoOption) throw new DeserializeException(…);
+            //     if (DefaultValue != null) SetValue(target, DefaultValue);
+            // It throws before any default is applied. `optional` above is deliberately broader (it
+            // also counts ctor-initialized / nullable / collection members) because it feeds the
+            // required-field check, where the strict reading produced false positives. That breadth is
+            // wrong for anyone asking "is deleting this field safe": such a field may still be one the
+            // game load requires. Emitted only when true, so absence means "absence is legal".
+            if (!(Named(sa, "Optional") is bool serializeOptional && serializeOptional)) fo["absentThrows"] = true;
             // A bare valueless field (`ScaleIn` with no `=`) deserializes as null, so mark the fields
             // where that is a game load error and the language server can flag them.
             if (!VoidAssignable(type)) fo["nullable"] = false;
@@ -95,27 +118,46 @@ internal sealed partial class SchemaGen
             if (aliasNames.Count > 0)
                 fo["aliases"] = new JsonArray(aliasNames.Select(a => (JsonNode)JsonValue.Create(a)).ToArray());
             // `DefaultValue` is an object-typed attribute property, so Cecil boxes the constant in a
-            // CustomAttributeArgument; unwrap it before emitting or ToString() prints the wrapper's
+            // CustomAttributeArgument. Unwrap it before emitting or ToString() prints the wrapper's
             // class name instead of the value.
+            //
+            // The two sources are not equally strong, so `defaultSource` records which one won:
+            //   - "attribute": `[Serialize(DefaultValue = …)]`. The engine's own declaration of the
+            //     absent-value, and BaseSerializer's reflective read applies it literally. When the
+            //     field is missing from the source and the member is Optional, it does
+            //     `SetValue(target, DefaultValue)` (BaseSerializer.ReflectiveRead). True regardless of
+            //     how the object was constructed.
+            //   - "initializer": the constant stores of the smallest-arity constructor, which in
+            //     practice is a C# field initializer compiled into the parameterless ctor. This equals
+            //     the absent-value only when the game really constructs the class that way and fills it
+            //     reflectively, so a consumer must gate it on `purelyReflective`.
+            // The distinction exists because optionality (what this was first extracted for) only needs
+            // to know that a default exists, while "is writing this field a no-op" needs to know that
+            // the recorded value is what an absent field yields.
             var dv = Named(sa, "DefaultValue");
             while (dv is CustomAttributeArgument boxed) dv = boxed.Value;
-            if (dv != null) fo["default"] = dv switch
+            if (dv != null)
             {
-                bool b => b,
-                byte or sbyte or short or ushort or int or uint or long =>
-                    vtKind == "bool" ? Convert.ToInt64(dv) != 0 : JsonValue.Create(Convert.ToInt64(dv)),
-                float f => float.IsFinite(f) ? f : (JsonNode)f.ToString(),
-                double d => double.IsFinite(d) ? d : (JsonNode)d.ToString(),
-                _ => dv.ToString(),
-            };
+                fo["default"] = dv switch
+                {
+                    bool b => b,
+                    byte or sbyte or short or ushort or int or uint or long =>
+                        vtKind == "bool" ? Convert.ToInt64(dv) != 0 : JsonValue.Create(Convert.ToInt64(dv)),
+                    float f => float.IsFinite(f) ? f : (JsonNode)f.ToString(),
+                    double d => double.IsFinite(d) ? d : (JsonNode)d.ToString(),
+                    _ => dv.ToString(),
+                };
+                fo["defaultSource"] = "attribute";
+            }
             else if (inl.TryGetValue(mem.Name, out var idv) && idv != null)
             {
                 if (vtKind == "bool" && idv is JsonValue jv && jv.TryGetValue<int>(out var bi))
                     fo["default"] = bi != 0;
                 else fo["default"] = idv;
+                fo["defaultSource"] = "initializer";
             }
             // A numeric enum default is the C# constant's raw value (`AllowedContiguity = 170`), useless
-            // in a hover; translate it to the member name(s) — exact member first (170 → `Sides`), else
+            // in a hover. Translate it to the member name(s), exact member first (170 → `Sides`), else
             // the [Flags] decomposition. Untranslatable values stay numeric.
             if (vtKind == "enum" && fo["default"] is JsonValue defVal)
             {
@@ -124,7 +166,7 @@ internal sealed partial class SchemaGen
             }
             // Attach the member's XML <summary>, if any, keyed by the serialized name (post alias/override)
             // so it lines up with the schema field the scaffolder documents. A field's doc-ID uses `F:` when
-            // the member is a field and `P:` when it is a property; nested types use `.` (Cecil's `/`).
+            // the member is a field and `P:` when it is a property. Nested types use `.` (Cecil's `/`).
             var docId = (mem is FieldDefinition ? "F:" : "P:") + t.FullName.Replace('/', '.') + "." + mem.Name;
             if (xmlDocs.TryGetValue(docId, out var memSummary))
             {

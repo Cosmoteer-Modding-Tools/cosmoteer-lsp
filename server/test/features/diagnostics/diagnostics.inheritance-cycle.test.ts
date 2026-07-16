@@ -36,7 +36,7 @@ describe('circular inheritance diagnostics', () => {
 
     it('does not crash or false-positive on a benign member-path loop whose member is missing', async () => {
         // `&CycleB/Shared` resolves to nothing (Shared is undefined), so there is no concrete
-        // group edge to loop on — the resolver already returns null and we must stay quiet here.
+        // group edge to loop on. The resolver already returns null and we must stay quiet here.
         const doc = parseFixture('inheritance-cycle.rules');
         expect(await validateInheritanceCycles(doc, token)).toEqual([]);
     });

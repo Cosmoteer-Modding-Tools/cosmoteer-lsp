@@ -25,7 +25,7 @@ const posToRange = (position: AstPosition): Range =>
  * Builds the hierarchical document outline (`textDocument/documentSymbol`).
  *
  * Walks the cached AST and emits a {@link DocumentSymbol} tree mirroring the
- * `Group`/`List`/`key = value` nesting — this drives the breadcrumb bar and the
+ * `Group`/`List`/`key = value` nesting. This drives the breadcrumb bar and the
  * Outline view for the deeply nested `Part`/`Components`/… trees these files grow
  * into. Needs no cross-file resolution: it's a pure structural projection of one
  * document, which is why it's the cheapest navigation primitive to ship.
@@ -110,7 +110,7 @@ export class DocumentSymbolService {
     /**
      * Outline detail for a container: what it extends (`: Base`) and/or the schema class it resolves
      * to (`TurretWeaponRules`), so the deeply nested `Part`/`Components` tree reads as typed nodes.
-     * Both, one, or neither — `Turret { Type=TurretWeapon }` → `TurretWeaponRules`; `X : Base` → `: Base`.
+     * Both, one, or neither: `Turret { Type=TurretWeapon }` → `TurretWeaponRules`. `X : Base` → `: Base`.
      */
     private containerDetail(content: Container): string | undefined {
         const inheritance = this.inheritanceDetail(content);
@@ -221,7 +221,7 @@ const enclosingRange = (node: AbstractNode): Range => {
         }
     };
     walkPositions(node, consider);
-    // No descendant carried a position (shouldn't happen for a real node) — degenerate range.
+    // No descendant carried a position (shouldn't happen for a real node): degenerate range.
     if (startLine === Infinity) return Range.create(0, 0, 0, 0);
     return Range.create(startLine, startChar, endLine, endChar);
 };

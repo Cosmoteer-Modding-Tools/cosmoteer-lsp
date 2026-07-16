@@ -28,7 +28,7 @@ export const filePathToDirectoryPath = (path: string) => {
         try {
             cleaned = decodeURIComponent(cleaned);
         } catch {
-            /* malformed escape sequence — fall back to the raw remainder */
+            /* malformed escape sequence, fall back to the raw remainder */
         }
         // `file:///C:/x` decodes to `/C:/x`. Drop the slash before a drive letter so it is a real
         // OS path, and upper-case the drive for consistency with the rest of the code base.

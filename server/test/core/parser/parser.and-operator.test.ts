@@ -16,6 +16,12 @@ import {
  * the assignment as a bogus top-level function call named "&" (reported as `Unknown function "&"`).
  */
 describe('parser: standalone & as boolean-AND operator', () => {
+    /**
+     * Parse a source string into its document node.
+     *
+     * @param src the .rules source to parse.
+     * @returns the parsed document node.
+     */
     const parse = (src: string) => parser(lexer(src), 'file:///x.rules').value;
 
     it('keeps `(&A) & (&B)` a single math-expression assignment', () => {
@@ -41,6 +47,6 @@ describe('parser: standalone & as boolean-AND operator', () => {
     it('does not fold a `& (…)` on the next line into the previous value (newline ends the value)', () => {
         const doc = parse('Foo = (&A)\n& (&B)\n');
         const assignment = doc.elements[0] as AssignmentNode;
-        expect(assignment.right.type).toBe('Value');
+        expect(assignment.right?.type).toBe('Value');
     });
 });

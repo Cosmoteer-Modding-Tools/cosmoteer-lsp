@@ -22,14 +22,14 @@ const topLevelId = (document: AbstractNodeDocument): string | undefined => {
 };
 
 /**
- * Project-wide index of cross-file `ID<X>` declarations by class — the data behind cross-file `ID<X>`
+ * Project-wide index of cross-file `ID<X>` declarations by class, the data behind cross-file `ID<X>`
  * value completion (e.g. `ResourceType = ` → every resource `ID` in the project). Two kinds of
  * declaration contribute: a whole-file root (a resource/nebula file with a top-level `ID`) gives one
  * `(rootClass, id)` entry, and an aggregate list element (a faction, a GUI toggle, a career tech, …)
  * gives one `(elementClass, id)` entry per element (see {@link entityDeclarationsOf}). Built once over
  * {@link projectDocuments} and kept current by the file watcher via {@link WatchedDocumentIndex}, so
  * completion never re-parses the project per keystroke. Go-to-definition uses a name-filtered scan
- * instead (one-off, no index needed) — see `schema-id-reference.navigation.ts`.
+ * instead (one-off, no index needed). See `schema-id-reference.navigation.ts`.
  */
 export class SchemaIdIndex extends WatchedDocumentIndex {
     private static _instance: SchemaIdIndex;
@@ -133,7 +133,7 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
     /**
      * The ids mod actions declare for `targetClass` (or a subclass). A mod adds to the game's id
      * collections from its manifest (`Add` with a `Name` into an editor-groups map, an override that
-     * creates a buff), a declaration site no `.rules` file of the mod names — see
+     * creates a buff), a declaration site no `.rules` file of the mod names. See
      * {@link ActionRootingIndex.actionDeclaredIds}.
      *
      * @param targetClass the reference target class FullName.

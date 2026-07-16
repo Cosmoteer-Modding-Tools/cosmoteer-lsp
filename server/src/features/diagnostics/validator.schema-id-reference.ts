@@ -537,7 +537,7 @@ export const validateCrossFileIdReferences = async (
 /**
  * The declared ship id that is exactly the written one with an `IDPrefix` in front, when there is one.
  * A built-in ship's id is composed (`IDPrefix + " " + name`), so a builtins file that carries a prefix
- * its `ShipID`s omit leaves every reference unresolvable — the crash a mod hits on its first trade-ship
+ * its `ShipID`s omit leaves every reference unresolvable, the crash a mod hits on its first trade-ship
  * spawn. Restricted to ships, the only class the engine composes ids for: a general "some declared id
  * ends with the written one" match would suggest `big battery` for a mistyped `battery`.
  *

@@ -9,7 +9,7 @@ import { schemaFieldNameCompletions } from '../../../src/features/completion/aut
 import { schemaFieldHover } from '../../../src/features/hover/schema-hover';
 
 // The sprite/material slots are typed as the abstract `ISprite`/`IMaterial`/`IAnimatedSprite`
-// interfaces, which reflect only a subset of fields. The concrete impl (Sprite extends Material; the
+// interfaces, which reflect only a subset of fields. The concrete impl (Sprite extends Material, the
 // AnimatedSprite frame set) is what is actually written, and the shader's uniforms are written inline
 // as `_`-prefixed keys. This locks in the interface→concrete redirect and shader-constant handling.
 const token = CancellationToken.None;
@@ -21,7 +21,7 @@ const findGroup = (node: AbstractNode, id: string): GroupNode | undefined => {
     const kids =
         isGroupNode(node) || isListNode(node) || isDocumentNode(node)
             ? node.elements
-            : isAssignmentNode(node)
+            : isAssignmentNode(node) && node.right
               ? [node.right]
               : [];
     for (const k of kids) {
@@ -61,7 +61,7 @@ describe('sprite/material hierarchy', () => {
         expect(acceptsShaderConstants('Halfling.Graphics.Sprite')).toBe(true);
         expect(acceptsShaderConstants('Halfling.Graphics.Material')).toBe(true);
         expect(isShaderConstantField('Halfling.Graphics.Sprite', '_hotColor')).toBe(true);
-        // a non-underscore unknown is NOT a shader constant, and a non-material class never accepts them
+        // a non-underscore unknown is not a shader constant, and a non-material class never accepts them
         expect(isShaderConstantField('Halfling.Graphics.Sprite', 'NotAConstant')).toBe(false);
         expect(isShaderConstantField('Cosmoteer.Ships.Parts.PartRules', '_x')).toBe(false);
     });

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { isStringsFile } from '../../src/mod/strings-folder';
 
-// Language-strings files hold localization text; the value validators skip asset/math checks for
+// Language-strings files hold localization text, so the value validators skip asset/math checks for
 // them. Detection is by a `strings/` path segment (the default `./strings` StringsFolder, used by the
-// base game — whose `cosmoteer.rules` declares no StringsFolder — and by convention in mods).
+// base game and by convention in mods). The base game's `cosmoteer.rules` declares no StringsFolder.
 const token = CancellationToken.None;
 
 describe('isStringsFile', () => {

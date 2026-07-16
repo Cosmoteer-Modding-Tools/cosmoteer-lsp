@@ -1,5 +1,5 @@
 /**
- * TypeScript shape of `cosmoteer.schema.json` — the machine-readable Cosmoteer `.rules`
+ * TypeScript shape of `cosmoteer.schema.json`, the machine-readable Cosmoteer `.rules`
  * schema extracted from `Cosmoteer.dll` (see this folder's README and the `schemagen` tool).
  *
  * The bundle is the type graph of every `[ReflectiveSerialization]` class reachable from the
@@ -7,7 +7,7 @@
  * Types/enums/registries are keyed by their C# FullName.
  */
 
-/** The value-kind of a field — drives value completion and validation. */
+/** The value-kind of a field. Drives value completion and validation. */
 export type ValueType =
     | {
           kind: 'bool' | 'int' | 'float' | 'string' | 'number';
@@ -47,12 +47,35 @@ export interface SchemaField {
     valueType: ValueType;
     optional: boolean;
     /**
+     * True when the ObjectText deserializer throws on this field being absent, i.e. its `[Serialize]`
+     * does not set `Optional = true` (`BaseSerializer` does `Optional = attr?.Optional ?? true`, then
+     * `if (!Optional) throw` before applying any default). Absent means absence is legal.
+     *
+     * This is not the negation of {@link optional}: that flag is deliberately broader (it also counts
+     * ctor-initialized, nullable and collection members) because it feeds the required-field check,
+     * where the strict reading false-positived. Anything asking "is removing this field safe?" must
+     * read this one. A field can be `optional` by that heuristic and still be one the game load
+     * requires.
+     */
+    absentThrows?: boolean;
+    /**
      * False when the C# member is a non-nullable value type, so a bare valueless field (`ScaleIn`
      * with no `=`) is a game load error: the deserializer reads a void node as null and throws.
      * Absent means null-tolerant (reference type, `Nullable<T>`, or curated without the flag).
      */
     nullable?: boolean;
     default?: string | number | boolean;
+    /**
+     * Where {@link default} came from, which decides how far it can be trusted. Absent when the field
+     * has no default.
+     *  - `attribute`: the game's own `[Serialize(DefaultValue = …)]`. This is the value an absent field
+     *    yields: BaseSerializer's reflective read does `SetValue(target, DefaultValue)` for a missing
+     *    optional member, whatever the class's construction looks like.
+     *  - `initializer`: schemagen read it from the constant stores of the smallest-arity constructor
+     *    (in practice a C# field initializer). It only equals the absent-value when the game constructs
+     *    the class that way and fills it reflectively, so trust it only on a `purelyReflective` type.
+     */
+    defaultSource?: 'attribute' | 'initializer';
     /**
      * True when the game declares the member but no game code ever reads its value, so writing it
      * is dead weight in a mod. Detected by schemagen's whole-assembly read scan (no field load,
@@ -69,7 +92,7 @@ export interface SchemaField {
     scalarStringForm?: boolean;
     /**
      * Human-readable prose description of the field, shown in hover and completion. Not extracted by
-     * schemagen; merged in at load from the community-maintained docs (see `field-docs.ts` and
+     * schemagen, merged in at load from the community-maintained docs (see `field-docs.ts` and
      * `docs/fields/`). Absent when the field has not been documented yet.
      */
     description?: string;
@@ -112,7 +135,7 @@ export interface SchemaTypeDef {
      */
     valueForm?: ValueType;
     /**
-     * Classes whose fields are written INLINE in this type's own group: a `[Serialize(Alias = "")]`
+     * Classes whose fields are written inline in this type's own group: a `[Serialize(Alias = "")]`
      * group-typed member (a network component's embedded `PartNetworkFilter`, a widget sprite's
      * `AtlasSprite`). The named classes' fields are merged into `fields` at load (schema-overlay.ts).
      */

@@ -2,7 +2,7 @@
  * Community-maintained prose documentation for schema fields, merged onto the extracted bundle at
  * load so it flows into hover and field-name completion (see {@link fieldSignatureMarkdown}).
  *
- * schemagen extracts only structure (types, defaults, enums) — never prose. Human-readable field
+ * schemagen extracts only structure (types, defaults, enums), never prose. Human-readable field
  * descriptions live in `docs/fields/<FullType>.md` (the editable source of truth, one `## <field>`
  * heading per field) and are compiled to `field-docs.json` by the docs scaffolder. Keeping the store
  * separate from `cosmoteer.schema.json` means a schemagen regen after a Cosmoteer update never

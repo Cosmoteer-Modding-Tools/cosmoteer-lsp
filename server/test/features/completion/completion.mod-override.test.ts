@@ -11,10 +11,10 @@ import { initWorkspace, WORKSPACE_DATA_DIR } from '../../workspace-helper';
 import { FIXTURES_DIR } from '../../helpers';
 
 // Reference completion must offer members the mod merges into a vanilla file via a whole-file /
-// file-aliasing-global `Overrides`, alongside the file's own — so `&/INDICATORS/` (which aliases the
-// vanilla indicators file) and `&/BASE_AUDIO/` (a global aliasing a whole file) reflect the EFFECTIVE
+// file-aliasing-global `Overrides`, alongside the file's own, so `&/INDICATORS/` (which aliases the
+// vanilla indicators file) and `&/BASE_AUDIO/` (a global aliasing a whole file) reflect the effective
 // tree. The origin (editing) file's URI is threaded through so the owning mod is found even though
-// the traversal walks INTO the vanilla cosmoteer.rules to follow the global.
+// the traversal walks into the vanilla cosmoteer.rules to follow the global.
 const completion = new ReferenceAutoCompletionStrategy();
 const token = CancellationToken.None;
 const MOD_DIR = join(FIXTURES_DIR, 'mod');
@@ -30,7 +30,7 @@ const refNode = (value: string, parent: AbstractNode): ValueNode => ({
 const complete = (value: string, parent: AbstractNode) =>
     completion.complete({ node: refNode(value, parent), isInheritanceNode: false, cancellationToken: token });
 
-describe('ReferenceAutoCompletionStrategy — mod override members', () => {
+describe('ReferenceAutoCompletionStrategy: mod override members', () => {
     // A document INSIDE the mod, so the completion origin resolves to the mod root.
     let modDoc: AbstractNodeDocument;
 

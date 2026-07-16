@@ -57,8 +57,8 @@ describe('parser error diagnostics', () => {
     it('treats a stray closing paren as literal value text, not a parser error (cosmoteer strings)', () => {
         // `RightBracket = )` (a keyboard-key glossary in cosmoteer `strings/ja.rules`, `ru.rules`)
         // and values ending in `)` are read by the real OT parser as plain value text. A `)` that
-        // reaches the top level is unmatched (paren groups consume their own close), so it must NOT
-        // be reported as "Not expected paren" — and it must not swallow the following field.
+        // reaches the top level is unmatched (paren groups consume their own close), so it must not
+        // be reported as "Not expected paren", and it must not swallow the following field.
         const src = 'Keys\n{\n\tRightBracket = )\n\tNext = "x"\n}\n';
         expect(messages(src)).toEqual([]);
     });

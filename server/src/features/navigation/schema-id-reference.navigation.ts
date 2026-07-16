@@ -26,9 +26,9 @@ const ownerClassOf = (container: AbstractNode): string | undefined =>
  * The schema `reference` field a string value node belongs to: the target class and the written id.
  *
  * Two value positions are recognized:
- *  - a direct field value — `ResourceType = battery` (field type `reference`), and
- *  - a list element — `Features = [ CanReceivePower ]`, `Prerequisites = [ tech ]`,
- *    `ReceivableBuffs = [ Engine ]` (field type `list<reference>`); the element type carries the
+ *  - a direct field value: `ResourceType = battery` (field type `reference`), and
+ *  - a list element: `Features = [ CanReceivePower ]`, `Prerequisites = [ tech ]`,
+ *    `ReceivableBuffs = [ Engine ]` (field type `list<reference>`). The element type carries the
  *    target. The list may be written `Field = [ … ]` (an assignment whose value is the list) or
  *    `Field [ … ]` (a named list member).
  */
@@ -146,7 +146,7 @@ export const isSameOrSubclass = (cls: string, target: string): boolean => {
 
 /**
  * If `group` is a `map<reference X, V>` collection (its declaring field is such a map), the target
- * class `X` its KEYS reference — e.g. a `MaxBuffValues = { Engine = … }` group keys on `BuffType`, a
+ * class `X` its keys reference: e.g. a `MaxBuffValues = { Engine = … }` group keys on `BuffType`, a
  * `StatusResistances { … }` group keys on `StatusType`. Returns undefined otherwise.
  */
 export const mapKeyTargetOf = (group: GroupNode): string | undefined => {
@@ -231,8 +231,8 @@ const topLevelIdNode = (document: AbstractNodeDocument): ValueNode | undefined =
 };
 
 /**
- * Resolve a cross-file `ID<X>` reference written as a BARE id (e.g. `ResourceType = battery`,
- * `NebulaID = ion_storm`) to the WHOLE-FILE ROOT that declares it — the file whose root class is the
+ * Resolve a cross-file `ID<X>` reference written as a bare id (e.g. `ResourceType = battery`,
+ * `NebulaID = ion_storm`) to the whole-file root that declares it: the file whose root class is the
  * field's target class (or a subclass) and whose top-level `ID` matches the written value. Unlike a
  * sibling `ID<>` ref (same container, handled in `schema-reference.navigation.ts`), the target lives
  * in another file, so we scan the project for files whose text mentions the id and confirm by root

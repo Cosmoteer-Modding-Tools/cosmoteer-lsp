@@ -24,7 +24,7 @@ export const constantSnippet = (constant: ShaderConstant): string => {
     switch (constant.kind) {
         case 'vec4':
             // A `float4` colour uniform is conventionally written as a `Halfling.Graphics.Color`
-            // group (`{ Rf Gf Bf Af }`, 0–1 floats) — the form vanilla uses — not a bracketed list.
+            // group (`{ Rf Gf Bf Af }`, 0–1 floats), the form vanilla uses, not a bracketed list.
             // A non-colour `float4` stays a list like the other vectors.
             if (isColorName(constant.name)) {
                 return `${constant.name}\n{\n\tRf = $1\n\tGf = $2\n\tBf = $3\n\tAf = $4\n}`;

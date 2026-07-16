@@ -21,7 +21,7 @@ import { projectDocuments, uriToFsPath } from './workspace-files';
 
 /**
  * Shared machinery for a project-wide index that is built once and kept correct by the
- * client file watcher — the same freshness model the reference index and the workspace
+ * client file watcher, the same freshness model the reference index and the workspace
  * symbol table both need.
  *
  * Subclasses own their data, keyed by a document's canonical source uri, and implement
@@ -109,7 +109,7 @@ export abstract class WatchedDocumentIndex {
      * The build is shared via {@link buildPromise} and runs to completion independently of
      * the triggering request: a large project (e.g. the whole Cosmoteer Data tree) can take
      * a while, and if the build were tied to the request's token, a client that cancels the
-     * slow first request would abort it — leaving `built` false and the next request to
+     * slow first request would abort it, leaving `built` false and the next request to
      * rebuild from scratch, so it could appear permanently empty. Decoupled, the build
      * completes and caches even across a cancelled request, making the next query instant.
      * `build` therefore must use a request-independent token (e.g. `CancellationToken.None`).
@@ -252,7 +252,7 @@ export abstract class WatchedDocumentIndex {
      *
      * The game `Data` root in the folder set is served from the persistent index cache when its
      * saved state is still valid (see `index-cache.ts`), and is otherwise walked from disk and then
-     * saved — in both cases before any live folder is indexed, so the cache only ever holds pure
+     * saved, in both cases before any live folder is indexed, so the cache only ever holds pure
      * game-tree state and mod files are re-scanned on every build.
      *
      * @param indexes the indexes to build, all scanning the same folder set.

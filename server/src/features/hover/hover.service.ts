@@ -67,7 +67,7 @@ export class HoverService {
         } else {
             // A schema `ID<>` reference written as a bare id: a sibling component (same file), a
             // part-wide component (an inherited base, an include, an override target) or a
-            // cross-file whole-file root — surface where it resolves, just like a `&`-reference.
+            // cross-file whole-file root. Surface where it resolves, just like a `&`-reference.
             const sibling =
                 resolveSchemaSiblingReference(node) ??
                 (await resolvePartComponentDeclaration(node, cancellationToken).catch(() => undefined));
@@ -80,7 +80,7 @@ export class HoverService {
             }
         }
 
-        // For an asset, show whether it resolves on disk and — for a sprite — a preview image.
+        // For an asset, show whether it resolves on disk and, for a sprite, a preview image.
         if (isAssetValue(node)) {
             lines.push(await describeAsset(node, document.uri, cancellationToken));
         }
@@ -96,7 +96,7 @@ export class HoverService {
         // Schema documentation for the field this node belongs to (type / required / enum / default).
         // The container's class resolves through cross-file inheritance too (`: /BASE_SOUNDS/…`
         // groups redeclare no `Type=`), which the sync resolution inside schemaFieldHover can't
-        // reach — resolve it here (the sync answer comes back first when it exists) and pass it in.
+        // reach. Resolve it here (the sync answer comes back first when it exists) and pass it in.
         const container = node.parent;
         const containerClass =
             container && isGroupNode(container)

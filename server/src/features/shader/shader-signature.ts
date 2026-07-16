@@ -13,7 +13,7 @@ const help = (signature: SignatureInformation, activeParameter: number, paramCou
 
 /**
  * Signature help for an open `.shader` file. When the cursor sits inside the parentheses of a call it
- * shows that function's parameter list and highlights the argument being typed — for both HLSL
+ * shows that function's parameter list and highlights the argument being typed, for both HLSL
  * intrinsics (`lerp(`, `clamp(`, …) and the functions the shader or its `#include` chain defines
  * (`loadRawNormals(uv, scale)`). The enclosing call and active argument are found by the same raw-text
  * paren scan the `.rules` signature help uses, so it works mid-edit before the code is complete.
@@ -41,7 +41,7 @@ export const shaderSignatureHelp = (text: string, offset: number, includeText = 
         );
     }
 
-    // A function the shader or one of its includes defines — show its real return type and typed params.
+    // A function the shader or one of its includes defines: show its real return type and typed params.
     const scope = includeText ? `${text}\n${includeText}` : text;
     const signature = parseShaderSignatures(scope).find((s) => s.name === active.name);
     if (!signature) return null;

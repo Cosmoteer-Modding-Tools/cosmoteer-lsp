@@ -4,6 +4,7 @@ import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
 import { AssignmentNode, isAssignmentNode } from '../../src/core/ast/ast';
 import { evaluateNumericValue } from '../../src/semantics/value-evaluator';
+import { valueOf } from '../helpers';
 
 const token = CancellationToken.None;
 
@@ -14,7 +15,7 @@ const token = CancellationToken.None;
  * a real number (Infinity/NaN), where we deliberately show nothing.
  */
 const ORACLE: Array<[string, number | null]> = [
-    // tetration and power, both right-associative; factorial folds after power (2^3! = (2^3)!)
+    // tetration and power, both right-associative. Factorial folds after power (2^3! = (2^3)!)
     ['2 ^^ 3', 16],
     ['2 ^^ 3 ^^ 2', null], // 2^^(3^3) overflows to Infinity in the game
     ['2 ^ 3 !', 40320],
@@ -23,7 +24,7 @@ const ORACLE: Array<[string, number | null]> = [
     ['-7 # 3', -1],
     ['7.5 # 2', 1.5],
     ['2 * 3 # 4', 6],
-    // binary relations (epsilon-based, 1/0 results); equality folds before < > <= >=
+    // binary relations (epsilon-based, 1/0 results). Equality folds before < > <= >=
     ['(5) < (3)', 0],
     ['(3) < (5)', 1],
     ['(1) <> (2)', 1],
@@ -53,7 +54,7 @@ const ORACLE: Array<[string, number | null]> = [
     ['(1) <-> (1)', 1],
     ['(1) <-> (0)', 0],
     ['(1e-15) & (1)', 0],
-    // bitwise operators, loosest binding; shift counts wrap at 64 like C# long shifts
+    // bitwise operators, loosest binding. Shift counts wrap at 64 like C# long shifts
     ['(12) @& (10)', 8],
     ['(12) @| (10)', 14],
     ['(12) @^ (10)', 6],
@@ -64,11 +65,17 @@ const ORACLE: Array<[string, number | null]> = [
     ['0.1 * 30', 3],
 ];
 
+/**
+ * The value of `X = <source>`, the assignment each oracle expression is parsed as.
+ *
+ * @param source the expression to parse as X's value.
+ * @returns the assignment's value node.
+ */
 const rhsOf = (source: string) => {
     const doc = parser(lexer(`X = ${source}\n`), 'file:///mx.rules').value;
     const assignment = doc.elements.find((node) => isAssignmentNode(node)) as AssignmentNode;
     expect(assignment, `no assignment parsed from: ${source}`).toBeDefined();
-    return assignment.right;
+    return valueOf(assignment);
 };
 
 describe('mXparser 4.4.2 operators (oracle-verified against the shipped DLL)', () => {

@@ -13,8 +13,8 @@ internal sealed partial class SchemaGen
         || t.Properties.Any(p => Attr(p, SERIALIZE) != null);
 
     // A type participates in the .rules schema if it is an explicit reflective node or it contributes
-    // [Serialize] members to one. Abstract bases (e.g. BaseQuadEffectRules) carry the real fields —
-    // Sprite/Bucket/FadeInTime/… but are not themselves [ReflectiveSerialization]-tagged. Only the
+    // [Serialize] members to one. Abstract bases (e.g. BaseQuadEffectRules) carry the real fields
+    // (Sprite/Bucket/FadeInTime/…) but are not themselves [ReflectiveSerialization]-tagged. Only the
     // concrete leaves are. The reachability prune from ROOT still drops any that aren't actually used.
     static bool Participates(TypeDefinition t) => IsReflective(t) || HasSerializeMembers(t);
 

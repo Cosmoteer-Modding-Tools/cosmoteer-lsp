@@ -50,7 +50,7 @@ describe('math expression diagnostics', () => {
     });
 
     it('accepts a unit-suffixed number (%, d, r) as an operand', async () => {
-        // `300% * (&R)`, `90d`, `1.5r` — the suffix keeps them String-typed but they are numbers.
+        // `300% * (&R)`, `90d`, `1.5r`: the suffix keeps them String-typed but they are numbers.
         for (const unit of ['300%', '90d', '1.5r', '.5%']) {
             expect(await run(math(str(unit), op('*'), num(2)))).toBeUndefined();
         }

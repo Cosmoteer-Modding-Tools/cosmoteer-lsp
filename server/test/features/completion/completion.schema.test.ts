@@ -41,10 +41,15 @@ const token = CancellationToken.None;
 const completer = new AutoCompletionSchema();
 const parse = (src: string) => parser(lexer(src), 'file:///t.rules').value;
 
-/** First value node that is the RHS of an assignment named `field`, searching depth-first. */
+/**
+ * Find the first value node that is the RHS of an assignment named `field`, searching depth-first.
+ * @param node the node to search from.
+ * @param field the assignment name to look for.
+ * @returns the assigned value node, or undefined when no such assignment exists.
+ */
 const findValue = (node: AbstractNode, field: string): ValueNode | undefined => {
     if (isAssignmentNode(node) && node.left.name === field && isValueNode(node.right)) return node.right;
-    const children = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) ? [node.right] : [];
+    const children = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) && node.right ? [node.right] : [];
     for (const child of children) {
         const found = findValue(child, field);
         if (found) return found;
@@ -78,7 +83,7 @@ Part
 }
 `;
 
-describe('AutoCompletionSchema — schema-driven value completion', () => {
+describe('AutoCompletionSchema: schema-driven value completion', () => {
     it('completes an enum field (Mode) with its members, via the group’s Type', async () => {
         const doc = parse(PART);
         for (const node of doc.elements) {
@@ -217,8 +222,8 @@ Part : BasePart
         expect(result.length).toBeGreaterThan(1);
     });
 
-    it('completes Type= inside a typed LIST element (container is a List, registry from the slot)', async () => {
-        // A nebula file's `ActiveEffects [ { Type = … } ]` — elements are NebulaActiveEffectRules.
+    it('completes Type= inside a typed list element (container is a List, registry from the slot)', async () => {
+        // A nebula file's `ActiveEffects [ { Type = … } ]`. Elements are NebulaActiveEffectRules.
         const src = 'ID = test\nToolTipKey = "x"\nActiveEffects\n[\n\t{\n\t\tType = x\n\t}\n]\n';
         const doc = parseUri(src, 'file:///c%3A/mod/nebulas/test.rules');
         const type = doc.elements.map((n) => findValue(n, 'Type')).find(Boolean);
@@ -233,12 +238,17 @@ Part : BasePart
         expect(await labels(bar)).toEqual([]);
     });
 
-    // The first value node inside the `[list]` assigned to `field`, searching depth-first.
+    /**
+     * Find the first value node inside the `[list]` assigned to `field`, searching depth-first.
+     * @param node the node to search from.
+     * @param field the assignment name whose list is searched.
+     * @returns the first value element of that list, or undefined when no such list exists.
+     */
     const findListValue = (node: AbstractNode, field: string): ValueNode | undefined => {
         if (isAssignmentNode(node) && node.left.name === field && isListNode(node.right)) {
             return node.right.elements.find(isValueNode);
         }
-        const children = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) ? [node.right] : [];
+        const children = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) && node.right ? [node.right] : [];
         for (const child of children) {
             const found = findListValue(child, field);
             if (found) return found;
@@ -268,7 +278,7 @@ Part : BasePart
     });
 });
 
-describe('schemaFieldNameCompletions — field-NAME completion inside a typed group', () => {
+describe('schemaFieldNameCompletions: field-name completion inside a typed group', () => {
     // A blank (tabs-only) line inside a Turret component → its class is TurretWeaponRules.
     const SRC = 'Part\n{\n\tComponents\n\t{\n\t\tTurret\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t\t\n\t\t}\n\t}\n}';
     const gapOffset = SRC.indexOf('\n', SRC.indexOf('Type = TurretWeapon')) + 3; // inside the blank line
@@ -294,18 +304,18 @@ describe('schemaFieldNameCompletions — field-NAME completion inside a typed gr
     });
 
     it('routes a typed field-name prefix (a bare Identifier leaf) via isBareFieldNameIdentifier', () => {
-        // A partial field name on its own line (`Ig`) IS an AST leaf, so the node-based completion
-        // branch catches it and the offset-based field-name path never fired — typing a field name
+        // A partial field name on its own line (`Ig`) is an AST leaf, so the node-based completion
+        // branch catches it and the offset-based field-name path never fired. Typing a field name
         // went dark. The predicate marks exactly these leaves for rerouting to the offset path.
         const typed = findNodeAtPosition(parse('Foo\n{\n\tIg\n}'), { line: 2, character: 2 });
         expect(typed?.type).toBe('Identifier');
         expect(isBareFieldNameIdentifier(typed!)).toBe(true);
-        // A bare `&…` reference member is value-like, not a field name — it must not reroute.
+        // A bare `&…` reference member is value-like, not a field name, so it must not reroute.
         const ref = findNodeAtPosition(parse('Foo\n{\n\t&Other\n\tOther = 1\n}'), { line: 2, character: 3 });
         expect(ref && isBareFieldNameIdentifier(ref)).toBeFalsy();
     });
 
-    it('keeps offering the identifier UNDER THE CURSOR (a field name mid-typing is not "present")', async () => {
+    it('keeps offering the identifier under the cursor (a field name mid-typing is not "present")', async () => {
         // Typing `Fir` (or the full `FiringArc`) parses as a bare identifier member. It must not
         // count itself as already written: the fully typed name would otherwise vanish from the
         // popup at its final character, right when the user wants to accept the snippet.
@@ -371,7 +381,7 @@ describe('schemaFieldNameCompletions — field-NAME completion inside a typed gr
         expect(bundle!.insertText).toContain('FiringArc');
     });
 
-    it('inserts a field scaffold snippet (scalar `= $0`; structural block)', async () => {
+    it('inserts a field scaffold snippet (scalar `= $0`, structural block)', async () => {
         const doc = parse(SRC);
         const items = (await schemaFieldNameCompletions(doc, gapOffset, token)).filter(
             (c): c is Exclude<typeof c, string> => typeof c !== 'string'
@@ -395,7 +405,7 @@ describe('schemaFieldNameCompletions — field-NAME completion inside a typed gr
 
     it('suggests `Type` first in a polymorphic group that has not chosen its subtype', async () => {
         // NewComp sits in a Components container (PartComponentRules, proven by the typed sibling) but
-        // has no Type yet → the only useful completion is `Type` (not a schema field; injected).
+        // has no Type yet → the only useful completion is `Type` (not a schema field, injected).
         const src = 'Part\n{\n\tComponents\n\t{\n\t\tExisting { Type = MultiToggle }\n\t\tNewComp\n\t\t{\n\t\t\t\n\t\t}\n\t}\n}';
         const doc = parse(src);
         const offset = src.indexOf('NewComp\n\t\t{\n\t\t\t') + 'NewComp\n\t\t{\n\t\t\t'.length;
@@ -408,7 +418,7 @@ describe('schemaFieldNameCompletions — field-NAME completion inside a typed gr
         expect(type!.sortText).toBe('0'); // sorts above all other fields
     });
 
-    it('resolves the class THROUGH inheritance when a group has no own Type (`MyTurret : BaseTurret`)', async () => {
+    it('resolves the class through inheritance when a group has no own Type (`MyTurret : BaseTurret`)', async () => {
         const src =
             'Part\n{\n\tComponents\n\t{\n\t\tBaseTurret\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t}\n\t\tMyTurret : BaseTurret\n\t\t{\n\t\t\t\n\t\t}\n\t}\n}';
         const doc = parse(src);
@@ -423,12 +433,12 @@ describe('schemaFieldNameCompletions — field-NAME completion inside a typed gr
         const doc = parse('Part\n{\n\tEditorIcon\n\t{\n\t\tSize = [1, 1]\n\t}\n}');
         const editorIcon = doc.elements.map((n) => findGroup(n, 'EditorIcon')).find(Boolean);
         expect(editorIcon).toBeDefined();
-        // `EditorIcon` is typed as the abstract `ISprite`; it is always deserialized as the concrete
+        // `EditorIcon` is typed as the abstract `ISprite`. It is always deserialized as the concrete
         // `Sprite` (which extends Material), so the slot resolves to that for fuller completion.
         expect(resolveGroupClass(editorIcon!)).toBe('Halfling.Graphics.Sprite');
     });
 
-    it('WHOLE-FILE root: offers BulletRules fields at a shot file’s top level', async () => {
+    it('whole-file root: offers BulletRules fields at a shot file’s top level', async () => {
         const src = 'ID = cosmoteer.test_shot\n\n';
         const doc = parseUri(src, 'file:///c%3A/mod/shots/test/test.rules');
         const labels = fieldLabels(await schemaFieldNameCompletions(doc, src.length - 1, token));
@@ -438,8 +448,8 @@ describe('schemaFieldNameCompletions — field-NAME completion inside a typed gr
     });
 
     it('resolves a dual-form Texture group (image-asset slot written as a group) and offers its fields', async () => {
-        // A particle effect's Material.Texture is written as a GROUP. schemagen only saw the scalar
-        // (`Texture = path`) form, so the slot is an image asset; the overlay + structural rule still
+        // A particle effect's Material.Texture is written as a group. schemagen only saw the scalar
+        // (`Texture = path`) form, so the slot is an image asset. The overlay + structural rule still
         // resolve the group to Halfling.Graphics.Texture and offer File/MipLevels/SampleMode/….
         const src =
             'Type = Particles\nDef\n{\n\tMaterial\n\t{\n\t\tTexture\n\t\t{\n\t\t\tFile = spark.png\n\t\t\t\n\t\t}\n\t}\n}\n';
@@ -464,8 +474,8 @@ describe('schemaFieldNameCompletions — field-NAME completion inside a typed gr
         expect(values).toContain('Point');
     });
 
-    it('POLYMORPHIC whole-file root: doodad file dispatched by top-level Type', async () => {
-        // A doodad file IS a DoodadRules, concrete class chosen by its top-level `Type`.
+    it('polymorphic whole-file root: doodad file dispatched by top-level Type', async () => {
+        // A doodad file is a DoodadRules, concrete class chosen by its top-level `Type`.
         const src = 'ID = cosmoteer.test_doodad\nType = GeneratedShip\n\n';
         const doc = parseUri(src, 'file:///c%3A/mod/doodads/test/test.rules');
         const labels = fieldLabels(await schemaFieldNameCompletions(doc, src.length - 1, token));
@@ -475,7 +485,7 @@ describe('schemaFieldNameCompletions — field-NAME completion inside a typed gr
     });
 });
 
-describe('documentRootClass — whole-file data roots', () => {
+describe('documentRootClass: whole-file data roots', () => {
     const root = (src: string, uri: string) => documentRootClass(parseUri(src, uri));
 
     it('roots a resource file (ID-shaped) as ResourceRules', () => {
@@ -531,23 +541,23 @@ describe('documentRootClass — whole-file data roots', () => {
     it('roots a sysgen file to the spawner registry (Type=None → NoneSpawner, not the colliding NameGenerator)', () => {
         // A `/sectors/` file is a whole-file `SimObjectSpawner` dispatched by its top-level `Type=`.
         // `Type = None` collides with NameGenerator's generic `None`, so it is path-scoped to the
-        // spawner registry — rooting it to `NoneSpawner` (so its `SubSpawners` resolve), never NameGenerator.
+        // spawner registry, rooting it to `NoneSpawner` (so its `SubSpawners` resolve), never NameGenerator.
         const src = 'Type = None\nSubSpawners\n[\n]\nWeight = 1\n';
         expect(root(src, 'file:///c%3A/mod/modes/sectors/sysgen.rules')).toContain('NoneSpawner');
     });
 
-    it('does NOT mis-root a codex file whose nested path substring-matches /resources/', () => {
+    it('does not mis-root a codex file whose nested path substring-matches /resources/', () => {
         const src = 'TitleKey = "x"\nBodyKey = "y"\nIcon\n{\n}\n';
         expect(root(src, 'file:///c%3A/mod/codex/tutorials/resources/tutorial.rules')).toBeUndefined();
     });
 
-    it('does NOT root an override/def fragment in shots that owns few real BulletRules fields', () => {
+    it('does not root an override/def fragment in shots that owns few real BulletRules fields', () => {
         const src = 'BASE = &<base.rules>\nFLAK_FIELD = &<field.rules>\nBeam : BASE\n{\n}\n';
         expect(root(src, 'file:///c%3A/mod/shots/flak_overclock.rules')).toBeUndefined();
     });
 });
 
-describe('schemaValueCompletionsAtOffset — value completion at an empty `Key = ` position', () => {
+describe('schemaValueCompletionsAtOffset: value completion at an empty `Key = ` position', () => {
     const linePrefixAt = (src: string, offset: number) => src.slice(src.lastIndexOf('\n', offset - 1) + 1, offset);
     const valuesAt = async (src: string, marker: string) => {
         const doc = parse(src);
@@ -584,7 +594,7 @@ describe('schemaValueCompletionsAtOffset — value completion at an empty `Key =
     });
 
     it('returns an (empty) array at a value position for a cross-file ref field (not field names)', async () => {
-        // `ResourceType = ` is a value position; its sync values are empty (resource ids are cross-file).
+        // `ResourceType = ` is a value position. Its sync values are empty (resource ids are cross-file).
         const src = 'Part\n{\n\tComponents\n\t{\n\t\tS\n\t\t{\n\t\t\tType = ResourceStorage\n\t\t\tResourceType = \n\t\t}\n\t}\n}';
         const offset = src.indexOf('ResourceType = ') + 'ResourceType = '.length;
         const result = await schemaValueCompletionsAtOffset(parse(src), offset, '\t\t\tResourceType = ', token);
@@ -602,7 +612,7 @@ describe('collision disambiguation', () => {
     });
 });
 
-describe('schemaFieldNameCompletions — list-element positions (no outer-group leak)', () => {
+describe('schemaFieldNameCompletions: list-element positions (no outer-group leak)', () => {
     const airlockList =
         'Part\n{\n\tComponents\n\t{\n\t\tDoor\n\t\t{\n\t\t\tType = Airlock\n\t\t\tEnterExitPoint\n\t\t\t[\n\t\t\t\t\n\t\t\t]\n\t\t}\n\t}\n}';
 
@@ -630,7 +640,7 @@ describe('schemaFieldNameCompletions — list-element positions (no outer-group 
     });
 
     it('value completion inside brackets resolves against the list class, not the outer group', async () => {
-        // `EntryToggle` is an Airlock reference field; the old outer-group resolution offered its
+        // `EntryToggle` is an Airlock reference field. The old outer-group resolution offered its
         // sibling-component ids inside the brackets, where the game never reads the assignment.
         const marker = 'EnterExitPoint [EntryToggle = ';
         const src =
@@ -641,7 +651,7 @@ describe('schemaFieldNameCompletions — list-element positions (no outer-group 
     });
 });
 
-describe('value-form delegation — schema intelligence inside HitEffects-style lists', () => {
+describe('value-form delegation: schema intelligence inside HitEffects-style lists', () => {
     // StatusType.ApplicationEffects is group-typed (MultiHitEffectRules) but its value form
     // delegates to an effect array, so the list spelling carries typed polymorphic elements.
     const status = (body: string) =>

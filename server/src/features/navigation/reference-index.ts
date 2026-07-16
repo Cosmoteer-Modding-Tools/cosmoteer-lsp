@@ -23,9 +23,9 @@ import { documentsMentioning } from './workspace-files';
  * Find-all-references via a targeted, name-pre-filtered search.
  *
  * find-all-references is the inverse of go-to-definition (target → all refs). Rather than
- * pre-resolving every reference in the project into a reverse map — which doesn't scale to
+ * pre-resolving every reference in the project into a reverse map, which doesn't scale to
  * the whole Cosmoteer `Data` tree (it would parse and cross-file-resolve tens of thousands
- * of references up front) this resolves the symbol under the cursor, then scans only the
+ * of references up front), this resolves the symbol under the cursor, then scans only the
  * files whose text mentions that symbol's name ({@link documentsMentioning}), resolving each
  * candidate reference with the same {@link DefinitionService} go-to-def uses and keeping the
  * ones that resolve to the same {@link locationKey}. Bounded by the name's frequency, needs
@@ -58,7 +58,7 @@ export class ReferenceIndex {
         cancellationToken: CancellationToken,
         progress?: WorkDoneProgressReporter
     ): Promise<Location[]> {
-        // A particle data channel (`DataOut = rot_vel` … `BIn = rot_vel`) is a same-file symbol — every
+        // A particle data channel (`DataOut = rot_vel` … `BIn = rot_vel`) is a same-file symbol. Every
         // `ParticleDataID` field carrying the name is a site. Detected by cursor position on a channel.
         const channel = particleChannelAt(document, position);
         if (channel) {
@@ -66,14 +66,14 @@ export class ReferenceIndex {
         }
 
         // A cross-file `ID<X>` symbol (a whole-file root keyed by `ID`, or a bare-id reference to one)
-        // is found by id + root class, not by member name — handle it as its own search.
+        // is found by id + root class, not by member name. Handle it as its own search.
         const rawNode = findReferenceTargetAtPosition(document, position);
         const idSymbol =
             (await idSymbolAt(rawNode, folderPaths, cancellationToken).catch(() => null)) ??
             (await idSymbolAtMapKey(document, position, folderPaths, cancellationToken).catch(() => null));
         if (idSymbol) {
             // `ID = battery` is itself an `ID<Self>` reference, so the declaration's own ID line is a
-            // site — exclude it from usages (it's re-added only when includeDeclaration).
+            // site. Exclude it from usages (it's re-added only when includeDeclaration).
             const declKey = locationKey(idSymbol.location);
             const idSites: Location[] = [];
             progress?.begin('Searching references', 0, '', false);

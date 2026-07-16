@@ -4,9 +4,9 @@ import { parser } from '../../../src/core/parser/parser';
 import { GroupNode, isGroupNode } from '../../../src/core/ast/ast';
 import { memberTypeIn, resolveGroupClass } from '../../../src/document/schema/schema-context';
 
-// The `Y : ^/0/Y` inheritance form: a leading `^` on a base reference selects the DERIVING GROUP'S
-// CONTAINER'S inheritance anchor (Y inherits from the same-named member of X's base), and the `^/0`
-// step lands on the container's base entry — itself a reference (`~/TEMPLATE`) that must be
+// The `Y : ^/0/Y` inheritance form: a leading `^` on a base reference selects the deriving group's
+// container's inheritance anchor (Y inherits from the same-named member of X's base), and the `^/0`
+// step lands on the container's base entry, itself a reference (`~/TEMPLATE`) that must be
 // dereferenced before `Y` can step into it. The synchronous class walk used to seed `^` at the
 // deriving group itself, land on its own base value node and die there, leaving every such group
 // dark to hover, validation and slot typing.
