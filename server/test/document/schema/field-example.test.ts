@@ -114,6 +114,36 @@ describe('fieldExampleMarkdown', () => {
         expect(example).toContain('// or: Size { X = 0, Y = 0 }');
     });
 
+    it('renders every accepted value form for a range-of-Modifiable map field', () => {
+        // DamageResistances: map<reference DamageType, range<number | ModifiableValue group>>. The game
+        // writes it as a group of `<DamageType> = <value>` members, and a value accepts three spellings:
+        // a single scalar, a `[from, to]` range, and a `{ BaseValue = … }` modifier group. The example
+        // shows all three, and the sample key skips the `default` sentinel for a real type.
+        const field = fieldOf('Cosmoteer.Ships.Parts.PartRules', 'DamageResistances')!;
+        expect(field.valueType.kind).toBe('map');
+        const example = fieldExampleMarkdown(field)!;
+        const lines = example.split('\n');
+        expect(lines).toContain('DamageResistances');
+        expect(lines).toContain('{');
+        expect(lines).toContain('}');
+        // `explosive` (not the generic `default`), and all three value forms present.
+        expect(example).not.toContain('default = ');
+        expect(example).toContain('explosive = 0');
+        expect(example).toContain('// one entry per DamageType');
+        expect(example).toContain('// or a range: explosive = [0, 1]');
+        expect(example).toContain('// or with inline modifiers: explosive { BaseValue = 0, … }');
+    });
+
+    it('attaches a group-valued map entry as `Key { … }`, the way the game writes it', () => {
+        // RenderLayers: map<reference, group ShipRenderLayerRules>. A group value attaches without `=`.
+        const field = fieldOf('Cosmoteer.Ships.ShipRules', 'RenderLayers')!;
+        expect(field.valueType.kind).toBe('map');
+        const example = fieldExampleMarkdown(field)!;
+        expect(example).toContain('RenderLayers');
+        expect(example).toMatch(/ShipRenderLayerRules \{ \.\.\. \}/);
+        expect(example).toContain('// one entry per ShipRenderLayerRules');
+    });
+
     it('renders no example for a plain scalar field', () => {
         const field = fieldOf('Cosmoteer.Bullets.BulletRules', 'ForgetTarget')!;
         expect(field.valueType.kind).toBe('bool');
