@@ -55,6 +55,7 @@ describe('ReferenceAutoCompletionStrategy, cross-file', () => {
                     'c.rules>',
                     'cosmoteer.rules>',
                     'embedded-ref.rules>',
+                    'repeated-refs.rules>',
                     'whole_file_base.rules>',
                     'whole_file_consumer.rules>',
                     'effects/',
