@@ -1227,6 +1227,22 @@ async function validationScopeKeys(token: CancellationToken): Promise<Set<string
 /** Normalized URIs of every document currently open in the editor (they get diagnostics via the normal flow). */
 const openDocumentNorms = (): Set<string> => new Set(documents.all().map((d) => normalizeUri(d.uri)));
 
+/**
+ * Whether a file is open in the editor right now, asked live rather than against a snapshot. A
+ * whole-workspace pass takes seconds, so a file opened while it runs is missing from the set the
+ * pass captured at its start. Publishing for such a file duplicates every diagnostic in it: the
+ * client holds pushed and pulled diagnostics in separate collections, so the pushed copy stacks on
+ * top of the one the open-file flow already answered.
+ *
+ * @param uri the uri to test, in any encoding.
+ * @returns true when a document with that uri is open.
+ */
+const isDocumentOpen = (uri: string): boolean => {
+    const norm = normalizeUri(uri);
+    for (const document of documents.all()) if (normalizeUri(document.uri) === norm) return true;
+    return false;
+};
+
 // A scanned file's diagnostics are a pure function of its on-disk content plus the shared state
 // the validators consult (settings, open buffers, the rooting and declaration indexes). The cache
 // below keys on all of them, so a repeat scan skips the lex, parse, and validate work for every
@@ -1330,7 +1346,9 @@ const scanRevisionSum = (): number =>
  * files go through the exact same lexer/parser/validator path as open ones.
  *
  * @param file the on-disk path of the `.rules` file to validate.
- * @param openNorms normalized uris of documents open in the editor, which are skipped.
+ * @param openNorms normalized uris of documents open in the editor, which are skipped. A snapshot
+ *        the caller took, so it only pre-filters. {@link isDocumentOpen} re-asks at publish time
+ *        for the file that was opened after the snapshot.
  * @param token cancellation token for the in-flight workspace pass.
  */
 async function validateWorkspaceFile(file: string, openNorms: Set<string>, token: CancellationToken): Promise<void> {
@@ -1365,6 +1383,7 @@ async function validateWorkspaceFile(file: string, openNorms: Set<string>, token
     ) {
         perfCount('scan.files');
         perfCount('scan.cacheHit');
+        if (isDocumentOpen(uri)) return;
         workspaceDiagnosticUris.add(uri);
         await connection.sendDiagnostics({ uri, diagnostics: cached.diagnostics });
         return;
@@ -1401,6 +1420,7 @@ async function validateWorkspaceFile(file: string, openNorms: Set<string>, token
         perfCount('scan.files');
         perfSampleMemory();
         scanFreshValidations++;
+        if (isDocumentOpen(uri)) return;
         workspaceDiagnosticUris.add(uri);
         await connection.sendDiagnostics({ uri, diagnostics });
     } catch (e) {

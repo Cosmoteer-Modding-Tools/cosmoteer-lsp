@@ -304,17 +304,31 @@ export const registryHintFromContainer = (group: GroupNode, depth = 0): string |
     return expected?.kind === 'polymorphicGroup' ? expected.ref : undefined;
 };
 
+// Per-node memo of the resolved discriminator, keyed by the lower-cased type-field name (a registry
+// can name its own). Nodes are rebuilt wholesale on every parse, so a WeakMap keyed by the node needs
+// no invalidation. Worth caching because the callers ask per member of a group they judge, and each
+// call otherwise rebuilds the whole named-member list: the ignored-field and default-value passes
+// alone made this the hottest function of a workspace scan, allocating a member array per member.
+const discriminatorMemo = new WeakMap<GroupNode | AbstractNodeDocument, Map<string, string | undefined>>();
+
 /** The `Type=` discriminator value written in a group (or at a fragment document's top level), if
  *  any. The field name matches case-insensitively like the game's node lookup. */
 export const groupDiscriminator = (group: GroupNode | AbstractNodeDocument, typeField = 'Type'): string | undefined => {
+    const wanted = typeField.toLowerCase();
+    const memo = discriminatorMemo.get(group);
+    if (memo?.has(wanted)) return memo.get(wanted);
+    let found: string | undefined;
     for (const [name, value] of namedMembersOf(group)) {
-        if (name.toLowerCase() !== typeField.toLowerCase()) continue;
+        if (name.toLowerCase() !== wanted) continue;
         // `value` can be null for an in-progress empty `Type = ` assignment.
         if (value && isValueNode(value) && (value.valueType.type === 'String' || value.valueType.type === 'Reference')) {
-            return String(value.valueType.value);
+            found = String(value.valueType.value);
+            break;
         }
     }
-    return undefined;
+    if (memo) memo.set(wanted, found);
+    else discriminatorMemo.set(group, new Map([[wanted, found]]));
+    return found;
 };
 
 /** The concrete schema class FullName a group represents, resolved from its own `Type` field. */

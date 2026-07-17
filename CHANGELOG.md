@@ -103,6 +103,7 @@ All notable changes to this project will be documented in this file.
 - Reopening a project is about 30% faster to become fully usable. The mod-action indexes used to read and parse the whole mod folder once each. They now share one pass over it.
 - Whole-workspace validation is several times faster on mods that reference ids from other installed mods, and the repeated "Indexing mentions" popups during validation are gone.
 - Id existence checks for dotted ids (`cosmoteer.rock_1x1`, faction-prefixed part ids) no longer read every file in the project.
+- Whole-workspace validation is about a quarter faster. Working out which class a group is no longer rebuilds the group's member list once for every field in it.
 
 ### Fixed
 
