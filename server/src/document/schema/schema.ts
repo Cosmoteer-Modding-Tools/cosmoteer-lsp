@@ -447,6 +447,71 @@ const inlineListExample = (name: string, element: ValueType): string | undefined
     return undefined;
 };
 
+/** Ids that name a fallback/wildcard rather than a real member; a map example seeded with one of
+ *  these (`default = …`) reads as a keyword, so a more specific id is preferred when one exists. */
+const GENERIC_KEY_IDS = new Set(['default', 'none', 'any', 'all', 'null', 'unknown']);
+
+/** The first non-sentinel entry of a list of candidate ids, else the first entry, else undefined. */
+const firstSpecific = (ids: readonly string[]): string | undefined =>
+    ids.find((id) => !GENERIC_KEY_IDS.has(id.toLowerCase())) ?? ids[0];
+
+/** A sample key for a map example: a real member name where the schema knows one (a reference's
+ *  built-in id, an enum's first member, preferring a specific id over a `default`-style sentinel),
+ *  otherwise the key type's own name as a stand-in token. */
+const mapKeySample = (key: ValueType): string => {
+    if (key.kind === 'reference') return firstSpecific(schema.builtinIds?.[key.target] ?? []) ?? key.targetName;
+    if (key.kind === 'enum') return firstSpecific(enumDef(key.ref)?.members ?? []) ?? key.name;
+    return valueTypeLabel(key, true);
+};
+
+/** A compact one-line `{ Field = value, … }` form of a group class, for naming a value's group-form
+ *  alternative inside a comment. Shows the first concrete field and elides the rest. */
+const compactGroupExample = (cls: string): string | undefined => {
+    const body = exampleBodyLines(cls);
+    if (!body) return undefined;
+    const concrete = body.map((l) => l.trim()).filter((l) => !l.startsWith('//'));
+    if (concrete.length === 0) return '{ … }';
+    return `{ ${concrete[0]}${concrete.length > 1 ? ', …' : ''} }`;
+};
+
+/**
+ * The alternative written forms a map value accepts beyond its primary entry line, each a `// or …`
+ * comment showing the same key. A range value adds the `[from, to]` list form; a dual-form scalar
+ * (a `Modifiable<T>`, whether or not wrapped in a range) adds the `{ BaseValue = … }` modifier group.
+ * Empty for a plain scalar or group value, which the primary line already shows in full.
+ */
+const mapValueAltComments = (key: string, value: ValueType): string[] => {
+    const base = value.kind === 'range' ? value.element : value;
+    const alts: string[] = [];
+    if (value.kind === 'range') alts.push(`// or a range: ${key} = [0, 1]`);
+    const groupForm =
+        base.kind === 'number' || base.kind === 'int' || base.kind === 'float' ? base.groupForm : undefined;
+    const group = groupForm ? compactGroupExample(groupForm) : undefined;
+    if (group) alts.push(`// or with inline modifiers: ${key} ${group}`);
+    return alts;
+};
+
+/**
+ * A `{ Key = Value }` example for a map-typed field. The primary entry reuses the scalar/group
+ * field-line rules (a group value attaches as `Key { … }`, a scalar assigns), sampling a range's
+ * element so the entry shows the single scalar form modders write (`explosive = 0`). Every other
+ * form the value accepts — the `[from, to]` range, a `{ BaseValue = … }` modifier group — follows as
+ * a `// or …` comment, so the example shows all accepted spellings, not just one.
+ *
+ * @param name the map field's name.
+ * @param map the map value type.
+ * @returns the fenced example markdown.
+ */
+const mapExample = (name: string, map: Extract<ValueType, { kind: 'map' }>): string => {
+    const key = mapKeySample(map.key);
+    const base = map.value.kind === 'range' ? map.value.element : map.value;
+    const primary = exampleFieldLine({ name: key, valueType: base, optional: true });
+    const lines = [name, '{', `${primary}    // one entry per ${valueTypeLabel(map.key, true)}`];
+    for (const alt of mapValueAltComments(key, map.value)) lines.push(`    ${alt}`);
+    lines.push('}');
+    return exampleFence(lines);
+};
+
 /**
  * A small `.rules`-syntax example of a field's structured value form, for hover and completion
  * documentation. A field typed `ISoundEffect` names the type but not the `{ … }` shape the game
@@ -472,6 +537,10 @@ export const fieldExampleMarkdown = (field: SchemaField): string | undefined => 
     if (vt.kind === 'asset') {
         return exampleFence([`${field.name} = ${assetExamplePath(vt.assetKind)}    // path relative to this file`]);
     }
+    // A map is written as a `{ … }` group whose members are `Key = Value`. The signature line names
+    // the key/value types but not that shape, so show a single sample entry with a real key where the
+    // schema knows one, and a comment saying entries repeat per key.
+    if (vt.kind === 'map') return mapExample(field.name, vt);
     const structured = vt.kind === 'list' || vt.kind === 'interpolated' ? vt.element : vt;
     const asList = structured !== vt;
     // A list of scalars (ids, enum members, numbers, paths) is written inline: one example line
@@ -656,24 +725,30 @@ export const wikiUrlForType = (owningType?: string): string | undefined => {
     return undefined;
 };
 
-/** A short human label for a field's value type, for completion `detail` / hover. */
-export const valueTypeLabel = (vt: ValueType): string => {
+/**
+ * A short human label for a field's value type, for completion `detail` / hover.
+ * @param vt The value type to label.
+ * @param nested True when the type sits inside a collection label (a `map`/`list`/`range`/`tuple`
+ *   element). A standalone reference field reads as `→ TargetName`, but the same arrow nested inside
+ *   `map<…>` reads as an artifact, so a nested reference renders as its bare target name instead.
+ */
+export const valueTypeLabel = (vt: ValueType, nested = false): string => {
     switch (vt.kind) {
         case 'enum':
             return `enum ${vt.name}`;
         case 'reference':
-            return `→ ${vt.targetName}`;
+            return nested ? vt.targetName : `→ ${vt.targetName}`;
         case 'group':
         case 'polymorphicGroup':
             return vt.name;
         case 'list':
-            return `${valueTypeLabel(vt.element)}[]`;
+            return `${valueTypeLabel(vt.element, true)}[]`;
         case 'range':
-            return `range<${valueTypeLabel(vt.element)}>`;
+            return `range<${valueTypeLabel(vt.element, true)}>`;
         case 'map':
-            return `map<${valueTypeLabel(vt.key)}, ${valueTypeLabel(vt.value)}>`;
+            return `map<${valueTypeLabel(vt.key, true)}, ${valueTypeLabel(vt.value, true)}>`;
         case 'tuple':
-            return `[${vt.elements.map(valueTypeLabel).join(', ')}]`;
+            return `[${vt.elements.map((e) => valueTypeLabel(e, true)).join(', ')}]`;
         case 'asset':
             return `asset (${vt.assetKind})`;
         case 'bool':

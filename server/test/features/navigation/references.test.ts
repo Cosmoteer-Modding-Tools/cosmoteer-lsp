@@ -92,7 +92,8 @@ describe('ReferenceIndex: find-all-references', () => {
         // resolves that (value, container) once, but each of the three sites must still come back.
         const doc = await parseFilePath(workspaceFile('repeated-refs.rules'));
         const vKey = [...walkAst(doc)].find((n) => isAssignmentNode(n) && n.left.name === 'V')!;
-        const refs = await index.findReferences(doc, positionOf((vKey as { left: { position: { line: number; characterStart: number } } }).left.position), false, FOLDERS, token);
+        if (!isAssignmentNode(vKey)) throw new Error('expected assignment node');
+        const refs = await index.findReferences(doc, positionOf(vKey.left.position), false, FOLDERS, token);
         const sites = refs.filter((r) => r.uri.endsWith('repeated-refs.rules'));
         expect(sites.length).toBe(3);
     });
