@@ -27,6 +27,7 @@ import { overrideTargetsOf } from '../../mod/override-sources';
 import { resolveActionTarget } from '../../mod/action-target-resolver';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import {
+    collectPartComponentIds,
     collectUnconditionalComponentIds,
     isComponentField,
     NON_SIBLING_FIELDS,
@@ -35,6 +36,7 @@ import {
     targetsAnotherPart,
     tupleComponentTargetAt,
 } from '../diagnostics/validator.schema-sibling';
+import { namedMembersOf } from '../../utils/ast.utils';
 import { Completion } from './autocompletion.service';
 import { ValueType } from '../../document/schema/schema.types';
 
@@ -98,8 +100,10 @@ export const componentNameCompletions = async (
     }
 
     const completions: Completion[] = [];
+    const offered = new Set<string>();
     for (const [lower, site] of referenced) {
         if (declared.has(lower) || RUNTIME_INJECTED_IDS.has(lower)) continue;
+        offered.add(lower);
         const from = site.sourceUri === document.uri ? undefined : basename(uriToFsPath(site.sourceUri));
         const context = [site.referencedBy, from].filter(Boolean).join(' · ');
         completions.push({
@@ -114,6 +118,28 @@ export const componentNameCompletions = async (
             triggerSuggest: true,
             sortText: `0_${site.name}`,
         });
+    }
+    // When this `Components` map inherits its base's components (`Components : ^/0/Components`), the
+    // inherited components merge in and each can be overridden by redeclaring its name here. Offer
+    // those inherited ids (not the ones already declared locally) as override candidates. Gated on
+    // the map actually inheriting: a `Components` block that fully replaces the base's does not
+    // merge them, so suggesting them there would be misleading.
+    if (group.inheritance && group.inheritance.length > 0) {
+        const local = new Set(namedMembersOf(group).map(([name]) => name.toLowerCase()));
+        const partWide = await collectPartComponentIds(document, cancellationToken);
+        for (const [lower, name] of partWide.components) {
+            if (local.has(lower) || offered.has(lower) || RUNTIME_INJECTED_IDS.has(lower)) continue;
+            offered.add(lower);
+            completions.push({
+                label: name,
+                kind: CompletionItemKind.Class,
+                detail: 'inherited component (override)',
+                documentation: `\`${name}\` is declared in an inherited base. Redeclaring it here overrides that base component.`,
+                insertText: `${name}\n{\n\t$0\n}`,
+                isSnippet: true,
+                sortText: `1_${name}`,
+            });
+        }
     }
     return completions;
 };

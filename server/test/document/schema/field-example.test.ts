@@ -36,6 +36,27 @@ describe('fieldExampleMarkdown', () => {
         expect(example).toContain('Type = ');
     });
 
+    it('renders a list of positional groups as inline tuples, naming the group-form alternative', () => {
+        // Vertices: Vector2[] — the game writes these as a list of `[x, y]` tuples, so the example
+        // must lead with the tuple form, not only the `[ { X = 0, Y = 0 } ]` block.
+        const field = fieldOf('Cosmoteer.Ships.Parts.Colliders.PolygonColliderRules', 'Vertices')!;
+        const example = fieldExampleMarkdown(field)!;
+        const lines = example.split('\n');
+        expect(lines).toContain('Vertices');
+        expect(lines).toContain('[');
+        expect(lines).toContain(']');
+        expect(example).toContain('[0, 0]');
+        // The named-field group form is offered as the alternative, not the only shape shown.
+        expect(example).toContain('// each entry is X, Y, or a group { X = 0, Y = 0 }');
+    });
+
+    it('names the R, G, B, A tuple and group form for a list of Colors', () => {
+        const field = fieldOf('Halfling.Particles.Updaters.ParticleColorRamp', 'Colors')!;
+        const example = fieldExampleMarkdown(field)!;
+        expect(example).toContain('[255, 255, 255, 255]');
+        expect(example).toContain('// each entry is R, G, B, A (0-255), or a group { Rf = 1, Gf = 1, Bf = 1, Af = 1 }');
+    });
+
     it('shows both accepted shapes for a Modifiable dual-form scalar', () => {
         const field = fieldOf('Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules', 'TargetingRange')!;
         const example = fieldExampleMarkdown(field)!;

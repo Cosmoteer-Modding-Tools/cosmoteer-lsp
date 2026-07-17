@@ -98,6 +98,42 @@ describe('component-name completion: dangling part-wide references', () => {
     });
 });
 
+describe('component-name completion: inherited-component override candidates', () => {
+    // A derived part whose `Components` map inherits its base's via `Components : ^/0/Components`.
+    // The base's `BaseComp` merges in and can be overridden by redeclaring its name here.
+    const INHERITING = `
+BaseDef
+{
+    Components
+    {
+        BaseComp
+        {
+            Type = Targetable
+        }
+    }
+}
+Part : BaseDef
+{
+    Components : ^/0/Components
+    {
+        <CURSOR>
+    }
+}
+`;
+    it('offers an inherited base component as an override candidate when the map inherits', async () => {
+        const names = labels(await completionsAt(INHERITING, '<CURSOR>'));
+        expect(names).toContain('BaseComp');
+    });
+
+    it('does not offer inherited components when the map does not inherit', async () => {
+        // Same base, but the derived Components fully replaces (no `: ^/0/Components`), so the
+        // base components do not merge and must not be offered.
+        const replacing = INHERITING.replace('Components : ^/0/Components', 'Components');
+        const names = labels(await completionsAt(replacing, '<CURSOR>'));
+        expect(names).not.toContain('BaseComp');
+    });
+});
+
 describe('component-name completion: mode fragment scope via reverse include', () => {
     afterEach(() => {
         ReverseIncludeIndex.instance.reset();

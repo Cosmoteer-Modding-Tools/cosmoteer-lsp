@@ -82,6 +82,7 @@ import { join } from 'path';
 import { validateModActions } from './features/diagnostics/validator.mod-action';
 import { invalidateModContext } from './mod/mod-context';
 import { modRulesOffsetCompletions } from './features/completion/autocompletion.mod-rules';
+import { inheritanceTargetCompletions } from './features/completion/autocompletion.inheritance-target';
 import { mathFunctionCompletionsAtLinePrefix } from './features/completion/autocompletion.math-function';
 import {
     crossFileReferenceTargetAtOffset,
@@ -252,8 +253,9 @@ connection.onInitialize(async (params: InitializeParams) => {
                 resolveProvider: true,
                 // '.' drives `.shader` member/swizzle completion. '"' pops value completion (localization
                 // keys, assets, references) the moment a quote opens. '#' pops `.shader` preprocessor
-                // directives. The rest are `.rules` reference sigils.
-                triggerCharacters: ['<', '&', '/', '^', '~', '..', '=', '.', '"', '#'],
+                // directives. ':' pops inheritance-base completion after `Child :`. The rest are
+                // `.rules` reference sigils.
+                triggerCharacters: ['<', '&', '/', '^', '~', '..', '=', '.', '"', '#', ':'],
             },
             diagnosticProvider: {
                 interFileDependencies: true,
@@ -1783,6 +1785,14 @@ connection.onCompletion(
                         start: { line: textDocumentPosition.position.line, character: 0 },
                         end: textDocumentPosition.position,
                     });
+                    // An inheritance-target header position (`Child : <cursor>`, or a lone `^` after
+                    // it): the parser produces no reference value node there, so offer the sibling
+                    // names, `^/N/` caret paths and reference-path prefixes directly. In a Components
+                    // map the siblings are the sibling component ids.
+                    const inheritanceTargets = inheritanceTargetCompletions(parserResult, offset, linePrefix);
+                    if (inheritanceTargets && inheritanceTargets.length > 0) {
+                        completions = inheritanceTargets;
+                    } else {
                     // A particle data channel field (`AIn = `, `DataOut = `) offers the file's channel
                     // names, a same-file symbol set, no project index needed.
                     const channels = particleChannelCompletionsAtOffset(parserResult, offset, linePrefix);
@@ -1804,6 +1814,7 @@ connection.onCompletion(
                                     .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
                                     .catch(() => []));
                         }
+                    }
                     }
                 }
             }

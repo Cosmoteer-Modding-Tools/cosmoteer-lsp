@@ -294,6 +294,33 @@ const positionalInline = (cls: string): string | undefined => {
 };
 
 /**
+ * A `.rules` example for a list of positional-form groups (`Vertices: Vector2[]`): two inline tuple
+ * rows (the form the game's own files use, `[0.5, 0]`) followed by a comment naming the tuple's
+ * fields and the equally-valid group-form alternative (`{ X = 0, Y = 0 }`).
+ *
+ * @param name the field name the example assigns.
+ * @param cls the list element's group class FullName (a positional class).
+ * @param inline the element's inline tuple form, from {@link positionalInline}.
+ * @returns the fenced example markdown.
+ */
+const positionalListExample = (name: string, cls: string, inline: string): string => {
+    const lines = [name, '[', `    ${inline}`, `    ${inline}`, ']'];
+    if (cls === COLOR_CLASS) {
+        lines.push('// each entry is R, G, B, A (0-255), or a group { Rf = 1, Gf = 1, Bf = 1, Af = 1 }');
+    } else {
+        const named = fieldsOf(cls)
+            .filter((f) => !/^\d+$/.test(f.name))
+            .sort((a, b) => Number(a.optional) - Number(b.optional))
+            .slice(0, 4);
+        if (named.length > 0) {
+            const body = named.map((f) => `${f.name} = ${examplePlaceholder(f)}`).join(', ');
+            lines.push(`// each entry is ${named.map((f) => f.name).join(', ')}, or a group { ${body} }`);
+        }
+    }
+    return exampleFence(lines);
+};
+
+/**
  * A placeholder value for one line of a generated example, derived from the field's schema type.
  * A declared default beats every kind-based guess, since it is a value the game actually uses.
  */
@@ -460,6 +487,14 @@ export const fieldExampleMarkdown = (field: SchemaField): string | undefined => 
         // (`FireTrigger = Turret`), and a valueForm class reads its member's shape, not its own
         // `{ … }`. A block example would mislead for both.
         if (scalarReferenceTargetOf(structured.ref) || typeDef(structured.ref)?.valueForm) return undefined;
+        // A list of positional-form groups (`Vertices: Vector2[]`) is written as a list of inline
+        // tuples (`[0.5, 0]`), the form the game's own files use, so the block example alone
+        // (`[ { X = 0, Y = 0 } ]`) misses the shape a modder actually writes. Lead with the tuple
+        // list and name the group-form alternative.
+        if (asList) {
+            const inline = positionalInline(structured.ref);
+            if (inline) return positionalListExample(field.name, structured.ref, inline);
+        }
         // A positional-form class leads with its inline form (`VertexColor = [255, 255, 255, 217]`),
         // then names the equally-valid alternatives: the named-field group, and for Color the
         // engine's named colors.
@@ -507,6 +542,20 @@ export const fieldExampleMarkdown = (field: SchemaField): string | undefined => 
 };
 
 /**
+ * Turn authored `[[Type.FullName.Member]]` cross-references in doc prose into readable Markdown.
+ * These crefs are written freely in `docs/fields/*.md` but have no target URL, so the whole `[[…]]`
+ * would otherwise render literally in every client's hover. We show the last dotted segment (the
+ * member name a modder actually types in the .rules file) as an inline code span.
+ * @param prose The raw field description, possibly containing `[[…]]` crefs.
+ * @returns The prose with every cref replaced by an inline code span of its final segment.
+ */
+const renderDocCrefs = (prose: string): string =>
+    prose.replace(/\[\[([^\]]+)\]\]/g, (_, ref: string) => {
+        const last = ref.split('.').pop()?.trim();
+        return last ? `\`${last}\`` : ref;
+    });
+
+/**
  * Markdown documenting a single schema field: its value type, whether it's required, its default,
  * and (for enums / references) the legal values or target. Shared by field-name completion
  * documentation and the field hover so they read identically.
@@ -531,7 +580,7 @@ export const fieldSignatureMarkdown = (field: SchemaField, owningType?: string):
     }
     const signature = extra.length > 0 ? `${head}\n\n${extra.join(' · ')}` : head;
     // The prose description, when documented, goes below the type signature separated by a rule.
-    const described = field.description ? `${signature}\n\n---\n\n${field.description}` : signature;
+    const described = field.description ? `${signature}\n\n---\n\n${renderDocCrefs(field.description)}` : signature;
     // A structured (group-valued) field additionally shows a generated `{ … }` example, so the
     // type name alone (`ISoundEffect`) never leaves the reader guessing what to write.
     const example = fieldExampleMarkdown(field);
