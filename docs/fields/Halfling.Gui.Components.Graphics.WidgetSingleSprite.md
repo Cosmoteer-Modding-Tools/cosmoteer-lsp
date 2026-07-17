@@ -7,11 +7,6 @@
 > These docs describe individual fields. For guides, worked examples and the bigger picture, see
 > the [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
-## _sprite
-`GuiSprite` · optional
-
-<!-- TODO: needs documentation -->
-
 ## DesiredSize
 `Vector2` · optional
 

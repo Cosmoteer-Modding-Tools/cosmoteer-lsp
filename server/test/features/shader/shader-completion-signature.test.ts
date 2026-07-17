@@ -237,3 +237,92 @@ describe('declaration-name completion suppression', () => {
         expect(shaderCompletions(src, offset).map((c) => c.label)).toContain('lerp');
     });
 });
+
+describe('preprocessor completion', () => {
+    it('offers the directive keywords right after a #', () => {
+        const src = '#i';
+        const labels = shaderCompletions(src, src.length).map((c) => c.label);
+        expect(labels).toEqual(
+            expect.arrayContaining(['include', 'define', 'undef', 'if', 'ifdef', 'ifndef', 'elif', 'else', 'endif', 'pragma'])
+        );
+        expect(labels).not.toContain('lerp');
+    });
+
+    it('offers macros after #ifdef: engine feature gates plus guards from the include chain', () => {
+        const src = '#include "base_atlas.shader"\n#ifdef ';
+        const includeText = '#ifdef ENABLE_STENCIL\nfloat guarded;\n#endif\n#define ANIM_UVS\n';
+        const items = shaderCompletions(src, src.length, includeText);
+        const labels = items.map((c) => c.label);
+        expect(labels).toContain('GTE_PS_4_0');
+        expect(labels).toContain('PS_5_0');
+        expect(labels).toContain('ENABLE_STENCIL');
+        expect(labels).toContain('ANIM_UVS');
+        expect(labels).not.toContain('lerp');
+        const guard = items.find((c) => c.label === 'ENABLE_STENCIL');
+        expect(guard?.detail).toContain('guard');
+    });
+
+    it('offers guards but not engine macros after #define', () => {
+        const src = '#define ';
+        const includeText = '#ifdef ENABLE_ROOF_ALPHA\nfloat x;\n#endif\n';
+        const labels = shaderCompletions(src, src.length, includeText).map((c) => c.label);
+        expect(labels).toContain('ENABLE_ROOF_ALPHA');
+        expect(labels).not.toContain('GTE_PS_4_0');
+    });
+
+    it('offers macros inside #if defined(…) and `defined` inside a bare #if expression', () => {
+        const definedSrc = '#if defined(GTE_PS_';
+        const definedLabels = shaderCompletions(definedSrc, definedSrc.length).map((c) => c.label);
+        expect(definedLabels).toContain('GTE_PS_4_0_level_9_3');
+
+        const bareSrc = '#if ';
+        const bareLabels = shaderCompletions(bareSrc, bareSrc.length).map((c) => c.label);
+        expect(bareLabels).toContain('defined');
+        expect(bareLabels).toContain('GTE_VS_4_0');
+    });
+
+    it('offers nothing on a directive line with no macro position (e.g. after #endif)', () => {
+        const src = '#endif ';
+        expect(shaderCompletions(src, src.length)).toEqual([]);
+    });
+});
+
+describe('#include path completion', () => {
+    it('lists sibling folders and shader files, relative and Data-rooted', async () => {
+        const { shaderIncludePathCompletions } = await import('../../../src/features/shader/shader-completion');
+        const { mkdtemp, mkdir, writeFile, rm } = await import('fs/promises');
+        const { tmpdir } = await import('os');
+        const { join } = await import('path');
+        const dir = await mkdtemp(join(tmpdir(), 'shader-inc-'));
+        try {
+            await mkdir(join(dir, 'common_effects'));
+            await writeFile(join(dir, 'base.shader'), '');
+            await writeFile(join(dir, 'edited.shader'), '');
+            await writeFile(join(dir, 'notes.txt'), '');
+            await writeFile(join(dir, 'common_effects', 'base_beam.shader'), '');
+
+            // Relative to the edited file: its own name and non-shader files stay out.
+            const relative = await shaderIncludePathCompletions('', join(dir, 'edited.shader'));
+            const relativeLabels = relative.map((c) => c.label);
+            expect(relativeLabels).toContain('base.shader');
+            expect(relativeLabels).toContain('common_effects');
+            expect(relativeLabels).not.toContain('edited.shader');
+            expect(relativeLabels).not.toContain('notes.txt');
+            const folder = relative.find((c) => c.label === 'common_effects');
+            expect(folder?.insertText).toBe('common_effects/');
+
+            // Into a subdirectory of the typed prefix.
+            const nested = await shaderIncludePathCompletions('common_effects/', join(dir, 'edited.shader'));
+            expect(nested.map((c) => c.label)).toContain('base_beam.shader');
+
+            // The root-anchored ./Data/ form resolves against the game data dir instead.
+            const rooted = await shaderIncludePathCompletions('./Data/common_effects/', join(dir, 'elsewhere', 'far.shader'), dir);
+            expect(rooted.map((c) => c.label)).toContain('base_beam.shader');
+
+            // An unresolvable prefix answers empty rather than throwing.
+            expect(await shaderIncludePathCompletions('missing/', join(dir, 'edited.shader'))).toEqual([]);
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
+    });
+});

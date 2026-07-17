@@ -63,6 +63,6 @@
 <!-- TODO: needs documentation -->
 
 ## AccessWarningLevel
-`enum AccessWarningLevel` · optional · default `2` · one of: `None`, `Weak`, `Strong`
+`enum AccessWarningLevel` · optional · default `Strong` · one of: `None`, `Weak`, `Strong`
 
 <!-- TODO: needs documentation -->

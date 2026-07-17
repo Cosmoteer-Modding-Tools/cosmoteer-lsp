@@ -34,6 +34,11 @@ export const toCompletionItem = (completion: Completion, snippetSupported: boole
             // Normalize the snippet's subsequent-line indentation to the insertion point so a
             // multi-line `{ … }` / `[ … ]` block nests correctly under the cursor's column.
             item.insertTextMode = InsertTextMode.adjustIndentation;
+            // A snippet insertion fires no typing triggers, so a snippet that parks the cursor at a
+            // value position asks the client to reopen the popup there itself.
+            if (completion.triggerSuggest) {
+                item.command = { title: 'Trigger Suggest', command: 'editor.action.triggerSuggest' };
+            }
         } else {
             item.insertText = completion.isSnippet ? snippetToPlainText(completion.insertText) : completion.insertText;
         }

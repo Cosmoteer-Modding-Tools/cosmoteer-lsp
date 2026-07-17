@@ -11,7 +11,7 @@ let buildInFlight: Promise<void> | undefined;
 
 /**
  * Build the alias-root index (once, then cached) by walking `cosmoteer.rules`'s `&<file>` aliases.
- * The file resolver is the shared {@link FullNavigationStrategy} — navigating a bare `<file>` ref
+ * The file resolver is the shared {@link FullNavigationStrategy}. Navigating a bare `<file>` ref
  * returns that file's parsed document. Safe to call before any schema-resolving feature. It no-ops
  * once built, shares an already-running build, and silently does nothing when there is no game root
  * (e.g. an unconfigured workspace).
@@ -31,7 +31,7 @@ export const ensureAliasRootIndex = async (cancellationToken: CancellationToken)
         const root = await CosmoteerWorkspaceService.instance.getCosmoteerRules().catch(() => undefined);
         const rootDoc = root?.content.parsedDocument;
         if (!rootDoc) return;
-        // Show an "indexing" indicator while the alias graph is walked from the game root — on a full game
+        // Show an "indexing" indicator while the alias graph is walked from the game root. On a full game
         // tree this follows many fragment files, so it can take a moment on the first schema-resolving call.
         await CosmoteerWorkspaceService.instance.withIndexingProgress('Indexing game data', () =>
             aliasRootIndex.build(rootDoc, async (fileRef, fromUri) => {

@@ -12,10 +12,13 @@ import { isAssetValue, resolveAssetPath } from '../navigation/asset-resolver';
 import { filePathToUri } from '../navigation/navigation-strategy';
 import { findReferenceTargetAtPosition } from '../navigation/reference-index';
 import { resolveSchemaSiblingReference } from '../navigation/schema-reference.navigation';
+import { resolvePartComponentDeclaration } from '../diagnostics/validator.schema-sibling';
 import { resolveSchemaIdReference } from '../navigation/schema-id-reference.navigation';
 import { evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { schemaDiscriminatorHover, schemaFieldHover } from './schema-hover';
+import { resolveClassThroughInheritance } from '../completion/inheritance-resolution';
+import { decompilerHoverLink } from './decompiler-link';
 import { shaderConstantHover } from '../shader/shader-hover';
 import { localizationKeyHover } from './localization-key-hover';
 
@@ -62,9 +65,12 @@ export class HoverService {
             const described = target && !isFile(target as FileWithPath) ? describeTarget(target as AbstractNode) : null;
             if (described) lines.push(`→ ${described}`);
         } else {
-            // A schema `ID<>` reference written as a bare id: a sibling component (same file) or a
-            // cross-file whole-file root — surface where it resolves, just like a `&`-reference.
-            const sibling = resolveSchemaSiblingReference(node);
+            // A schema `ID<>` reference written as a bare id: a sibling component (same file), a
+            // part-wide component (an inherited base, an include, an override target) or a
+            // cross-file whole-file root. Surface where it resolves, just like a `&`-reference.
+            const sibling =
+                resolveSchemaSiblingReference(node) ??
+                (await resolvePartComponentDeclaration(node, cancellationToken).catch(() => undefined));
             if (sibling) {
                 const described = describeTarget(sibling);
                 if (described) lines.push(`→ ${described}`);
@@ -74,7 +80,7 @@ export class HoverService {
             }
         }
 
-        // For an asset, show whether it resolves on disk and — for a sprite — a preview image.
+        // For an asset, show whether it resolves on disk and, for a sprite, a preview image.
         if (isAssetValue(node)) {
             lines.push(await describeAsset(node, document.uri, cancellationToken));
         }
@@ -88,7 +94,15 @@ export class HoverService {
         const shaderInfo = await shaderConstantHover(node, document.uri, cancellationToken).catch(() => null);
 
         // Schema documentation for the field this node belongs to (type / required / enum / default).
-        const schemaInfo = shaderInfo ?? schemaFieldHover(node);
+        // The container's class resolves through cross-file inheritance too (`: /BASE_SOUNDS/…`
+        // groups redeclare no `Type=`), which the sync resolution inside schemaFieldHover can't
+        // reach. Resolve it here (the sync answer comes back first when it exists) and pass it in.
+        const container = node.parent;
+        const containerClass =
+            container && isGroupNode(container)
+                ? await resolveClassThroughInheritance(container, cancellationToken).catch(() => undefined)
+                : undefined;
+        const schemaInfo = shaderInfo ?? schemaFieldHover(node, containerClass);
         if (schemaInfo) lines.push(schemaInfo);
 
         // For a `Type = <disc>` value, show the concrete class the discriminator selects.
@@ -96,6 +110,13 @@ export class HoverService {
         if (discriminatorInfo) lines.push(discriminatorInfo);
 
         if (lines.length === 0) return null;
+
+        // Opt-in power-user footer: a link opening the owning C# schema class in the user's .NET
+        // decompiler. Only added to a hover that already has content, so the feature never makes a
+        // popup appear where there would otherwise be none.
+        const decompilerLink = decompilerHoverLink(node);
+        if (decompilerLink) lines.push(decompilerLink);
+
         return { contents: { kind: MarkupKind.Markdown, value: lines.join('\n\n') } };
     }
 }

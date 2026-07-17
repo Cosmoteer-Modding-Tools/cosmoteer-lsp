@@ -1,0 +1,5 @@
+// A second AddBase base, appended after overclock_base, so it sits at `^/2` on derived_part's Part.
+Part
+{
+	OVERCLOCK_MEMBER_2 = 77
+}

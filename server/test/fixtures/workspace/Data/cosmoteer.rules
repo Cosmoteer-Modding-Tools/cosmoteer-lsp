@@ -13,6 +13,11 @@ Palette
 // this file's document and continue. Mirrors the game's `BASE_SOUNDS = &<…>`.
 BASE_AUDIO = &<sounds/base_audio.rules>
 
+// A whole-file macro whose target fragment carries its `Type=` at the FILE root (no wrapping
+// group). Inherited as `: /BASE_SHAKE` — the deriver's class must come from the fragment's
+// top-level discriminator. Mirrors the game's `BASE_SHAKE = &<common_effects/base_shake.rules>`.
+BASE_SHAKE = &<sounds/base_shake.rules>
+
 // A vanilla global aliasing a whole file. A mod merges extra members into that file via a
 // whole-file `Overrides` action; refs like `&/INDICATORS/<modMember>` must reach them THROUGH
 // this global. Mirrors the game's `INDICATORS = &<gui/game/indicators/indicators.rules>`.

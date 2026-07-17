@@ -1,0 +1,14 @@
+ID = Test.ActionsRefMod
+
+Name = "Actions-by-reference Fixture"
+
+// The manifest builds its Actions list by concatenating other files' action lists via virtual
+// inheritance, exactly like the pvp-parts mod. The referenced files must be reachable.
+Actions:
+	&<launcher.rules>/Actions,
+	&<register.rules>/Actions,
+	//&<disabled.rules>/Actions,
+	&~/DummyAction
+	[]
+
+	DummyAction = []

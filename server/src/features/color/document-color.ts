@@ -8,22 +8,30 @@ import {
     isGroupNode,
     isListNode,
     isValueNode,
+    ListNode,
     ValueNode,
 } from '../../core/ast/ast';
+import { listSlotType } from '../../document/schema/schema-context';
 
 /**
- * Document colour swatches for `.rules` colour groups.
+ * Document colour swatches for `.rules` colour values.
  *
- * Cosmoteer writes colours as a small group of numeric components — float `{ Rf Gf Bf Af }` (0–1, a
- * `Halfling.Graphics.Color`) or byte `{ R G B A }` (0–255, an `IntColor`). This surfaces each as an
- * LSP {@link ColorInformation} so the editor renders an inline swatch, and a colour-picker edit that
- * rewrites the existing component values in place (never the surrounding braces). Detection is
- * structural — a group carrying the `Rf`/`Gf`/`Bf` (or `R`/`G`/`B`) numeric trio — which is cheap and
- * unambiguous, so no per-group schema resolution is needed.
+ * Cosmoteer writes colours as a small group of numeric components, float `{ Rf Gf Bf Af }` (0-1, a
+ * `Halfling.Graphics.Color`) or byte `{ R G B A }` (0-255, an `IntColor`), or in the positional
+ * list form the engine's own writer emits, `[255, 255, 255, 217]` (0-255 channels, alpha optional).
+ * Each is surfaced as an LSP {@link ColorInformation} so the editor renders an inline swatch, and a
+ * colour-picker edit that rewrites the existing component values in place (never the surrounding
+ * braces/brackets). Group detection is structural, a group carrying the `Rf`/`Gf`/`Bf` (or
+ * `R`/`G`/`B`) numeric trio, which is cheap and unambiguous. List detection is schema-typed: a 3/4
+ * numeric list is a colour only when its slot's declared type is `Halfling.Graphics.Color`, so an
+ * arbitrary `[x, y, w, h]` rect never gets a swatch.
  */
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 
-/** The float component names, in channel order, and the byte ones — whichever a group carries. */
+/** The class whose positional list form encodes a colour. */
+const COLOR_CLASS = 'Halfling.Graphics.Color';
+
+/** The float component names, in channel order, and the byte ones, whichever a group carries. */
 const FLOAT_COMPONENTS = ['Rf', 'Gf', 'Bf', 'Af'] as const;
 const BYTE_COMPONENTS = ['R', 'G', 'B', 'A'] as const;
 
@@ -86,6 +94,25 @@ const colorRange = (group: GroupNode, components: Map<string, ValueNode>, form: 
 /** A colour group in a document, with its detected form and already-extracted component values. */
 type ColorGroup = { group: GroupNode; form: 'float' | 'byte'; components: Map<string, ValueNode> };
 
+/**
+ * The channel value nodes of a positional colour list (`[255, 255, 255, 217]`): 3 or 4 plain
+ * numeric elements in a slot the schema declares as `Color`. The game reads exactly this shape
+ * (each channel divided by 255, missing alpha opaque), so anything else is not surfaced, be it
+ * expressions, references, other element counts, or untyped slots.
+ *
+ * @param list the list node to inspect.
+ * @returns the channel value nodes in order, or undefined when the list is not a colour.
+ */
+const colorListChannels = (list: ListNode): ValueNode[] | undefined => {
+    if (list.elements.length < 3 || list.elements.length > 4 || list.inheritance?.length) return undefined;
+    const channels = list.elements.filter(
+        (e): e is ValueNode => isValueNode(e) && typeof e.valueType.value === 'number'
+    );
+    if (channels.length !== list.elements.length) return undefined;
+    const slot = listSlotType(list);
+    return slot?.kind === 'group' && slot.ref === COLOR_CLASS ? channels : undefined;
+};
+
 /** Every colour group in a document, paired with its node (for the picker to rewrite values). */
 function* colorGroups(document: AbstractNodeDocument): Generator<ColorGroup> {
     const visit = function* (node: AbstractNode): Generator<ColorGroup> {
@@ -98,18 +125,59 @@ function* colorGroups(document: AbstractNodeDocument): Generator<ColorGroup> {
             isGroupNode(node) || isListNode(node) || isDocumentNode(node)
                 ? node.elements
                 : isAssignmentNode(node)
-                  ? [node.right]
+                  ? (node.right ? [node.right] : [])
                   : [];
         for (const child of children) yield* visit(child);
     };
     for (const element of document.elements) yield* visit(element);
 }
 
-/** Every colour swatch in a document. */
+/** A positional colour list in a document, with its channel value nodes in order. */
+type ColorList = { list: ListNode; channels: ValueNode[] };
+
+/** Every positional colour list in a document (schema-typed `Color` slots written `[r, g, b, a]`). */
+function* colorLists(document: AbstractNodeDocument): Generator<ColorList> {
+    const visit = function* (node: AbstractNode): Generator<ColorList> {
+        if (isListNode(node)) {
+            const channels = colorListChannels(node);
+            if (channels) yield { list: node, channels };
+        }
+        const children: AbstractNode[] =
+            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
+                ? node.elements
+                : isAssignmentNode(node)
+                  ? (node.right ? [node.right] : [])
+                  : [];
+        for (const child of children) yield* visit(child);
+    };
+    for (const element of document.elements) yield* visit(element);
+}
+
+/** The {@link Color} a positional list encodes: 0–255 channels, missing alpha opaque. */
+const colorOfList = (channels: ValueNode[]): Color => {
+    const channel = (i: number, fallback: number) => clamp01(Number(channels[i]?.valueType.value ?? fallback) / 255);
+    return { red: channel(0, 0), green: channel(1, 0), blue: channel(2, 0), alpha: channel(3, 255) };
+};
+
+/**
+ * The range a positional colour list occupies: its identifier (a named `VertexColor [ … ]` form)
+ * or opening bracket, through the last channel value. Like {@link colorRange}, this is both the
+ * swatch range and the picker's edit range, and the two must be identical.
+ */
+const colorListRange = (list: ListNode, channels: ValueNode[]): Range => {
+    const anchor = list.identifier?.position ?? list.position;
+    const last = channels[channels.length - 1];
+    return Range.create(anchor.line, anchor.characterStart, last.position.line, last.position.characterEnd);
+};
+
+/** Every colour swatch in a document, group and positional-list forms alike. */
 export const documentColors = (document: AbstractNodeDocument): ColorInformation[] => {
     const colors: ColorInformation[] = [];
     for (const { group, form, components } of colorGroups(document)) {
         if (group.position) colors.push({ range: colorRange(group, components, form), color: colorOf(components, form) });
+    }
+    for (const { list, channels } of colorLists(document)) {
+        if (list.position) colors.push({ range: colorListRange(list, channels), color: colorOfList(channels) });
     }
     return colors;
 };
@@ -148,13 +216,13 @@ const spliceChannels = (source: string, spanStart: number, edits: ChannelEdit[])
  * The colour-picker presentation for the colour at `range`: a single text edit that rewrites the
  * group's component values in place, leaving the identifier, braces and layout untouched. Re-finds the
  * group by its {@link colorRange} (whose start VS Code passes back), so a missing component (e.g. no
- * `Af`) is simply not written. The edit's range equals {@link colorRange} exactly — see that function
+ * `Af`) is simply not written. The edit's range equals {@link colorRange} exactly. See that function
  * for why the two must match.
  *
  * @param document the parsed document the colour lives in.
  * @param source the full document text (value node offsets index into it).
  * @param range the colour range the client sent back (matches a {@link documentColors} entry, or the
- * range of the previously applied edit — which shares the same start).
+ * range of the previously applied edit, which shares the same start).
  * @param color the colour the user picked.
  * @returns one presentation whose edit rewrites the component values, or an empty list if the colour
  * can no longer be located (the document changed under the picker).
@@ -183,6 +251,18 @@ export const colorPresentations = (
             .map((name) => `${name}=${formatChannel(channelOf(name), form)}`)
             .join(' ');
         const spanStart = anchorPosition(group).start;
+        return [{ label, textEdit: TextEdit.replace(bounds, spliceChannels(source, spanStart, edits)) }];
+    }
+    for (const { list, channels } of colorLists(document)) {
+        const bounds = colorListRange(list, channels);
+        if (bounds.start.line !== range.start.line || bounds.start.character !== range.start.character) continue;
+
+        // The list form is byte-valued (the game divides each entry by 255). A 3-element list
+        // stays 3 elements, so picking a translucent colour on it only changes the channels.
+        const picked = [color.red, color.green, color.blue, color.alpha];
+        const edits: ChannelEdit[] = channels.map((node, i) => ({ node, text: formatChannel(picked[i], 'byte') }));
+        const label = `[${edits.map((e) => e.text).join(', ')}]`;
+        const spanStart = (list.identifier?.position ?? list.position).start;
         return [{ label, textEdit: TextEdit.replace(bounds, spliceChannels(source, spanStart, edits)) }];
     }
     return [];

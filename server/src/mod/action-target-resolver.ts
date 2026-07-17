@@ -14,10 +14,10 @@ const navigation = new FullNavigationStrategy();
  * canonical `<./Data/` forces it through `navigateRules`'s cosmoteer-tree branch
  * (which ignores `currentLocation`), and leaves workshop escapes
  * (`<./Data/../../../workshop/...>`) intact for the `./Data/..` branch. For example,
- * `<a.rules>/A` becomes `<./Data/a.rules>/A`; `&<a.rules>/A` becomes `<./Data/a.rules>/A`
- * (a "&" reference target uses the same game-root form); `<cosmoteer.rules>` becomes
- * `<./Data/cosmoteer.rules>`; `<./data/gui/...>` (any case) becomes `<./Data/gui/...>`
- * (canonical case for the case-sensitive branch); and `<./Data/../../../workshop/...>`
+ * `<a.rules>/A` becomes `<./Data/a.rules>/A`. `&<a.rules>/A` becomes `<./Data/a.rules>/A`
+ * (a "&" reference target uses the same game-root form). `<cosmoteer.rules>` becomes
+ * `<./Data/cosmoteer.rules>`. `<./data/gui/...>` (any case) becomes `<./Data/gui/...>`
+ * (canonical case for the case-sensitive branch). And `<./Data/../../../workshop/...>`
  * stays unchanged (case-canonicalized only).
  */
 export const normalizeTargetPath = (value: string): string => {
@@ -27,13 +27,16 @@ export const normalizeTargetPath = (value: string): string => {
     const inner = v.slice(1); // drop the leading '<'
     const dataPrefix = inner.match(/^\.\/data\//i);
     if (dataPrefix) return '<./Data/' + inner.slice(dataPrefix[0].length);
+    // A `./` path that does not name `Data` resolves against the game's working directory, the
+    // install root (the game takes any `./` path as-is), so it escapes Data by one level here.
+    if (inner.startsWith('./')) return '<./Data/../' + inner.slice(2);
     return '<./Data/' + inner;
 };
 
 /**
  * Resolve a mod-action target value node against the game Data root (and the Steam
  * workshop folder for `../` escapes). Returns the resolved node/file, or null.
- * Pure-vanilla resolution — mod-context awareness (mod-added globals) is layered on
+ * Pure-vanilla resolution. Mod-context awareness (mod-added globals) is layered on
  * top in `mod/mod-context.ts`.
  */
 export const resolveActionTarget = async (

@@ -16,7 +16,7 @@ const parse = (src: string) => parser(lexer(src), 'file:///t.rules').value;
 
 const findValue = (node: AbstractNode, field: string): ValueNode | undefined => {
     if (isAssignmentNode(node) && node.left.name === field && isValueNode(node.right)) return node.right;
-    const kids = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) ? [node.right] : [];
+    const kids = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) && node.right ? [node.right] : [];
     for (const k of kids) {
         const f = findValue(k, field);
         if (f) return f;
@@ -35,10 +35,15 @@ const findIdentifier = (node: AbstractNode, name: string): AbstractNode | undefi
     return undefined;
 };
 
-/** Find a named container (a `Foo { … }` group or `Foo [ … ]` list). */
+/**
+ * Find a named container (a `Foo { … }` group or `Foo [ … ]` list), searching depth-first.
+ * @param node the node to search from.
+ * @param name the container identifier to look for.
+ * @returns the matching container node, or undefined when none exists.
+ */
 const findNamedContainer = (node: AbstractNode, name: string): AbstractNode | undefined => {
     if ((isGroupNode(node) || isListNode(node)) && node.identifier?.name === name) return node;
-    const kids = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) ? [node.right] : [];
+    const kids = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) && node.right ? [node.right] : [];
     for (const k of kids) {
         const f = findNamedContainer(k, name);
         if (f) return f;
@@ -89,7 +94,7 @@ describe('schemaFieldHover', () => {
     });
 
     // A custom-deserialized engine type (a particle channel) is `opaque` in the schema, but its C#
-    // type name is still worth showing — not the bare word `opaque`.
+    // type name is still worth showing, not the bare word `opaque`.
     const RENDERER = `Def
 {
 	Renderer
@@ -137,7 +142,7 @@ describe('schemaFieldHover', () => {
         const findList = (node: AbstractNode): AbstractNode | undefined => {
             if (isAssignmentNode(node) && node.left.name === 'EnterExitPoint' && isListNode(node.right))
                 return node.right;
-            const kids = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) ? [node.right] : [];
+            const kids = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) && node.right ? [node.right] : [];
             for (const k of kids) {
                 const f = findList(k);
                 if (f) return f;
@@ -146,7 +151,7 @@ describe('schemaFieldHover', () => {
         };
         const list = doc.elements.map((n) => findList(n)).find(Boolean);
         expect(list).toBeDefined();
-        const hover = schemaFieldHover((list as { elements: AbstractNode[] }).elements[0]);
+        const hover = schemaFieldHover((list as unknown as { elements: AbstractNode[] }).elements[0]);
         expect(hover).toContain('**0**');
         expect(hover).toContain('float');
     });
@@ -159,18 +164,18 @@ describe('schemaFieldHover', () => {
         const lists: AbstractNode[] = [];
         const walk = (n: AbstractNode) => {
             if (isListNode(n)) lists.push(n);
-            const kids = isGroupNode(n) || isListNode(n) ? n.elements : isAssignmentNode(n) ? [n.right] : [];
+            const kids = isGroupNode(n) || isListNode(n) ? n.elements : isAssignmentNode(n) && n.right ? [n.right] : [];
             for (const k of kids) walk(k);
         };
         for (const e of doc.elements) walk(e);
-        const inner = lists[1] as { elements: AbstractNode[] };
+        const inner = lists[1] as unknown as { elements: AbstractNode[] };
         const hover = schemaFieldHover(inner.elements[0]);
         expect(hover).toContain('**0**');
         expect(hover).toContain('PartRules');
     });
 
-    // An overriding field written as `Name : ^/0/Name [ … ]` parses to a named list with inheritance;
-    // hovering the key previously lost the schema entirely.
+    // An overriding field written as `Name : ^/0/Name [ … ]` parses to a named list with inheritance.
+    // Hovering the key previously lost the schema entirely.
     it('documents an overriding list field (`TypeCategories : ^/0/TypeCategories [ … ]`)', () => {
         const doc = parse('Part\n{\n\tTypeCategories : ^/0/TypeCategories [command, uses_power]\n}');
         const typeCats = doc.elements.map((n) => findNamedContainer(n, 'TypeCategories')).find(Boolean);
@@ -202,7 +207,7 @@ describe('schemaDiscriminatorHover', () => {
         const doc = parse('Part\n{\n\tComponents\n\t{\n\t\tKnown { Type = TurretWeapon }\n\t\tOld { Type = AmmoChange }\n\t}\n}');
         const findByValue = (node: AbstractNode, v: string): ValueNode | undefined => {
             if (isValueNode(node) && node.valueType.value === v) return node;
-            const kids = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) ? [node.right] : [];
+            const kids = isGroupNode(node) || isListNode(node) ? node.elements : isAssignmentNode(node) && node.right ? [node.right] : [];
             for (const k of kids) {
                 const f = findByValue(k, v);
                 if (f) return f;

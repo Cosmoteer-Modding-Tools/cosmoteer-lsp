@@ -23,9 +23,9 @@ import { documentsMentioning } from './workspace-files';
  * Find-all-references via a targeted, name-pre-filtered search.
  *
  * find-all-references is the inverse of go-to-definition (target → all refs). Rather than
- * pre-resolving every reference in the project into a reverse map — which doesn't scale to
+ * pre-resolving every reference in the project into a reverse map, which doesn't scale to
  * the whole Cosmoteer `Data` tree (it would parse and cross-file-resolve tens of thousands
- * of references up front) this resolves the symbol under the cursor, then scans only the
+ * of references up front), this resolves the symbol under the cursor, then scans only the
  * files whose text mentions that symbol's name ({@link documentsMentioning}), resolving each
  * candidate reference with the same {@link DefinitionService} go-to-def uses and keeping the
  * ones that resolve to the same {@link locationKey}. Bounded by the name's frequency, needs
@@ -58,7 +58,7 @@ export class ReferenceIndex {
         cancellationToken: CancellationToken,
         progress?: WorkDoneProgressReporter
     ): Promise<Location[]> {
-        // A particle data channel (`DataOut = rot_vel` … `BIn = rot_vel`) is a same-file symbol — every
+        // A particle data channel (`DataOut = rot_vel` … `BIn = rot_vel`) is a same-file symbol. Every
         // `ParticleDataID` field carrying the name is a site. Detected by cursor position on a channel.
         const channel = particleChannelAt(document, position);
         if (channel) {
@@ -66,14 +66,14 @@ export class ReferenceIndex {
         }
 
         // A cross-file `ID<X>` symbol (a whole-file root keyed by `ID`, or a bare-id reference to one)
-        // is found by id + root class, not by member name — handle it as its own search.
+        // is found by id + root class, not by member name. Handle it as its own search.
         const rawNode = findReferenceTargetAtPosition(document, position);
         const idSymbol =
             (await idSymbolAt(rawNode, folderPaths, cancellationToken).catch(() => null)) ??
             (await idSymbolAtMapKey(document, position, folderPaths, cancellationToken).catch(() => null));
         if (idSymbol) {
             // `ID = battery` is itself an `ID<Self>` reference, so the declaration's own ID line is a
-            // site — exclude it from usages (it's re-added only when includeDeclaration).
+            // site. Exclude it from usages (it's re-added only when includeDeclaration).
             const declKey = locationKey(idSymbol.location);
             const idSites: Location[] = [];
             progress?.begin('Searching references', 0, '', false);
@@ -103,13 +103,32 @@ export class ReferenceIndex {
         progress?.begin('Searching references', 0, '', false);
         try {
             for await (const doc of documentsMentioning(folderPaths, name, cancellationToken)) {
+                // References with the same text in the same enclosing container resolve identically
+                // (an OT relative path — `&Name`, `~/…`, `^/N/…`, `..` — is resolved against its
+                // container's scope, which is shared by its siblings). A document that repeats a
+                // reference many times (a big component list, an array of near-identical entries)
+                // would otherwise re-run the full cross-file resolution per copy. Memoize the resolved
+                // target key per (value, container) for the current document, so each distinct
+                // reference is resolved once. Correctness is unaffected: the key never merges two
+                // references that could resolve differently.
+                const resolvedByRef = new Map<string, string | null>();
                 for (const reference of referenceNodesOf(doc)) {
                     // The `name` text must appear in the reference for it to possibly point here.
-                    if (!String(reference.valueType.value).includes(name)) continue;
-                    const resolved = await DefinitionService.instance
-                        .resolveReferenceLocation(doc, reference, cancellationToken)
-                        .catch(() => null);
-                    if (resolved && locationKey(resolved) === targetKey) sites.push(referenceSiteLocation(reference));
+                    const value = String(reference.valueType.value);
+                    if (!value.includes(name)) continue;
+                    // The container key is a space-free token (a byte offset or `root`), so one space
+                    // joins it to the value unambiguously, even when the value contains a space (a
+                    // `<path with spaces.rules>` file reference).
+                    const memoKey = `${value} ${enclosingContainerKey(reference)}`;
+                    let resolvedKey = resolvedByRef.get(memoKey);
+                    if (resolvedKey === undefined && !resolvedByRef.has(memoKey)) {
+                        const resolved = await DefinitionService.instance
+                            .resolveReferenceLocation(doc, reference, cancellationToken)
+                            .catch(() => null);
+                        resolvedKey = resolved ? locationKey(resolved) : null;
+                        resolvedByRef.set(memoKey, resolvedKey);
+                    }
+                    if (resolvedKey === targetKey) sites.push(referenceSiteLocation(reference));
                 }
             }
         } finally {
@@ -146,6 +165,17 @@ export class ReferenceIndex {
         return resolved as AbstractNode;
     }
 }
+
+/**
+ * A key for the scope an OT relative reference resolves against: its nearest enclosing group or
+ * list (or the document root). Two references with the same text under the same container resolve
+ * to the same target, so this keys the per-document resolution memo in {@link ReferenceIndex.findReferences}.
+ */
+const enclosingContainerKey = (node: AbstractNode): string => {
+    let current: AbstractNode | undefined = node.parent;
+    while (current && !(isGroupNode(current) || isListNode(current))) current = current.parent;
+    return current?.position ? String(current.position.start) : 'root';
+};
 
 /** Every reference value node in a document, depth-first across all node shapes. */
 export function* referenceNodesOf(node: AbstractNode | null | undefined): Generator<ValueNode> {

@@ -13,6 +13,6 @@
 The human-readable name of this GeneratorStage.
 
 ## IsEnabled
-`bool` · optional · default `Mono.Cecil.CustomAttributeArgument`
+`bool` · optional · default `true`
 
 Whether this particular stage is enabled and will generate parts.

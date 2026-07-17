@@ -8,9 +8,9 @@ Based on the [VS Code LSP sample](https://github.com/microsoft/vscode-extension-
 
 ## Setup
 
-The extension detects the Cosmoteer installation automatically. If that fails, set `cosmoteerLSPRules.cosmoteerPath` to your installation folder; reference and asset validation and all cross-file features need it.
+The extension detects the Cosmoteer installation automatically. If that fails, set `cosmoteerLSPRules.cosmoteerPath` to your installation folder. Reference and asset validation and all cross-file features need it.
 
-Completion entries provided by this extension carry the language-server icon; plain `abc` entries are VS Code's own word-based suggestions. Trigger completion with `Ctrl+Space` (default keybinding).
+Completion entries provided by this extension carry the language-server icon, plain `abc` entries are VS Code's own word-based suggestions. Trigger completion with `Ctrl+Space` (default keybinding).
 
 ## Recommended VS Code settings
 
@@ -49,7 +49,7 @@ All settings live under the `cosmoteerLSPRules.` prefix.
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `cosmoteerPath` | `""` | Path to the Cosmoteer installation (auto-detected when empty) |
-| `ignorePaths` | `[]` | Reference paths to exclude from validation; any path containing one of these strings is ignored |
+| `ignorePaths` | `[]` | Reference paths to exclude from validation, any path containing one of these strings is ignored |
 | `maxNumberOfProblems` | `100` | Maximum number of problems reported per file |
 | `diagnostics.validateWholeWorkspace` | off | Validate every `.rules` file in the workspace, not just open files |
 | `diagnostics.workspaceValidationScope` | `allFiles` | Scope of the whole-workspace pass: all files, or only the files reachable from the `mod.rules` manifest |
@@ -60,7 +60,13 @@ All settings live under the `cosmoteerLSPRules.` prefix.
 | `diagnostics.validateShaderCode` | on | Diagnostics inside `.shader` files: missing `#include` targets, undeclared uniforms, unknown functions |
 | `diagnostics.validateLocalizationKeys` | on | Flag a localization key that no language strings file declares |
 | `diagnostics.validateRedundantSeparators` | on | Hint at a `,`/`;` separator a line break already makes redundant (shown as an editor hint, not in the Problems panel) |
+| `diagnostics.validateIgnoredFields` | on | Hint at a field the game never reads, with a remove quick fix (shown as an editor hint, not in the Problems panel) |
+| `diagnostics.validateDefaultValues` | on | Fade a field written at the game's own default, with a remove quick fix. Only inside groups that do not inherit, since an explicit default can override a base's value |
+| `inlayHints.showBaseValue` | on | Show the referenced group's `BaseValue` inline: a reference to a group with a `BaseValue` member renders `/BaseValue = 160d` |
 | `rename.allowEditingVanillaFiles` | off | Allow Rename to edit files inside the game `Data` install |
+| `decompiler.showInHover` | off | Power user: end schema hovers with an "Open in decompiler" link that opens the owning C# class from the game's assemblies |
+| `decompiler.executablePath` | `""` | Path to your ILSpy or dotPeek executable (auto-detected when empty, searching the PATH and the usual install locations) |
+| `decompiler.tool` | `auto` | Command-line style for the decompiler (`auto` infers ILSpy or dotPeek from the executable name) |
 | `associateShaderFiles` | on | Open `.shader` files with the Cosmoteer Shader language when another extension claims the extension |
 | `formatting.enabled` | on | Document formatting for `.rules` and `.shader` files |
 | `formatting.formatOnSave` | off | Format before every save, independent of the editor's `formatOnSave` |
@@ -75,7 +81,7 @@ To make server starts fast, the language server persists its project indexes (sc
 -   Location: `%LOCALAPPDATA%\cosmoteer-lsp\` on Windows (the system temp directory on other platforms)
 -   Size: roughly 10-30 MB per game install plus per workspace, depending on mod size
 -   Validity: every cache is keyed to the exact server build and game install, and each workspace file is verified by size and modification time on load, so edits made while the server was not running are always picked up. Persisted validation results are stricter still: they are only restored when nothing at all (files, game data, settings) changed since they were saved
--   Cleanup: files unused for 30 days are deleted automatically. The folder is safe to delete manually at any time; the only cost is one slower start while the caches rebuild
+-   Cleanup: files unused for 30 days are deleted automatically. The folder is safe to delete manually at any time, the only cost is one slower start while the caches rebuild
 
 The server logs its startup and validation timings to the output channel, useful when a start feels slow.
 
@@ -107,7 +113,7 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 
 -   Syntax errors, unresolved references and assets, math expressions, duplicate keys, inheritance cycles
 -   Values the game silently never reads: bare valueless fields, unknown members inside a group-typed field's list form, extra list elements and value shapes the field cannot read
--   Missing separators: two fields on one line with no `,`/`;` between them (the game silently reads them as ONE value) and a run of numbers read as a single list element, each with a quick fix. Conversely, a separator a line break already makes redundant is shown as a subtle hint with a remove quick fix
+-   Missing separators: two fields on one line with no `,`/`;` between them (the game silently reads them as one value) and a run of numbers read as a single list element, each with a quick fix. Conversely, a separator a line break already makes redundant is shown as a subtle hint with a remove quick fix
 -   Component references, cross-file GUI ids, localization keys, shader constants and shader code, each toggleable in the settings
 -   `mod.rules` actions: unknown verbs, missing required fields, unresolvable targets
 -   Deprecation hints for renamed types, with a quick fix
@@ -137,14 +143,13 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 
 -   In Depth Diagnostics
 -   More useful code actions and refactorings and quick fixes
--   More visuals for understanding how sprites are working
 -   If you have suggestions or ideas, please open an issue on [GitHub](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/issues)
 
 ## Credits
 
-Thanks to the Cosmoteer team for beeing that open and allow to have the schema public available without the modders first need to generate it, and to the modders who have contributed to the community and provided feedback on this extension. 
+Thanks to the Cosmoteer team for being so open and allowing the schema to be publicly available without modders first needing to generate it, and to the modders who have contributed to the community and provided feedback on this extension.
 
-Especial thanks to Walt for the open communication and allowance. As Celeste for helping with laying the ground for Jetbrains IDE Support and providing valuable input. Same for Rojamahorse which provided valuable feedback and testing and a very complex mod for testing the extension. And also SkipperWraith who brought me back to this project.
+Special thanks to Walt for the open communication and allowance. Also to Celeste for laying the ground for the JetBrains IDE support and providing valuable input, to Rojamahorse for valuable feedback, testing and a very complex mod to test the extension with, and to SkipperWraith who brought me back to this project.
 
 ## Showcase
 

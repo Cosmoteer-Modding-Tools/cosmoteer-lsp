@@ -5,7 +5,7 @@ import { SemanticTokensLegend } from 'vscode-languageserver';
  * `.shader`). One LSP `semanticTokensProvider` capability carries a single legend, so both token
  * builders encode against these same index arrays.
  *
- * Order is the contract — the client maps a token's integer back to a name by index, so entries may
+ * Order is the contract. The client maps a token's integer back to a name by index, so entries may
  * only be appended, never reordered or removed.
  */
 export const TOKEN_TYPES = [

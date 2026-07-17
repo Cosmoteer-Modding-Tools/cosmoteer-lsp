@@ -8,7 +8,7 @@
 > the [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## Interpolate
-`InterpolateMode` · optional · default `1`
+`enum InterpolateMode` · optional · default `Rgb` · one of: `Off`, `Rgb`, `Hsv`
 
 <!-- TODO: needs documentation -->
 

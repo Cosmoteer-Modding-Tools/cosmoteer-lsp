@@ -12,7 +12,7 @@ import { valueOf } from '../workspace-helper';
 const navigation = new FullNavigationStrategy();
 const token = CancellationToken.None;
 
-describe('FullNavigationStrategy — cyclic inheritance', () => {
+describe('FullNavigationStrategy: cyclic inheritance', () => {
     const doc = parseFixture('inheritance-cycle.rules');
 
     it('a missing member through a cyclic inheritance chain resolves to null (no overflow)', async () => {
@@ -22,7 +22,7 @@ describe('FullNavigationStrategy — cyclic inheritance', () => {
     });
 
     it('resolving the inheritance refs themselves terminates instead of looping', async () => {
-        // `&CycleB/Shared` (CycleA's base) loops too — must settle to null, not hang.
+        // `&CycleB/Shared` (CycleA's base) loops too, so it must settle to null, not hang.
         const result = await navigation.navigate('CycleB/AlsoMissing', doc, doc.uri, token);
         expect(result).toBeNull();
     });

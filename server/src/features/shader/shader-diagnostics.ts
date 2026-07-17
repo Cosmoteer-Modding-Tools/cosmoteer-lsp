@@ -19,7 +19,7 @@ import { HLSL_TYPES, HLSL_KEYWORDS, lineStarts, positionOf } from '../semantic/s
  * - a call to a function that is neither an HLSL intrinsic, a builtin constructor, a `#define`d macro,
  *   nor a function the shader or its includes define is flagged.
  *
- * The last two run only when the whole include chain was readable — a missing include means the symbol
+ * The last two run only when the whole include chain was readable. A missing include means the symbol
  * set is partial, so any "undeclared" verdict could be wrong and the check is skipped entirely.
  */
 
@@ -166,7 +166,7 @@ export const validateShaderDocument = async (
     const defines = collectGroup(scope, /#\s*define\s+(\w+)/g);
 
     // Function signatures for argument-count and return-type checks. A name defined more than once is
-    // overloaded, so its calls cannot be argument-checked against a single arity — drop those.
+    // overloaded, so its calls cannot be argument-checked against a single arity. Drop those.
     const signatureList = parseShaderSignatures(scope);
     const nameCounts = new Map<string, number>();
     for (const sig of signatureList) nameCounts.set(sig.name, (nameCounts.get(sig.name) ?? 0) + 1);
@@ -259,8 +259,8 @@ export const validateShaderDocument = async (
  * Checks variable declarations in the current file for two mistakes: a type used as an assignment target
  * with no variable name (`float = f();`), and a declaration whose initializer is a single call to a
  * function whose return type does not fit the declared type (`float x = loadRawNormals(2, 2);` where the
- * function returns `float4`, a narrowing HLSL truncation). Only the safe, unambiguous shape — a lone
- * call as the whole initializer, both types being scalar/vector — is judged, so nothing else is flagged.
+ * function returns `float4`, a narrowing HLSL truncation). Only the safe, unambiguous shape (a lone
+ * call as the whole initializer, both types being scalar/vector) is judged, so nothing else is flagged.
  *
  * @param text the current file source.
  * @param signatures the file-and-include function signatures, keyed by name.

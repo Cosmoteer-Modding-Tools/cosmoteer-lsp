@@ -12,6 +12,7 @@ export default tseslint.config(
             'server/out/**',
             'out/**',
             'esbuild.mjs',
+            'esbuild.cache-id.mjs',
         ],
     },
     js.configs.recommended,

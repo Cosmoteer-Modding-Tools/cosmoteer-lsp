@@ -16,7 +16,7 @@ export type ResolveReferenceFn = (
     cancellationToken: CancellationToken,
     // The inheritance-cycle guard, forwarded so a reference that re-enters inheritance
     // resolution (an inheritance ref whose own path needs an inheritance lookup) shares
-    // the same `visited` set — otherwise a cyclic chain recurses until the stack overflows.
+    // the same `visited` set. Otherwise a cyclic chain recurses until the stack overflows.
     inheritanceVisited?: Set<AbstractNode>
 ) => Promise<AbstractNode | null | { readonly type: string } | undefined>;
 
@@ -25,7 +25,7 @@ export type ResolveReferenceFn = (
  * mutating the AST.
  *
  * This replaces the previous approach (`addInhertinaceToNode`) which flattened
- * inherited members into `node.elements` in place — that mutation persisted across
+ * inherited members into `node.elements` in place. That mutation persisted across
  * calls (causing duplicated/injected nodes) and guarded cycles only with a depth
  * counter. Here nothing is mutated and the matching member is returned directly,
  * cycles are detected with an explicit `visited` set (no arbitrary depth limit),
@@ -47,7 +47,7 @@ export const findMemberThroughInheritance = async (
         if (inheritance.valueType.type !== 'Reference') continue;
         // Resolve the inheritance reference from the value node's own scope, not the
         // group's. Relative refs (`^/0/…`, `&Name`, `..`) are written relative to the
-        // inheritance node, whose parent is the inheriting group — passing the group
+        // inheritance node, whose parent is the inheriting group. Passing the group
         // instead would shift `^`/`&` up by one level and resolve in the wrong scope.
         const resolved = await resolveReference(
             inheritance.valueType.value,
@@ -61,8 +61,8 @@ export const findMemberThroughInheritance = async (
         if (!resolved) continue;
 
         // A whole-file base (`Comp : <shot_file.rules>`, no `/member` suffix) resolves to a File.
-        // Its inherited members are the file's ROOT-level fields (`HitInterval`, `Range`, …), so
-        // descend into the parsed document and look the segment up there — rather than skipping the
+        // Its inherited members are the file's root-level fields (`HitInterval`, `Range`, …), so
+        // descend into the parsed document and look the segment up there, rather than skipping the
         // base, which left every `&<file>`-inherited member unresolvable (false "unknown reference").
         let parent = resolved as AbstractNode;
         if (isFile(resolved as unknown as FileTree)) {
@@ -75,7 +75,7 @@ export const findMemberThroughInheritance = async (
         if (direct) return direct;
 
         // A document root (whole-file base) has no inheritance chain of its own to walk further, so
-        // the direct lookup above is exhaustive for it — only recurse through group/list bases.
+        // the direct lookup above is exhaustive for it. Only recurse through group/list bases.
         if (isGroupNode(parent) || isListNode(parent)) {
             const inherited = await findMemberThroughInheritance(
                 parent,

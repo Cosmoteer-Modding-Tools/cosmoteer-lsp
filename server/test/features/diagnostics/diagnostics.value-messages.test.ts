@@ -13,7 +13,7 @@ const token = CancellationToken.None;
 const pos = (): AstPosition => ({ line: 0, characterStart: 0, characterEnd: 0, start: 0, end: 0 });
 const run = (node: ValueNode) => ValidationForValue.callback(node, token);
 
-describe('value diagnostics — parentheses and assets (node-level)', () => {
+describe('value diagnostics: parentheses and assets (node-level)', () => {
     it('flags a parenthesized plain value', async () => {
         const node: ValueNode = { type: 'Value', valueType: { type: 'String', value: 'x' }, parenthesized: true, position: pos() };
         const error = await run(node);
@@ -27,8 +27,8 @@ describe('value diagnostics — parentheses and assets (node-level)', () => {
     });
 
     it('flags an unquoted asset path that contains whitespace, as a warning', async () => {
-        // The game loads simple unquoted paths fine; only a path with whitespace is genuinely
-        // ambiguous unquoted, so only that is flagged — and as a warning, not a hard error.
+        // The game loads simple unquoted paths fine. Only a path with whitespace is genuinely
+        // ambiguous unquoted, so only that is flagged, and as a warning, not a hard error.
         const node: ValueNode = { type: 'Value', valueType: { type: 'Sprite', value: 'foo bar.png' }, quoted: false, position: pos() };
         const error = await run(node);
         expect(error?.message).toBe('Asset paths should be quoted');
@@ -38,14 +38,14 @@ describe('value diagnostics — parentheses and assets (node-level)', () => {
     });
 
     it('does NOT flag a simple unquoted asset path (the game accepts it)', async () => {
-        // `File = foo.png` (no whitespace) is valid unquoted — it must not be a quoting error.
+        // `File = foo.png` (no whitespace) is valid unquoted. It must not be a quoting error.
         const node: ValueNode = { type: 'Value', valueType: { type: 'Sprite', value: 'foo.png' }, quoted: false, position: pos() };
         const error = await run(node);
         expect(error?.message).not.toBe('Asset paths should be quoted');
     });
 });
 
-describe('value diagnostics — references (parsed)', () => {
+describe('value diagnostics: references (parsed)', () => {
     const validate = async (src: string, reference: string) => {
         const doc = parser(lexer(src), 'file:///refs.rules').value;
         return run(findReferenceNode(doc, reference));
@@ -84,7 +84,7 @@ const validateIdentifier = async (src: string, name: string, uri = 'file:///bare
 // classify them as IdentifierNodes (after `[` or a value sibling they parse as ValueNodes and
 // the regular value check covers them). Group and document positions are a parse error instead
 // (the game rejects a bare reference there), see parser.list-bare-reference.test.ts.
-describe('identifier diagnostics — bare reference list elements (parsed)', () => {
+describe('identifier diagnostics: bare reference list elements (parsed)', () => {
     it('flags a bare list reference that resolves to nothing, as a warning', async () => {
         const error = await validateIdentifier('List\n[\n\t{\n\t\tX = 1\n\t}\n\t&NoSuchThing\n]\n', '&NoSuchThing');
         expect(error?.message).toBe('Reference name is not known');
@@ -173,7 +173,7 @@ describe('list element name joined with its body on one line', () => {
 
 // Keep this suite LAST in the file: it initializes the singleton workspace service, which
 // stays initialized for every test that runs after it in this worker.
-describe('identifier diagnostics — bare super-path list elements against the fixture workspace', () => {
+describe('identifier diagnostics: bare super-path list elements against the fixture workspace', () => {
     const uri = pathToFileURL(workspaceFile('bare_ref_probe.rules')).href;
 
     beforeAll(async () => {

@@ -84,7 +84,7 @@ export const idSymbolAt = async (
         }
     }
     // Declaration: an aggregate list-element entity's own id value (`ColorID = "roof_light"`, the
-    // `ID = monolith` of a faction, …) — identified by walking the document's entity declarations.
+    // `ID = monolith` of a faction, …), identified by walking the document's entity declarations.
     const document = getStartOfAstNode(node);
     for (const decl of entityDeclarationsOf(document)) {
         if (decl.node === node) {

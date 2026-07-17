@@ -1,0 +1,11 @@
+Name = "Txt Reference Fixture"
+ID = "fixture.txt_reference"
+Version = 1.0.0
+
+Actions
+[
+	{
+		Action = Remove
+		Remove = "<./Data/../txt-reference-mod/parts/action_target.txt>/Part/Stats"
+	}
+]

@@ -11,8 +11,8 @@ import { initWorkspace, valueOf, workspaceFile } from '../../workspace-helper';
 // Regression: an already-open file's validation resolves references before the workspace has
 // finished initializing. A super-path (`&/…`) resolves through the game's `cosmoteer.rules`, which
 // `navigateSuperPath` cannot load until then, so it returns null meaning "not ready", not "absent".
-// That transient null used to be memoized as a genuine miss and — because the memo is only cleared
-// on an fs change, never on init completing — permanently flagged a valid reference (e.g. the vanilla
+// That transient null used to be memoized as a genuine miss and (because the memo is only cleared
+// on an fs change, never on init completing) permanently flagged a valid reference (e.g. the vanilla
 // `&/PRIORITIES/ControlRoom_Supply` in a bridge part). The fix skips storing a super-path miss while
 // the game root is unavailable, so a later resolution re-resolves it for real.
 describe('super-path resolution across workspace init (startup race)', () => {
@@ -33,7 +33,7 @@ describe('super-path resolution across workspace init (startup race)', () => {
         const before = await nav.navigate('&/Palette/Main', start, location, token);
         expect(before).toBeNull();
 
-        // Init completes. Nothing clears the navigation memo here — so a pinned miss would survive.
+        // Init completes. Nothing clears the navigation memo here, so a pinned miss would survive.
         await initWorkspace();
 
         // After init the same super-path must resolve for real (Palette/Main = 8 in the fixture's

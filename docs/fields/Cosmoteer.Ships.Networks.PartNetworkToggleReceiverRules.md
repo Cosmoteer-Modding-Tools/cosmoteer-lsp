@@ -17,11 +17,6 @@
 
 <!-- TODO: needs documentation -->
 
-## NetworkFilter
-`PartNetworkFilter` · optional
-
-<!-- TODO: needs documentation -->
-
 ## IncludeInPhysical
 `bool` · optional · default `true`
 

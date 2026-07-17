@@ -21,7 +21,7 @@ import {
  *
  * The TextMate grammar (`syntaxes/rules.tmLanguage.json`) stays the synchronous base layer: it
  * colours the moment a file opens and keeps colour when the server is down or no Cosmoteer path is
- * set. These tokens are the overlay the editor paints on top once the AST is parsed — they replace
+ * set. These tokens are the overlay the editor paints on top once the AST is parsed. They replace
  * the grammar's regex guesswork (is this word a key, a reference, an enum value, a math function?)
  * with the real parse, which the regex cannot know. The same payload drives VS Code and the native
  * IntelliJ LSP highlighter, so one implementation colours both editors.
@@ -86,7 +86,7 @@ const collectNode = (node: AbstractNode | null | undefined, topLevel: boolean, t
     }
 
     if (isAssignmentNode(node)) {
-        // `Key = value` / `Key : value` — the left identifier is a field name. Recurse the value.
+        // `Key = value` / `Key : value`: the left identifier is a field name. Recurse the value.
         pushSpan(node.left.position, 'property', 0, tokens);
         collectNode(node.right, false, tokens);
         return;
@@ -126,10 +126,16 @@ const collectContainer = (node: GroupNode | ListNode, topLevel: boolean, tokens:
             pushSpan(node.identifier.position, 'property', 0, tokens);
         }
     }
-    // `Foo : Base` — each inheritance base names another entity.
+    // `Foo : Base`: each inheritance base names another entity.
     for (const base of node.inheritance ?? []) pushSpan(base.position, 'type', 0, tokens);
     for (const element of node.elements) collectNode(element, false, tokens);
 };
+
+// A bareword that the parser types `String` but that is really a numeric literal: an mXparser
+// percentage (`50%`, `-0.6%`) or infinity. The parser keeps these `String` so the evaluator can
+// resolve them (percent → /100), but they read as numbers, and the TextMate grammar already colours
+// them numeric, so the semantic overlay must agree or the colour flips when the server catches up.
+const NUMERIC_LITERAL = /^-?(?:\s*\d*\.?\d+\s*%|infinity)$/i;
 
 /** Maps a value node's parsed kind to its token type. */
 const valueTokenType = (node: ValueNode): TokenType => {
@@ -145,7 +151,9 @@ const valueTokenType = (node: ValueNode): TokenType => {
         case 'Shader':
             return 'string';
         case 'String':
-            // A quoted string is a literal. A bareword (`Add`, `Normal`) is an enum-style value.
+            // A quoted string is a literal. A bareword numeric literal (`50%`, `Infinity`) colours as
+            // a number; any other bareword (`Add`, `Normal`) is an enum-style value.
+            if (!node.quoted && NUMERIC_LITERAL.test(String(node.valueType.value))) return 'number';
             return node.quoted ? 'string' : 'enumMember';
     }
 };

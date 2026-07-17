@@ -19,8 +19,8 @@ import { initWorkspace, valueOf, workspaceFile } from '../../workspace-helper';
 //   relative ../ file path       <../c.rules>/... from a subdir (real readdir)
 //   super-path /...              resolved via cosmoteer.rules
 //
-// NOTE: the cross-file grammar is `<file.rules>/path` — the slash after `>` is
-// required; `<file.rules>path` lexes `file.rules>path` as a single segment.
+// NOTE: the cross-file grammar is `<file.rules>/path`. The slash after `>` is
+// required. `<file.rules>path` lexes `file.rules>path` as a single segment.
 const nav = new FullNavigationStrategy();
 const token = CancellationToken.None;
 
@@ -34,7 +34,7 @@ beforeAll(async () => {
 const navigate = (path: string, start = docA, location = workspaceFile('a.rules')) =>
     nav.navigate(path, start, location, token);
 
-describe('FullNavigationStrategy — cross-file references', () => {
+describe('FullNavigationStrategy: cross-file references', () => {
     it('file -> in-file: resolves a path walked inside the target file', async () => {
         const result = await navigate('<./Data/a.rules>/A/Direct');
         expect(valueOf(result)).toBe(1);
@@ -94,9 +94,9 @@ describe('FullNavigationStrategy — cross-file references', () => {
         expect(result).toBeNull();
     });
 
-    // Nested `^/0/<Name>` inheritance — the real factory pattern (factory_durasteel.rules),
+    // Nested `^/0/<Name>` inheritance, the real factory pattern (factory_durasteel.rules),
     // where each nested group re-declares inheritance from the matching node in a base
-    // file. The inheritance reference is relative to the inheritance VALUE node, so it
+    // file. The inheritance reference is relative to the inheritance value node, so it
     // must be resolved from that node's scope (regression: resolving it from the group
     // shifted `^` up one level and flagged every `X : ^/0/X` line as unknown).
     describe('nested ^/0/<Name> cross-file inheritance', () => {

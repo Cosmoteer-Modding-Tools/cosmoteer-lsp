@@ -1,0 +1,5 @@
+// Wired only through an index-based Replace target, which the rooting index skips: stays unrooted.
+Skipped
+{
+	StartingMoney = 1
+}

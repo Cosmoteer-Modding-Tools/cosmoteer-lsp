@@ -58,6 +58,6 @@
 <!-- TODO: needs documentation -->
 
 ## HitAreaMode
-`enum PartHitAreaMode` · optional · default `1` · one of: `None`, `HitPoint`, `PartRect`
+`enum PartHitAreaMode` · optional · default `HitPoint` · one of: `None`, `HitPoint`, `PartRect`
 
 The mode of calculating the 'direct hit area' of this effect. Used to determine reactions to the hit.

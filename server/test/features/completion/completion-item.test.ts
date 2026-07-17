@@ -29,6 +29,15 @@ describe('toCompletionItem', () => {
         expect(item.insertTextFormat).toBeUndefined();
         expect(item.insertText).toBe('{\n\tAction = Add\n\tAddTo = ""\n}');
     });
+
+    it('attaches the trigger-suggest command to a snippet that lands at a value position', () => {
+        const suggestion = { label: 'X', insertText: 'X\n{\n\tType = $0\n}', isSnippet: true, triggerSuggest: true };
+        const withSnippets = toCompletionItem(suggestion, true);
+        expect(withSnippets.command).toEqual({ title: 'Trigger Suggest', command: 'editor.action.triggerSuggest' });
+        // Without snippet support there is no tab stop to land on, so no command either.
+        const withoutSnippets = toCompletionItem(suggestion, false);
+        expect(withoutSnippets.command).toBeUndefined();
+    });
 });
 
 describe('snippetToPlainText', () => {

@@ -6,7 +6,6 @@ import {
     AbstractNode,
     IdentifierNode,
     isListNode,
-    isAssignmentNode,
     isDocumentNode,
     isGroupNode,
     isValueNode,
@@ -16,13 +15,14 @@ import { FileTree, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { globalSettings } from '../../settings';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { isValidReference } from '../../utils/reference.utils';
-import { isModRules } from '../../document/document-kind';
 import { Validation, ValidationError } from './validator';
 import { extractSubstrings } from '../navigation/navigation-strategy';
-import { isTargetField } from '../../mod/action';
+import { isActionTargetValueNode } from '../../mod/action';
 import { findModRoot } from '../../mod/mod-root';
 import { resolveFromModContextOnly } from '../../mod/mod-context';
 import { isStringsFile } from '../../mod/strings-folder';
+import { isIgnoredSchemaField } from './validator.ignored-field';
+import { canonicalWorkshopEscape, intendedWorkshopEscape } from './workshop-escape';
 import * as l10n from '@vscode/l10n';
 
 const rulesNavigationStrategy = new FullNavigationStrategy();
@@ -168,11 +168,15 @@ const checkParantheses = (node: ValueNode) => {
 
 const checkAssets = async (node: ValueNode, cancellationToken: CancellationToken) => {
     if (node.valueType.type === 'Shader' || node.valueType.type === 'Sound' || node.valueType.type === 'Sprite') {
-        // Language-strings files (`en.rules`, …) hold localization TEXT: a value like
-        // `"PNG image files (*.png)"` or a description mentioning `.ship.png` merely CONTAINS an
-        // asset-like extension, it is not an asset path. The game never resolves these — skip the
+        // Language-strings files (`en.rules`, …) hold localization text: a value like
+        // `"PNG image files (*.png)"` or a description mentioning `.ship.png` merely contains an
+        // asset-like extension, it is not an asset path. The game never resolves these. Skip the
         // asset check so strings files don't show false "Asset not found" warnings.
         if (await isStringsFile(getStartOfAstNode(node).uri, cancellationToken)) return undefined;
+        // A field the game provably ignores (not in the resolved schema class, never referenced in
+        // the file) never has its path resolved either. Vanilla's `Filename = SmoothFalloffRamp.png`
+        // inside `Type = ValueCurve` updaters is dev-editor metadata, not a loaded asset.
+        if (isIgnoredSchemaField(node)) return undefined;
         // ObjectText (and the game) load unquoted asset paths fine, vanilla is full of them
         // (`File = debris.png`). Only a path containing whitespace is genuinely ambiguous unquoted
         // (ObjectText joins whitespace-separated tokens with a single space), so flag just those,
@@ -189,13 +193,13 @@ const checkAssets = async (node: ValueNode, cancellationToken: CancellationToken
         }
         const uri = getStartOfAstNode(node).uri;
         // Resolution tries the file's own directory first, then any inherited asset base
-        // directory — e.g. `CrewEnterEffects : /BASE_SOUNDS/AudioInterior` makes the
+        // directory, e.g. `CrewEnterEffects : /BASE_SOUNDS/AudioInterior` makes the
         // RandomSounds paths relative to the inherited base sound file's directory
         // (mirrored into the mod tree).
         if (await resolveAssetPath(node, uri, cancellationToken).catch(() => true)) {
             return undefined;
         }
-        // Not found — offer a "did you mean" suggestion (closest existing file of this kind in
+        // Not found. Offer a "did you mean" suggestion (closest existing file of this kind in
         // the same directories) as both extra info and a quick fix.
         const suggestion = await suggestAssetFilename(node, uri, cancellationToken).catch(() => null);
         const base = l10n.t(
@@ -205,7 +209,7 @@ const checkAssets = async (node: ValueNode, cancellationToken: CancellationToken
         return {
             message: l10n.t('Asset not found'),
             node: node,
-            // The game tolerates a missing asset at load time (placeholder/built-in — vanilla itself
+            // The game tolerates a missing asset at load time (placeholder/built-in: vanilla itself
             // references engine-provided files like `SmoothFalloffRamp.png` that aren't on disk), so
             // surface this as a warning + quick-fix rather than a hard error.
             severity: 'warning',
@@ -232,10 +236,11 @@ const checkReference = async (
                 ),
             };
         } else if (
-            // mod.rules action targets resolve against the game root (handled by the
-            // mod-action validator), so the generic check skips only those. mod.rules
-            // source refs are validated here like any other reference.
-            !(isModRules(uri) && isModActionTargetNode(node)) &&
+            // Action targets resolve against the game root (handled by the mod-action
+            // validator), so the generic check skips them. This holds wherever an action
+            // lives: a mod.rules manifest or an included fragment file (launcher.rules) whose
+            // `Actions` list a manifest concatenates. Source refs are validated here as usual.
+            !isActionTargetValueNode(node) &&
             !ignorePath(node.valueType.value) &&
             // `~` rooted references into a context the static file does not define are
             // resolved at runtime (template/library groups), so skip them.
@@ -251,7 +256,7 @@ const checkReference = async (
             const resolved = await rulesNavigationStrategy
                 .navigate(node.valueType.value, startNode, uri, cancellationToken)
                 .catch(() => undefined);
-            // Not found in vanilla data — fall back to the mod's own additions (the effective
+            // Not found in vanilla data. Fall back to the mod's own additions (the effective
             // game tree), so mod-added globals like `&/SW_SOUNDS/…` resolve anywhere inside the
             // mod. Uses the mod-context-only resolver since vanilla already failed above.
             const modResolved =
@@ -263,10 +268,34 @@ const checkReference = async (
             if (
                 resolved === null &&
                 (modResolved === null || modResolved === undefined) &&
-                // `X : ^/0/X [extra]` may extend a base that doesn't define `X` — Cosmoteer
-                // tolerates inheriting from a missing base member.
+                // `X : ^/0/X [extra]` may extend a base that doesn't define `X`. Cosmoteer
+                // tolerates inheriting from a missing base member. A `…/^/N/Member` reference into a
+                // base a mod's `AddBase` appends resolves through the shared resolver (the AddBase
+                // index augments the caret base's inheritance list), so a valid `^/1` member is
+                // already found above and only a genuine miss (a mis-indexed `^/0`) reaches here.
                 !(await inheritanceExtendsMissingMember(node, startNode, uri, cancellationToken))
             ) {
+                // A `<../../../workshop/...>` written from the wrong depth resolves nowhere, but
+                // its intent is clear. When the game-root form of the same target resolves, offer
+                // that rewrite instead of a name suggestion. Action targets are exempt even outside
+                // mod.rules (manifests include action lists from other files): the game resolves
+                // them against the Data root, where the bare `../` form is already correct.
+                const rewrite = isActionTargetValueNode(node) ? null : intendedWorkshopEscape(node.valueType.value, uri);
+                if (
+                    rewrite &&
+                    (await rulesNavigationStrategy.navigate(rewrite, startNode, uri, cancellationToken).catch(() => null))
+                ) {
+                    return {
+                        message: l10n.t('Reference name is not known'),
+                        node: node,
+                        severity: 'warning',
+                        additionalInfo: l10n.t(
+                            'The relative path does not resolve from this file. "{0}" resolves from the game folder and works from any file.',
+                            rewrite
+                        ),
+                        data: { quickFix: { title: l10n.t('Change to "{0}"', rewrite), newText: rewrite } },
+                    };
+                }
                 const suggestion = await suggestReferenceName(
                     node,
                     startNode,
@@ -297,26 +326,31 @@ const checkReference = async (
                         : undefined,
                 };
             }
+            // The reference resolves, but a file-relative escape into another workshop mod breaks
+            // whenever this file moves to a different depth. Recommend the game-root form, which
+            // resolves from any file, once it is confirmed to reach the same kind of target.
+            // Action targets are exempt even outside mod.rules (manifests include action lists
+            // from other files): the game resolves them against the Data root, where the bare
+            // `../` form is already correct.
+            const canonical = isActionTargetValueNode(node) ? null : canonicalWorkshopEscape(node.valueType.value, uri);
+            if (
+                canonical &&
+                (await rulesNavigationStrategy.navigate(canonical, startNode, uri, cancellationToken).catch(() => null))
+            ) {
+                return {
+                    message: l10n.t('Fragile relative path into the workshop folder'),
+                    node: node,
+                    severity: 'information',
+                    additionalInfo: l10n.t(
+                        'This path resolves relative to this file and breaks when the file moves. "{0}" resolves from the game folder and works from any file.',
+                        canonical
+                    ),
+                    data: { quickFix: { title: l10n.t('Change to "{0}"', canonical), newText: canonical } },
+                };
+            }
         }
     }
     return undefined;
-};
-
-/**
- * True if `node` is a mod-action target value (`AddTo`/`OverrideIn`/`Replace`/`Remove`/
- * `AddBaseTo = "<...>"`, or an element of a `RemoveMany [ ... ]` list). A ValueNode's
- * parent is its containing group/list, so we match by the owning field name.
- */
-const isModActionTargetNode = (node: ValueNode): boolean => {
-    const parent = node.parent;
-    if (!parent) return false;
-    if (isListNode(parent)) return !!parent.identifier && isTargetField(parent.identifier.name);
-    if (isGroupNode(parent)) {
-        return parent.elements.some(
-            (element) => isAssignmentNode(element) && element.right === node && isTargetField(element.left.name)
-        );
-    }
-    return false;
 };
 
 /**
@@ -352,7 +386,29 @@ const inheritanceExtendsMissingMember = async (
     }
 
     // Other inheritance forms: skip if the base prefix (everything before the last segment)
-    // resolves to a real container — the member is just absent on an existing base.
+    // resolves to a real container. The member is just absent on an existing base.
+    return basePrefixResolvesToContainer(value, startNode, uri, cancellationToken);
+};
+
+/**
+ * Whether the base prefix of a reference (everything before its final `/segment`) resolves to a real
+ * container: a group, a list, a whole-file document, or the file itself. This is what tells "the
+ * member is absent on an existing base" (tolerated) apart from "nothing along the path resolves at
+ * all" (a genuine dangling reference). The base prefix may itself be a `<file>` (the cross-file
+ * extend-own-member idiom `X : <base.rules>/X`), which resolves to that file's Document or the File.
+ *
+ * @param value the full reference text, e.g. `&<base.rules>/Part/^/0`.
+ * @param startNode the navigation origin.
+ * @param uri the referring document's uri.
+ * @param cancellationToken cancels the navigation.
+ * @returns true when the base prefix resolves to a container the missing member could sit on.
+ */
+const basePrefixResolvesToContainer = async (
+    value: string,
+    startNode: AbstractNode,
+    uri: string,
+    cancellationToken: CancellationToken
+): Promise<boolean> => {
     const lastSlash = value.lastIndexOf('/');
     if (lastSlash <= 0) return false;
     let base = await rulesNavigationStrategy
@@ -369,10 +425,6 @@ const inheritanceExtendsMissingMember = async (
             .catch(() => null);
     }
     if (!base || typeof base !== 'object') return false;
-    // The base prefix may be a group/list, but also a whole FILE the base member lives in (the
-    // cross-file extend-own-member idiom `X : <base.rules>/X`, e.g. terran.rules `Fire :
-    // <../base_ship.rules>/Fire`): `<file>` resolves to that file's Document (or, for the data-root
-    // form, the File itself). Any of these means the base exists and the missing member is tolerated.
     return (
         isGroupNode(base as AbstractNode) ||
         isListNode(base as AbstractNode) ||

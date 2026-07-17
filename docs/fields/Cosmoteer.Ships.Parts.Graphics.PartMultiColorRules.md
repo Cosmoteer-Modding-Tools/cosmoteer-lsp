@@ -18,12 +18,12 @@
 <!-- TODO: needs documentation -->
 
 ## RGBMode
-`enum MultiValueMode` · optional · default `1` · one of: `Add`, `Multiply`, `Min`, `Max`, `Average`
+`enum MultiValueMode` · optional · default `Multiply` · one of: `Add`, `Multiply`, `Min`, `Max`, `Average`
 
 <!-- TODO: needs documentation -->
 
 ## AMode
-`enum MultiValueMode` · optional · default `1` · one of: `Add`, `Multiply`, `Min`, `Max`, `Average`
+`enum MultiValueMode` · optional · default `Multiply` · one of: `Add`, `Multiply`, `Min`, `Max`, `Average`
 
 <!-- TODO: needs documentation -->
 

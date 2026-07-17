@@ -336,8 +336,8 @@ export interface FunctionScope {
 }
 
 /**
- * The scope of the function whose body contains `offset` — its parameters and the body text written
- * before the cursor — or null when the cursor is not inside a function body. Used to offer the
+ * The scope of the function whose body contains `offset` (its parameters and the body text written
+ * before the cursor), or null when the cursor is not inside a function body. Used to offer the
  * parameters and locals in scope for completion. An unterminated body (mid-edit, no closing brace yet)
  * still resolves, so completion works while the function is being written.
  *

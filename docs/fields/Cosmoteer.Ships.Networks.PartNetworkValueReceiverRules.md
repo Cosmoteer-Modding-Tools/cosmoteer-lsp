@@ -12,11 +12,6 @@
 
 The combination mode for the retrieved values.
 
-## NetworkFilter
-`PartNetworkFilter` · optional
-
-<!-- TODO: needs documentation -->
-
 ## IncludeInPhysical
 `bool` · optional · default `true`
 

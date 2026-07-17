@@ -29,7 +29,7 @@ const code = (text: string): string => '`' + text.replace(/`/g, "'") + '`';
 
 /**
  * A markdown link to a file, labeled with its mod-relative path. The destination is a
- * `vscode://file/…` deep link, not a `file:` uri — markdown-it's link validator (in VS Code's
+ * `vscode://file/…` deep link, not a `file:` uri: markdown-it's link validator (in VS Code's
  * preview too) rejects the `file:` scheme outright, leaving the raw `[…](…)` text visible.
  * Parentheses are percent-encoded on top of the per-segment encoding, since an unencoded `)` in a
  * file name (`Kopie (2).rules`) would close the markdown destination early.

@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { existsSync } from 'fs';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
@@ -20,7 +21,7 @@ import { schemaFieldNameCompletions } from '../../../src/features/completion/aut
 import { ShaderConstant } from '../../../src/features/shader/shader-parser';
 import { shaderConstantHover } from '../../../src/features/shader/shader-hover';
 import { clearShaderCache } from '../../../src/features/shader/shader-index';
-import { validateShaderConstants } from '../../../src/features/diagnostics/validator.shader-constants';
+import { shaderVariantSiblings, validateShaderConstants } from '../../../src/features/diagnostics/validator.shader-constants';
 
 // These exercise the end-to-end path: a material group with a `Shader = X` sibling resolves its
 // uniforms from the referenced `.shader`. Resolution reads the real shader from disk, so the cases
@@ -40,7 +41,7 @@ const findGroup = (node: AbstractNode, id: string): GroupNode | undefined => {
     const kids =
         isGroupNode(node) || isListNode(node) || isDocumentNode(node)
             ? node.elements
-            : isAssignmentNode(node)
+            : isAssignmentNode(node) && node.right
               ? [node.right]
               : [];
     for (const k of kids) {
@@ -94,7 +95,7 @@ describe('shader-constant completion + hover', () => {
 
     it.runIf(HAVE_DATA)('enriches the hover of a constant written in the group form (`_z { … }`)', async () => {
         clearShaderCache();
-        // The group form (`_x { … }`) is an equally valid way to set a constant; hovering its key
+        // The group form (`_x { … }`) is an equally valid way to set a constant. Hovering its key
         // resolves to the group node, not an assignment, which must still surface the shader info.
         const doc = parse(partSprite('\t\t\t\tShader = "particle_light_emissive.shader"\n\t\t\t\t_z\n\t\t\t\t{\n\t\t\t\t}'));
         const group = findGroup(doc, 'BlueprintArcSprite')!;
@@ -171,6 +172,41 @@ describe('shader-constant validation', () => {
     it('skips a material whose shader cannot be resolved (no false positives)', async () => {
         const doc = parse(partSprite('\t\t\t\tShader = "does_not_exist.shader"\n\t\t\t\t_anything = 1'));
         expect(await validateShaderConstants(doc, token)).toEqual([]);
+    });
+});
+
+describe('shader variant siblings', () => {
+    // The candidates must match the directory listing case-insensitively (a mod names its variants
+    // freely and Linux paths are case-sensitive), and the paths returned must carry the real
+    // on-disk casing. Windows opens a lowercased guess anyway, so the assertions compare the
+    // returned path strings, which only the listing (never a guess) can produce correctly cased.
+    let dir: string;
+    beforeEach(() => {
+        dir = mkdtempSync(join(tmpdir(), 'shader-sib-'));
+    });
+    afterEach(() => {
+        rmSync(dir, { recursive: true, force: true });
+    });
+
+    it('finds differently-cased family variants and returns their on-disk cased paths', async () => {
+        writeFileSync(join(dir, 'Laser_Diffuse.shader'), '');
+        writeFileSync(join(dir, 'laser.shader'), '');
+        writeFileSync(join(dir, 'LASER_normals.shader'), '');
+        const siblings = await shaderVariantSiblings(join(dir, 'Laser_Diffuse.shader'));
+        expect(siblings).toEqual([join(dir, 'laser.shader'), join(dir, 'LASER_normals.shader')]);
+    });
+
+    it('finds the variants of a plain shader without listing the shader itself', async () => {
+        writeFileSync(join(dir, 'beam.shader'), '');
+        writeFileSync(join(dir, 'Beam_Diffuse.shader'), '');
+        const siblings = await shaderVariantSiblings(join(dir, 'beam.shader'));
+        expect(siblings).toEqual([join(dir, 'Beam_Diffuse.shader')]);
+    });
+
+    it('returns nothing when no sibling exists or the directory is gone', async () => {
+        writeFileSync(join(dir, 'solo.shader'), '');
+        expect(await shaderVariantSiblings(join(dir, 'solo.shader'))).toEqual([]);
+        expect(await shaderVariantSiblings(join(dir, 'missing', 'x.shader'))).toEqual([]);
     });
 });
 

@@ -100,12 +100,20 @@
 ## ToggleOnResources
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The storage doubles as a toggle, and this is the fill level that switches it on: it reads on
+once the stored amount reaches this many resources, and off again only when the amount falls
+to [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.ToggleOffResources]] or below.
+The gap between the two is a hysteresis band that stops the toggle from flickering while
+resources stream in and out. Vanilla missile modes set it to one shot's worth of parts, so the
+toggle means "has enough to fire".
 
 ## ToggleOffResources
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The fill level that switches the storage's toggle off again: it reads off once the stored
+amount falls to this many resources or below, after having reached
+[[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.ToggleOnResources]]. Usually set
+one below the on threshold.
 
 ## ProvidedValueRange
 `range<float>` · optional
@@ -143,6 +151,6 @@
 <!-- TODO: needs documentation -->
 
 ## AccessWarningLevel
-`enum AccessWarningLevel` · optional · default `2` · one of: `None`, `Weak`, `Strong`
+`enum AccessWarningLevel` · optional · default `Strong` · one of: `None`, `Weak`, `Strong`
 
 <!-- TODO: needs documentation -->

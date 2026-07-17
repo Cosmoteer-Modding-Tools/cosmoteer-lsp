@@ -13,12 +13,12 @@ import { Completion } from '../completion/autocompletion.service';
 import { stringValueNodesOf, valueTextRange } from './schema-reference.navigation';
 
 /**
- * Particle data channels — the local symbol system inside a particle effect file.
+ * Particle data channels: the local symbol system inside a particle effect file.
  *
  * A particle updater/renderer reads and writes named data "channels" (the engine's `ParticleDataID`):
  * `SetRandom { DataOut = rot_vel }` declares the channel `rot_vel`, and `Operator { BIn = rot_vel }`
- * uses it. The fields are detected by their schema value type — every channel field is typed
- * `ParticleDataID` (emitted as an `opaque` kind by the extractor) — so no field-name guessing is
+ * uses it. The fields are detected by their schema value type: every channel field is typed
+ * `ParticleDataID` (emitted as an `opaque` kind by the extractor), so no field-name guessing is
  * needed. The read/write direction is encoded in the field-name suffix: `…Out` writes (declares),
  * `…In` reads (uses), `…InOut` does both.
  *

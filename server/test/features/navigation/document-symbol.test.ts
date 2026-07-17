@@ -32,7 +32,7 @@ const assertSelectionWithinRange = (symbol: DocumentSymbol): void => {
     symbol.children?.forEach(assertSelectionWithinRange);
 };
 
-describe('DocumentSymbolService — outline', () => {
+describe('DocumentSymbolService: outline', () => {
     it('annotates typed groups with their resolved schema class in the detail', () => {
         const src = 'Part\n{\n\tComponents\n\t{\n\t\tTurret\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t}\n\t}\n}';
         const doc = parser(lexer(src), 'file:///t.rules').value;
@@ -77,7 +77,7 @@ describe('DocumentSymbolService — outline', () => {
         expect(black.kind).toBe(SymbolKind.Array);
         expect(black.children?.map((c) => c.name)).toEqual(['[0]', '[1]', '[2]', '[3]']);
 
-        // Black { RGBA, RGB, Float { Rf … Af } } — nested group reached two levels down.
+        // Black { RGBA, RGB, Float { Rf … Af } }: nested group reached two levels down.
         const float = byName(byName(symbols, 'Black').children!, 'Float');
         expect(float.kind).toBe(SymbolKind.Object);
         expect(float.children?.map((c) => c.name)).toEqual(['Rf', 'Gf', 'Bf', 'Af']);

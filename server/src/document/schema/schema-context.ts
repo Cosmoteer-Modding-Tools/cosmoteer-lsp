@@ -3,7 +3,7 @@
  *
  * A group's concrete class is selected by its own `Type=<disc>` field (the `[SerialBaseType]`
  * dispatch). The containing list/group (e.g. `Components`) is itself custom-deserialized in the
- * engine, so it has no `[Serialize]` field linking it to the registry — instead we infer the
+ * engine, so it has no `[Serialize]` field linking it to the registry. Instead we infer the
  * registry from any sibling's already-written `Type`, which is robust (a part's `Components` and a
  * bullet's `Components` disambiguate themselves by what their children declare).
  */
@@ -28,11 +28,13 @@ import {
     fieldsOf,
     firstRegistryDeclaring,
     schema,
+    typeDef,
 } from './schema';
 import { SchemaField, SchemaRegistry, ValueType } from './schema.types';
 import { documentRootClass } from './document-root';
 import { aliasedMemberType, inheritanceBaseCandidates } from './alias-root';
-import { TEXTURE_GROUP_CLASS } from './schema-overlay';
+import { SHADER_GROUP_CLASS, TEXTURE_GROUP_CLASS } from './schema-overlay';
+import { stepIntoNode } from '../../semantics/reference-resolver';
 import { perfCount } from '../../utils/perf-counters';
 
 /**
@@ -47,7 +49,7 @@ export const ROOT_GROUP_CLASSES: Record<string, string> = {
 /**
  * Folder-scoped whole-file group roots: a `.rules` file whose root is a single named group whose
  * class is fixed by the folder it lives in rather than by a canonical identifier. A ship file is
- * `Asteroid : <base_ship.rules> { … }` — the group's name is the ship's own, so {@link
+ * `Asteroid : <base_ship.rules> { … }`, and the group's name is the ship's own, so {@link
  * ROOT_GROUP_CLASSES} (which keys on a fixed name like `Part`) can't anchor it, but every ship under
  * `ships/`/`builtin_ships/` is a `ShipRules`. Applied only to a top-level group and only when the
  * group's fields are a majority of the candidate's (see {@link groupFitsClass}), so the part, wall and
@@ -104,6 +106,39 @@ const slotTypeCache: WeakMap<AbstractNode, { epoch: number; value: ValueType | u
 const groupClassCache: WeakMap<GroupNode, { epoch: number; value: string | undefined }> = new WeakMap();
 
 /**
+ * A secondary source of slot types for containers the parent chain cannot anchor, the same inversion
+ * {@link aliasedMemberType} uses for unrooted top-level members. The mod-action rooting index registers
+ * here so an action's inline source value (`ToAdd { … }` in a manifest) and a deep action-wired container
+ * take the slot type of the action's target. Consulted only after ordinary resolution yields nothing, so
+ * a rooted context always wins.
+ */
+export type NodeSlotSource = (node: GroupNode | ListNode) => ValueType | undefined;
+
+const nodeSlotFallbacks: NodeSlotSource[] = [];
+
+/**
+ * Registers a secondary node-slot source consulted by the slot resolution, or clears them all.
+ * Sources are consulted in registration order and the first answer wins, matching the alias
+ * fallback chain: the action-rooting index and the reverse-include index's deep-macro leaf records
+ * both register here.
+ *
+ * @param source the fallback source to add, or undefined to clear them all.
+ */
+export const registerNodeSlotSource = (source: NodeSlotSource | undefined): void => {
+    if (!source) nodeSlotFallbacks.length = 0;
+    else if (!nodeSlotFallbacks.includes(source)) nodeSlotFallbacks.push(source);
+};
+
+/** The first registered node-slot source's answer for `node`, or undefined. */
+const nodeSlotFallback = (node: GroupNode | ListNode): ValueType | undefined => {
+    for (const source of nodeSlotFallbacks) {
+        const value = source(node);
+        if (value) return value;
+    }
+    return undefined;
+};
+
+/**
  * The schema value type the engine expects at a group/list node's slot, derived from the field that
  * declares its container. This is what makes nested resolution and collision-disambiguation work:
  * the declaring field names the exact class/registry, so a `Perlin` under a `TextureLayer`-typed
@@ -117,7 +152,7 @@ const groupClassCache: WeakMap<GroupNode, { epoch: number; value: string | undef
 const expectedValueType = (node: GroupNode | ListNode, depth: number): ValueType | undefined => {
     const cached = slotTypeCache.get(node);
     if (cached && cached.epoch === contextEpoch) return cached.value;
-    let value = expectedValueTypeUncached(node, depth);
+    let value = expectedValueTypeUncached(node, depth) ?? nodeSlotFallback(node);
     // A list written into a group-kind slot whose class delegates its value form to a collection
     // (`HitEffects [ … ]` on a MultiHitEffectRules) is read as that collection, so the list takes
     // the delegated type and its elements resolve (a typed hit-effect group, not a positional
@@ -140,6 +175,34 @@ const listValueFormOf = (slot: ValueType | undefined): ValueType | undefined => 
     const form = schema.types[slot.ref]?.valueForm;
     return form && ELEMENT_KINDS.has(form.kind) ? form : undefined;
 };
+
+/** A map-kind slot type, as the ValueType union declares it. */
+type MapValueType = Extract<ValueType, { kind: 'map' }>;
+
+/**
+ * The written member names of a map's entry-list form and the type each carries: `Key` then
+ * `Value`, or the `[KeyValuePairNames]` spellings the map declares (`Old`/`New`). The single source
+ * of truth shared by slot typing, member lookup and entry-name completion, so the names completion
+ * offers and the names validation accepts cannot drift apart.
+ *
+ * @param map the map-kind slot type.
+ * @returns the entry member names paired with their value types, key first.
+ */
+export const mapEntryNames = (map: MapValueType): ReadonlyArray<readonly [string, ValueType]> => [
+    [map.entryKey ?? 'Key', map.key],
+    [map.entryValue ?? 'Value', map.value],
+];
+
+/**
+ * The type an entry-form map member reads as, matched case-insensitively like the game's node
+ * lookup.
+ *
+ * @param map the map-kind slot type.
+ * @param member the written member name.
+ * @returns the entry member's value type, or undefined when the member is neither entry name.
+ */
+export const mapEntryMemberType = (map: MapValueType, member: string): ValueType | undefined =>
+    mapEntryNames(map).find(([name]) => name.toLowerCase() === member.toLowerCase())?.[1];
 
 /**
  * The uncached slot resolution behind {@link expectedValueType}.
@@ -170,17 +233,29 @@ const expectedValueTypeUncached = (node: GroupNode | ListNode, depth: number): V
             // An unrooted top-level member: root it by how the game root aliases this fragment file in.
             return aliasedMemberType(parent, memberName);
         }
-        // The container's own slot is resolved ONCE here and shared between its class resolution and
-        // the map fallback below. Recursing separately for each would double the work per nesting
-        // level and blow up exponentially on deep files.
+        // The container's slot memo feeds both the class resolution (resolveGroupClass reads the
+        // same slot internally) and the map fallback below, so neither recomputes it per member.
+        // Delegating the class chain to resolveGroupClass shares its per-group memo too, so K
+        // members of one container cost one resolution, not K.
         const containerSlot = expectedValueType(parent, depth + 1);
-        const ownerClass = inheritedBaseClassForGroup(parent) ?? classFromSlot(parent, containerSlot);
+        const ownerClass = resolveGroupClass(parent, depth + 1);
         if (ownerClass) return fieldOf(ownerClass, memberName)?.valueType;
         // A class-less container can still sit in a map-typed slot (a ToggledComponents part's
         // `Components` map, a planet's `Styles`). Its members are keys, so each member takes the
         // map's value type. Without this, such members fall back to sibling registry inference,
         // which picks the wrong registry for an ambiguous discriminator like `Type = ArcShield`.
-        if (containerSlot?.kind === 'map') return containerSlot.value;
+        // An ENTRY group (the map reached the container through its entry-list form) instead types
+        // its `Key`/`Value` members (or the `[KeyValuePairNames]` spellings, `Old`/`New`).
+        if (containerSlot?.kind === 'map') {
+            if (parent.parent && isListNode(parent.parent)) return mapEntryMemberType(containerSlot, memberName);
+            return containerSlot.value;
+        }
+        // A range slot's group form (`TwinkleAddColor { Min = […] Max = […] }`): the engine reads
+        // the `Value` or `Min`/`Max` keys as the range's element type, so those members type as the
+        // element and everything below them (a positional color list, a nested group) resolves.
+        if (containerSlot?.kind === 'range' && /^(value|min|max)$/i.test(memberName)) {
+            return containerSlot.element;
+        }
         return undefined;
     }
 
@@ -209,6 +284,15 @@ const expectedValueTypeUncached = (node: GroupNode | ListNode, depth: number): V
             const index = parent.elements.indexOf(node);
             if (index >= 0) return fieldOf(listType.ref, String(index))?.valueType;
         }
+        // A tuple slot: element N's declared type is the tuple's Nth entry, so a nested list inside
+        // a tuple (a career map picker's `[3, [faction, …]]`) resolves through its index too.
+        if (listType?.kind === 'tuple' && !parent.inheritance?.length) {
+            const index = parent.elements.indexOf(node);
+            if (index >= 0) return listType.elements[index];
+        }
+        // A map written in its entry-list form (`Upgrades [ { Old=… New=… } ]`): the map type passes
+        // through to each entry group, whose named members then resolve in the member branch below.
+        if (listType?.kind === 'map') return listType;
         return undefined;
     }
     return undefined;
@@ -220,16 +304,31 @@ export const registryHintFromContainer = (group: GroupNode, depth = 0): string |
     return expected?.kind === 'polymorphicGroup' ? expected.ref : undefined;
 };
 
-/** The `Type=` discriminator value written in a group, if any. The field name matches case-insensitively like the game's node lookup. */
-export const groupDiscriminator = (group: GroupNode, typeField = 'Type'): string | undefined => {
+// Per-node memo of the resolved discriminator, keyed by the lower-cased type-field name (a registry
+// can name its own). Nodes are rebuilt wholesale on every parse, so a WeakMap keyed by the node needs
+// no invalidation. Worth caching because the callers ask per member of a group they judge, and each
+// call otherwise rebuilds the whole named-member list: the ignored-field and default-value passes
+// alone made this the hottest function of a workspace scan, allocating a member array per member.
+const discriminatorMemo = new WeakMap<GroupNode | AbstractNodeDocument, Map<string, string | undefined>>();
+
+/** The `Type=` discriminator value written in a group (or at a fragment document's top level), if
+ *  any. The field name matches case-insensitively like the game's node lookup. */
+export const groupDiscriminator = (group: GroupNode | AbstractNodeDocument, typeField = 'Type'): string | undefined => {
+    const wanted = typeField.toLowerCase();
+    const memo = discriminatorMemo.get(group);
+    if (memo?.has(wanted)) return memo.get(wanted);
+    let found: string | undefined;
     for (const [name, value] of namedMembersOf(group)) {
-        if (name.toLowerCase() !== typeField.toLowerCase()) continue;
+        if (name.toLowerCase() !== wanted) continue;
         // `value` can be null for an in-progress empty `Type = ` assignment.
         if (value && isValueNode(value) && (value.valueType.type === 'String' || value.valueType.type === 'Reference')) {
-            return String(value.valueType.value);
+            found = String(value.valueType.value);
+            break;
         }
     }
-    return undefined;
+    if (memo) memo.set(wanted, found);
+    else discriminatorMemo.set(group, new Map([[wanted, found]]));
+    return found;
 };
 
 /** The concrete schema class FullName a group represents, resolved from its own `Type` field. */
@@ -279,26 +378,40 @@ const ownedFieldNames = (group: GroupNode): string[] =>
         .filter((name): name is string => !!name && name.toLowerCase() !== 'type');
 
 /**
- * Root an inheritance-base fragment group — a top-level group in an unrooted document, pulled in only as
- * a `Derived : <file>/Base` — to the deriver class that best fits its own fields. A base file often writes
- * fields that live on a DERIVED class (the `commands/base_command.rules` `BaseCommand` group declares the
- * move widgets, which are on `MoveCommandRules`, not the shared `BaseCommandRules`), so the shallow common
- * ancestor would leave those unresolved. Among every deriver class and its ancestors, this picks the
- * most-derived (most fields) candidate that owns EVERY field the group declares — guaranteeing full
- * completion with no new unknown-field warning — and falls back to the common ancestor when none covers
- * the group (a base mixing unrelated derived fields stays safely shallow rather than mis-rooted).
+ * Root an inheritance-base fragment group (a top-level group in an unrooted document, pulled in only
+ * as a `Derived : <file>/Base`) to the deriver class that best fits its own fields. A base file often
+ * writes fields that live on a derived class (the `commands/base_command.rules` `BaseCommand` group
+ * declares the move widgets, which are on `MoveCommandRules`, not the shared `BaseCommandRules`), so
+ * the shallow common ancestor would leave those unresolved. Among every deriver class and its ancestors,
+ * plus the group's own slot class, this picks the most-derived (most fields) candidate that owns every
+ * field the group declares, guaranteeing full completion with no new unknown-field warning. It falls
+ * back to the common ancestor when none covers the group (a base mixing unrelated derived fields stays
+ * safely shallow rather than mis-rooted).
+ *
+ * The slot class joins the candidates because a base can be both aliased in as a field and inherited
+ * by classes on other branches: `command_follow.rules`'s `FollowCommand` is the `Commands.Follow` slot
+ * (a `FollowCommandRules`, which owns every field) while its derivers (`SalvageCommand`,
+ * `FtlGateJumpCommand`) sit on sibling branches whose ancestries never contain it.
  *
  * @param group the candidate base group.
+ * @param slotClass the class the group's own slot resolves to, as {@link classFromSlot} returns it.
  * @returns the best-fitting class FullName, or undefined when the group isn't an inheritance base.
  */
-const inheritedBaseClassForGroup = (group: GroupNode): string | undefined => {
+const inheritedBaseClassForGroup = (group: GroupNode, slotClass?: string): string | undefined => {
     const parent = group.parent;
     if (!parent || !isDocumentNode(parent) || !group.identifier) return undefined;
     const deriverClasses = inheritanceBaseCandidates(parent, group.identifier.name);
-    if (deriverClasses.length === 0 || documentRootClass(parent) !== undefined) return undefined;
+    if (deriverClasses.length === 0) return undefined;
+    // A rooted document blocks base rooting only when its root class actually owns the group's
+    // name, where slot typing gives the better answer. A named wrapper group the root class does
+    // not know (a shots-folder munitions fragment whose groups are inherited into components)
+    // would otherwise stay dark even though its derivers know its class.
+    const parentRoot = documentRootClass(parent);
+    if (parentRoot && fieldOf(parentRoot, group.identifier.name)) return undefined;
     const names = ownedFieldNames(group);
     const candidates = new Set<string>();
     for (const cls of deriverClasses) for (const ancestor of classAncestry(cls)) candidates.add(ancestor);
+    if (slotClass) for (const ancestor of classAncestry(slotClass)) candidates.add(ancestor);
     let best: string | undefined;
     let bestFieldCount = -1;
     for (const candidate of candidates) {
@@ -313,8 +426,109 @@ const inheritedBaseClassForGroup = (group: GroupNode): string | undefined => {
 };
 
 /**
+ * Resolves a same-file reference path to its target node, for the synchronous inheritance walk. Only
+ * same-file forms resolve here: a `<file>` ref or a game-root super-path needs the async resolver
+ * and yields undefined. The walk dereferences any reference value it lands on mid-path (an `^/0`
+ * step lands on the owner container's base entry, itself a `~/TEMPLATE` reference that must resolve
+ * before the next segment can step into it), recursing with the same same-file rules. `depth`
+ * bounds cyclic bases the way it bounds {@link resolveGroupClass}.
+ *
+ * @param raw the reference text as written (with or without the `&` sigil).
+ * @param owner the group or list the reference belongs to (the deriving node for a base entry).
+ * @param depth the {@link resolveGroupClass} recursion depth, forwarded as the cycle guard.
+ * @returns the target node, or undefined when the path does not resolve within this file.
+ */
+const sameFileReferenceTarget = (
+    raw: string,
+    owner: GroupNode | ListNode | AbstractNodeDocument,
+    depth: number
+): AbstractNode | undefined => {
+    if (depth > 32) return undefined;
+    const cleaned = raw.trim().replace(/^&\s*/, '');
+    if (!cleaned || cleaned.includes('<') || cleaned.startsWith('/')) return undefined;
+    const segments = cleaned.split('/').map((s) => s.trim()).filter(Boolean);
+    if (segments.length === 0) return undefined;
+    let node: AbstractNode | null | undefined;
+    let index = 0;
+    let previous = '';
+    if (segments[0] === '^') {
+        // A leading `^` on a base reference selects the owner's container's inheritance anchor (the
+        // inheriting member inherits from the same-named member of its container's base), matching
+        // stepIntoNode's climb from the base value node, whose parent is the deriving node itself.
+        // A top-level owner has no such anchor, so the path stays unresolved.
+        if (isDocumentNode(owner) || !owner.parent || !(isGroupNode(owner.parent) || isListNode(owner.parent))) {
+            return undefined;
+        }
+        node = owner.parent;
+        index = 1;
+        previous = '^';
+    } else if (segments[0] === '~' || segments[0] === '..') {
+        node = owner;
+    } else {
+        // A relative first segment names a member of an enclosing scope: an inheritance ref
+        // resolves against the deriving node's container chain, nearest scope first. A document-level
+        // owner (a top-level macro's value, reached through dereferenceValue) is itself the outermost scope.
+        let scope: AbstractNode | undefined = isDocumentNode(owner) ? owner : owner.parent;
+        while (scope && !node) {
+            if (isGroupNode(scope) || isDocumentNode(scope)) node = stepIntoNode(scope, segments[0]) ?? undefined;
+            scope = scope.parent;
+        }
+        if (!node) return undefined;
+        index = 1;
+    }
+    for (; index < segments.length && node; index++) {
+        node = dereferenceValue(node, depth);
+        if (!node) return undefined;
+        node = stepIntoNode(node, segments[index], previous === '^');
+        previous = segments[index];
+    }
+    return node ? dereferenceValue(node, depth) : undefined;
+};
+
+/**
+ * Follows a reference-valued node to its target within the same file: an `^/0` step lands on a base
+ * entry whose value is itself a reference (`~/TEMPLATE`), which resolves relative to its own owning
+ * node before the walk continues. Non-reference nodes pass through unchanged.
+ *
+ * @param node the node the walk landed on.
+ * @param depth the recursion depth forwarded to the nested resolution.
+ * @returns the dereferenced node, or undefined when a reference in the chain does not resolve.
+ */
+const dereferenceValue = (node: AbstractNode, depth: number): AbstractNode | undefined => {
+    if (!isValueNode(node) || node.valueType.type !== 'Reference') return node;
+    const owner = node.parent;
+    // A document owner is a top-level macro's value (`EMITTER = &Part/Components/…`), which the
+    // `~/NAME` base idiom dereferences on its way to the real component.
+    if (!owner || !(isGroupNode(owner) || isListNode(owner) || isDocumentNode(owner))) return undefined;
+    return sameFileReferenceTarget(String(node.valueType.value), owner, depth + 1);
+};
+
+/**
+ * Follows a group's same-file inheritance bases synchronously to the class the base carries. The
+ * async resolver covers every base form for completion, but hover, validation and slot typing run
+ * synchronously, so a component inheriting a same-file template (`BulletEmitter : ~/EMITTER`,
+ * `X : SiblingTemplate`, `Y : ^/0/Y`) was dark to them. Cross-file bases (`<file>`, `&/GLOBAL`)
+ * still need the async path and are skipped. The first base that yields a class wins.
+ *
+ * @param group the deriving group.
+ * @param depth the {@link resolveGroupClass} recursion depth, forwarded as the cycle guard.
+ * @returns the inherited class FullName, or undefined.
+ */
+const sameFileInheritedClass = (group: GroupNode, depth: number): string | undefined => {
+    for (const base of group.inheritance ?? []) {
+        if (!isValueNode(base) || base.valueType.type !== 'Reference') continue;
+        const target = sameFileReferenceTarget(String(base.valueType.value), group, depth);
+        if (target && isGroupNode(target) && target !== group) {
+            const cls = resolveGroupClass(target, depth + 1);
+            if (cls) return cls;
+        }
+    }
+    return undefined;
+};
+
+/**
  * Resolve the schema class a group represents, top-down. A class is known when the group:
- *  1. sits in a slot whose declaring field types it — a concrete `group` field gives the class
+ *  1. sits in a slot whose declaring field types it: a concrete `group` field gives the class
  *      directly. A `polymorphicGroup` field gives the registry, and the group's `Type=` picks the
  *      member (disambiguating collisions), or
  *  2. carries its own `Type=` discriminator with no slot hint, or
@@ -325,9 +539,15 @@ export const resolveGroupClass = (group: GroupNode, depth = 0): string | undefin
     if (depth > 32) return undefined;
     const cached = groupClassCache.get(group);
     if (cached && cached.epoch === contextEpoch) return cached.value;
-    // A top-level group reachable only as a cross-file inheritance base: root it to the deriver class
-    // that best fits its own fields, ahead of the shallower common-ancestor type the slot walk yields.
-    const value = inheritedBaseClassForGroup(group) ?? classFromSlot(group, expectedValueType(group, depth));
+    // A top-level group reachable only as a cross-file inheritance base: root it to the class that
+    // best fits its own fields among the derivers and the slot class, ahead of the shallower
+    // common-ancestor type either would yield alone. A group neither roots, with a same-file base
+    // inherits the base's class (inheritance preserves type).
+    const slotClass = classFromSlot(group, expectedValueType(group, depth));
+    const value =
+        inheritedBaseClassForGroup(group, slotClass) ??
+        slotClass ??
+        sameFileInheritedClass(group, depth);
     if (depth <= MEMO_DEPTH_LIMIT) groupClassCache.set(group, { epoch: contextEpoch, value });
     return value;
 };
@@ -340,11 +560,51 @@ export const resolveGroupClass = (group: GroupNode, depth = 0): string | undefin
  * @param expected the group's slot type, as {@link expectedValueType} returns it.
  * @returns the class FullName, or undefined when the group cannot be anchored.
  */
+/** Whether a group written in a range slot uses the engine's range keys (`Value`, or `Min`/`Max`). */
+const usesRangeKeys = (group: GroupNode): boolean =>
+    namedMembersOf(group).some(([name]) => /^(value|min|max)$/i.test(name));
+
 const classFromSlot = (group: GroupNode, expected: ValueType | undefined): string | undefined => {
-    if (expected?.kind === 'group') return expected.ref;
+    if (expected?.kind === 'group') {
+        // A wrapper class delegating its value form to a registry (`[Serialize(Alias="")]` on a
+        // polymorphic member: a name-generator entry, a stat widget wrapper, a brush) reads both
+        // its own fields and the dispatched member's, written flat in one group. A single class
+        // must answer here, so the side that owns more of the group's written names wins: the stat
+        // widgets' fields live on the member (StatBarRules), the brushes' on the wrapper
+        // (BrushRules' NameKey/Icon). The wrapper stays the answer on a tie or without a `Type=`.
+        const delegated = typeDef(expected.ref)?.valueForm;
+        if (delegated?.kind === 'polymorphicGroup') {
+            const registry = schema.registries[delegated.ref];
+            const viaType = classOfGroup(group, registry?.name);
+            if (viaType) {
+                const names = ownedFieldNames(group);
+                const owned = (cls: string) => names.filter((name) => !!fieldOf(cls, name)).length;
+                if (owned(viaType) > owned(expected.ref)) return viaType;
+            }
+        }
+        return expected.ref;
+    }
+    // A range slot filled with a group: the engine reads `Value` or `Min`/`Max` keys (each of the
+    // element type), and otherwise the whole group AS the element. So an element-shaped group (a
+    // bullet `Speed { BaseValue … }` in a range<Modifiable> slot) resolves to the element's group
+    // class, while a `{ Min … Max … }` group keeps no class and its keys type through the member
+    // branch of expectedValueType instead.
+    if (expected?.kind === 'range' && !usesRangeKeys(group)) {
+        const element = expected.element;
+        if (element.kind === 'group') return element.ref;
+        if ((element.kind === 'number' || element.kind === 'int' || element.kind === 'float') && element.groupForm) {
+            return element.groupForm;
+        }
+    }
     if (expected?.kind === 'polymorphicGroup') {
         const registry = schema.registries[expected.ref];
-        return classOfGroup(group, registry?.name) ?? expected.ref;
+        const viaType = classOfGroup(group, registry?.name);
+        if (viaType) return viaType;
+        // A group whose `Type` comes through its inheritance (`MyTurret : BaseTurret { }`) must stay
+        // unresolved here so the inheritance resolution decides, rather than pinning the registry
+        // base and hiding every derived field.
+        if (group.inheritance?.length) return undefined;
+        return expected.ref;
     }
     // A scalar value with a group form (a `Modifiable<T>` written as `{ BaseValue = … BuffType = … }`):
     // when the slot is filled with a group, its fields come from the curated group-form class.
@@ -354,14 +614,16 @@ const classFromSlot = (group: GroupNode, expected: ValueType | undefined): strin
     ) {
         return expected.groupForm;
     }
-    // A `Texture` is dual-form: a bare image path OR a `{ File … SampleMode … }` group. schemagen only
-    // captured the scalar form (`asset`), so an image-asset slot written as a group is the group form —
-    // the only dual-form image type in the engine — resolved to the overlay's Texture class.
+    // A `Texture` is dual-form: a bare image path or a `{ File … SampleMode … }` group. schemagen only
+    // captured the scalar form (`asset`), so an image-asset slot written as a group is the group form
+    // (the only dual-form image type in the engine), resolved to the overlay's Texture class.
     if (expected?.kind === 'asset' && expected.assetKind === 'image') return TEXTURE_GROUP_CLASS;
+    // A `Shader` is dual-form the same way: a bare path or `{ File … VertexEntryPoint … }`.
+    if (expected?.kind === 'asset' && expected.assetKind === 'shader') return SHADER_GROUP_CLASS;
     // No slot hint: infer the registry from a typed sibling in the same container so an ambiguous
     // discriminator resolves to the right registry for this context. A bullet's `GlowSprite { Type =
     // Sprite }` and a part's `Sprite { Type = Sprite }` both write `Sprite`, but they belong to
-    // different registries (`BulletSpriteRules` vs `PartSpriteRules`) — the container's other
+    // different registries (`BulletSpriteRules` vs `PartSpriteRules`). The container's other
     // components (`Type = CirclePhysics` vs `Type = TurretWeapon`) tell them apart.
     const container = group.parent;
     const containerRegistry = container && isGroupNode(container) ? registryForContainer(container) : undefined;
@@ -380,10 +642,93 @@ const classFromSlot = (group: GroupNode, expected: ValueType | undefined): strin
 };
 
 /**
+ * The classes whose members are legal in a group, primary first. Usually just the resolved class,
+ * but a group filling a wrapper-with-polymorphic-value-form slot is read twice by the engine (the
+ * wrapper's own fields and the dispatched member's, written flat in one group), while
+ * {@link resolveGroupClass} stays single-valued with whichever side owns more of the written names.
+ * The losing side's fields are still read, so member lookup, field completion and the ignored-field
+ * judgement consult the delegation companion too. Reuses the memoized slot and class resolutions,
+ * so the companion derivation adds no new caches.
+ *
+ * @param group the group whose member-owning classes are wanted.
+ * @returns the primary class first, plus the delegation companion when the slot carries one, or
+ *          empty when the group resolves to no class at all.
+ */
+export const groupClassCandidates = (group: GroupNode): string[] => {
+    const primary = resolveGroupClass(group);
+    if (!primary) return [];
+    const expected = expectedValueType(group, 0);
+    if (expected?.kind === 'group') {
+        const delegated = typeDef(expected.ref)?.valueForm;
+        if (delegated?.kind === 'polymorphicGroup') {
+            const registry = schema.registries[delegated.ref];
+            const member = classOfGroup(group, registry?.name);
+            const companion = primary === expected.ref ? member : primary === member ? expected.ref : undefined;
+            if (companion && companion !== primary) return [primary, companion];
+        }
+    }
+    return [primary];
+};
+
+// Reverse index for wrapper delegation: registry member class → the wrapper classes whose value
+// form (a `[Serialize(Alias="")]` polymorphic member) delegates to a registry declaring it. Built
+// lazily on first use. The schema is immutable after load, so it never goes stale.
+let wrapperClassesByMember: Map<string, string[]> | undefined;
+
+const wrapperClassIndex = (): Map<string, string[]> => {
+    if (wrapperClassesByMember) return wrapperClassesByMember;
+    wrapperClassesByMember = new Map();
+    for (const [fullName, def] of Object.entries(schema.types)) {
+        const form = def.valueForm;
+        if (form?.kind !== 'polymorphicGroup') continue;
+        const registry = schema.registries[form.ref];
+        if (!registry) continue;
+        for (const member of Object.values(registry.members)) {
+            const wrappers = wrapperClassesByMember.get(member);
+            if (!wrappers) wrapperClassesByMember.set(member, [fullName]);
+            else if (!wrappers.includes(fullName)) wrappers.push(fullName);
+        }
+    }
+    return wrapperClassesByMember;
+};
+
+/**
+ * The wrapper classes that could carry a group resolved to `cls` as their delegated payload: every
+ * type whose value form dispatches to a registry declaring `cls` (or an ancestor of it) as a member.
+ * Such a wrapper reads its own fields and the dispatched member's from the same flat group, so when
+ * a group self-resolves without a slot (an unrooted fragment wired in through mod actions), a field
+ * any of these classes owns may still be read by the game.
+ *
+ * @param cls the resolved member class FullName.
+ * @returns the wrapper class FullNames, or empty when no wrapper delegates to a registry containing
+ *          the class.
+ */
+export const possibleWrapperClasses = (cls: string): readonly string[] => {
+    const index = wrapperClassIndex();
+    const out: string[] = [];
+    for (const ancestor of classAncestry(cls)) {
+        for (const wrapper of index.get(ancestor) ?? []) {
+            if (!out.includes(wrapper)) out.push(wrapper);
+        }
+    }
+    return out;
+};
+
+/**
+ * Whether a group's slot resolves to a declared schema type, anchoring its class resolution to the
+ * container chain. An unanchored group's class is self-resolved (its own `Type=` against a global
+ * or sibling-inferred registry), which cannot see a wrapper the real slot might carry.
+ *
+ * @param group the group node to test.
+ * @returns true when the field declaring the group's container chain types its slot.
+ */
+export const groupSlotIsAnchored = (group: GroupNode): boolean => expectedValueType(group, 0) !== undefined;
+
+/**
  * The schema type expected at top-level (or nested) member `member` of `container`, which is either a
- * group node or the document root. A rooted container reads the type straight off its class; a map
+ * group node or the document root. A rooted container reads the type straight off its class. A map
  * container types every member as its value type (the member is a key, e.g. a planet style `Styles {
- * alien = &<…> }`); an unrooted top-level member falls back to how the game root (or a reverse
+ * alien = &<…> }`). An unrooted top-level member falls back to how the game root (or a reverse
  * `&<include>`) aliases this fragment file in. This is the primitive the reverse-include index uses to
  * type an `&<file>` include by the field that declares it, wherever that field sits.
  *
@@ -400,16 +745,32 @@ export const memberTypeIn = (
         if (root) return fieldOf(root, member)?.valueType;
         return aliasedMemberType(container, member);
     }
-    const cls = resolveGroupClass(container);
-    if (cls) return fieldOf(cls, member)?.valueType;
-    // A map-typed group (`Styles { alien = &<…> }`) has no class of its own; its members are keys, so
-    // every one takes the map's value type.
+    // A wrapper-delegation slot answers through whichever candidate class owns the member (the
+    // primary first). A resolved group whose candidates all miss the member stays undefined without
+    // falling into the map branch below.
+    const candidates = groupClassCandidates(container);
+    if (candidates.length > 0) {
+        for (const cls of candidates) {
+            const field = fieldOf(cls, member);
+            if (field) return field.valueType;
+        }
+        return undefined;
+    }
+    // A map-typed group (`Styles { alien = &<…> }`) has no class of its own. Its members are keys, so
+    // every one takes the map's value type. An entry group (reached through the map's entry-list
+    // form) instead types its `Key`/`Value` members (or the `[KeyValuePairNames]` spellings).
     const expected = expectedValueType(container, 0);
-    return expected?.kind === 'map' ? expected.value : undefined;
+    if (expected?.kind === 'map') {
+        if (container.parent && isListNode(container.parent)) return mapEntryMemberType(expected, member);
+        return expected.value;
+    }
+    // A range slot's group form reads its `Value`/`Min`/`Max` keys as the element type.
+    if (expected?.kind === 'range' && /^(value|min|max)$/i.test(member)) return expected.element;
+    return undefined;
 };
 
 /**
- * The element type of a list node — what the schema expects at each of its slots. Resolves the list's
+ * The element type of a list node: what the schema expects at each of its slots. Resolves the list's
  * own declared type (through the same container/alias anchoring as everything else) and unwraps its
  * element. Used to type an `&<file>` include written as a bare list element (a codex `CodexPages [
  * &<page> ]`), so the included fragment roots as the element class.
@@ -466,14 +827,21 @@ const findEnclosing = <T extends AbstractNode>(
     let best: T | undefined;
     const visit = (node: AbstractNode | null | undefined): void => {
         if (!node) return; // an empty `Key = ` assignment has a null right-hand value
-        if (matches(node) && offset >= node.position.start && offset <= node.position.end) {
-            best = node;
+        // The last container of a file keeps `position.end` at 0 (the parser's container-position
+        // invariant), which would exclude every offset inside it. Treat such an end as open-ended;
+        // a deeper properly-ended container still wins the deepest-match scan. The end is only read
+        // on a match, because an assignment node carries no position at all.
+        if (matches(node) && offset >= node.position.start) {
+            const end = node.position.end > node.position.start ? node.position.end : Number.MAX_SAFE_INTEGER;
+            // `position.end` is one past the closing brace, so a cursor at exactly `end` sits after
+            // the closer and types into the parent container, not into this one.
+            if (offset < end) best = node;
         }
         const children: AbstractNode[] =
             isGroupNode(node) || isListNode(node) || isDocumentNode(node)
                 ? node.elements
                 : isAssignmentNode(node)
-                  ? [node.right]
+                  ? (node.right ? [node.right] : [])
                   : [];
         for (const child of children) visit(child);
     };
@@ -590,8 +958,35 @@ export const listElementReferenceTarget = (list: ListNode, offset?: number): str
         }
     }
     if (offset !== undefined) {
-        const positional = positionalElementField(list, positionalIndexAt(list, offset));
+        const index = positionalIndexAt(list, offset);
+        const positional = positionalElementField(list, index);
         if (positional?.valueType.kind === 'reference') return positional.valueType.target;
+        // An inheriting list appends its elements after the inherited ones, shifting every index, so
+        // positional resolution through the slot must stay silent there.
+        if (!list.inheritance?.length) {
+            const slot = listSlotType(list);
+            // A tuple slot (a part's `Resources [ [bullet, 20] ]` entry): the element's index picks
+            // the declared entry type.
+            if (slot?.kind === 'tuple') {
+                const element = slot.elements[index];
+                if (element?.kind === 'reference') return element.target;
+            }
+            if (slot && ELEMENT_KINDS.has(slot.kind) && 'element' in slot) {
+                // A list slot reached without a field name, e.g. a list nested inside a tuple entry
+                // (`CandidatesClosestToFactions = [3, [faction, …]]`).
+                if (slot.element.kind === 'reference') return slot.element.target;
+                // A scalar-form group element (`EditorParentParts = ["cosmoteer.armor"]`): a bare
+                // entry reads as the element class's `0` reference field. A container entry resolves
+                // through its own slot instead, so only value (or empty) positions take this path.
+                if (slot.element.kind === 'group') {
+                    const entry = list.elements[index];
+                    if (!entry || isValueNode(entry)) {
+                        const first = fieldOf(slot.element.ref, '0');
+                        if (first?.valueType.kind === 'reference') return first.valueType.target;
+                    }
+                }
+            }
+        }
     }
     return undefined;
 };

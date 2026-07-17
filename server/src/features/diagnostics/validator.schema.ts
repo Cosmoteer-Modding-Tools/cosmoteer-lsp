@@ -39,7 +39,7 @@ import { evaluateNumericValue, formatNumber } from '../../semantics/value-evalua
 import * as l10n from '@vscode/l10n';
 
 // The engine numeric scalar types whose ObjectText deserializer is confirmed pure-numeric: a literal
-// number (`90`, `90d`, `-1.5`), a reference, or a math expression — never a named constant. Bare CLR
+// number (`90`, `90d`, `-1.5`), a reference, or a math expression, never a named constant. Bare CLR
 // `int`/`float` primitives are deliberately excluded: some carry a custom name-accepting deserializer
 // (e.g. `Allegiance = Neutral` is typed `int`), so validating those would produce false positives.
 // These all surface as a `number` kind carrying one of these `type` labels in the schema.
@@ -86,6 +86,10 @@ const classReadsScalar = (classRef: string, isString: boolean, depth = 0): boole
     if (!def || depth > 4) return false;
     if (def.scalarForm) return true;
     if (def.scalarStringForm && isString) return true;
+    // A group-typed empty-alias member (`inlineFrom`) binds the node too, so a scalar the member's
+    // class reads is a scalar the owner reads (a proxy delegating to the group-only ProxyRules
+    // stays refused, since ProxyRules reads no scalar either).
+    if (def.inlineFrom?.some((source) => classReadsScalar(source, isString, depth + 1))) return true;
     const form = def.valueForm;
     if (!form) return false;
     if (form.kind === 'group') return classReadsScalar(form.ref, isString, depth + 1);
@@ -96,8 +100,11 @@ const classReadsScalar = (classRef: string, isString: boolean, depth = 0): boole
 // (`MultiHitEffectRules` binds a `HitEffectRules[]` member to the node itself), which makes its
 // list spelling something the game reads rather than a positional group form to second-guess.
 const classReadsList = (classRef: string, depth = 0): boolean => {
-    const form = schema.types[classRef]?.valueForm;
-    if (!form || depth > 4) return false;
+    const def = schema.types[classRef];
+    if (!def || depth > 4) return false;
+    if (def.inlineFrom?.some((source) => classReadsList(source, depth + 1))) return true;
+    const form = def.valueForm;
+    if (!form) return false;
     if (form.kind === 'group') return classReadsList(form.ref, depth + 1);
     return form.kind === 'list' || form.kind === 'range' || form.kind === 'interpolated';
 };
@@ -263,7 +270,7 @@ export const validateSchema = async (
         let valueNode: AbstractNode | undefined;
         for (const element of container.elements) {
             if (isAssignmentNode(element) && element.left.name === registry.typeField) {
-                valueNode = element.right;
+                valueNode = element.right ?? undefined;
                 break;
             }
         }
@@ -337,14 +344,16 @@ export const validateSchema = async (
             // the base's fields working), so a slot-typed group whose class is exactly that
             // fallback validates its discriminator too. A concrete resolution (including the
             // sector spawners whose `Type = Doodads` dispatches beyond the slot registry's own
-            // member map) is proof the game reads it and stays silent.
-            if (disc && (!cls || cls === slotRegistry)) checkDiscriminator(node);
+            // member map) is proof the game reads it and stays silent. A deprecated name is the
+            // exception: it resolves through its rename as an editing courtesy, but the game does
+            // not read it, so it must still surface the rename hint.
+            if (disc && (!cls || cls === slotRegistry || deprecatedDiscriminator(disc))) checkDiscriminator(node);
         }
         const children: AbstractNode[] =
             isGroupNode(node) || isListNode(node) || isDocumentNode(node)
                 ? node.elements
                 : isAssignmentNode(node)
-                  ? [node.right]
+                  ? (node.right ? [node.right] : [])
                   : [];
         for (const child of children) visit(child);
     };
@@ -627,10 +636,10 @@ export const validateSchema = async (
                 if (field) checkValueForm(field, element, element.identifier.name);
                 continue;
             }
-            if (!isAssignmentNode(element)) continue;
+            if (!isAssignmentNode(element) || !element.right) continue;
             const field = fieldOf(cls, element.left.name);
             if (!field) continue;
-            if (element.right) checkValueForm(field, element.right, element.left.name);
+            checkValueForm(field, element.right, element.left.name);
             if (requiresWholeNumber(field.valueType)) {
                 await checkInteger(element.right);
             } else if (field.valueType.kind === 'range' && requiresWholeNumber(field.valueType.element)) {

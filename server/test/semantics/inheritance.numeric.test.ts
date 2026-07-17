@@ -9,7 +9,7 @@ import { parseFixture } from '../helpers';
 const token = CancellationToken.None;
 
 // Numeric inheritance (`: N`) inherits from the sibling at index N of the containing
-// list — valid Cosmoteer syntax that the parser previously rejected with
+// list, valid Cosmoteer syntax that the parser previously rejected with
 // "Expected reference value after reference value but found Number".
 
 describe('numeric inheritance (`: N`)', () => {

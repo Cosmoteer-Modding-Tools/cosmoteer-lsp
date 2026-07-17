@@ -1,0 +1,2 @@
+// Overrides-merged over resources/testiron.rules: the whole file roots as ResourceRules.
+SellPrice = 5

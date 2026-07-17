@@ -1,4 +1,4 @@
-# schemagen — Cosmoteer `.rules` schema extractor
+# schemagen: Cosmoteer `.rules` schema extractor
 
 Extracts the `.rules` **schema** straight from the game's C# assemblies and emits
 `server/src/document/schema/cosmoteer.schema.json`, the bundle the language server consumes for
@@ -7,8 +7,8 @@ schema-driven completion and validation.
 ## Why this exists
 
 `.rules` files are deserialized by the game into C# `*Rules` classes (Halfling's reflection
-serializer). Those classes — their `[Serialize]` fields, `[SerialBaseType]`/`[SerialDerivedType]`
-`Type=` dispatch, enums, and defaults are the schema. This tool reads that metadata directly
+serializer). Those classes are the schema: their `[Serialize]` fields, `[SerialBaseType]`/`[SerialDerivedType]`
+`Type=` dispatch, enums, and defaults. This tool reads that metadata directly
 from `Cosmoteer.dll` **and `HalflingCore.dll`** with **Mono.Cecil** (no decompiler fragility),
 prunes it to everything reachable from the document root (`Cosmoteer.Data.Rules`), and serializes
 it to JSON.
@@ -30,7 +30,7 @@ through a normal schema regeneration with no curation:
   `ReadContentFrom(ObjectTextSerializer, …)` body branches on `OTFieldNode`, so a plain scalar is
   read directly (`Time = 10`, `Default = White`).
 - `valueForm` (type): a `[Serialize(Alias = "")]` member binds to the node itself (the empty OT
-  path resolves to the node), so the type reads every shape its member type reads — `ShipFile`'s
+  path resolves to the node), so the type reads every shape its member type reads: `ShipFile`'s
   path string, `MultiHitEffectRules`' effect list, a proxy's group-only `ProxyRules`. Emitted as
   the member's mapped value type.
 - `scalarStringForm` (type or field): a name-lookup wrapper serializer (global
@@ -61,7 +61,7 @@ dotnet run -c Release -- "<path to Cosmoteer/Bin>" "<output path>.json"
 The extractor also reads the compiler-generated XML doc files shipped next to each assembly
 (`Cosmoteer.xml`, `HalflingCore.xml`) and emits every `<summary>` it can match to a serialized field
 into `field-docs.seed.json`, written next to the schema output. This is the prose seed for the field
-documentation the LSP shows on hover/completion. It is a build intermediate (gitignored); the docs
+documentation the LSP shows on hover/completion. It is a build intermediate (gitignored). The docs
 scaffolder (`tools/docsgen`) turns it into editable `docs/fields/*.md`, which are the committed source
 of truth. Regenerate it on a Cosmoteer update, then re-run the scaffolder to fold in newly-documented
 fields (see `docs/fields/README.md`).
@@ -81,7 +81,7 @@ dotnet run -c Release -- "<path to Cosmoteer/Bin>" "<output path>.json" \
 ```
 
 `--mod` is repeatable and accepts a single `.dll` or a directory (scanned recursively for `*.dll`).
-Already-loaded assemblies are de-duplicated; a missing or unreadable path is reported and skipped.
+Already-loaded assemblies are de-duplicated. A missing or unreadable path is reported and skipped.
 
 It prints a summary, e.g.:
 
@@ -92,22 +92,51 @@ wrote .../cosmoteer.schema.json (1199 KB)
 
 ## After regenerating (e.g., a Cosmoteer update)
 
-1. **Re-run the false-positive guard** — validate every shipped vanilla file through the schema. It
+1. **Re-run the false-positive guard**, validating every shipped vanilla file through the schema. It
    must stay warning-free.
 2. Re-run the server tests: `cd server && npm test`.
 
 ## How it works (high level)
 
-- `[ReflectiveSerialization]` class → a schema type; its `[Serialize]` members → fields
+- `[ReflectiveSerialization]` class → a schema type, and its `[Serialize]` members → fields
   (name via `Alias`, `Optional`, `DefaultValue`, plus inline ctor-IL defaults).
-- `[SerialBaseType(TypeFieldName="Type")]` → a registry; `[SerialDerivedType(TypeName=…)]` → its
+- **`optional` is a heuristic, `absentThrows` is the deserializer's rule.** `optional` counts an
+  explicit `Optional=true` **or** a ctor-initialized / nullable / collection member, because the
+  required-field check false-positived on the strict reading. But `BaseSerializer` does
+  `Optional = attr?.Optional ?? true` and throws on a missing field before applying any default, so a
+  member whose `[Serialize]` omits `Optional = true` is genuinely required. `absentThrows` marks those.
+  Anything asking "is deleting this field safe?" must read `absentThrows`, not `optional`.
+- **A field's `default` has two sources, and `defaultSource` records which one won.** `attribute`
+  means `[Serialize(DefaultValue = …)]`, the value an absent field actually yields, since
+  `BaseSerializer`'s reflective read does `SetValue(target, DefaultValue)` for a missing optional
+  member. `initializer` means the constant stores of the smallest-arity constructor (in practice a C#
+  field initializer), which only equals the absent-value when the game constructs the class that way
+  and fills it reflectively, so a consumer must gate that source on `purelyReflective`. Defaults were
+  first extracted only to decide optionality, where knowing that one exists is enough. Anything asking
+  "is writing this field a no-op" needs the distinction.
+- `[SerialBaseType(TypeFieldName="Type")]` → a registry, and `[SerialDerivedType(TypeName=…)]` → its
   members (the `Type=` vocabulary).
 - **Custom-constructor reads** → many classes read extra OT keys in a `[GenericConstructor]` via the
   generic reader (`reader.TryReadFromPath<T>("Name")` / `ReadFromPath<T>` / `ReadOptionalFromPath<T>`).
   The extractor scans the method **IL** for those generic calls and recovers each field's name (the
-  literal string) and type (the generic argument) — so a class read by a custom constructor contributes
+  literal string) and type (the generic argument), so a class read by a custom constructor contributes
   its fields with no hand-curation.
-- C# field type → value kind (enum/reference/group/list/number/asset/…); a small curation table
+- **Custom-read-only types** → a type with **no** `[Serialize]` surface at all still gets modeled as a
+  group when a deserialization hook (`[ObjectTextConstructor]`, `[GenericConstructor]`,
+  `ReadContentFrom`) reads named OT keys: its field set is exactly those recovered keys, and a scalar
+  branch surfaces as its `scalarForm` (`DirectionalCrewSpeeds`, `MediaEffectBucketsRules`,
+  `CircleDashInfo`). Such types deliberately do **not** join `Participates`, which also drives the
+  plain-class-name registry member discovery. A runtime type must not enter a `Type=` vocabulary just
+  because one of its methods reads a path. Recovered keys are always emitted optional: a throwing
+  `ReadFromPath` can sit in a branch the IL scan cannot see (Color's alpha), so requiredness is not
+  provable. Types whose keys are written flat on the *owning* group (`FlexRange`/`FlexValue`) stay on
+  the inline-expansion table instead.
+- **Dead members** → a whole-assembly IL read scan flags every `[Serialize]` member no game code
+  ever reads (no field load, getter call, backing-field load, or name mention anywhere in the
+  scanned assemblies) with `dead: true`, driving the language server's dead-field hint. The flagged
+  set is printed per run and pinned by a server test, so a game update that changes it is reviewed
+  rather than shipped silently.
+- C# field type → value kind (enum/reference/group/list/number/asset/…). A small curation table
   handles engine value types (assets, `Range<T>`, `Angle`, enum-like structs like `Direction`).
 - Reachability prune from `Cosmoteer.Data.Rules` drops non-`.rules` serialization (multiplayer
   input, runtime object refs) that shares the same `[Serialize]` attribute.

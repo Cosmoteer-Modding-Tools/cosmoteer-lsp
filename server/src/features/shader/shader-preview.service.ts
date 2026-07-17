@@ -76,6 +76,8 @@ export interface ShaderPreviewSampler {
     readonly vMode: string;
     /** True when the texture declares more than one mip level (`MipLevels = max`, `8`, …). */
     readonly mips: boolean;
+    /** The exact level count when `MipLevels` is numeric (`2`, `8`, …), so the chain can be capped. */
+    readonly mipCount?: number;
 }
 
 /** A texture the material binds, keyed by the shader uniform it feeds (`_texture` for the base one). */
@@ -135,7 +137,11 @@ export interface ShaderPreviewData {
      * a `vert` the preview can synthesize inputs for. The webview tries this pair first and falls
      * back to `glsl` on the fixed quad when it does not compile.
      */
-    readonly vertexStage: { glsl: string; fragment: string; kind: 'sprite' | 'particle' | 'beam' } | null;
+    readonly vertexStage: {
+        glsl: string;
+        fragment: string;
+        kind: 'sprite' | 'particle' | 'beam' | 'crew' | 'shipPart';
+    } | null;
     /** True when a GLSL shader was produced, false when the preview must fall back to a plain render. */
     readonly translationOk: boolean;
     /** A short reason translation failed, for display. */
@@ -162,7 +168,7 @@ export interface ShaderPreviewData {
     readonly particleLifetime: number | null;
     /** The particle renderer's `BaseSize` in world units, feeding the `_baseSize` builtin. */
     readonly baseSize: readonly number[] | null;
-    /** The material's written `Size` (world units), verbatim — it may contain math the webview evaluates. */
+    /** The material's written `Size` (world units), verbatim. It may contain math the webview evaluates. */
     readonly size: string | null;
 }
 
@@ -180,6 +186,22 @@ export const PREVIEW_SHADER_DEFINES: readonly string[] = [
     'GTE_PS_4_0',
     'GTE_PS_4_1',
     'GTE_PS_5_0',
+];
+
+/**
+ * The `USE_DEFAULT_…` guards the include-library shaders gate their entry points behind
+ * (`base.shader`, `base_atlas.shader`, `base_particle.shader`, …). A concrete shader defines the ones
+ * it wants before including the base; when a material references a base shader directly (or a mod
+ * relies on the defaults), no entry point exists under the normal defines, so translation is retried
+ * with all the guards on to preview the default pipeline the engine would run.
+ */
+export const DEFAULT_ENTRY_DEFINES: readonly string[] = [
+    'USE_DEFAULT_PIX',
+    'USE_DEFAULT_VERT',
+    'USE_DEFAULT_PIX_ATLAS',
+    'USE_DEFAULT_VERT_ATLAS',
+    'USE_DEFAULT_VERT_BEAM',
+    'USE_DEFAULT_VERT_PARTICLE',
 ];
 
 /**
@@ -216,7 +238,7 @@ const blendOf = (label: string, spec: readonly [string, string, string, string, 
  * Walks up from a node to the material group to preview: the nearest enclosing group whose schema
  * class accepts shader constants, falling back to the nearest group that directly carries a `Shader`.
  * The fallback covers documents whose groups do not resolve to a material class (`planets.rules`,
- * `asteroids.rules`, unrooted mod fragments) — a group referencing a shader is a material by
+ * `asteroids.rules`, unrooted mod fragments). A group referencing a shader is a material by
  * construction, whatever the schema knows about it.
  */
 const enclosingMaterial = (node: AbstractNode | undefined): GroupNode | null => {
@@ -349,11 +371,14 @@ const samplerOf = (group: GroupNode | null): ShaderPreviewSampler => {
     if (!group) return SAMPLER_DEFAULTS;
     const uv = childText(group, 'UVMode');
     const mips = childText(group, 'MipLevels');
+    // A numeric `MipLevels` builds exactly that many levels in the engine; `max` builds a full chain.
+    const mipCount = mips !== null && /^\d+$/.test(mips) ? Number(mips) : undefined;
     return {
         sampleMode: childText(group, 'SampleMode') ?? SAMPLER_DEFAULTS.sampleMode,
         uMode: childText(group, 'UMode') ?? uv ?? SAMPLER_DEFAULTS.uMode,
         vMode: childText(group, 'VMode') ?? uv ?? SAMPLER_DEFAULTS.vMode,
         mips: mips !== null && mips !== '1',
+        mipCount: mipCount !== undefined && mipCount > 1 ? mipCount : undefined,
     };
 };
 
@@ -672,16 +697,35 @@ export const buildShaderPreview = async (
         textures.push(await resolveTexture(value.node, constant.name, document.uri, cancellationToken));
     }
 
-    const expanded = await expandShaderSource(shaderPath, [...PREVIEW_SHADER_DEFINES], dataDir, readOverride).catch(
+    let expanded = await expandShaderSource(shaderPath, [...PREVIEW_SHADER_DEFINES], dataDir, readOverride).catch(
         () => ''
     );
-    const translation: GlslTranslation = expanded
+    let translation: GlslTranslation = expanded
         ? translateToGlsl(expanded)
         : { ok: false, reason: 'shader unreadable' };
+    // An include-library shader keeps its entry points behind USE_DEFAULT_… guards; retry with the
+    // guards defined so previewing such a file shows the default pipeline instead of failing.
+    if (!translation.ok && translation.reason === 'no recognizable pix entry point') {
+        const withDefaults = await expandShaderSource(
+            shaderPath,
+            [...PREVIEW_SHADER_DEFINES, ...DEFAULT_ENTRY_DEFINES],
+            dataDir,
+            readOverride
+        ).catch(() => '');
+        if (withDefaults) {
+            const retried = translateToGlsl(withDefaults);
+            if (retried.ok) {
+                expanded = withDefaults;
+                translation = retried;
+            }
+        }
+    }
     // A particle shader's per-vertex colour is the particle system's animated colour channel, a beam
     // shader's vertex stage carries intensity and fade. Both drive how the preview feeds `vColor`.
-    const isParticle = /\bbase_particle\.shader\b|VERT_\w*PARTICLE/.test(expanded);
-    const isBeam = /\bbase_beam\.shader\b|VERT_\w*BEAM\b/.test(expanded);
+    // The include filename resolves through the case-insensitive FS (any casing), while the
+    // VERT_ macros are preprocessor identifiers and stay case-sensitive.
+    const isParticle = /\bbase_particle\.shader\b/i.test(expanded) || /VERT_\w*PARTICLE/.test(expanded);
+    const isBeam = /\bbase_beam\.shader\b/i.test(expanded) || /VERT_\w*BEAM\b/.test(expanded);
 
     const tintNode = childNamed(group, 'Color') ?? childNamed(group, 'VertexColor');
 

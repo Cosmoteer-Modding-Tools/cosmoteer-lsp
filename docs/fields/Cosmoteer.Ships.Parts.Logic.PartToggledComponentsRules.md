@@ -10,14 +10,20 @@
 ## Toggle
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The toggle that controls whether this set's `Components` exist on the part. They are added the
+moment the toggle turns on and removed when it turns off, so the part behaves as if they were
+never written while inactive. Invert the reading with
+[[Cosmoteer.Ships.Parts.Logic.PartToggledComponentsRules.Invert]].
 
 ## Invert
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Inverts [[Cosmoteer.Ships.Parts.Logic.PartToggledComponentsRules.Toggle]], so the components
+exist while that toggle is off.
 
 ## IncludeInBlueprints
 `enum IncludeInBlueprintsMode` · optional · one of: `False`, `True`, `Dynamic`, `false`, `true`, `dynamic`
 
-<!-- TODO: needs documentation -->
+Whether the sub-components are included when rendering the ship's blueprints: never (`False`),
+always (`True`), or following the toggle's current state (`Dynamic`, the vanilla missile
+launcher's choice so only the selected mode's visuals appear).

@@ -1,0 +1,7 @@
+Part
+{
+	Stats
+	{
+		CrewRequired = 2
+	}
+}

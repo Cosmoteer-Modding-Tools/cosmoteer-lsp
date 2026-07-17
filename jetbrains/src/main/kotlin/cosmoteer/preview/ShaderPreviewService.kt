@@ -9,7 +9,6 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.EditorFactory
-import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -18,14 +17,11 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.wm.ToolWindowManager
-import com.intellij.ui.JBColor
 import com.intellij.ui.jcef.JBCefApp
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.ui.jcef.JBCefBrowserBase
 import com.intellij.ui.jcef.JBCefJSQuery
 import com.intellij.util.Alarm
-import com.intellij.util.ui.JBFont
-import com.intellij.util.ui.UIUtil
 import com.redhat.devtools.lsp4ij.LSPIJUtils
 import com.redhat.devtools.lsp4ij.LanguageServerManager
 import cosmoteer.PluginPaths
@@ -34,13 +30,9 @@ import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.eclipse.lsp4j.TextDocumentPositionParams
 import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.Paths
-import java.util.Base64
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.SwingConstants
-import javax.swing.UIManager
 
 /**
  * Owns the live shader preview: a JCEF browser running the same WebGL page the VS Code extension
@@ -131,14 +123,14 @@ class ShaderPreviewService(private val project: Project) : Disposable {
             return
         }
         previewedShaderPath = data.get("shaderUri")?.takeUnless { it.isJsonNull }?.asString
-            ?.let { uriToPath(it)?.toString()?.lowercase() }
+            ?.let { JcefSupport.uriToPath(it)?.toString()?.lowercase() }
         val textureData = JsonObject()
         val textures = data.getAsJsonArray("textures") ?: com.google.gson.JsonArray()
         for (texture in textures) {
             val obj = texture.asJsonObject
             val name = obj.get("name")?.asString ?: continue
             val uri = obj.get("uri")?.takeUnless { it.isJsonNull }?.asString
-            val dataUri = uri?.let { textureDataUri(it) }
+            val dataUri = uri?.let { JcefSupport.imageDataUri(it) }
             if (dataUri != null) textureData.addProperty(name, dataUri) else textureData.add(name, com.google.gson.JsonNull.INSTANCE)
         }
         val message = JsonObject().apply {
@@ -206,7 +198,7 @@ class ShaderPreviewService(private val project: Project) : Disposable {
                 "openShader" -> {
                     val uri = message.get("uri")?.asString ?: return
                     ApplicationManager.getApplication().invokeLater {
-                        val path = uriToPath(uri) ?: return@invokeLater
+                        val path = JcefSupport.uriToPath(uri) ?: return@invokeLater
                         val file = VfsUtil.findFile(path, true) ?: return@invokeLater
                         OpenFileDescriptor(project, file).navigate(true)
                     }
@@ -231,43 +223,6 @@ class ShaderPreviewService(private val project: Project) : Disposable {
         refreshAlarm.addRequest({ render() }, 250)
     }
 
-    /**
-     * The `--vscode-*` variables the stylesheet reads, resolved from the IDE theme. VS Code's
-     * webview host injects these. JCEF has no such host, so without them every `var()` falls back
-     * to the browser defaults (black on white) and the page is unreadable in a dark theme.
-     */
-    private fun themeCss(): String {
-        val toHex = { color: java.awt.Color -> String.format("#%02x%02x%02x", color.red, color.green, color.blue) }
-        val background = toHex(UIUtil.getPanelBackground())
-        val foreground = toHex(UIUtil.getLabelForeground())
-        val description = toHex(UIUtil.getContextHelpForeground())
-        val border = toHex(JBColor.border())
-        val inputBackground = toHex(UIManager.getColor("TextField.background") ?: UIUtil.getPanelBackground())
-        val buttonBackground = toHex(UIManager.getColor("Button.default.startBackground") ?: java.awt.Color(0x36, 0x58, 0x80))
-        val buttonForeground = toHex(UIManager.getColor("Button.default.foreground") ?: java.awt.Color.WHITE)
-        val labelFont = JBFont.label()
-        val editorFont = EditorColorsManager.getInstance().globalScheme.editorFontName
-        return """
-:root {
-    --vscode-font-family: '${labelFont.family}', sans-serif;
-    --vscode-font-size: ${labelFont.size}px;
-    --vscode-foreground: $foreground;
-    --vscode-descriptionForeground: $description;
-    --vscode-panel-border: $border;
-    --vscode-input-background: $inputBackground;
-    --vscode-input-foreground: $foreground;
-    --vscode-input-border: $border;
-    --vscode-button-background: $buttonBackground;
-    --vscode-button-foreground: $buttonForeground;
-    --vscode-editor-font-family: '$editorFont', monospace;
-}
-body {
-    background: $background;
-    color: $foreground;
-}
-"""
-    }
-
     /** The page shell: the bundled stylesheet and preview script inlined, plus the VS Code API shim. */
     private fun pageHtml(query: JBCefJSQuery): String {
         val css = Files.readString(PluginPaths.media("shader-preview.css"))
@@ -278,7 +233,7 @@ body {
 <head>
 <meta charset="UTF-8" />
 <style>$css</style>
-<style>${themeCss()}</style>
+<style>${JcefSupport.themeCss()}</style>
 <title>Shader Preview</title>
 </head>
 <body>
@@ -303,37 +258,9 @@ window.acquireVsCodeApi = function () {
         browser = null
     }
 
-    /** Parses a `file:` URI into a filesystem path, null when it cannot be parsed. */
-    private fun uriToPath(uri: String): Path? = try {
-        Paths.get(java.net.URI(uri))
-    } catch (_: Exception) {
-        null
-    }
-
-    /**
-     * Reads a texture into a `data:` URI so the page can show it without filesystem access.
-     * Returns null when the file is missing, too large, or not a supported image kind.
-     */
-    private fun textureDataUri(fileUri: String): String? {
-        val path = uriToPath(fileUri) ?: return null
-        return try {
-            if (Files.size(path) > MAX_TEXTURE_BYTES) return null
-            val mime = when (path.toString().substringAfterLast('.').lowercase()) {
-                "png" -> "image/png"
-                "jpg", "jpeg" -> "image/jpeg"
-                else -> return null
-            }
-            "data:$mime;base64," + Base64.getEncoder().encodeToString(Files.readAllBytes(path))
-        } catch (_: Exception) {
-            null
-        }
-    }
-
     companion object {
         const val TOOL_WINDOW_ID = "Cosmoteer Shader Preview"
         const val SERVER_ID = "cosmoteerLanguageServer"
-        /** The largest texture inlined as a data URI, matching the VS Code client's cap. */
-        private const val MAX_TEXTURE_BYTES = 16L * 1024 * 1024
 
         fun getInstance(project: Project): ShaderPreviewService = project.getService(ShaderPreviewService::class.java)
     }

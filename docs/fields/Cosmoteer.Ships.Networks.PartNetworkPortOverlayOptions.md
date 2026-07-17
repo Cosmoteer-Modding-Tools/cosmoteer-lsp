@@ -28,12 +28,12 @@ The ID of the custom overlay route line drawn for the port's routes.
 Whether this port wants its component to draw a 'route hub' sprite. A hub will be drawn if this is true for any connected ports.
 
 ## RouteDrawMode
-`enum PartNetworkPortOverlayRouteDrawMode` · optional · default `2` · one of: `Never`, `Connected`, `Always`
+`enum PartNetworkPortOverlayRouteDrawMode` · optional · default `Always` · one of: `Never`, `Connected`, `Always`
 
 The mode determining when route lines should be drawn for the port.
 
 ## IconDrawMode
-`enum PartNetworkPortOverlayIconDrawMode` · optional · default `3` · one of: `Never`, `Primary`, `CanConnect`, `Always`
+`enum PartNetworkPortOverlayIconDrawMode` · optional · default `Always` · one of: `Never`, `Primary`, `CanConnect`, `Always`
 
 The mode determining when the icon should be drawn for the port
 

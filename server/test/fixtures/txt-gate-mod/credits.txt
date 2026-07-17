@@ -1,0 +1,13 @@
+<image name='fixture_logo'/>
+
+
+<color r="255" g="255" b="255" a="127">Copyright 2011-2026 Fixture Realities LLC.</color>
+<color r="255" g="255" b="255" a="127">All Rights Reserved.</color>
+
+
+Creator, Game Director, Lead Programmer, and Lead Game Designer
+<b><s20><fame_color>A Person</fame_color></s20></b>
+
+
+Additional Programming and Game Design
+<b><s20><fame_color>Another Person</fame_color></s20></b>

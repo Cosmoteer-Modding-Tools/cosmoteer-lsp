@@ -1,4 +1,13 @@
-import { ListNode, GroupNode, ValueNode } from '../core/ast/ast';
+import {
+    AbstractNode,
+    ListNode,
+    GroupNode,
+    ValueNode,
+    isAssignmentNode,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+} from '../core/ast/ast';
 
 /**
  * Model of the `Actions` entries in a `mod.rules` manifest.
@@ -39,7 +48,7 @@ export type SourceShape = 'list' | 'group' | 'composite';
  */
 export type TargetShape = 'list' | 'container';
 
-/** Per-verb field schema — the single source of truth for parsing, validation and completion. */
+/** Per-verb field schema, the single source of truth for parsing, validation and completion. */
 export interface VerbSchema {
     targets: string[];
     sources: string[];
@@ -51,12 +60,18 @@ export interface VerbSchema {
     targetShape?: TargetShape;
     /**
      * Whether the verb may target a whole `.rules` file (via either a string path or a `&`
-     * reference). Only Overrides allows this — a file's top level is itself a group, so
+     * reference). Only Overrides allows this. A file's top level is itself a group, so
      * Overrides can override its members. Every other verb must target a node inside a file.
      */
     allowsWholeFileTarget?: boolean;
-    /** The optional `Name` key (Add only) — a key under which `ToAdd` is added, never a target. */
+    /** The optional `Name` key (Add only): a key under which `ToAdd` is added, never a target. */
     named?: string;
+    /**
+     * Optional extra fields the game reads on this verb beyond targets/sources/flags. Currently just
+     * `Index` (an int) on Add/AddMany/AddBase, the insertion position: the new child (or, for
+     * AddBase, the new inheritance entry) is inserted there instead of appended. Never required.
+     */
+    optionals?: string[];
 }
 
 export const VERB_SCHEMA: Record<ActionVerb, VerbSchema> = {
@@ -66,6 +81,7 @@ export const VERB_SCHEMA: Record<ActionVerb, VerbSchema> = {
         flags: ['OnlyIfNotExisting', 'CreateIfNotExisting', 'IgnoreIfNotExisting'],
         required: ['AddTo', 'ToAdd'],
         named: 'Name',
+        optionals: ['Index'],
     },
     AddMany: {
         targets: ['AddTo'],
@@ -74,6 +90,7 @@ export const VERB_SCHEMA: Record<ActionVerb, VerbSchema> = {
         required: ['AddTo', 'ManyToAdd'],
         sourceShape: 'list',
         targetShape: 'list',
+        optionals: ['Index'],
     },
     Overrides: {
         targets: ['OverrideIn'],
@@ -108,6 +125,7 @@ export const VERB_SCHEMA: Record<ActionVerb, VerbSchema> = {
         required: ['AddBaseTo', 'BaseToAdd'],
         sourceShape: 'composite',
         targetShape: 'container',
+        optionals: ['Index'],
     },
 };
 
@@ -149,5 +167,63 @@ export interface ModAction {
     presentFields: Set<string>;
 }
 
-/** Public alias kept stable — the registrar stores `Action[]`. */
+/** Public alias kept stable: the registrar stores `Action[]`. */
 export type Action = ModAction;
+
+/** The case-insensitive name of the list that holds action entries, per the game's node lookup. */
+const ACTIONS_LIST_NAME = 'actions';
+
+/** Whether a node is an `Actions` list, matched case-insensitively like the game's node lookup. */
+export const isActionsList = (node: AbstractNode | undefined): node is ListNode =>
+    !!node && isListNode(node) && node.identifier?.name.toLowerCase() === ACTIONS_LIST_NAME;
+
+/** Whether a `{}` group directly declares an `Action = …` field (the game's action-entry marker). */
+const hasActionField = (group: GroupNode): boolean =>
+    group.elements.some(
+        (element) => isAssignmentNode(element) && element.left.name.toLowerCase() === 'action' && isValueNode(element.right)
+    );
+
+/**
+ * Whether a `{}` group is a mod action entry: it declares an `Action = …` field and sits directly in
+ * an `Actions` list. This is the shape the game reads as an action regardless of which file the group
+ * lives in, so it identifies action entries in an included fragment file (launcher.rules) exactly as
+ * in a mod.rules manifest. The verb text itself is not required to be known here. A typo'd verb is
+ * still an action entry, so its target is still exempt from the generic reference checks and the
+ * "unknown verb" message comes from {@link import('./action-parser').parseModActions}.
+ */
+export const isActionEntryGroup = (group: GroupNode): boolean => hasActionField(group) && isActionsList(group.parent);
+
+/**
+ * Whether a value node is a mod action target path: the right-hand value of a target field
+ * (`AddTo`/`OverrideIn`/`Replace`/`Remove`/`AddBaseTo = "<...>"`) in an action entry, or an element
+ * of a `RemoveMany [ <path> … ]` list on one. Target paths resolve against the game Data root, not
+ * the mod, and are written as quoted `"<...>"` strings rather than `&` references, so the generic
+ * reference checks must skip them wherever an action lives, a mod.rules manifest or an included
+ * fragment file. The enclosing group must be a real action entry ({@link isActionEntryGroup}), so a
+ * same-named field outside an action is never exempted.
+ */
+export const isActionTargetValueNode = (node: AbstractNode): boolean => {
+    const parent = node.parent;
+    if (!parent) return false;
+    // `RemoveMany [ <path> ]`: the node is a list element. The list is the target field and its
+    // owner group is the action entry.
+    if (isListNode(parent)) {
+        const owner = parent.parent;
+        return (
+            !!parent.identifier &&
+            isTargetField(parent.identifier.name) &&
+            isGroupNode(owner as AbstractNode) &&
+            isActionEntryGroup(owner as GroupNode)
+        );
+    }
+    // `AddTo = "<...>"`: the node is the RHS of a target-field assignment in the action entry group.
+    if (isGroupNode(parent)) {
+        return (
+            isActionEntryGroup(parent) &&
+            parent.elements.some(
+                (element) => isAssignmentNode(element) && element.right === node && isTargetField(element.left.name)
+            )
+        );
+    }
+    return false;
+};

@@ -10,162 +10,162 @@
 ## Penetration
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The projectile's total penetration capacity. Each part it passes through subtracts that part's [[Cosmoteer.Ships.Parts.PartRules.InitialPenetrationResistance]] (or [[Cosmoteer.Ships.Parts.PartRules.ContinuingPenetrationResistance]] for further cells of the same part), scaled by the penetration factor fields, and the projectile is destroyed once the capacity is used up. At `0` the projectile stops at the first thing it hits.
 
 ## PenetrationSpeed
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Speed, in tiles per second relative to the hit ship, that the projectile slows to when it hits an operational part and starts penetrating. Left unset, the projectile keeps its normal flight velocity while penetrating.
 
 ## PenetratesOperational
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the projectile can penetrate into operational parts. When false it expends all remaining [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] on the first operational part it hits and is destroyed there.
 
 ## PenetratesStructural
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the projectile can penetrate into structural parts such as armor and structure. When false it expends all remaining [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] on the first structural part it hits and is destroyed there.
 
 ## PenetratesShields
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the projectile can pass through shields. When true a hit shield subtracts its penetration resistance times [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.ShieldPenetrationFactor]] from the remaining [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]]. When false the projectile is stopped by the first shield it hits.
 
 ## PenetratesFriendlies
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the projectile keeps flying after hitting a ship it cannot damage, such as a friendly ship. When false it is destroyed at the point of that hit. Only relevant when [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.FriendlyShipLowCollisions]] or [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.FriendlyShipHighCollisions]] allow the collision to happen at all.
 
 ## PartCategoryPenetrationFactors
 `map<→ PartCategory, float>` · optional
 
-<!-- TODO: needs documentation -->
+Extra multipliers on penetration resistance for parts in specific part categories. Every listed category the hit part belongs to multiplies the resistance subtracted from [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]], on top of [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.OperationalPenetrationFactor]] or [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.StructuralPenetrationFactor]]. Values below 1 penetrate such parts more easily.
 
 ## OperationalPenetrationFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplier on the penetration resistance of operational parts. Values below 1 let the projectile penetrate deeper through them, values above 1 drain [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] faster.
 
 ## StructuralPenetrationFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplier on the penetration resistance of structural parts such as armor and structure. Values below 1 let the projectile penetrate deeper through them, values above 1 drain [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] faster.
 
 ## ShieldPenetrationFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplier on the penetration resistance of shields the projectile passes through. Only applies when [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.PenetratesShields]] is true.
 
 ## FriendlyShipLowCollisions
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the projectile collides with the low (ordinary) part colliders of ships it cannot damage, including the ship that fired it. Setting this false lets the shot fly over friendly ships while still hitting their high colliders, which is how the deck cannon's bullet fires over its own ship.
 
 ## FriendlyShipHighCollisions
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the projectile collides with the high part colliders of ships it cannot damage. High colliders are those marked `IsHigh` on raised parts such as the deck cannon turret or sensor array.
 
 ## NonFriendlyShipLowCollisions
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the projectile collides with the low (ordinary) part colliders of ships it can damage. Setting this false makes the shot pass over enemy ships and only interact with their high colliders.
 
 ## NonFriendlyShipHighCollisions
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the projectile collides with the high part colliders of ships it can damage. High colliders are those marked `IsHigh` on raised parts such as the deck cannon turret or sensor array.
 
 ## SourcePartCollisionDelay
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Time, in seconds after spawning, during which collisions with the part that fired the projectile are ignored. Vanilla missiles and mines use about 1.5 physics ticks so they can leave their launcher without immediately hitting it.
 
 ## ShieldCollisions
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+Filter deciding whose shields the projectile collides with. Defaults to enemy shields, plus a friendly ship's shields when that ship is the deliberate target, but never the firing ship's own shields. Allowed shield hits trigger [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitShield]].
 
 ## BulletCollisions
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+Filter deciding which other targetable projectiles this projectile can collide with. Collisions are off by default. Allowed hits trigger [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitBullet]], and whether the projectile survives is controlled by [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.PenetratesBullets]].
 
 ## PenetratesBullets
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the projectile keeps flying after hitting another projectile. When false it is destroyed on the spot. Only relevant when [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.BulletCollisions]] allows bullet hits.
 
 ## CrewCollisions
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+Filter deciding which crew in space the projectile collides with. Collisions are off by default. Allowed hits trigger [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitCrew]], and whether the projectile survives is controlled by [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.PenetratesCrew]].
 
 ## PenetratesCrew
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the projectile keeps flying after hitting a crew member in space. When false it is destroyed on the hit. Only relevant when [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.CrewCollisions]] allows crew hits.
 
 ## FactorEffectsWith
 `→ BulletComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Name of another component on the same projectile, such as a `Targetable` or `DamagePool`, whose remaining-strength factor scales this hit's effect intensity. The penetrating hit in turn exposes its own factor, the remaining fraction of [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]], for other components to reference.
 
 ## HitOperational
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied the first time the projectile hits an operational part. Further operational parts along the penetration path use [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.PenetratingOperational]] instead.
 
 ## HitStructural
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied the first time the projectile hits a structural part such as armor or structure. Hitting an operational part also counts as the first structural hit, so further structural parts use [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.PenetratingStructural]] instead.
 
 ## PenetratingOperational
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied to each further operational part the projectile penetrates after the first hit that triggered [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitOperational]].
 
 ## PenetratingStructural
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied to each further structural part the projectile penetrates after the first hit that triggered [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitStructural]] or [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitOperational]].
 
 ## FinishedPenetratingOperational
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied when the projectile runs out of [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] inside an operational part, its final stop. If that part is also the first operational part hit, [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitOperational]] plays instead.
 
 ## FinishedPenetratingStructural
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied when the projectile runs out of [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] inside a structural part, its final stop. If that part is also the first part hit, [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitStructural]] plays instead.
 
 ## HitShield
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied when the projectile hits a shield allowed by [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.ShieldCollisions]].
 
 ## HitFriendly
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects that replace the normal hit rules whenever the struck ship cannot be damaged by the projectile's source, such as a friendly ship. When unset, friendly hits use the regular hit rules.
 
 ## HitBullet
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied when the projectile hits another projectile allowed by [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.BulletCollisions]].
 
 ## HitCrew
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied when the projectile hits a crew member in space allowed by [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.CrewCollisions]].
 
 ## HitsFriendlyStructure
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether structural hit effects also trigger on ships the projectile cannot damage. When false, hitting a friendly ship's structural parts applies no effects.
 
 ## CalculateWorldHitNormals
 `bool` · optional

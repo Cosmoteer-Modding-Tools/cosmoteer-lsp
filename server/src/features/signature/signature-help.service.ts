@@ -4,8 +4,8 @@
  * As the cursor sits inside a function's parentheses we show the function's parameter list and
  * highlight the argument currently being typed. The active call and active parameter are found by a
  * raw-text scan rather than the AST: the parser flattens nested calls (`floor(sqrt(x))` keeps no
- * inner `FunctionCallNode`) and, more importantly, signature help fires while typing — right after a
- * `(` or `,` — when the document is incomplete and the AST has no clean call node yet. A forward
+ * inner `FunctionCallNode`) and, more importantly, signature help fires while typing (right after a
+ * `(` or `,`) when the document is incomplete and the AST has no clean call node yet. A forward
  * scan over the characters reconstructs the call nesting from parentheses directly, so it works
  * mid-edit and handles arbitrary nesting uniformly.
  */

@@ -8,6 +8,6 @@
 > the [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## EnforceRotation
-`bool` · optional · default `Mono.Cecil.CustomAttributeArgument`
+`bool` · optional · default `true`
 
 <!-- TODO: needs documentation -->

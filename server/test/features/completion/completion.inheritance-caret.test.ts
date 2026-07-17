@@ -42,7 +42,7 @@ const completeCaretRef = async (ampPrefix: '&' | '', ref: string): Promise<strin
         }
         if (isAssignmentNode(n)) {
             walk(n.left);
-            walk(n.right);
+            if (n.right) walk(n.right);
         }
     };
     doc.elements.forEach(walk);
@@ -72,7 +72,11 @@ describe('caret-inheritance reference completion', () => {
     });
 });
 
-/** Complete at the caret of a lone `&` in `src`, returning the suggested labels the service offers. */
+/**
+ * Complete at the caret of a lone `&` in `src`.
+ * @param src the document source, which must contain exactly one `X = &` line to complete at.
+ * @returns the completion labels the service offers at that caret.
+ */
 const completeAtAmp = async (src: string): Promise<string[]> => {
     const doc = parser(lexer(src), workspaceFile('parts', 'probe.rules').replace(/\\/g, '/')).value;
     const line = src.slice(0, src.indexOf('X = &')).split('\n').length - 1;

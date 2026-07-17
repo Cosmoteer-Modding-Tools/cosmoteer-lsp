@@ -1,0 +1,160 @@
+import { describe, expect, it } from 'vitest';
+import { fieldExampleMarkdown, fieldOf, fieldSignatureMarkdown } from '../../../src/document/schema/schema';
+
+// A group-typed field's hover shows only the class name (`ISoundEffect`), which tells a modder
+// nothing about the `{ … }` shape the game expects. fieldExampleMarkdown renders that shape from
+// the schema; these tests pin its behavior per value-type family against the real bundle.
+describe('fieldExampleMarkdown', () => {
+    it('renders a { … } example for a group-typed field, showing optional fields when nothing is required', () => {
+        const field = fieldOf('Cosmoteer.Simulation.SimGuiRules', 'ShipSelectSound')!;
+        const example = fieldExampleMarkdown(field)!;
+        expect(example).toContain('```rules');
+        expect(example).toContain('ShipSelectSound');
+        expect(example).toContain('{');
+        // ISoundEffect requires nothing, so the example shows a few optional fields and counts the rest.
+        expect(example).toContain('Sounds');
+        expect(example).toMatch(/more optional fields/);
+    });
+
+    it('renders a Type = discriminator plus the required fields for a polymorphic slot', () => {
+        const field = fieldOf('Cosmoteer.Ships.ShipRules', 'LinearDrag')!;
+        const example = fieldExampleMarkdown(field)!;
+        expect(example).toContain('Type = Exponential');
+        expect(example).toContain('// one of 2 types');
+        // The example member's required fields, each with a placeholder value.
+        expect(example).toMatch(/Coefficient = /);
+        expect(example).toMatch(/Exponent = /);
+    });
+
+    it('wraps a list-of-groups example in [ … ] with one element', () => {
+        const field = fieldOf('Cosmoteer.Simulation.MediaEffects.MultiMediaEffectRules', 'Effects')!;
+        const example = fieldExampleMarkdown(field)!;
+        const lines = example.split('\n');
+        expect(lines).toContain('Effects');
+        expect(lines).toContain('[');
+        expect(lines).toContain(']');
+        expect(example).toContain('Type = ');
+    });
+
+    it('renders a list of positional groups as inline tuples, naming the group-form alternative', () => {
+        // Vertices: Vector2[] — the game writes these as a list of `[x, y]` tuples, so the example
+        // must lead with the tuple form, not only the `[ { X = 0, Y = 0 } ]` block.
+        const field = fieldOf('Cosmoteer.Ships.Parts.Colliders.PolygonColliderRules', 'Vertices')!;
+        const example = fieldExampleMarkdown(field)!;
+        const lines = example.split('\n');
+        expect(lines).toContain('Vertices');
+        expect(lines).toContain('[');
+        expect(lines).toContain(']');
+        expect(example).toContain('[0, 0]');
+        // The named-field group form is offered as the alternative, not the only shape shown.
+        expect(example).toContain('// each entry is X, Y, or a group { X = 0, Y = 0 }');
+    });
+
+    it('names the R, G, B, A tuple and group form for a list of Colors', () => {
+        const field = fieldOf('Halfling.Particles.Updaters.ParticleColorRamp', 'Colors')!;
+        const example = fieldExampleMarkdown(field)!;
+        expect(example).toContain('[255, 255, 255, 255]');
+        expect(example).toContain('// each entry is R, G, B, A (0-255), or a group { Rf = 1, Gf = 1, Bf = 1, Af = 1 }');
+    });
+
+    it('shows both accepted shapes for a Modifiable dual-form scalar', () => {
+        const field = fieldOf('Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules', 'TargetingRange')!;
+        const example = fieldExampleMarkdown(field)!;
+        expect(example).toContain('TargetingRange = 0');
+        expect(example).toContain('// or with inline modifiers:');
+        expect(example).toContain('BaseValue');
+    });
+
+    it('renders an inline example for a list of reference ids, seeded with builtin ids', () => {
+        const field = fieldOf('Cosmoteer.Simulation.EffectFilter', 'ExcludePartCategories')!;
+        const example = fieldExampleMarkdown(field)!;
+        expect(example).toContain('ExcludePartCategories = [ftl, ...]');
+        expect(example).toContain('// PartCategory ids');
+    });
+
+    it('lists the element enum members, capped, in the signature of a list<enum> field', () => {
+        const field = fieldOf('Cosmoteer.Ships.Parts.PartRules', 'DefaultEditorHotkey')!;
+        expect(field.valueType.kind).toBe('list');
+        const markdown = fieldSignatureMarkdown(field, 'Cosmoteer.Ships.Parts.PartRules');
+        expect(markdown).toContain('one of:');
+        // ViKey has 103 members; the listing caps and states the total instead of dumping all.
+        expect(markdown).toContain('(103 total)');
+        // And the example line shows the inline list form with real members.
+        expect(markdown).toMatch(/DefaultEditorHotkey = \[\w+, \w+\]/);
+    });
+
+    it('renders a written-form example for a single asset field, naming the resolution rule', () => {
+        const field = fieldOf('Cosmoteer.Ships.ShipRoofRules', 'DecalsShader')!;
+        expect(field.valueType.kind).toBe('asset');
+        const example = fieldExampleMarkdown(field)!;
+        expect(example).toContain('DecalsShader = "effect.shader"');
+        expect(example).toContain('// path relative to this file');
+    });
+
+    it('renders all three Color forms: positional, named color, and group', () => {
+        const field = fieldOf('Halfling.Graphics.Sprite', 'VertexColor')!;
+        const example = fieldExampleMarkdown(field)!;
+        expect(example).toContain('VertexColor = [255, 255, 255, 255]');
+        expect(example).toContain('// R, G, B, A');
+        expect(example).toContain('// or a named color: VertexColor = White');
+        expect(example).toContain('// or a group: VertexColor { Rf = 1, Gf = 1, Bf = 1, Af = 1 }');
+    });
+
+    it('uses the inline positional form for vector placeholders inside a block example', () => {
+        const field = fieldOf('Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules', 'BlueprintArcSprite')!;
+        const example = fieldExampleMarkdown(field)!;
+        // Sprite's Size is a Vector2: shown as `Size = [0, 0]`, not an opaque `Size { ... }`.
+        expect(example).toMatch(/Size = \[0, 0\]/);
+    });
+
+    it('names the group alternative for a positional-form vector field', () => {
+        const field = fieldOf('Halfling.Graphics.Sprite', 'Size')!;
+        const example = fieldExampleMarkdown(field)!;
+        expect(example).toContain('Size = [0, 0]');
+        expect(example).toContain('// or: Size { X = 0, Y = 0 }');
+    });
+
+    it('renders every accepted value form for a range-of-Modifiable map field', () => {
+        // DamageResistances: map<reference DamageType, range<number | ModifiableValue group>>. The game
+        // writes it as a group of `<DamageType> = <value>` members, and a value accepts three spellings:
+        // a single scalar, a `[from, to]` range, and a `{ BaseValue = … }` modifier group. The example
+        // shows all three, and the sample key skips the `default` sentinel for a real type.
+        const field = fieldOf('Cosmoteer.Ships.Parts.PartRules', 'DamageResistances')!;
+        expect(field.valueType.kind).toBe('map');
+        const example = fieldExampleMarkdown(field)!;
+        const lines = example.split('\n');
+        expect(lines).toContain('DamageResistances');
+        expect(lines).toContain('{');
+        expect(lines).toContain('}');
+        // `explosive` (not the generic `default`), and all three value forms present.
+        expect(example).not.toContain('default = ');
+        expect(example).toContain('explosive = 0');
+        expect(example).toContain('// one entry per DamageType');
+        expect(example).toContain('// or a range: explosive = [0, 1]');
+        expect(example).toContain('// or with inline modifiers: explosive { BaseValue = 0, … }');
+    });
+
+    it('attaches a group-valued map entry as `Key { … }`, the way the game writes it', () => {
+        // RenderLayers: map<reference, group ShipRenderLayerRules>. A group value attaches without `=`.
+        const field = fieldOf('Cosmoteer.Ships.ShipRules', 'RenderLayers')!;
+        expect(field.valueType.kind).toBe('map');
+        const example = fieldExampleMarkdown(field)!;
+        expect(example).toContain('RenderLayers');
+        expect(example).toMatch(/ShipRenderLayerRules \{ \.\.\. \}/);
+        expect(example).toContain('// one entry per ShipRenderLayerRules');
+    });
+
+    it('renders no example for a plain scalar field', () => {
+        const field = fieldOf('Cosmoteer.Bullets.BulletRules', 'ForgetTarget')!;
+        expect(field.valueType.kind).toBe('bool');
+        expect(fieldExampleMarkdown(field)).toBeUndefined();
+    });
+
+    it('flows into fieldSignatureMarkdown so hover and completion carry the example', () => {
+        const field = fieldOf('Cosmoteer.Simulation.SimGuiRules', 'ShipSelectSound')!;
+        const markdown = fieldSignatureMarkdown(field, 'Cosmoteer.Simulation.SimGuiRules');
+        expect(markdown).toContain('```rules');
+        // The signature head still leads the hover.
+        expect(markdown).toContain('**ShipSelectSound**');
+    });
+});

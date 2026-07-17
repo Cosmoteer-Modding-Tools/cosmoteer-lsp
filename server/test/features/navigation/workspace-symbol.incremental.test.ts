@@ -7,7 +7,7 @@ import { WorkspaceSymbolService } from '../../../src/features/navigation/workspa
 import { initWorkspace, WORKSPACE_DATA_DIR } from '../../workspace-helper';
 
 // The cached symbol table is built once, then kept current by the watcher signals
-// (markDirty / remove) — NOT re-parsed per query. This proves a disk change the editor
+// (markDirty / remove), not re-parsed per query. This proves a disk change the editor
 // never reported still shows up. Temp file lives in an isolated dir (an extra scanned
 // folder), never the shared fixtures, so it can't race other suites.
 const service = WorkspaceSymbolService.instance;
@@ -16,7 +16,7 @@ const TMP_DIR = mkdtempSync(join(tmpdir(), 'cosmo-sym-'));
 const FOLDERS = [WORKSPACE_DATA_DIR, TMP_DIR];
 const NEW_FILE = join(TMP_DIR, '_tmp_symbol.rules');
 
-describe('WorkspaceSymbolService — cached + incremental', () => {
+describe('WorkspaceSymbolService: cached + incremental', () => {
     beforeAll(async () => {
         await initWorkspace();
         service.reset();

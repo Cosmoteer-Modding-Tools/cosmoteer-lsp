@@ -28,7 +28,7 @@ describe('document colors', () => {
     });
 
     it('anchors a named multi-line color group swatch on its identifier, not the lone brace', () => {
-        // `_centerColor` on line 0, its `{` on line 1 — the swatch must sit on the name (line 0) so the
+        // `_centerColor` on line 0, its `{` on line 1. The swatch must sit on the name (line 0) so the
         // editor renders the decorator next to the field, not detached on the brace-only line.
         const doc = parse('_centerColor\n{\n\tRf = 1\n\tGf = 0.5\n\tBf = 0\n}');
         const range = documentColors(doc)[0].range;
@@ -81,5 +81,43 @@ describe('document colors', () => {
         expect(p[0].additionalTextEdits ?? []).toHaveLength(0);
         expect(p[0].textEdit!.range).toEqual(info.range);
         expect(p[0].textEdit!.newText).toBe('VertexColor\n{\n\tR = 255\n\tG = 0\n\tB = 51');
+    });
+});
+
+describe('positional color lists', () => {
+    // The list form the game's own writer emits (`VertexColor = [255, 255, 255, 217]`, channels
+    // 0-255, alpha optional). Detection is schema-typed through the slot, so it needs a context
+    // that resolves: a Sprite field on a turret component.
+    const sprite = (body: string) =>
+        `Part\n{\n\tComponents\n\t{\n\t\tT\n\t\t{\n\t\t\tType = TurretWeapon\n\t\t\tBlueprintArcSprite\n\t\t\t{\n${body}\n\t\t\t}\n\t\t}\n\t}\n}`;
+
+    it('detects a Color slot written as a byte list and normalizes to 0..1', () => {
+        const doc = parse(sprite('\t\t\t\tVertexColor = [255, 255, 255, 217]'));
+        const colors = documentColors(doc);
+        expect(colors).toHaveLength(1);
+        expect(colors[0].color.red).toBe(1);
+        expect(colors[0].color.alpha).toBeCloseTo(217 / 255, 5);
+    });
+
+    it('defaults alpha to opaque for a 3-element color list', () => {
+        const doc = parse(sprite('\t\t\t\tVertexColor = [255, 0, 0]'));
+        expect(documentColors(doc)[0].color).toEqual({ red: 1, green: 0, blue: 0, alpha: 1 });
+    });
+
+    it('gives no swatch to a list whose slot is not a Color', () => {
+        // UVRect is a Rect: four numbers, same shape, different type.
+        expect(documentColors(parse(sprite('\t\t\t\tUVRect = [0, 0, 1, 1]')))).toHaveLength(0);
+    });
+
+    it('picker rewrites the list values as bytes in a single edit whose range equals the swatch', () => {
+        const src = sprite('\t\t\t\tVertexColor = [255, 255, 255, 217]');
+        const doc = parse(src);
+        const info = documentColors(doc)[0];
+        const p = colorPresentations(doc, src, info.range, { red: 0, green: 0.2, blue: 1, alpha: 1 });
+        expect(p).toHaveLength(1);
+        expect(p[0].additionalTextEdits ?? []).toHaveLength(0);
+        expect(p[0].textEdit!.range).toEqual(info.range);
+        expect(p[0].textEdit!.newText).toBe('[0, 51, 255, 255');
+        expect(p[0].label).toBe('[0, 51, 255, 255]');
     });
 });

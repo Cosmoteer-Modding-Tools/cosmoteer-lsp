@@ -1,0 +1,5 @@
+// A whole-file-rooted resource (documentRootClass: /resources/ with a top-level ID), the target of
+// the whole-file Overrides action in the action-rooting fixture mod.
+ID = testiron
+NameKey = "Resources/TestIron"
+SellPrice = 10

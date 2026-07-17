@@ -48,12 +48,12 @@
 <!-- TODO: needs documentation -->
 
 ## Cursor
-`asset (image)` · optional
+`Cursor` · optional
 
 <!-- TODO: needs documentation -->
 
 ## TargetObjectCursor
-`asset (image)` · optional
+`Cursor` · optional
 
 <!-- TODO: needs documentation -->
 
@@ -93,7 +93,7 @@
 <!-- TODO: needs documentation -->
 
 ## TargetTypes
-`enum PartTargeterTypes` · optional · default `3` · one of: `Ships`, `Parts`, `ShipLocalPoint`
+`enum PartTargeterTypes` · optional · default `Ships, Parts` · one of: `Ships`, `Parts`, `ShipLocalPoint`
 
 <!-- TODO: needs documentation -->
 

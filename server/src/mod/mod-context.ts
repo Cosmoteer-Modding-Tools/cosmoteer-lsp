@@ -19,14 +19,22 @@ import { parseModActions } from './action-parser';
 import { normalizeTargetPath, resolveActionTarget } from './action-target-resolver';
 import { findModRoot } from './mod-root';
 import { safeReaddir } from '../utils/fs.utils';
-import { isManifestBasename } from '../document/document-kind';
+import { isManifestBasename, isRulesPathSegment } from '../document/document-kind';
 import { ParserResultRegistrar } from '../registrar/parser-result-registrar';
 import { recordNavigationDep } from '../utils/navigation-deps';
 
 const navigation = new FullNavigationStrategy();
 
+/**
+ * A game-root target path as a case-folded map key. The game resolves file paths through the
+ * case-insensitive Windows FS, so a manifest target and a reference may spell the same file with
+ * different casing (`<gui/x.rules>` vs `&<./Data/GUI/x.rules>`) and must land on the same key.
+ * Navigation accepts the folded form as a path too, so it stays usable as a resolve prefix.
+ */
+const targetKeyOf = (rawTarget: string): string => normalizeTargetPath(rawTarget).toLowerCase();
+
 /** The canonical game-root key for the root `cosmoteer.rules` (where super-paths `/X` resolve). */
-const COSMOTEER_RULES_KEY = normalizeTargetPath('<cosmoteer.rules>');
+const COSMOTEER_RULES_KEY = targetKeyOf('<cosmoteer.rules>');
 
 /** Load a mod file, preferring the live in-editor (possibly unsaved) buffer over disk. The read
  *  is recorded for a running navigation's dependency set, like the fs parse cache does. */
@@ -39,9 +47,9 @@ const loadDocument = async (osPath: string): Promise<AbstractNodeDocument | null
 const fileKeyAndContainer = (rawTarget: string): { fileKey: string; container: string[] } | null => {
     if (!rawTarget.includes('<')) return null;
     const parts = extractSubstrings(rawTarget);
-    const idx = parts.findIndex((p) => p.endsWith('.rules>'));
+    const idx = parts.findIndex((p) => isRulesPathSegment(p));
     if (idx === -1) return null;
-    return { fileKey: normalizeTargetPath(parts.slice(0, idx + 1).join('/')), container: parts.slice(idx + 1) };
+    return { fileKey: targetKeyOf(parts.slice(0, idx + 1).join('/')), container: parts.slice(idx + 1) };
 };
 
 /**
@@ -55,9 +63,9 @@ const splitEffectivePath = (path: string): { fileKey: string; segments: string[]
     if (p.startsWith('/')) return { fileKey: COSMOTEER_RULES_KEY, segments: extractSubstrings(p) };
     if (p.startsWith('<')) {
         const parts = extractSubstrings(p);
-        const idx = parts.findIndex((s) => s.endsWith('.rules>'));
+        const idx = parts.findIndex((s) => isRulesPathSegment(s));
         if (idx === -1) return null;
-        return { fileKey: normalizeTargetPath(parts.slice(0, idx + 1).join('/')), segments: parts.slice(idx + 1) };
+        return { fileKey: targetKeyOf(parts.slice(0, idx + 1).join('/')), segments: parts.slice(idx + 1) };
     }
     return null;
 };
@@ -67,7 +75,7 @@ const splitEffectivePath = (path: string): { fileKey: string; segments: string[]
  * into each game file, captured from the mod's own root `cosmoteer.rules` globals and
  * the `Add (Name)` / root `Overrides` actions in its manifests.
  *
- * Scope (first cut): file-root additions, which covers the dominant pattern — globals
+ * Scope (first cut): file-root additions, which covers the dominant pattern: globals
  * added to `<cosmoteer.rules>` and referenced via super-paths `&/SW_X/…` and targets
  * `<cosmoteer.rules>/SW_X`. Nested-container Overrides are not flattened yet.
  */
@@ -81,7 +89,7 @@ export class ModContext {
         // Members the mod merges into a concrete vanilla file via a whole-file `Overrides`
         // (`OverrideIn=<…file> Overrides=&<modfile>` or an inline `{}`). Keyed by the targeted file's
         // resolved normalized absolute path, so a reference reaching that file through a vanilla global
-        // (e.g. `&/INDICATORS/SWX` → indicators.rules) — not by naming the file directly — still finds
+        // (e.g. `&/INDICATORS/SWX` → indicators.rules), not by naming the file directly, still finds
         // the added member. See {@link ModContext.resolveThroughFileOverride}.
         private readonly fileOverrides: Map<string, Map<string, ActionSource[]>>
     ) {}
@@ -131,7 +139,7 @@ export class ModContext {
                     // the target's resolved file, so refs reaching that file through a vanilla global
                     // resolve. This covers a whole-file target (`OverrideIn=<…/indicators.rules>`) and a
                     // file-aliasing global (`OverrideIn=<cosmoteer.rules>/COMMON_EFFECTS`, where the
-                    // global itself is `&<common_effects.rules>` — the members land in that file).
+                    // global itself is `&<common_effects.rules>`, so the members land in that file).
                     // {@link resolveOverrideTargetKey} returns null when the target is not a whole file
                     // (a sub-group inside a file), so a true nested-container merge stays unhandled.
                     const members = await overrideMembers(source);
@@ -179,7 +187,7 @@ export class ModContext {
                     if (resolved) return resolved;
                 }
         }
-        // Not a direct file-root addition — try members the mod merged into a concrete vanilla file
+        // Not a direct file-root addition. Try members the mod merged into a concrete vanilla file
         // via a whole-file Override, which a reference reaches through a vanilla global.
         return this.resolveThroughFileOverride(split, node, cancellationToken);
     }
@@ -258,7 +266,7 @@ export class ModContext {
  * Top-level globals of the mod's cosmoteer.rules, expanding Cosmoteer's group-merge syntax. The game
  * lets a global concatenate several groups/files: `SW_PARTICLES = &<a.rules>, &<b.rules>`. Our parser
  * represents that as a named assignment (`&<a>`) followed by bare `Value` siblings (`&<b>`), so we
- * attribute each trailing bare value to the same global — yielding one `[name, source]` entry per
+ * attribute each trailing bare value to the same global, yielding one `[name, source]` entry per
  * merged file, so a member in any of them resolves.
  */
 const mergeAwareGlobals = (doc: { elements: AbstractNode[] }): [string, ActionSource][] => {
@@ -283,8 +291,8 @@ const mergeAwareGlobals = (doc: { elements: AbstractNode[] }): [string, ActionSo
     return out;
 };
 
-/** The top-level members a whole-file Override merges in: an inline `{}` group's members, or — the
- *  dominant real-mod form — the top-level members of the file a `&<modfile>` source dereferences to. */
+/** The top-level members a whole-file Override merges in: an inline `{}` group's members, or (the
+ *  dominant real-mod form) the top-level members of the file a `&<modfile>` source dereferences to. */
 const overrideMembers = async (source: ActionSource): Promise<[string, AbstractNode][]> => {
     if (isGroupNode(source)) return namedMembersOf(source);
     if (isValueNode(source) && source.valueType.type === 'Reference') {
@@ -319,9 +327,9 @@ const resolveOverrideTargetKey = async (target: ActionSource): Promise<string | 
 const normFileKey = (p: string): string => p.replace(/\\/g, '/').toLowerCase();
 
 /**
- * The {@link normFileKey} for a resolved node that is a whole file — a {@link FileWithPath} or a
+ * The {@link normFileKey} for a resolved node that is a whole file: a {@link FileWithPath} or a
  * document root. Returns null for anything else (a group/value inside a file), so we only key
- * `fileOverrides` by whole-file targets; merges into a true sub-container stay unhandled (their
+ * `fileOverrides` by whole-file targets. Merges into a true sub-container stay unhandled (their
  * members would lose their container sub-path if attributed at the file level).
  */
 const fileKeyOfResolved = (resolved: AbstractNode | null | FileWithPath | undefined): string | null => {
@@ -344,7 +352,7 @@ export const invalidateModContext = (): void => contextCache.clear();
 
 /**
  * Resolve a path against only the mod's additions (no vanilla navigation). For callers
- * that already proved vanilla resolution fails — avoids re-walking the filesystem.
+ * that already proved vanilla resolution fails. Avoids re-walking the filesystem.
  * Returns null when the file is not inside a mod.
  */
 export const resolveFromModContextOnly = async (
@@ -377,7 +385,7 @@ export const resolveWithModContext = async (
 
 /**
  * The member names the mod merged into `resolved` (a resolved whole file / document) via a whole-file
- * or file-aliasing-global `Overrides` action — so completion of `&/INDICATORS/` etc. offers the
+ * or file-aliasing-global `Overrides` action, so completion of `&/INDICATORS/` etc. offers the
  * mod-added members alongside the file's own. `node` locates the owning mod; returns [] outside a mod.
  */
 /**

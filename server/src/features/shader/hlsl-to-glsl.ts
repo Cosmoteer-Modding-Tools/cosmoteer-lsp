@@ -28,7 +28,7 @@ export interface GlslVertexStage {
     /** The fragment shader reading the vertex stage's varyings instead of the stand-in defaults. */
     readonly fragment: string;
     /** Which input family was synthesized, so the preview picks a fitting world-to-clip transform. */
-    readonly kind: 'sprite' | 'particle' | 'beam';
+    readonly kind: 'sprite' | 'particle' | 'beam' | 'crew' | 'shipPart';
 }
 
 /** The outcome of a translation: the GLSL on success, or the reason it could not translate. */
@@ -82,15 +82,163 @@ const translateTypes = (src: string): string => {
     return out;
 };
 
+/** The end offset of the primary expression starting at `start` (identifier/number/paren, with call, index and member suffixes). */
+const primaryEnd = (src: string, start: number): number => {
+    let i = start;
+    while (i < src.length && /[!+\-\s]/.test(src[i])) i++;
+    const scanBalanced = (open: string, close: string): void => {
+        let depth = 0;
+        for (; i < src.length; i++) {
+            if (src[i] === open) depth++;
+            else if (src[i] === close && --depth === 0) {
+                i++;
+                return;
+            }
+        }
+    };
+    if (src[i] === '(') scanBalanced('(', ')');
+    else if (/[\d.]/.test(src[i])) {
+        while (i < src.length && /[\d.]/.test(src[i])) i++;
+        if (/[eE]/.test(src[i]) && /[-+\d]/.test(src[i + 1])) {
+            i += 2;
+            while (i < src.length && /\d/.test(src[i])) i++;
+        }
+        return i;
+    } else if (/[A-Za-z_]/.test(src[i])) {
+        while (i < src.length && /\w/.test(src[i])) i++;
+    } else {
+        return start;
+    }
+    // Call, index, and member/swizzle suffixes extend the primary (`abs(x).y`, `arr[0].rgb`).
+    for (;;) {
+        let j = i;
+        while (j < src.length && /\s/.test(src[j])) j++;
+        if (src[j] === '(') {
+            i = j;
+            scanBalanced('(', ')');
+        } else if (src[j] === '[') {
+            i = j;
+            scanBalanced('[', ']');
+        } else if (src[j] === '.' && /[A-Za-z_]/.test(src[j + 1])) {
+            i = j + 1;
+            while (i < src.length && /\w/.test(src[i])) i++;
+        } else {
+            return i;
+        }
+    }
+};
+
 /**
- * Rewrites HLSL C-style integer casts of a parenthesised expression (`(int2)(x)`, `(int)(x)`) into a
- * `floor` call. GLSL ES 1.00 forbids mixing `int` with `float` in arithmetic, and these casts exist to
- * quantise a value that then continues through float maths (pixelation, colour-depth reduction), so
- * flooring keeps the value in the float domain while preserving the truncation intent. The shaders pair
- * the cast with a `+ 0.5` bias, which makes `floor` an exact round-to-nearest for the non-negative
- * inputs involved.
+ * Rewrites HLSL C-style integer casts into a `floor` call. GLSL ES 1.00 forbids mixing `int` with
+ * `float` in arithmetic, and these casts exist to quantise a value that then continues through float
+ * maths (pixelation, colour-depth reduction, the atlas animation frame maths), so flooring keeps the
+ * value in the float domain while preserving the truncation intent for the non-negative inputs the
+ * shaders pass. Handles both the parenthesised form `(int)(x)` and the call/member form
+ * `(int)wrap(...)` or `(int)info.frames.y`, whose span is found by balanced scanning.
  */
-const translateCasts = (src: string): string => src.replace(/\(\s*u?int[234]?\s*\)\s*\(/g, 'floor(');
+const translateCasts = (src: string): string => {
+    const cast = /\(\s*u?int[234]?\s*\)\s*/g;
+    let out = '';
+    let cursor = 0;
+    let match: RegExpExecArray | null;
+    while ((match = cast.exec(src))) {
+        const after = match.index + match[0].length;
+        if (src[after] === '(') {
+            // `(int)(x)`: the parentheses already delimit the operand, floor replaces the cast.
+            out += src.slice(cursor, match.index) + 'floor';
+            cursor = after;
+        } else if (/[A-Za-z_\d.]/.test(src[after] ?? '')) {
+            const end = primaryEnd(src, after);
+            if (end === after) continue;
+            out += src.slice(cursor, match.index) + 'floor(' + src.slice(after, end) + ')';
+            cursor = end;
+            cast.lastIndex = end;
+        }
+    }
+    return out + src.slice(cursor);
+};
+
+/**
+ * Converts local and file-scope `int` declarations to `float`, flooring any initializer so integer
+ * creation semantics survive (`int row = frame / framesPerRow` truncates in HLSL). GLSL ES 1.00
+ * forbids mixed int/float arithmetic, and the atlas animation maths assigns float expressions into
+ * `int` locals, so the whole int domain is lowered to floored floats. `for (int i …)` headers are
+ * masked out first, keeping loop indices integer the way {@link intLiteralsToFloat} expects.
+ */
+const intDeclsToFloat = (src: string): string => {
+    const masked: string[] = [];
+    const mask = (s: string): string => {
+        const token = String.fromCharCode(0xe000 + masked.length);
+        masked.push(s);
+        return token;
+    };
+    const out = src
+        .replace(/\bfor\s*\([^)]*\)/g, (m) => (/\bint\b/.test(m) ? mask(m) : m))
+        .replace(/\bint(\s+[A-Za-z_]\w*\s*;)/g, 'float$1')
+        .replace(/\bint\s+([A-Za-z_]\w*)\s*=\s*([^;]+);/g, 'float $1 = floor($2);');
+    return out.replace(/[\uE000-\uF8FF]/g, (c) => masked[c.charCodeAt(0) - 0xe000]);
+};
+
+/**
+ * Lowers the HLSL binary `%` operator, which GLSL ES 1.00 lacks entirely, into a `pvMod(a, b)` helper
+ * call with overloads for every operand pairing (see {@link HELPERS}). The left operand is the full
+ * multiplicative chain ending at the `%` (matching HLSL precedence, so `a / b % 1` becomes
+ * `pvMod(a / b, 1)`), the right operand a single primary expression.
+ */
+const lowerModulo = (src: string): string => {
+    let out = src;
+    for (let at = out.indexOf('%'); at >= 0; at = out.indexOf('%', at + 1)) {
+        if (out[at + 1] === '=') continue;
+        // The right operand: one primary expression forward.
+        let right = at + 1;
+        while (right < out.length && /\s/.test(out[right])) right++;
+        const rightEnd = primaryEnd(out, right);
+        if (rightEnd === right) continue;
+        // The left operand: primaries joined by multiplicative operators, scanned backwards.
+        let left = at;
+        for (;;) {
+            let i = left - 1;
+            while (i >= 0 && /\s/.test(out[i])) i--;
+            if (i < 0) break;
+            if (out[i] === ')' || out[i] === ']') {
+                const close = out[i] === ')' ? ')' : ']';
+                const open = out[i] === ')' ? '(' : '[';
+                let depth = 0;
+                for (; i >= 0; i--) {
+                    if (out[i] === close) depth++;
+                    else if (out[i] === open && --depth === 0) {
+                        i--;
+                        break;
+                    }
+                }
+            }
+            // The identifier/member chain before a call's `(` (or the bare operand itself).
+            while (i >= 0 && /[\w.]/.test(out[i])) i--;
+            // A sign is unary (part of this operand) only when nothing bindable precedes it.
+            while (i >= 0 && /[-+]/.test(out[i])) {
+                let p = i - 1;
+                while (p >= 0 && /\s/.test(out[p])) p--;
+                if (p >= 0 && /[\w.)\]]/.test(out[p])) break;
+                i--;
+            }
+            left = i + 1;
+            while (left < out.length && /\s/.test(out[left])) left++;
+            // Extend over a preceding `*` or `/` so the whole multiplicative chain stays the operand.
+            let prev = i;
+            while (prev >= 0 && /\s/.test(out[prev])) prev--;
+            if (prev >= 0 && (out[prev] === '*' || out[prev] === '/')) {
+                left = prev;
+                continue;
+            }
+            break;
+        }
+        if (left >= at) continue;
+        const lowered = `pvMod(${out.slice(left, at).trim()}, ${out.slice(right, rightEnd)})`;
+        out = out.slice(0, left) + lowered + out.slice(rightEnd);
+        at = left + lowered.length - 1;
+    }
+    return out;
+};
 
 /** Removes the `f`/`F` suffix HLSL allows on float literals (`3.14f` → `3.14`), invalid in GLSL. */
 const stripFloatSuffix = (src: string): string => src.replace(/(\d*\.\d+|\d+\.\d*|\d+)[fF]\b/g, '$1');
@@ -126,6 +274,9 @@ const translateIntrinsics = (src: string): string => {
     out = replaceWord(out, 'fmod', 'mod');
     out = replaceWord(out, 'ddx', 'dFdx');
     out = replaceWord(out, 'ddy', 'dFdy');
+    // GLSL ES 1.00 has no `isinf`; a helper tests against the float range instead. The helper name
+    // avoids colliding with the real ES 3.00 builtin when the webview upgrades the source for WebGL2.
+    out = replaceWord(out, 'isinf', 'pvIsInf');
     // base.shader defines its own `lerp` overloads, keep them but rename so intent stays clear.
     out = replaceWord(out, 'lerp', 'lerp_');
     // GLSL's `pow` has only the all-matching-type overload; HLSL also promotes a scalar to a vector
@@ -140,23 +291,24 @@ const translateIntrinsics = (src: string): string => {
 
 /**
  * Converts `Texture2D _x;` to a sampler uniform, drops the `SamplerState _x_SS;`, and rewrites the
- * sampling intrinsics into `texture2D`. GLSL ES 1.00 has no explicit-LOD sampling in the fragment
- * stage, so `.SampleLevel(_ss, uv, lod)` drops its level argument and samples at the default mip, and
- * `.GetDimensions(w, h)` (which only feeds such LOD maths) is stubbed with a nominal texture size so
- * the surrounding code still compiles. A texture type left in a parameter position becomes `sampler2D`.
+ * sampling intrinsics into `texture2D`. Explicit-LOD sampling and size queries have no GLSL ES 1.00
+ * counterpart, so `.SampleLevel` becomes a `pvTexLod` helper call and `.GetDimensions(w, h)` a pair of
+ * `pvTexSize` component reads; the helpers carry ES 1.00 fallback bodies (default-mip sample, nominal
+ * size) that the webview swaps for real `textureLod`/`textureSize` when it runs on WebGL2 (see
+ * {@link HELPERS}). A texture type left in a parameter position becomes `sampler2D`.
  */
 const translateTextures = (src: string): string =>
     src
         .replace(/\bSamplerState\s+_[A-Za-z0-9_]+\s*;/g, '')
         .replace(/\b(?:Texture2D|Texture3D|TextureCube)\s+(_[A-Za-z0-9_]+)\s*;/g, 'uniform sampler2D $1;')
         .replace(
-            /\b(_[A-Za-z0-9_]+)\s*\.\s*SampleLevel\s*\(\s*_[A-Za-z0-9_]+\s*,([^,]+),[^)]*\)/g,
-            'texture2D($1,$2)'
+            /\b(_[A-Za-z0-9_]+)\s*\.\s*SampleLevel\s*\(\s*_[A-Za-z0-9_]+\s*,([^()]*(?:\([^()]*\)[^()]*)*)\)/g,
+            'pvTexLod($1,$2)'
         )
         .replace(/\b(_[A-Za-z0-9_]+)\s*\.\s*Sample\s*\(\s*_[A-Za-z0-9_]+\s*,/g, 'texture2D($1,')
         .replace(
-            /\b[A-Za-z_]\w*\s*\.\s*GetDimensions\s*\(\s*([A-Za-z_]\w*)\s*,\s*([A-Za-z_]\w*)\s*\)\s*;/g,
-            '$1 = 256.0; $2 = 256.0;'
+            /\b([A-Za-z_]\w*)\s*\.\s*GetDimensions\s*\(\s*([A-Za-z_]\w*)\s*,\s*([A-Za-z_]\w*)\s*\)\s*;/g,
+            '$2 = pvTexSize($1).x; $3 = pvTexSize($1).y;'
         )
         .replace(/\b(?:Texture2D|Texture3D|TextureCube)\b/g, 'sampler2D');
 
@@ -402,11 +554,34 @@ const pruneUnreachableFunctions = (src: string, entry: string): { src: string; k
 const FIELD_DEFAULTS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
     uv: { vec2: 'vUv', vec4: 'vec4(vUv, 0.0, 1.0)' },
     color: { vec4: 'vColor', vec3: 'vColor.rgb' },
-    tangent: { vec4: 'vec4(1.0, 0.0, 0.0, 1.0)' },
-    lightNormal: { vec3: 'vec3(0.0, 0.0, 1.0)', vec2: 'vec2(0.0, 0.0)' },
+    // The engine tangent is (rightDir.xy, flipX, flipY); an unrotated unflipped sprite is (1, 0, 1, 1).
+    // A zero in `z` would wipe the normal's x channel in rotateFlipNormals and kill the lighting.
+    tangent: { vec4: 'vec4(1.0, 0.0, 1.0, 1.0)' },
+    // The engine's default light direction (BackgroundStyleRules), so lit stand-ins match the game.
+    lightNormal: { vec3: 'vec3(-0.67, -0.67, 0.33)', vec2: 'vec2(0.0, 0.0)' },
     screenUV: { vec2: 'vUv' },
     screenLoc: { vec4: 'vec4(vUv, 0.0, 1.0)', vec2: 'vUv' },
     screenCenter: { vec4: 'vec4(0.5, 0.5, 0.0, 1.0)', vec2: 'vec2(0.5, 0.5)' },
+    // The additive-lighting center doubles as the light source; a positive z puts it above the plane
+    // so the screen-space light direction has a component toward the viewer and the light shows.
+    center: { vec4: 'vec4(0.0, 0.0, 0.5, 1.0)', vec3: 'vec3(0.0, 0.0, 0.5)', vec2: 'vec2(0.5, 0.5)' },
+    localLoc: { vec4: 'vec4((vUv - 0.5) * 100.0, 0.0, 1.0)', vec2: '(vUv - 0.5) * 100.0' },
+    spriteUV: { vec2: 'vUv' },
+    // The atlas animation block: frame 0 of a one-frame animation whose cell spans the whole quad,
+    // so the animated-UV math resolves to the plain quad UVs (see crew's drop-shadow division).
+    animUV: { vec2: 'vec2(0.0, 0.0)' },
+    animUVOffsetPerFrame: { vec2: 'vec2(1.0, 1.0)' },
+    shirtColor: { vec4: 'vec4(0.2, 0.45, 0.85, 1.0)' },
+    skinColor: { vec4: 'vec4(0.87, 0.72, 0.6, 1.0)' },
+    hairColor: { vec4: 'vec4(0.35, 0.22, 0.12, 1.0)' },
+    powerLevel: { float: '1.0' },
+    normalizedLocation: { vec2: 'vUv' },
+    normalizedCenter: { vec2: 'vec2(0.5, 0.5)' },
+    // The ship-quad geometry stage's per-pixel ship coordinates (heat, scorched, salvage…): a small
+    // span matching a part-sized quad, so tile-scaled noise UVs show game-like variation.
+    shipLocation: { vec2: '(vUv - 0.5) * 4.0' },
+    maskUV: { vec2: 'vUv' },
+    roofOpacity: { float: '1.0' },
     worldLoc: { vec4: 'vec4(vUv, 0.0, 1.0)', vec2: 'vUv * 100.0' },
     color2: { vec4: 'vColor' },
     beamTime: { float: 'uPvBeamTime' },
@@ -466,19 +641,56 @@ const VERT_INPUT_DEFAULTS: Readonly<Record<string, Readonly<Record<string, strin
     uv: { vec2: 'uUvRect.xy + aUv * uUvRect.zw' },
     color: { vec4: 'uTint' },
     color2: { vec4: 'uTint' },
-    center: { vec2: 'vec2(0.0, 0.0)' },
+    // A particle's center is a vec2 world position; the atlas quad's is a vec4 whose z doubles as the
+    // additive light height, kept above the plane so screen-space lights show (see FIELD_DEFAULTS).
+    center: { vec2: 'vec2(0.0, 0.0)', vec4: 'vec4(0.0, 0.0, 0.5, 1.0)', vec3: 'vec3(0.0, 0.0, 0.0)' },
     scale: { vec2: 'vec2(1.0, 1.0)' },
     rotation: { float: '0.0' },
     offset: { vec2: 'aPos * 0.5' },
-    lightNormal: { vec3: 'vec3(0.0, 0.0, 1.0)' },
+    lightNormal: { vec3: 'vec3(-0.67, -0.67, 0.33)' },
+    // The atlas per-quad data (base_atlas.shader): an unrotated, unflipped quad showing frame 0 of a
+    // one-frame animation whose cell is the sprite-sheet rect the preview already computes.
+    tangent: { vec4: 'vec4(1.0, 0.0, 1.0, 1.0)' },
+    spriteUV: { vec2: 'aUv' },
+    rotateAround: { vec4: 'vec4(0.0, 0.0, 0.0, 1.0)' },
+    rotSpeed: { float: '0.0' },
+    uvOffsetPerFrame: { vec2: 'uUvRect.zw' },
+    animationInterval: { float: '1.0e38' },
+    animationStartTime: { float: '0.0' },
+    animationFrames: { vec2: 'vec2(1.0, 1.0)' },
+    animationClamp: { float: '1.0' },
+    // The crew vertex data (base_crew.shader): a standing crew quad with the engine's default light
+    // and the vanilla-ish clothing colours the per-crew streams would carry.
+    vertexOffset: {
+        vec2: 'vec2(step(0.5, aUv.x), (0.5 - aUv.y) * 0.3 * uPvBeamLength)',
+    },
+    fromOffset: { vec3: 'vec3(0.0, 0.0, 0.0)' },
+    crewTime: { float: '0.0' },
+    shirtColor: { vec4: 'vec4(0.2, 0.45, 0.85, 1.0)' },
+    skinColor: { vec4: 'vec4(0.87, 0.72, 0.6, 1.0)' },
+    hairColor: { vec4: 'vec4(0.35, 0.22, 0.12, 1.0)' },
     beamStart: { vec4: 'vec4(-0.5 * uPvBeamLength, 0.0, 0.0, 1.0)' },
-    vertexOffset: { vec2: 'vec2(step(0.5, aUv.x), (0.5 - aUv.y) * 0.3 * uPvBeamLength)' },
     direction: { float: '0.0' },
     length: { float: 'uPvBeamLength' },
     intensity: { float: 'uPvIntensity' },
     fadeAlpha: { float: 'uPvFadeAlpha' },
     beamTime: { float: 'uPvBeamTime' },
     buff: { float: '0.0' },
+    // The remaining per-quad extras across the vanilla vert inputs: star twinkle (background), shield
+    // waves at full power, the GUI blur mask, overlay pivots, indicator cycling, and the randomized
+    // time offsets the effect quads carry.
+    twinkleInterval: { float: '2.0' },
+    twinkleOffset: { float: '0.0' },
+    twinkleAddColor: { vec4: 'vec4(1.0, 1.0, 1.0, 1.0)' },
+    powerLevel: { float: '1.0' },
+    randomWaveTimeOffset: { float: '0.0' },
+    randomWaveUOffset: { float: '0.0' },
+    maskUV: { vec2: 'aUv' },
+    pivot: { vec2: 'vec2(0.0, 0.0)' },
+    cycleOffset: { float: '0.0' },
+    cycleSiblingCount: { float: '1.0' },
+    randomTimeOffset: { float: '0.0' },
+    roofOpacity: { float: '1.0' },
 };
 
 /** The preview-only uniforms standing in for the vertex-stage inputs the engine feeds per frame. */
@@ -488,7 +700,12 @@ uniform float uPvFadeAlpha;
 uniform float uPvBeamLength;
 `;
 
-/** The helper functions the translated intrinsics rely on, shared by both stages. */
+/**
+ * The helper functions the translated intrinsics rely on, shared by both stages. The `pvTexLod` and
+ * `pvTexSize` bodies here are the GLSL ES 1.00 fallbacks (default-mip sample, nominal size); the
+ * webview replaces these exact body strings with `textureLod`/`textureSize` when it runs on WebGL2,
+ * so their spelling is a contract with `media/shader-preview.js`.
+ */
 const HELPERS = `float clamp_0_1(float x) { return clamp(x, 0.0, 1.0); }
 vec2 clamp_0_1(vec2 x) { return clamp(x, 0.0, 1.0); }
 vec3 clamp_0_1(vec3 x) { return clamp(x, 0.0, 1.0); }
@@ -497,6 +714,24 @@ float mul_(float a, float b) { return a * b; }
 vec2 mul_(vec2 v, mat2 m) { return v * m; }
 vec3 mul_(vec3 v, mat3 m) { return v * m; }
 vec4 mul_(vec4 v, mat4 m) { return v * m; }
+vec2 mul_(mat2 m, vec2 v) { return m * v; }
+vec3 mul_(mat3 m, vec3 v) { return m * v; }
+vec4 mul_(mat4 m, vec4 v) { return m * v; }
+mat4 mul_(mat4 a, mat4 b) { return a * b; }
+vec2 mul_(float a, vec2 b) { return a * b; }
+vec3 mul_(float a, vec3 b) { return a * b; }
+vec4 mul_(float a, vec4 b) { return a * b; }
+float pvMod(float a, float b) { return mod(a, b); }
+vec2 pvMod(vec2 a, vec2 b) { return mod(a, b); }
+vec3 pvMod(vec3 a, vec3 b) { return mod(a, b); }
+vec4 pvMod(vec4 a, vec4 b) { return mod(a, b); }
+vec2 pvMod(vec2 a, float b) { return mod(a, b); }
+vec3 pvMod(vec3 a, float b) { return mod(a, b); }
+vec4 pvMod(vec4 a, float b) { return mod(a, b); }
+int pvMod(int a, int b) { return int(mod(float(a), float(b))); }
+bool pvIsInf(float x) { return abs(x) > 1.0e30; }
+vec4 pvTexLod(sampler2D t, vec2 uv, float lod) { return texture2D(t, uv); }
+vec2 pvTexSize(sampler2D t) { return vec2(256.0, 256.0); }
 float pow_(float x, float y) { return pow(x, y); }
 vec2 pow_(vec2 x, vec2 y) { return pow(x, y); }
 vec3 pow_(vec3 x, vec3 y) { return pow(x, y); }
@@ -591,22 +826,58 @@ const buildVertexStage = (
     const vertMatch = /(?:^|\n)\s*([A-Za-z_]\w*)\s+vert\s*\(\s*(?:in\s+)?([A-Za-z_]\w*)\s+[A-Za-z_]\w*\s*\)/.exec(
         src
     );
-    if (!vertMatch || vertMatch[1] !== pixStruct) return undefined;
+    if (!vertMatch) return undefined;
+    // The vert may return a differently named struct than pix takes (crew_warning_circle pairs its
+    // own vert with base.shader's default pix); the engine matches stages by semantic layout, so a
+    // field-for-field identical struct is accepted the same way.
+    if (vertMatch[1] !== pixStruct) {
+        const vertOut = structs.get(vertMatch[1]);
+        const pixIn = structs.get(pixStruct);
+        const sameLayout =
+            !!vertOut &&
+            !!pixIn &&
+            vertOut.length === pixIn.length &&
+            vertOut.every((f, i) => f.name === pixIn[i].name && f.type === pixIn[i].type);
+        if (!sameLayout) return undefined;
+    }
     const inFields = structs.get(vertMatch[2]);
     const outFields = structs.get(pixStruct);
     if (!inFields?.length || !outFields?.length) return undefined;
     if (!outFields.some((f) => f.name === 'location' && f.type === 'vec4')) return undefined;
     if (outFields.some((f) => f.name !== 'location' && !VARYING_TYPES.has(f.type))) return undefined;
-    const inits = inFields.map((f) => ({ name: f.name, expr: VERT_INPUT_DEFAULTS[f.name]?.[f.type] }));
-    if (inits.some((i) => !i.expr)) return undefined;
+
+    // The input family decides both the world-to-clip fit and a few family-specific stand-ins: the
+    // crew quad's `vertexOffset` is a plain corner offset, not the beam end/thickness encoding the
+    // shared table carries for `base_beam.shader`.
+    const kind: GlslVertexStage['kind'] = inFields.some((f) => f.name === 'beamStart')
+        ? 'beam'
+        : inFields.some((f) => f.name === 'crewTime')
+          ? 'crew'
+          : inFields.some((f) => f.name === 'rotateAround' || structs.has(f.type))
+            ? 'shipPart'
+            : inFields.some((f) => f.name === 'center' && f.type === 'vec2')
+              ? 'particle'
+              : 'sprite';
+    const overrides: Readonly<Record<string, Readonly<Record<string, string>>>> =
+        kind === 'crew' ? { vertexOffset: { vec2: 'aPos * 0.5' } } : {};
+
+    // Synthesizes one assignment per input field, recursing into nested structs (the atlas quads
+    // carry a `VERT_ANIMATION_INFO animInfo` block) so `vin.animInfo.uv = …` and friends are emitted.
+    const initLines: string[] = [];
+    const initField = (path: string, name: string, type: string): boolean => {
+        const inner = structs.get(type);
+        if (inner) {
+            return inner.length > 0 && inner.every((f) => initField(`${path}.${f.name}`, f.name, f.type));
+        }
+        const expr = overrides[name]?.[type] ?? VERT_INPUT_DEFAULTS[name]?.[type];
+        if (!expr) return false;
+        initLines.push(`    vin${path} = ${expr};`);
+        return true;
+    };
+    if (!inFields.every((f) => initField(`.${f.name}`, f.name, f.type))) return undefined;
 
     const pruned = pruneUnreachableFunctions(src, 'vert');
     if (!pruned.kept.has('vert')) return undefined;
-    const kind = inFields.some((f) => f.name === 'beamStart')
-        ? 'beam'
-        : inFields.some((f) => f.name === 'center')
-          ? 'particle'
-          : 'sprite';
 
     const varyings = outFields
         .filter((f) => f.name !== 'location')
@@ -616,7 +887,7 @@ const buildVertexStage = (
 void main()
 {
     ${vertMatch[2]} vin;
-${inits.map((i) => `    vin.${i.name} = ${i.expr};`).join('\n')}
+${initLines.join('\n')}
     ${pixStruct} vout = vert(vin);
 ${outFields
     .filter((f) => f.name !== 'location')
@@ -669,13 +940,18 @@ export const translateToGlsl = (hlsl: string): GlslTranslation => {
     src = stripAttributes(src);
     src = src.replace(/\btypedef\s+float4\s+PIX_OUTPUT\s*;/g, '');
     src = src.replace(/\bstatic\b/g, '');
+    // Interpolation modifiers on struct fields (crew's `nointerpolation float2 animUV`) have no GLSL
+    // ES 1.00 spelling and would corrupt the struct parse, so they are dropped.
+    src = src.replace(/\b(?:nointerpolation|noperspective)\b/g, '');
     src = stripSemantics(src);
     src = translateTextures(src);
     src = translateTypes(src);
     src = translateCasts(src);
     src = translateCbuffers(src);
     src = globalsToUniforms(src);
+    src = intDeclsToFloat(src);
     src = stripFloatSuffix(src);
+    src = lowerModulo(src);
     src = intLiteralsToFloat(src);
     src = translateIntrinsics(src);
     src = lowerSincos(src);

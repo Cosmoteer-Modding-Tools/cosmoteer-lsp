@@ -3,6 +3,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { ValidationForMath } from '../../../src/features/diagnostics/validator.math';
+import { valueOf } from '../../helpers';
 import { evaluateNumericValue } from '../../../src/semantics/value-evaluator';
 import { AbstractNode, isAssignmentNode, isMathExpressionNode, MathExpressionNode } from '../../../src/core/ast/ast';
 
@@ -15,15 +16,33 @@ import { AbstractNode, isAssignmentNode, isMathExpressionNode, MathExpressionNod
 // split at their slash.
 const token = CancellationToken.None;
 
+/**
+ * Parse a source string.
+ *
+ * @param src the .rules source to parse.
+ * @returns the parse result, carrying both the document and any parser errors.
+ */
 const parse = (src: string) => parser(lexer(src), 'file:///t.rules');
 
+/**
+ * The value of the top-level `A = …` assignment, which every source here declares.
+ *
+ * @param src the .rules source to parse.
+ * @returns the assignment's value node.
+ */
 const rightOf = (src: string): AbstractNode => {
     const doc = parse(src).value;
     const assignment = doc.elements.find((e) => isAssignmentNode(e) && e.left.name === 'A');
     if (!assignment || !isAssignmentNode(assignment)) throw new Error(`no assignment parsed from: ${src}`);
-    return assignment.right;
+    return valueOf(assignment);
 };
 
+/**
+ * Run the math validator over a node, when it is math at all.
+ *
+ * @param node the value node to validate.
+ * @returns the validation error, or undefined when the node is not math or the math is valid.
+ */
 const mathErrorOf = async (node: AbstractNode) =>
     isMathExpressionNode(node) ? await ValidationForMath.callback(node as MathExpressionNode, token) : undefined;
 
@@ -62,8 +81,8 @@ describe('decimal numerators and divisors split into math like integer ones', ()
 
 describe('dot-prefixed paths stay whole values (seen-digit guard)', () => {
     it('does not split an unquoted `./Data/…` asset path into math', async () => {
-        // `File = ./Data/common_effects/particles/noise_gradient.png` — a game-root asset path must
-        // stay one value, not become `.` ÷ `Data…` math flagged "Got String".
+        // `File = ./Data/common_effects/particles/noise_gradient.png` is a game-root asset path. It
+        // must stay one value, not become `.` ÷ `Data…` math flagged "Got String".
         const src = 'T\n{\n\tFile = ./Data/common_effects/particles/noise_gradient.png\n}';
         const result = parse(src);
         expect(result.parserErrors).toEqual([]);
@@ -71,7 +90,7 @@ describe('dot-prefixed paths stay whole values (seen-digit guard)', () => {
         const file = (group as { elements?: AbstractNode[] }).elements?.find(
             (e) => isAssignmentNode(e) && e.left.name === 'File'
         );
-        expect(file && isAssignmentNode(file) ? file.right.type : undefined).toBe('Value');
+        expect(file && isAssignmentNode(file) ? file.right?.type : undefined).toBe('Value');
     });
 
     it('does not split a `../` relative reference at its slash', () => {
@@ -93,8 +112,8 @@ describe('dot-prefixed paths stay whole values (seen-digit guard)', () => {
     });
 
     it('still flags a genuinely non-numeric operand in math', async () => {
-        // `Af = (&B) /255 normally set per effect.` — a prose tail without `//` is a real mod bug
-        // and must keep its diagnostic; the division leniency must not swallow it.
+        // In `Af = (&B) /255 normally set per effect.` the prose tail without `//` is a real mod bug
+        // and must keep its diagnostic. The division leniency must not swallow it.
         const right = rightOf('B = 4\nA = (&B) /255 normally set per effect.');
         expect(isMathExpressionNode(right)).toBe(true);
         const error = await mathErrorOf(right);

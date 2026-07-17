@@ -12,7 +12,13 @@ import {
     isValueNode,
     ValueNode,
 } from '../../core/ast/ast';
-import { evaluateExpressionGroup, evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
+import {
+    evaluateExpressionGroup,
+    evaluateNumericValue,
+    formatNumber,
+    resolveReferencedBaseValue,
+} from '../../semantics/value-evaluator';
+import { globalSettings } from '../../settings';
 
 /**
  * Inlay hints (`textDocument/inlayHint`) showing the computed result of math assignments
@@ -20,6 +26,8 @@ import { evaluateExpressionGroup, evaluateNumericValue, formatNumber } from '../
  * of reading `.rules` is seeing what an expression actually works out to. This surfaces it
  * inline. Only assignments whose value is a `MathExpression`/`FunctionCall` that fully
  * evaluates get a hint (see {@link evaluateNumericValue}) anything non-numeric stays bare.
+ * A reference whose target is a group in the game's ModifiableValue shape gets the group's
+ * `BaseValue` instead (`Arc = &…/Arc` renders ` /BaseValue = 160d`).
  */
 export class InlayHintService {
     private static _instance: InlayHintService;
@@ -52,14 +60,15 @@ export class InlayHintService {
             if (!node || cancellationToken.isCancellationRequested) continue;
             if (isAssignmentNode(node)) {
                 const right = node.right;
+                if (!right) continue;
                 if (
                     isMathExpressionNode(right) ||
                     isFunctionCallNode(right) ||
                     isReferenceValueNode(right) ||
-                    isPercentLiteral(right)
+                    isSuffixedNumberLiteral(right)
                 ) {
                     // Math/function results and plain reference assignments (`COST = &<file>/COST`)
-                    // both annotate with the number they resolve to — a cross-file or inherited
+                    // both annotate with the number they resolve to. A cross-file or inherited
                     // value is otherwise invisible without tracing it by hand. A bare percentage
                     // literal (`Chance = 50%`) is annotated with its decimal value (`= 0.5`), the
                     // form the game's math actually uses, which the source doesn't show.
@@ -78,7 +87,7 @@ export class InlayHintService {
     }
 
     /**
-     * List values store math inline-flattened with no grouping node — `[10 * 2, &A + 5, 30]`
+     * List values store math inline-flattened with no grouping node. `[10 * 2, &A + 5, 30]`
      * parses to `[10, *, 2, &A, +, 5, 30]`, the commas dropped. We re-segment by the only rule a
      * flat arithmetic stream allows: an operand directly after an operand begins a new entry. Each
      * segment that actually computes (contains an operator or function call) gets its own ` = N`.
@@ -124,7 +133,7 @@ export class InlayHintService {
 
     /**
      * Evaluate one expression segment and, if it computes to a number, push its ` = N` hint at the
-     * segment's end. Single bare values (a plain `5`, a lone `&Ref`) are skipped — only segments
+     * segment's end. Single bare values (a plain `5`, a lone `&Ref`) are skipped. Only segments
      * carrying real computation (an operator or function call) are worth annotating.
      */
     private async emitHint(
@@ -137,12 +146,20 @@ export class InlayHintService {
         // lone reference / percentage literal whose resolved number isn't visible in the source.
         const computes =
             group.some((node) => isExpressionNode(node) || isFunctionCallNode(node) || isMathExpressionNode(node)) ||
-            (group.length === 1 && (isReferenceValueNode(group[0]) || isPercentLiteral(group[0])));
+            (group.length === 1 && (isReferenceValueNode(group[0]) || isSuffixedNumberLiteral(group[0])));
         if (!computes) return;
         const end = endPositionOf(group);
         if (end.line < range.start.line || end.line > range.end.line) return;
         const value = await evaluateExpressionGroup(group, cancellationToken);
-        if (value === null) return;
+        if (value === null) {
+            // A lone reference that resolves to a group instead of a number may still carry the
+            // game's ModifiableValue shape (`Arc { BaseValue = 160d }`). Its BaseValue is the
+            // number the reference effectively supplies, so surface that member instead.
+            if (group.length === 1 && isReferenceValueNode(group[0])) {
+                await this.emitBaseValueHint(group[0], end, cancellationToken, hints);
+            }
+            return;
+        }
         hints.push({
             position: end,
             label: `= ${formatNumber(value)}`,
@@ -150,20 +167,59 @@ export class InlayHintService {
             paddingLeft: true,
         });
     }
+
+    /**
+     * Annotate a reference to a ModifiableValue group with the group's `BaseValue` member,
+     * rendering ` /BaseValue = 160d` after the reference. A plain literal shows exactly as
+     * written (`160d`, not its radians conversion), while a computed BaseValue (math, function
+     * call, reference) shows the number it evaluates to. Toggleable via the
+     * `inlayHints.showBaseValue` setting, on by default.
+     *
+     * @param reference the lone reference value node the hint annotates.
+     * @param position the position just after the reference, where the hint sits.
+     * @param cancellationToken token cancelling the request.
+     * @param hints the accumulator the hint is pushed into.
+     */
+    private async emitBaseValueHint(
+        reference: ValueNode,
+        position: Position,
+        cancellationToken: CancellationToken,
+        hints: InlayHint[]
+    ): Promise<void> {
+        if (globalSettings.inlayHints?.showBaseValue === false) return;
+        const member = await resolveReferencedBaseValue(reference, cancellationToken);
+        if (!member) return;
+        let label: string | null = null;
+        if (isValueNode(member) && member.valueType.type !== 'Reference') {
+            label = String(member.valueType.value);
+        } else {
+            const value = await evaluateNumericValue(member, cancellationToken);
+            if (value !== null) label = formatNumber(value);
+        }
+        if (!label) return;
+        hints.push({
+            position,
+            label: `/BaseValue = ${label}`,
+            kind: InlayHintKind.Type,
+            paddingLeft: true,
+        });
+    }
 }
 
-/** A value node that points elsewhere (`&Name`, `&<file>/X`, `&/super`, …) — its resolved value is hidden. */
+/** A value node that points elsewhere (`&Name`, `&<file>/X`, `&/super`, …). Its resolved value is hidden. */
 const isReferenceValueNode = (node: AbstractNode): node is ValueNode =>
     isValueNode(node) && node.valueType.type === 'Reference';
 
 /**
- * An unquoted percentage literal (`50%`, `-3.5 %`). The lexer keeps `%` inside the value token, so
- * these are plain `String`-typed values rather than `Number`s. The evaluator converts them to their
- * decimal (`÷100`) value, which is what the inlay hint surfaces. Mirrors the percent rule in
- * {@link evaluateNumericValue}'s `evaluateValue`.
+ * An unquoted percentage or degrees literal (`50%`, `-3.5 %`, `90d`). The lexer keeps the suffix
+ * inside the value token, so these are plain `String`-typed values rather than `Number`s. The
+ * evaluator converts them the way the game does before mXparser sees them (`÷100` for percent,
+ * degrees to radians), which is what the inlay hint surfaces. A radians literal (`2r`) converts to
+ * its own digits, so it gets no hint. Mirrors the suffix rules in {@link evaluateNumericValue}'s
+ * `evaluateValue`.
  */
-const isPercentLiteral = (node: AbstractNode): node is ValueNode =>
-    isValueNode(node) && !node.quoted && /^-?\d*\.?\d+\s*%$/.test(String(node.valueType.value));
+const isSuffixedNumberLiteral = (node: AbstractNode): node is ValueNode =>
+    isValueNode(node) && !node.quoted && /^-?\d*\.?\d+\s*[%d]$/.test(String(node.valueType.value));
 
 /** The position just after the last character of an expression segment (where its ` = N` hint sits). */
 const endPositionOf = (nodes: AbstractNode[]): Position => {

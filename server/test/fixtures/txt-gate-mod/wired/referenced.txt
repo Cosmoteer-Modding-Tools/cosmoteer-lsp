@@ -1,0 +1,7 @@
+// Real rules content kept in a `.txt`, the shape published mods use. `user.rules` pulls it in,
+// so the gate must keep it and its duplicate field must still reach the panel.
+Root
+{
+	A = 1
+	A = 2
+}

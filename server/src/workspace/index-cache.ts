@@ -25,8 +25,13 @@ import { perfCount } from '../utils/perf-counters';
 // stamp, which the diff treats as changed, so possibly-unsaved buffer content can never be served
 // as disk state on a later start.
 
-/** Bump when an index's serialized shape changes, so an old cache is discarded, not misread. */
-const CACHE_FORMAT_VERSION = 1;
+/** Bump when an index's serialized shape changes, so an old cache is discarded, not misread.
+ *  v3: the reverse-include index gained macro-usage records and `#`-registry deriver entries, which a
+ *  v2 cache lacks, so serving one would leave macro-alias containers unrooted until a file changed.
+ *  v4: it gained deep-macro leaf records, mod-macro maps and container fs paths in its saved state.
+ *  v5: the reverse-include index gained a real-path map for every include target and source, so a
+ *  cross-file read off a lower-cased key resolves the right file on a case-sensitive filesystem. */
+const CACHE_FORMAT_VERSION = 5;
 
 /** How many `stat` calls run concurrently while building the manifest. */
 const STAT_CONCURRENCY = 64;
@@ -109,19 +114,31 @@ interface CacheFile {
 /** Memo of the build identity: the bundle can't change under a running process. */
 let serverBuildIdMemo: string | undefined;
 
+/** Injected by esbuild for one-shot builds: a hash scoped to the source that determines cache
+ *  content (parser, schema, indexes, validators) plus dependency versions, so an unrelated feature
+ *  change no longer invalidates every user's caches on upgrade. It is absent under `--watch` and
+ *  when the TypeScript source runs directly (unit tests), where `typeof` guards the reference. See
+ *  esbuild.cache-id.mjs. */
+declare const __CACHE_BUILD_ID__: string | undefined;
+
 /**
  * An identity for the running server build. The index contents depend on the schema and rooting
- * logic compiled into the bundle, so a rebuilt server must invalidate the cache. Hashed over the
- * bundle's content, not its mtime: a rebuild that produced an identical bundle (a dev relaunch
- * whose watch task re-emits, a reinstall of the same version) keeps every cache valid, while any
- * real code change still invalidates.
+ * logic compiled into the bundle, so a build that changes them must invalidate the cache. A
+ * one-shot build injects {@link __CACHE_BUILD_ID__}, a hash over only the cache-relevant source and
+ * the dependency versions, so a change that cannot affect any cache's content keeps every cache
+ * valid. When that injection is absent (a `--watch` dev build, or the TypeScript source running
+ * under vitest) it falls back to hashing this module's bundle content: a rebuild that produced an
+ * identical bundle keeps caches valid, while any real code change invalidates.
  *
  * @returns the build identity string, or '' when it can't be determined (cache then disabled).
  */
 const serverBuildId = (): string => {
     if (serverBuildIdMemo === undefined) {
         try {
-            serverBuildIdMemo = createHash('sha1').update(readFileSync(__filename)).digest('hex').slice(0, 16);
+            serverBuildIdMemo =
+                typeof __CACHE_BUILD_ID__ !== 'undefined' && __CACHE_BUILD_ID__
+                    ? __CACHE_BUILD_ID__
+                    : createHash('sha1').update(readFileSync(__filename)).digest('hex').slice(0, 16);
         } catch {
             serverBuildIdMemo = '';
         }

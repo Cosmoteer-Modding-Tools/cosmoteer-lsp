@@ -56,6 +56,7 @@ const settings = {
         validateShaderCode: true,
         validateLocalizationKeys: true,
         validateRedundantSeparators: true,
+        validateIgnoredFields: true,
     },
     rename: { allowEditingVanillaFiles: false },
     formatting: { enabled: true, formatOnSave: false },

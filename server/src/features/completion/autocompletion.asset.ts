@@ -17,7 +17,7 @@ const ASSET_TYPE_BY_KIND: Record<string, AssetType> = { image: 'Sprite', sound: 
  * typed (a bare `particle_l` with no extension yet). Two shapes are recognised:
  *  - a direct asset field (`Shader = …`, a sprite's `File = …`), and
  *  - the dual-form group: a `File` inside a `Shader { … }` / `Texture { … }` group whose own slot is
- *    an asset (the group form of a `Shader`/`Texture` asset field) — so `File` there inherits the
+ *    an asset (the group form of a `Shader`/`Texture` asset field), so `File` there inherits the
  *    group's asset kind even though the group itself carries no schema class for it.
  */
 const schemaAssetType = (node: ValueNode): AssetType | undefined => {
@@ -47,7 +47,7 @@ const schemaAssetType = (node: ValueNode): AssetType | undefined => {
 
 /**
  * A still-extension-less String that already looks like a path (contains a `/`, or starts a
- * relative/`./Data` path), worth offering asset completions for only when quoted — the look-alike
+ * relative/`./Data` path), worth offering asset completions for only when quoted. The look-alike
  * gate keeps completion off ordinary string fields such as display names.
  */
 const looksLikeAssetPath = (node: ValueNode): boolean => {
@@ -60,7 +60,7 @@ const looksLikeAssetPath = (node: ValueNode): boolean => {
 
 /**
  * Offers asset-path completions for a value that is an asset path. Fires when the schema knows the
- * field is an asset (so same-folder files are offered mid-typing, before the extension is present —
+ * field is an asset (so same-folder files are offered mid-typing, before the extension is present,
  * filtered to that asset's kind), or when the value itself already looks like an asset path (an
  * already-classified `.shader`/`.png`/`.wav` extension, or a quoted relative path).
  */

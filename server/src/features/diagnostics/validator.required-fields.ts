@@ -51,10 +51,9 @@ import * as l10n from '@vscode/l10n';
  *   - `~`-rooted bases and runtime/unresolvable inheritance skip the group (see the guard above).
  *   - mod.rules manifests are skipped (they are actions, not instances).
  *
- * Validated to zero false positives across all of vanilla (954 files) and 42 real workshop mods (7820
- * files): the schema's `optional` flag is now derived from real C# signals (explicit `Optional`,
- * constructor defaults, nullable annotation, inline empty alias, collection types, see `tools/schemagen`);
- * the workspace template index absorbs the cross-file `BASE_*` bases; and {@link RUNTIME_REQUIRED_ALLOWLIST}
+ * The schema's `optional` flag is derived from real C# signals (explicit `Optional`, constructor
+ * defaults, nullable annotation, inline empty alias, collection types, see `tools/schemagen`). The
+ * workspace template index absorbs the cross-file `BASE_*` bases, and {@link RUNTIME_REQUIRED_ALLOWLIST}
  * covers the one class a spawner injects in code. Default on, can be turned off to skip the one-time
  * project index build (the only remaining cost, not a correctness concern).
  */
@@ -114,7 +113,7 @@ export const validateRequiredFields = async (
         const children = isGroupNode(node) || isListNode(node) || isDocumentNode(node)
             ? node.elements
             : isAssignmentNode(node)
-              ? [node.right]
+              ? (node.right ? [node.right] : [])
               : [];
         for (const child of children) collect(child);
     };

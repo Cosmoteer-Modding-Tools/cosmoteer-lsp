@@ -25,8 +25,13 @@ import { deprecatedDiscriminator } from '../../document/schema/deprecations';
  *
  * The hovered node is a field's value or its key. The parser links both to the enclosing container
  * (group or whole-file-root document), so we find the field via the sibling assignment.
+ *
+ * @param node the hovered node.
+ * @param containerClass the container's class when the caller already resolved it through a path
+ * this sync function cannot reach (cross-file inheritance like `: /BASE_SOUNDS/AudioExterior`
+ * needs the async resolver); falls back to the sync slot/discriminator resolution.
  */
-export const schemaFieldHover = (node: AbstractNode): string | null => {
+export const schemaFieldHover = (node: AbstractNode, containerClass?: string): string | null => {
     const container = node.parent;
     // A positional element of a group-typed field written in list form (`BaseSize = [7.2, 7.2]`):
     // the game deserializer reads element N through the class's digit field `"N"`, so show that.
@@ -42,7 +47,7 @@ export const schemaFieldHover = (node: AbstractNode): string | null => {
         fieldName = node.identifier.name;
     }
     // A valueless field written as a bare key (`Scale2In` with no `= value`, common for optional
-    // particle-channel bindings) parses to a standalone Identifier under the group — there is no
+    // particle-channel bindings) parses to a standalone Identifier under the group. There is no
     // assignment to match below, so take its name directly and still show the field's type.
     if (!fieldName && isIdentifierNode(node)) {
         fieldName = node.name;
@@ -56,7 +61,8 @@ export const schemaFieldHover = (node: AbstractNode): string | null => {
     }
     if (!fieldName) return null;
 
-    const cls = isDocumentNode(container) ? documentRootClass(container) : resolveGroupClass(container);
+    const cls =
+        containerClass ?? (isDocumentNode(container) ? documentRootClass(container) : resolveGroupClass(container));
     if (!cls) return null;
     const field = fieldOf(cls, fieldName);
     if (!field) {
@@ -90,7 +96,7 @@ const positionalElementHover = (node: AbstractNode, list: ListNode): string | nu
 /**
  * Markdown for a `Type = <disc>` discriminator value: the concrete schema class it selects. `Type` is
  * not a `[Serialize]` field (the serializer dispatches on it), so {@link schemaFieldHover} shows
- * nothing for it — this fills that gap, e.g. hovering `Type = TurretWeapon` → `→ TurretWeaponRules`.
+ * nothing for it. This fills that gap, e.g. hovering `Type = TurretWeapon` → `→ TurretWeaponRules`.
  */
 export const schemaDiscriminatorHover = (node: AbstractNode): string | null => {
     if (!isValueNode(node) || node.valueType.type !== 'String') return null;
@@ -108,12 +114,13 @@ export const schemaDiscriminatorHover = (node: AbstractNode): string | null => {
     if (!registry || fieldName !== registry.typeField) return null;
 
     const written = String(node.valueType.value);
-    const cls = classByDiscriminator(written, registry.name);
-    if (cls) return `**${registry.typeField} = ${written}** → \`${cls.split('.').pop()}\``;
-    // An unresolved discriminator that is a known rename from an older game version: show what it became.
+    // A known rename from an older game version wins over plain resolution: the class resolves
+    // through the rename (as an editing courtesy), but the hover must still say it was renamed.
     const deprecation = deprecatedDiscriminator(written);
     if (deprecation && registry.members[deprecation.replacement]) {
         return `**${registry.typeField} = ${written}** — renamed to \`${deprecation.replacement}\` (${deprecation.note})`;
     }
+    const cls = classByDiscriminator(written, registry.name);
+    if (cls) return `**${registry.typeField} = ${written}** → \`${cls.split('.').pop()}\``;
     return null;
 };

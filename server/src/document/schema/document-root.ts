@@ -5,11 +5,11 @@
  * `ROOT_GROUP_CLASSES`).
  *
  * Two resolution paths, tried in order:
- *  1. **Content dispatch** — a top-level `Type = <disc>` that names a member of a whole-file-root
+ *  1. **Content dispatch**: a top-level `Type = <disc>` that names a member of a whole-file-root
  *     registry (media effects, music, doodads). Path-independent and self-describing, so the
  *     effect/music files scattered across many folders (crew, statuses, nebulas, …) root correctly
  *     wherever they live.
- *  2. **Path-scoped rule** — for files a fixed class with no `Type` discriminator (a resource, a
+ *  2. **Path-scoped rule**: for files a fixed class with no `Type` discriminator (a resource, a
  *     status, a nebula), or a registry whose discriminators are too generic to dispatch globally
  *     (name generators). Fixed classes are guarded by a required top-level field so the effect and
  *     index files that share the same folder are not mis-rooted.
@@ -32,21 +32,30 @@ type RootRule = {
      *  only. Used for registries whose discriminators are too generic for global dispatch (e.g.
      *  `NameGenerator` declares `None`, which collides with sysgen stage configs elsewhere). */
     readonly registry?: string;
-    /** Apply `cls` only if the document has this top-level field — distinguishes `ID`-shaped data
+    /** Apply `cls` only if the document has this top-level field. Distinguishes `ID`-shaped data
      *  files from the `Type`-shaped effect files and the index files that share their folder. */
     readonly requireTopLevelField?: string;
 };
 
 /** Path-scoped roots: a fixed class, or a registry whose discriminators are too generic to dispatch globally. */
 const PATH_ROOTS: ReadonlyArray<RootRule> = [
+    // The game root itself. Guarded by `EffectBuckets`, which every real root declares but a mod's
+    // convenience-globals `cosmoteer.rules` (a macro container the manifest merges in) does not.
+    { test: /[/\\]cosmoteer\.rules$/i, cls: 'Cosmoteer.Data.Rules', requireTopLevelField: 'EffectBuckets' },
+    // The loading screen, read by hardcoded path into the synthetic overlay class (see schema-overlay.ts).
+    { test: /[/\\]gui[/\\]loading_screen\.rules$/i, cls: 'Cosmoteer.Data.LoadingScreen' },
     { test: /\/shots\//i, cls: 'Cosmoteer.Bullets.BulletRules' },
     // Codex page files (`codex/lore/**`, `codex/tutorials/**`) are whole-file `CodexPageRules`, pulled
     // into the codex through `CodexPages` lists that are assembled by multi-source `&<a>/CodexPages,
     // &<b>/CodexPages` concatenation the alias walk doesn't follow. Guarded by the top-level `Entries`
     // field, which every page declares but the list-container files (`codex.rules`, `lore.rules`,
-    // `tutorials.rules`, `tips.rules`, whose top-level field is `CodexPages`) lack — so those stay
+    // `tutorials.rules`, `tips.rules`, whose top-level field is `CodexPages`) lack, so those stay
     // unrooted here instead of mis-typing as a page.
     { test: /[/\\]codex[/\\]/i, cls: 'Cosmoteer.Codex.CodexPageRules', requireTopLevelField: 'Entries' },
+    // Codex list-container files (`tips.rules`, `lore.rules`) inline whole pages in their top-level
+    // `CodexPages` list, assembled by the multi-source concatenation the alias walk can't follow.
+    // Guarded by that field, which no page file declares, so pages keep the rule above.
+    { test: /[/\\]codex[/\\]/i, cls: 'Cosmoteer.Codex.CodexRules', requireTopLevelField: 'CodexPages' },
     // Builtin-ships database files (`builtin_ships/**`) are whole-file `BuiltinShipsDatabase`, whose
     // `Ships` list of ship blueprints is assembled by multi-source concatenation the alias walk can't
     // follow. The `Ships` / `Faction` / `Tags` / `IDPrefix` members are modeled in schema-overlay.ts.
@@ -60,6 +69,12 @@ const PATH_ROOTS: ReadonlyArray<RootRule> = [
     // so those stay unrooted instead of mis-typed as an AI file.
     { test: /[/\\]ai[/\\]/i, cls: 'Cosmoteer.Ships.AI.ShipAIRules', requireTopLevelField: 'StrategyModules' },
     { test: /\/nebulas\//i, cls: 'Cosmoteer.Nebulas.NebulaTypeRules', requireTopLevelField: 'ID' },
+    // An encounter file is included by the sector that uses it (`&<../../encounters/encounter_ambush.rules>`),
+    // which roots it, but only once some sector actually references it. Vanilla's `encounter_distress.rules`
+    // is referenced nowhere (a parked file), and a mod's new encounter is unreferenced until it is wired
+    // in, so both stayed dark. The path rule roots them the moment they exist. Guarded by the top-level
+    // `ID` every encounter declares.
+    { test: /[/\\]encounters[/\\]/i, cls: 'Cosmoteer.Modes.Career.Encounter.EncounterRules', requireTopLevelField: 'ID' },
     { test: /[/\\]crew[/\\]crew\.rules$/i, cls: 'Cosmoteer.Crew.CrewRules' },
     { test: /\/name_generators\//i, registry: 'Cosmoteer.Generators.Names.NameGenerator' },
     // Career sector-generation files are whole-file `SimObjectSpawner`s dispatched by their top-level
@@ -105,7 +120,7 @@ const topLevelField = (document: AbstractNodeDocument, name: string): AbstractNo
 };
 
 /** The document's top-level `Type = <disc>` value, for polymorphic whole-file roots. */
-const topLevelType = (document: AbstractNodeDocument): string | undefined => {
+export const topLevelType = (document: AbstractNodeDocument): string | undefined => {
     const value = topLevelField(document, 'Type');
     if (value && isValueNode(value) && (value.valueType.type === 'String' || value.valueType.type === 'Reference')) {
         return String(value.valueType.value);
@@ -123,8 +138,17 @@ const MIN_ROOT_COVERAGE = 0.5;
  * `Type=` discriminator (`None`/`Random`/…) that belongs to a different registry. Documents with too
  * few nameable top-level members (< 3) carry too little signal to judge and are accepted unchecked;
  * pure-override/helper fragments fail naturally on their near-zero coverage.
+ *
+ * ALL_CAPS members are user macro constants (an overclock shot's `RADIUS`/`DAMAGE_POOL` anchors,
+ * read only through `&~/…` references), never schema fields, so they are excluded from the ratio: a
+ * real bullet file whose macros outnumber its fields must still root. The exception is a field the
+ * class declares in that exact spelling (`ID`); a case-insensitive hit alone (a `RANGE` macro against
+ * the `Range` field) stays a macro, or every macro shadowing a field would fake ownership. When
+ * constants were excluded, the small-document trust needs one declared member as evidence, so a pure
+ * macro container (an overclock file whose only non-constant is an inheriting `Beam` group) does not
+ * slip through as a whole-file root.
  */
-const classFitsDocument = (cls: string, document: AbstractNodeDocument): boolean => {
+export const classFitsDocument = (cls: string, document: AbstractNodeDocument): boolean => {
     const names = document.elements
         .filter((node): node is AbstractNode => isAssignmentNode(node) || isGroupNode(node))
         .map((node) => (isAssignmentNode(node) ? node.left.name : isGroupNode(node) ? node.identifier?.name : undefined))
@@ -133,9 +157,15 @@ const classFitsDocument = (cls: string, document: AbstractNodeDocument): boolean
         // would understate coverage on `Type`-dispatched roots (a spawner file's only fields besides
         // `Type` may be a couple of base members). Drop it when it isn't a real field of the candidate.
         .filter((name) => name.toLowerCase() !== 'type' || !!fieldOf(cls, name));
-    if (names.length < 3) return true;
-    const known = names.filter((name) => fieldOf(cls, name)).length;
-    return known / names.length >= MIN_ROOT_COVERAGE;
+    const isMacroName = (name: string): boolean =>
+        /^[A-Z][A-Z0-9_]*$/.test(name) && fieldOf(cls, name)?.name !== name;
+    const judged = names.filter((name) => !isMacroName(name));
+    const excludedConstants = judged.length < names.length;
+    if (judged.length < 3) {
+        return excludedConstants ? judged.some((name) => fieldOf(cls, name)) : true;
+    }
+    const known = judged.filter((name) => fieldOf(cls, name)).length;
+    return known / judged.length >= MIN_ROOT_COVERAGE;
 };
 
 /** Normalize a document URI's path separators so the `/dir/` path rules match disk paths too
@@ -170,11 +200,11 @@ export const documentRootClass = (document: AbstractNodeDocument): string | unde
 };
 
 /**
- * The registry a whole-file-root's top-level `Type=` dispatches within — known by the canonical
+ * The registry a whole-file-root's top-level `Type=` dispatches within, known by the canonical
  * folder even when the written `Type` is a typo (so completion can offer it and validation can flag
  * it). Falls back to content when a valid `Type` already names a global root registry's member.
  * Returns undefined for non-`Type`-dispatched roots (parts, shots, resources, …), so callers stay
- * conservative. Only the canonical dirs are mapped — effect files scattered elsewhere simply aren't
+ * conservative. Only the canonical dirs are mapped, so effect files scattered elsewhere simply aren't
  * covered (no false guidance), matching the low-FP bias of the rest of the seam.
  */
 const ROOT_REGISTRY_BY_PATH: ReadonlyArray<{ readonly test: RegExp; readonly registry: string }> = [
@@ -187,7 +217,7 @@ const ROOT_REGISTRY_BY_PATH: ReadonlyArray<{ readonly test: RegExp; readonly reg
 export const documentRootRegistry = (document: AbstractNodeDocument): SchemaRegistry | undefined => {
     // Content first: a valid top-level `Type` pins the registry exactly (an effect file living under
     // /doodads/ is a MediaEffect, not a DoodadRules). Path is only the fallback for the typo case,
-    // where the written `Type` matches nothing — so completion/validation still know what to offer.
+    // where the written `Type` matches nothing, so completion/validation still know what to offer.
     const type = topLevelType(document);
     if (type) {
         for (const registry of ROOT_REGISTRIES) {

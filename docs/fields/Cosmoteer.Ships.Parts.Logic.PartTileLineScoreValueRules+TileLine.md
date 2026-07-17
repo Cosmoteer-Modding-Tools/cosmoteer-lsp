@@ -13,7 +13,7 @@
 <!-- TODO: needs documentation -->
 
 ## Direction
-`enum OrthogonalRotation` · optional · default `0` · one of: `Right`, `Down`, `Left`, `Up`
+`enum OrthogonalRotation` · optional · default `Right` · one of: `Right`, `Down`, `Left`, `Up`
 
 <!-- TODO: needs documentation -->
 
@@ -23,6 +23,6 @@
 <!-- TODO: needs documentation -->
 
 ## MaxOcclusionDistance
-`int` · optional · default `Mono.Cecil.CustomAttributeArgument`
+`int` · optional · default `2147483647`
 
 <!-- TODO: needs documentation -->

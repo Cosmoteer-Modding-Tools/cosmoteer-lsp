@@ -43,7 +43,7 @@ const validate = async (src: string, uri = 'file:///runtime-root-ref.rules') => 
 describe('runtime-root (`~`) references', () => {
     it('does not flag a `~`-reference whose first segment is not a root member (runtime context)', async () => {
         const diagnostics = await validate(readFixture('runtime-root-ref.rules'));
-        // EMITTER is not defined in this file — it belongs to the consuming weapon part.
+        // EMITTER is not defined in this file. It belongs to the consuming weapon part.
         expect(diagnostics.get('&~/EMITTER/BeamCount')).toBeUndefined();
     });
 

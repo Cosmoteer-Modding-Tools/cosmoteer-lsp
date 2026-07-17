@@ -1,0 +1,6 @@
+// The base the mod's AddBase appends to derived_part's Part. Its members become reachable via
+// `<derived_part.rules>/Part/^/1/…` once the merge is modelled.
+Part
+{
+	OVERCLOCK_MEMBER = 99
+}

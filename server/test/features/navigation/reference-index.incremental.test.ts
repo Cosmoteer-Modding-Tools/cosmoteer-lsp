@@ -9,9 +9,9 @@ import { parseFilePath } from '../../../src/utils/ast.utils';
 import { walkAst } from '../../helpers';
 import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';
 
-// find-all-references is STATELESS — it re-reads buffers/disk per query — so it reflects
+// find-all-references is stateless (it re-reads buffers/disk per query), so it reflects
 // disk changes (a new file from `git pull`, a deletion) with no cache to invalidate. The
-// new file lives in an ISOLATED temp dir (an extra scanned folder), never the shared
+// new file lives in an isolated temp dir (an extra scanned folder), never the shared
 // fixtures, so this can't race other suites.
 const index = ReferenceIndex.instance;
 const token = CancellationToken.None;
@@ -27,7 +27,7 @@ const innerValuePosition = (b: AbstractNodeDocument) => {
     throw new Error('InnerValue not found');
 };
 
-describe('find-all-references — reflects disk changes (stateless)', () => {
+describe('find-all-references: reflects disk changes (stateless)', () => {
     let bDoc: AbstractNodeDocument;
 
     beforeAll(async () => {

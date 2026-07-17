@@ -43,7 +43,7 @@
 <!-- TODO: needs documentation -->
 
 ## TierCombineMode
-`enum TierCombine` · optional · default `3` · one of: `Range`, `Max`, `ValueSum`, `None`
+`enum TierCombine` · optional · default `None` · one of: `Range`, `Max`, `ValueSum`, `None`
 
 <!-- TODO: needs documentation -->
 

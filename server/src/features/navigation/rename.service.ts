@@ -38,7 +38,7 @@ interface SegmentSpan {
     end: number;
 }
 
-/** A valid Cosmoteer member name — what a rename target may be renamed to. */
+/** A valid Cosmoteer member name: what a rename target may be renamed to. */
 const VALID_NAME = /^[A-Za-z0-9_]+$/;
 
 /**
@@ -73,7 +73,7 @@ const segmentSpans = (value: string): SegmentSpan[] => {
     return spans;
 };
 
-/** The bare member name of a segment — the leading relative `&` sigil stripped. */
+/** The bare member name of a segment: the leading relative `&` sigil stripped. */
 const segmentName = (span: SegmentSpan): string => span.text.replace(/^&/, '');
 
 /** The document range covering a segment's name (excluding any leading `&`). */
@@ -91,7 +91,7 @@ const identifierRange = (node: IdentifierNode): Range => {
 /**
  * Rename (`textDocument/rename` + `prepareRename`).
  *
- * A Cosmoteer symbol is referred to by the last segment that resolves to it — which can
+ * A Cosmoteer symbol is referred to by the last segment that resolves to it, which can
  * be the endpoint of a reference (`&…/B`) or a mid-path segment (`&…/B/InnerValue` when
  * renaming `B`). So rename can't just rewrite the reference-index buckets (those key only
  * endpoints): for every reference whose path contains a segment textually equal to the
@@ -126,7 +126,7 @@ export class RenameService {
             });
             if (!span) return null;
             const name = segmentName(span);
-            // Only a plain member segment is renameable — not a `<file.rules>` part, a
+            // Only a plain member segment is renameable, not a `<file.rules>` part, a
             // super-path sigil, or a `^`/`~`/`..` navigation op.
             if (!VALID_NAME.test(name)) return null;
             return { range: segmentNameRange(found, span), placeholder: name };
@@ -143,7 +143,7 @@ export class RenameService {
         const channel = particleChannelAt(document, position);
         if (channel) return { range: channelRangeOf(channel), placeholder: channel.name };
 
-        // A cross-file `ID<X>` value — a bare-id reference usage, or a whole-file root's own `ID` —
+        // A cross-file `ID<X>` value (a bare-id reference usage, or a whole-file root's own `ID`)
         // renames the id (dotted ids allowed). The cross-file rewrite happens in `rename`.
         const idValue = crossFileIdValue(found);
         if (idValue) {
@@ -226,7 +226,7 @@ export class RenameService {
             }
         }
 
-        // 3. Schema `ID<>` sibling references (bare strings, always same-file) — scan this document.
+        // 3. Schema `ID<>` sibling references (bare strings, always same-file): scan this document.
         for (const candidate of stringValueNodesOf(document)) {
             if (String(candidate.valueType.value) !== symbol.name) continue;
             const target = resolveSchemaSiblingReference(candidate);

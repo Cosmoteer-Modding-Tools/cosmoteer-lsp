@@ -10,292 +10,292 @@
 ## ShipTextColorFactor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Multiplied into the color of ship name text shown in the world, such as ship indicator labels and mouseover names, after the allegiance or indicator color is chosen. Vanilla uses it to make ship text slightly transparent.
 
 ## SelectionOutlineSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The border of the rectangle drawn while dragging a box selection around ships. Its color is tinted by the local player's color. When the camera focus mode is active, [[Cosmoteer.Simulation.SimGuiRules.FocusOutlineSprite]] is drawn instead.
 
 ## SelectionFillSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The translucent interior of the drag selection rectangle, tinted by the local player's color. Drawn together with [[Cosmoteer.Simulation.SimGuiRules.SelectionOutlineSprite]].
 
 ## FocusOutlineSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The border of the drag selection rectangle while the camera focus cursor mode is active, replacing [[Cosmoteer.Simulation.SimGuiRules.SelectionOutlineSprite]]. Unlike the normal selection rectangle it is not tinted by the player color.
 
 ## FocusFillSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The interior of the drag selection rectangle while the camera focus cursor mode is active, replacing [[Cosmoteer.Simulation.SimGuiRules.SelectionFillSprite]].
 
 ## TentativeShipCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The circle drawn around a ship under the mouse cursor that is not yet selected, previewing what a click would select. Tinted by the ship's allegiance color. Ships concealed inside a nebula use [[Cosmoteer.Simulation.SimGuiRules.HiddenTentativeShipCircle]] instead.
 
 ## HiddenTentativeShipCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Replaces [[Cosmoteer.Simulation.SimGuiRules.TentativeShipCircle]] for hovered ships that are hidden inside a nebula. Vanilla gives it a different dash pattern to signal the contact is concealed.
 
 ## TentativeShipCrewCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The circle drawn around each crew member who is assigned to a hovered ship but currently outside it in space. Crew whose distance warning is active use [[Cosmoteer.Simulation.SimGuiRules.ShipCrewWarningCircle]] instead. Selected ships use [[Cosmoteer.Simulation.SimGuiRules.SelectedShipCrewCircle]].
 
 ## TentativeScheduledNuggetCollectSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon drawn over each nugget that a ship under the mouse cursor has already been ordered to collect, previewing that ship's scheduled pickups before you select it. The equivalent icon for ships you have selected is [[Cosmoteer.Simulation.SimGuiRules.SelectedScheduledNuggetCollectSprite]].
 
 ## TentativeNuggetCollectSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon drawn over a nugget that the selected ships are able to collect, shown when hovering the nugget and over each nugget inside the drag selection rectangle in salvage collection mode. Swapped for [[Cosmoteer.Simulation.SimGuiRules.TentativeNuggetCantCollectSprite]] when collection is not possible.
 
 ## TentativeNuggetCantCollectSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon drawn over a hovered nugget when none of the selected ships can collect it, for example because they lack storage capacity or are too far away. The collectable counterpart is [[Cosmoteer.Simulation.SimGuiRules.TentativeNuggetCollectSprite]].
 
 ## NuggetCancelCollectSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon drawn over a nugget whose scheduled collection would be cancelled, shown when hovering a nugget with a pending pickup in cancel mode and over nuggets inside the cancel drag rectangle in salvage collection mode.
 
 ## TentativeShipCrewLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The line connecting a hovered ship to each of its crew members who are out in space, drawn from the ship's bounding circle to the crew member. Shown only when the show space crew lines setting is enabled, except that crew with a distance warning always get [[Cosmoteer.Simulation.SimGuiRules.ShipCrewWarningLine]] instead.
 
 ## ShipVelocityLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The arrow line drawn from a selected or hovered ship's selection circle in its direction of travel, indicating current linear velocity. Its length comes from the velocity times [[Cosmoteer.Simulation.SimGuiRules.ShipVelocityLineScale]] and it fades out at very low speeds. Also drawn for all on-screen ships when the velocity indicator display setting is set to all.
 
 ## ShipVelocityLineScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the ship's linear velocity to get the world-space length of [[Cosmoteer.Simulation.SimGuiRules.ShipVelocityLine]]. Because velocity is in tiles per second, the value is effectively the number of seconds of travel the line's length represents.
 
 ## ShipAngularVelocityCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The arc drawn just outside a ship's selection circle to indicate its current rotation speed and direction. The arc's angular width is the angular velocity times [[Cosmoteer.Simulation.SimGuiRules.ShipAngularVelocityScale]] and it fades out at very low rotation speeds. An arrowhead from [[Cosmoteer.Simulation.SimGuiRules.ShipAngularVelocityArrow]] is drawn at its far end.
 
 ## ShipAngularVelocityArrow
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The arrowhead sprite drawn at the leading end of [[Cosmoteer.Simulation.SimGuiRules.ShipAngularVelocityCircle]], pointing in the direction of rotation.
 
 ## ShipAngularVelocityScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the ship's angular velocity in radians per second to get the angular width of the [[Cosmoteer.Simulation.SimGuiRules.ShipAngularVelocityCircle]] arc. The value is effectively the number of seconds of rotation the arc represents.
 
 ## SelectedShipCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The circle drawn around each ship the player currently has selected, tinted by the ship's allegiance color. When first selected its color tweens from [[Cosmoteer.Simulation.SimGuiRules.SelectedShipCircleTweenFromColor]] over [[Cosmoteer.Simulation.SimGuiRules.SelectedShipCircleTweenTime]]. Ships concealed inside a nebula use [[Cosmoteer.Simulation.SimGuiRules.HiddenSelectedShipCircle]] instead.
 
 ## HiddenSelectedShipCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Replaces [[Cosmoteer.Simulation.SimGuiRules.SelectedShipCircle]] for selected ships that are hidden inside a nebula. Vanilla gives it a different dash pattern.
 
 ## SelectedShipCircleTweenTime
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds over which a newly selected ship's selection circle color fades from [[Cosmoteer.Simulation.SimGuiRules.SelectedShipCircleTweenFromColor]] to its normal color, producing a brief flash on selection.
 
 ## SelectedShipCircleTweenFromColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Multiplier applied to the selection circle's color at the moment a ship is selected, which then fades back to the normal color over [[Cosmoteer.Simulation.SimGuiRules.SelectedShipCircleTweenTime]]. Vanilla uses an over-bright alpha so the circle flashes when selection starts.
 
 ## SelectedShipCrewCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The circle drawn around each crew member who is assigned to a selected ship but currently outside it in space. Crew with an active distance warning use [[Cosmoteer.Simulation.SimGuiRules.ShipCrewWarningCircle]] instead. Hovered ships use [[Cosmoteer.Simulation.SimGuiRules.TentativeShipCrewCircle]].
 
 ## SelectedShipCrewLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The line connecting a selected ship to each of its crew members who are out in space. Shown only when the show space crew lines setting is enabled, except that crew with a distance warning always get [[Cosmoteer.Simulation.SimGuiRules.ShipCrewWarningLine]] instead.
 
 ## SelectedScheduledNuggetCollectSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon drawn over each nugget that the currently selected ships are scheduled to collect. It animates in per [[Cosmoteer.Simulation.SimGuiRules.ScheduledNuggetCollectTweenDuration]] and [[Cosmoteer.Simulation.SimGuiRules.ScheduledNuggetCollectTweenFromScale]] after the collect order is issued.
 
 ## ScheduledNuggetCollectTweenDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds over which the scheduled collect icon and its resource pickup line fade and scale in after a collect order is issued. Applies to both [[Cosmoteer.Simulation.SimGuiRules.SelectedScheduledNuggetCollectSprite]] and [[Cosmoteer.Simulation.SimGuiRules.TentativeScheduledNuggetCollectSprite]].
 
 ## ScheduledNuggetCollectTweenFromScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Starting scale multiplier of the scheduled collect icon when a collect order is issued. The icon grows or shrinks from this value to 1 over [[Cosmoteer.Simulation.SimGuiRules.ScheduledNuggetCollectTweenDuration]].
 
 ## ShipCrewWarningCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Replaces [[Cosmoteer.Simulation.SimGuiRules.SelectedShipCrewCircle]] or [[Cosmoteer.Simulation.SimGuiRules.TentativeShipCrewCircle]] around an off-ship crew member whose distance warning is active, meaning they are straying too far from their ship.
 
 ## ShipCrewWarningLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The line drawn from a ship to an off-ship crew member whose distance warning is active. Unlike [[Cosmoteer.Simulation.SimGuiRules.SelectedShipCrewLine]] it is drawn regardless of the show space crew lines setting.
 
 ## FocusShipCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The circle drawn around ships under the mouse cursor while the camera focus cursor mode is active, previewing which ship a click would focus the camera on. Not drawn when the camera is already focused on or inside that ship. Drawn at 1.5 times the ship's bounding radius.
 
 ## TentativeAttackCommandCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Circle drawn around a hovered enemy ship to preview that a right click would issue an attack command, tinted with the player's enemy color. Also drawn around each target while dragging an attack command.
 
 ## TentativeFollowCommandCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Circle drawn around a hovered friendly or neutral ship to preview that a right click would issue a follow command, tinted with the player's own color. Also drawn around target ships while dragging a move command with collision avoidance active on them.
 
 ## TentativeFtlCommandCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Circle drawn around an FTL gate under the mouse cursor when the selected ships have FTL drives, previewing a jump command through the gate. It replaces the default attack or follow context circle.
 
 ## TentativeSalvageCommandCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Circle drawn around a hovered derelict or enemy ship that the selected ships can salvage, previewing a salvage command. Its color is tinted by the target's allegiance.
 
 ## CancelSalvageCommandCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Circle drawn around a hovered ship that a selected ship currently has a salvage command against, previewing that clicking would cancel that command.
 
 ## FocusModeCursor
-`asset (image)` · required
+`Cursor` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while the camera focus input mode is held, where clicking a ship focuses the camera on it. Also used by mission GUI elements that focus the camera on a mission target.
 
 ## PartModeCursor
-`asset (image)` · required
+`Cursor` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while the part selection input mode is active, where clicks select individual parts inside ships instead of whole ships.
 
 ## NuggetCollectCursor
-`asset (image)` · required
+`Cursor` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while hovering a nugget that the selected ships can collect. Swapped for [[Cosmoteer.Simulation.SimGuiRules.NuggetCantCollectCursor]] when collection is not possible.
 
 ## NuggetCantCollectCursor
-`asset (image)` · required
+`Cursor` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while hovering a nugget that none of the selected ships can collect, matching the [[Cosmoteer.Simulation.SimGuiRules.TentativeNuggetCantCollectSprite]] overlay.
 
 ## CancelSalvageCollectCursor
-`asset (image)` · required
+`Cursor` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown when a click would cancel salvage or collection, while hovering a ship, part, or nugget with a pending salvage or pickup and while holding the cancel modifier in salvage collection mode.
 
 ## SalvageCollectionSelectionOutlineSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The four edges of the drag-select rectangle while box-selecting parts and nuggets to salvage in salvage collection mode.
 
 ## SalvageCollectionSelectionFillSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The interior of the drag-select rectangle while box-selecting parts and nuggets to salvage in salvage collection mode.
 
 ## CancelSalvageCollectionSelectionOutlineSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The four edges of the drag-select rectangle when the cancel-salvage input is held in salvage collection mode, replacing [[Cosmoteer.Simulation.SimGuiRules.SalvageCollectionSelectionOutlineSprite]].
 
 ## CancelSalvageCollectionSelectionFillSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The interior of the drag-select rectangle when the cancel-salvage input is held in salvage collection mode, replacing [[Cosmoteer.Simulation.SimGuiRules.SalvageCollectionSelectionFillSprite]].
 
 ## NuggetLocationOverlaySprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon drawn over every visible nugget while the salvage collection tool is active, marking where collectable resources are. Nuggets of resource types banned on all selected ships are skipped.
 
 ## BlueprintTransitionDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds for blueprint, redprint, and prohibited-zone overlays to fade fully in or out when their visibility toggles.
 
 ## BackgroundTransitionDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds for the space background dim to fade in when a toolbox opens and out when it closes. The dim fades toward [[Cosmoteer.Simulation.SimGuiRules.BackgroundDimOpacity]].
 
 ## BackgroundDimOpacity
 `float` · required
 
-<!-- TODO: needs documentation -->
+Opacity, as a 0..1 fraction, to which the space background is dimmed while a build, paint, crew, or resources toolbox is open. The dim fades in and out over [[Cosmoteer.Simulation.SimGuiRules.BackgroundTransitionDuration]].
 
 ## GridTransitionDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds for the build grid drawn over the selected ship to fade fully in or out when it is shown or hidden.
 
 ## ShipGridLiveModeColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Line color of the build grid drawn over the selected ship's maximum build area when viewing the live ship. Blends toward [[Cosmoteer.Simulation.SimGuiRules.ShipGridBlueprintModeColor]] as the blueprint view fades in.
 
 ## ShipGridBlueprintModeColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Line color of the build grid over the selected ship while the full blueprint view is shown. The grid blends from [[Cosmoteer.Simulation.SimGuiRules.ShipGridLiveModeColor]] as the blueprint fades in.
 
 ## ShipDarkenColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color factor that unselected ships fade toward when the background is dimmed by an open toolbox, and that ships fade toward as the blueprint view fades in. White means no darkening.
 
 ## SelectedPartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Nine-slice box drawn around each selected part, tinted with the player or neutral faction color. Fades out as the build grid fades in.
 
 ## TentativePartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Nine-slice box drawn around parts inside the current selection rectangle that are not yet selected, tinted with the player or neutral faction color.
 
 ## FocusPartNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Nine-slice box drawn around parts under the cursor while in focus mode with the camera focused inside the ship.
 
 ## HealthBarBlockSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite tiled horizontally across a part's health bar, one repetition per [[Cosmoteer.Simulation.SimGuiRules.HealthBarHPPerBlock]] hit points, so the bar reads as discrete blocks. Tinted from green toward red as the part takes damage.
 
 ## HealthBarHPPerBlock
 `float` · required
 
-<!-- TODO: needs documentation -->
+Hit points represented by one block of [[Cosmoteer.Simulation.SimGuiRules.HealthBarBlockSprite]] in the health bar shown above a part. Vanilla uses 1000, so a 4000 HP part shows four blocks.
 
 ## ScheduledSalvageNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Nine-slice box drawn around each part that a selected ship's crew has been ordered to salvage. Appears with a shrink animation controlled by [[Cosmoteer.Simulation.SimGuiRules.ScheduledSalvageNineSliceShrinkDuration]] and fades out as salvaging progresses per [[Cosmoteer.Simulation.SimGuiRules.ScheduledSalvageProgressFadeRange]].
 
 ## TentativeScheduledSalvageNineSlice
 `NineSlice` · required
@@ -305,89 +305,89 @@
 ## TentativeSalvageNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Nine-slice box drawn around parts that would be salvaged, shown when hovering a salvageable part, around parts inside the salvage drag-select rectangle, and around the existing salvage targets of ships under the cursor.
 
 ## CancelSalvageNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Nine-slice box drawn around parts whose salvage order would be canceled, shown when hovering a part being salvaged with the cancel input held and around such parts inside the cancel drag-select rectangle.
 
 ## ScheduledSalvageNineSliceShrinkDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds after a salvage order is issued during which [[Cosmoteer.Simulation.SimGuiRules.ScheduledSalvageNineSlice]] fades in while shrinking from [[Cosmoteer.Simulation.SimGuiRules.ScheduledSalvageNineSliceShrinkFromInflate]] down to fit the part exactly.
 
 ## ScheduledSalvageNineSliceShrinkFromInflate
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance in tiles by which [[Cosmoteer.Simulation.SimGuiRules.ScheduledSalvageNineSlice]] starts inflated beyond the part's rectangle when a salvage order is issued, shrinking to 0 over [[Cosmoteer.Simulation.SimGuiRules.ScheduledSalvageNineSliceShrinkDuration]].
 
 ## ScheduledSalvageReticleSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon drawn centered on each part that a selected ship's crew has been ordered to salvage, alongside [[Cosmoteer.Simulation.SimGuiRules.ScheduledSalvageNineSlice]].
 
 ## TentativeScheduledSalvageReticleSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon drawn centered on the salvage targets of ships under the cursor, alongside [[Cosmoteer.Simulation.SimGuiRules.TentativeSalvageNineSlice]], previewing which parts those ships are set to salvage.
 
 ## ScheduledSalvageProgressFadeRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Range of the part's salvage effect intensity, a 0..1 value, over which the scheduled-salvage box and reticle fade out as crew salvage the part. With the vanilla `[0, 0.5]` the overlay is fully faded once intensity reaches 0.5.
 
 ## SalvageCursor
-`asset (image)` · required
+`Cursor` · required
 
-<!-- TODO: needs documentation -->
+Mouse cursor shown while the salvage collection tool is active and when hovering a ship or part that can be salvaged. Replaced by [[Cosmoteer.Simulation.SimGuiRules.CancelSalvageCollectCursor]] while the cancel modifier is held.
 
 ## ShipSelectSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the player selects one or more ships, whether by clicking, drag-selecting, recalling a control group, or clicking a ship logo in the FTL jump window.
 
 ## ShipFocusSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the camera locks focus onto a ship or group of ships, such as after a double-click. Distinct from [[Cosmoteer.Simulation.SimGuiRules.ShipSelectSound]], which covers plain selection.
 
 ## PartSelectSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when one or more parts are added to the current part selection, including selection via part control groups and the parts card.
 
 ## PartDeselectSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when parts are removed from the current part selection or the part selection is cleared.
 
 ## FtlReadySound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays in the FTL jump window at the moment every selected ship with a jump command finishes charging and becomes ready to jump. Fires only on the transition from not ready to ready while the jump button is active.
 
 ## NuggetCollectSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the player successfully orders crew to collect one or more resource nuggets, including multi-nugget collection via double-click.
 
 ## NuggetCollectCancelSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the player cancels pending nugget collection jobs, either by clicking a nugget already being collected or by drag-selecting nuggets in cancel mode. In a cancel drag that also cancels part salvage, [[Cosmoteer.Simulation.SimGuiRules.SalvageCancelSound]] plays instead.
 
 ## SalvageCancelSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the player cancels scheduled salvage on one or more parts, by clicking a part already marked for salvage or by drag-selecting in cancel mode.
 
 ## SalvageMineSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the player issues salvage orders on ship parts, whether by clicking a part or by drag-selecting an area in salvage mode.
 
 ## GatherFloatingResourcesSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when a drag-selection in salvage mode issues collection orders for floating resource nuggets and no parts were marked for salvage in the same drag. If parts were also marked, [[Cosmoteer.Simulation.SimGuiRules.SalvageMineSound]] plays instead.

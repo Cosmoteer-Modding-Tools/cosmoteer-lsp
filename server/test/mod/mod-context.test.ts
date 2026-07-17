@@ -78,10 +78,10 @@ describe('resolveWithModContext (effective game = vanilla + mod)', () => {
         expect(await resolveWithModContext('/MERGED/NotInEither', node, token)).toBeNull();
     });
 
-    // Whole-file Override reached THROUGH a vanilla global: the mod's `Overrides
+    // Whole-file Override reached through a vanilla global: the mod's `Overrides
     // OverrideIn=<indicators/indicators.rules> Overrides=&<mod_indicators.rules>` merges `SWNoShields`
     // into the vanilla indicators file, which `&/INDICATORS` aliases. The member exists only in the
-    // mod, so it resolves via the mod context — mirrors the real SW mod's `&/INDICATORS/SWNo…` refs.
+    // mod, so it resolves via the mod context. Mirrors the real SW mod's `&/INDICATORS/SWNo…` refs.
     it('resolves a vanilla member of a file reached through a vanilla global (`/INDICATORS/Scorched`)', async () => {
         expect(valueOf(await resolveWithModContext('/INDICATORS/Scorched/X', node, token))).toBe(5);
     });

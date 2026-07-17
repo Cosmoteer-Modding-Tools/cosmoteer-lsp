@@ -1,0 +1,11 @@
+Part
+{
+	Components
+	{
+		IsOperational { Type = MultiToggle; Mode = All }
+		NewComp
+		{
+			Type = 
+		}
+	}
+}

@@ -1,14 +1,22 @@
 import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
-import { AbstractNodeDocument, ListNode, isGroupNode, isListNode } from '../../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    ListNode,
+    isGroupNode,
+    isIdentifierNode,
+    isListNode,
+} from '../../core/ast/ast';
 import { namedMembersOf } from '../../utils/ast.utils';
 import {
     findEnclosingContainer,
     findEnclosingGroup,
+    groupClassCandidates,
     listElementType,
     listSlotType,
+    mapEntryNames,
     memberScopeClassAt,
     registryForGroup,
-    resolveGroupClass,
 } from '../../document/schema/schema-context';
 import { documentRootClass, documentRootRegistry } from '../../document/schema/document-root';
 import {
@@ -17,12 +25,17 @@ import {
     fieldSignatureMarkdown,
     fieldsOf,
     isLocalizationKeyType,
+    scalarReferenceTargetOf,
     schema,
+    typeDef,
     valueTypeLabel,
 } from '../../document/schema/schema';
-import { SchemaRegistry, ValueType } from '../../document/schema/schema.types';
+import { SchemaField, SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { Completion } from './autocompletion.service';
 import { completeFieldValue, discriminatorCompletions } from './autocompletion.schema';
+import { componentIdCompletions } from './autocompletion.component-id';
+import { componentNameCompletions } from './autocompletion.component-name';
+import { mapEntryKeyTargetOf } from '../navigation/schema-id-reference.navigation';
 import { resolveClassThroughInheritance } from './inheritance-resolution';
 import { shaderConstantCompletions, shaderConstantGroupClass } from './autocompletion.shader-constants';
 
@@ -87,9 +100,15 @@ const scalarValueCompletions = (valueType: ValueType): Completion[] => {
 const listElementCompletions = (list: ListNode): Completion[] => {
     const slot = listSlotType(list);
     // A group-typed field written in positional list form (`BaseSize = [7.2, 7.2]`): the elements
-    // are the class's digit fields — plain values with nothing to name-complete.
+    // are the class's digit fields, plain values with nothing to name-complete.
     if (!slot || slot.kind !== 'list') return [];
     const element = slot.element;
+    // A scalar-form element class with a reference payload (`EditorParentParts` entries) is
+    // normally written as a bare id, so offer nothing here and let the caller's cross-file id
+    // fallback complete the ids instead of scaffolding a `{ … }` block.
+    if (element.kind === 'group' && scalarReferenceTargetOf(element.ref)) {
+        return [];
+    }
     if (element.kind === 'polymorphicGroup' || element.kind === 'group') {
         const scaffold = element.kind === 'polymorphicGroup' ? '{\n\tType = $0\n}' : '{\n\t$0\n}';
         return [
@@ -126,27 +145,78 @@ export const schemaFieldNameCompletions = async (
     // A shader constant written in group form (`_waveTex { … }`) is not a schema field, so the slot
     // walk cannot type it. Resolve its class from the material's referenced `.shader` file instead.
     if (!cls && group) cls = await shaderConstantGroupClass(group, document.uri, cancellationToken);
+    // A `Components` map has no class and no schema field names, its members are free-form component
+    // ids. Offer the ids the part's scope references but nothing declares (a proxy's per-mode target).
+    if (!cls && group) {
+        const componentNames = await componentNameCompletions(group, document, cancellationToken);
+        if (componentNames) return componentNames;
+    }
     // Lower-cased: an already-written `maxhealth` counts as `MaxHealth` (game lookup ignores case).
-    const present = new Set(namedMembersOf(group ?? document).map(([name]) => name.toLowerCase()));
+    // The member being typed (the bare identifier under the cursor) is not "already written": a
+    // fully typed `Filter` would otherwise count as present and vanish from the popup at its final
+    // character, right when the user wants to accept the scaffolding snippet.
+    const members = namedMembersOf(group ?? document);
+    const underCursor = ([, member]: [string, AbstractNode]): boolean =>
+        isIdentifierNode(member) &&
+        !!member.position &&
+        offset >= member.position.start &&
+        offset <= member.position.end;
+    const present = new Set(members.filter((entry) => !underCursor(entry)).map(([name]) => name.toLowerCase()));
+    // A map entry group (`Upgrades [ { <cursor> } ]`) has no class of its own; its members are the
+    // map's entry names, `Key`/`Value` or the `[KeyValuePairNames]` spellings like `Old`/`New`.
+    if (!cls && group?.parent && isListNode(group.parent)) {
+        const slot = listSlotType(group.parent);
+        if (slot?.kind === 'map') {
+            return mapEntryNames(slot)
+                .filter(([name]) => !present.has(name.toLowerCase()))
+                .map(([name, valueType]) => ({
+                    label: name,
+                    kind: CompletionItemKind.Field,
+                    detail: valueTypeLabel(valueType),
+                    insertText: fieldSnippet(name, valueType),
+                    isSnippet: true,
+                    triggerSuggest: ['polymorphicGroup', 'enum', 'bool', 'reference'].includes(valueType.kind),
+                }));
+        }
+    }
+    // A wrapper-delegation slot reads BOTH the wrapper's fields and the dispatched member's from the
+    // same group, while the class resolution stays single-valued, so the fields of every candidate
+    // class are offered: the primary's first, deduped by name.
+    const classes = cls ? [cls] : [];
+    if (group) {
+        for (const candidate of groupClassCandidates(group)) {
+            if (!classes.includes(candidate)) classes.push(candidate);
+        }
+    }
     // All-digit fields (Vector2's `0`/`1`, Color's `0`-`3`, …) are the positional names the game
     // deserializer reads when the value is written in list form (`[7.2, 7.2]`). They stay in the
     // schema so list elements type-resolve, but offering them as field names inside `{}` is noise.
-    const missing = cls
-        ? fieldsOf(cls).filter((field) => !present.has(field.name.toLowerCase()) && !/^\d+$/.test(field.name))
-        : [];
-    const completions: Completion[] = missing.map((field) => ({
+    const offeredNames = new Set<string>();
+    const missing: Array<{ field: SchemaField; owner: string }> = [];
+    for (const candidate of classes) {
+        for (const field of fieldsOf(candidate)) {
+            const key = field.name.toLowerCase();
+            if (present.has(key) || offeredNames.has(key) || /^\d+$/.test(field.name)) continue;
+            offeredNames.add(key);
+            missing.push({ field, owner: candidate });
+        }
+    }
+    const completions: Completion[] = missing.map(({ field, owner }) => ({
         label: field.name,
         kind: CompletionItemKind.Field,
         detail: `${valueTypeLabel(field.valueType)}${field.optional ? '' : ' · required'}`,
-        documentation: fieldSignatureMarkdown(field, cls ?? undefined),
+        documentation: fieldSignatureMarkdown(field, owner),
         insertText: fieldSnippet(field.name, field.valueType),
         isSnippet: true,
+        // The snippet's stop lands at a value position that has its own completions (a subtype for
+        // `Type = `, enum members, `true`/`false`, component ids), so reopen the popup there.
+        triggerSuggest: ['polymorphicGroup', 'enum', 'bool', 'reference'].includes(field.valueType.kind),
         // Required fields sort above optional ones (LSP sorts by sortText lexicographically).
         sortText: `${field.optional ? '1' : '0'}_${field.name}`,
     }));
 
     // One pick that scaffolds all the still-missing required fields at once (each a numbered tab stop).
-    const requiredMissing = missing.filter((field) => !field.optional);
+    const requiredMissing = missing.filter(({ field }) => !field.optional).map(({ field }) => field);
     if (requiredMissing.length >= 2) {
         completions.unshift({
             label: `Insert ${requiredMissing.length} required fields`,
@@ -160,7 +230,7 @@ export const schemaFieldNameCompletions = async (
     }
 
     // A polymorphic group that hasn't chosen its concrete subtype yet has no class-specific fields to
-    // offer beyond the base — but it must declare `Type` to dispatch. `Type` is not a schema field
+    // offer beyond the base, but it must declare `Type` to dispatch. `Type` is not a schema field
     // (the serializer handles it), so inject it explicitly, sorted to the very top.
     if (group) {
         const registry = registryForGroup(group);
@@ -174,6 +244,30 @@ export const schemaFieldNameCompletions = async (
     return completions;
 };
 
+/**
+ * Whether `node` is a bare identifier member, a field name being typed (`Ig` on its own line)
+ * with no `=`/value yet. Such an identifier is an AST leaf, so the offset-based field-name
+ * completion (which fires only when no leaf is under the cursor) never ran for it and typing a
+ * field name went dark. The completion router sends these to that same offset path instead. A
+ * `&…` reference member and an inheritance base entry are identifiers too and stay excluded.
+ * They are value-like, not field names.
+ *
+ * @param node the AST leaf found under the cursor.
+ * @returns true when the node is a partially typed field name.
+ */
+export const isBareFieldNameIdentifier = (node: AbstractNode): boolean => {
+    if (!isIdentifierNode(node) || node.name.startsWith('&')) return false;
+    const parent = node.parent;
+    if (!parent) return false;
+    if (
+        (isGroupNode(parent) || isListNode(parent)) &&
+        (parent.inheritance as AbstractNode[] | undefined)?.includes(node)
+    ) {
+        return false;
+    }
+    return true;
+};
+
 /** Matches an in-progress value assignment at the end of a line: `Key = ` (value still empty). */
 const VALUE_POSITION = /(?:^|[\s{;[])([A-Za-z_]\w*)\s*=\s*$/;
 
@@ -183,22 +277,27 @@ const fieldNameAtValuePosition = (linePrefix: string): string | undefined => VAL
 /**
  * Value completion at an empty `Key = ` insertion point, where the AST has no value leaf yet, so the
  * value-node completer can't fire. Detects the field being assigned from the line text and offers the
- * same legal values (enum members, `true`/`false`, `Type=` discriminators, sibling component ids) the
+ * same legal values (enum members, `true`/`false`, `Type=` discriminators, component ids) the
  * value-node path would. Returns `undefined` when not at a value position (so the caller falls back to
  * field-name completion). At a value position it returns the values (possibly empty, the caller must
  * not then offer field names, since `Key = X` always wants a value).
  */
-export const schemaValueCompletionsAtOffset = (
+export const schemaValueCompletionsAtOffset = async (
     document: AbstractNodeDocument,
     offset: number,
-    linePrefix: string
-): Completion[] | undefined => {
+    linePrefix: string,
+    cancellationToken: CancellationToken
+): Promise<Completion[] | undefined> => {
     const fieldName = fieldNameAtValuePosition(linePrefix);
     if (!fieldName) return undefined;
 
     const container = findEnclosingContainer(document, offset);
     if (container && isGroupNode(container)) {
-        return completeFieldValue(container, fieldName, resolveGroupClass(container));
+        // Inheritance-aware like the value-node path: a `MyTurret : Base { Mode = <cursor> }` group
+        // may not redeclare its `Type`, so its class comes from the base.
+        const cls = await resolveClassThroughInheritance(container, cancellationToken);
+        const componentIds = await componentIdCompletions(container, fieldName, cls, cancellationToken);
+        return componentIds ?? completeFieldValue(container, fieldName, cls);
     }
     if (container) {
         // A `Name = <cursor>` inside `[ … ]` resolves against the list's own scope, never the outer
@@ -254,6 +353,27 @@ export const crossFileReferenceTargetAtOffset = (
     ) {
         return valueType.element.target;
     }
+    // A scalar-form group element (`EditorParentParts = ["cosmoteer.armor"]`): a bare entry of a
+    // `list<group>` field reads as the element class's scalar payload.
+    if (
+        (valueType?.kind === 'list' || valueType?.kind === 'range' || valueType?.kind === 'interpolated') &&
+        valueType.element.kind === 'group'
+    ) {
+        const target = scalarReferenceTargetOf(valueType.element.ref);
+        if (target) return target;
+    }
+    // A scalar-form group field written scalar (`FireTrigger = <cursor>`): the value is the class's
+    // scalar payload, a reference id.
+    if (valueType?.kind === 'group') {
+        const target = scalarReferenceTargetOf(valueType.ref);
+        if (target) return target;
+    }
+    // An entry-form map key (`RenderLayers [ { Key = <cursor> } ]`): the entry group has no class of
+    // its own, so the target comes from the enclosing map field's key type.
+    if (fieldName.toLowerCase() === 'key') {
+        const container = findEnclosingContainer(document, offset);
+        if (container && isGroupNode(container)) return mapEntryKeyTargetOf(container);
+    }
     return undefined;
 };
 
@@ -290,6 +410,7 @@ const discriminatorFieldCompletion = (registry: SchemaRegistry): Completion => {
         }`,
         insertText: `${registry.typeField} = $0`,
         isSnippet: true,
+        triggerSuggest: true,
         sortText: '0', // before every other field (which sort as `0_…`/`1_…`)
     };
 };

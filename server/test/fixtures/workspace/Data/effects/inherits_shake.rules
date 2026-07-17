@@ -1,0 +1,15 @@
+// Groups inheriting whole-file bases: the base file's top level IS the group body, so the
+// deriving group's class must come from the FRAGMENT's own top-level `Type=` discriminator
+// (`: /BASE_SHAKE`, the game's screen-shake idiom inside MediaEffects lists), or from the
+// fragment's rooted class when it has one.
+MyShake : /BASE_SHAKE
+{
+	ShakeAmount = .05
+}
+
+// Control: a cross-file base that is a named GROUP (not a whole file) still classifies
+// through the base group's own `Type=`.
+MySound : /BASE_AUDIO/BaseAudio
+{
+	Volume = .5
+}

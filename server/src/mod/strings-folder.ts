@@ -12,7 +12,7 @@ import { CosmoteerWorkspaceData, CosmoteerWorkspaceService } from '../workspace/
 
 /**
  * Language string files (`en.rules`, …) live under the folder named by the `StringsFolder`
- * setting and cannot be modified by actions — mods provide their own per-language files there
+ * setting and cannot be modified by actions. Mods provide their own per-language files there
  * instead. This module resolves the absolute string folders in play (the base game's, declared
  * in the game-root `cosmoteer.rules`, plus the editing mod's own manifests) so the validator can
  * reject any action target that resolves to a file inside one.
@@ -80,7 +80,7 @@ export const resolveStringsFolders = async (
 
     const dataRoot = globalSettings.cosmoteerPath;
     if (dataRoot) {
-        // Prefer the workspace's already-parsed game `cosmoteer.rules` — re-parsing the large vanilla
+        // Prefer the workspace's already-parsed game `cosmoteer.rules`: re-parsing the large vanilla
         // manifest from disk on every keystroke-triggered validation is the cost this avoids. Fall
         // back to a disk read only when the workspace hasn't cached it.
         const cached = await CosmoteerWorkspaceService.instance.getCosmoteerRules().catch(() => undefined);
@@ -113,8 +113,8 @@ const stringsFileMemo = new Map<string, Promise<boolean>>();
 
 /**
  * Whether the document at `documentUri` is itself a language-strings file (lives under a
- * `StringsFolder`). Such files hold localization TEXT, not code, so value validators (asset paths,
- * math operand types) must not treat their values as assets/expressions — the game reads them as
+ * `StringsFolder`). Such files hold localization text, not code, so value validators (asset paths,
+ * math operand types) must not treat their values as assets/expressions: the game reads them as
  * raw strings.
  */
 export const isStringsFile = (
@@ -125,10 +125,10 @@ export const isStringsFile = (
     const key = `${globalSettings.cosmoteerPath ?? ''}::${documentUri}`;
     let cached = stringsFileMemo.get(key);
     if (!cached) {
-        // The base game's language files (`Data/strings/en.rules`, …) are engine-default — vanilla
-        // `cosmoteer.rules` declares NO `StringsFolder` — so a declared-folder check alone misses
-        // them. A `strings/` path segment is the reliable convention for the base game and most mods;
-        // a mod's differently-named folder is still caught by the declared `StringsFolder` below.
+        // The base game's language files (`Data/strings/en.rules`, …) are engine-default (vanilla
+        // `cosmoteer.rules` declares no `StringsFolder`), so a declared-folder check alone misses
+        // them. A `strings/` path segment is the reliable convention for the base game and most mods.
+        // A mod's differently-named folder is still caught by the declared `StringsFolder` below.
         if (/(^|\/)strings\//i.test(normalizeFsPath(documentUri) + '/')) {
             cached = Promise.resolve(true);
         } else {

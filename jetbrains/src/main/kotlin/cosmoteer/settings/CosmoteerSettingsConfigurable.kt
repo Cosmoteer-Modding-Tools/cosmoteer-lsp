@@ -89,8 +89,15 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
             row { checkBox("Validate shader code").bindSelected(state::validateShaderCode) }
             row { checkBox("Validate localization keys").bindSelected(state::validateLocalizationKeys) }
             row { checkBox("Hint at redundant separators").bindSelected(state::validateRedundantSeparators) }
+            row { checkBox("Hint at fields the game ignores").bindSelected(state::validateIgnoredFields) }
+            row { checkBox("Fade fields written at their default").bindSelected(state::validateDefaultValues) }
         }
         group("Editing") {
+            row {
+                checkBox("Show the referenced group's BaseValue as an inlay hint")
+                    .bindSelected(state::inlayShowBaseValue)
+                    .comment("A reference to a group with a BaseValue member renders '/BaseValue = 160d' inline.")
+            }
             row { checkBox("Allow rename to edit vanilla files").bindSelected(state::allowEditingVanillaFiles) }
             row { checkBox("Enable formatting").bindSelected(state::formattingEnabled) }
             row {
@@ -105,6 +112,34 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
             row("Server trace:") {
                 comboBox(listOf("off", "messages", "verbose"))
                     .bindItem(state::traceServer.toNullableProperty())
+            }
+        }
+        group("Decompiler") {
+            row {
+                checkBox("End schema hovers with an 'Open in decompiler' link")
+                    .bindSelected(state::decompilerShowInHover)
+                    .comment(
+                        "Power user: the link opens the hovered field's owning C# class from the game's " +
+                        "assemblies in ILSpy or dotPeek. Installs are found automatically, so the path " +
+                        "below is only needed when that fails."
+                    )
+            }
+            row("Decompiler executable:") {
+                textFieldWithBrowseButton(
+                    // Single-file descriptor, built directly for the same deprecation reason as the
+                    // pickers above. Args: chooseFiles, chooseFolders, chooseJars, chooseJarsAsFiles,
+                    // chooseJarContents, chooseMultiple.
+                    FileChooserDescriptor(true, false, false, false, false, false)
+                        .withTitle("Select the Decompiler Executable")
+                )
+                    .align(AlignX.FILL)
+                    .bindText(state::decompilerExecutablePath)
+                    .comment("Leave empty to auto-detect ILSpy or dotPeek (PATH and the usual install locations).")
+            }
+            row("Command-line style:") {
+                comboBox(listOf("auto", "ilspy", "dotpeek"))
+                    .bindItem(state::decompilerTool.toNullableProperty())
+                    .comment("'auto' infers ILSpy or dotPeek from the executable's file name.")
             }
         }
     }

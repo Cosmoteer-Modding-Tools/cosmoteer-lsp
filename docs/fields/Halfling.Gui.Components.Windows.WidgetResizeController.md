@@ -33,41 +33,41 @@ The maximum size to which the Widget may be resized.
 The aspect ratio of the ResizeTarget that will be maintained while resizing. A value of 0 will allow the aspect ratio to be freely changed.
 
 ## ResizeLeftCursor
-`asset (image)` · optional
+`Cursor` · optional
 
 The Cursor to show when the mouse is over the left edge.
 
 ## ResizeRightCursor
-`asset (image)` · optional
+`Cursor` · optional
 
 The Cursor to show when the mouse is over the right edge.
 
 ## ResizeTopCursor
-`asset (image)` · optional
+`Cursor` · optional
 
 The Cursor to show when the mouse is over the top edge.
 
 ## ResizeBottomCursor
-`asset (image)` · optional
+`Cursor` · optional
 
 The Cursor to show when the mouse is over the bottom edge.
 
 ## ResizeTopLeftCursor
-`asset (image)` · optional
+`Cursor` · optional
 
 The Cursor to show when the mouse is over the top-left corner.
 
 ## ResizeTopRightCursor
-`asset (image)` · optional
+`Cursor` · optional
 
 The Cursor to show when the mouse is over the top-right corner.
 
 ## ResizeBottomLeftCursor
-`asset (image)` · optional
+`Cursor` · optional
 
 The Cursor to show when the mouse is over the bottom-left corner.
 
 ## ResizeBottomRightCursor
-`asset (image)` · optional
+`Cursor` · optional
 
 The Cursor to show when the mouse is over the bottom-right corner.

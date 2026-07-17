@@ -1,3 +1,5 @@
+import { readdir } from 'fs/promises';
+import { basename, dirname, resolve as resolvePath } from 'path';
 import { CompletionItem, CompletionItemKind } from 'vscode-languageserver';
 import { ENGINE_UNIFORMS, HLSL_INTRINSICS, TEXTURE_METHODS } from './shader-intrinsics';
 import { HLSL_KEYWORDS, HLSL_TYPES } from '../semantic/shader-semantic-tokens';
@@ -8,7 +10,7 @@ import { functionScopeAt, parseShader } from './shader-parser';
  *
  *  - After a `.` (member access, `color.` / `input.` / `_noiseTex.`) it is context-aware: it offers the
  *    swizzles of a vector, the members of a struct, or the sampling methods of a texture, resolved from
- *    the base expression's type — nothing else, so the list is exactly what can follow the dot.
+ *    the base expression's type, nothing else, so the list is exactly what can follow the dot.
  *  - Otherwise it offers the HLSL builtins (types, keywords, intrinsic functions) plus the symbols the
  *    file and its includes declare (their `_`-uniforms, functions, and struct types).
  *
@@ -26,12 +28,156 @@ export const shaderCompletions = (text: string, offset: number, includeText = ''
     // the widened scope. Member-access detection and local declarations stay on the edited file, where
     // the cursor offset and the enclosing function's locals actually live.
     const scope = includeText ? `${text}\n${includeText}` : text;
+    // A preprocessor line gets directive/macro completion instead of HLSL symbols.
+    const directive = directiveContext(text, offset);
+    if (directive === 'directive') return DIRECTIVE_ITEMS;
+    if (directive === 'macro' || directive === 'define' || directive === 'condition') {
+        return macroCompletions(scope, directive);
+    }
+    if (directive === 'other') return [];
     const member = memberAccess(text, offset);
     if (member !== null) return memberCompletions(scope, text, member);
     // After a type at the start of a declaration (`float x`, `in float2 uv`) the identifier being typed
     // is a new variable name the user is inventing, so offering existing names would be noise.
     if (isDeclarationNameContext(text, offset, scope)) return [];
     return globalCompletions(scope, localSymbols(scope, text, offset));
+};
+
+/** The preprocessor directives the game's shader loader understands, with what each does. */
+const DIRECTIVES: ReadonlyArray<readonly [string, string]> = [
+    ['include', 'Inline another shader file: `#include "../base.shader"` or `#include "./Data/base.shader"`.'],
+    ['define', 'Define a macro. Feature guards (`USE_DEFAULT_PIX`, `ENABLE_…`) are defined before the include that tests them.'],
+    ['undef', 'Remove a macro definition.'],
+    ['if', 'Conditional compilation on an expression, e.g. `#if defined(GTE_PS_4_0) || defined(GTE_VS_4_0)`.'],
+    ['ifdef', 'Compile the block only when the macro is defined.'],
+    ['ifndef', 'Compile the block only when the macro is NOT defined.'],
+    ['elif', 'Else-if branch of an `#if`/`#ifdef` chain.'],
+    ['else', 'Else branch of an `#if`/`#ifdef` chain.'],
+    ['endif', 'Close an `#if`/`#ifdef` block.'],
+    ['pragma', 'Compiler control, e.g. `#pragma warning( disable : 3571 )`.'],
+];
+
+const DIRECTIVE_ITEMS: CompletionItem[] = DIRECTIVES.map(([name, doc]) => ({
+    label: name,
+    kind: CompletionItemKind.Keyword,
+    detail: `#${name}`,
+    documentation: doc,
+}));
+
+/**
+ * The feature-level macros the engine defines when compiling (`D3D11Shader.GetShaderMacros`): per
+ * stage the exact profile macro plus the cumulative `GTE_…`/`LTE_…` range gates. On a modern GPU the
+ * pixel stage sees `PS_5_0` and every `GTE_PS_…`; vanilla shaders switch their rich paths on these.
+ */
+export const ENGINE_MACROS: ReadonlyArray<readonly [string, string]> = (() => {
+    const stages: ReadonlyArray<readonly [string, string]> = [
+        ['VS', 'vertex'],
+        ['PS', 'pixel'],
+        ['GS', 'geometry'],
+    ];
+    const levels = ['4_0_level_9_1', '4_0_level_9_3', '4_0', '4_1', '5_0'];
+    const macros: Array<readonly [string, string]> = [];
+    for (const [prefix, stage] of stages) {
+        for (const level of levels) {
+            const pretty = level.replace(/_/g, '.').replace('.level.', ' level ');
+            macros.push([`${prefix}_${level}`, `Engine macro: the ${stage} stage compiles exactly at shader model ${pretty}.`]);
+            macros.push([`GTE_${prefix}_${level}`, `Engine macro: the ${stage} stage compiles at shader model ${pretty} or above.`]);
+            macros.push([`LTE_${prefix}_${level}`, `Engine macro: the ${stage} stage compiles at shader model ${pretty} or below.`]);
+        }
+    }
+    return macros;
+})();
+
+/** The directive completion context at the cursor, or null when the line is not a preprocessor line. */
+const directiveContext = (
+    text: string,
+    offset: number
+): 'directive' | 'macro' | 'define' | 'condition' | 'other' | null => {
+    const lineStart = text.lastIndexOf('\n', offset - 1) + 1;
+    const prefix = text.slice(lineStart, offset);
+    if (!/^\s*#/.test(prefix)) return null;
+    if (/^\s*#\s*\w*$/.test(prefix)) return 'directive';
+    // The macro-name position of the macro-taking directives, including `defined(NAME` inside an
+    // `#if`/`#elif` expression.
+    if (/^\s*#\s*(?:ifdef|ifndef|undef)\s+\w*$/.test(prefix)) return 'macro';
+    if (/^\s*#\s*(?:if|elif)\b.*\bdefined\s*\(?\s*\w*$/.test(prefix)) return 'macro';
+    if (/^\s*#\s*define\s+\w*$/.test(prefix)) return 'define';
+    // Elsewhere in an `#if`/`#elif` expression macros are still what gets referenced.
+    if (/^\s*#\s*(?:if|elif)\b/.test(prefix)) return 'condition';
+    return 'other';
+};
+
+/**
+ * Macro-name completion for `#ifdef`/`#ifndef`/`#undef`/`defined(…)`, `#define`, and `#if`
+ * expressions: the macros the file and its include chain `#define`, the guards those files TEST
+ * (`#ifdef ENABLE_STENCIL` in `base_atlas.shader` is exactly what a including shader defines first),
+ * and the engine's feature-level macros. A `#define` position skips the engine macros (the engine
+ * defines those itself) and an `#if` expression additionally offers `defined`.
+ */
+const macroCompletions = (scope: string, kind: 'macro' | 'define' | 'condition'): CompletionItem[] => {
+    const items: CompletionItem[] = [];
+    const seen = new Set<string>();
+    const add = (label: string, detail: string, documentation?: string): void => {
+        if (seen.has(label)) return;
+        seen.add(label);
+        items.push({ label, kind: CompletionItemKind.Constant, detail, documentation });
+    };
+
+    if (kind === 'condition') {
+        items.push({
+            label: 'defined',
+            kind: CompletionItemKind.Function,
+            detail: 'defined(MACRO)',
+            documentation: 'True when the macro is defined, usable inside `#if`/`#elif` expressions.',
+        });
+    }
+    for (const m of scope.matchAll(/^\s*#\s*define\s+([A-Za-z_]\w*)/gm)) {
+        add(m[1], 'macro (defined in this shader or an include)');
+    }
+    for (const m of scope.matchAll(/#\s*(?:ifdef|ifndef)\s+([A-Za-z_]\w*)|\bdefined\s*\(\s*([A-Za-z_]\w*)\s*\)/g)) {
+        add(m[1] ?? m[2], 'guard (tested in this shader or an include)');
+    }
+    if (kind !== 'define') {
+        for (const [name, doc] of ENGINE_MACROS) add(name, 'engine feature-level macro', doc);
+    }
+    return items;
+};
+
+/**
+ * Path completion inside an `#include "…"` string: the sibling directories and `.shader` files of the
+ * directory the typed prefix resolves to. Both include forms work: a path relative to the edited
+ * file and the root-anchored `./Data/…` form resolved against the game data directory.
+ *
+ * @param typedPath the part of the include path already written (may be empty or end mid-segment).
+ * @param documentPath the absolute path of the `.shader` being edited.
+ * @param dataDir the game `Data` directory, for root-anchored includes.
+ * @returns folder and `.shader` file completions for the path's directory, empty when unresolvable.
+ */
+export const shaderIncludePathCompletions = async (
+    typedPath: string,
+    documentPath: string,
+    dataDir?: string
+): Promise<CompletionItem[]> => {
+    // Complete within the directory part; the segment being typed is the client-side filter word.
+    const lastSlash = Math.max(typedPath.lastIndexOf('/'), typedPath.lastIndexOf('\\'));
+    const dirPart = lastSlash >= 0 ? typedPath.slice(0, lastSlash + 1) : '';
+    const rooted = /^\.?[\\/]?[Dd]ata[\\/]/.exec(dirPart);
+    const baseDir = rooted && dataDir ? resolvePath(dataDir, dirPart.slice(rooted[0].length)) : resolvePath(dirname(documentPath), dirPart);
+    let entries;
+    try {
+        entries = await readdir(baseDir, { withFileTypes: true });
+    } catch {
+        return [];
+    }
+    const items: CompletionItem[] = [];
+    for (const entry of entries) {
+        if (entry.isDirectory()) {
+            items.push({ label: entry.name, kind: CompletionItemKind.Folder, detail: 'folder', insertText: `${entry.name}/` });
+        } else if (entry.name.toLowerCase().endsWith('.shader') && entry.name !== basename(documentPath)) {
+            items.push({ label: entry.name, kind: CompletionItemKind.File, detail: 'shader file' });
+        }
+    }
+    return items;
 };
 
 /** A parameter or local variable in scope at the cursor, with its type and whether it is a parameter. */
@@ -43,8 +189,8 @@ interface LocalSymbol {
 
 /**
  * The parameters and locals of the function enclosing the cursor, so completion offers `input`, `uv`,
- * and other in-scope names — not only file globals. Parameters come from the enclosing signature;
- * locals are the typed declarations written in the body before the cursor. Returns an empty list when
+ * and other in-scope names, not only file globals. Parameters come from the enclosing signature.
+ * Locals are the typed declarations written in the body before the cursor. Returns an empty list when
  * the cursor is not inside a function body.
  *
  * @param scope the file plus its includes, for the struct type names a local may be declared with.
@@ -73,7 +219,7 @@ const localSymbols = (scope: string, currentText: string, offset: number): Local
 };
 
 /**
- * Whether the cursor is typing the *name* of a new variable in a declaration — a type token sits at a
+ * Whether the cursor is typing the *name* of a new variable in a declaration: a type token sits at a
  * statement or parameter-list start immediately before the word being typed (`float x`, `(float2 uv`,
  * `, float3 n`). In that position the user is naming a declaration, not referencing a symbol, so
  * completion should stay quiet. An initializer position (`… = float…`) is not a declaration name and is
@@ -118,7 +264,7 @@ const globalCompletions = (text: string, locals: readonly LocalSymbol[] = []): C
     for (const constant of shader.constants) add(constant.name, CompletionItemKind.Variable, `${constant.hlslType} (uniform)`);
     for (const fn of shader.functions) add(fn, CompletionItemKind.Function, 'shader function');
     // Engine-provided uniforms (`_texture`, `_time`, …) live in an include, so the file scan above
-    // misses them — offer them here so they still autocomplete. Added last so a file redeclaration wins.
+    // misses them. Offer them here so they still autocomplete. Added last so a file redeclaration wins.
     for (const [name, info] of Object.entries(ENGINE_UNIFORMS)) {
         add(name, CompletionItemKind.Variable, `${info.type} (engine uniform)`, info.doc);
     }

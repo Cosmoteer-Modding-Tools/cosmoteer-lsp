@@ -23,7 +23,7 @@
 <!-- TODO: needs documentation -->
 
 ## RemoveMode
-`enum MultiResourceStorageMode` · optional · default `1` · one of: `InOrder`, `InReverseOrder`, `PrioritizeMostEmptyCapacity`, `PrioritizeLeastEmptyCapacity`, `PrioritizeMostResources`, `PrioritizeLeastResources`, `DistributeEvenly`, `DistributeRandomly`, `DistributeProportionallyByAvailable`, `DistributeProportionallyByCapacity`
+`enum MultiResourceStorageMode` · optional · default `InReverseOrder` · one of: `InOrder`, `InReverseOrder`, `PrioritizeMostEmptyCapacity`, `PrioritizeLeastEmptyCapacity`, `PrioritizeMostResources`, `PrioritizeLeastResources`, `DistributeEvenly`, `DistributeRandomly`, `DistributeProportionallyByAvailable`, `DistributeProportionallyByCapacity`
 
 <!-- TODO: needs documentation -->
 

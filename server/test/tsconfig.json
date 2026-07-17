@@ -1,21 +1,36 @@
 {
     // Editor-only project for the `test/` tree. The build's tsconfig.json deliberately excludes tests
     // (`include: ["src"]`), so without a config covering them the TS server resolves tests in an inferred
-    // project with no `@types/node` — `fs`, `path`, `__dirname` surface as "Cannot find name".
+    // project with no `@types/node`. `fs`, `path`, `__dirname` surface as "Cannot find name".
     //
-    // This file MUST live in `test/` and be named `tsconfig.json`: the editor's TS server only
+    // This file must live in `test/` and be named `tsconfig.json`: the editor's TS server only
     // auto-discovers configs named `tsconfig.json` by walking up from the opened file. A sibling
     // `tsconfig.test.json` in `server/` is never picked up (that was the bug). Opening any file under
     // `test/` now finds this config first, inheriting `types: ["node"]` from the base.
     //
-    // It is NOT referenced by `tsc -b`, so it has no effect on `check-types` or the emitted build —
+    // It is not referenced by `tsc -b`, so it has no effect on `check-types` or the emitted build.
     // `vitest` compiles tests with esbuild independently.
+    //
+    // `module`/`moduleResolution` deliberately diverge from the base. The base says `Node16`, which
+    // describes how the built server is loaded. Since `server/package.json` has no `"type"`, that
+    // makes every test read as CommonJS: `import.meta` becomes an error and dynamic
+    // `import('../../src/foo')` demands a `.js` extension. None of that is real here. Tests are only
+    // ever loaded by vitest through esbuild, which resolves like a bundler (extensionless relative
+    // imports, `import.meta` available). Describing the actual loader is what makes the editor's
+    // diagnostics match what running the tests does.
     "extends": "../tsconfig.json",
     "compilerOptions": {
         "rootDir": "..",
         "noEmit": true,
         "incremental": false,
-        "tsBuildInfoFile": null
+        "tsBuildInfoFile": null,
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        // `Bundler` turns `resolveJsonModule` on by default, which would resolve the real 1.7MB
+        // cosmoteer.schema.json and infer a giant literal type for it, beating the ambient
+        // `declare module '*/cosmoteer.schema.json'` that exists precisely to stop that (see
+        // cosmoteer-schema-json.d.ts). Keep it off so the JSON imports stay typed as SchemaBundle.
+        "resolveJsonModule": false
     },
     "include": ["../src", "."]
 }

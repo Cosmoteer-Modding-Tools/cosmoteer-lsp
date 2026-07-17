@@ -35,6 +35,14 @@ jobs:
       - name: Type-check
         run: npm run check-types
 
+      # The build's tsconfig is `include: ["src"]`, so `check-types` never sees test/. Vitest compiles
+      # tests with esbuild, which ignores types entirely, meaning nothing else in this pipeline would
+      # notice a test tree that stopped type-checking. It had silently rotted to 109 errors before this
+      # step existed. Deliberately not part of `package`: test types have no bearing on the shipped
+      # bundle, and gating a release on them would only block hotfixes.
+      - name: Type-check tests
+        run: npm run check-types:test
+
       - name: Lint
         run: npm run lint
 

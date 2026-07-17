@@ -1,0 +1,13 @@
+// Guards the find-all-references within-query resolution memo: three identical references to the
+// same target under one container. The memo dedups the RESOLUTION work (resolve once), but every
+// reference SITE must still be returned, so a query on `V` finds all three.
+MemoBase
+{
+	V = 1
+}
+Repeated
+{
+	R1 = &~/MemoBase/V
+	R2 = &~/MemoBase/V
+	R3 = &~/MemoBase/V
+}

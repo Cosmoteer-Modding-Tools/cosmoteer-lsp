@@ -29,7 +29,7 @@ const findGroup = (node: AbstractNode, id: string): GroupNode | undefined => {
     const kids =
         isGroupNode(node) || isListNode(node) || isDocumentNode(node)
             ? node.elements
-            : isAssignmentNode(node)
+            : isAssignmentNode(node) && node.right
               ? [node.right]
               : [];
     for (const k of kids) {

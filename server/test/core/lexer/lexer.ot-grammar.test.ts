@@ -8,7 +8,7 @@ const stringValues = (src: string) => lexer(src).filter((t) => t.type === TOKEN_
 
 // These encode ObjectText caveats taken from the real parser (`Halfling.ObjectText`); see the
 // `inspect-cosmoteer-ot-format` skill.
-describe('lexer — ObjectText backslash handling', () => {
+describe('lexer: ObjectText backslash handling', () => {
     it('treats a stray backslash as whitespace (no delimiter/unexpected token)', () => {
         const toks = types('A = foo ' + BS + ' bar' + NL);
         expect(toks).not.toContain(TOKEN_TYPES.STRING_DELIMITER);
@@ -24,7 +24,7 @@ describe('lexer — ObjectText backslash handling', () => {
     });
 });
 
-describe('lexer — ObjectText verbatim strings', () => {
+describe('lexer: ObjectText verbatim strings', () => {
     it('lexes `@"…"` as a single STRING and unescapes doubled quotes', () => {
         expect(stringValues('X = @"a' + BS + 'b ""q"" c"' + NL)).toEqual(['a' + BS + 'b "q" c']);
     });
@@ -43,7 +43,7 @@ describe('lexer — ObjectText verbatim strings', () => {
     });
 });
 
-describe('lexer — string escape handling (no desync)', () => {
+describe('lexer: string escape handling (no desync)', () => {
     it('closes a string that ends with an escaped backslash', () => {
         // `"x\\"` is a string whose content is `x\\`; the quote after `\\` CLOSES it. The old naive
         // check ran past this quote and swallowed the rest of the file (the ja/ru locale-file bug).

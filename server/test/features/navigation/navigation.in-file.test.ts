@@ -9,7 +9,7 @@ import { findReferenceNode, parseFixture } from '../../helpers';
 const nav = new FullNavigationStrategy();
 const token = CancellationToken.None;
 
-describe('FullNavigationStrategy — in-file references', () => {
+describe('FullNavigationStrategy: in-file references', () => {
     it('resolves &~/_Black/0 to element 0 of the document-level _Black list', async () => {
         const doc = parseFixture('colors.rules');
         const node = findReferenceNode(doc, '&~/_Black/0');

@@ -1,0 +1,11 @@
+// Value-position references that step through a `^` caret-inheritance base. `^/0` is EgBase.
+// `Density` is a real member of EgBase; `NotOnBase` is not. Without an `AddBase` action extending the
+// caret base (none here), a caret reference to a member the base lacks is a genuine miss and flags,
+// exactly like a member reached without a caret hop. The `AddBase`-added-base case resolves through
+// the project AddBase index and is covered end-to-end by the LSP drivers.
+CaretThing : <./Data/parts/eg_base.rules>/EgBase
+{
+	CaretGood = &^/0/Density
+	CaretMissing = &^/0/NotOnBase
+	NonCaretMissing = &<./Data/parts/eg_base.rules>/EgBase/NotOnBase
+}

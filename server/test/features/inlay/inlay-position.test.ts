@@ -17,7 +17,7 @@ const hintColumn = async (line: string): Promise<number> => {
     return hints[0].position.character;
 };
 
-// A ` = N` inlay must sit at the END of the whole expression — AFTER every trailing `)` — not
+// A ` = N` inlay must sit at the end of the whole expression (after every trailing `)`), not
 // after the last inner operand. Regression for hints landing mid-expression / before `)`.
 describe('inlay hint position', () => {
     beforeAll(async () => {

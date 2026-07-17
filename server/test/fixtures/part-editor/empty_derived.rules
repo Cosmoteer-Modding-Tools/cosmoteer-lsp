@@ -1,0 +1,7 @@
+Part : <./empty_base.rules>/Part
+{
+	AllowedDoorLocations
+	[
+		[0, -1]
+	]
+}

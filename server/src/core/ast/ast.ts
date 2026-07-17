@@ -71,12 +71,57 @@ export type ValueNodeTypes =
           value: string;
       };
 
+/**
+ * The mXparser 4.4.2 operators the lexer does not emit as single EXPRESSION tokens. The parser
+ * assembles them from adjacent tokens in math position (see `matchAssembledOperator`): tetration
+ * `^^`, modulo `#`, the boolean conjunction/disjunction/implication families, binary relations
+ * and the bitwise operators. The game hands the whole field value to mXparser, so all of these
+ * compute in `.rules` math. The `/\`, `\/`, `~/\`, `~\/` spellings are excluded on purpose: the
+ * ObjectText tokenizer treats `\` as whitespace, so they can never reach mXparser from a
+ * `.rules` value.
+ */
+export const MX_ASSEMBLED_OPERATORS = [
+    '^^',
+    '#',
+    '&',
+    '&&',
+    '~&',
+    '~&&',
+    '|',
+    '||',
+    '~|',
+    '~||',
+    '(+)',
+    '-->',
+    '<--',
+    '<->',
+    '-/>',
+    '</-',
+    '=',
+    '==',
+    '<>',
+    '~=',
+    '!=',
+    '<',
+    '>',
+    '<=',
+    '>=',
+    '@&',
+    '@|',
+    '@^',
+    '@<<',
+    '@>>',
+] as const;
+export type MxAssembledOperator = (typeof MX_ASSEMBLED_OPERATORS)[number];
+
 export interface ExpressionNode extends AbstractNode {
     type: 'Expression';
     // `^` is mXparser exponentiation (emitted only when not followed by `/`, since a leading
-    // `^/…` is a super-path reference). `!` is mXparser's postfix factorial — it has no right
-    // operand and applies to the value immediately before it.
-    expressionType: '+' | '-' | '*' | '/' | '^' | '!';
+    // `^/…` is a super-path reference). `!` is mXparser's postfix factorial. It has no right
+    // operand and applies to the value immediately before it. The assembled operators
+    // (boolean/relational/bitwise, `#`, `^^`) are only produced in the narrow
+    // "math operand, operator, `(` or number" shape, see {@link MX_ASSEMBLED_OPERATORS}.
+    expressionType: '+' | '-' | '*' | '/' | '^' | '!' | MxAssembledOperator;
 }
 
 export interface FunctionCallNode extends AbstractNode {
@@ -89,7 +134,9 @@ export interface AssignmentNode extends AbstractNode {
     type: 'Assignment';
     assignmentType: 'Equals' | 'Colon';
     left: IdentifierNode;
-    right: ListNode | ValueNode | GroupNode | FunctionCallNode | MathExpressionNode;
+    /** Null for an in-progress empty value (`Type = ` with nothing before the newline), which the
+     *  OT grammar reads as an empty field rather than consuming the next line as the value. */
+    right: ListNode | ValueNode | GroupNode | FunctionCallNode | MathExpressionNode | null;
 }
 
 export interface MathExpressionNode extends AbstractNode {

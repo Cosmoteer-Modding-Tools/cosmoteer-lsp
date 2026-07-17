@@ -28,11 +28,11 @@
 <!-- TODO: needs documentation -->
 
 ## MinDamageFraction
-`float` · optional · default `Mono.Cecil.CustomAttributeArgument`
+`float` · optional · default `0`
 
 <!-- TODO: needs documentation -->
 
 ## MaxDamageFraction
-`float` · optional · default `Mono.Cecil.CustomAttributeArgument`
+`float` · optional · default `1`
 
 <!-- TODO: needs documentation -->

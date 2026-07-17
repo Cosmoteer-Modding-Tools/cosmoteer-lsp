@@ -11,12 +11,19 @@
     const statusEl = document.getElementById('status');
     const metaEl = document.getElementById('meta');
     const controlsEl = document.getElementById('controls');
-    const gl = canvas.getContext('webgl', { premultipliedAlpha: false, alpha: true });
+    // Prefer WebGL2: it lifts the power-of-two texture limits, has Min/Max blending in core, and its
+    // GLSL ES 3.00 gives real textureLod/textureSize for the decal LOD math. The translated sources
+    // stay ES 1.00 and are upgraded textually in link(); WebGL1 remains the fallback.
+    const contextOptions = { premultipliedAlpha: false, alpha: true };
+    const gl2 = canvas.getContext('webgl2', contextOptions);
+    const gl = gl2 || canvas.getContext('webgl', contextOptions);
+    const isGL2 = !!gl2;
     // Enable screen-space derivatives (dFdx/dFdy/fwidth) so a translated shader that declares
-    // `#extension GL_OES_standard_derivatives` — decals and the distortion shaders — links and runs.
-    if (gl) gl.getExtension('OES_standard_derivatives');
+    // `#extension GL_OES_standard_derivatives` (decals and the distortion shaders) links and runs.
+    // Core in WebGL2, an extension in WebGL1.
+    if (gl && !isGL2) gl.getExtension('OES_standard_derivatives');
     // Min/Max blend equations are an extension in WebGL1, used by the engine's Min/Max blend modes.
-    const minmax = gl ? gl.getExtension('EXT_blend_minmax') : null;
+    const minmax = gl && !isGL2 ? gl.getExtension('EXT_blend_minmax') : null;
 
     // The fixed full-quad geometry the fragment shader draws onto, replacing the game's vertex stage.
     const QUAD = new Float32Array([-1, -1, 0, 1, 1, -1, 1, 1, -1, 1, 0, 0, 1, 1, 1, 0]);
@@ -71,6 +78,9 @@ void main() {
 
     let program = null;
     let usingFallback = false;
+    // True when the linked program samples an engine screen target with no material-bound image, so
+    // the scene stand-in pass must render before the main draw.
+    let needsScene = false;
     // The shader's own translated vertex stage ({glsl, fragment, kind}) and whether the linked
     // program runs it, so the world-to-clip _transform can be fitted to the stage's input family.
     let vertexStage = null;
@@ -82,6 +92,15 @@ void main() {
     let textures = {};
     let dummyTexture = null;
     let transparentTexture = null;
+    // Typed stand-ins for the engine-fed render targets and normal-map atlases (see fallbackTexture).
+    let flatNormalTarget = null;
+    let flatNormalAtlas = null;
+    let transparentBlack = null;
+    // The offscreen scene pass standing in for the engine's diffuse target and captured backbuffer:
+    // the plain textured material rendered at the same quad transform, so lighting and distortion
+    // shaders sample something aligned with what they light or displace.
+    let sceneTarget = null;
+    let sceneProgram = null;
     let values = {}; // uniform name → number | number[]
     // The material colour (_color in the game), multiplied with the per-vertex colour in the engine's
     // vertex stage. The preview folds both into the vColor varying.
@@ -182,10 +201,32 @@ void main() {
         return [sweep, vertexColor[1], vertexColor[2], vertexColor[3]];
     }
 
+    /**
+     * Upgrades a translated GLSL ES 1.00 source to ES 3.00 for a WebGL2 context. The rewrite is
+     * mechanical: version header, in/out qualifiers, the texture call rename, a declared fragment
+     * output in place of gl_FragColor, and the real textureLod/textureSize bodies swapped into the
+     * pvTexLod/pvTexSize helpers whose ES 1.00 fallback bodies the server emits (the exact body
+     * strings are a contract with hlsl-to-glsl.ts).
+     */
+    function upgradeToEs3(source, isVertex) {
+        let src = source.replace(/#extension GL_OES_standard_derivatives : enable\n?/g, '');
+        src = src.replace('{ return texture2D(t, uv); }', '{ return textureLod(t, uv, lod); }');
+        src = src.replace('{ return vec2(256.0, 256.0); }', '{ return vec2(textureSize(t, 0)); }');
+        if (isVertex) {
+            src = src.replace(/\battribute\b/g, 'in').replace(/\bvarying\b/g, 'out');
+        } else {
+            src = src.replace(/\bvarying\b/g, 'in');
+            src = src.replace(/\bgl_FragColor\b/g, 'pvFragColor');
+            src = src.replace('precision highp float;', 'precision highp float;\nout highp vec4 pvFragColor;');
+        }
+        src = src.replace(/\btexture2D\s*\(/g, 'texture(');
+        return '#version 300 es\n' + src;
+    }
+
     /** Compiles a shader, returning it or null, recording and logging the GLSL error. */
     function compile(type, source) {
         const shader = gl.createShader(type);
-        gl.shaderSource(shader, source);
+        gl.shaderSource(shader, isGL2 ? upgradeToEs3(source, type === gl.VERTEX_SHADER) : source);
         gl.compileShader(shader);
         if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
             lastGlError = String(gl.getShaderInfoLog(shader) || 'unknown compile error').trim();
@@ -223,14 +264,69 @@ void main() {
         return tex;
     }
 
+    /** A canvas-sized render target for the scene stand-in pass, or null when incomplete. */
+    function createSceneTarget() {
+        const width = canvas.width || 512;
+        const height = canvas.height || 512;
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        const fbo = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+        const complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        return complete ? { fbo, texture } : null;
+    }
+
     /**
-     * The stand-in for a sampler with no loaded image. Most unset samplers get opaque white (a neutral
-     * multiplier), but the engine-fed fog-of-war texture must read as fully explored: its alpha marks
-     * the unexplored fraction and the nebula shaders `discard` where `1 - a` reaches zero, so an opaque
-     * stand-in would blank the whole preview.
+     * Renders the scene stand-in the engine-fed screen targets sample: the plain textured material
+     * over a dark space tone, drawn at the same quad transform as the main pass so screen-UV lookups
+     * (`_diffuseTarget`, `_capturedBackBuffer`) land on the sprite they light or distort.
+     */
+    function drawScenePass() {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, sceneTarget.fbo);
+        gl.viewport(0, 0, canvas.width || 512, canvas.height || 512);
+        gl.clearColor(0.02, 0.02, 0.05, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.disable(gl.BLEND);
+        gl.useProgram(sceneProgram);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, textures._texture || dummyTexture);
+        gl.uniform1i(gl.getUniformLocation(sceneProgram, '_texture'), 0);
+        gl.uniform1f(gl.getUniformLocation(sceneProgram, 'uEmissive'), emissive);
+        gl.uniform4fv(gl.getUniformLocation(sceneProgram, 'uTint'), effectiveVertexColor());
+        const s = quadScale();
+        gl.uniform2f(gl.getUniformLocation(sceneProgram, 'uQuadScale'), s[0], s[1]);
+        gl.uniform4fv(gl.getUniformLocation(sceneProgram, 'uUvRect'), sheetUvRect());
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
+    /**
+     * The stand-in for a sampler with no loaded image, typed by what the engine binds to that name.
+     * Most unset samplers get opaque white (a neutral multiplier), with these exceptions:
+     * - the fog-of-war texture must read fully explored (its alpha marks the unexplored fraction and
+     *   the nebula shaders `discard` where `1 - a` reaches zero),
+     * - the screen-space normals target gets a flat +Z normal colour; the engine treats pure white as
+     *   "no normals" and the additive-lighting math would multiply the light to black,
+     * - the normal-map atlases get the neutral normal encoding their channel layout expects
+     *   (`loadRawNormals` reads x from alpha and y from green; the ZA page's neutral IS white),
+     * - the ship stencil target reads empty (nothing occludes), so stencil-gated pixels stay visible,
+     * - the diffuse target and the captured backbuffer sample the live scene stand-in pass.
      */
     function fallbackTexture(name) {
         if (/unexplored/i.test(name)) return transparentTexture;
+        if (name === '_normalsTarget') return flatNormalTarget;
+        if (name === '_normalsXYTexture' || name === '_normalsTexture') return flatNormalAtlas;
+        if (name === '_stencilTarget') return transparentBlack;
+        if (name === '_diffuseTarget' || name === '_capturedBackBuffer' || name === '_ftlBackground') {
+            return sceneTarget ? sceneTarget.texture : dummyTexture;
+        }
         return dummyTexture;
     }
 
@@ -252,10 +348,20 @@ void main() {
                 // previous flip cancelled against the quad UVs into a vertically mirrored render.
                 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-                const pot = (image.width & (image.width - 1)) === 0 && (image.height & (image.height - 1)) === 0;
+                // WebGL2 lifts the power-of-two restriction on repeat wrapping and mipmaps.
+                const pot =
+                    isGL2 ||
+                    ((image.width & (image.width - 1)) === 0 && (image.height & (image.height - 1)) === 0);
                 const point = sampler && sampler.sampleMode === 'Point';
                 const mips = !!(sampler && sampler.mips) && pot;
-                if (mips) gl.generateMipmap(gl.TEXTURE_2D);
+                if (mips) {
+                    gl.generateMipmap(gl.TEXTURE_2D);
+                    // A numeric `MipLevels = N` builds exactly N levels in the engine; WebGL2 can cap
+                    // the sampled chain to match (WebGL1 always samples the full generated chain).
+                    if (isGL2 && sampler.mipCount) {
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, sampler.mipCount - 1);
+                    }
+                }
                 // The engine's mip filter is linear even in Point mode (MinMagPointMipLinear).
                 const minFilter = mips
                     ? point
@@ -294,7 +400,7 @@ void main() {
         const text = String(raw).trim();
         let parts;
         if (text.indexOf('=') >= 0) {
-            // Group form `{Rf=1 Gf=0 …}` — take the value after each `=`.
+            // Group form `{Rf=1 Gf=0 …}`: take the value after each `=`.
             parts = (text.match(/=\s*([-+*/().\d\s]+)/g) || []).map((m) => m.replace('=', ''));
         } else {
             parts = text.replace(/^[[{]|[\]}]$/g, '').split(',');
@@ -317,8 +423,8 @@ void main() {
     }
 
     /**
-     * Starting values for constants the ENGINE feeds at runtime rather than the material (camera and
-     * zoom state, parallax, fog-of-war transforms — see Cosmoteer's ShaderConstantIDs). A material
+     * Starting values for constants the engine feeds at runtime rather than the material (camera and
+     * zoom state, parallax, fog-of-war transforms. See Cosmoteer's ShaderConstantIDs). A material
      * never writes these, so without a stand-in their controls would start at zero and blank shaders
      * that divide or gate on them (the nebula LOD and parallax math).
      */
@@ -330,7 +436,62 @@ void main() {
         _parallaxLoc: [0, 0],
         _worldUVOffset: [0, 0],
         _worldLightSource: [-100, -100, 100],
+        _pointLightSource: [0, 0, 100],
+        // The ship-pipeline constants (Cosmoteer.ShaderConstantIDs): part bounds matching the ±50
+        // world span the synthesized vertex inputs use, and fully-opaque roof state.
+        _shipBounds: [-50, -50, 50, 50],
+        _roofOpacity: [1],
+        _roofBaseAlpha: [1],
+        _roofBaseTextureScale: [64, 64],
+        _roofBaseColor: [1, 1, 1, 1],
+        _roofDecalColor1: [1, 1, 1, 1],
+        _roofDecalColor2: [1, 1, 1, 1],
+        _roofDecalColor3: [1, 1, 1, 1],
+        // The lighting shape constants from BackgroundStyleRules the roof/wall shaders read.
+        _diffuseDarkness: [0],
+        _diffuseDarknessExponent: [1],
+        _specularStrength: [0.25],
+        _specularShine: [1],
+        _camRotation: [0],
+        // Interaction and effect clocks the engine feeds; zero is the manual-slider fallback when a
+        // clock's auto replay (CLOCK_REPLAY) is toggled off.
+        _flickerTime: [0],
+        _fluctuationTime: [0],
+        _highlightTime: [0],
+        _unhighlightTime: [0],
+        _clickTime: [0],
+        _mouseLoc: [0, 0],
+        _intensity: [1],
+        _t: [0.5],
+        // Planet-generator shape constants: a visible default rotation rate and an untilted axis
+        // (cosTilt must be 1, not 0, or the ring and shadow math degenerates).
+        _spin: [0.05],
+        _sinTilt: [0],
+        _cosTilt: [1],
     };
+
+    /**
+     * Engine clocks the preview replays per frame (decompiled setters): the blueprint flicker and
+     * redprint fluctuation clocks are `App.Clock.Time` (0 only under the accessibility settings),
+     * `_planetTime` advances planet rotation, `_waveT1`/`_waveT2` crossfade the two wave normal maps
+     * (`InverseLerp(1, 0.5, phase)` / `InverseLerp(0, 0.5, phase)` over a cycling phase), the GUI
+     * highlight/click constants are event TIMESTAMPS compared against `_time` (replayed as a
+     * periodic hover+click every few seconds), and `_crewTime` is the crew animation clock. Each
+     * gets an `auto` toggle on its control; unchecked falls back to the static slider value.
+     */
+    const CLOCK_REPLAY = {
+        _crewTime: (t) => t,
+        _flickerTime: (t) => t,
+        _fluctuationTime: (t) => t,
+        _planetTime: (t) => t,
+        _waveT1: (t) => Math.min(Math.max((1 - ((t / 2) % 1)) / 0.5, 0), 1),
+        _waveT2: (t) => Math.min(Math.max(((t / 2) % 1) / 0.5, 0), 1),
+        _highlightTime: (t) => Math.floor(t / 3) * 3,
+        _unhighlightTime: (t) => Math.floor(t / 3) * 3 + 1.5,
+        _clickTime: (t) => Math.floor(t / 3) * 3,
+    };
+    // Which clock constants currently follow the replay (per payload; control checkboxes flip these).
+    let clockAuto = {};
 
     /**
      * The builtin uniform values the engine supplies each frame. The lighting values mirror vanilla's
@@ -382,6 +543,9 @@ void main() {
             k = 2 / Math.max(bs, 0.01);
         } else if (usingVertexStage && vertexStage && vertexStage.kind === 'beam') {
             k = 1.8 / Math.max(beamLength, 0.01);
+        } else if (usingVertexStage && vertexStage && vertexStage.kind === 'crew') {
+            // The crew quad's corner offsets span ±0.5 world units; fill most of the canvas.
+            k = 1.8;
         }
         return [s[0] * k, 0, 0, 0, 0, s[1] * k, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
     }
@@ -446,6 +610,11 @@ void main() {
                 gl.uniform1f(location, emissive);
                 continue;
             }
+            // Engine clocks follow the replay unless the control's auto toggle is off.
+            if (CLOCK_REPLAY[name] && clockAuto[name] !== false) {
+                gl.uniform1f(location, CLOCK_REPLAY[name](elapsedMs() / 1000));
+                continue;
+            }
             const value = merged[name];
             if (value == null) continue;
             const v = Array.isArray(value) ? value : [value];
@@ -497,9 +666,9 @@ void main() {
             case 'SubtractDestFromSource':
                 return gl.FUNC_SUBTRACT;
             case 'Min':
-                return minmax ? minmax.MIN_EXT : gl.FUNC_ADD;
+                return isGL2 ? gl.MIN : minmax ? minmax.MIN_EXT : gl.FUNC_ADD;
             case 'Max':
-                return minmax ? minmax.MAX_EXT : gl.FUNC_ADD;
+                return isGL2 ? gl.MAX : minmax ? minmax.MAX_EXT : gl.FUNC_ADD;
             default:
                 return gl.FUNC_ADD;
         }
@@ -521,6 +690,7 @@ void main() {
     /** Draws one frame: the material quad composed over the stage backdrop with its blend mode. */
     function draw() {
         if (!program) return;
+        if (needsScene && sceneTarget && sceneProgram) drawScenePass();
         gl.viewport(0, 0, canvas.width, canvas.height);
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
@@ -647,8 +817,27 @@ void main() {
             if (constant.kind === 'vec4') row.appendChild(slider(0, 1, numbers[3] ?? 1, (a) => (values[constant.name][3] = a)));
         } else if (constant.kind === 'float' || constant.kind === 'int') {
             values[constant.name] = numbers[0];
-            const max = Math.max(1, Math.abs(numbers[0]) * 2 || 1, 8 * (/strength|intensity|scale|add/i.test(constant.name) ? 1 : 0));
-            row.appendChild(slider(0, max, numbers[0], (n) => (values[constant.name] = n), true));
+            // Fit the range (and thereby the step) to the written value's magnitude, so a tiny
+            // constant like `_midTexScale = 0.0005` stays adjustable at its own scale instead of
+            // snapping to a coarse 0..8 grid. Zero-valued constants get a nominal range.
+            const magnitude = Math.abs(numbers[0]);
+            const max = magnitude > 0 ? magnitude * 4 : /strength|intensity|scale|add/i.test(constant.name) ? 8 : 1;
+            const min = Math.min(0, numbers[0] * 4);
+            row.appendChild(slider(min, max, numbers[0], (n) => (values[constant.name] = n), true));
+            // An engine clock animates by default; unchecking auto hands it to the slider.
+            if (CLOCK_REPLAY[constant.name]) {
+                clockAuto[constant.name] = true;
+                const toggle = document.createElement('label');
+                toggle.className = 'animate';
+                toggle.title = 'Replay the engine clock driving this constant. Uncheck to set it manually.';
+                const box = document.createElement('input');
+                box.type = 'checkbox';
+                box.checked = true;
+                box.onchange = () => (clockAuto[constant.name] = box.checked);
+                toggle.appendChild(box);
+                toggle.appendChild(document.createTextNode(' auto'));
+                row.appendChild(toggle);
+            }
         } else if (constant.kind === 'vec2') {
             values[constant.name] = numbers;
             row.appendChild(numberInput(numbers[0] ?? 0, (n) => (values[constant.name][0] = n)));
@@ -660,6 +849,15 @@ void main() {
             row.appendChild(tag);
         }
         return row;
+    }
+
+    /** Formats a control value with enough precision for its magnitude (`0.0005` stays `0.0005`). */
+    function formatNumber(n) {
+        if (n === 0) return '0';
+        const abs = Math.abs(n);
+        if (abs >= 100) return n.toFixed(0);
+        if (abs >= 1) return String(+n.toFixed(2));
+        return String(+n.toPrecision(3));
     }
 
     /** A labelled range slider that mirrors its value into a number box and reports changes. */
@@ -674,10 +872,10 @@ void main() {
         range.value = String(value);
         const out = document.createElement('span');
         out.className = 'num';
-        out.textContent = (+value).toFixed(2);
+        out.textContent = formatNumber(+value);
         range.oninput = () => {
             const n = parseFloat(range.value);
-            out.textContent = n.toFixed(2);
+            out.textContent = formatNumber(n);
             onChange(n);
         };
         wrap.appendChild(range);
@@ -788,6 +986,7 @@ void main() {
     async function render(message) {
         const data = message.data;
         values = {};
+        clockAuto = {};
         startTime = Date.now();
         pausedAccum = 0;
         paused = false;
@@ -839,6 +1038,13 @@ void main() {
 
         dummyTexture = dummyTexture || makeSolid(255, 255, 255, 255);
         transparentTexture = transparentTexture || makeSolid(255, 255, 255, 0);
+        // Flat +Z normal in the screen-target encoding (normalsToColor of (0, 0, 1)) and in the
+        // inferred-atlas encoding (x in alpha, y in green, both centred); empty stencil coverage.
+        flatNormalTarget = flatNormalTarget || makeSolid(127, 127, 255, 255);
+        flatNormalAtlas = flatNormalAtlas || makeSolid(127, 127, 127, 127);
+        transparentBlack = transparentBlack || makeSolid(0, 0, 0, 0);
+        sceneTarget = sceneTarget || createSceneTarget();
+        sceneProgram = sceneProgram || link(FALLBACK_SRC);
         // Load every bound texture with its sampler state; the base '_texture' also sets the aspect.
         const textureData = message.textureData || {};
         textures = {};
@@ -858,6 +1064,19 @@ void main() {
         usingFallback = !program;
         const glslError = lastGlError;
         if (!program) program = link(FALLBACK_SRC);
+
+        // The scene stand-in pass runs only when the program samples an engine screen target the
+        // material did not bind an image for (the lighting and backbuffer-distortion shaders).
+        needsScene = false;
+        if (program) {
+            const uniformCount = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
+            for (let i = 0; i < uniformCount; i++) {
+                const name = gl.getActiveUniform(program, i).name.replace(/\[0\]$/, '');
+                const isSceneTarget =
+                    name === '_diffuseTarget' || name === '_capturedBackBuffer' || name === '_ftlBackground';
+                if (isSceneTarget && !textures[name]) needsScene = true;
+            }
+        }
 
         // The stage toolbar (backdrop, blend, pause), the vertex-colour control (a particle's animation
         // input), the beam and sprite-sheet controls when they apply, then one control per constant.
@@ -879,11 +1098,13 @@ void main() {
         const note = usingFallback ? `Approximate render (${failure}) — texture, tint and blend shown.` : 'Live translated shader.';
         const blendLabel = data.blend && data.blend.label !== 'AlphaBlend' ? data.blend.label : null;
         const tags = [
-            usingVertexStage ? 'vertex stage' : null,
+            usingVertexStage ? `vertex stage (${vertexStage.kind})` : null,
             blendLabel,
             particleRamp ? 'particle: color ramp animated' : data.isParticle ? 'particle: vertex colour animated' : null,
             data.isBeam ? 'beam' : null,
             spriteSheet ? `sprite sheet: ${spriteSheet.count} cells` : null,
+            needsScene ? 'scene stand-in' : null,
+            isGL2 ? null : 'WebGL1 fallback',
         ].filter(Boolean);
         statusEl.textContent = tags.length ? `${note} · ${tags.join(' · ')}` : note;
         metaEl.innerHTML = '';

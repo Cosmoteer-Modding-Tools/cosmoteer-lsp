@@ -2,17 +2,17 @@
  * Alias-based fragment rooting.
  *
  * The game root `cosmoteer.rules` (schema class `Cosmoteer.Data.Rules`) doesn't inline most of its
- * data — it aliases it in from fragment files by field, e.g.
+ * data. It aliases it in from fragment files by field, e.g.
  *
  *     Factions = &<factions/factions.rules>/Factions     // field Factions : list<FactionRules>
  *     Buffs    = &<buffs/buffs.rules>                     // field Buffs    : map<BuffType, BuffRules>
  *     CareerMode = &<modes/career/career.rules>           // field CareerMode : group<CareerModeRules>
  *
- * A fragment file therefore has no self-describing root class — its type comes from the FIELD that
+ * A fragment file therefore has no self-describing root class, its type comes from the field that
  * pulls it in. This module walks those aliases forward from `cosmoteer.rules` (recursing through
  * whole-file group aliases like `CareerMode`) and records, per target file, the schema {@link ValueType}
  * of each aliased member (or of the file root itself for a member-less alias). {@link resolveGroupClass}
- * / {@link expectedValueType} then root an otherwise-unrooted fragment by looking its members up here —
+ * / {@link expectedValueType} then root an otherwise-unrooted fragment by looking its members up here,
  * which is what makes references and completion inside fragment files (a tech's `Prerequisites`, a
  * buff group's fields) resolve, and disambiguates same-named lists by their source (a `Techs` from
  * `career.rules` is `TechRules`, not pvp `BuildBattleTechRules`).
@@ -21,10 +21,12 @@
  * `cosmoteer.rules` changes. The file resolver is injected so this schema-layer module needs no
  * dependency on the navigation layer.
  */
-import { AbstractNodeDocument, isAssignmentNode, isDocumentNode, isGroupNode, isValueNode } from '../../core/ast/ast';
-import { fieldOf } from './schema';
+import { AbstractNodeDocument, isAssignmentNode, isDocumentNode, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
+import { fieldOf, schema } from './schema';
+import { classFitsDocument, topLevelType } from './document-root';
 import { ValueType } from './schema.types';
 import { normalizeUri } from '../../features/navigation/reference-location';
+import { uriToFsPath } from '../../features/navigation/workspace-files';
 
 const ROOT_CLASS = 'Cosmoteer.Data.Rules';
 const MAX_DEPTH = 12;
@@ -48,6 +50,12 @@ class AliasRootIndex {
 
     /** normalized file uri → (aliased member name, or '' for the file root → its schema valueType). */
     private readonly index = new Map<string, Map<string, ValueType>>();
+    /** lower-cased game-root macro name (`COMMON_EFFECTS`, `PRIORITIES`) → the aliased file's
+     *  normalized uri (the index key) and real filesystem path (for parsing), for member-less
+     *  `NAME = &<file>` aliases the root class declares no field for. A super-path usage
+     *  (`&/NAME/Member`) elsewhere then types that member of the file by the slot that reads it
+     *  (see the reverse-include index's macro-usage records). */
+    private readonly macroTargets = new Map<string, { key: string; fsPath: string }>();
     private built = false;
     private _revision = 0;
 
@@ -65,6 +73,17 @@ class AliasRootIndex {
         this.built = false;
         this._revision++;
         this.index.clear();
+        this.macroTargets.clear();
+    }
+
+    /** The normalized uri of the file a game-root macro (`NAME = &<file>`) aliases, if any. */
+    public macroAliasTarget(name: string): string | undefined {
+        return this.macroTargets.get(name.toLowerCase())?.key;
+    }
+
+    /** The real filesystem path of the file a game-root macro aliases, for parsing it. */
+    public macroAliasFsPath(name: string): string | undefined {
+        return this.macroTargets.get(name.toLowerCase())?.fsPath;
     }
 
     /** The schema type aliased onto `member` of the file at `uri`, if any. The member name matches case-insensitively like the game's node lookup. */
@@ -95,7 +114,7 @@ class AliasRootIndex {
      * Walk a container (the root document, a file-aliased fragment, or an inline group like
      * `Game { GameGui = &<…> … }`) under its schema `ownerClass`, recording every `&<file>` alias and
      * recursing into both file-aliased and inline `group<C>` members. `sourceUri` is the document the
-     * refs are written in (for relative file resolution); `seen` guards file-level recursion.
+     * refs are written in (for relative file resolution), and `seen` guards file-level recursion.
      */
     private async walk(
         container: { elements: AbstractNodeDocument['elements'] },
@@ -108,12 +127,27 @@ class AliasRootIndex {
         if (depth > MAX_DEPTH) return;
 
         for (const element of container.elements) {
-            // `Field = &<file>[/member]` — an alias to another file.
+            // `Field = &<file>[/member]`: an alias to another file.
             if (isAssignmentNode(element) && isValueNode(element.right) && element.right.valueType.type === 'Reference') {
                 const fieldType = fieldOf(ownerClass, element.left.name)?.valueType;
-                if (!fieldType) continue;
                 const alias = parseAlias(String(element.right.valueType.value));
                 if (!alias) continue;
+                // A member the root class declares no field for is a user macro (`COMMON_EFFECTS =
+                // &<file>`). It carries no slot type of its own, but its name is what super-path
+                // usages (`&/COMMON_EFFECTS/PowerOn`) resolve through, so record where it points and
+                // let the reverse-include scan type the target's members by the slots that read them.
+                if (!fieldType) {
+                    if (depth === 0 && !alias.member) {
+                        const target = await resolve(alias.fileRef, sourceUri).catch(() => undefined);
+                        if (target && isDocumentNode(target)) {
+                            this.macroTargets.set(element.left.name.toLowerCase(), {
+                                key: normalizeUri(target.uri),
+                                fsPath: uriToFsPath(target.uri),
+                            });
+                        }
+                    }
+                    continue;
+                }
                 const target = await resolve(alias.fileRef, sourceUri).catch(() => undefined);
                 if (!target || !isDocumentNode(target)) continue;
                 this.put(target.uri, alias.member ?? '', fieldType);
@@ -121,14 +155,93 @@ class AliasRootIndex {
                     seen.add(normalizeUri(target.uri));
                     await this.walk(target, fieldType.ref, target.uri, resolve, seen, depth + 1);
                 }
+                // The alias may land on a MEMBER that is itself a list of file aliases
+                // (`SectorTypes = &<sectors/sectors.rules>/Sectors`, whose `Sectors [ &<sector_basic…>/Sector … ]`
+                // names the real declarations). Recording the member's type is not enough: without
+                // descending, every sector file stays unrooted and its `ID` unharvested.
+                if (alias.member && fieldType.kind === 'list' && fieldType.element.kind === 'group') {
+                    const member = target.elements.find(
+                        (child) =>
+                            (isListNode(child) && child.identifier?.name.toLowerCase() === alias.member!.toLowerCase()) ||
+                            (isAssignmentNode(child) && child.left.name.toLowerCase() === alias.member!.toLowerCase() && isListNode(child.right))
+                    );
+                    const list = member && isListNode(member) ? member : member && isAssignmentNode(member) && isListNode(member.right) ? member.right : undefined;
+                    if (list) {
+                        await this.walkAliasList(list, fieldType.element.ref, target.uri, resolve, seen, depth + 1);
+                    }
+                }
                 continue;
             }
-            // `Field { … }` — an inline group that further aliases (e.g. `Game { GameGui = &<…> }`).
+            // `Field [ &<file>/Member … ]`: a list whose ELEMENTS are file aliases, how the game root
+            // pulls in its ships, sectors and background styles (`Ships [ &<ships/terran/terran.rules>/Terran … ]`).
+            // Each element roots the group it names in the target file as the list's element class, so
+            // that group's own `ID` is harvestable and its members type. Without this the whole subtree
+            // hanging off those files stayed unrooted.
+            const list = isListNode(element) && element.identifier
+                ? { name: element.identifier.name, node: element }
+                : isAssignmentNode(element) && isListNode(element.right)
+                  ? { name: element.left.name, node: element.right }
+                  : undefined;
+            if (list) {
+                const fieldType = fieldOf(ownerClass, list.name)?.valueType;
+                const element = fieldType?.kind === 'list' ? fieldType.element : undefined;
+                if (element?.kind === 'group') {
+                    await this.walkAliasList(list.node, element.ref, sourceUri, resolve, seen, depth);
+                }
+                continue;
+            }
+            // `Field { … }`: an inline group that further aliases (e.g. `Game { GameGui = &<…> }`).
             if (isGroupNode(element) && element.identifier) {
                 const fieldType = fieldOf(ownerClass, element.identifier.name)?.valueType;
                 if (fieldType?.kind === 'group') {
                     await this.walk(element, fieldType.ref, sourceUri, resolve, seen, depth + 1);
                 }
+            }
+        }
+    }
+
+    /**
+     * Records every `&<file>[/Member]` element of an alias list as the list's element type, and walks
+     * into what it names so that fragment's own aliases root in turn (a ship's `Doors [ &<door.rules> ]`
+     * roots the door file). A member-less element roots the whole target file; a member-qualified one
+     * roots that top-level group.
+     *
+     * @param list the list node holding the alias elements.
+     * @param elementClass the list's element class, which each alias lands in.
+     * @param sourceUri the document the refs are written in, for relative file resolution.
+     * @param resolve resolves a `<file>` ref to its parsed document.
+     * @param seen guards recursion, keyed per (file, member) so two ships in one file both walk.
+     * @param depth the current walk depth.
+     */
+    private async walkAliasList(
+        list: { elements: AbstractNodeDocument['elements'] },
+        elementClass: string,
+        sourceUri: string,
+        resolve: FileRefResolver,
+        seen: Set<string>,
+        depth: number
+    ): Promise<void> {
+        if (depth > MAX_DEPTH) return;
+        for (const element of list.elements) {
+            if (!isValueNode(element) || element.valueType.type !== 'Reference') continue;
+            const alias = parseAlias(String(element.valueType.value));
+            if (!alias) continue;
+            const target = await resolve(alias.fileRef, sourceUri).catch(() => undefined);
+            if (!target || !isDocumentNode(target)) continue;
+            const elementType: ValueType = { kind: 'group', ref: elementClass, name: elementClass.split('.').pop() ?? elementClass };
+            this.put(target.uri, alias.member ?? '', elementType);
+            const key = `${normalizeUri(target.uri)}#${(alias.member ?? '').toLowerCase()}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            // Walk what the alias names, under the element class: the whole file for a member-less
+            // element, else the top-level group it points at.
+            const container = alias.member
+                ? target.elements.find(
+                      (child) => isGroupNode(child) && child.identifier?.name.toLowerCase() === alias.member!.toLowerCase()
+                  )
+                : target;
+            if (container && (isDocumentNode(container) || isGroupNode(container))) {
+                await this.walk(container, elementClass, target.uri, resolve, seen, depth + 1);
             }
         }
     }
@@ -151,17 +264,24 @@ export interface AliasMemberSource {
     /** The concrete classes of every group that inherits `member` of the file at `uri` as a base, so the
      *  schema layer can root the base to the best-fitting one. Empty when it isn't an inheritance base. */
     inheritanceDeriverClasses?(uri: string, member: string): string[];
+    /** The polymorphic registry every class-less deriver of `member` agrees the base dispatches in,
+     *  so the base file can root by its own top-level `Type=` within it. Undefined when any deriver
+     *  carries a concrete class (those root through the ordinary path) or the registries disagree. */
+    inheritanceRegistry?(uri: string, member: string): string | undefined;
 }
 
-let aliasFallback: AliasMemberSource | undefined;
+const aliasFallbacks: AliasMemberSource[] = [];
 
 /**
- * Registers (or clears) the secondary fragment-root source consulted by {@link aliasedMemberType}.
+ * Registers a secondary fragment-root source consulted by {@link aliasedMemberType}, or clears them
+ * all. Sources are consulted in registration order and the first answer wins, so the reverse-include
+ * index (registered first at startup) stays ahead of the mod-action rooting index.
  *
- * @param source the fallback source to consult after the forward walk, or undefined to clear it.
+ * @param source the fallback source to consult after the forward walk, or undefined to clear all.
  */
 export const registerAliasFallbackSource = (source: AliasMemberSource | undefined): void => {
-    aliasFallback = source;
+    if (!source) aliasFallbacks.length = 0;
+    else if (!aliasFallbacks.includes(source)) aliasFallbacks.push(source);
 };
 
 /**
@@ -175,12 +295,36 @@ export const registerAliasFallbackSource = (source: AliasMemberSource | undefine
  * @returns the schema type aliased onto the member, or undefined when the file isn't an aliased fragment.
  */
 export const aliasedMemberType = (document: AbstractNodeDocument, memberName: string): ValueType | undefined => {
-    const direct =
-        aliasRootIndex.memberType(document.uri, memberName) ?? aliasFallback?.memberType(document.uri, memberName);
-    if (direct) return direct;
-    const root = aliasRootIndex.rootType(document.uri) ?? aliasFallback?.rootType(document.uri);
+    // The forward walk's explicit member alias is authoritative. The file's root class comes next:
+    // when the whole file is a known class, its own field declaration beats a reverse-include member
+    // record, which can only see how other files read into this one (an includer's slot for one leaf
+    // must never re-type a member the root class declares).
+    const forward = aliasRootIndex.memberType(document.uri, memberName);
+    if (forward) return forward;
+    let root = aliasRootIndex.rootType(document.uri);
+    for (const fallback of aliasFallbacks) root ??= fallback.rootType(document.uri);
     if (root?.kind === 'map') return root.value;
-    if (root?.kind === 'group') return fieldOf(root.ref, memberName)?.valueType;
+    if (root?.kind === 'group') {
+        const declared = fieldOf(root.ref, memberName)?.valueType;
+        if (declared) return declared;
+    }
+    for (const fallback of aliasFallbacks) {
+        const member = fallback.memberType(document.uri, memberName);
+        if (member) return member;
+    }
+    // A base whose derivers all lack a class but agree on a slot registry (a part component whose
+    // `Type` comes through the inheritance itself) roots by dispatching the file's OWN top-level
+    // `Type=` within that registry, guarded by the same majority-fit check as every other root.
+    for (const fallback of aliasFallbacks) {
+        const registry = fallback.inheritanceRegistry?.(document.uri, '');
+        if (!registry) continue;
+        const type = topLevelType(document);
+        const cls = type ? schema.registries[registry]?.members[type] : undefined;
+        if (cls && classFitsDocument(cls, document)) {
+            const declared = fieldOf(cls, memberName)?.valueType;
+            if (declared) return declared;
+        }
+    }
     return undefined;
 };
 
@@ -193,5 +337,10 @@ export const aliasedMemberType = (document: AbstractNodeDocument, memberName: st
  * @param memberName the base member the derivers inherit.
  * @returns the deriver class FullNames, or an empty array when the file is not a recorded base.
  */
-export const inheritanceBaseCandidates = (document: AbstractNodeDocument, memberName: string): string[] =>
-    aliasFallback?.inheritanceDeriverClasses?.(document.uri, memberName) ?? [];
+export const inheritanceBaseCandidates = (document: AbstractNodeDocument, memberName: string): string[] => {
+    for (const fallback of aliasFallbacks) {
+        const classes = fallback.inheritanceDeriverClasses?.(document.uri, memberName);
+        if (classes && classes.length > 0) return classes;
+    }
+    return [];
+};

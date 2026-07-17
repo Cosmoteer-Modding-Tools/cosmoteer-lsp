@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
-import { parseModActions } from '../../src/mod/action-parser';
-import { Action } from '../../src/mod/action';
+import { isActionFragmentDocument, parseModActions } from '../../src/mod/action-parser';
+import { Action, isActionEntryGroup, isActionTargetValueNode } from '../../src/mod/action';
+import { AbstractNodeDocument, AssignmentNode, isAssignmentNode, isGroupNode } from '../../src/core/ast/ast';
+import { valueOf } from '../helpers';
 
-const parseActions = (src: string): Action[] => parseModActions(parser(lexer(src), 'file:///mod.rules').value);
+const parseDoc = (src: string): AbstractNodeDocument => parser(lexer(src), 'file:///mod.rules').value;
+const parseActions = (src: string): Action[] => parseModActions(parseDoc(src));
 
 // Shapes mirror cosmoteer Standard Mods/example_mod/mod.rules. Fields are on separate
 // lines because the lexer treats spaces as part of a VALUE token (real .rules files do this).
@@ -122,6 +125,35 @@ describe('parseModActions', () => {
         expect(action.type).toBe('Unknown');
         expect(action.verbText).toBe('Frobnicate');
         expect(action.presentFields.has('foo')).toBe(true);
+    });
+
+    it('recognizes an included action fragment file (root Actions list of action entries)', () => {
+        // launcher.rules / register.rules shape: a non-manifest file whose top-level `Actions`
+        // list holds `{ Action = … }` entries, concatenated into a manifest via `&<file>/Actions`.
+        expect(isActionFragmentDocument(parseDoc(ALL_VERBS))).toBe(true);
+        // A file with no Actions list is not a fragment.
+        expect(isActionFragmentDocument(parseDoc('ID = x\nFoo = 1\n'))).toBe(false);
+        // An `Actions` list whose members carry no `Action` field is not an action fragment.
+        expect(isActionFragmentDocument(parseDoc('Actions\n[\n\t{\n\t\tFoo = 1\n\t}\n]\n'))).toBe(false);
+    });
+
+    it('identifies action target value nodes anywhere an action lives', () => {
+        // Every parsed target sits in a real action entry, so it is an action target.
+        for (const action of parseActions(ALL_VERBS)) {
+            for (const target of action.targets) expect(isActionTargetValueNode(target)).toBe(true);
+        }
+    });
+
+    it('does not treat a target-named field outside an action entry as an action target', () => {
+        // A group with `AddTo = …` but no `Action` field, not inside an Actions list, must not be
+        // exempted from the generic reference checks.
+        const doc = parseDoc('Root\n{\n\tAddTo = "<a.rules>/X"\n}\n');
+        const root = doc.elements.find(isGroupNode)!;
+        expect(isActionEntryGroup(root)).toBe(false);
+        const addTo = root.elements.find(
+            (e): e is AssignmentNode => isAssignmentNode(e) && e.left.name === 'AddTo'
+        )!;
+        expect(isActionTargetValueNode(valueOf(addTo))).toBe(false);
     });
 
     it('matches the Actions list and field names case-insensitively like the game', () => {

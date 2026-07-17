@@ -1,13 +1,17 @@
 import { Disposable, ExtensionContext, Position, Uri, ViewColumn, WebviewPanel, commands, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
-import { readFileSync, statSync } from 'fs';
+import { imageDataUri, nonceString } from '../webview-util';
 
 /** The preview payload shape returned by the server's `cosmoteer/shaderPreview` request. */
 interface ShaderPreviewData {
     shaderName: string;
     shaderUri: string | null;
     glsl: string | null;
-    vertexStage: { glsl: string; fragment: string; kind: 'sprite' | 'particle' | 'beam' } | null;
+    vertexStage: {
+        glsl: string;
+        fragment: string;
+        kind: 'sprite' | 'particle' | 'beam' | 'crew' | 'shipPart';
+    } | null;
     translationOk: boolean;
     reason?: string;
     constants: Array<{
@@ -22,7 +26,7 @@ interface ShaderPreviewData {
     textures: Array<{
         name: string;
         uri: string | null;
-        sampler: { sampleMode: string; uMode: string; vMode: string; mips: boolean };
+        sampler: { sampleMode: string; uMode: string; vMode: string; mips: boolean; mipCount?: number };
     }>;
     blend: {
         label: string;
@@ -151,7 +155,7 @@ export class ShaderPreviewPanel {
         // Every bound texture is inlined as a data URI keyed by its sampler uniform, so noise and ramp
         // textures load in the webview the same way the base texture does.
         const textureData: Record<string, string | null> = {};
-        for (const texture of data.textures) textureData[texture.name] = textureDataUri(texture.uri);
+        for (const texture of data.textures) textureData[texture.name] = imageDataUri(texture.uri);
         await this.panel.webview.postMessage({
             type: 'render',
             data,
@@ -197,41 +201,3 @@ export class ShaderPreviewPanel {
     }
 }
 
-/** The image kinds the preview can inline, keyed by file extension. */
-const IMAGE_MIME: Readonly<Record<string, string>> = {
-    png: 'image/png',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-};
-
-/** The largest texture inlined as a data URI, above which it is skipped to keep the message small. */
-const MAX_TEXTURE_BYTES = 16 * 1024 * 1024;
-
-/**
- * Reads a texture file into a `data:` URI so the webview can show it without a localResourceRoots
- * grant. Returns null when there is no texture, it is too large, or it cannot be read.
- *
- * @param fileUri the `file://` URI of the texture the server resolved.
- * @returns a base64 data URI, or null.
- */
-const textureDataUri = (fileUri: string | null): string | null => {
-    if (!fileUri) return null;
-    try {
-        const path = Uri.parse(fileUri).fsPath;
-        if (statSync(path).size > MAX_TEXTURE_BYTES) return null;
-        const extension = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
-        const mime = IMAGE_MIME[extension];
-        if (!mime) return null;
-        return `data:${mime};base64,${readFileSync(path).toString('base64')}`;
-    } catch {
-        return null;
-    }
-};
-
-/** A random nonce for the webview content-security-policy script allowance. */
-const nonceString = (): string => {
-    let text = '';
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) text += chars.charAt(Math.floor(Math.random() * chars.length));
-    return text;
-};

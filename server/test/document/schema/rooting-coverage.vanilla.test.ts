@@ -132,10 +132,16 @@ describe.skipIf(!HAVE_DATA)('rooting coverage over vanilla Data', () => {
         expect(docs.size).toBeGreaterThan(0);
         // Regression floor. The recognition and zero-warnings tests cannot see this number, since an
         // unrooted file contributes nothing to recognition and carries no schema class to validate.
-        // Measured about 97.5%. The residual 24 are intentional or irreducible. Localization
-        // `strings/*.rules`, the game manifest `cosmoteer.rules`, the multi-source concat containers, and
-        // the `*_overclock*` fragments pulled in through a typeless macro alias or an in-file group base,
-        // which have no typed slot to root them. A drop names the offending folder in the report above.
-        expect(pct).toBeGreaterThanOrEqual(97);
+        // Measured about 99.2%. The residual 8 are intentional: the localization `strings/*.rules`,
+        // text tables carrying no schema class. A drop names the offending folder in the report above.
+        //
+        // `encounter_distress.rules` was a ninth residual when this floor was written, on the reasoning
+        // that nothing references it so the game never loads it and rooting it would fake intelligence.
+        // It roots now, and that is deliberate: the encounters path rule in `documentRootClass` claims
+        // it from its folder, guarded by the top-level `ID` every encounter declares. A parked vanilla
+        // file and a mod's not-yet-wired encounter are the same shape, and both are worth completion
+        // and validation. Rooting a `.rules` file nothing references is the intended bet, since no
+        // other tool writes that extension. Only `.txt` has to earn it by being referenced.
+        expect(pct).toBeGreaterThanOrEqual(98.5);
     }, 120_000);
 });

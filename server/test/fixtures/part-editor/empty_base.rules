@@ -1,0 +1,7 @@
+Part
+{
+	Size = [1, 1]
+	IsRotateable = false
+	IsFlippable = false
+	AllowedDoorLocations = []
+}

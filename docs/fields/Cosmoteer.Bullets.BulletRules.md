@@ -30,7 +30,7 @@ The range from which the AI will try to use this weapon.
 ## IdealRadius
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The target radii, in tiles, that map onto [[Cosmoteer.Bullets.BulletRules.IdealRange]]. Against a target no larger than the minimum radius the AI prefers the near end of the ideal range, against one at least the maximum radius the far end, interpolating for sizes in between. Has no effect unless [[Cosmoteer.Bullets.BulletRules.IdealRange]] is set.
 
 ## Speed
 `range<number>` · optional
@@ -40,12 +40,12 @@ How fast the projectile moves forward when spawned.
 ## ReceivableBuffs
 `→ BuffType[]` · optional
 
-<!-- TODO: needs documentation -->
+The buff types the projectile inherits from the part that fired it. Buffs not listed here are dropped when the projectile spawns, so a buff must be listed for buffable values such as [[Cosmoteer.Bullets.BulletRules.Range]] and [[Cosmoteer.Bullets.BulletRules.Speed]] to respond to it.
 
 ## ForgetTarget
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the projectile discards the firing weapon's target when it spawns. Components and effect filters that check the projectile's target or targeted ship then treat it as having none.
 
 ## RandomRotation
 `bool` · optional

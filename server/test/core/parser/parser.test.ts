@@ -45,6 +45,23 @@ describe('parser', () => {
         expect(parse('A { x = 1 }\nB : A\n{\n}\n').parserErrors).toEqual([]);
     });
 
+    it('classifies asset and reference values with any extension casing', () => {
+        // The game resolves paths through the case-insensitive Windows FS, so `Icon.PNG` or
+        // `<Foo.Rules>` load exactly like their lowercase spellings and must classify the same.
+        for (const [src, expected] of [
+            ['File = icon.PNG\n', 'Sprite'],
+            ['Sound = boom.WAV\n', 'Sound'],
+            ['Shader = fx.SHADER\n', 'Shader'],
+            ['Ref = &<Foo.Rules>/A\n', 'Reference'],
+            ['Ref = &<Foo.TXT>/A\n', 'Reference'],
+        ] as const) {
+            const { value, parserErrors } = parse(src);
+            expect(parserErrors).toEqual([]);
+            const right = (value.elements[0] as { right?: { valueType?: { type: string } } }).right;
+            expect(right?.valueType?.type, src).toBe(expected);
+        }
+    });
+
     it('lexes scientific notation as a single Number value (incl. `E+38`)', () => {
         // Regression: `MaxEmissionZoom = 3.4028235E+38` split at `+`, becoming a math
         // expression whose operand `3.4028235E` is a String (flagged by the math validator).
@@ -88,8 +105,8 @@ describe('parser', () => {
     });
 
     it('parses a function-call argument with a parenthesized reference operand (no false "right paren")', () => {
-        // Regression (cosmoteer Star Wars mod Ion thruster parts): `ceil((1 / (&X)))` — a `( VALUE op …)`
-        // first argument — wrongly took the `( VALUE )` shortcut and reported "Expected right paren for
+        // Regression (cosmoteer Star Wars mod Ion thruster parts): `ceil((1 / (&X)))` (a `( VALUE op …)`
+        // first argument) wrongly took the `( VALUE )` shortcut and reported "Expected right paren for
         // reference", which then desynced paren matching and corrupted the rest of the file. The real OT
         // parser (OTFieldNode) reads the value as plain text and never validates parens at parse time.
         for (const src of [
@@ -132,7 +149,7 @@ describe('parser', () => {
     it('reads a bare/embedded `)` as literal value text, not a paren error (cosmoteer strings)', () => {
         // `RightBracket = )` and values ending in `)` such as `AsteroidGold_S = Gold（S)` appear in
         // cosmoteer string files. A `)` reaching the top level is unmatched (paren groups consume
-        // their own close), and OT reads it as value text — it must not be "Not expected paren".
+        // their own close), and OT reads it as value text. It must not be "Not expected paren".
         expect(parse('Keys\n{\n\tRightBracket = )\n\tNext = "x"\n}\n').parserErrors).toEqual([]);
         expect(parse('AsteroidGold_S = Gold（S)\nNext = 5\n').parserErrors).toEqual([]);
     });
@@ -181,7 +198,7 @@ describe('parser', () => {
 
     it('types a leading-dot decimal (.5, .75) as a Number, not a String', () => {
         // Regression (cosmoteer `gui/game/game_gui.rules`: `Bleed = .75 * .5`): the IS_NUMBER regex
-        // anchored `^` mid-pattern, so `.5`/`.75` were typed as String — breaking value typing and
+        // anchored `^` mid-pattern, so `.5`/`.75` were typed as String, breaking value typing and
         // making the math validator report "expected Number … Got String".
         for (const [src, expected] of [
             ['X = .5\n', 0.5],
@@ -213,7 +230,7 @@ describe('parser', () => {
             // The following `Next = 5` survives as its own assignment (not consumed by the broken value).
             expect(elementNames(src)).toContain('Next');
         }
-        // `X = 1\n+ 2` is `X = 1` plus an orphan — the `+ 2` is NOT folded into the value across the newline.
+        // `X = 1\n+ 2` is `X = 1` plus an orphan. The `+ 2` is not folded into the value across the newline.
         const orphan = parse('X = 1\nY = 2\n');
         expect(orphan.parserErrors).toEqual([]);
         expect(orphan.value.elements.map((e) => (e as { left?: { name?: string } }).left?.name)).toEqual(['X', 'Y']);
@@ -226,9 +243,9 @@ describe('parser', () => {
 
     it('does not crash when a value is the last token in the file (EOF robustness)', () => {
         // Regression: building the position of a negative number / `/`-reference read `tokens[current]`
-        // AFTER consuming the value, which is undefined when the value ends the file (`X = -5`,
+        // after consuming the value, which is undefined when the value ends the file (`X = -5`,
         // `X = /Ref` with no trailing newline). Real files always have a following token, but a
-        // truncated/being-typed buffer does not — the parser must never throw.
+        // truncated/being-typed buffer does not. The parser must never throw.
         for (const src of ['X = -99997', 'X = -5\n', 'X = /SW_SOUNDS/Click', 'G\n{\n\tSortOrder = -99997\n', 'A : B']) {
             expect(() => parse(src)).not.toThrow();
         }

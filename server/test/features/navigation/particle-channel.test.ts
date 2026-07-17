@@ -51,7 +51,7 @@ describe('particle data channels', () => {
         // `AIn`/`ResultOut` on `rot` give a read and a write.
         const rot = channels.filter((c) => c.name === 'rot');
         expect(rot.map((c) => c.direction).sort()).toEqual(['in', 'out'].sort());
-        // ValueType=Angle is an enum, not a channel — must not be picked up.
+        // ValueType=Angle is an enum, not a channel, so it must not be picked up.
         expect(channels.some((c) => c.name === 'Angle')).toBe(false);
     });
 

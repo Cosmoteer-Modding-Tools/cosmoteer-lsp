@@ -12,11 +12,6 @@
 
 <!-- TODO: needs documentation -->
 
-## Parameters
-`AIParameters` · optional
-
-<!-- TODO: needs documentation -->
-
 ## PatrolOriginTag
 `SpawnedObjectSearch` · optional
 

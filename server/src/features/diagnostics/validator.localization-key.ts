@@ -50,8 +50,8 @@ const assignmentNameOf = (node: ValueNode): string | undefined => {
 
 /**
  * Validates literal localization-key values (a `KeyString` field such as `NameKey = "Parts/Foo"`),
- * flagging a key that no language strings file in the project declares — a typo, or a key the mod
- * forgot to add. Reference-valued keys (`NameKey = &<…>/NameKey`) are skipped here (they are
+ * flagging a key that no language strings file in the project declares (a typo, or a key the mod
+ * forgot to add). Reference-valued keys (`NameKey = &<…>/NameKey`) are skipped here (they are
  * validated as references), as are empty values, mod.rules, and strings files themselves.
  *
  * Conservative, to stay false-positive-free: an unknown value is only flagged when the project's
@@ -69,7 +69,7 @@ export const validateLocalizationKeys = async (
     cancellationToken: CancellationToken
 ): Promise<ValidationError[]> => {
     if (isModRules(document.uri)) return [];
-    // A strings file's own leaves are the declarations, not `KeyString` references — never flag them.
+    // A strings file's own leaves are the declarations, not `KeyString` references. Never flag them.
     if (await isStringsFile(document.uri, cancellationToken).catch(() => false)) return [];
 
     // Cheap pre-filter by field name before the per-node schema resolution.
@@ -85,11 +85,11 @@ export const validateLocalizationKeys = async (
     if (candidates.length === 0) return [];
 
     const keys = await LocalizationKeyIndex.instance.allKeys(folderPaths, cancellationToken);
-    // No strings indexed means no coverage to judge against — do not flag.
+    // No strings indexed means no coverage to judge against. Do not flag.
     if (keys.size === 0) return [];
-    // Cosmoteer resolves keys case-insensitively — vanilla itself references `Doodads/Asteroidgold_S`
-    // while the strings define `AsteroidGold_S` — so membership is checked case-folded to avoid
-    // flagging a mere case difference. The lowered set is memoized in the index; rebuilding it here
+    // Cosmoteer resolves keys case-insensitively (vanilla itself references `Doodads/Asteroidgold_S`
+    // while the strings define `AsteroidGold_S`), so membership is checked case-folded to avoid
+    // flagging a mere case difference. The lowered set is memoized in the index. Rebuilding it here
     // per validated file dominated this pass on whole-workspace scans.
     const keysLower = await LocalizationKeyIndex.instance.allKeysLower(folderPaths, cancellationToken);
 
@@ -116,7 +116,7 @@ export const validateLocalizationKeys = async (
             message: l10n.t('Localization key not found'),
             node,
             // The game shows the raw key path when it can't resolve one, so this is a warning, not a
-            // hard error — and it may legitimately be defined by another mod's strings at load time.
+            // hard error. It may also legitimately be defined by another mod's strings at load time.
             severity: 'warning',
             additionalInfo: suggestion ? `${base} ${l10n.t('Did you mean "{0}"?', suggestion)}` : base,
             data: {

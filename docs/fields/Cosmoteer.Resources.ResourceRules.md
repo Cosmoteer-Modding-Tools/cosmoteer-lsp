@@ -10,132 +10,132 @@
 ## ID
 `→ ResourceRules` · required
 
-<!-- TODO: needs documentation -->
+The unique identifier other rules use to refer to this resource, for example in part costs or [[Cosmoteer.Data.Rules.FtlFuelResource]]. Loading fails if two resources share the same ID.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key of the resource's display name, shown in the resources toolbox, tooltips and transfer windows.
 
 ## PluralNameKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key of the name used when referring to more than one unit of the resource. Falls back to [[Cosmoteer.Resources.ResourceRules.NameKey]] when omitted.
 
 ## DescriptionKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key of the descriptive text shown in the resource's tooltips, for example on toolbox buttons and nuggets.
 
 ## BuyPrice
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The money cost to buy one unit of the resource. Also serves as the per-unit value when totaling ship costs and refunds, and as the sell refund when [[Cosmoteer.Resources.ResourceRules.SellPrice]] is not set.
 
 ## SellPrice
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The money refunded when selling one unit of the resource. Defaults to [[Cosmoteer.Resources.ResourceRules.BuyPrice]] when omitted.
 
 ## Icon
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+The sprite representing the resource in UI lists, buttons and transfer windows. It is also registered as a text image named `resource.<ID>` so the resource can be shown inline in text.
 
 ## IconButtonVerticalOffset
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Vertical offset, in pixels, applied to the position of [[Cosmoteer.Resources.ResourceRules.Icon]] inside the resource's button in the resources toolbox.
 
 ## Overlay
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+The sprite drawn over storage tiles assigned to this resource in the resource management overlay, and at the cursor while assigning a tile's resource type.
 
 ## QuantityDisplayDivisor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Divides quantities and capacities of the resource before they are displayed in the UI. Vanilla batteries use `1000` so that internal charge units display as whole batteries.
 
 ## QuantityDisplayFormat
 `string` · optional · default `n0`
 
-<!-- TODO: needs documentation -->
+The .NET numeric format string used to render displayed quantities after dividing by [[Cosmoteer.Resources.ResourceRules.QuantityDisplayDivisor]]. The default `n0` shows whole numbers with digit grouping.
 
 ## MaxPerNugget
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The quantity of the resource in a full nugget, and the most a single crew member can carry at once. Also spans the quantity range that [[Cosmoteer.Resources.ResourceRules.NuggetSprites]] is mapped over.
 
 ## CarrySpeed
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies a crew member's move speed while carrying this resource. Values below 1 slow the carrier down.
 
 ## MaxStackSize
 `int` · optional
 
-<!-- TODO: needs documentation -->
+How many units a single storage stack can hold. Any value above 0 makes the resource stackable and storable in resource grids, which also requires [[Cosmoteer.Resources.ResourceRules.FlexGridPriorityKey]] to be set.
 
 ## ReturnToStorage
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether leftover carried amounts are returned to the ship's storage instead of simply discarded, and whether stored amounts count toward the ship's resource refund. Resources with this enabled must define [[Cosmoteer.Resources.ResourceRules.NuggetSprites]].
 
 ## LoseExcessOnDelivery
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Destroys whatever part of a crew delivery the destination could not accept, instead of leaving the excess in the crew member's hands.
 
 ## FlexGridPriorityKey
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Identifier under which crew role priorities for fetching this resource into flex resource storage are stored. Required for stackable resources (see [[Cosmoteer.Resources.ResourceRules.MaxStackSize]]).
 
 ## FlexGridDefaultPriority
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The default crew job priority for fetching this resource into flex resource storage, used when a crew role has no explicit priority set under [[Cosmoteer.Resources.ResourceRules.FlexGridPriorityKey]].
 
 ## DropRates
 `NuggetDropRates` · optional
 
-<!-- TODO: needs documentation -->
+The `0..1` chances that this resource drops as nuggets when its containing part or storage is destroyed or salvaged or its carrier is killed, plus the fraction of the build cost charged when repairing. Each rate has a `Player…` variant that overrides it for player-built parts.
 
 ## StackSprites
 `AtlasSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+The sprites drawn on a storage tile holding this resource. The sprite advances to the next entry for every [[Cosmoteer.Resources.ResourceRules.ResourcesPerStackSprite]] units in the stack.
 
 ## ResourcesPerStackSprite
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+How many units of the resource each successive entry of [[Cosmoteer.Resources.ResourceRules.StackSprites]] represents. With the default of 1 the stack sprite changes with every unit added.
 
 ## StackReceiveMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects played when this resource is delivered into a stack, for example into storage or a construction or repair site.
 
 ## StackPickupMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects played when a crew member picks this resource up from a stack.
 
 ## NuggetPickupMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects played when a nugget of this resource is collected in space.
 
 ## DeathHitEffects
 `MultiHitEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Hit effects performed when a storage stack of this resource is destroyed. Their strength scales with how full the stack was relative to [[Cosmoteer.Resources.ResourceRules.MaxStackSize]].
 
 ## DeathMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects played when a storage stack of this resource is destroyed. Their strength scales with how full the stack was, like [[Cosmoteer.Resources.ResourceRules.DeathHitEffects]].
 
 ## HitResponse
 `HitResponseRules` · optional
@@ -145,19 +145,19 @@ Defines the response to the resource's containing part being hit.
 ## Rarity
 `→ ResourceRarity` · optional
 
-<!-- TODO: needs documentation -->
+The rarity category of the resource's nuggets, which must match an entry in [[Cosmoteer.Resources.NuggetRules.Rarities]]. It controls how the nuggets are rendered as dots on the map and in fog of war. Defaults to `Common`.
 
 ## NuggetSprite
 `AtlasSprite` · optional
 
-<!-- TODO: needs documentation -->
+A single sprite used for this resource's nuggets and for the resource while carried by crew. Shorthand for [[Cosmoteer.Resources.ResourceRules.NuggetSprites]] with one entry.
 
 ## NuggetSprites
 `AtlasSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+The sprites used for this resource's nuggets and for the resource while carried by crew. The sprite is picked by the quantity relative to [[Cosmoteer.Resources.ResourceRules.MaxPerNugget]], so later entries represent larger amounts. Required when [[Cosmoteer.Resources.ResourceRules.ReturnToStorage]] is true.
 
 ## NestedNuggetSprites
 `AtlasSprite[][]` · optional
 
-<!-- TODO: needs documentation -->
+Nested form of [[Cosmoteer.Resources.ResourceRules.NuggetSprites]]. The outer list splits the `1..MaxPerNugget` quantity range into bands and each inner list subdivides its band further.

@@ -1,5 +1,6 @@
 import { Dirent } from 'fs';
 import { AbstractNode } from '../../core/ast/ast';
+import { isRulesFileName } from '../../document/document-kind';
 import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 
@@ -27,14 +28,14 @@ export const filePathToDirectoryPath = (path: string) => {
         try {
             cleaned = decodeURIComponent(cleaned);
         } catch {
-            /* malformed escape sequence — fall back to the raw remainder */
+            /* malformed escape sequence, fall back to the raw remainder */
         }
         // `file:///C:/x` decodes to `/C:/x`. Drop the slash before a drive letter so it is a real
         // OS path, and upper-case the drive for consistency with the rest of the code base.
         const drive = cleaned.match(/^\/([a-zA-Z]):/);
         if (drive) cleaned = drive[1].toUpperCase() + cleaned.slice(2);
         result = cleaned.substring(0, cleaned.lastIndexOf('/') + 1);
-    } else if (path.endsWith('.rules')) {
+    } else if (isRulesFileName(path)) {
         result = path.substring(0, (path.includes('/') ? path.lastIndexOf('/') : path.lastIndexOf('\\') - 1) + 1);
     } else {
         result = path;

@@ -302,4 +302,70 @@ Sprite
         const data = await buildShaderPreview(doc, plain, plain.indexOf('Name'), token);
         expect(data).toBeNull();
     });
+
+    it.runIf(HAVE_DATA)('resolves per-axis wrap modes and a numeric mip count on a texture group', async () => {
+        clearShaderCache();
+        const src = `Part
+{
+	Components
+	{
+		T
+		{
+			Type = TurretWeapon
+			BlueprintArcSprite
+			{
+				Shader = "particle_light_emissive.shader"
+				Texture
+				{
+					File = "explode_spark.png"
+					SampleMode = Linear
+					MipLevels = 2
+					UMode = Wrap
+					VMode = Wrap
+				}
+			}
+		}
+	}
+}`;
+        const doc = parser(lexer(src), DOC_URI).value;
+        const data = await buildShaderPreview(doc, src, offsetOf(src, 'Shader ='), token);
+        const base = data!.textures.find((t) => t.name === '_texture');
+        expect(base?.uri).toMatch(/explode_spark\.png$/i);
+        // The engine builds exactly two mip levels here; the webview caps the sampled chain to match.
+        expect(base?.sampler).toEqual({
+            sampleMode: 'Linear',
+            uMode: 'Wrap',
+            vMode: 'Wrap',
+            mips: true,
+            mipCount: 2,
+        });
+    });
+
+    it.runIf(HAVE_DATA)('previews an include-library shader through its default entry points', async () => {
+        // base.shader keeps its pix behind USE_DEFAULT_PIX; a material referencing it directly must
+        // preview the default pipeline via the retry with the entry guards defined.
+        clearShaderCache();
+        const src = `Part
+{
+	Components
+	{
+		T
+		{
+			Type = TurretWeapon
+			BlueprintArcSprite
+			{
+				Shader = "../../base.shader"
+			}
+		}
+	}
+}`;
+        const doc = parser(lexer(src), DOC_URI).value;
+        const data = await buildShaderPreview(doc, src, offsetOf(src, 'Shader ='), token);
+        expect(data).not.toBeNull();
+        expect(data!.translationOk).toBe(true);
+        expect(data!.glsl).toContain('void main');
+        // The default vert is synthesizable, so the preview runs the real vertex stage too.
+        expect(data!.vertexStage).not.toBeNull();
+        expect(data!.vertexStage!.kind).toBe('sprite');
+    });
 });

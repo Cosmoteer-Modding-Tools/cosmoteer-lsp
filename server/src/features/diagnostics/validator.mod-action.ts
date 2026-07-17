@@ -19,7 +19,7 @@ const targetsWholeFile = (resolved: ResolvedTarget): boolean => isFile(resolved 
 const targetFilePath = (resolved: ResolvedTarget): string =>
     targetsWholeFile(resolved) ? (resolved as FileWithPath).path : getStartOfAstNode(resolved as AbstractNode).uri;
 
-/** A `&` reference value — its real shape is whatever it resolves to, so it satisfies any container constraint. */
+/** A `&` reference value. Its real shape is whatever it resolves to, so it satisfies any container constraint. */
 const isReferenceValue = (node: AbstractNode): boolean => isValueNode(node) && node.valueType.type === 'Reference';
 
 /**
@@ -176,7 +176,7 @@ export const validateModActions = async (
 
             if (action.type === 'Add') {
                 // `Name` is mandatory when adding into a container (a whole `.rules` file, not
-                // descending into it, or a `{}` group) — otherwise the added entry has no key.
+                // descending into it, or a `{}` group). Otherwise the added entry has no key.
                 if ((wholeFile || isGroupNode(resolved as AbstractNode)) && !action.nameNode) {
                     errors.push({
                         message: l10n.t('Add action is missing the Name field'),
@@ -203,7 +203,7 @@ export const validateModActions = async (
                 !targetMatchesShape(resolved as AbstractNode, schema.targetShape)
             ) {
                 // The resolved node must be the right container (e.g. AddMany needs a `[]`,
-                // AddBase a `[]`/`{}`) — you can't add list items to a scalar.
+                // AddBase a `[]`/`{}`). You can't add list items to a scalar.
                 errors.push({
                     message: l10n.t('Mod action target has the wrong shape'),
                     node: target,

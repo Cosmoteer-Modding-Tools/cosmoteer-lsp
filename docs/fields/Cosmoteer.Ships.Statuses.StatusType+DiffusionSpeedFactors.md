@@ -8,11 +8,11 @@
 > the [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## Occupied
-`float` · optional · default `Mono.Cecil.CustomAttributeArgument`
+`float` · optional · default `1`
 
 <!-- TODO: needs documentation -->
 
 ## Empty
-`float` · optional · default `Mono.Cecil.CustomAttributeArgument`
+`float` · optional · default `1`
 
 <!-- TODO: needs documentation -->

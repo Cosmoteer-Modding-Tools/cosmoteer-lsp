@@ -236,7 +236,7 @@ describe('validateModActions', () => {
     });
 
     it('does not flag a target the mod itself adds (Overrides <cosmoteer.rules>/FOO after Add FOO)', async () => {
-        // The fixture mod adds FOO to cosmoteer.rules then overrides it — the self-aware case.
+        // The fixture mod adds FOO to cosmoteer.rules then overrides it: the self-aware case.
         clearModRootCache();
         invalidateModContext();
         const manifest = await parseFilePath(join(FIXTURES_DIR, 'mod', 'mod.rules'));

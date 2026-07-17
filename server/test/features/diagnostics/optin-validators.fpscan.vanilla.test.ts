@@ -119,6 +119,42 @@ describe.skipIf(!HAVE_DATA)('opt-in validators over vanilla Data', () => {
         }
         report('cross-file-ids', findings);
         expect(findings.slice(0, 30)).toEqual([]);
+        // The game-tree exemption replaces the old hand-kept stale-id list, so a harvest regression
+        // could hide behind it: every unresolved vanilla reference would self-exempt instead of
+        // failing the zero contract above. Pinning the exempted set to the known vanilla leftovers
+        // keeps the tripwire: a new game version adds entries here consciously, a regression fails.
+        // `trade` and `unique` are builtin-ship tags that vanilla also references through
+        // spawner-typed search fields, a cross-class tag reuse the harvests cannot unify, so those
+        // references self-exempt like the genuine leftovers.
+        // `distress` and `indicators` are the two leftovers the self-keyed value references surfaced.
+        // Vanilla's `encounter_distress.rules` names `Metatype = Distress`, and no metatype by that
+        // name exists (the file's own comment calls the encounter broken); four vanilla parts draw on
+        // `Layer = "indicators"`, and no ship file declares a render layer by that name.
+        const { gameTreeExemptions, labelFieldExemptions } = await import(
+            '../../../src/features/diagnostics/validator.schema-id-reference'
+        );
+        expect([...gameTreeExemptions].sort()).toEqual([
+            'distress',
+            'graveyard_platform',
+            'indicators',
+            'shrapnel',
+            'station_captor_defense',
+            'trade',
+            'unique',
+        ]);
+        // The label-field derivation gets the same tripwire: a field only derives as a label when
+        // no vanilla usage resolves to a primary id, so a harvest regression that breaks a real
+        // field's resolution would silently reclassify it here instead of failing the zero contract.
+        // `SelectionTypeID` and `FlipWhenLoadingIDs` borrow the part-id type without the engine ever
+        // resolving them, `UpgradedFrom` names replaced legacy techs by design (the decompiled
+        // `TechUpgrades` map rewrites prerequisites and migrates saves, never a lookup that must
+        // hit), and `OtherIDs` is the alias declaration itself rather than a reference.
+        expect([...labelFieldExemptions].sort()).toEqual([
+            'flipwhenloadingids',
+            'otherids',
+            'selectiontypeid',
+            'upgradedfrom',
+        ]);
     }, 600_000);
 
     it('localization keys: zero findings', async () => {

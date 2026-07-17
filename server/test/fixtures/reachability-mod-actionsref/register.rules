@@ -1,0 +1,11 @@
+Actions
+[
+	{
+		Action = Overrides
+		OverrideIn = "<ships/terran/terran.rules>/Terran"
+		Overrides
+		{
+			Foo = 1
+		}
+	}
+]

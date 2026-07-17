@@ -10,9 +10,14 @@
 ## PartCriteria
 `RelativePartCriteria` · optional
 
-<!-- TODO: needs documentation -->
+A filter the candidate part must match (part id, categories, ownership relative to this part)
+before this entry's [[Cosmoteer.Ships.Parts.Logic.ProxyRules+ProxyableComponent.ComponentID]]
+is proxied. An entry without criteria matches any part.
 
 ## ComponentID
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The id of the component to mirror in the targeted part. The connection is live: if the
+component does not exist yet (a `ToggledComponents` mode that is switched off, a part still
+under construction), the proxy waits and connects the moment a component with this id
+appears, and disconnects again when it is removed.

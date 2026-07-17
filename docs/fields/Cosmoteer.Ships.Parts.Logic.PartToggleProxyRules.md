@@ -7,12 +7,12 @@
 > These docs describe individual fields. For guides, worked examples and the bigger picture, see
 > the [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
-## ProxyRules
-`ProxyRules` · optional
-
-<!-- TODO: needs documentation -->
-
 ## IsOnWhenNotConnected
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+The toggle state this proxy reports while no target component is connected (default `false`).
+Disconnected covers a `PartLocation` cell with no matching part, and equally a `ComponentID`
+that no active component carries. The vanilla missile launcher relies on that: its
+`MissilesPrereqProxy` targets a `MissilesPrereq` component that each `ToggledComponents`
+missile mode must supply, so a mode that forgets it reads permanently off and the launcher's
+crew stand down.

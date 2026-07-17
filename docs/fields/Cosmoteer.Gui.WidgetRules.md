@@ -10,724 +10,724 @@
 ## PulsingTextShader
 `asset (shader)` · required
 
-<!-- TODO: needs documentation -->
+Shader applied to a label's text renderer to make it pulse for attention, used on the build toolbox vital-part warning message. Vanilla points it at pulsing.shader.
 
 ## RightClickCursor
-`asset (image)` · required
+`Cursor` · required
 
-<!-- TODO: needs documentation -->
+Cursor shown while hovering a widget that offers an alt-click or right-click context action, such as items in the ship library, mods dialog, resource toolboxes and crew roster. Vanilla uses cursor_right_click.png.
 
 ## InvalidCursor
-`asset (image)` · required
+`Cursor` · required
 
-<!-- TODO: needs documentation -->
+Cursor shown while the pointer is over a target where the current action cannot be performed, such as an unaffordable or out-of-range FTL jump, an invalid salvage target, or an invalid crew placement. Vanilla uses cursor_invalid.png.
 
 ## GoodTextColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Green color used for positive or success text, applied to labels and buttons like download-complete notices, victory messages and valid crew counts. Vanilla aliases [[Cosmoteer.Gui.WidgetRules.MoneyRefundTextColor]] to it.
 
 ## BadTextColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Red color used for negative, error, or warning text, applied to failure and conflict labels, defeat messages, floating warning text, and warning indicator arrows.
 
 ## MoneyTextColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Cyan color used when displaying credit amounts the player can afford, applied to inline money text and to affordable ship-cost labels.
 
 ## InsufficientMoneyTextColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color used for credit amounts the player cannot afford, applied to money text and disabled purchase labels when funds are too low. Vanilla aliases it to [[Cosmoteer.Gui.WidgetRules.BadTextColor]].
 
 ## MoneyRefundTextColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color used for positive credit changes such as refunds and payouts, applied to money text prefixed with a plus sign and the money icon. Vanilla aliases it to [[Cosmoteer.Gui.WidgetRules.GoodTextColor]].
 
 ## FameTextColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Blue color used when displaying fame amounts in formatted UI text.
 
 ## InsufficientFameTextColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color used for fame amounts the player cannot afford, applied to fame text when the requirement is not met. Vanilla aliases it to [[Cosmoteer.Gui.WidgetRules.BadTextColor]].
 
 ## FuelTextColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Blue color used when displaying affordable fuel amounts in formatted UI text.
 
 ## InsufficientFuelTextColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color used for fuel amounts the player cannot afford, applied to fuel text when the available amount is short.
 
 ## LimitedTextColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Orange color used to mark a value that is capped or limited, applied to resource transfer max labels and resource limit fields and stars.
 
 ## ResizerTLBRIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite intended as the top-left to bottom-right diagonal resize handle, the counterpart to [[Cosmoteer.Gui.WidgetRules.ResizerTRBLIcon]]. Vanilla points it at widgets_resizer_tlbr.png, though no read site appears in the current game code.
 
 ## ResizerTRBLIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite drawn as a corner resize handle, used for the resize grip in the ship Miniview window. Vanilla points it at widgets_resizer_trbl.png.
 
 ## MoverIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite intended as a drag-to-move handle. Vanilla points it at widgets_mover.png, though no read site appears in the current game code.
 
 ## DialogOpenSoundEffect
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound effect played on the interface audio group whenever a dialog opens. Vanilla plays sounds/dialog_open.wav at volume 0.25.
 
 ## DialogCloseSoundEffect
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound effect played on the interface audio group whenever a dialog closes. Vanilla plays sounds/dialog_close.wav at volume 0.25.
 
 ## DragAndDropCompleteSoundEffect
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound effect assigned as the drop sound of drag-and-drop targets, played when a dragged item is successfully dropped such as reorganizing ships into folders.
 
 ## DisabledIconShader
 `asset (shader)` · required
 
-<!-- TODO: needs documentation -->
+Shader applied to a button's image sprite to dim it while the button is disabled, used on undo, redo, build, repair, copy, cut, paste, delete, and similar toolbar icons when their action is unavailable. Vanilla points it at disabled.shader.
 
 ## PulsingIconShader
 `asset (shader)` · required
 
-<!-- TODO: needs documentation -->
+Shader applied to an icon sprite to make it pulse for attention, used on the repair-tool overlay sprite of the ship build button. Vanilla points it at pulsing.shader.
 
 ## GrayscaleIconShader
 `asset (shader)` · required
 
-<!-- TODO: needs documentation -->
+Shader applied to an icon sprite to desaturate it, used for part buttons that are locked in the demo or that the player cannot currently afford, and for grayed-out scoreboard icons. Vanilla points it at grayscale.shader.
 
 ## BlurShader
 `asset (shader)` · required
 
-<!-- TODO: needs documentation -->
+Shader used to blur the background behind a widget, producing the frosted-glass effect behind dialogs, tooltips, menus, context menus, and drop lists when fancy UI effects are enabled. Runs once per pass counted by [[Cosmoteer.Gui.WidgetRules.BlurPasses]].
 
 ## BlurPasses
 `int` · required
 
-<!-- TODO: needs documentation -->
+Number of blur iterations applied behind a widget with [[Cosmoteer.Gui.WidgetRules.BlurShader]]. Each iteration blurs horizontally and then vertically, so the draw count is twice this value. Vanilla sets it to 4.
 
 ## BlurFallbackMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material used to tint the area behind a widget instead of blurring it when fancy UI effects are disabled, giving a flat translucent backing behind dialogs and menus.
 
 ## DefaultFont
-`asset (font)` · required
+`Font` · required
 
-<!-- TODO: needs documentation -->
+Engine-wide default font. Every widget and text renderer that does not specify its own font uses this one. Vanilla loads the Play and Microsoft YaHei faces with fixed-width digits.
 
 ## ShadowFont
-`asset (font)` · required
+`Font` · required
 
-<!-- TODO: needs documentation -->
+Font that renders text with a soft black drop shadow, applied throughout the UI to labels and buttons that need to stay readable over busy backgrounds such as build, crew, ship name, chat, and title-screen text. Vanilla derives it from [[Cosmoteer.Gui.WidgetRules.DefaultFont]] with a blurred black shadow pass.
 
 ## GlowFont
-`asset (font)` · required
+`Font` · required
 
-<!-- TODO: needs documentation -->
+Font that renders text with a soft glow, applied to attention labels such as input-binding conflict warnings and the wishlist prompt. Vanilla derives it from [[Cosmoteer.Gui.WidgetRules.DefaultFont]] with a blur pass behind the foreground.
 
 ## ShadowGlowFont
-`asset (font)` · required
+`Font` · required
 
-<!-- TODO: needs documentation -->
+Font that renders text with both a black shadow and a glow pass, applied to the build toolbox vital-part warning message. Vanilla derives it from [[Cosmoteer.Gui.WidgetRules.DefaultFont]] with a shadow pass and a glow pass.
 
 ## DefaultCursor
-`asset (image)` · required
+`Cursor` · required
 
-<!-- TODO: needs documentation -->
+Engine-wide default mouse cursor, shown whenever no widget or tool overrides the pointer. Vanilla uses cursor_arrow.png.
 
 ## Widget
 `Widget` · required
 
-<!-- TODO: needs documentation -->
+Base template for every GUI widget, holding position and the set of attached components. Plain widgets copy their initial settings from this template, and through the chain of other default templates it seeds the baseline for every widget class in the game.
 
 ## StaticWidget
 `StaticWidget` · required
 
-<!-- TODO: needs documentation -->
+Default template for widgets drawn with a nine-slice background that do not react to input. Static widgets copy their settings from this template, and the vanilla version establishes the grey semi-transparent box look that boxes, labels and images build on.
 
 ## DynamicWidget
 `DynamicWidget` · required
 
-<!-- TODO: needs documentation -->
+Default template for widgets that swap their nine-slice depending on interaction state such as normal, highlighted and pressed. Interactive widgets copy their settings from this template, and the game wires the default highlight and click shader-time animations onto it.
 
 ## SimpleBox
 `SimpleBox` · required
 
-<!-- TODO: needs documentation -->
+Default template for containers that hold child widgets without arranging them. Simple boxes copy their settings from this template, which inherits the [[Cosmoteer.Gui.WidgetRules.StaticWidget]] box background in vanilla.
 
 ## LayoutBox
 `LayoutBox` · required
 
-<!-- TODO: needs documentation -->
+Default template for containers that automatically arrange their children according to a chosen layout mode. Layout boxes copy their settings from this template.
 
 ## ScrollBox
 `ScrollBox` · required
 
-<!-- TODO: needs documentation -->
+Default template for layout boxes that show scroll bars when their children overflow the box. Scroll boxes copy their settings from this template, and vanilla wires the fade and scale animations onto its scroll bars.
 
 ## ListBox
 `ListBox` · required
 
-<!-- TODO: needs documentation -->
+Default template for scroll boxes that track the selection state of their children and by default stretch them horizontally from top to bottom. List boxes copy their settings from this template.
 
 ## WindowBox
 `WindowBox` · required
 
-<!-- TODO: needs documentation -->
+Default template for scroll boxes with a title bar that the user can move and resize. Window boxes copy their settings from this template.
 
 ## TabBox
 `TabBox` · required
 
-<!-- TODO: needs documentation -->
+Default template for containers whose child pages are switched between using tab buttons. Tab boxes copy their settings from this template, with the buttons and pages coming from [[Cosmoteer.Gui.WidgetRules.TabButton]] and [[Cosmoteer.Gui.WidgetRules.TabPageBox]].
 
 ## TabButton
 `ListItem` · required
 
-<!-- TODO: needs documentation -->
+Default template for the clickable button in a tab strip that selects a page of a [[Cosmoteer.Gui.WidgetRules.TabBox]]. Each tab button copies its settings from this template, which vanilla inherits from [[Cosmoteer.Gui.WidgetRules.SelectableButton]].
 
 ## TabPageBox
 `ScrollBox` · required
 
-<!-- TODO: needs documentation -->
+Default template for the scrollable page container that a [[Cosmoteer.Gui.WidgetRules.TabBox]] shows for the selected tab. Each tab page copies its settings from this template, and the game wires the slide animation played when switching tabs onto it.
 
 ## Label
 `Label` · required
 
-<!-- TODO: needs documentation -->
+Default template for widgets that display a simple text label. Labels copy their settings from this template.
 
 ## Image
 `Image` · required
 
-<!-- TODO: needs documentation -->
+Default template for widgets that display a single customizable image. Images copy their settings from this template.
 
 ## Button
 `Button` · required
 
-<!-- TODO: needs documentation -->
+Default template for clickable text buttons that react to hover and press. Buttons copy their settings from this template.
 
 ## SelectableButton
 `SelectableButton` · required
 
-<!-- TODO: needs documentation -->
+Default template for buttons that the user can select. Selectable buttons copy their settings from this template.
 
 ## ToggledImageButton
 `ToggledImageButton` · required
 
-<!-- TODO: needs documentation -->
+Default template for selectable buttons that carry two full sets of state nine-slices for their unselected and selected looks plus a sprite. Such buttons copy their settings from this template, and vanilla builds its on and off switch buttons on it.
 
 ## ImageButton
 `ImageButton` · required
 
-<!-- TODO: needs documentation -->
+Default template for clickable buttons that show an image with text on top. Image buttons copy their settings from this template.
 
 ## ListItem
 `ListItem` · required
 
-<!-- TODO: needs documentation -->
+Default template for selectable buttons that highlight their background when selected, used for rows in list boxes. List items copy their settings from this template.
 
 ## ImageListItem
 `ImageListItem` · required
 
-<!-- TODO: needs documentation -->
+Default template for selectable list items with an image and text on top. Such items copy their settings from this template.
 
 ## TreeItem
 `TreeItem` · required
 
-<!-- TODO: needs documentation -->
+Default template for selectable items in a tree view that can hold collapsible sub-items. Tree items copy their settings from this template.
 
 ## ToggleCheckButton
 `ToggleButton` · required
 
-<!-- TODO: needs documentation -->
+Default template for toggle buttons that show a check sprite when selected. Check toggles copy their settings from this template, which vanilla draws as a filled or empty check box.
 
 ## ToggleRadioButton
 `ToggleButton` · required
 
-<!-- TODO: needs documentation -->
+Default template for toggle buttons that show a radio sprite when selected. Radio toggles copy their settings from this template.
 
 ## ToggleExpanderButton
 `ToggleButton` · required
 
-<!-- TODO: needs documentation -->
+Default template for toggle buttons that show an expander sprite for collapsing and expanding a section. Expander toggles copy their settings from this template.
 
 ## DropButton
 `DropButton` · required
 
-<!-- TODO: needs documentation -->
+Default template for buttons that display another widget near them when clicked. Drop buttons copy their settings from this template.
 
 ## DropList
 `DropList` · required
 
-<!-- TODO: needs documentation -->
+Default template for list boxes opened by clicking a button and shown as a drop-down beneath it. Drop-down lists copy their settings from this template.
 
 ## HorizontalScrollBar
 `ScrollBar` · required
 
-<!-- TODO: needs documentation -->
+Default template for horizontal scroll bars whose value is changed by dragging a paddle or clicking increment and decrement buttons. Horizontal scroll bars copy their settings from this template.
 
 ## VerticalScrollBar
 `ScrollBar` · required
 
-<!-- TODO: needs documentation -->
+Default template for vertical scroll bars, the vertical counterpart of [[Cosmoteer.Gui.WidgetRules.HorizontalScrollBar]]. Vertical scroll bars copy their settings from this template.
 
 ## HorizontalSlider
 `ScrollBar` · required
 
-<!-- TODO: needs documentation -->
+Default template for scroll bars styled as a draggable horizontal slider. Sliders copy their settings from this template.
 
 ## ProgressBar
 `ProgressBar` · required
 
-<!-- TODO: needs documentation -->
+Default template for progress bars, a static widget with an overlay sprite clipped according to a value. Progress bars copy their settings from this template.
 
 ## SingleLineTextEditField
 `TextEditField` · required
 
-<!-- TODO: needs documentation -->
+Default template for single-line editable text fields. Single-line fields copy their settings from this template.
 
 ## SingleLinePasswordTextEditField
 `TextEditField` · required
 
-<!-- TODO: needs documentation -->
+Default template for single-line editable fields that mask the entered text. Password fields copy their settings from this template.
 
 ## MultiLineTextEditField
 `TextEditField` · required
 
-<!-- TODO: needs documentation -->
+Default template for multi-line editable text fields. Multi-line fields copy their settings from this template.
 
 ## MultiLineWrappedTextEditField
 `TextEditField` · required
 
-<!-- TODO: needs documentation -->
+Default template for multi-line editable fields that word-wrap their text. Wrapped multi-line fields copy their settings from this template.
 
 ## MenuBar
 `MenuBar` · required
 
-<!-- TODO: needs documentation -->
+Default template for bars meant to dock to the top of the window and hold menu categories. Menu bars copy their settings from this template.
 
 ## MenuItem
 `MenuItem` · required
 
-<!-- TODO: needs documentation -->
+Default template for buttons meant to appear inside a menu category. Menu items copy their settings from this template.
 
 ## MenuToggleCheckItem
 `MenuToggleItem` · required
 
-<!-- TODO: needs documentation -->
+Default template for checkable menu items. Such items copy their settings from this template.
 
 ## MenuToggleRadioItem
 `MenuToggleItem` · required
 
-<!-- TODO: needs documentation -->
+Default template for radio-style menu items. Such items copy their settings from this template.
 
 ## MenuCategory
 `MenuCategory` · required
 
-<!-- TODO: needs documentation -->
+Default template for the list of menu items reached by clicking a header item. Menu categories copy their settings from this template, and the game wires the open animation of its menu box.
 
 ## MenuSubCategory
 `MenuSubCategory` · required
 
-<!-- TODO: needs documentation -->
+Default template for the list of menu items reached by mousing over an item in another menu. Submenus copy their settings from this template.
 
 ## MenuSeparator
 `MenuSeparator` · required
 
-<!-- TODO: needs documentation -->
+Default template for the line that separates items within a menu category. Separators copy their settings from this template.
 
 ## ContextMenu
 `ContextMenu` · required
 
-<!-- TODO: needs documentation -->
+Default template for lists of menu items that can be shown on demand anywhere on the screen. Context menus copy their settings from this template, and the game wires its open animation and click bindings.
 
 ## ToolTipLabel
 `ToolTipLabel` · required
 
-<!-- TODO: needs documentation -->
+Default template for labels extended to display tool tips. Tooltip labels copy their settings from this template, and the game sets its display delay to half a second.
 
 ## ToolTipBox
 `ToolTipBox` · required
 
-<!-- TODO: needs documentation -->
+Default template for the scrollable wrapper around a tooltip label that allows unfocused scrolling with a key-bind and the scroll wheel. Tooltip boxes copy their settings from this template.
 
 ## ZeroButtonDialog
 `ZeroButtonDialog` · required
 
-<!-- TODO: needs documentation -->
+Default template for dialogs that show a message with no button for the user to close them, expecting the application to close them. Such dialogs copy their settings from this template.
 
 ## OneButtonDialog
 `OneButtonDialog` · required
 
-<!-- TODO: needs documentation -->
+Default template for dialogs that show a message and prompt the user to press a single button. Such dialogs copy their settings from this template, and the game labels its button Okay bound to the confirm key.
 
 ## TwoButtonDialog
 `TwoButtonDialog` · required
 
-<!-- TODO: needs documentation -->
+Default template for dialogs that show a message and prompt a choice between two options. Such dialogs copy their settings from this template, and the game labels the options Okay and Cancel.
 
 ## ThreeButtonDialog
 `ThreeButtonDialog` · required
 
-<!-- TODO: needs documentation -->
+Default template for dialogs that show a message and prompt a choice among three options. Such dialogs copy their settings from this template, and the game labels the options Yes, No and Cancel.
 
 ## OneButtonTextEntryDialog
 `OneButtonTextEntryDialog` · required
 
-<!-- TODO: needs documentation -->
+Default template for dialogs that show a message and prompt the user to edit text and press a single button. Such dialogs copy their settings from this template.
 
 ## TwoButtonTextEntryDialog
 `TwoButtonTextEntryDialog` · required
 
-<!-- TODO: needs documentation -->
+Default template for dialogs that show a message and prompt the user to edit text and choose between two options. Such dialogs copy their settings from this template, and the game labels the options Okay and Cancel.
 
 ## TwoButtonPasswordEntryDialog
 `TwoButtonTextEntryDialog` · required
 
-<!-- TODO: needs documentation -->
+Default template for two-option text entry dialogs whose field masks the entered text. Password entry dialogs copy their settings from this template.
 
 ## HollowWidget
 `StaticWidget` · optional
 
-<!-- TODO: needs documentation -->
+Styles a hollow recessed frame drawn from the alternate box sprite region so a container shows an inset outline instead of a filled panel. Dialogs and toolboxes copy it onto their list and layout boxes, including the saved-game list, mods lists, settings tabs, tab-strip boxes, and many build, crew, paint, and resources toolbox panels.
 
 ## MaskedSimpleBox
 `SimpleBox` · optional
 
-<!-- TODO: needs documentation -->
+Adds an alpha nine-slice child mask to the plain [[Cosmoteer.Gui.WidgetRules.SimpleBox]] so child content is clipped to rounded corners. The minimap, miniview, and the decal size picker popout build from it.
 
 ## MaskedLayoutBox
 `LayoutBox` · optional
 
-<!-- TODO: needs documentation -->
+Adds the rounded alpha child mask to a docked [[Cosmoteer.Gui.WidgetRules.LayoutBox]]. The new game config, career setup, and clear objects dialogs build boxes from it, and the vote window, comms toolbox, and the POI and planet doodad config windows copy its child mask onto themselves.
 
 ## MaskedScrollBox
 `ScrollBox` · optional
 
-<!-- TODO: needs documentation -->
+Adds the rounded alpha child mask to a [[Cosmoteer.Gui.WidgetRules.ScrollBox]] so scrolled content is clipped to the panel corners. Vanilla data uses it as the menu dropdown box and as the base for the tooltip box.
 
 ## MaskedListBox
 `ListBox` · optional
 
-<!-- TODO: needs documentation -->
+Adds the rounded alpha child mask to a [[Cosmoteer.Gui.WidgetRules.ListBox]]. The load and save game dialog's saved-game list and the paint toolbox layers list build from it, and vanilla data uses it as the drop-list list box.
 
 ## MaskedTabBox
 `TabBox` · optional
 
-<!-- TODO: needs documentation -->
+Adds the rounded alpha child mask to a [[Cosmoteer.Gui.WidgetRules.TabBox]]. Only the styling definition exists and no code or other data consumers were found.
 
 ## BoxInnerShadow
 `StaticWidget` · optional
 
-<!-- TODO: needs documentation -->
+Styles a non-interactive overlay that fills its parent and draws an inner shadow nine-slice, leaving input to pass through. The minimap and miniview add it as a child so their framed viewports get a recessed shadow along the inside edge.
 
 ## SquareButton
 `Button` · optional
 
-<!-- TODO: needs documentation -->
+Styles a compact square button using the un-rounded box sprite. Toolbox action buttons copy it, including build and paint rotate, flip, cut, copy, paste, delete and invert, plus the game speed steppers, eject and trashcan buttons, and formation buttons.
 
 ## FlatButton
 `Button` · optional
 
-<!-- TODO: needs documentation -->
+Styles a flat borderless button whose frame only appears on hover or press. It backs menu and toggle buttons and is copied onto the game menu button, ship command button, workshop preview, forfeit and new-ship buttons, and similar inline controls.
 
 ## OkayButton
 `Button` · optional
 
-<!-- TODO: needs documentation -->
+Styles a standard button with green confirm text. Dialogs create their okay, submit, start, join, next and close buttons from it across the load and save, settings, feedback, news, mods, hire crew, and ship info dialogs among others.
 
 ## GoodButton
 `Button` · optional
 
-<!-- TODO: needs documentation -->
+Styles a green affirmative button with a green-tinted frame and green text. Construct, ready, start, activate, do-trade and transfer buttons build from it, along with the title screen wishlist button.
 
 ## BadButton
 `Button` · optional
 
-<!-- TODO: needs documentation -->
+Styles a red cautionary button with a red-tinted frame and red text. Cancel, decline and deactivate buttons build from it, including cancel-all and cancel-ready in the build toolbox, the multiplayer cancel countdown, mod deactivate, FTL cancel jump, and mission decline.
 
 ## TitleBarButton
 `Button` · optional
 
-<!-- TODO: needs documentation -->
+Styles a flat title-bar button that stays borderless normally and shows its frame only when highlighted or pressed. Vanilla data uses it as the base for [[Cosmoteer.Gui.WidgetRules.UndoButton]] and [[Cosmoteer.Gui.WidgetRules.RedoButton]].
 
 ## VerticalSeparator
 `MenuSeparator` · optional
 
-<!-- TODO: needs documentation -->
+Styles a one-pixel-wide vertical divider line drawn from a thin sprite strip. Only the styling definition exists and no code or other data consumers were found.
 
 ## MainMenuButton
 `Button` · optional
 
-<!-- TODO: needs documentation -->
+Styles a large flat menu button using the glow font at size 20 with extra side padding. The multiplayer game setup screen builds its match results button from it, and it is the base for [[Cosmoteer.Gui.WidgetRules.MainMenuIconButton]].
 
 ## MainMenuIconButton
 `ImageButton` · optional
 
-<!-- TODO: needs documentation -->
+Extends [[Cosmoteer.Gui.WidgetRules.MainMenuButton]] with left-aligned text and a 48 pixel icon on the left. The title screen builds most of its main menu entries from it, and the lobby and game setup screens use it for their back, settings, mods, and direct connect buttons.
 
 ## SelectedMainMenuButton
 `ImageButton` · optional
 
-<!-- TODO: needs documentation -->
+Extends [[Cosmoteer.Gui.WidgetRules.MainMenuIconButton]] so the selected highlight frame is always shown. The lobby screen applies it to the online or LAN entry that matches the current screen to mark it as active.
 
 ## MainMenuCategory
 `MenuCategory` · optional
 
-<!-- TODO: needs documentation -->
+Combines [[Cosmoteer.Gui.WidgetRules.MainMenuIconButton]] styling with dropdown menu behavior. The title screen builds its community and extras dropdown category button from it.
 
 ## MainMenuItem
 `MenuItem` · optional
 
-<!-- TODO: needs documentation -->
+Styles a taller 36 pixel menu entry with size 20 text and an icon. The title screen dropdown menus create their items from it.
 
 ## CodexItem
 `ListItem` · optional
 
-<!-- TODO: needs documentation -->
+Styles a codex list entry as a [[Cosmoteer.Gui.WidgetRules.ListItem]] with panel open and close sounds on selection. The codex dialog and its page window items build their entries from it.
 
 ## ToolButton
 `ImageListItem` · optional
 
-<!-- TODO: needs documentation -->
+Styles a selectable tool button that combines flat button and image list item behavior with an all-around selected frame. Build, paint, resources, and crew toolboxes create their tool icons from it, along with the ship command selectable and the galaxy map FTL jump button.
 
 ## IconItem
 `ImageListItem` · optional
 
-<!-- TODO: needs documentation -->
+Extends [[Cosmoteer.Gui.WidgetRules.ToolButton]] with a filled normal-state frame so icons always sit in a visible cell. The texture picker, paint scheme icons, and the creative doodads toolbox build their entries from it.
 
 ## PopoutButton
 `ImageButton` · optional
 
-<!-- TODO: needs documentation -->
+Styles a button whose nine-slice has a downward popout tab and an extended right border. The part color picker, part popout toggle, and decal size picker buttons build from it.
 
 ## FlatPopoutButton
 `ImageButton` · optional
 
-<!-- TODO: needs documentation -->
+Styles the flat variant of the popout tab button combining flat button and image list item behavior. The build and paint toolbox brush buttons and the ship gui popout button build from it.
 
 ## SwitchButton
 `ToggledImageButton` · optional
 
-<!-- TODO: needs documentation -->
+Styles a tall toggle switch with a raised frame and a sliding indicator strip along the bottom border. The part switched build toggle button uses it for the plain switch style.
 
 ## OffAlertSwitchButton
 `ToggledImageButton` · optional
 
-<!-- TODO: needs documentation -->
+Extends [[Cosmoteer.Gui.WidgetRules.SwitchButton]] with an alerting sprite for the off state. The part switched build toggle button uses it for the off-alert switch style.
 
 ## OnAlertSwitchButton
 `ToggledImageButton` · optional
 
-<!-- TODO: needs documentation -->
+Extends [[Cosmoteer.Gui.WidgetRules.SwitchButton]] with a mirrored alerting sprite for the on state. The part switched build toggle button uses it for the on-alert switch style.
 
 ## FlatSwitchButton
 `ToggledImageButton` · optional
 
-<!-- TODO: needs documentation -->
+Styles the flat version of the sliding toggle switch. Build, resources, paint, and crew toolboxes build blueprint, mirror, supply, and target toggles from it, the ship gui builds its command switch, and the part switched toggle button uses it for the plain switch style.
 
 ## FlatOffAlertSwitchButton
 `ToggledImageButton` · optional
 
-<!-- TODO: needs documentation -->
+Extends [[Cosmoteer.Gui.WidgetRules.FlatSwitchButton]] with an alerting off-state sprite. The part switched toggle button uses it for the off-alert switch style.
 
 ## FlatOnAlertSwitchButton
 `ToggledImageButton` · optional
 
-<!-- TODO: needs documentation -->
+Extends [[Cosmoteer.Gui.WidgetRules.FlatSwitchButton]] with a mirrored alerting on-state sprite. The part switched toggle button uses it for the on-alert switch style.
 
 ## LeftTabButton
 `ListItem` · optional
 
-<!-- TODO: needs documentation -->
+Restyles the tab selector button for tab columns stacked down the left edge rather than across the top. Pairs with [[Cosmoteer.Gui.WidgetRules.VerticalTabPageBox]] to build the left-hand tab strip of the settings dialog.
 
 ## VerticalTabPageBox
 `ScrollBox` · optional
 
-<!-- TODO: needs documentation -->
+Styles the scrolling page body shown for each tab in a vertically stacked tab layout, and its tab-switch animation slides pages vertically instead of horizontally. The settings dialog pairs it with [[Cosmoteer.Gui.WidgetRules.LeftTabButton]].
 
 ## HorizontalExpanderButton
 `ToggleButton` · optional
 
-<!-- TODO: needs documentation -->
+Styles an expander toggle whose selected state shows a sideways chevron, driving the collapsible custom-formations row in the fleet formations panel.
 
 ## VerticalExpanderButton
 `ToggleButton` · optional
 
-<!-- TODO: needs documentation -->
+Styles an expander toggle with up and down chevrons and a centered icon for vertically collapsing sections. Only the styling definition exists and no game code currently instantiates it.
 
 ## CategoryBox
 `LayoutBox` · optional
 
-<!-- TODO: needs documentation -->
+Styles a borderless container for collapsible category groups such as the settings dialog sections, the multiplayer mode rules box, and the creative doodads toolbox. Receives an expand animation that scales the box open from zero height.
 
 ## FixedWindowBox
 `WindowBox` · optional
 
-<!-- TODO: needs documentation -->
+Provides the window frame used by the game's non-movable toolbox and popup windows including the build, resources, paint, crew, and comms toolboxes plus the FTL jump and multiplayer vote windows. Shares the standard look of [[Cosmoteer.Gui.WidgetRules.WindowBox]].
 
 ## ProgressBarWhite
 `ProgressBar` · optional
 
-<!-- TODO: needs documentation -->
+Styles a progress bar with a white fill, used for the countdown or capture bar shown by the PvP elimination game mode.
 
 ## ThinProgressBarGood
 `ProgressBar` · optional
 
-<!-- TODO: needs documentation -->
+Styles a slim horizontal bar with a green fill, used for the positive reputation progress bar in the career reputation tab.
 
 ## ThinProgressBarBad
 `ProgressBar` · optional
 
-<!-- TODO: needs documentation -->
+Styles a slim horizontal bar with a red fill, used for the negative reputation progress bar in the career reputation tab.
 
 ## ThinProgressBarFame
 `ProgressBar` · optional
 
-<!-- TODO: needs documentation -->
+Styles a slim horizontal bar with a fame-tinted fill, used for the fame progress bar in the career reputation tab.
 
 ## ProgressDotEmpty
 `Image` · optional
 
-<!-- TODO: needs documentation -->
+Styles the unfilled milestone marker dot placed along the career reputation progress bars.
 
 ## ProgressDotGood
 `Image` · optional
 
-<!-- TODO: needs documentation -->
+Styles the green milestone marker dot for reached positive milestones on the career reputation bars.
 
 ## ProgressDotBad
 `Image` · optional
 
-<!-- TODO: needs documentation -->
+Styles the red milestone marker dot for negative milestones on the career reputation bars.
 
 ## ProgressDotFame
 `Image` · optional
 
-<!-- TODO: needs documentation -->
+Styles the fame-colored milestone marker dot for the fame track in the career reputation tab.
 
 ## StatBar
 `ProgressBar` · optional
 
-<!-- TODO: needs documentation -->
+Styles the progress bar behind each ship statistic readout, used by the ship stat bars in the build toolbox stats panel such as command points.
 
 ## IdealStatBar
 `StaticWidget` · optional
 
-<!-- TODO: needs documentation -->
+Styles the thin green marker overlaid on a ship stat bar to indicate the ideal or target value, drawn by the build toolbox ship stat bars.
 
 ## HamburgerMenuDown
 `MenuCategory` · optional
 
-<!-- TODO: needs documentation -->
+Styles a three-line hamburger menu category whose dropdown opens downward, used for the options menus in the load/save, mods, ship library, roster, and role edit dialogs among others.
 
 ## HamburgerMenuUp
 `MenuCategory` · optional
 
-<!-- TODO: needs documentation -->
+Styles a hamburger menu category whose dropdown opens upward, used for the options menus anchored near the bottom of the build, paint, resources, and crew toolboxes.
 
 ## HamburgerButtonDown
 `MenuCategory` · optional
 
-<!-- TODO: needs documentation -->
+Styles a hamburger menu that adds a full button background and opens downward, used for the option menus in the creative battle helper, PvP and career config screens, and the ship info dialog.
 
 ## HamburgerButtonUp
 `MenuCategory` · optional
 
-<!-- TODO: needs documentation -->
+Styles a button-backed hamburger menu opening upward. Only the styling definition exists and no game code currently instantiates it.
 
 ## HamburgerFlatButtonDown
 `MenuCategory` · optional
 
-<!-- TODO: needs documentation -->
+Styles a hamburger menu with a flat button background opening downward, used for the option menus in the multiplayer player list, game setup screen, and color picker.
 
 ## HamburgerFlatButtonUp
 `MenuCategory` · optional
 
-<!-- TODO: needs documentation -->
+Styles a hamburger menu with a flat button background opening upward, used for the menus on ship and part cards, the crew and comms trade toolboxes, and the crew and resource transfer window.
 
 ## UndoButton
 `ImageButton` · optional
 
-<!-- TODO: needs documentation -->
+Styles the undo icon button on toolbar title bars, used by the build, paint, resources, and crew toolboxes.
 
 ## RedoButton
 `ImageButton` · optional
 
-<!-- TODO: needs documentation -->
+Styles the redo icon button on toolbar title bars, used by the build, paint, resources, and crew toolboxes.
 
 ## ArrowUpLeft
 `ListItem` · optional
 
-<!-- TODO: needs documentation -->
+Styles the up-left diagonal arrow cell in the eight-way ship direction chooser.
 
 ## ArrowUp
 `ListItem` · optional
 
-<!-- TODO: needs documentation -->
+Styles the upward arrow cell in the eight-way ship direction chooser.
 
 ## ArrowUpRight
 `ListItem` · optional
 
-<!-- TODO: needs documentation -->
+Styles the up-right diagonal arrow cell in the eight-way ship direction chooser.
 
 ## ArrowRight
 `ListItem` · optional
 
-<!-- TODO: needs documentation -->
+Styles the rightward arrow cell in the eight-way ship direction chooser.
 
 ## ArrowDownRight
 `ListItem` · optional
 
-<!-- TODO: needs documentation -->
+Styles the down-right diagonal arrow cell in the eight-way ship direction chooser.
 
 ## ArrowDown
 `ListItem` · optional
 
-<!-- TODO: needs documentation -->
+Styles the downward arrow cell in the eight-way ship direction chooser.
 
 ## ArrowDownLeft
 `ListItem` · optional
 
-<!-- TODO: needs documentation -->
+Styles the down-left diagonal arrow cell in the eight-way ship direction chooser.
 
 ## ArrowLeft
 `ListItem` · optional
 
-<!-- TODO: needs documentation -->
+Styles the leftward arrow cell in the eight-way ship direction chooser.
 
 ## PopoutConnector
 `Image` · optional
 
-<!-- TODO: needs documentation -->
+Styles the small connector graphic that visually links a popped-out panel back to its originating button, used by the build and paint color pickers, the formations box, the decal size picker, and part popout toggle buttons.
 
 ## DragCandidateNineSlice
 `WidgetNineSlice` · optional
 
-<!-- TODO: needs documentation -->
+Styles the outline drawn around a valid drop target while a drag is in progress, shown on ship library folder items during drag and drop.
 
 ## DragHoverNineSlice
 `WidgetNineSlice` · optional
 
-<!-- TODO: needs documentation -->
+Styles the stronger highlight drawn on the drop target directly under the cursor, shown on ship library folder items when a dragged item hovers over them.

@@ -1,0 +1,5 @@
+// A file inside the mod, used as the resolution origin so findModRoot locates this mod.
+Consumer
+{
+	Ref = &<./Data/parts/derived_part.rules>/Part
+}

@@ -1,0 +1,10 @@
+Whole = &<included.txt>
+Deep = &<deep_included.txt>/Part/NameKey
+Derived : <inherit_base.txt>/Part
+{
+	ID = fixture.derived
+}
+AmpDerived : &<amp_inherit_base.txt>/Part
+{
+	ID = fixture.amp_derived
+}

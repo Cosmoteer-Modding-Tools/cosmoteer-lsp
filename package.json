@@ -4,7 +4,7 @@
     "description": "A complete language server for Cosmoteer rules",
     "author": "Cosmoteer Modding Tools",
     "license": "MIT",
-    "version": "0.4.1",
+    "version": "0.5.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
@@ -42,6 +42,11 @@
                 "command": "cosmoteer.showModOverview",
                 "title": "Cosmoteer: Show Mod Overview",
                 "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.editPartGrid",
+                "title": "Cosmoteer: Edit Part Grid",
+                "category": "Cosmoteer"
             }
         ],
         "menus": {
@@ -53,6 +58,10 @@
                 {
                     "command": "cosmoteer.showModOverview",
                     "when": "editorLangId == rules"
+                },
+                {
+                    "command": "cosmoteer.editPartGrid",
+                    "when": "editorLangId == rules"
                 }
             ],
             "editor/context": [
@@ -60,6 +69,11 @@
                     "command": "cosmoteer.previewShader",
                     "when": "editorLangId == rules",
                     "group": "navigation@9"
+                },
+                {
+                    "command": "cosmoteer.editPartGrid",
+                    "when": "editorLangId == rules",
+                    "group": "navigation@10"
                 }
             ]
         },
@@ -232,6 +246,24 @@
                     "default": true,
                     "description": "Hint at a ',' or ';' separator that a line break already makes redundant. The game ends every field or list element at a line break, so separators are only needed between entries on the same line. Shown as an editor hint, not in the Problems panel."
                 },
+                "cosmoteerLSPRules.diagnostics.validateIgnoredFields": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Hint at a field the game ignores: its group's schema class does not declare the field and no reference in the file reads it, so the value is never loaded. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
+                },
+                "cosmoteerLSPRules.diagnostics.validateDefaultValues": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Fade a field that restates the game's own default, so deleting it changes nothing. Only checked inside groups that do not inherit, since an explicitly written default can deliberately override a base's value. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
+                },
+                "cosmoteerLSPRules.inlayHints.showBaseValue": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show the referenced group's BaseValue as an inline hint. A reference like 'Arc = &~/Part/Components/ArcShield/Arc' whose target group has a BaseValue member renders '/BaseValue = 160d' after the reference."
+                },
                 "cosmoteerLSPRules.rename.allowEditingVanillaFiles": {
                     "scope": "resource",
                     "type": "boolean",
@@ -243,6 +275,34 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Open .shader files with the Cosmoteer Shader language (HLSL) even when another extension, such as the built-in Unity ShaderLab support, also claims the .shader extension. Only reassigns files opened as ShaderLab or plain text, never a language you chose yourself."
+                },
+                "cosmoteerLSPRules.decompiler.showInHover": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Power user: end schema hovers with an 'Open <Class> in decompiler' link that opens the owning C# class from the game's assemblies (Cosmoteer.dll / HalflingCore.dll) in your .NET decompiler. ILSpy and dotPeek installs are found automatically, so 'cosmoteerLSPRules.decompiler.executablePath' is only needed when that fails."
+                },
+                "cosmoteerLSPRules.decompiler.executablePath": {
+                    "scope": "machine-overridable",
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to your .NET decompiler executable, e.g. 'C:\\Tools\\ILSpy\\ILSpy.exe'. Only needed when the automatic search (PATH, winget, Program Files, JetBrains Toolbox, /Applications) does not find your ILSpy or dotPeek install."
+                },
+                "cosmoteerLSPRules.decompiler.tool": {
+                    "scope": "machine-overridable",
+                    "type": "string",
+                    "enum": [
+                        "auto",
+                        "ilspy",
+                        "dotpeek"
+                    ],
+                    "default": "auto",
+                    "enumDescriptions": [
+                        "Infer from the executable's file name.",
+                        "ILSpy: launched as '<assembly> /navigateTo:T:<Class>'.",
+                        "dotPeek: launched as '/select=<assembly>!T:<Class>'."
+                    ],
+                    "description": "Which command-line style the 'Open in decompiler' link uses. 'auto' infers ILSpy or dotPeek from the executable's file name."
                 },
                 "cosmoteerLSPRules.formatting.enabled": {
                     "scope": "resource",
@@ -275,6 +335,7 @@
         "test": "sh ./scripts/e2e.sh",
         "test:server": "cd server && npm test",
         "check-types": "tsc -b --noEmit",
+        "check-types:test": "cd server && tsc -p test/tsconfig.json",
         "docs:scaffold": "node tools/docsgen/docsgen.mjs scaffold",
         "docs:compile": "node tools/docsgen/docsgen.mjs compile",
         "docs:lint": "node tools/docsgen/docsgen.mjs lint",
@@ -285,9 +346,11 @@
         "@types/mocha": "^10.0.10",
         "@types/node": "^24",
         "@vscode/l10n-dev": "^0.0.35",
+        "@vscode/test-electron": "^3.0.0",
         "esbuild": "^0.28.1",
         "eslint": "^10.6.0",
         "eslint-config-prettier": "^10.1.8",
+        "glob": "^13.0.6",
         "mocha": "^11.7.6",
         "npm-run-all": "^4.1.5",
         "prettier": "3.9.0",

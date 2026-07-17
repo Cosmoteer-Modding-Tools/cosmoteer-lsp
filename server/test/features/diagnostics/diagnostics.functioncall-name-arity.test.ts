@@ -42,7 +42,7 @@ describe('unknown function name diagnostics', () => {
     });
 
     it('accepts the Cosmoteer-custom `db2vol` with a quoted-string argument', async () => {
-        // `db2vol("&~/…")` parses (the parser accepts a STRING arg) and is NOT flagged — neither as
+        // `db2vol("&~/…")` parses (the parser accepts a string arg) and is not flagged, neither as
         // an unknown function nor as an invalid argument type (its signature is not the numeric one).
         const error = await validate('X = db2vol("&~/OVERCLOCK/AUDIO_VOLUME_DB")\n');
         expect(error).toBeUndefined();
@@ -62,8 +62,8 @@ describe('function arity diagnostics (too-few only)', () => {
     });
 
     it('does NOT flag too many arguments (over-count is unreliable due to parser flattening)', async () => {
-        // ceil takes one argument; two are written here, but we deliberately stay quiet rather than
-        // risk false positives — the parser flattens nested calls into extra operands.
+        // ceil takes one argument. Two are written here, but we deliberately stay quiet rather than
+        // risk false positives. The parser flattens nested calls into extra operands.
         expect(await validate('X = ceil((&A), (&B))\n')).toBeUndefined();
     });
 

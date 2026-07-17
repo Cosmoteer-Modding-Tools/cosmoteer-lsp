@@ -7,7 +7,7 @@ const service = WorkspaceSymbolService.instance;
 const token = CancellationToken.None;
 const FOLDERS = [WORKSPACE_DATA_DIR];
 
-describe('WorkspaceSymbolService — go-to-symbol-in-workspace', () => {
+describe('WorkspaceSymbolService: go-to-symbol-in-workspace', () => {
     beforeAll(async () => {
         await initWorkspace();
     });

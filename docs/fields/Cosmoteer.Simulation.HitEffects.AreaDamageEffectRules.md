@@ -33,7 +33,7 @@
 <!-- TODO: needs documentation -->
 
 ## RectType
-`enum PartRectType` · optional · default `1` · one of: `Normal`, `Physical`
+`enum PartRectType` · optional · default `Physical` · one of: `Normal`, `Physical`
 
 <!-- TODO: needs documentation -->
 

@@ -2,15 +2,21 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken, Range } from 'vscode-languageserver';
 import { evaluateNumericValue } from '../../src/semantics/value-evaluator';
 import { InlayHintService } from '../../src/features/inlay/inlay-hint.service';
-import { AbstractNodeDocument, isAssignmentNode } from '../../src/core/ast/ast';
-import { parseFixture, walkAst } from '../helpers';
+import { AbstractNode, AbstractNodeDocument, isAssignmentNode } from '../../src/core/ast/ast';
+import { parseFixture, valueOf, walkAst } from '../helpers';
 import { initWorkspace } from '../workspace-helper';
 
 const token = CancellationToken.None;
 
-/** The right-hand side of the `name = …` assignment. */
-const rhsOf = (doc: AbstractNodeDocument, name: string) => {
-    for (const node of walkAst(doc)) if (isAssignmentNode(node) && node.left.name === name) return node.right;
+/**
+ * The right-hand side of the `name = …` assignment, which every fixture here writes with a value.
+ *
+ * @param doc the parsed document to search.
+ * @param name the assignment's field name.
+ * @returns the assignment's value node.
+ */
+const rhsOf = (doc: AbstractNodeDocument, name: string): AbstractNode => {
+    for (const node of walkAst(doc)) if (isAssignmentNode(node) && node.left.name === name) return valueOf(node);
     throw new Error(`assignment ${name} not found`);
 };
 
@@ -37,6 +43,17 @@ describe('value-evaluator', () => {
     it('resolves nested functions over indexed-path refs: (ceil((&R/0/1)/5)/(&R/0/1)) = 0.2', async () => {
         // FractionalCostToRepair: &Resources/0/1 = 50 -> ceil(50/5)=10 -> 10/50 = 0.2
         expect(await evaluateNumericValue(rhsOf(doc, 'FractionalCostToRepair'), token)).toBe(0.2);
+    });
+
+    it('evaluates the boolean & like mXparser: nonzero operands are true, result is 1 or 0', async () => {
+        expect(await evaluateNumericValue(rhsOf(doc, 'BoolAnd'), token)).toBe(1); // (&A=10) & (&B=2)
+        expect(await evaluateNumericValue(rhsOf(doc, 'BoolAndZero'), token)).toBe(0); // (0) & (&A=10)
+    });
+
+    it('converts the game number suffixes: degrees to radians, radians pass through', async () => {
+        expect(await evaluateNumericValue(rhsOf(doc, 'Degrees'), token)).toBeCloseTo(Math.PI / 2, 10); // 90d
+        expect(await evaluateNumericValue(rhsOf(doc, 'Radians'), token)).toBe(2.5); // 2.5r
+        expect(await evaluateNumericValue(rhsOf(doc, 'DegreesMath'), token)).toBeCloseTo(Math.PI / 2, 10); // 180d / 2
     });
 
     it('returns null for non-numeric values', async () => {
@@ -69,13 +86,13 @@ describe('InlayHintService', () => {
         const hints = await InlayHintService.instance.getInlayHints(doc, Range.create(0, 0, 100, 0), token);
         const onListLine = hints.filter((h) => h.position.line === 13).map((h) => h.label);
         expect(onListLine).toContain('= 20'); // 10 * 2
-        expect(onListLine).toContain('= 15'); // &A (=10) + 5  — relative ref resolved out of the list
+        expect(onListLine).toContain('= 15'); // &A (=10) + 5, relative ref resolved out of the list
         expect(onListLine).not.toContain('= 30'); // bare value, not computed
     });
 
     it('respects the requested line range', async () => {
         const hints = await InlayHintService.instance.getInlayHints(doc, Range.create(0, 0, 2, 0), token);
-        // Lines 0-2 hold Calc/{/A — no expression assignments there.
+        // Lines 0-2 hold Calc/{/A, no expression assignments there.
         expect(hints.length).toBe(0);
     });
 });

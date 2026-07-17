@@ -8,12 +8,12 @@
 > the [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## Chance
-`float` · optional · default `Mono.Cecil.CustomAttributeArgument`
+`float` · optional · default `1`
 
 <!-- TODO: needs documentation -->
 
 ## Value
-`float` · optional · default `Mono.Cecil.CustomAttributeArgument`
+`float` · optional · default `1`
 
 <!-- TODO: needs documentation -->
 

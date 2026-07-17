@@ -31,8 +31,14 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateShaderCode: Boolean = true
         var validateLocalizationKeys: Boolean = true
         var validateRedundantSeparators: Boolean = true
+        var validateIgnoredFields: Boolean = true
+        var validateDefaultValues: Boolean = true
+        var inlayShowBaseValue: Boolean = true
         var allowEditingVanillaFiles: Boolean = false
         var formattingEnabled: Boolean = true
+        var decompilerShowInHover: Boolean = false
+        var decompilerExecutablePath: String = ""
+        var decompilerTool: String = "auto"
         /**
          * JetBrains-only, not sent to the server: whether LSP semantic tokens re-color the editor
          * on top of the TextMate highlighting. Off by default because the overlay re-applies
@@ -70,8 +76,16 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateShaderCode" to state.validateShaderCode,
             "validateLocalizationKeys" to state.validateLocalizationKeys,
             "validateRedundantSeparators" to state.validateRedundantSeparators,
+            "validateIgnoredFields" to state.validateIgnoredFields,
+            "validateDefaultValues" to state.validateDefaultValues,
         ),
+        "inlayHints" to mapOf("showBaseValue" to state.inlayShowBaseValue),
         "rename" to mapOf("allowEditingVanillaFiles" to state.allowEditingVanillaFiles),
+        "decompiler" to mapOf(
+            "showInHover" to state.decompilerShowInHover,
+            "executablePath" to state.decompilerExecutablePath,
+            "tool" to state.decompilerTool,
+        ),
         // Format-on-save is intentionally not exposed: LSP4IJ has no willSaveWaitUntil, JetBrains
         // users get the same behavior from Settings | Tools | Actions on Save | Reformat code.
         "formatting" to mapOf(
@@ -81,7 +95,11 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
     )
 
     companion object {
-        /** The single application-wide instance backing every project's language server. */
+        /**
+         * Looks up the application-level settings service.
+         *
+         * @returns the single application-wide instance backing every project's language server.
+         */
         fun getInstance(): CosmoteerSettings =
             ApplicationManager.getApplication().getService(CosmoteerSettings::class.java)
     }

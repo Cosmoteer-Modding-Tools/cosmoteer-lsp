@@ -13,6 +13,6 @@
 The mouse IInputButton to which the widget will respond.
 
 ## DragCursor
-`asset (image)` · optional
+`Cursor` · optional
 
 The Cursor to show when the mouse is over the attached Widget.

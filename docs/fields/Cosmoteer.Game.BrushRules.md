@@ -12,11 +12,6 @@
 
 <!-- TODO: needs documentation -->
 
-## Brush
-`TileBrush` · optional
-
-<!-- TODO: needs documentation -->
-
 ## NameKey
 `string` · required
 

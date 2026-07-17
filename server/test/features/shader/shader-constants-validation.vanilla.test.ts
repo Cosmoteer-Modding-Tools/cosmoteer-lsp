@@ -59,6 +59,6 @@ describe.skipIf(!HAVE_DATA)('shader-constant validation over vanilla Data', () =
         expect(warnings.slice(0, 30)).toEqual([]);
         // This walks and parses every vanilla `.rules` file and reads each referenced shader cold (the
         // cache is cleared in beforeAll), which is far more than the 5s default unit-test budget allows
-        // on a cold file cache or under full-suite parallel load — give the whole-install scan room.
+        // on a cold file cache or under full-suite parallel load. Give the whole-install scan room.
     }, 60_000);
 });

@@ -7,12 +7,12 @@ import { DocumentSymbolService } from '../../../src/features/navigation/document
 import { DocumentSymbol } from 'vscode-languageserver';
 
 // The existing prefix fuzz (parser.fuzz.test.ts) models typing a document from scratch. But the
-// live-edit operation that actually bites is inserting or deleting a single character in the MIDDLE
-// of an already-complete file — that is what produced both the `documentSymbol` "selectionRange must
+// live-edit operation that actually bites is inserting or deleting a single character in the middle
+// of an already-complete file. That is what produced both the `documentSymbol` "selectionRange must
 // be contained in fullRange" crash (a stray `[` before a group) and the `continueMathExpression`
 // throw (a `=` turning a math operand into an assignment). This sweep reproduces that operation
 // against real fixtures and asserts two invariants the editor relies on: the parser never throws, and
-// every emitted document symbol satisfies the LSP containment rule — checked exactly as the client
+// every emitted document symbol satisfies the LSP containment rule, checked exactly as the client
 // does, swap-normalizing reversed ranges first (a container's own position is a reversed range even
 // in valid files, so the naive line-only check would miss it).
 const FIXTURES = join(__dirname, '../../fixtures');
@@ -46,7 +46,7 @@ const exercise = (text: string, ctx: string): void => {
     symbols.forEach((s) => assertContained(s, ctx));
 };
 
-describe('parser mutation-edit fuzz — single-char insert/delete into complete files', () => {
+describe('parser mutation-edit fuzz: single-char insert/delete into complete files', () => {
     const fixtures = readdirSync(FIXTURES).filter((f) => f.endsWith('.rules'));
 
     for (const name of fixtures) {

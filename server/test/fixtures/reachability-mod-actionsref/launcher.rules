@@ -1,0 +1,11 @@
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<ships/terran/terran.rules>/Terran/Parts"
+		ManyToAdd
+		[
+			&<parts/foo.rules>/Part
+		]
+	}
+]

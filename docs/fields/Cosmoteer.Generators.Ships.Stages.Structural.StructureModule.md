@@ -13,7 +13,7 @@
 The random weight that this module will be selected.
 
 ## AllowedFromDirections
-`enum AllowedBuildPointDirections` · optional · default `31` · one of: `Center`, `Left`, `Right`, `Up`, `Down`, `All`
+`enum AllowedBuildPointDirections` · optional · default `All` · one of: `Center`, `Left`, `Right`, `Up`, `Down`, `All`
 
 The directions from which this module may be added, or null to allow from any direction.
 

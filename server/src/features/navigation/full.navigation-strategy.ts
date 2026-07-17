@@ -159,7 +159,7 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         cancellationToken: CancellationToken,
         // Reference value nodes already dereferenced on this resolution path. Threaded
         // through so an in-file alias cycle (e.g. `A = &B` / `B = &A`) terminates
-        // instead of recursing forever — replaces any depth-based guard.
+        // instead of recursing forever. This replaces any depth-based guard.
         visited: Set<AbstractNode> = new Set(),
         // Inheritance nodes already seen on this resolution path. Distinct from `visited`
         // (which guards reference-value derefs) and threaded so a cyclic inheritance chain
@@ -350,7 +350,7 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
             if (isReferenceValue(node)) {
                 // Terminal segment whose member value is a runtime (`~`) reference: the member was
                 // found, but its value only resolves at instantiation. Return the member itself
-                // rather than failing the whole path — otherwise a valid `&../DamagePerShot`, whose
+                // rather than failing the whole path. Otherwise a valid `&../DamagePerShot`, whose
                 // value is `&~/Components/.../Damage`, is wrongly reported as an unknown reference.
                 // (A non-`~` broken alias, `Foo = &Typo`, still fails below that is a real error.)
                 if (index === substrings.length && isRuntimeReferenceValue(node)) return node;
@@ -383,14 +383,14 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         // ObjectText `<...>` file paths may use a backslash separator (`<hit_effects\foo.rules>`):
         // `\` is not in `Path.GetInvalidPathChars()`, so the game's PATH_RE accepts it and resolves
         // it on Windows via the .NET path APIs (which treat `\` and `/` interchangeably). Normalize
-        // to `/` so the segment walk below — which splits on `/` only — finds the directory/file
+        // to `/` so the segment walk below (which splits on `/` only) finds the directory/file
         // instead of treating `hit_effects\foo.rules` as one bogus segment and flagging the ref.
         path = path.replace(/\\/g, '/');
         const pathes = extractSubstrings(path);
         const lastWorkspacePathIndex = pathes.findLastIndex((v) => v.includes('>'));
         if (lastWorkspacePathIndex === -1) return null;
         pathes[lastWorkspacePathIndex] = pathes[lastWorkspacePathIndex].replace('>', '');
-        // `./Data/...` (case-insensitive — mods write `./data/...` too) addresses the merged game
+        // `./Data/...` (case-insensitive, mods write `./data/...` too) addresses the merged game
         // `Data` tree: a mod referencing vanilla via `&<./data/.../foo.rules>` resolves against the
         // game install, not the mod folder. Match `data` case-insensitively so those don't fall
         // through to mod-relative resolution (which can't find them) and get wrongly flagged.

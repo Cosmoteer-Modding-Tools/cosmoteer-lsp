@@ -1,0 +1,178 @@
+SIZE = [1, 2]
+Part
+{
+	Size = [1, 2]
+	IsRotateable = true
+	IsFlippable = false
+	FlipHRotate = [0, 2, 1, 3]
+	PhysicalRect = [0, 0, 1, 2]
+	ExternalWalls = All
+
+	AllowedDoorLocations
+	[
+		[0, -1]
+		[1, 0]
+	]
+	BlockedTravelCells = [ [0, 1] ]
+	ExternalWallsByCell
+	[
+		{ Key = [0, 0]; Value = [TopRight, Right] }
+		{ Key = { X = 0; Y = 1 }; Value = [Bottom] }
+	]
+	VirtualInternalCells
+	[
+		{ ExternalCell = [0, -1]; InternalCell = [0, 0] }
+	]
+	AllowedContiguity = [Top, Bottom]
+	ProhibitAbove = 2
+	ProhibitRects
+	[
+		[tall, [-1, -1, 3, 1]]
+	]
+
+	Components
+	{
+		crew_a
+		{
+			Type = PartCrew
+			CrewDestinations = [ [.5, .5] ]
+		}
+		crew_b
+		{
+			Type = PartCrew
+			CrewDestinations
+			[
+				[0.5, 1.5]
+				{ X = 0.25; Y = 0.75 }
+			]
+		}
+		port
+		{
+			Type = NetworkPort
+			Location = [0, 0]
+			Direction = Down
+		}
+		collider
+		{
+			Type = PolygonCollider
+			Vertices
+			[
+				[0, 0]
+				[1, 0]
+				[1, 2]
+				[0, 2]
+			]
+		}
+		refcollider
+		{
+			Type = PolygonCollider
+			Vertices
+			[
+				[&~/SIZE/0, 0]
+				[&~/SIZE/0, &~/SIZE/1]
+				[0, &~/SIZE/1]
+			]
+		}
+		ccol
+		{
+			Type = CircleCollider
+			Radius = 0.6
+			Location = [0.5, 0.5]
+		}
+		storage
+		{
+			Type = ResourceStorage
+			PickUpLocation = [0.5, 1.5]
+			UITileRect = [0, 0, 1, 1]
+		}
+		grid
+		{
+			Type = TypedResourceGrid
+			GridRect = [0, 1, 1, 1]
+			DisableCells = [ [0, 0] ]
+		}
+		proxy
+		{
+			Type = ResourceStorageProxy
+			PartLocation = [-1, 0]
+		}
+		buff
+		{
+			Type = AreaBuffProvider
+			BuffArea = [-1, 0, 1, 2]
+		}
+		cbuff
+		{
+			Type = CircleBuffProvider
+			BuffCenter = [0.5, 1]
+			BuffRadius = 2
+		}
+		line
+		{
+			Type = TileLineScoreValue
+			Line
+			{
+				Location = [0, 0]
+				Direction = Up
+				MaxTiles = 10
+			}
+		}
+		rail
+		{
+			Type = RailgunProjectile
+			XStartOffset = 0
+			YStartOffset = -1
+			XEndOffset = 0
+			YEndOffset = 1
+		}
+		rs
+		{
+			Type = ResourceSprites
+			ResourceLevels
+			[
+				{ File = "floor.png"; Offset = [0, 0.5] }
+			]
+		}
+		eff1
+		{
+			Type = Sprite
+			Location = [0.5, 0.5]
+			Rotation = 90d
+		}
+		eff2
+		{
+			Type = Sprite
+			Location = [0, 1]
+			ChainedTo = eff1
+		}
+		regulator
+		{
+			Type = StatusValueRegulator
+			Region
+			{
+				Type = EdgeDistance
+				Distance = 3
+			}
+		}
+		Graphics
+		{
+			Type = Graphics
+			Location = [0.5, 1]
+			Floor
+			{
+				DamageLevels
+				[
+					{ File = "floor.png"; Size = [1, 2] }
+				]
+			}
+			Roof
+			{
+				Offset = [0, 0.5]
+				DamageLevels
+				[
+					{ File = "roof.png"; Size = [1, 2] }
+				]
+			}
+		}
+	}
+}

@@ -68,7 +68,7 @@
 <!-- TODO: needs documentation -->
 
 ## ConstructionMode
-`enum ConstructionMode` · optional · default `3` · one of: `InstantFree`, `InstantCredits`, `InstantResources`, `CrewResources`
+`enum ConstructionMode` · optional · default `CrewResources` · one of: `InstantFree`, `InstantCredits`, `InstantResources`, `CrewResources`
 
 <!-- TODO: needs documentation -->
 

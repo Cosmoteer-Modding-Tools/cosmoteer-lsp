@@ -2,7 +2,7 @@ import { globalSettings } from '../../settings';
 
 /**
  * Whether the next non-(space/tab) character at or after `i` is `(`. Used in the value-reading loop
- * to treat a `-`/`/` before a (possibly space-separated) parenthesized group as a binary operator —
+ * to treat a `-`/`/` before a (possibly space-separated) parenthesized group as a binary operator,
  * so `7- (12/64)` lexes as `7`,`-`,`(…)` rather than gluing `7-` into a bogus function name. Only
  * spaces/tabs are skipped (a newline ends the value anyway).
  */
@@ -55,7 +55,7 @@ const isWhitespaceChar = (char: string): boolean => {
 
 /**
  * Whether a character can appear in a numeric literal for the `<number>/` and `!`-factorial
- * splits: digit, space, or decimal point. A dot alone is not a number — callers must also require
+ * splits: digit, space, or decimal point. A dot alone is not a number. Callers must also require
  * a digit seen so far, or `../Ref` relative paths would split at their slash.
  */
 const isNumberCharCode = (code: number): boolean => (code >= 0x30 && code <= 0x39) || code === 32 || code === 0x2e;
@@ -71,11 +71,11 @@ export const lexer = (input: string): Token[] => {
     let lineOffset = 0;
     const tokens: Token[] = [];
     // Tracks ObjectText value termination: an unsuppressed newline ends a field value. Mirrors the
-    // game's `OTToken.IsUnsuppressedNewLine`, which evaluates the WHOLE insignificant run (whitespace
+    // game's `OTToken.IsUnsuppressedNewLine`, which evaluates the whole insignificant run (whitespace
     // + comments) between two real tokens: the run's newline is suppressed (line continuation) iff a
-    // `\` appears BEFORE the first newline in that run. So once a `\` is seen before any newline, the
-    // rest of the run — extra blank lines AND `//` comment lines — is suppressed too. `runSuppressed`
-    // records that early `\`; `runNewlineSeen` locks the run's fate at its first newline.
+    // `\` appears before the first newline in that run. So once a `\` is seen before any newline, the
+    // rest of the run (extra blank lines and `//` comment lines) is suppressed too. `runSuppressed`
+    // records that early `\`. `runNewlineSeen` locks the run's fate at its first newline.
     let sawUnsuppressedNewline = false;
     let runSuppressed = false;
     let runNewlineSeen = false;
@@ -108,7 +108,7 @@ export const lexer = (input: string): Token[] => {
             lineOffset = 0;
             current++;
             // The newline that ends a `//` comment is part of the insignificant run and follows the
-            // same rule — it terminates the value UNLESS an earlier `\` in the run suppressed it
+            // same rule: it terminates the value unless an earlier `\` in the run suppressed it
             // (`"a"\ <newline> //comment <newline> "b"` is one continued string, game-verified).
             markNewline();
             continue;
@@ -276,7 +276,7 @@ export const lexer = (input: string): Token[] => {
             lineOffset++;
             // A `\` escapes the next character (whatever it is), so `\\` is a literal backslash and
             // the quote that follows it closes the string. The old `input[current-1] === '\\'` check
-            // mishandled this — a string ending in `\\` (e.g. `"\\"`) ran past its closing quote and
+            // mishandled this: a string ending in `\\` (e.g. `"\\"`) ran past its closing quote and
             // swallowed the rest of the file. Track the escape explicitly instead.
             // The value keeps escape sequences raw, so it is exactly the input between the quotes:
             // the loop only counts lines and finds the closing quote, and the value is sliced once.
@@ -337,15 +337,15 @@ export const lexer = (input: string): Token[] => {
             // Whether every character consumed so far is a digit, space, or decimal point (the number
             // predicate the `!`-factorial and `<number>/` checks need). Tracked incrementally so the loop
             // does not re-scan the whole accumulated value on each character. The value string itself is
-            // not accumulated either \u2014 the loop consumes contiguous input, so it is sliced once at the end.
+            // not accumulated either. The loop consumes contiguous input, so it is sliced once at the end.
             let numberSoFar = true;
             // Whether an actual digit was consumed. The `<number>/` division split requires it so that
-            // dot-only prefixes stay whole: `../Ref` and `./Data/\u2026` are paths, not division, while
+            // dot-only prefixes stay whole: `../Ref` and `./Data/…` are paths, not division, while
             // `0.065/1.75` and `.5/2` are division and must split.
             let sawDigit = false;
             // Track whether we're inside a `<...>` file-path segment of a reference. There a backslash
-            // is a path separator — ObjectText accepts `&<dir\file.rules>` (it's not an invalid path
-            // char) and .NET resolves it on Windows — not the whitespace/line-continuation `\` is
+            // is a path separator (ObjectText accepts `&<dir\file.rules>`, it's not an invalid path
+            // char, and .NET resolves it on Windows), not the whitespace/line-continuation `\` it is
             // elsewhere. So keep it in the value instead of ending the token (navigateRules then
             // normalizes `\`→`/`). Without this the reference splits into `&<dir` + `file.rules>` and
             // is wrongly reported "not valid".
@@ -357,7 +357,7 @@ export const lexer = (input: string): Token[] => {
                     !(char === '^' && input[current + 1] !== '/') &&
                     // `-` and `/` live in the value charset (negative numbers, hyphenated names,
                     // reference paths like `&~/SIZE/0`). But they are binary operators when preceded
-                    // by whitespace (`10 - 3`, `&a / 2`) OR followed by `(` — a parenthesized group —
+                    // by whitespace (`10 - 3`, `&a / 2`) or followed by `(`, a parenthesized group,
                     // as in `1-(&X)` or `2.625- (12/64)` (otherwise `1-` would be misread as a
                     // function name). The `(` may be separated from the `-`/`/` by spaces/tabs
                     // (`7- (12/64)`), so look past them. End the value there and lex it as an
@@ -366,7 +366,7 @@ export const lexer = (input: string): Token[] => {
                         ((current > start && isWhitespaceChar(input[current - 1])) ||
                             parenFollowsSpaces(input, current + 1))) &&
                     // `!` is the factorial operator only after a number (`5!`). After letters it is a
-                    // literal exclamation that belongs to the value — localized UI text is full of
+                    // literal exclamation that belongs to the value. Localized UI text is full of
                     // them (`KÄMPFEN!`, `LOS!`). Keep `!` in non-numeric values, split it off numbers.
                     !(char === '!' && numberSoFar && sawDigit && current > start)) ||
                     // `MM:SS`/`HH:MM:SS` time literal: a `:` between digits stays in the
@@ -434,10 +434,14 @@ export const lexer = (input: string): Token[] => {
             current++;
             continue;
         }
-        // Only under 'verbose' — an UNEXPECTED token is emitted regardless, and parsing the
+        // Only under 'verbose'. An UNEXPECTED token is emitted regardless, and parsing the
         // whole game tree (find-all-references) would otherwise spew thousands of these.
         if (globalSettings.trace.server === 'verbose') console.warn('unexcpected', char);
         pushToken(createToken(TOKEN_TYPES.UNEXPECTED, lineOffset, lineNumber, current, current + 1, char));
+        // Advance the column too: without this every UNEXPECTED char shifted all following tokens
+        // on the line one column left, misplacing their diagnostics and breaking the parser's
+        // source-adjacency check for assembled operators such as `@&` or `||`.
+        lineOffset++;
         current++;
     }
 
@@ -505,10 +509,10 @@ export interface Token {
     lineNumber: number;
     /**
      * True when an unsuppressed newline separates this token from the previous one (a `\` before a
-     * newline suppresses it — ObjectText line continuation). ObjectText terminates a field value at
+     * newline suppresses it: ObjectText line continuation). ObjectText terminates a field value at
      * an unsuppressed newline, so the parser uses this to stop value/expression contexts at a line
      * break (e.g. an unclosed `ceil((&A + 3` must not swallow the next line's field). Omitted (falsy)
-     * when no newline — or only a suppressed one — precedes the token.
+     * when no newline, or only a suppressed one, precedes the token.
      */
     precededByNewline?: boolean;
 }

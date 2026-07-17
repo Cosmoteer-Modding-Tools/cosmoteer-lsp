@@ -31,7 +31,7 @@ export const referenceSiteLocation = (node: AbstractNode): Location => {
 };
 
 /**
- * The name a definition node is known by — an identified `Group`/`List`'s identifier,
+ * The name a definition node is known by: an identified `Group`/`List`'s identifier,
  * or the key of the `key = value` whose value this node is. `null` for anonymous nodes
  * (list elements, inheritance values). Used to pre-filter the reference search by name.
  */
@@ -69,7 +69,7 @@ export const normalizeUri = (uriOrPath: string): string => {
 };
 
 /**
- * A stable identity string for a {@link Location} — file (spelling-independent) plus
+ * A stable identity string for a {@link Location}: file (spelling-independent) plus
  * range. Two references resolving to the same target produce the same key, which is
  * how the reference index buckets referrers under their shared definition.
  */
