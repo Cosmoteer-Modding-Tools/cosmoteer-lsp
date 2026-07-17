@@ -87,6 +87,16 @@ describe('ReferenceIndex: find-all-references', () => {
         expect(refs.some((r) => r.uri.endsWith('a.rules'))).toBe(true);
     });
 
+    it('returns every site of a reference repeated in one container (memo dedups resolution, not sites)', async () => {
+        // repeated-refs.rules has R1/R2/R3 all `= &~/MemoBase/V`. The within-query resolution memo
+        // resolves that (value, container) once, but each of the three sites must still come back.
+        const doc = await parseFilePath(workspaceFile('repeated-refs.rules'));
+        const vKey = [...walkAst(doc)].find((n) => isAssignmentNode(n) && n.left.name === 'V')!;
+        const refs = await index.findReferences(doc, positionOf((vKey as { left: { position: { line: number; characterStart: number } } }).left.position), false, FOLDERS, token);
+        const sites = refs.filter((r) => r.uri.endsWith('repeated-refs.rules'));
+        expect(sites.length).toBe(3);
+    });
+
     it('does not crash on null AST slots (error-parsed game files)', () => {
         // `Bad =` (no value) and missing list elements leave null slots; the search must
         // skip them, not throw `Cannot read properties of null (reading 'type')`.

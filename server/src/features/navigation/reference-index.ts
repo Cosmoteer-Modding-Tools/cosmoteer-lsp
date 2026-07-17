@@ -103,13 +103,32 @@ export class ReferenceIndex {
         progress?.begin('Searching references', 0, '', false);
         try {
             for await (const doc of documentsMentioning(folderPaths, name, cancellationToken)) {
+                // References with the same text in the same enclosing container resolve identically
+                // (an OT relative path — `&Name`, `~/…`, `^/N/…`, `..` — is resolved against its
+                // container's scope, which is shared by its siblings). A document that repeats a
+                // reference many times (a big component list, an array of near-identical entries)
+                // would otherwise re-run the full cross-file resolution per copy. Memoize the resolved
+                // target key per (value, container) for the current document, so each distinct
+                // reference is resolved once. Correctness is unaffected: the key never merges two
+                // references that could resolve differently.
+                const resolvedByRef = new Map<string, string | null>();
                 for (const reference of referenceNodesOf(doc)) {
                     // The `name` text must appear in the reference for it to possibly point here.
-                    if (!String(reference.valueType.value).includes(name)) continue;
-                    const resolved = await DefinitionService.instance
-                        .resolveReferenceLocation(doc, reference, cancellationToken)
-                        .catch(() => null);
-                    if (resolved && locationKey(resolved) === targetKey) sites.push(referenceSiteLocation(reference));
+                    const value = String(reference.valueType.value);
+                    if (!value.includes(name)) continue;
+                    // The container key is a space-free token (a byte offset or `root`), so one space
+                    // joins it to the value unambiguously, even when the value contains a space (a
+                    // `<path with spaces.rules>` file reference).
+                    const memoKey = `${value} ${enclosingContainerKey(reference)}`;
+                    let resolvedKey = resolvedByRef.get(memoKey);
+                    if (resolvedKey === undefined && !resolvedByRef.has(memoKey)) {
+                        const resolved = await DefinitionService.instance
+                            .resolveReferenceLocation(doc, reference, cancellationToken)
+                            .catch(() => null);
+                        resolvedKey = resolved ? locationKey(resolved) : null;
+                        resolvedByRef.set(memoKey, resolvedKey);
+                    }
+                    if (resolvedKey === targetKey) sites.push(referenceSiteLocation(reference));
                 }
             }
         } finally {
@@ -146,6 +165,17 @@ export class ReferenceIndex {
         return resolved as AbstractNode;
     }
 }
+
+/**
+ * A key for the scope an OT relative reference resolves against: its nearest enclosing group or
+ * list (or the document root). Two references with the same text under the same container resolve
+ * to the same target, so this keys the per-document resolution memo in {@link ReferenceIndex.findReferences}.
+ */
+const enclosingContainerKey = (node: AbstractNode): string => {
+    let current: AbstractNode | undefined = node.parent;
+    while (current && !(isGroupNode(current) || isListNode(current))) current = current.parent;
+    return current?.position ? String(current.position.start) : 'root';
+};
 
 /** Every reference value node in a document, depth-first across all node shapes. */
 export function* referenceNodesOf(node: AbstractNode | null | undefined): Generator<ValueNode> {
