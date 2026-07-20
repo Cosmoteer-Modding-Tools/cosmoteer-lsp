@@ -20,6 +20,19 @@ describe('dead declared fields', () => {
         expect(hit!.data?.remove?.title).toContain('FireDamageFactor');
     });
 
+    it('hints a deleted field with its migration note and a remove fix', async () => {
+        // The Meltdown update deleted `Flammable` from PartRules; fire immunity moved to the
+        // `non_flammable` part category. The hint must teach the migration, not just the removal.
+        const doc = parse('Part\n{\n\tFlammable = false\n}\n');
+        const errors = await validateIgnoredFields(doc, token);
+        const hit = errors.find((e) => e.message.includes('Flammable'));
+        expect(hit).toBeTruthy();
+        expect(hit!.message).toContain('removed in a newer game version');
+        expect(hit!.message).toContain('TypeCategories = [non_flammable]');
+        expect(hit!.severity).toBe('hint');
+        expect(hit!.data?.remove?.title).toContain('Flammable');
+    });
+
     it('leaves a live sibling field alone', async () => {
         const doc = parse('Part\n{\n\tMaxHealth = 100\n}\n');
         const errors = await validateIgnoredFields(doc, token);

@@ -7,7 +7,7 @@ import bundle from './cosmoteer.schema.json';
 import { SchemaBundle, SchemaEnum, SchemaField, SchemaRegistry, SchemaTypeDef, ValueType } from './schema.types';
 import { applySchemaOverlay } from './schema-overlay';
 import { applyFieldDocs } from './field-docs';
-import { deprecatedDiscriminator } from './deprecations';
+import { deprecatedDiscriminator, deprecatedField } from './deprecations';
 
 // Merge hand-authored corrections for custom-deserialized types schemagen can't reflect (e.g. the
 // dual-form `Texture` group), then attach community-maintained prose descriptions. Both additive
@@ -647,7 +647,15 @@ export const fieldSignatureMarkdown = (field: SchemaField, owningType?: string):
     } else if (inner.kind === 'reference') {
         extra.push(`reference → \`${inner.targetName}\``);
     }
-    const signature = extra.length > 0 ? `${head}\n\n${extra.join(' · ')}` : head;
+    let signature = extra.length > 0 ? `${head}\n\n${extra.join(' · ')}` : head;
+    // A member the game deleted in an update (with its migration when known) or declares but never
+    // reads: warn right under the signature, so hover and completion tell the truth about dead weight.
+    const deprecation = owningType ? deprecatedField(owningType, field.name) : undefined;
+    if (deprecation) {
+        signature += `\n\n⚠ removed in a newer game version (${deprecation.note})`;
+    } else if (field.dead) {
+        signature += "\n\n⚠ declared but never read by the game's code";
+    }
     // The prose description, when documented, goes below the type signature separated by a rule.
     const described = field.description ? `${signature}\n\n---\n\n${renderDocCrefs(field.description)}` : signature;
     // A structured (group-valued) field additionally shows a generated `{ … }` example, so the

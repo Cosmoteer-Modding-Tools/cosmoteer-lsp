@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- Writing `Flammable` on a part now hints that the game removed the field and points at the replacement: fire immunity is the `non_flammable` part category (`TypeCategories = [non_flammable]`). Hover on the field shows the same migration, and the remove quick fix deletes the dead line.
+
 ## 0.5.0 Beta
 
 ### Added

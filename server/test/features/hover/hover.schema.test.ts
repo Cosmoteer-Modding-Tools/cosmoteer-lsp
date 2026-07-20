@@ -87,6 +87,17 @@ describe('schemaFieldHover', () => {
         expect(hover).toContain('None');
     });
 
+    it('warns about a deleted field and names its migration (`Flammable`)', () => {
+        // The Meltdown update deleted `Flammable`; fire immunity is now the `non_flammable` part
+        // category. The member stays in the schema so old mods still hover, but the hover must warn.
+        const doc = parse('Part\n{\n\tFlammable = false\n}');
+        const flammable = doc.elements.map((n) => findValue(n, 'Flammable')).find(Boolean);
+        const hover = schemaFieldHover(flammable!);
+        expect(hover).toContain('Flammable');
+        expect(hover).toContain('removed in a newer game version');
+        expect(hover).toContain('TypeCategories = [non_flammable]');
+    });
+
     it('returns null for a field with no schema', () => {
         const doc = parse('Foo { Bar = baz }');
         const bar = doc.elements.map((n) => findValue(n, 'Bar')).find(Boolean);

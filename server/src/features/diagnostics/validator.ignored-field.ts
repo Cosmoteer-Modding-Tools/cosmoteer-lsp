@@ -25,6 +25,7 @@ import {
     resolveGroupClass,
 } from '../../document/schema/schema-context';
 import { classAncestry, discriminatorIsAmbiguous, fieldOf, fieldsOf, schema } from '../../document/schema/schema';
+import { deprecatedField } from '../../document/schema/deprecations';
 import { ValidationError } from './validator';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
@@ -298,10 +299,16 @@ export const validateIgnoredFields = async (
                 if (!cls) continue;
                 const classLabel = schema.types[cls]?.name ?? cls;
                 const declaredButDead = !!fieldOf(cls, name);
+                // A field the game deleted in an update (a mod written against an older Cosmoteer):
+                // say what replaced it instead of the bare never-reads hint, so the modder learns the
+                // migration and not just the removal.
+                const deprecation = declaredButDead ? deprecatedField(cls, name) : undefined;
                 const start = element.left.position.start;
                 const end = element.right?.position?.end ?? element.left.position.end;
                 errors.push({
-                    message: declaredButDead
+                    message: deprecation
+                        ? l10n.t("'{0}' was removed in a newer game version ({1}).", name, deprecation.note)
+                        : declaredButDead
                         ? l10n.t("'{0}' is declared by {1} but the game's code never reads it.", name, classLabel)
                         : l10n.t(
                               "'{0}' is not a member of {1} and is never referenced in this file, so the game ignores it.",
