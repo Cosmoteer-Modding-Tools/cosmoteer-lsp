@@ -116,7 +116,8 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 -   Missing separators: two fields on one line with no `,`/`;` between them (the game silently reads them as one value) and a run of numbers read as a single list element, each with a quick fix. Conversely, a separator a line break already makes redundant is shown as a subtle hint with a remove quick fix
 -   Component references, cross-file GUI ids, localization keys, shader constants and shader code, each toggleable in the settings
 -   `mod.rules` actions: unknown verbs, missing required fields, unresolvable targets
--   Deprecation hints for renamed types, with a quick fix
+-   A version-split `mod_*.rules` without `CompatibleGameVersions`, which the game never selects when the mod has other manifest files, with a quick fix inserting the installed game's version
+-   Deprecation hints for symbols changed by game updates, each naming the game version that changed it and carrying a quick fix: renamed `Type=` discriminators (`AmmoStorage`, now `ResourceStorage`), renamed fields the game still accepts (`CreatePartWhenDestroyed`, now `UnderlyingPart`, 0.23.0), deleted fields with their migration (`Flammable`, now the `non_flammable` part category, 0.30.0) and superseded fields (`ExplosiveDamageResistance`, now the `DamageResistances` map, 0.24.0)
 
 **Resolved values**
 
@@ -135,6 +136,7 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 
 -   Full `mod.rules` manifest support: parsing, validation and completion of `Actions`
 -   Mod overview report (CodeLens or `Cosmoteer: Show Mod Overview`): what the manifest does, whether each action target resolves, and which files are unreachable by the game
+-   One-command migration (`Cosmoteer: Migrate Mod to Current Game Version`, also in the JetBrains Tools menu): applies every known game-update rename, deletion and rewrite across the whole workspace as one undoable edit, reports the fixes grouped by game version, lists the findings that need author judgment, and can optionally strip fields the game never reads
 -   Localization-key completion and hover for `KeyString` fields, with an insert-into-all-strings quick fix
 -   Color swatches with an in-place picker, part-category completion
 -   Multi-root workspace support, localization (en, de)

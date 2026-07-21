@@ -2,6 +2,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import {
     AbstractNode,
     AbstractNodeDocument,
+    AssignmentNode,
     isAssignmentNode,
     isDocumentNode,
     isFunctionCallNode,
@@ -22,6 +23,7 @@ import {
 } from '../../document/schema/schema-context';
 import { documentRootClass, documentRootRegistry } from '../../document/schema/document-root';
 import {
+    classAncestry,
     discriminatorIsAmbiguous,
     enumDef,
     fieldOf,
@@ -29,7 +31,7 @@ import {
     schema,
     valueTypeLabel,
 } from '../../document/schema/schema';
-import { deprecatedDiscriminator } from '../../document/schema/deprecations';
+import { deprecatedDiscriminator, obsoleteField, renamedFieldAlias } from '../../document/schema/deprecations';
 import { SchemaField, SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { GroupNode } from '../../core/ast/ast';
 import { ValidationError } from './validator';
@@ -149,6 +151,96 @@ export const validateSchema = async (
     // the async integer-resolution pass below can revisit the same fields without re-resolving classes.
     const typedContainers: Array<{ container: { elements: AbstractNode[] }; cls: string }> = [];
 
+    // Flag an assignment written under a pre-rename spelling the game still accepts, or under a field
+    // superseded by a richer one. Both deserialize fine (the schema carries the old alias and the old
+    // member), so no other check ever surfaces them and the deprecations registry is the only source.
+    // Hint severity: the game reads the value, this is a modernization nudge, not a load problem.
+    const checkFieldDeprecations = (container: { elements: AbstractNode[] }, cls: string, element: AssignmentNode): void => {
+        const written = element.left.name;
+        let rename: ReturnType<typeof renamedFieldAlias>;
+        let obsolete: ReturnType<typeof obsoleteField>;
+        for (const ancestor of classAncestry(cls)) {
+            rename ??= renamedFieldAlias(ancestor, written);
+            obsolete ??= obsoleteField(ancestor, written);
+        }
+        const target = rename ?? obsolete;
+        if (!target) return;
+        // When the successor is already assigned beside the old spelling, a mechanical fix would
+        // create a duplicate member, so the finding is reported for manual review instead.
+        const replacementPresent = container.elements.some(
+            (sibling) =>
+                sibling !== element &&
+                ((isAssignmentNode(sibling) && sibling.left.name.toLowerCase() === target.replacement.toLowerCase()) ||
+                    ((isGroupNode(sibling) || isListNode(sibling)) &&
+                        sibling.identifier?.name.toLowerCase() === target.replacement.toLowerCase()))
+        );
+        if (rename) {
+            errors.push({
+                message: l10n.t(
+                    "'{0}' was renamed to '{1}' in game version {2} ({3}).",
+                    written,
+                    rename.replacement,
+                    rename.version,
+                    rename.note
+                ),
+                node: element.left,
+                severity: 'hint',
+                data: replacementPresent
+                    ? { migration: { version: rename.version } }
+                    : {
+                          migration: { version: rename.version, apply: 'quickFix' },
+                          quickFix: { title: l10n.t("Change to '{0}'", rename.replacement), newText: rename.replacement },
+                      },
+            });
+            return;
+        }
+        if (!obsolete) return;
+        const error: ValidationError = {
+            message: l10n.t(
+                "'{0}' was superseded by '{1}' in game version {2} ({3}).",
+                written,
+                obsolete.replacement,
+                obsolete.version,
+                obsolete.note
+            ),
+            node: element.left,
+            severity: 'hint',
+            data: { migration: { version: obsolete.version } },
+        };
+        // The mechanical rewrites wrap the existing scalar value in the successor's container shape
+        // (`ComponentID = X` → `ComponentIDs = [X]`, `ExplosiveDamageResistance = X` →
+        // `DamageResistances = { explosive = X }`), keeping the value's own text untouched. Only a
+        // plain scalar value qualifies. Anything else (already a container, a missing value) needs
+        // author judgment and stays a manual finding.
+        const value = element.right;
+        if (!replacementPresent && value && isValueNode(value)) {
+            const wrap =
+                obsolete.replacement === 'ComponentIDs'
+                    ? { open: '[', close: ']' }
+                    : obsolete.replacement === 'DamageResistances'
+                      ? { open: '{ explosive = ', close: ' }' }
+                      : undefined;
+            if (wrap) {
+                error.data = {
+                    migration: { version: obsolete.version, apply: 'rewrite' },
+                    rewrite: {
+                        title: l10n.t("Change to '{0}'", obsolete.replacement),
+                        edits: [
+                            {
+                                start: element.left.position.start,
+                                end: element.left.position.end,
+                                newText: obsolete.replacement,
+                            },
+                            { start: value.position.start, end: value.position.start, newText: wrap.open },
+                            { start: value.position.end, end: value.position.end, newText: wrap.close },
+                        ],
+                    },
+                };
+            }
+        }
+        errors.push(error);
+    };
+
     // Flag a `name = <word>` assignment whose schema field is an enum/bool not allowing that bare word.
     // Bare-word values only. `&refs`, expressions, numbers and quoted strings parse as other types.
     const checkEnums = (container: { elements: AbstractNode[] }, cls: string): void => {
@@ -174,6 +266,7 @@ export const validateSchema = async (
                 continue;
             }
             if (!isAssignmentNode(element)) continue;
+            checkFieldDeprecations(container, cls, element);
             const value = element.right;
             if (!isValueNode(value) || value.valueType.type !== 'String') continue;
             const field = fieldOf(cls, element.left.name);
@@ -284,15 +377,24 @@ export const validateSchema = async (
         const deprecation = deprecatedDiscriminator(written);
         if (deprecation && members.includes(deprecation.replacement)) {
             errors.push({
-                message: l10n.t(
-                    "'{0}' was renamed to '{1}' in a newer game version ({2}).",
-                    written,
-                    deprecation.replacement,
-                    deprecation.note
-                ),
+                message: deprecation.version
+                    ? l10n.t(
+                          "'{0}' was renamed to '{1}' in game version {2} ({3}).",
+                          written,
+                          deprecation.replacement,
+                          deprecation.version,
+                          deprecation.note
+                      )
+                    : l10n.t(
+                          "'{0}' was renamed to '{1}' in a newer game version ({2}).",
+                          written,
+                          deprecation.replacement,
+                          deprecation.note
+                      ),
                 node: valueNode,
                 severity: 'warning',
                 data: {
+                    migration: { version: deprecation.version, apply: 'quickFix' },
                     quickFix: {
                         title: l10n.t("Change to '{0}'", deprecation.replacement),
                         newText: deprecation.replacement,

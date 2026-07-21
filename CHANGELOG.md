@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- Writing `Flammable` on a part now hints that the game removed the field and points at the replacement: fire immunity is the `non_flammable` part category (`TypeCategories = [non_flammable]`). Hover on the field shows the same migration, and the remove quick fix deletes the dead line. `Flammable = false` gets a smarter fix that appends `non_flammable` to the part's own `TypeCategories` list, so the fireproofing survives the migration.
+- One-command mod migration: `Cosmoteer: Migrate Mod to Current Game Version` (command palette in VS Code, Tools menu in JetBrains) upgrades every rules file of the workspace in one undoable edit and reports what it did, grouped by the game version that made each change. Findings that need author judgment (a fireproofed part without its own `TypeCategories` list, say) are listed instead of edited, and an optional second mode also strips fields the game never reads.
+- A version-split manifest (`mod_*.rules`) without `CompatibleGameVersions` now warns that the game never selects it when the mod has other manifest files (verified against the game's manifest scan), with a quick fix that inserts the installed game's current version. A mod whose only manifest is such a file stays silent, since the game uses it unconditionally.
+- The deprecation registry now spans the whole recorded changelog history, each entry carrying its game version. New hints beyond the known `Ammo*` renames and `Flammable`: fields deleted in 0.24.1 (`PenetrationRectType`) and 0.26.1 (`ValueOutputSmoothing`, the two `SuppressWholeShipTargetOverlays*` weapon fields, renamed onto their same-shaped successors), pre-0.23.0 field spellings the game still accepts (`CreatePartWhenDestroyed`, now `UnderlyingPart`, and the `SourceShip*` collision and line-of-sight family, now `FriendlyShip*`), superseded fields with a mechanical rewrite (`ExplosiveDamageResistance = X` becomes `DamageResistances = { explosive = X }`, a `ViaBuffs` `ComponentID = X` becomes `ComponentIDs = [X]`), and the manifest's `ModifiesMultiplayer` flag, now `ModifiesGameplay`.
+
 ## 0.5.0 Beta
 
 ### Added

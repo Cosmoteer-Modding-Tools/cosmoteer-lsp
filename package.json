@@ -47,6 +47,11 @@
                 "command": "cosmoteer.editPartGrid",
                 "title": "Cosmoteer: Edit Part Grid",
                 "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.migrateMod",
+                "title": "Cosmoteer: Migrate Mod to Current Game Version",
+                "category": "Cosmoteer"
             }
         ],
         "menus": {

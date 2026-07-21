@@ -12,7 +12,13 @@ import {
     MarkdownString,
 } from 'vscode';
 
-import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
+import {
+    ExecuteCommandRequest,
+    LanguageClient,
+    LanguageClientOptions,
+    ServerOptions,
+    TransportKind,
+} from 'vscode-languageclient/node';
 import { ShaderPreviewCodeLensProvider } from './shader-preview/codelens';
 import { ShaderPreviewPanel } from './shader-preview/preview-panel';
 import { PartGridCodeLensProvider } from './part-editor/codelens';
@@ -128,6 +134,41 @@ export async function activate(context: ExtensionContext) {
         })
     );
 
+    // Workspace migration: one command that upgrades every rules file to the current game version
+    // (deprecation-registry renames, deletions, and rewrites). The server computes and applies the
+    // WorkspaceEdit, so this wrapper only asks about the optional dead-field cleanup and renders
+    // the returned summary. A distinct command id from the server's executeCommand id, because the
+    // language client auto-registers that one as a plain no-feedback forwarder.
+    context.subscriptions.push(
+        commands.registerCommand('cosmoteer.migrateMod', async () => {
+            const choice = await window.showQuickPick(
+                [
+                    {
+                        label: l10n.t('Apply migrations'),
+                        description: l10n.t('Rename, rewrite, or remove fields changed by game updates'),
+                        removeDeadFields: false,
+                    },
+                    {
+                        label: l10n.t('Apply migrations and remove dead fields'),
+                        description: l10n.t('Additionally remove fields the game never reads'),
+                        removeDeadFields: true,
+                    },
+                ],
+                { placeHolder: l10n.t('Migrate every rules file of this workspace to the current game version') }
+            );
+            if (!choice) return;
+            const summary = (await client.sendRequest(ExecuteCommandRequest.type, {
+                command: 'cosmoteer.migrateWorkspace',
+                arguments: [{ removeDeadFields: choice.removeDeadFields }],
+            })) as MigrationSummary | null;
+            if (!summary) {
+                window.showInformationMessage(l10n.t('Cosmoteer migration: no workspace folder is open.'));
+                return;
+            }
+            await showMigrationSummary(summary);
+        })
+    );
+
     return client.start();
 }
 
@@ -137,6 +178,72 @@ export async function activate(context: ExtensionContext) {
 // register it too. This constant only feeds the `enabledCommands` trust list in the hover
 // middleware and must match the server's decompiler-link module.
 const OPEN_IN_DECOMPILER_COMMAND = 'cosmoteer.openInDecompiler';
+
+/** Mirror of the server's migration summary (see server features/migration/migrate-workspace.ts). */
+interface MigrationSummary {
+    files: number;
+    fixes: number;
+    byVersion: Record<string, number>;
+    manual: Array<{ uri: string; line: number; message: string }>;
+    deadFieldsRemoved: number;
+    unparsable: number;
+}
+
+/**
+ * Render the migration outcome: a one-line information message, with a details view (a markdown
+ * report listing per-version counts and every manual-review finding) behind a button.
+ *
+ * @param summary the server's migration summary.
+ */
+async function showMigrationSummary(summary: MigrationSummary): Promise<void> {
+    if (summary.fixes === 0 && summary.deadFieldsRemoved === 0 && summary.manual.length === 0) {
+        window.showInformationMessage(l10n.t('Cosmoteer migration: everything is already up to date.'));
+        return;
+    }
+    const pieces: string[] = [];
+    if (summary.fixes > 0) pieces.push(l10n.t('applied {0} fixes in {1} files', summary.fixes, summary.files));
+    if (summary.deadFieldsRemoved > 0) pieces.push(l10n.t('removed {0} dead fields', summary.deadFieldsRemoved));
+    if (summary.manual.length > 0) pieces.push(l10n.t('{0} findings need manual review', summary.manual.length));
+    if (summary.unparsable > 0) pieces.push(l10n.t('skipped {0} files with parse errors', summary.unparsable));
+    const details = l10n.t('Show Details');
+    const picked = await window.showInformationMessage(l10n.t('Cosmoteer migration: {0}.', pieces.join(', ')), details);
+    if (picked !== details) return;
+    const doc = await workspace.openTextDocument({ content: migrationReport(summary), language: 'markdown' });
+    await window.showTextDocument(doc, { preview: true });
+}
+
+/**
+ * The markdown details report for a migration run: fixes grouped by the game version that made each
+ * change, the optional dead-field cleanup, and a clickable list of manual-review findings.
+ *
+ * @param summary the server's migration summary.
+ * @returns the report as markdown text.
+ */
+function migrationReport(summary: MigrationSummary): string {
+    const lines: string[] = ['# Cosmoteer migration report', ''];
+    lines.push(l10n.t('Applied {0} fixes in {1} files.', summary.fixes, summary.files), '');
+    const versions = Object.entries(summary.byVersion).sort(([a], [b]) =>
+        a === '' ? 1 : b === '' ? -1 : a.localeCompare(b, undefined, { numeric: true })
+    );
+    for (const [version, count] of versions) {
+        lines.push(`- ${version === '' ? l10n.t('pre-changelog game versions') : l10n.t('game version {0}', version)}: ${count}`);
+    }
+    if (summary.deadFieldsRemoved > 0) {
+        lines.push('', l10n.t('Removed {0} fields the game never reads.', summary.deadFieldsRemoved));
+    }
+    if (summary.unparsable > 0) {
+        lines.push('', l10n.t('Skipped {0} files with parse errors (never edited mechanically).', summary.unparsable));
+    }
+    if (summary.manual.length > 0) {
+        lines.push('', `## ${l10n.t('Needs manual review')}`, '');
+        for (const finding of summary.manual) {
+            const file = Uri.parse(finding.uri).fsPath;
+            lines.push(`- ${file}:${finding.line} ${finding.message}`);
+        }
+    }
+    lines.push('');
+    return lines.join('\n');
+}
 
 /**
  * Cosmoteer `.shader` files are HLSL, but VS Code's built-in ShaderLab support also claims the

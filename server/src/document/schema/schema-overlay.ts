@@ -213,13 +213,17 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
     'Cosmoteer.Ships.Parts.Buffs.PartSelfBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
     'Cosmoteer.Ships.Parts.Buffs.PartAreaBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
     'Cosmoteer.Ships.Parts.Buffs.PartGridBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
-    // `PartRules` reads the `Flammable` bool and the thruster part reads these force/fuel values off the
-    // part rules, none as a generic `*FromPath<T>` call. `Components` is the part's custom-read
-    // component map: typing it makes every component resolve through the slot, so a partial fragment
-    // whose only component has no (or a broken) `Type=` still knows its registry without a valid
-    // sibling to infer from.
+    // The thruster part reads these force/fuel values off the part rules, none as a generic
+    // `*FromPath<T>` call. `Flammable` is the opposite case: the Meltdown fire rework deleted it from
+    // the game entirely (zero occurrences in the current decompile, fire immunity moved to the
+    // `non_flammable` part category), but vanilla and pre-Meltdown mods still write it. Keeping the
+    // member lets those files parse and hover, and the `dead` flag routes it into the ignored-field
+    // hint, upgraded with the category migration note (see `deprecatedField` in deprecations.ts).
+    // `Components` is the part's custom-read component map: typing it makes every component resolve
+    // through the slot, so a partial fragment whose only component has no (or a broken) `Type=` still
+    // knows its registry without a valid sibling to infer from.
     'Cosmoteer.Ships.Parts.PartRules': [
-        { name: 'Flammable', valueType: { kind: 'bool' }, optional: true },
+        { name: 'Flammable', valueType: { kind: 'bool' }, optional: true, dead: true },
         { name: 'ThrusterForce', valueType: MODIFIABLE_FLOAT, optional: true },
         { name: 'FuelUsage', valueType: MODIFIABLE_FLOAT, optional: true },
         { name: 'ThrustRecoveryTime', valueType: MODIFIABLE_TIME, optional: true },
@@ -267,6 +271,31 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
     ],
     // A turret weapon names the emitter component it fires through.
     'Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules': [{ name: 'Emitter', valueType: COMPONENT_REF, optional: true }],
+    // Fields deleted by game updates that old mods still write, kept as `dead` members like
+    // `Flammable` above: the member lets those files parse and hover, and the `dead` flag routes it
+    // into the ignored-field hint, upgraded with the per-version migration note (see
+    // `deprecatedField` in deprecations.ts). Necessary because the not-a-member path only judges
+    // `purelyReflective` classes, which the weapon/thruster/hit classes are not.
+    'Cosmoteer.Ships.Parts.Weapons.WeaponRules': [
+        {
+            name: 'SuppressWholeShipTargetOverlaysForPartsFilter',
+            valueType: { kind: 'group', ref: 'Cosmoteer.Simulation.EffectFilter', name: 'EffectFilter' },
+            optional: true,
+            dead: true,
+        },
+        {
+            name: 'SuppressWholeShipTargetOverlaysWhenTargetingShipRelativePoints',
+            valueType: { kind: 'bool' },
+            optional: true,
+            dead: true,
+        },
+    ],
+    'Cosmoteer.Ships.Parts.Thrusters.ThrusterRules': [
+        { name: 'ValueOutputSmoothing', valueType: { kind: 'float' }, optional: true, dead: true },
+    ],
+    'Cosmoteer.Bullets.Hits.BulletPenetratingHitRules': [
+        { name: 'PenetrationRectType', valueType: { kind: 'string' }, optional: true, dead: true },
+    ],
     // The particle emitter and quad renderer carry these custom-read members.
     'Halfling.Particles.ParticleEmitterDef': [
         { name: 'UpdatedEmittedParticles', valueType: { kind: 'bool' }, optional: true },
