@@ -127,4 +127,19 @@ export type ValidationErrorData = {
      * the code-action handler (a cross-file, filesystem-touching operation).
      */
     insertLocalizationKey?: { key: string };
+    /**
+     * A quick fix spanning several byte-offset edits in the same file, for migrations a single
+     * replacement cannot express (e.g. `Flammable = false` deletes its line and appends
+     * `non_flammable` to the sibling `TypeCategories` list). Spans must not overlap. An edit whose
+     * `newText` is empty is a removal and gets the same whole-line widening as `remove`.
+     */
+    rewrite?: { title: string; edits: Array<{ start: number; end: number; newText: string }> };
+    /**
+     * Marks the finding as an old-game-version leftover the workspace migration command handles.
+     * `version` is the game version that made the change (undefined when the changelog does not
+     * record it). `apply` names the attached fix the migration may apply mechanically. When absent
+     * the finding needs author judgment (e.g. a part whose fireproofing must not clobber an
+     * inherited category list) and the migration only reports it.
+     */
+    migration?: { version?: string; apply?: 'rewrite' | 'quickFix' | 'remove' };
 };

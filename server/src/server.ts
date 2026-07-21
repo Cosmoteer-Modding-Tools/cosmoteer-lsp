@@ -80,6 +80,7 @@ import { generateModOverview } from './mod/mod-overview';
 import { clearModRootCache, findModRoot } from './mod/mod-root';
 import { join } from 'path';
 import { validateModActions } from './features/diagnostics/validator.mod-action';
+import { validateManifestVersion } from './features/diagnostics/validator.manifest-version';
 import { invalidateModContext } from './mod/mod-context';
 import { modRulesOffsetCompletions } from './features/completion/autocompletion.mod-rules';
 import { inheritanceTargetCompletions } from './features/completion/autocompletion.inheritance-target';
@@ -130,6 +131,8 @@ import {
 import { clearNavigationMemo, invalidateNavigationMemoForFile } from './features/navigation/full.navigation-strategy';
 import { perfCount, perfReset, perfSampleMemory, perfSnapshot } from './utils/perf-counters';
 import { startScanCpuProfile, stopScanCpuProfile } from './utils/cpu-profile';
+import { removalRange } from './utils/removal-range';
+import { collectFileMigration, MIGRATE_WORKSPACE_COMMAND, MigrationSummary } from './features/migration/migrate-workspace';
 import { filePathToUri } from './features/navigation/navigation-strategy';
 import { normalizeUri } from './features/navigation/reference-location';
 import { computeSignatureHelp } from './features/signature/signature-help.service';
@@ -284,8 +287,10 @@ connection.onInitialize(async (params: InitializeParams) => {
             },
             // The "Open in decompiler" hover link executes on the server (it spawns the user's
             // ILSpy/dotPeek locally), so VS Code and the JetBrains plugin share one implementation.
+            // The workspace migration also runs server-side for the same reason: one implementation
+            // computes the WorkspaceEdit, both clients only trigger it and show the summary.
             executeCommandProvider: {
-                commands: [OPEN_IN_DECOMPILER_COMMAND],
+                commands: [OPEN_IN_DECOMPILER_COMMAND, MIGRATE_WORKSPACE_COMMAND],
             },
             semanticTokensProvider: {
                 legend: semanticTokensLegend,
@@ -1079,6 +1084,12 @@ async function validateTextDocument(
                 cancelToken
             ).catch(() => []);
             validationErrors = validationErrors.concat(modActionErrors);
+            // Separate pass: a version-split `mod_*.rules` without `CompatibleGameVersions` is
+            // never selected by the game when the mod has other manifest files.
+            const manifestVersionErrors = await validateManifestVersion(parserResult.value, cancelToken).catch(
+                () => []
+            );
+            validationErrors = validationErrors.concat(manifestVersionErrors);
         } else if (gameIndexAvailable() && isActionFragmentDocument(parserResult.value)) {
             // An included action fragment (launcher.rules, register.rules) holds a literal `Actions`
             // list that a manifest concatenates via `Actions: &<file>/Actions`. Validate its actions
@@ -2269,33 +2280,8 @@ connection.onRenameRequest(async (params, cancellationToken) => {
     }
 });
 
-/**
- * The deletion range for a remove quick fix: the byte-offset span widened to whole lines when the
- * span (plus surrounding whitespace and a trailing `,`/`;`) is all its lines contain, so removing a
- * field takes its line with it instead of leaving a blank one. When other content shares a line, the
- * exact span (plus a trailing separator) is deleted instead.
- *
- * @param doc the open text document the diagnostic belongs to.
- * @param start the span's inclusive start byte offset.
- * @param end the span's exclusive end byte offset.
- * @returns the range to replace with the empty string.
- */
-const removalRange = (doc: TextDocument, start: number, end: number): Range => {
-    const text = doc.getText();
-    let s = start;
-    let e = end;
-    // Swallow a trailing separator and the spaces around it, so `X = 1, Y = 2` minus X leaves `Y = 2`.
-    while (e < text.length && (text[e] === ' ' || text[e] === '\t')) e++;
-    if (text[e] === ',' || text[e] === ';') e++;
-    while (s > 0 && (text[s - 1] === ' ' || text[s - 1] === '\t')) s--;
-    const atLineStart = s === 0 || text[s - 1] === '\n';
-    const restOfLine = text.slice(e, text.indexOf('\n', e) === -1 ? text.length : text.indexOf('\n', e));
-    if (atLineStart && /^\s*$/.test(restOfLine)) {
-        const nextLine = text.indexOf('\n', e);
-        e = nextLine === -1 ? text.length : nextLine + 1;
-    }
-    return { start: doc.positionAt(s), end: doc.positionAt(e) };
-};
+// removalRange moved to utils/removal-range.ts so the workspace migration shares the exact
+// whole-line widening the code-action fixes use.
 
 // Code actions: surface the quick fixes carried on diagnostics' `data`, the "did you mean …"
 // replacements (a typo'd reference name, asset filename, or localization key) as one-click edits of
@@ -2330,6 +2316,29 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
                 },
             });
         }
+        // A rewrite (multi-edit migration, e.g. `Flammable = false` → TypeCategories entry) is
+        // offered before the plain removal and preferred over it: it preserves the author's intent
+        // where the removal would drop it.
+        if (data?.rewrite) {
+            const doc = documents.get(params.textDocument.uri);
+            if (doc) {
+                const edits = data.rewrite.edits.map((edit) =>
+                    edit.newText === ''
+                        ? { range: removalRange(doc, edit.start, edit.end), newText: '' }
+                        : {
+                              range: { start: doc.positionAt(edit.start), end: doc.positionAt(edit.end) },
+                              newText: edit.newText,
+                          }
+                );
+                actions.push({
+                    title: data.rewrite.title,
+                    kind: CodeActionKind.QuickFix,
+                    diagnostics: [diagnostic],
+                    isPreferred: true,
+                    edit: { changes: { [params.textDocument.uri]: edits } },
+                });
+            }
+        }
         if (data?.remove) {
             const doc = documents.get(params.textDocument.uri);
             if (doc) {
@@ -2338,7 +2347,7 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
                     title: data.remove.title,
                     kind: CodeActionKind.QuickFix,
                     diagnostics: [diagnostic],
-                    isPreferred: true,
+                    isPreferred: !data.rewrite,
                     edit: { changes: { [params.textDocument.uri]: [{ range, newText: '' }] } },
                 });
             }
@@ -2391,14 +2400,122 @@ connection.onHover(async (params, cancellationToken) => {
     }
 });
 
-// The "Open in decompiler" hover link (see decompiler-link.ts). Both clients route it here as a
-// plain workspace/executeCommand, and the server finds and spawns the user's decompiler locally.
+// The "Open in decompiler" hover link (see decompiler-link.ts) and the workspace migration. Both
+// clients route them here as plain workspace/executeCommand: the decompiler command spawns the
+// user's decompiler locally, the migration computes and applies a WorkspaceEdit and answers with a
+// summary the client displays.
 connection.onExecuteCommand(async (params) => {
-    if (params.command !== OPEN_IN_DECOMPILER_COMMAND) return;
-    await openInDecompiler((params.arguments?.[0] ?? {}) as OpenInDecompilerArgs, connection).catch((e) => {
-        if (globalSettings.trace.server === 'messages') console.error(e);
-    });
+    if (params.command === OPEN_IN_DECOMPILER_COMMAND) {
+        await openInDecompiler((params.arguments?.[0] ?? {}) as OpenInDecompilerArgs, connection).catch((e) => {
+            if (globalSettings.trace.server === 'messages') console.error(e);
+        });
+        return;
+    }
+    if (params.command === MIGRATE_WORKSPACE_COMMAND) {
+        return await migrateWorkspace((params.arguments?.[0] ?? {}) as { removeDeadFields?: boolean }).catch((e) => {
+            if (globalSettings.trace.server === 'messages') console.error(e);
+            return null;
+        });
+    }
 });
+
+/**
+ * The one-command workspace migration: walk every rules file the workspace scan would validate, run
+ * the deprecation-aware validators on each, and apply every migration-sanctioned fix (old-version
+ * renames, deletions, and rewrites like `Flammable = false` → a `non_flammable` TypeCategories
+ * entry) as one WorkspaceEdit, so the whole migration lands as an atomic, undoable edit in the
+ * client. Findings that need author judgment are returned in the summary instead of edited, grouped
+ * report-side by the game version that made each change.
+ *
+ * @param options `removeDeadFields` also strips every ignored/dead-field finding (fields the game
+ * never reads) on top of the migrations. Off unless the user opted in.
+ * @returns the summary for the invoking client to display, or null without workspace folders.
+ */
+async function migrateWorkspace(options: { removeDeadFields?: boolean }): Promise<MigrationSummary | null> {
+    const folders = await getWorkspaceFoldersCached();
+    const folderUris = (folders ?? []).map((folder) => folder.uri);
+    if (folderUris.length === 0) return null;
+    const token = CancellationToken.None;
+    const progress = await connection.window.createWorkDoneProgress();
+    progress.begin('Migrating workspace', 0, '', false);
+    // Trust the fs caches for the duration of the pass, like the diagnostic scan does: the walk
+    // re-checks the same directories and base files constantly, and nothing edits files mid-pass
+    // (the WorkspaceEdit applies only at the end).
+    beginFsTrustWindow();
+    try {
+        const files: string[] = [];
+        for (const folder of folderUris) {
+            for await (const file of collectRulesFiles(uriToFsPath(folder))) files.push(file);
+        }
+        // Same scope the diagnostics scan uses: only files the game can actually load.
+        const scopeKeys = await validationScopeKeys(token);
+        const scoped = scopeKeys ? files.filter((file) => scopeKeys.has(reachabilityKey(file))) : files;
+        await ensureFragmentRooting(token).catch(() => undefined);
+        // An open editor buffer wins over the disk content, and its (possibly differently-encoded)
+        // uri is the one the WorkspaceEdit must target, or the client would open a second buffer.
+        const openByNorm = new Map<string, TextDocument>();
+        for (const open of documents.all()) openByNorm.set(normalizeUri(open.uri), open);
+        const summary: MigrationSummary = {
+            files: 0,
+            fixes: 0,
+            byVersion: {},
+            manual: [],
+            deadFieldsRemoved: 0,
+            unparsable: 0,
+        };
+        const changes: { [uri: string]: TextEdit[] } = {};
+        let done = 0;
+        for (const file of scoped) {
+            done++;
+            const canonicalUri = filePathToUri(file);
+            let doc = openByNorm.get(normalizeUri(canonicalUri));
+            if (!doc) {
+                // A `.txt` nothing references is not rules content the game would load, so it is
+                // skipped like the diagnostics scan skips it.
+                if (await isUnreferencedTxt(file, token)) continue;
+                let text: string;
+                try {
+                    text = await readFile(file, { encoding: 'utf-8' });
+                } catch {
+                    continue;
+                }
+                doc = TextDocument.create(canonicalUri, 'rules', 0, text);
+            }
+            const parserResult = parser(lexer(doc.getText()), doc.uri);
+            // A file the parser could not fully read is never edited mechanically: an edit computed
+            // against a desynced AST could land in the wrong place.
+            if (parserResult.parserErrors.length > 0) {
+                summary.unparsable++;
+                continue;
+            }
+            const fileResult = await collectFileMigration(
+                parserResult.value,
+                doc,
+                options.removeDeadFields === true,
+                token
+            ).catch(() => undefined);
+            progress.report(Math.round((done / scoped.length) * 100), `${done}/${scoped.length}`);
+            if (!fileResult) continue;
+            summary.manual.push(...fileResult.manual);
+            for (const [version, count] of Object.entries(fileResult.byVersion)) {
+                summary.byVersion[version] = (summary.byVersion[version] ?? 0) + count;
+                summary.fixes += count;
+            }
+            summary.deadFieldsRemoved += fileResult.deadFieldsRemoved;
+            if (fileResult.edits.length > 0) {
+                changes[doc.uri] = fileResult.edits;
+                summary.files++;
+            }
+        }
+        if (summary.files > 0) {
+            await connection.workspace.applyEdit({ changes });
+        }
+        return summary;
+    } finally {
+        endFsTrustWindow();
+        progress.done();
+    }
+}
 
 // Live shader preview: build the payload (translated GLSL, constants, texture, blend mode) for the
 // material at a position, consumed by the client's WebGL preview webview.

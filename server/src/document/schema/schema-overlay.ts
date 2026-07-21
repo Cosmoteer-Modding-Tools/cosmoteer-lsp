@@ -271,6 +271,31 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
     ],
     // A turret weapon names the emitter component it fires through.
     'Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules': [{ name: 'Emitter', valueType: COMPONENT_REF, optional: true }],
+    // Fields deleted by game updates that old mods still write, kept as `dead` members like
+    // `Flammable` above: the member lets those files parse and hover, and the `dead` flag routes it
+    // into the ignored-field hint, upgraded with the per-version migration note (see
+    // `deprecatedField` in deprecations.ts). Necessary because the not-a-member path only judges
+    // `purelyReflective` classes, which the weapon/thruster/hit classes are not.
+    'Cosmoteer.Ships.Parts.Weapons.WeaponRules': [
+        {
+            name: 'SuppressWholeShipTargetOverlaysForPartsFilter',
+            valueType: { kind: 'group', ref: 'Cosmoteer.Simulation.EffectFilter', name: 'EffectFilter' },
+            optional: true,
+            dead: true,
+        },
+        {
+            name: 'SuppressWholeShipTargetOverlaysWhenTargetingShipRelativePoints',
+            valueType: { kind: 'bool' },
+            optional: true,
+            dead: true,
+        },
+    ],
+    'Cosmoteer.Ships.Parts.Thrusters.ThrusterRules': [
+        { name: 'ValueOutputSmoothing', valueType: { kind: 'float' }, optional: true, dead: true },
+    ],
+    'Cosmoteer.Bullets.Hits.BulletPenetratingHitRules': [
+        { name: 'PenetrationRectType', valueType: { kind: 'string' }, optional: true, dead: true },
+    ],
     // The particle emitter and quad renderer carry these custom-read members.
     'Halfling.Particles.ParticleEmitterDef': [
         { name: 'UpdatedEmittedParticles', valueType: { kind: 'bool' }, optional: true },

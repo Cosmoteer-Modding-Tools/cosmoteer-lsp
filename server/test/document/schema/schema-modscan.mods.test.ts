@@ -133,6 +133,7 @@ describe.skipIf(!HAVE)('schema false-positive scan over installed workshop mods'
 
         const modFiles = modDirs.flatMap((d) => rulesFiles(d));
         const unexpected: string[] = [];
+        let migrationHints = 0;
         let reverseRooted = 0;
         try {
             for (const file of modFiles) {
@@ -141,6 +142,15 @@ describe.skipIf(!HAVE)('schema false-positive scan over installed workshop mods'
                 // Files the reverse seam roots that native rooting misses.
                 if (documentRootClass(doc) === undefined && ReverseIncludeIndex.instance.rootType(doc.uri) !== undefined) reverseRooted++;
                 for (const e of await validateSchema(doc, token)) {
+                    // Hint-severity deprecation findings (a pre-rename spelling the game still
+                    // accepts, a superseded field) are accurate on any mod written for an older game
+                    // version, and the corpus is full of those, so pinning each occurrence would be
+                    // endless churn. They are counted instead: the floor below proves the registry
+                    // machinery fires on the corpus, while warnings keep the strict FP contract.
+                    if (e.severity === 'hint' && e.data?.migration) {
+                        migrationHints++;
+                        continue;
+                    }
                     const sig = `${modSignature(file)} :: ${e.message}`;
                     if (!KNOWN_MOD_BUGS.has(sig)) unexpected.push(sig);
                 }
@@ -154,6 +164,9 @@ describe.skipIf(!HAVE)('schema false-positive scan over installed workshop mods'
 
         // A path-resolution break would root nothing and so flag nothing. Require a floor to catch that.
         expect(reverseRooted).toBeGreaterThan(100);
+        // Old-version mods in the corpus carry pre-0.23 spellings, so the deprecation registry must
+        // fire here. Zero means its checks broke.
+        expect(migrationHints).toBeGreaterThan(0);
         expect(unexpected.slice(0, 40)).toEqual([]);
     }, 600_000);
 });

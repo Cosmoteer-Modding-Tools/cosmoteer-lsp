@@ -12,6 +12,7 @@ import {
     isListNode,
     isMathExpressionNode,
     isValueNode,
+    ListNode,
     ValueNode,
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
@@ -26,7 +27,7 @@ import {
 } from '../../document/schema/schema-context';
 import { classAncestry, discriminatorIsAmbiguous, fieldOf, fieldsOf, schema } from '../../document/schema/schema';
 import { deprecatedField } from '../../document/schema/deprecations';
-import { ValidationError } from './validator';
+import { ValidationError, ValidationErrorData } from './validator';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
 
@@ -70,6 +71,66 @@ const classFitsGroup = (group: GroupNode, cls: string): boolean => {
     if (names.length < 3) return true;
     const owned = names.filter((memberName) => fieldOf(cls, memberName)).length;
     return owned / names.length >= MIN_CLASS_FIT;
+};
+
+/** The words the game's BooleanSerializer reads as false (case-insensitively). */
+const FALSE_WORDS = new Set(['false', 'no', 'n']);
+
+/**
+ * Whether an assignment's value is boolean false (`false`/`no`/`n`, or the numeric literal `0`).
+ * Used to tell a `Flammable = false` (a fireproofing the Meltdown update turned into the
+ * `non_flammable` part category) from a `Flammable = true` (a stale restatement of the old default).
+ *
+ * @param value the assignment's right-hand node.
+ * @returns true when the value spells boolean false.
+ */
+const isFalseValue = (value: AbstractNode | null | undefined): boolean => {
+    if (!value || !isValueNode(value)) return false;
+    if (value.valueType.type === 'Boolean') return value.valueType.value === false;
+    if (value.valueType.type === 'String') return FALSE_WORDS.has(String(value.valueType.value).toLowerCase());
+    if (value.valueType.type === 'Number') return Number(value.valueType.value) === 0;
+    return false;
+};
+
+/**
+ * Whether the group assigns the named member beside `except` (as an assignment, group, or list), so
+ * a mechanical rename onto that name would create a duplicate member.
+ *
+ * @param group the group whose members are checked.
+ * @param name the member name to look for (compared case-insensitively).
+ * @param except the element making the query, excluded from the search.
+ * @returns true when another element already carries the name.
+ */
+const siblingNamed = (group: GroupNode, name: string, except: AbstractNode): boolean => {
+    const wanted = name.toLowerCase();
+    return group.elements.some(
+        (sibling) =>
+            sibling !== except &&
+            ((isAssignmentNode(sibling) && sibling.left.name.toLowerCase() === wanted) ||
+                ((isGroupNode(sibling) || isListNode(sibling)) && sibling.identifier?.name.toLowerCase() === wanted))
+    );
+};
+
+/**
+ * The group's own `TypeCategories` list literal, in either spelling (`TypeCategories = […]` or the
+ * bare list form `TypeCategories […]`), when it has a closing bracket to append into. Only the
+ * doc-local list qualifies: writing a fresh `TypeCategories` assignment would override an inherited
+ * list, so a part without a local one is reported for manual review instead of auto-fixed.
+ *
+ * @param group the part group to search.
+ * @returns the local list node, or undefined when the group has none (or an unclosed one).
+ */
+const localTypeCategoriesList = (group: GroupNode): ListNode | undefined => {
+    for (const element of group.elements) {
+        const list = isListNode(element)
+            ? element
+            : isAssignmentNode(element) && element.right && isListNode(element.right)
+              ? element.right
+              : undefined;
+        const name = isListNode(element) ? element.identifier?.name : isAssignmentNode(element) ? element.left.name : undefined;
+        if (list && name?.toLowerCase() === 'typecategories' && list.position.end > list.position.start) return list;
+    }
+    return undefined;
 };
 
 /**
@@ -301,13 +362,72 @@ export const validateIgnoredFields = async (
                 const declaredButDead = !!fieldOf(cls, name);
                 // A field the game deleted in an update (a mod written against an older Cosmoteer):
                 // say what replaced it instead of the bare never-reads hint, so the modder learns the
-                // migration and not just the removal.
-                const deprecation = declaredButDead ? deprecatedField(cls, name) : undefined;
+                // migration and not just the removal. The registry records the declaring class, so a
+                // derived resolution walks its ancestry to find the entry.
+                let deprecation: ReturnType<typeof deprecatedField>;
+                for (const ancestor of classAncestry(cls)) deprecation ??= deprecatedField(ancestor, name);
                 const start = element.left.position.start;
                 const end = element.right?.position?.end ?? element.left.position.end;
+                const data: ValidationErrorData = {
+                    remove: {
+                        title: l10n.t("Remove '{0}'", name),
+                        start,
+                        end,
+                    },
+                };
+                if (deprecation) {
+                    data.migration = { version: deprecation.version };
+                    if (deprecation.replacement && !siblingNamed(node, deprecation.replacement, element)) {
+                        // A same-shaped successor took over the deleted field's job: renaming keeps
+                        // the author's configured value alive, which a bare removal would drop.
+                        data.migration.apply = 'rewrite';
+                        data.rewrite = {
+                            title: l10n.t("Change to '{0}'", deprecation.replacement),
+                            edits: [
+                                {
+                                    start: element.left.position.start,
+                                    end: element.left.position.end,
+                                    newText: deprecation.replacement,
+                                },
+                            ],
+                        };
+                    } else if (name.toLowerCase() === 'flammable') {
+                        if (isFalseValue(element.right)) {
+                            // `Flammable = false` was a fireproofing, and since Meltdown that
+                            // intent is spelled as the `non_flammable` part category. Only a
+                            // doc-local `TypeCategories` list can be appended to safely (a fresh
+                            // assignment would override an inherited list), so without one the
+                            // finding stays manual.
+                            const categories = localTypeCategoriesList(node);
+                            if (categories) {
+                                data.migration.apply = 'rewrite';
+                                data.rewrite = {
+                                    title: l10n.t("Replace with a 'non_flammable' TypeCategories entry"),
+                                    edits: [
+                                        { start, end, newText: '' },
+                                        {
+                                            start: categories.position.end - 1,
+                                            end: categories.position.end - 1,
+                                            newText: categories.elements.length > 0 ? ', non_flammable' : 'non_flammable',
+                                        },
+                                    ],
+                                };
+                            }
+                        } else {
+                            // `Flammable = true` restates the old default: removal is the migration.
+                            data.migration.apply = 'remove';
+                        }
+                    } else if (deprecation.removeOnMigrate || deprecation.replacement) {
+                        // Removal is sanctioned: the field is officially unused, or its still-present
+                        // successor already carries the configuration beside it.
+                        data.migration.apply = 'remove';
+                    }
+                }
                 errors.push({
                     message: deprecation
-                        ? l10n.t("'{0}' was removed in a newer game version ({1}).", name, deprecation.note)
+                        ? deprecation.version
+                            ? l10n.t("'{0}' was removed in game version {1} ({2}).", name, deprecation.version, deprecation.note)
+                            : l10n.t("'{0}' was removed in a newer game version ({1}).", name, deprecation.note)
                         : declaredButDead
                         ? l10n.t("'{0}' is declared by {1} but the game's code never reads it.", name, classLabel)
                         : l10n.t(
@@ -321,13 +441,7 @@ export const validateIgnoredFields = async (
                     range: { start, end },
                     severity: 'hint',
                     unnecessary: true,
-                    data: {
-                        remove: {
-                            title: l10n.t("Remove '{0}'", name),
-                            start,
-                            end,
-                        },
-                    },
+                    data,
                 });
             }
         }
