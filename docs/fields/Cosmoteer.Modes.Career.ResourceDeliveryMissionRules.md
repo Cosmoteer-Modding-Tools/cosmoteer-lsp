@@ -10,29 +10,29 @@
 ## Metatype
 `→ MissionMetatype` · required
 
-<!-- TODO: needs documentation -->
+The mission metatype used for the delivery missions this sector type generates at its stations.
 
 ## TimeLimit
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long the player has to complete a delivery. It also sets the refresh rhythm, since each station starts its missions staggered across this span and gains a new one every `TimeLimit / SimultaneousMissionsPerStation`. Vanilla uses 30 minutes.
 
 ## SimultaneousMissionsPerStation
 `int` · required
 
-<!-- TODO: needs documentation -->
+How many delivery missions a station offers at the same time. Each one asks for a different resource, so [[Cosmoteer.Modes.Career.ResourceDeliveryMissionRules.DeliveryTypes]] must list at least this many entries.
 
 ## RewardMoneyPerSellPrice
 `float` · required
 
-<!-- TODO: needs documentation -->
+The reward money as a fraction of what the delivered resources would sell for at the destination. Vanilla uses 75%.
 
 ## RoundRewardMoneyToMultiple
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The reward money is rounded to the nearest multiple of this many credits.
 
 ## DeliveryTypes
 `DeliveryTypeRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The resources a station may ask for, each with its own quantity range and weight. One entry is drawn at random per mission, re-drawing while the station already has a mission for that resource.

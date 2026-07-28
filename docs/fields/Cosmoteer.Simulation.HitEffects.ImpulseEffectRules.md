@@ -10,19 +10,19 @@
 ## Impulse
 `number` · required
 
-<!-- TODO: needs documentation -->
+The magnitude of the physics impulse applied to whatever was hit. Shield and part hits push the hit ship, bullet hits push the bullet, and crew hits push the crew member in space. Negative values pull back toward the shooter, as the vanilla tractor beam shot does.
 
 ## ApplyToCenterOfMass
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Applies the impulse at the target's center of mass instead of at the hit point, so the push imparts no spin.
 
 ## UseEffectDirection
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Pushes along the hit effect's normalized world velocity instead of along its world direction angle.
 
 ## Filter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+The filter a hit must pass for the impulse to be applied. When unset, every shield, part, bullet, or crew hit qualifies.

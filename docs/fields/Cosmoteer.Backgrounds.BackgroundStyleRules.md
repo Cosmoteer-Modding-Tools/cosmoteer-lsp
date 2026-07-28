@@ -10,74 +10,74 @@
 ## ID
 `→ BackgroundStyleRules` · required
 
-<!-- TODO: needs documentation -->
+Identifier used to look this style up. A [[Cosmoteer.Gui.MenuBackgroundRules#BackgroundStyle|MenuBackgroundRules.BackgroundStyle]] reference and every saved background key resolve back to the style through this ID.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the style's display name. The in-game "set background" menu uses it as the label text for this style's entry.
 
 ## InGameBackground
 `bool` · required
 
-<!-- TODO: needs documentation -->
+Marks the style as one players can select while playing. Only styles with this set appear in the in-game background list. Others are reserved for menus or specific scenes.
 
 ## IsDefault
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks an in-game style as part of the default rotation. Only applies to styles that also set [[Cosmoteer.Backgrounds.BackgroundStyleRules#InGameBackground|InGameBackground]].
 
 ## BaseColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+Solid color the framebuffer is cleared to behind the background objects. When unset, no clear color is applied and whatever the scene already holds shows through.
 
 ## StaticBackgroundTexture
 `TextureGenerator` · optional
 
-<!-- TODO: needs documentation -->
+Generates a large tiling texture drawn behind the parallax objects, sized by [[Cosmoteer.Backgrounds.BackgroundRules#StaticBackgroundTextureSize|StaticBackgroundTextureSize]] and seeded per background. It is placed at a random rotation and scrolls with the deepest parallax layer. Omit for a plain background.
 
 ## GlobalAmbientLight
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Scene-wide ambient light color uploaded to the lighting shader each frame. Adds a flat light contribution to every part regardless of light sources.
 
 ## GlobalDiffuseLight
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Scene-wide diffuse light color uploaded to the lighting shader, applied to surfaces facing the global light direction.
 
 ## GlobalMinDiffuseLight
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Lower bound for the global diffuse term uploaded to the lighting shader, so surfaces facing away from the light are never fully dark.
 
 ## GlobalSpecularLight
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Scene-wide specular highlight color uploaded to the lighting shader for the global light.
 
 ## RegionSize
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+World-space size of each background region tile. Objects are placed and cached per tile, so larger regions spread the same [[Cosmoteer.Backgrounds.BackgroundObjectRules#Count|Count]] over more area.
 
 ## NearPlaneDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Camera distance of the nearest parallax plane. Together with [[Cosmoteer.Backgrounds.BackgroundStyleRules#FarPlaneDistance|FarPlaneDistance]] it sets how strongly object depth ([[Cosmoteer.Backgrounds.BackgroundObjectRules#Z|Z]]) translates into parallax motion.
 
 ## FarPlaneDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Camera distance of the farthest parallax plane. The ratio of far to near distance determines the parallax spread across the depth range. See [[Cosmoteer.Backgrounds.BackgroundStyleRules#NearPlaneDistance|NearPlaneDistance]].
 
 ## Material
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material the object quads are drawn with. Its texture is replaced at load with the packed background atlas, so a mod supplies the shader and blend state here rather than the sprite image.
 
 ## Objects
 `BackgroundObjectRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The object types populating this style. Each is placed, tinted and animated independently. See [[Cosmoteer.Backgrounds.BackgroundObjectRules|BackgroundObjectRules]].

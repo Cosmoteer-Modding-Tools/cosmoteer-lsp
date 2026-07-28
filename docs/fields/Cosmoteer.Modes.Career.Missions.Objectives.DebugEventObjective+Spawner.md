@@ -10,4 +10,4 @@
 ## EventCount
 `range<int>` · required
 
-<!-- TODO: needs documentation -->
+How many times the developer debug event must fire for the objective to complete, rolled randomly from this range at spawn time. The event is raised by the Shift + backtick + E debug hotkey, so this objective is only useful for testing mission plumbing.

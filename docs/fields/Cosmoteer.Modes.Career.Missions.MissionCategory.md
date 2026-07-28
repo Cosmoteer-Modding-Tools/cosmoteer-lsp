@@ -10,9 +10,9 @@
 ## ID
 `→ MissionCategory` · required
 
-<!-- TODO: needs documentation -->
+Identifies this category so that a `MissionMetatype`'s `CategoryID` can point at it. Categories are also sorted by their position in the `MissionCategories` list, so the order you declare them in is the order the headings appear in the mission log.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the heading text shown above the missions of this category in the mission log.

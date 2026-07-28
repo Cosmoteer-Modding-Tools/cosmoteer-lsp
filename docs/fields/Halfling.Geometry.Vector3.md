@@ -25,14 +25,14 @@ The Z (3rd) component of this Vector3.
 ## 0
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The X (1st) component when the vector is written in list form `[x, y, z]`.
 
 ## 1
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The Y (2nd) component when the vector is written in list form `[x, y, z]`.
 
 ## 2
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The Z (3rd) component when the vector is written in list form `[x, y, z]`.

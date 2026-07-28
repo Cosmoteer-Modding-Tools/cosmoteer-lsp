@@ -10,84 +10,84 @@
 ## DebugName
 `string` · optional
 
-<!-- TODO: needs documentation -->
+A label printed in place of the class name when the effect is logged or inspected for debugging. Has no gameplay or visual effect. The vanilla heat status names its simple variant `Heat_Simple`.
 
 ## Sprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite drawn as the quad, including its texture, shader, blend mode, and vertex color. Also accepted under the alias `BeamSprite`.
 
 ## Bucket
 `→ MediaEffectBucketsRules` · required
 
-<!-- TODO: needs documentation -->
+The effect bucket the quad renders in, which determines its draw order relative to ships and other effects. Bucket names are declared in the ordered lists of `common_effects/effect_buckets.rules`.
 
 ## FadeInTime
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The time in seconds over which the quad fades in from fully transparent after the effect starts.
 
 ## HoldTime
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The time in seconds a one-shot play stays at full strength between the fade-in and the fade-out. Continuous plays ignore it and hold until the effect is stopped.
 
 ## FadeOutTime
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The time in seconds over which the quad fades back out. The effect finishes once this fade completes.
 
 ## MinIntensity
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The intensity threshold at or below which the quad is not rendered. A continuous effect whose intensity sits at or below this value goes dormant and wakes when the intensity rises above it again. Stopping the effect while below the threshold skips the fade-out.
 
 ## IntensitySmoothSpeed
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The rate at which the rendered intensity chases the effect's actual intensity, moving by roughly this fraction of the remaining gap per second. When unset, intensity changes take effect instantly.
 
 ## IsFancy
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the quad as a fancy version that only renders while the Fancy Particles graphics setting is enabled.
 
 ## IsSimple
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the quad as a fallback that only renders while the Fancy Particles graphics setting is disabled.
 
 ## IsLight
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Draws the quad into the simulation's light buffer instead of the normal scene, so the sprite acts as a light on whatever is beneath it. The quad is skipped entirely when no light buffer is available. Vanilla projectiles use light quads for their glow.
 
 ## IsFancyLight
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the quad as a fancy lighting version that only renders while the Fancy Lighting graphics setting is enabled.
 
 ## IsSimpleLight
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the quad as a lighting fallback that only renders while the Fancy Lighting graphics setting is disabled.
 
 ## IsSimpleOrSimpleLight
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the quad as a combined fallback that renders unless both the Fancy Particles and Fancy Lighting settings are enabled. The vanilla heat status uses it for the simple variant standing in for a fancy quad that requires both settings.
 
 ## CaptureBackBuffer
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Captures the scene rendered so far and binds it as the `CapturedBackBuffer` shader texture before the quad draws, letting distortion shaders sample and warp the image behind it. The vanilla heat haze and tractor beam use this.
 
 ## HideWithUI
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Hides the effect while the game GUI is hidden, so it disappears together with the HUD when the UI is toggled off. Only consulted for ship-attached quads such as `TileQuad` and `PartQuad` effects. The vanilla fire status uses it on its fire indicator overlay.
 
 ## Filter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+A filter matched against what the effect hit, such as the hit ship, part, shield, bullet, or crew member. When the filter rejects the target, the quad does not play or stops rendering.

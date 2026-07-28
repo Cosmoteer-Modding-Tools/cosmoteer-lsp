@@ -10,9 +10,9 @@
 ## OnDeath
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+The hit effects and media effects played at the bullet's position when this component kills it. The effect point honors the hit rules' `Offset` (rotated with the bullet) and `FrameOfReference`, though `HitObject` is not allowed for death components. The vanilla deployed mine spawns its 16 shrapnel bullets from here.
 
 ## FactorEffectsWith
 `→ BulletComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The ID of a sibling bullet component whose current factor multiplies the intensity of the [[Cosmoteer.Bullets.Death.BaseBulletDeathRules.OnDeath]] hit and media effects. A `DamagePool` reports its remaining damage fraction, a `Targetable` its remaining health fraction, and a `DeathByEnemyProximity` its accumulator mapped through [[Cosmoteer.Bullets.Death.BulletDeathByEnemyProximityRules.OutputFactorRange]]. The vanilla mine's deploy death uses `FactorEffectsWith = Targetable` so a damaged mine deploys with weaker effects.

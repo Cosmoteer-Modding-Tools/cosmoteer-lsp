@@ -10,29 +10,29 @@
 ## DesiredTierDeltas
 `DesiredTierDeltaRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The rules that shape the difficulty path, tried in list order at every node the walk visits. The walk starts at the node marked as the starting node by a `StartingNodePicker`, falling back to the node closest to the map origin.
 
 ## MinLowTier
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The lowest low tier this spawner will hand out. A delta that would land below it is skipped, and the bottom of an assigned tier range is clamped up to it.
 
 ## MaxLowTier
 `int` · required
 
-<!-- TODO: needs documentation -->
+The highest low tier this spawner will hand out. A delta that would land above it is skipped. Vanilla keeps this a few tiers below the galaxy's maximum so the top tiers stay reserved for faction home systems.
 
 ## MaxHighTier
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+Caps the top of every tier range this spawner assigns, so [[Cosmoteer.Modes.Career.Map.ProgressionNodeTiersSpawner+DesiredTierDeltaRules.HighTierSpread]] cannot push a node past the galaxy's intended ceiling.
 
 ## MinChangeableLowTier
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The lowest pre-existing low tier a node may have and still be retiered by this spawner. Nodes below it are left alone and the difficulty walk cannot pass through them. A node with no tier range at all counts as -1, so even the default of 0 excludes untiered nodes and a spawner such as `FactionNodeTiers` has to run first.
 
 ## MaxChangeableLowTier
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+The highest pre-existing low tier a node may have and still be retiered by this spawner. Vanilla sets it equal to [[Cosmoteer.Modes.Career.Map.ProgressionNodeTiersSpawner.MaxLowTier]] so faction home systems keep the tiers the faction spawner gave them.

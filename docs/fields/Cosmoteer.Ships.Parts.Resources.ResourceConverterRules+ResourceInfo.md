@@ -10,19 +10,19 @@
 ## Storage
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The storage component on the same part that this entry drains when used in a From list or fills when used in a To list. Used by both the ResourceConverter and TriggeredResourceConverter components.
 
 ## Quantity
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The number of resources removed from or added to [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules+ResourceInfo.Storage]] per conversion. Defaults to 1. Buff-modifiable, which the vanilla ammo factory uses to scale its battery input with the overclock setting.
 
 ## MinQuantityForConversion
 `number` · optional
 
-<!-- TODO: needs documentation -->
+For a From entry, the minimum resources ready to use in the storage before a conversion runs, defaulting to [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules+ResourceInfo.Quantity]]. Setting it lower lets the conversion run partially supplied, consuming only what is available. For a To entry, the minimum free capacity required, which defaults to 1.
 
 ## CheckAnticipatedCapacity
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+For a To entry, makes the free-capacity check count the storage's anticipated resources, which include incoming deliveries, instead of only what is currently stored. Not read on From entries.

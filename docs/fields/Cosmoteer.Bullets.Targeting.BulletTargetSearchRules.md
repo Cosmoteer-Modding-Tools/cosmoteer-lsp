@@ -10,19 +10,19 @@
 ## Interval
 `number` · required
 
-<!-- TODO: needs documentation -->
+Seconds between search attempts. The countdown only runs while the bullet has no living target, and the first search happens this long after spawning.
 
 ## Range
 `number` · required
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, of the circle around the bullet searched for new targets.
 
 ## TargetTypesByPriority
 `enum WeaponTargetType[]` · optional
 
-<!-- TODO: needs documentation -->
+The kinds of target tried in order until one is found. `ShipParts` picks a random part of the closest attackable ship, `ShipCenters` targets that ship itself, `Bullets` targets the closest matching targetable bullet, and `Crew` the closest targetable crew floating in space. The remaining `WeaponTargetType` values are not supported by bullets and crash the game.
 
 ## BulletTargetCategories
 `→ BulletTargetableRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Restricts `Bullets` searches to bullets whose [[Cosmoteer.Bullets.Targeting.BulletTargetableRules.TargetCategory]] is in this list. When unset any targetable bullet the firing ship would target qualifies.

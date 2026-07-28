@@ -10,44 +10,44 @@
 ## Trigger
 `ComponentTriggerReferenceRules` · required
 
-<!-- TODO: needs documentation -->
+The trigger that performs the swap. When it fires, the current part is removed from the ship and replaced by a freshly created [[Cosmoteer.Ships.Parts.Logic.TriggeredPartSwapRules.NewPartID]] part.
 
 ## NewPartID
 `→ PartRules` · required
 
-<!-- TODO: needs documentation -->
+The part that replaces this one when [[Cosmoteer.Ships.Parts.Logic.TriggeredPartSwapRules.Trigger]] fires. The ID must exist in the ship's part list or the game raises an error at swap time.
 
 ## NewPartLocation
 `IntVector2` · required
 
-<!-- TODO: needs documentation -->
+The tile location of the replacement part in the old part's unrotated rules coordinate space. Together with the new part's size it is transformed through the old part's location, rotation and flip to place the new part on the ship.
 
 ## NewPartRotation
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The rotation of the new part in 90 degree steps, added on top of the old part's rotation.
 
 ## NewPartFlip
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the new part is mirrored relative to the old part, so a flipped old part produces an unflipped replacement and vice versa.
 
 ## InheritHealthFraction
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Multiplies the new part's spawn health by the old part's current health fraction, on top of [[Cosmoteer.Ships.Parts.Logic.TriggeredPartSwapRules.NewPartHealthFraction]].
 
 ## NewPartHealthFraction
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The fraction of maximum health the replacement part spawns with. Defaults to 1.
 
 ## CrewAction
 `enum CrewAction` · optional · one of: `None`, `Delete`, `Kill`, `Reset`, `Eject`, `EjectWithKillChance`
 
-<!-- TODO: needs documentation -->
+What happens to crew inside the old part when it is removed. `None` takes no action, `Delete` removes them without effects, `Kill` kills them with effects, `Reset` sends them back to their quarters or deletes them if they have none, `Eject` converts them to crew floating in space, and `EjectWithKillChance` ejects them with a chance of killing each one.
 
 ## InheritResources
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Transfers the resources stored in the old part's storages into the new part's storages of matching resource types, capped at their capacity. Any surplus is lost.

@@ -10,9 +10,9 @@
 ## Weapon
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A weapon component on the same part that scopes this toggle to that specific weapon. When set, the toggle is on only while that weapon itself is under the player's direct control. When unset, the toggle is on whenever the ship is in direct control mode at all.
 
 ## RequireWeaponBindingPressed
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Additionally requires the weapon's fire binding to be held down for the toggle to be on. Only meaningful when [[Cosmoteer.Ships.Parts.Weapons.DirectControlToggleRules.Weapon]] is set. The vanilla chaingun's `IsInDCMode` toggle sets both.

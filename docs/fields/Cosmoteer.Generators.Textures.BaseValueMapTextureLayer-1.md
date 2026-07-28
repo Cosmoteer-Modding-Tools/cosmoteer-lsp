@@ -10,9 +10,9 @@
 ## Interpolate
 `enum InterpolateMode` · optional · default `Rgb` · one of: `Off`, `Rgb`, `Hsv`
 
-<!-- TODO: needs documentation -->
+How colors are blended between adjacent `Colors` points. `Off` uses the lower point's color with no blending, `Rgb` interpolates in RGB space, and `Hsv` interpolates in HSV space.
 
 ## Colors
 `ColorPoint[]` · optional
 
-<!-- TODO: needs documentation -->
+The color ramp that maps the layer's computed pixel value to a color. Each point pairs a value (`Position`) with a `Color`, and a pixel's value is looked up along this ramp. Points are kept sorted by `Position`.

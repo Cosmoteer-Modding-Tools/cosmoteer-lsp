@@ -10,194 +10,194 @@
 ## ID
 `→ NebulaTypeRules` · required
 
-<!-- TODO: needs documentation -->
+The identifier other rules use to refer to this nebula type, for example `NebulaType` on a Nebula spawner, `NebulaID` on a nebula doodad, or an entry in NebulaRules `StasisIgnoredNebulaTypes`.
 
 ## ToolTipKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+The localization key for the tooltip shown when the mouse hovers over this nebula in the world, and also for the nebula icon on the ship info card. Without it no world tooltip appears at all, regardless of NebulaRules `MinToolTipZoom`.
 
 ## HudIcon
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+The icon shown on a ship's info card while the ship is inside this nebula. Setting it is what creates the card entry at all, so a nebula without it shows no status icon even if it has a `HudTextKey`.
 
 ## HudHiddenIcon
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+The variant of `HudIcon` shown while the ship is hidden from sight. The check is on the ship being hidden at all, not on this nebula being the one hiding it, so a ship hidden by one nebula also swaps the icon of any other nebula it is in. Falls back to `HudIcon` when unset.
 
 ## HudTextKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+The localization key for the text drawn under the nebula icon on the ship info card. It is formatted with one argument, the nebula strength at that ship as a percentage from 0 to 100.
 
 ## DefaultLogicalFeather
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The distance in tiles over which nebula strength ramps from 0 outside the nebula to 1 inside it. Everything gameplay related scales with that strength, including buffs, sight and radar factors, damping and active effects. See `DefaultVisualFeather` for the purely cosmetic edge softness.
 
 ## DefaultVisualFeather
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The [min, max] width in tiles of the soft rendered edge of the nebula. The mesh carries both widths per vertex and the shader blends between them using `DefaultVisualFeatherOverZoom`, so the nebula edge gets softer as the camera zooms out.
 
 ## DefaultVisualFeatherOverZoom
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The [zoomed in, zoomed out] camera scale range over which the drawn edge interpolates from `DefaultVisualFeather` Min to its Max. It uses the same scale as `Camera/MinScale` and `Camera/MaxScale` in cosmoteer.rules, and vanilla's [100, 4000] spans from mid zoom to fully zoomed out.
 
 ## DefaultVisualFeatherOverZoomExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The exponent applied to the normalized camera scale before interpolating across `DefaultVisualFeatherOverZoom`. Values below 1, such as vanilla's 0.5, reach the wide feather earlier while zooming out.
 
 ## SharpCurveEdges
 `int` · required
 
-<!-- TODO: needs documentation -->
+The number of line segments used to round off a fully convex 120 degree corner of the nebula outline. Higher values give smoother blobs at the cost of more triangles.
 
 ## DullCurveEdges
 `int` · required
 
-<!-- TODO: needs documentation -->
+The number of line segments used to round off the shallower 30 degree corners of the nebula outline. See `SharpCurveEdges` for the fully convex case.
 
 ## SightRangeFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The multiplier on a ship's visual sight range at full nebula strength. The applied factor is interpolated from 1 at the nebula edge to this value deep inside, and factors from overlapping nebulas multiply together.
 
 ## RadarRangeFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The multiplier on a ship's radar range at full nebula strength, interpolated from 1 at the nebula edge the same way as `SightRangeFactor`.
 
 ## HidesToOutsideObserversThreshold
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The nebula strength from 0 to 1 at or above which a ship or crew member becomes invisible to observers that are not inside the same contiguous patch of this nebula. Leave unset to never hide anything. The vanilla cloudy nebula uses 0%, so merely touching the feathered edge is enough.
 
 ## HidesRadarToOutsideObserversThreshold
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The nebula strength from 0 to 1 at or above which a ship's radar signature is hidden from observers outside the same contiguous patch. See `HidesToOutsideObserversThreshold` for visual hiding.
 
 ## LinearDampingFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The multiplier on a ship's linear drag at full nebula strength, interpolated from 1 at the nebula edge. Values below 1 make ships coast further, values above 1 make the nebula feel viscous.
 
 ## AngularDampingFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The multiplier on a ship's rotational drag at full nebula strength, interpolated from 1 at the nebula edge the same way as `LinearDampingFactor`.
 
 ## ActiveEffects
 `NebulaActiveEffectRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The effects run every physics tick on ships and crew inside this nebula, such as `LightningStrikes`, `DamageShips` and `DamageCrew`. Each entry picks its kind through a `Type` field.
 
 ## Buffs
 `NebulaBuffRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The whole-ship buffs granted while a ship is inside this nebula. Each entry names a BuffType and an amount that is scaled by the ship's nebula strength.
 
 ## ProhibitFtlJumpInThreshold
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The nebula strength from 0 to 1 at or above which a ship sitting in this nebula prevents other ships from FTL jumping in to it. Leave unset to allow jumps in at any strength.
 
 ## ProhibitFtlJumpOutThreshold
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The nebula strength from 0 to 1 at or above which a ship in this nebula is barred from making an FTL jump out. Leave unset to allow jumps out at any strength.
 
 ## DefaultAvoidDistance
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The clearance in tiles that ship and stasis pathfinding keeps from this nebula. Setting it at all is what makes the nebula an obstacle for pathfinding, and it also replaces `DefaultLogicalFeather` when the game measures how far inside the nebula a point is for avoidance purposes.
 
 ## AIShouldAvoid
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether AI ships treat this nebula as a region to stay out of when choosing where to move, in addition to the pathfinding clearance from `DefaultAvoidDistance`.
 
 ## PathfindTravelCost
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The multiplier on the cost of routing a path through this nebula, where 1 is the same as open space. Any value above 1 also flags the resulting path as having avoided nebulas. Vanilla ion storms use 100*100 to make routes go around them at almost any length.
 
 ## LodBias
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Scales the value fed to the nebula shaders as the percent-scale constant, which drives their level-of-detail blending. Values below 1, such as vanilla electron's 0.9, delay the switch to coarser detail as the camera zooms out.
 
 ## MaterialLow
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The material used for the bottom nebula layer, drawn behind ships, when fancy nebulas are enabled. See `SimpleMaterialLow` for the low-graphics fallback.
 
 ## DiffuseMaterialLow
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The material used to render the bottom layer into the diffuse lighting target. Only drawn when fancy nebulas are enabled and the sim has a diffuse target.
 
 ## NormalsMaterialLow
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The material used to render the bottom layer into the normals target so the nebula can catch dynamic lighting. Only drawn when fancy nebulas are enabled and the sim has a normals target.
 
 ## SimpleMaterialLow
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The single-pass material used for the bottom layer when the fancy nebulas setting is off. Vanilla derives it from `MaterialLow` and only swaps the shader.
 
 ## MaterialMiddle
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The material used for the middle nebula layer, which draws between the low and high layers. Leaving all of the middle materials unset skips the layer entirely.
 
 ## DiffuseMaterialMiddle
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The diffuse-target pass for the middle layer. See `DiffuseMaterialLow`.
 
 ## NormalsMaterialMiddle
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The normals-target pass for the middle layer. See `NormalsMaterialLow`.
 
 ## SimpleMaterialMiddle
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The fallback material for the middle layer when the fancy nebulas setting is off.
 
 ## MaterialHigh
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The material used for the top nebula layer, drawn in front of ships. Vanilla gives it a partly transparent color so ships stay readable through it.
 
 ## DiffuseMaterialHigh
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The diffuse-target pass for the top layer. See `DiffuseMaterialLow`.
 
 ## NormalsMaterialHigh
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The normals-target pass for the top layer. See `NormalsMaterialLow`.
 
 ## SimpleMaterialHigh
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The fallback material for the top layer when the fancy nebulas setting is off.
 
 ## MaterialMinimap
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The material used to draw this nebula on the minimap. Unset means the nebula does not appear on the minimap at all. Vanilla just points it at one of the other materials.
 
 ## AmbientMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+The continuous media effects played at the center of the view while the camera sits inside an explored part of this nebula, for example ambient sound. Their Intensity parameter tracks the nebula strength at that point and they end when it reaches 0.

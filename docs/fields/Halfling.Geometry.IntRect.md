@@ -10,69 +10,69 @@
 ## X
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The horizontal position of the rectangle's left edge, in whole units such as tiles. Together with [[Halfling.Geometry.IntRect.Y]], [[Halfling.Geometry.IntRect.Width]] and [[Halfling.Geometry.IntRect.Height]] it forms the primary group spelling, which the game tries before the edge-based and corner-plus-size spellings.
 
 ## Y
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The vertical position of the rectangle's top edge. The Y axis points downward, so the bottom edge sits at Y plus [[Halfling.Geometry.IntRect.Height]].
 
 ## Width
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The horizontal extent of the rectangle in whole units. The right edge sits at [[Halfling.Geometry.IntRect.X]] plus Width.
 
 ## Height
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The vertical extent of the rectangle in whole units. The bottom edge sits at [[Halfling.Geometry.IntRect.Y]] plus Height.
 
 ## Left
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The position of the left edge in the edge-based spelling. All four of Left, [[Halfling.Geometry.IntRect.Right]], [[Halfling.Geometry.IntRect.Top]] and [[Halfling.Geometry.IntRect.Bottom]] must be given together, as the vanilla `MaxBorders` block in base_ship.rules does. This spelling is only used when the X/Y/Width/Height keys are not all present.
 
 ## Right
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The position of the right edge in the edge-based spelling. The game stores it as a width of Right minus [[Halfling.Geometry.IntRect.Left]].
 
 ## Top
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The position of the top edge in the edge-based spelling. The Y axis points downward, which is why the vanilla `MaxBorders` block uses a negative `Top = -60` for the upper build limit.
 
 ## Bottom
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The position of the bottom edge in the edge-based spelling. The game stores it as a height of Bottom minus [[Halfling.Geometry.IntRect.Top]].
 
 ## Location
 `IntVector2` · optional
 
-<!-- TODO: needs documentation -->
+The top-left corner, written as a vector such as `[x, y]`, in the corner-plus-size spelling. Must be paired with [[Halfling.Geometry.IntRect.Size]], and this spelling is only used when neither the X/Y/Width/Height nor the Left/Right/Top/Bottom keys are complete.
 
 ## Size
 `IntVector2` · optional
 
-<!-- TODO: needs documentation -->
+The width and height, written as a vector such as `[w, h]`, in the corner-plus-size spelling. Must be paired with [[Halfling.Geometry.IntRect.Location]].
 
 ## 0
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The left edge's X position when the whole rectangle is written in list form `[x, y, width, height]`. Vanilla part rules use this form, for example `PhysicalRect = [0, 1, 3, 2]` on the large cannon.
 
 ## 1
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The top edge's Y position in the list form `[x, y, width, height]`.
 
 ## 2
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The width in the list form `[x, y, width, height]`.
 
 ## 3
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The height in the list form `[x, y, width, height]`.

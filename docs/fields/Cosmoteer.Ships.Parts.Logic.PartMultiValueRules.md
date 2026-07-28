@@ -10,4 +10,4 @@
 ## IncludeInBlueprints
 `enum BlueprintInclusionMode` · optional · one of: `None`, `Normal`, `All`
 
-<!-- TODO: needs documentation -->
+Whether a blueprint version of this component is also created for ship blueprints. `None` creates none, `Normal` includes it in regular blueprint updates, and `All` additionally includes it in lightweight blueprint validity checks. `false` and `true` are accepted as aliases for `None` and `Normal`.

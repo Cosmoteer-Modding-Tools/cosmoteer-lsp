@@ -10,24 +10,24 @@
 ## RedFrom
 `ComponentValueReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+The value component on the same part supplying the red channel of the output color, as a 0..1 fraction. Can be written as just the component's name, or as a group with `ID` and `ValueID` to read a named sub-value. When unset the red channel of [[Cosmoteer.Ships.Parts.Graphics.PartValueColorRules.Default]] is used.
 
 ## GreenFrom
 `ComponentValueReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+The value component supplying the green channel of the output color, as a 0..1 fraction. When unset the green channel of [[Cosmoteer.Ships.Parts.Graphics.PartValueColorRules.Default]] is used.
 
 ## BlueFrom
 `ComponentValueReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+The value component supplying the blue channel of the output color, as a 0..1 fraction. When unset the blue channel of [[Cosmoteer.Ships.Parts.Graphics.PartValueColorRules.Default]] is used.
 
 ## AlphaFrom
 `ComponentValueReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+The value component supplying the alpha channel of the output color, as a 0..1 fraction. When unset the alpha channel of [[Cosmoteer.Ships.Parts.Graphics.PartValueColorRules.Default]] is used. The vanilla adaptive heat pipe drives only this channel from a `NetworkValueReceiver` to fade its glow sprites with thermal load.
 
 ## Default
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The color whose channels fill in for any channel without a `From` source, white when unset. Only the channels that lack a source are taken from it, so a component that drives just alpha keeps this color's RGB.

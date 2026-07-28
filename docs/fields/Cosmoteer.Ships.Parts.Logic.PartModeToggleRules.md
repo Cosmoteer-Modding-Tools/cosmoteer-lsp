@@ -10,19 +10,19 @@
 ## Mode
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+A mode component on the same part whose integer mode is watched. The toggle is on while that mode is one of the values listed in [[Cosmoteer.Ships.Parts.Logic.PartModeToggleRules.OnMode]] or [[Cosmoteer.Ships.Parts.Logic.PartModeToggleRules.OnModes]].
 
 ## Invert
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Reverses the result, so the toggle is on while the watched mode is not one of the listed values.
 
 ## OnMode
 `int` · optional
 
-<!-- TODO: needs documentation -->
+A single mode value that switches the toggle on. Merged with [[Cosmoteer.Ships.Parts.Logic.PartModeToggleRules.OnModes]] into one set, so both can be given together.
 
 ## OnModes
 `int[]` · optional
 
-<!-- TODO: needs documentation -->
+The mode values that switch the toggle on. Merged with [[Cosmoteer.Ships.Parts.Logic.PartModeToggleRules.OnMode]] into one set.

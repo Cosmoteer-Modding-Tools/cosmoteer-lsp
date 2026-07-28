@@ -10,14 +10,14 @@
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for this entry's label in the map size drop list of the career and creative setup screens.
 
 ## TipKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for the tooltip shown when hovering this entry in the map size list.
 
 ## MapGenerator
 `GalaxyGenerator` · required
 
-<!-- TODO: needs documentation -->
+The galaxy generator run to build the star map when this size is picked. It is the only thing that actually differs between sizes, so the extent of the map lives in the generator, not here.

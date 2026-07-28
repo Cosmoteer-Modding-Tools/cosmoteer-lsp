@@ -10,39 +10,39 @@
 ## FtlReadinessIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon shown on the ship card, with the FTL drive charge as a percentage, once the ship has reached the gate and is preparing to jump. Before that the ordinary follow distance icon from `DistIcon` is shown instead.
 
 ## DefaultDistRadiusFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance between the bounding circles of the ship and the gate that a new gate jump command starts with, as a multiple of the larger of the two radii. The starting distance is additionally clamped to the ship's current distance from the gate so that issuing the command never makes the ship back away.
 
 ## DestinationSeparationRadiusFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the bounding radius of every arriving ship and of every ship already present when jump-in positions are spread apart so that arrivals do not land on top of anything. The game reads it from these rules for all FTL arrivals, not only gate jumps.
 
 ## CommandColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Base color for this command's path lines, destination ghost, target circle and widgets.
 
 ## CourseLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The line drawn from the ship out in the galaxy-map direction of the gate's destination node while the ship is in position and preparing to jump. It always extends 100 units scaled by the camera rather than reaching any actual point.
 
 ## CourseLinePulseInterval
 `float` · required
 
-<!-- TODO: needs documentation -->
+Seconds per pulse cycle of the course line, which oscillates between plain white and `CourseLinePulseColorFactor`.
 
 ## CourseLinePulseColorFactor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color the course line pulses toward on each cycle.
 
 ## CourseLineUOffsetSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Rate at which the course line's texture scrolls along the line. It is multiplied by elapsed time and by the camera scale, so the apparent scroll speed on screen stays constant across zoom levels.

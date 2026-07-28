@@ -10,9 +10,9 @@
 ## MatchLocation
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether this proxy takes on the proxied component's location, converted into this part's own frame and updated as it moves. When false the proxy keeps its own configured location.
 
 ## MatchRotation
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether this proxy takes on the proxied component's rotation, converted into this part's own frame and updated as it turns. When false the proxy keeps its own configured rotation.

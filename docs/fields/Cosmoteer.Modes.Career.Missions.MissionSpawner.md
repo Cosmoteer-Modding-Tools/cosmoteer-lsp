@@ -10,69 +10,69 @@
 ## Metatype
 `→ MissionMetatype` · required
 
-<!-- TODO: needs documentation -->
+The `MissionMetatype` supplying this mission's name, description, log category and tracking behavior.
 
 ## Objectives
 `ObjectiveSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+The objectives that must be completed to complete the mission, each created from one `ObjectiveSpawner`. If any objective spawner reports that it cannot find its targets the whole mission is abandoned and nothing is spawned.
 
 ## Rewards
 `RewardSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+The rewards handed to the player when the mission completes. Each spawner receives the mission's faction and the tier range computed from its objectives, so rewards can scale with mission difficulty.
 
 ## Faction
 `enum FactionSource` · optional · one of: `None`, `Specific`, `OwnerOfTag`, `SystemController`, `RandomByFactionStrength`
 
-<!-- TODO: needs documentation -->
+How the mission's owning faction is determined. `Specific` reads `SpecificFaction`, `OwnerOfTag` takes the owner of the object found by `FactionTag`, `SystemController` uses the faction controlling the star system, and `RandomByFactionStrength` picks randomly weighted by each faction's local strength.
 
 ## SpecificFaction
 `→ FactionRules` · optional
 
-<!-- TODO: needs documentation -->
+The faction the mission belongs to when `Faction` is `Specific`. Leaving it out in that case is a fatal rules error.
 
 ## FactionTag
 `SpawnedObjectSearch` · optional
 
-<!-- TODO: needs documentation -->
+Search for an already-spawned object whose owner becomes the mission's faction, used when `Faction` is `OwnerOfTag`. Objects belonging to factions that are enemies of the mission are excluded from the search.
 
 ## OkayIfFactionTagNotFound
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether a `FactionTag` that matches nothing is tolerated. When false the missing tag is a fatal spawn error, when true the mission is spawned with no faction at all.
 
 ## SpawnAt
 `enum SpawnAtType` · required · one of: `Player`, `SimGlobal`, `GameGlobal`, `Tag`
 
-<!-- TODO: needs documentation -->
+Which mission list receives the mission. `Player` puts it straight into the player's accepted missions, `SimGlobal` offers it at every station in the star system, `GameGlobal` at every station in the galaxy, and `Tag` offers it only from the ship found by `SpawnAtTag`.
 
 ## SpawnAtTag
 `SpawnedObjectSearch` · optional
 
-<!-- TODO: needs documentation -->
+Search for the already-spawned ship that will offer this mission, used when `SpawnAt` is `Tag`. The found object must be a ship whose AI provides missions or a stasis ship spawner carrying a mission provider module, otherwise spawning fails.
 
 ## OkayIfSpawnAtTagNotFound
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether a `SpawnAtTag` that matches nothing is tolerated. When false the missing tag is a fatal spawn error, when true the mission is silently dropped.
 
 ## FamePrereq
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Fame the player must have before the mission becomes available. `FamePrereqPerLowTier` and `FamePrereqPerHighTier` are added on top of this value. In the demo build the total is capped at 140.
 
 ## RequirePreviousMission
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether this mission stays locked until the mission spawned immediately before it in the same spawn tree has been completed, which is how multi-step mission chains are built. Spawning fails if no earlier mission exists.
 
 ## FamePrereqPerLowTier
 `map<int, int>` · optional
 
-<!-- TODO: needs documentation -->
+Extra fame prerequisite added according to the lowest tier among the mission's objectives. The tier is looked up directly, so the table needs an entry for every tier the objectives can produce or spawning throws.
 
 ## FamePrereqPerHighTier
 `map<int, int>` · optional
 
-<!-- TODO: needs documentation -->
+Extra fame prerequisite added according to the highest tier among the mission's objectives. Like `FamePrereqPerLowTier`, a missing tier entry is a fatal lookup failure rather than a zero.

@@ -10,34 +10,34 @@
 ## ID
 `→ Decal` · optional
 
-<!-- TODO: needs documentation -->
+Identifies which roof decal image this instance paints, resolving against the decals loaded by [[Cosmoteer.Ships.ShipRoofRules]]. The deserializer requires it despite the optional signature.
 
 ## Location
 `IntVector2` · optional
 
-<!-- TODO: needs documentation -->
+Top-left cell of the decal on the ship's roof grid. Defaults to the origin.
 
 ## Rot0Size
 `IntVector2` · optional
 
-<!-- TODO: needs documentation -->
+Decal footprint in tiles measured at rotation 0, before [[#Rotation]] is applied. The drawn size comes from combining this with the decal's own base size. Defaults to zero, which falls back to the decal's natural size.
 
 ## Rotation
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Number of 90-degree clockwise quarter-turns applied to the decal, 0 through 3.
 
 ## FlipX
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Mirrors the decal horizontally.
 
 ## Invert
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Inverts the decal's alpha so opaque areas become transparent and vice versa, turning it into a negative or cutout.
 
 ## FlipY
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Convenience input for a vertical flip. At load time it is normalized into a horizontal [[#FlipX]] plus a 180-degree [[#Rotation]] and is not stored as its own value.

@@ -10,24 +10,24 @@
 ## AccelerationOverDistance
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The acceleration, in tiles per second squared, pushing the targeted space crew toward its next destination each tick. Interpolated from Min to Max as the remaining distance moves across [[Cosmoteer.Simulation.HitEffects.MoveCrewEffectRules.OverDistance]], so the Min applies up close and the Max applies far away. The effect only acts when the weapon's current target is a crew-move target, as with the vanilla manipulator beam's `TargetType = MoveCrew` mode.
 
 ## DampingOverDistance
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The fraction of the crew's current velocity removed per second, interpolated from Min to Max across [[Cosmoteer.Simulation.HitEffects.MoveCrewEffectRules.OverDistance]]. The vanilla manipulator beam uses `[15, 0.1]` so crew brake hard near the destination but coast freely at range.
 
 ## OverDistance
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The distance span, in tiles from the crew's next destination, that maps the remaining distance onto the interpolation of [[Cosmoteer.Simulation.HitEffects.MoveCrewEffectRules.AccelerationOverDistance]] and [[Cosmoteer.Simulation.HitEffects.MoveCrewEffectRules.DampingOverDistance]]. Distances at or below the Min use those fields' Min values, distances at or beyond the Max use their Max values.
 
 ## DeliveryDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+The distance, in tiles, from the destination at which the effect stops pushing the crew, treating it as delivered and leaving the rest to the crew's own movement.
 
 ## DoorOpenDistance
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The distance, in tiles, within which the destination part's crew-proximity door toggle is held open while the moved crew is carrying out a resource transfer job to that part, letting the delivery through the airlock doors. Defaults to 0, which disables the door opening.

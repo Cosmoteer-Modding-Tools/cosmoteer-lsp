@@ -10,24 +10,24 @@
 ## ColorID
 `→ PartColorGuiRules` · required
 
-<!-- TODO: needs documentation -->
+The color setting this component exposes, matching the `ColorID` of a color picker declared in the game GUI's `PartColors` list. Selecting the part shows that picker's button, and components on the part read the chosen color through references such as the vanilla roof light's `GetColorFrom`. A part may have at most one UIColor per ColorID.
 
 ## Default
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The color the picker starts with when the part is placed, white when unset, and the value assumed whenever no saved state exists. Chosen colors are clamped to the normal 0..1 channel range.
 
 ## RememberValue
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Stores the chosen color in the ship's metadata, keyed to the part's position, whenever it differs from [[Cosmoteer.Ships.Parts.UI.PartUIColorRules.Default]], and restores it when a part is re-added there.
 
 ## RequiresCommand
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether changing the color requires that the ship can currently execute commands from the player. When false, the picker stays usable on any ship the player can command at all.
 
 ## AlwaysAllowInBuildMode
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Lets the color be changed while editing the ship in build mode even when [[Cosmoteer.Ships.Parts.UI.PartUIColorRules.RequiresCommand]] would forbid it, provided the ship's construction is legal.

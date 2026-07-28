@@ -25,9 +25,9 @@ The mathematical operator used on DataAInOut and DataBIn.
 ## ValueType
 `enum FlexValueType` · optional
 
-<!-- TODO: needs documentation -->
+The type of the constant operand, which also selects the type used to read [[Halfling.Particles.Updaters.ParticleOperatorConst.AIn]] and write [[Halfling.Particles.Updaters.ParticleOperatorConst.ResultOut]]. One of `Float`, `Angle`, `Vector2`, `Vector3`, `Vector4`, `Color`, `Int`, `IntVector2`, `IntVector3` or `IntVector4`. `Angle` behaves identically to `Float`.
 
 ## Value
 `FlexValueComponent` · optional
 
-<!-- TODO: needs documentation -->
+The constant used as the "B" (right-hand) operand of [[Halfling.Particles.Updaters.ParticleOperatorConst.Operator]], in the type selected by [[Halfling.Particles.Updaters.ParticleOperatorConst.ValueType]]. The vanilla radiator's hit_sparks effect multiplies its hit normal by a Value of (-0.5, -0.5) to compute a hit offset.

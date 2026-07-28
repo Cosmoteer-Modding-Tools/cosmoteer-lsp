@@ -10,74 +10,74 @@
 ## UniqueBucket
 `int` · required
 
-<!-- TODO: needs documentation -->
+Sort key ordering this layer against the other layers in the same [[#RenderStage]]. Layers are drawn low-to-high by this value, so a larger bucket draws on top. Must be unique among layers.
 
 ## RenderStage
 `enum ShipRenderStage` · required · one of: `Lowest`, `Low`, `Middle`, `Crew`, `High`, `Highest`, `Indicators`
 
-<!-- TODO: needs documentation -->
+Coarse pass in which the layer is drawn, fixing its order relative to crew and the other passes. Within a stage the fine order comes from [[#UniqueBucket]]. `Crew` interleaves with crew rendering and `Indicators` is the on-ship indicator overlay pass.
 
 ## AtlasTextureParams
 `AtlasTextureParams` · required
 
-<!-- TODO: needs documentation -->
+Texture-generation settings for this layer's sprite atlas, controlling sampling, mipmaps, color keying and compression. See [[Cosmoteer.Ships.Rendering.AtlasTextureParams]].
 
 ## Material
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+Material used to draw the layer's sprites to the screen. When omitted the layer contributes only to the auxiliary render targets below and is not drawn directly.
 
 ## StencilMaterial
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+Material used to render the layer into the stencil render target, when that target exists. Feeds masking used by later passes.
 
 ## DiffuseMaterial
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+Material used to render the layer into the diffuse render target, when that target exists. Supplies the diffuse-color input for deferred lighting.
 
 ## NormalsMaterial
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+Material used to render the layer into the normals render target, when that target exists. Supplies surface normals for lighting.
 
 ## LightMaterial
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+Material used to render the layer into the light buffer, when it exists. Lets the layer emit light in the fancy-lighting pipeline.
 
 ## GhostMaterial
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+Material used to draw a ghost copy of the layer, such as the translucent placement preview shown while building.
 
 ## DrawForLocalPlayerOnly
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true the layer is drawn only for ships viewable by the local player, hiding it on enemy or unrevealed ships.
 
 ## DrawWithFancyLightingOnly
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true the layer is drawn only while the Fancy Lighting graphics setting is enabled, and skipped otherwise.
 
 ## IsRoof
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks this as a roof layer. It is drawn with the current roof opacity so it fades out when the ship interior is revealed, and is skipped entirely when roof opacity is zero.
 
 ## IsIndicators
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks this as an on-ship indicators layer. It is drawn only when the Show On-Ship Indicators setting is on, the GUI is active and indicators are not suppressed for the current view.
 
 ## Inflate
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Expands every sprite quad outward by this many tiles on all sides when the layer's geometry is built. Used to hide seams or give an outline margin.
 
 ## HasNormals
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, normal-map atlases are generated and loaded for this layer, enabling normal-mapped lighting. When false, only the base color atlas is built.

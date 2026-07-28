@@ -10,24 +10,24 @@
 ## ToggleID
 `→ PartToggleGuiRules` · optional
 
-<!-- TODO: needs documentation -->
+The part toggle this choice belongs to, matching a `ToggleID` in the game GUI's toggle list.
 
 ## Mode
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The mode number of the choice being unlocked. It matches a choice's `Mode` in the toggle's `Choices` list, defaulting to that choice's index when the choice does not set one.
 
 ## PartID
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+Restricts the unlock to a single part type. When it is left out, the choice is locked and unlocked on every part that carries the toggle.
 
 ## 0
 `→ PartToggleGuiRules` · optional
 
-<!-- TODO: needs documentation -->
+In the two element list shorthand `[toggle_id, mode]`, position 0 is the toggle ID. See `ToggleID`.
 
 ## 1
 `int` · optional
 
-<!-- TODO: needs documentation -->
+In the two element list shorthand `[toggle_id, mode]`, position 1 is the mode number. The shorthand cannot set `PartID`, so the choice covers every part with that toggle. See `Mode`.

@@ -10,104 +10,104 @@
 ## Radius
 `float` · required
 
-<!-- TODO: needs documentation -->
+The radius of the capture point circle in world units. A ship must physically overlap this circle to occupy the point, and the same radius is passed to `RandomGenerators` as the area to fill with scenery.
 
 ## TimeToCapture
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long a team must sit alone in a neutral point to take it. The same rate runs backwards while a different team is the sole occupant, so a claim in progress is undone at the speed it was made.
 
 ## TimeToUncapture
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long an enemy team must sit in an already captured point to knock it back to neutral. Once the enemy leaves, the owner's hold recovers at the same rate.
 
 ## IncomeRate
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the host's chosen capture point income to give this point's payout per income tick. Vanilla uses 100%, 200% and 300% for the small, large and huge points.
 
 ## CaptureBonus
 `float` · required
 
-<!-- TODO: needs documentation -->
+The one-off payout a team receives the moment it finishes capturing the point, as a multiple of the point's own income. Vanilla pays exactly one extra income tick.
 
 ## MinDistanceBuffer
 `float` · required
 
-<!-- TODO: needs documentation -->
+The minimum clearance in world units the map generator keeps between this point and any other capture or spawn point. It is checked from both sides, so whichever of the two buffers is larger wins.
 
 ## AreaExpand
 `float` · required
 
-<!-- TODO: needs documentation -->
+The area in square world units this capture point type contributes to the circle the map is generated inside. The generator adds it once per capture point type rather than once per placed point, so raising `CapturePointTypeCounts` does not make the map any bigger.
 
 ## RandomGenerators
 `SimulationGenerator[]` · optional
 
-<!-- TODO: needs documentation -->
+The pool of simulation generators for the scenery inside the point, one of which is picked at random and run centered on the point with a radius of `Radius`. All points in one symmetric set share the same pick, so mirrored map halves stay identical.
 
 ## Circle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The ring drawn around the capture point in the world, tinted with the owning team's color. Its `Thickness` also pushes the drawn radius outward by half a thickness so the ring sits just outside the actual capture area.
 
 ## ProgressCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The renderer for the disc that fills in as a capture progresses. Its `InnerRadius` and `Thickness` are overwritten every frame from the current progress, so only the texture, color and quad count of this renderer matter.
 
 ## TextYOffset
 `float` · required
 
-<!-- TODO: needs documentation -->
+The gap between the bottom of the capture point circle and its name and income label. It is scaled by the camera scale so the gap looks constant on screen rather than in world units.
 
 ## TextFadeZoomRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The camera scale range over which the capture point's label fades in. Vanilla `[600, 300]` makes the label invisible when zoomed out to 600 and fully opaque at 300 or closer.
 
 ## MinimapThicknessScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the minimap pixel scale used for the capture point ring's thickness on the minimap, so a ring that is thin in the world stays readable at minimap size.
 
 ## ProgressCircleTransitionDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long the progress disc takes to wipe in or out once capture progress arrives at or leaves full. The wipe runs from the moment progress last hit full.
 
 ## ColorTransitionDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long the capture point ring takes to blend from the previous owner's color to the new owner's color after ownership changes.
 
 ## TransitionColorMultiply
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color the ring is multiplied by at the peak of the pulse that runs alongside the ownership color transition. Vanilla's alpha of 510 pulses the ring to double opacity and back.
 
 ## NeutralIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite for this point in the row of capture point icons next to the match timer, shown while no team owns it.
 
 ## OwnedIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite for this point in the row of capture point icons next to the match timer, shown once a team owns it and tinted with that team's color.
 
 ## AlertSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays for the owning team the moment an enemy starts pushing a fully held point back toward neutral.
 
 ## ActivateSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays for a team the moment it finishes capturing the point.
 
 ## DeactivateSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays for the team that just lost the point when it drops back to neutral.

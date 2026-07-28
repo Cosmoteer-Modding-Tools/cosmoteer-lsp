@@ -10,9 +10,9 @@
 ## HeightExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The exponent applied to each sampled height before it is mapped through the layer's `Colors` ramp. Values above 1 emphasize higher areas and values below 1 flatten the distribution.
 
 ## HeightMapName
 `string` · optional
 
-<!-- TODO: needs documentation -->
+The name of the heightmap, from the generator's set of named heightmaps, used as the value source. If no heightmap with this name exists, values are treated as zero.

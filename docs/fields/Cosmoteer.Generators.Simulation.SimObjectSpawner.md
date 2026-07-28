@@ -10,164 +10,164 @@
 ## Tags
 `→ SimObjectSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Labels attached to every object this spawner creates, so that later spawners can refer to them through `RootLocationTag`, the `MinDistanceFromTags` family, and the tag searches used by ship AI and initial ship commands. Doodads also contribute the tags declared on their own doodad rules.
 
 ## SpawnChance
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Probability from 0 to 1 that this spawner runs. The roll happens once for the whole spawner, so a failed roll skips every object it would have made and every sub-spawner below it.
 
 ## ForEachRootMax
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The maximum number of tagged root locations to repeat the whole spawn at when `RootLocation` is `Tag`. Everything from `Count` downwards happens once per chosen root, and the field does nothing for the other `RootLocation` modes.
 
 ## Count
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+How many objects to spawn, drawn uniformly between the two ends inclusive. Both ends are first multiplied by the value selected by `MultiplyCount` and rounded up.
 
 ## Retries
 `int` · optional · default `500`
 
-<!-- TODO: needs documentation -->
+How many extra candidate positions are tried when a spawn position is rejected by the distance, angle and nebula constraints, so each object gets `Retries` + 1 attempts. Once an object runs out of attempts the spawner gives up on it and on all remaining objects of the same `Count`.
 
 ## MultiplyCount
 `enum DynamicValueMode` · optional · one of: `None`, `ParentToGrandparent`, `ParentToWorldCenter`, `AreaSquareKM`, `AreaRadiusKM`
 
-<!-- TODO: needs documentation -->
+Selects a dynamic value that both ends of `Count` are multiplied by, for example `AreaSquareKM` to scale the population with the size of the play area. `None` leaves `Count` alone.
 
 ## Distance
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The range of distances in world units from the root location at which objects are placed. Candidates are drawn with uniform area density across the ring rather than uniform radius, and both ends are scaled by `MultiplyDistance` and then offset by `AddDistance`.
 
 ## SortByDistanceToSpawnPoint
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Sorts the chosen positions by distance to the career map node's player spawn point before the objects are actually created. That order is what the index in a sub-spawner's `ParentIndex` condition refers to, so it lets you treat the nearest object specially. Ignored outside career mode.
 
 ## RootLocation
 `enum RootLocationMode` · optional · one of: `Parent`, `Grandparent`, `WorldCenter`, `Tag`, `MinTierGate`
 
-<!-- TODO: needs documentation -->
+The point that `Distance` and `Angle` are measured from. `Parent` is the object that spawned this spawner, `Grandparent` is one level above that, `WorldCenter` is (0,0), `Tag` uses objects found through `RootLocationTag`, and `MinTierGate` uses the lowest-tier FTL gate in career mode.
 
 ## RootLocationTag
 `→ SimObjectSpawner` · optional
 
-<!-- TODO: needs documentation -->
+The tag whose already-spawned objects serve as root locations when `RootLocation` is `Tag`. Up to `ForEachRootMax` of them are used, chosen at random unless `RootLocationFarthestFromTag` is set, and the spawner does nothing when no object carries the tag.
 
 ## RootLocationFarthestFromTag
 `→ SimObjectSpawner` · optional
 
-<!-- TODO: needs documentation -->
+Makes the choice of tagged root locations deterministic instead of random by preferring the candidate that is farthest from the nearest object carrying this second tag. Only used when `RootLocation` is `Tag`.
 
 ## MultiplyDistance
 `enum DynamicValueMode` · optional · one of: `None`, `ParentToGrandparent`, `ParentToWorldCenter`, `AreaSquareKM`, `AreaRadiusKM`
 
-<!-- TODO: needs documentation -->
+Selects a dynamic value that both ends of `Distance` are multiplied by, for example `ParentToGrandparent` to place objects in proportion to how far the parent orbits out. `None` leaves `Distance` alone.
 
 ## AddDistance
 `enum DynamicValueMode` · optional · one of: `None`, `ParentToGrandparent`, `ParentToWorldCenter`, `AreaSquareKM`, `AreaRadiusKM`
 
-<!-- TODO: needs documentation -->
+Selects a dynamic value added to both ends of `Distance`, applied after `MultiplyDistance`. `None` adds nothing.
 
 ## MinDistanceFromSiblings
 `float` · optional · default `-∞`
 
-<!-- TODO: needs documentation -->
+Minimum gap in world units between this object and every other object placed by the same spawner run. The gap is measured between the objects' spawn circles, so their radii already count against it, and any negative value disables the check.
 
 ## MinDistanceFromSiblingOrbits
 `float` · optional · default `-∞`
 
-<!-- TODO: needs documentation -->
+Minimum difference in orbital radius, meaning the distance out from the root location, between this object and each sibling. Use it to keep objects that share a root on visibly separate rings. Any negative value disables the check.
 
 ## MinAngleFromSiblings
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+Minimum angular separation, seen from the root location, between this object and each sibling. Any negative value disables the check, which is what the default of -360 degrees does.
 
 ## MinDistanceFromCousins
 `float` · optional · default `-∞`
 
-<!-- TODO: needs documentation -->
+Minimum gap in world units between this object and every object already spawned by the other spawners that share the same parent object. Measured between spawn circles like `MinDistanceFromSiblings`, and disabled by any negative value.
 
 ## MinDistanceFromCousinOrbits
 `float` · optional · default `-∞`
 
-<!-- TODO: needs documentation -->
+Minimum difference in orbital radius from the root location between this object and each cousin. The cousin version measures from circle centres rather than circle edges, unlike `MinDistanceFromSiblingOrbits`. Any negative value disables the check.
 
 ## MinAngleFromCousins
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+Minimum angular separation, seen from the root location, between this object and each cousin. Any negative value disables the check, which is the default.
 
 ## MinDistanceFromTags
 `[→ SimObjectSpawner, float][]` · optional
 
-<!-- TODO: needs documentation -->
+Pairs of tag and distance in world units. A candidate position is rejected when it comes closer than the given distance to any already-spawned object carrying that tag, measured between the spawn circles.
 
 ## MaxDistanceFromTags
 `[→ SimObjectSpawner, float][]` · optional
 
-<!-- TODO: needs documentation -->
+Pairs of tag and distance in world units. A candidate is only accepted when, for every entry, at least one already-spawned object carrying that tag lies closer than the given distance. A tag that nothing carries yet rejects every candidate.
 
 ## MinDistanceFromTagOrbits
 `[→ SimObjectSpawner, float][]` · optional
 
-<!-- TODO: needs documentation -->
+Pairs of tag and distance in world units. A candidate is rejected when its orbital radius comes within the given distance of a tagged object's orbital radius. Both radii are measured from the world origin here, not from the spawner's root location the way `MinDistanceFromSiblingOrbits` does it.
 
 ## MinAngleFromTags
 `[→ SimObjectSpawner, number (degrees)][]` · optional
 
-<!-- TODO: needs documentation -->
+Pairs of tag and angle. A candidate is rejected when its direction comes within the given angle of a tagged object's direction. Both directions are taken from the world origin, not from the spawner's root location.
 
 ## MaxDistanceFromNebulas
 `[→ NebulaTypeRules, float][]` · optional
 
-<!-- TODO: needs documentation -->
+Pairs of nebula type and distance in world units. A candidate is only accepted when it is inside, or within the given distance of, at least one of the listed nebula types. A distance of 0 means the candidate has to be inside the nebula itself.
 
 ## MinDistanceFromNebulas
 `[→ NebulaTypeRules, float][]` · optional
 
-<!-- TODO: needs documentation -->
+Pairs of nebula type and distance in world units. A candidate is rejected when it is inside, or within the given distance of, any of the listed nebula types.
 
 ## Angle
 `Arc` · optional
 
-<!-- TODO: needs documentation -->
+The arc around the root location that candidate directions are drawn from, written as a near edge direction plus a width. It defaults to the full 360 degrees, and `SpawnsPerSlice` subdivides whatever arc is given here.
 
 ## SpawnsPerSlice
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Splits `Angle` into `Count` / `SpawnsPerSlice` equal slices, rounded up, and puts that many objects in each slice so they come out evenly spread instead of clumped. Zero turns slicing off, and when the arc is a full 360 degrees the whole slice pattern also gets one random rotation per spawner run.
 
 ## SpawnSlicePadding
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The fraction of each slice's width kept clear at both of its edges, so the usable arc is the slice width minus twice the padding. Vanilla uses values between 25% and 45%, and anything at or above 50% leaves no usable arc at all.
 
 ## SuppressLocationAssertions
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect in the shipped game. The value is read from the rules, but the only code that consults it is an empty branch left over from a developer assertion, fired when no valid position could be found within `Retries` attempts, that is compiled out of release builds.
 
 ## SubSpawners
 `SimSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Spawners run once for each object this spawner successfully places, with that object as their parent. Their `Conditions` are evaluated against the parent object's index and position, and `RandomSubSpawnerCount` can cut the list down to a random subset.
 
 ## RandomSubSpawnerCount
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+Limits how many of the `SubSpawners` actually run per parent object, drawn uniformly from this inclusive range. Which ones get dropped is decided by a lottery weighted against each sub-spawner's `RandomWeight`. Without this field every sub-spawner whose conditions pass runs.
 
 ## SynchronizeFactions
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Locks every ship spawned anywhere below this spawner to a single faction. The first ship chosen decides the faction and the rest are then restricted to it, and the lock is released once this spawner finishes. Only affects ship spawners that select by `ShipCriteria`, since an explicit `Ship` or `Ships` list does not pick by faction.
 
 ## SynchronizeAllegiance
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Locks every ship spawned anywhere below this spawner to a single player index. The first ship resolves its `Allegiance` normally and every later ship reuses that index, which matters most for `Unique` allegiance where each ship would otherwise get its own index. The lock is released once this spawner finishes.

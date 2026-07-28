@@ -4,7 +4,7 @@
     "description": "A complete language server for Cosmoteer rules",
     "author": "Cosmoteer Modding Tools",
     "license": "MIT",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
@@ -51,6 +51,11 @@
             {
                 "command": "cosmoteer.migrateMod",
                 "title": "Cosmoteer: Migrate Mod to Current Game Version",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.buildModSchemaFromMods",
+                "title": "Cosmoteer: Rebuild Schema from Code Mod Assemblies",
                 "category": "Cosmoteer"
             }
         ],
@@ -192,8 +197,8 @@
                 "cosmoteerLSPRules.diagnostics.validateWholeWorkspace": {
                     "scope": "resource",
                     "type": "boolean",
-                    "default": false,
-                    "description": "Validate every .rules file in the open workspace folder(s), not just the files open in the editor. Uses more memory and CPU on large projects."
+                    "default": true,
+                    "description": "Validate the whole mod, not just the files open in the editor, so the Problems panel describes the project rather than your tabs. Which files are covered is set by 'workspaceValidationScope'. Results are cached on disk per file, so only the first open of a project pays for the scan. Turn off on a low-memory machine: the pass holds every scanned file's AST while it runs."
                 },
                 "cosmoteerLSPRules.diagnostics.workspaceValidationScope": {
                     "scope": "resource",
@@ -206,8 +211,8 @@
                         "Validate every .rules file under the workspace folder(s).",
                         "Validate only the files reachable from the mod.rules manifest: its action sources, their includes and inheritance, and the strings folder. Files open in the editor always validate."
                     ],
-                    "default": "allFiles",
-                    "description": "Which files the whole-workspace validation pass covers (only relevant when 'validateWholeWorkspace' is on)."
+                    "default": "modRulesReachable",
+                    "description": "Which files the whole-workspace validation pass covers (only relevant when 'validateWholeWorkspace' is on). The default follows the mod.rules actions, so backups, templates and other content the game never loads stay out of the Problems panel. A workspace with no manifest is unrestricted either way."
                 },
                 "cosmoteerLSPRules.diagnostics.validateComponentReferences": {
                     "scope": "resource",
@@ -262,6 +267,18 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Fade a field that restates the game's own default, so deleting it changes nothing. Only checked inside groups that do not inherit, since an explicitly written default can deliberately override a base's value. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
+                },
+                "cosmoteerLSPRules.codeMods.enabled": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Understand mods that ship a .dll: the types, fields and 'Type=' values the assembly declares are read out of it and merged into the schema, so a modded component completes, hovers and validates like a built-in one. Covers the open workspace, the installed workshop mods and your own Mods folder. Turn off to use the shipped schema only, at the price of every type such a mod adds being reported as unknown."
+                },
+                "cosmoteerLSPRules.codeMods.autoRefresh": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Pick up a code mod that is installed, updated or rebuilt while the editor is open, by watching the assemblies the schema was built from. Costs nothing while nothing changes; each change re-scans the mod folders. Turn off to only update on 'Cosmoteer: Rebuild Schema from Code Mod Assemblies'."
                 },
                 "cosmoteerLSPRules.inlayHints.showBaseValue": {
                     "scope": "resource",
@@ -346,20 +363,25 @@
         "docs:lint": "node tools/docsgen/docsgen.mjs lint",
         "l10n": "npx @vscode/l10n-dev export --outDir ./l10n .\\server"
     },
+    "overrides": {
+        "minimatch": "^10.2.5",
+        "brace-expansion": "^5.0.8",
+        "diff": "^8.0.3",
+        "serialize-javascript": "^7.0.7"
+    },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
         "@types/mocha": "^10.0.10",
         "@types/node": "^24",
         "@vscode/l10n-dev": "^0.0.35",
-        "@vscode/test-electron": "^3.0.0",
+        "@vscode/test-electron": "^3.1.0",
         "esbuild": "^0.28.1",
-        "eslint": "^10.6.0",
+        "eslint": "^10.8.0",
         "eslint-config-prettier": "^10.1.8",
         "glob": "^13.0.6",
         "mocha": "^11.7.6",
-        "npm-run-all": "^4.1.5",
-        "prettier": "3.9.0",
+        "prettier": "3.9.6",
         "typescript": "^6.0.3",
-        "typescript-eslint": "^8.62.0"
+        "typescript-eslint": "^8.65.0"
     }
 }

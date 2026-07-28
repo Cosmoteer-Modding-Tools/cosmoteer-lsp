@@ -10,29 +10,29 @@
 ## IsOnToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The ID of the toggle component that drives the tween. While the toggle is on the value moves linearly toward [[Cosmoteer.Ships.Parts.Logic.PartValueTweenRules.OnValue]], while off it moves toward [[Cosmoteer.Ships.Parts.Logic.PartValueTweenRules.OffValue]]. The tween only advances while the component is operational, and without a toggle the value never changes.
 
 ## OffValue
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The value the tween moves toward while the toggle is off. Defaults to 0.
 
 ## OnValue
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The value the tween moves toward while the toggle is on.
 
 ## StartingValue
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The value the component starts at when the part is newly created. When unset it starts at [[Cosmoteer.Ships.Parts.Logic.PartValueTweenRules.OnValue]] or [[Cosmoteer.Ships.Parts.Logic.PartValueTweenRules.OffValue]] depending on the toggle's initial state.
 
 ## OnTweenDuration
 `float` · required
 
-<!-- TODO: needs documentation -->
+How long, in seconds, the value takes to move all the way from [[Cosmoteer.Ships.Parts.Logic.PartValueTweenRules.OffValue]] to [[Cosmoteer.Ships.Parts.Logic.PartValueTweenRules.OnValue]] after the toggle turns on. The vanilla `base_part_overclock.rules` tweens its overclock state on over 1 second and back off over 0.1 seconds.
 
 ## OffTweenDuration
 `float` · required
 
-<!-- TODO: needs documentation -->
+How long, in seconds, the value takes to move all the way from [[Cosmoteer.Ships.Parts.Logic.PartValueTweenRules.OnValue]] back to [[Cosmoteer.Ships.Parts.Logic.PartValueTweenRules.OffValue]] after the toggle turns off.

@@ -10,27 +10,27 @@
 ## Toggle
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The toggle component on the same part whose on/off state controls whether this indicator is shown.
 
 ## ShowWhenToggleOn
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Shows the indicator while [[Cosmoteer.Ships.Parts.Graphics.PartIndicatorSpritesRules+IndicatorRules.Toggle]] is on. When false, the default, the indicator shows while the toggle is off, which suits warning icons such as the vanilla airlock's power-off indicator tied to its `PowerToggle`.
 
 ## ShowInBuildMode
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Keeps the indicator visible while the build toolbox is open. When false, the default, the indicator is hidden in build mode.
 
 ## Delay
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds the toggle must remain in the showing state before the indicator appears. Hiding is not delayed. At 0, the default, the indicator appears immediately.
 
 ## AtlasSprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite drawn for this indicator, centered on the component's location plus the sprite's own offset. It is rendered in the ship's indicator overlay rather than a normal render layer, so it does not rotate with the part.
 
 ## HidesIndicators
 `int[]` · optional

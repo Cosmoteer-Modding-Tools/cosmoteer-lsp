@@ -10,4 +10,4 @@
 ## RandomOptions
 `RandomEffect[]` · optional
 
-<!-- TODO: needs documentation -->
+The pool of options to pick from. Each time the effect fires, exactly one option is chosen at random with probability proportional to its [[Cosmoteer.Simulation.HitEffects.RandomHitEffectRules+RandomEffect.RandomWeight]], and that option's effects are applied.

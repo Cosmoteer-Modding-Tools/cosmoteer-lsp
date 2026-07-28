@@ -10,4 +10,4 @@
 ## HeightFactor
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Scales the height differences between neighboring pixels when computing surface normals. Higher values produce steeper, more pronounced normals, and lower values flatten the resulting normal map.

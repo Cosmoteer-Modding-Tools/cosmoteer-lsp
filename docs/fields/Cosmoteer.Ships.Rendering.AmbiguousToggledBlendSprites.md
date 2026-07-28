@@ -10,24 +10,24 @@
 ## SituationCode
 `string` · required
 
-<!-- TODO: needs documentation -->
+Pattern of `0`, `1` and `*` characters describing which neighboring toggled slots this sprite blends against, one character per slot. `*` is a wildcard expanded into both a `0` and a `1` case. Every possible code of the layer's length must end up covered across all sprites or generation throws.
 
 ## DamageLevelSprites
 `AtlasSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+Sprites ordered from least to most damaged for this situation. The remapped damage fraction indexes into the list. Although marked optional here, the deserializer requires it.
 
 ## MinDamageFraction
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Lower bound of the damage range this sprite covers, from 0 to 1. Damage is remapped across [[#MinDamageFraction]] to [[#MaxDamageFraction]] before indexing [[#DamageLevelSprites]].
 
 ## MaxDamageFraction
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Upper bound of the damage range this sprite covers. Beyond it the sprite is not shown, deferring to another sprite defined for higher damage.
 
 ## AllowRotation
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+When true the sprite is also generated for every rotation of its situation code (each bit-wrap of the code), reusing the artwork rotated. Set false when the sprite is directional and must not appear rotated.

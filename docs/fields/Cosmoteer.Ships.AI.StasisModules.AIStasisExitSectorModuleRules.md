@@ -10,19 +10,19 @@
 ## DefaultStasisSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed in world units per second at which the stasis spawner drifts toward the nearest FTL gate. Overridden per ship by [[Cosmoteer.Ships.AI.AIParameters.StasisSpeed]], except for the kick of velocity the ship is given when it leaves stasis, which always uses this value.
 
 ## AvoidableDoodadTags
 `→ SimObjectSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Ids of doodad spawners, such as `sun` or `station`, that the spawner steers around on its way to the gate. Leaving it unset disables doodad avoidance, nebulas flagged as AI-avoidable are still routed around either way.
 
 ## AvoidableDoodadBuffer
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Extra distance in world units added to the radius of every doodad matched by [[Cosmoteer.Ships.AI.StasisModules.AIStasisExitSectorModuleRules.AvoidableDoodadTags]]. Vanilla AIs use 100.
 
 ## IsActivated
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the module is live from the start. While false it does nothing and hands control to the next stasis module, and it is switched on when a ship whose ExitSector strategy module is already active enters stasis. Vanilla `ai_police.rules` sets it so that idle police leave the sector.

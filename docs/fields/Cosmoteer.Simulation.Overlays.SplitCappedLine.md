@@ -10,12 +10,12 @@
 ## LineSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite drawn as the middle segment of the line, stretched between the begin and end points as a single rotated quad whose height is [[LineThickness]]. The sprite is sliced horizontally so callers can render its top half, bottom half, or both. When omitted, no line body is drawn and only the caps appear.
 
 ## LineThickness
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Height of the line body quad in world units.
 
 ## SplitRelativeThickness
 `bool` · optional
@@ -25,44 +25,44 @@ Whether the line thickness and cap sizes are halved when rendering only one half
 ## LineBeginOverhang
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Pulls the begin point inward toward the end by this many world units before drawing, shortening the line at its start. Negative values extend it past the begin point. Scaled by the caller's thickness/cap scale.
 
 ## LineEndOverhang
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Pulls the end point inward toward the begin by this many world units before drawing, shortening the line at its end. Negative values extend it past the end point. Scaled by the caller's thickness/cap scale.
 
 ## LineUPerLength
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Scales the line sprite's U texture coordinate by the line's length so the texture tiles or scrolls along the line instead of stretching once. When nonzero, the UV width is multiplied by length times this value and the U origin is offset by the caller's length offset times this value. Zero leaves the sprite's UV untouched.
 
 ## BeginCapSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite drawn as an end cap at the begin point of the line, sized by [[BeginCapSize]] and sliced to the same top/bottom half as the line body. Omit for no begin cap.
 
 ## BeginCapSize
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Width and height of the begin cap quad in world units. Scaled by the caller's thickness/cap scale.
 
 ## BeginCapOverlap
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Shifts the begin cap toward the line center by this many world units so it overlaps the line body rather than butting against it. Scaled by the caller's thickness/cap scale.
 
 ## EndCapSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite drawn as an end cap at the end point of the line, sized by [[EndCapSize]] and sliced to the same top/bottom half as the line body. Omit for no end cap.
 
 ## EndCapSize
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Width and height of the end cap quad in world units. Scaled by the caller's thickness/cap scale.
 
 ## EndCapOverlap
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Shifts the end cap toward the line center by this many world units so it overlaps the line body rather than butting against it. Scaled by the caller's thickness/cap scale.

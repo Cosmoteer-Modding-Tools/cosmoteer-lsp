@@ -10,14 +10,14 @@
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key of the category's bold heading, shown above its stats in the part tooltip's stats view. The vanilla disruptor groups its bolt stats under the `StatCategories/DisruptorBolt` heading.
 
 ## Stats
 `map<→ PartStatRules, PartStatValues>` · optional
 
-<!-- TODO: needs documentation -->
+The category's stat values, keyed by stat IDs from the game GUI's `PartStats` list and rendered through each stat's format string in that list's order. Each value may be a single number or a list of numbers feeding the format placeholders.
 
 ## Features
 `→ PartFeature[]` · optional
 
-<!-- TODO: needs documentation -->
+Part feature IDs listed after the category's stats, each shown with its display string from the game GUI's `PartFeatures` map. IDs without an entry there fall back to the raw ID text.

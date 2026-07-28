@@ -10,12 +10,12 @@
 ## LineSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+The sprite drawn for each segment of the bolt, tinted by the sprite's vertex color times the particle's color. Each segment advances the texture's V coordinate by one UV-rect height, walking down the texture along the bolt. When unset, segments are drawn as plain untextured quads in the particle's color.
 
 ## LineThickness
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The thickness of the bolt, in tiles, tapering from Max at the bolt's source to Min approaching its destination and multiplied by the particle's scale data from [[Cosmoteer.Simulation.MediaEffects.ParticleRenderers.ParticleLightningRenderer.ScaleIn]]. The vanilla FTL charge lightning tapers from 1.5 down to 0.1.
 
 ## EnableLightningShaderAnimation
 `bool` · optional

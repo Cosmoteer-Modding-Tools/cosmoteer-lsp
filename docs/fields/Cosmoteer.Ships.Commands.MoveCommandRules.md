@@ -10,114 +10,114 @@
 ## SeparationRadiusFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies each ship's bounding radius when a batch of move commands issued together is spread out so the destinations do not overlap. Larger values leave wider gaps between the ships of a fleet at its destination.
 
 ## SatisfiedDistanceAsRadiusFraction
 `float` · required
 
-<!-- TODO: needs documentation -->
+How close to its destination the ship must get, as a fraction of its own bounding radius, before the command counts as satisfied and the next queued command starts.
 
 ## RightClickAdjustPixelThreshold
 `float` · required
 
-<!-- TODO: needs documentation -->
+Screen distance in pixels, scaled by the global UI scale, that the mouse must travel while the command button is held before the destination rotation starts following the cursor. Creative mode reuses this same value as the drag threshold for rotating placed objects.
 
 ## Circle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The circle that pulses out at the destination when a move command is given.
 
 ## CircleDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds the destination pulse lasts, over which `Circle` grows and fades away completely.
 
 ## CircleGrowFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radius multiplier the destination pulse grows to over `CircleDuration`, starting from the commanded ship's bounding radius.
 
 ## PathLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The line drawn from the previous command's endpoint to this destination.
 
 ## PathLineCamScaleExponent
 `float` · required
 
-<!-- TODO: needs documentation -->
+Exponent applied to the camera scale to get the thickness scale of `PathLine`, so the line does not thin out linearly as the player zooms. The result is floored at the camera scale times `MinPathLineSize`.
 
 ## MinPathLineSize
 `float` · required
 
-<!-- TODO: needs documentation -->
+Floor on the `PathLine` thickness scale, expressed as a fraction of the camera scale.
 
 ## RotationTargetLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The line drawn from the destination to the separate rotation target a move command can be given. It is always drawn in the current player color.
 
 ## GhostColorFactor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplier for the translucent ship ghost drawn at the destination.
 
 ## GhostBlinkColorFactor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplier the destination ghost blends toward on each blink right after the command is given.
 
 ## BlinkInterval
 `float` · required
 
-<!-- TODO: needs documentation -->
+Length in seconds of one full blink cycle of the destination ghost, split evenly between `GhostColorFactor` and `GhostBlinkColorFactor`.
 
 ## BlinkCount
 `int` · required
 
-<!-- TODO: needs documentation -->
+Number of blink cycles the destination ghost performs after the command is given.
 
 ## FadeMinDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance in tiles between the previous command's endpoint and this destination at which the ghost and the path line begin to appear. Below it they are invisible unless the rotation difference keeps them visible.
 
 ## FadeMaxDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance in tiles at which the ghost and the path line reach full opacity.
 
 ## FadeMinAngle
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+Difference between the ship's current rotation and the commanded rotation at which the ghost and the path line begin to appear. Whichever of the distance fade and the angle fade gives the higher opacity wins.
 
 ## FadeMaxAngle
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+Rotation difference at which the ghost and the path line reach full opacity.
 
 ## MoverWidget
 `CommandWidgetRules` · required
 
-<!-- TODO: needs documentation -->
+The widget dragged to move this command's destination. It sits on the destination itself and is never rotated.
 
 ## RotatorWidget
 `CommandWidgetRules` · required
 
-<!-- TODO: needs documentation -->
+The widget dragged to change the rotation the ship holds at the destination. It sits one ship bounding radius from the destination, in the direction the destination ghost faces.
 
 ## DeleterWidget
 `CommandWidgetRules` · required
 
-<!-- TODO: needs documentation -->
+The widget clicked to delete this command. It sits diagonally off the destination by one ship bounding radius plus one tile and stays aligned with the camera.
 
 ## MoveDistIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon shown on the ship card beside the remaining distance to the destination for an ordinary move.
 
 ## StrafeDistIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon used instead of `MoveDistIcon` when the move was issued with a forced destination rotation, which is how strafing moves are given.

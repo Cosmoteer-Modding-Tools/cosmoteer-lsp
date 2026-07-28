@@ -10,4 +10,4 @@
 ## Effects
 `MediaEffectRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The sub-effects making up this media effect, each a group whose `Type` picks the effect kind: `Beam`, `Quad`, `PartQuad`, `TileQuad`, `ArcShield`, `Particles`, `Audio`, `ScreenShake`, or `Random`. All entries are created on the same node and play in unison whenever the containing effect is triggered. Because the field's serialization alias is empty, the list is normally written directly as the containing field's value, as in `HitEffects [ { Type = Particles ... } ]`.

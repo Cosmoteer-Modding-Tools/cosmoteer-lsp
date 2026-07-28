@@ -10,14 +10,14 @@
 ## ResourceType
 `→ ResourceRules` · required
 
-<!-- TODO: needs documentation -->
+The resource dropped into a flexible storage tile when this entry wins the loadout lottery.
 
 ## RandomWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Relative weight of this entry in the lottery, which is rolled once for every unpinned flexible storage tile on the ship. Weights only mean anything relative to the other entries of the same `ResourceLoadout`.
 
 ## Quantity
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+How many units go into the tile, drawn uniformly inclusive and then clamped to the resource's own maximum stack size. It defaults to the largest possible integer at both ends, so tiles are filled right up to the stack limit.

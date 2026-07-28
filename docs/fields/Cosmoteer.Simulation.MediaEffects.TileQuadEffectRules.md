@@ -15,7 +15,7 @@ The value to inflate the quad's rect by.
 ## Z
 `float` · optional
 
-The depth coordinate of the quad.
+Has no effect. The tile quad renderer never reads it, it builds the quad from the ship cell rect alone. The identically named [[Cosmoteer.Simulation.MediaEffects.QuadEffectRules.Z]] on a plain quad effect is the one that works.
 
 ## ColorOverIntensity
 `range<Color>` · optional

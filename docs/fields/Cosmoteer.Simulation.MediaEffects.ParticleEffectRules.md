@@ -10,22 +10,22 @@
 ## Def
 `ParticleSystemDef` · optional
 
-<!-- TODO: needs documentation -->
+The definition of the particle system the emitted particles live in, containing the initializers, updaters, and renderers that drive their behavior and appearance. Emission counts declared inside it are ignored because the system's own emission is disabled. All particles come from [[Cosmoteer.Simulation.MediaEffects.ParticleEffectRules.EmitterDef]] instead.
 
 ## EmitterDef
 `ParticleEmitterDef` · optional
 
-<!-- TODO: needs documentation -->
+The emitter that feeds particles into the system, carrying the per-second emission rate and the burst size per one-shot. One-shot plays emit a single burst from it while continuous plays run it every frame until the effect ends. Its output is multiplied by the `ScaleEmissionWith` fields.
 
 ## Bucket
 `→ MediaEffectBucketsRules` · optional
 
-<!-- TODO: needs documentation -->
+The effect bucket the particles render in, which determines their draw order relative to ships and other effects. Bucket names are declared in the ordered lists of `common_effects/effect_buckets.rules`. Defaults to the first bucket in that render order.
 
 ## UseRealTime
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Updates the particle system with the real-time application clock instead of the simulation clock, so the particles keep animating while the simulation is paused or its speed is changed. The vanilla mine's range ring uses this.
 
 ## EmitImmediately
 `bool` · optional
@@ -35,104 +35,104 @@ Whether the emitter should be created with 1 accumulated particle emission.
 ## PenetratingBucket
 `→ MediaEffectBucketsRules` · optional
 
-<!-- TODO: needs documentation -->
+An alternate bucket used instead of [[Cosmoteer.Simulation.MediaEffects.ParticleEffectRules.Bucket]] when the effect is played with the penetrating flag set, which happens when a projectile hit penetrates through the part it struck. Most vanilla projectile hit effects switch to `Middle2` in that case so the hit visuals render at interior depth.
 
 ## MinIntensity
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The effect intensity below which no particles are emitted. A continuous effect keeps updating its existing particles and resumes emission once the intensity reaches this value again.
 
 ## IsFancy
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the effect as a fancy version that only plays while the Fancy Particles graphics setting is enabled. Pair it with a fallback effect that sets [[Cosmoteer.Simulation.MediaEffects.ParticleEffectRules.IsSimple]].
 
 ## IsFancyLight
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the effect as a fancy lighting version that only plays while the Fancy Lighting graphics setting is enabled.
 
 ## IsSimpleLight
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the effect as a lighting fallback that only plays while the Fancy Lighting graphics setting is disabled.
 
 ## IsSimple
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the effect as a fallback that only plays while the Fancy Particles graphics setting is disabled.
 
 ## ToggleWithRoofOpacity
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Ties emission to roof visibility. When set, no particles are emitted while the roof of the relevant ship (the hit ship unless overridden) is fully faded out, as with the vanilla resonance beam's hit smoke that stops while the ship's interior is shown.
 
 ## Sharing
 `enum ParticleEffectSharing` · optional · one of: `None`, `Global`
 
-<!-- TODO: needs documentation -->
+`None` gives each play of the effect its own particle system attached to the effect's node. `Global` emits into a world-space particle system shared by every effect with the same [[Cosmoteer.Simulation.MediaEffects.ParticleEffectRules.Def]], bucket, real-time flag, and back-buffer flag, which batches frequently spammed effects such as the vanilla tractor beam glints and resonance beam hit sparks.
 
 ## UnsharedRenderInWorldSpace
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Renders an unshared particle system in world space instead of the local space of the node the effect is attached to. Only applies when [[Cosmoteer.Simulation.MediaEffects.ParticleEffectRules.Sharing]] is `None`, since shared systems always render in world space.
 
 ## DontEmitWhenOffScreen
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Suppresses emission while the effect cannot be seen, meaning its location is outside the inflated main view and miniview rectangles or outside the local player's sight range. Particles that were already emitted still update normally. Vanilla part explosions disable this so the debris exists when the player pans over to the wreck.
 
 ## DontEmitWhenOffScreenSizeInflate
 `float` · optional · default `5`
 
-<!-- TODO: needs documentation -->
+The margin in tiles added around the view rectangles for the off-screen emission check, and also the radius of the circle used for the player-sight check. Only relevant while [[Cosmoteer.Simulation.MediaEffects.ParticleEffectRules.DontEmitWhenOffScreen]] is enabled.
 
 ## UseCustomShapeForOffScreenCheck
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Runs the off-screen and sight checks against the custom shape supplied by the effect's source, such as a beam's line or the tiles covered by a status effect, instead of the effect node's single point. Vanilla fire particles use this so a fire spanning several tiles still emits when its origin point is just off screen.
 
 ## MaxEmissionZoom
 `float` · optional · default `∞`
 
-<!-- TODO: needs documentation -->
+The camera zoom scale above which emission stops, where a higher scale means the camera is zoomed further out. Lets fine detail effects stop emitting once they would be too small to see, as with vanilla fire particles at 15 and the shield overload sizzle at 30. Unset means no zoom limit.
 
 ## MaxParticleCount
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+A soft cap on the number of live particles in the effect's particle system. Emission is multiplied by the remaining fraction of the cap, so it tapers off smoothly as the count approaches the limit. The vanilla fire base effect caps at 10000.
 
 ## ScaleEmissionWithIntensity
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Multiplies the emission amount by the effect's current intensity. Vanilla fire particles use this so more intense fires emit more.
 
 ## ScaleEmissionWithBeamLength
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Multiplies the emission amount by the beam length supplied by the playing weapon, so longer beams emit proportionally more particles. Used by the vanilla tractor beam glints.
 
 ## ScaleEmissionWithWorldVelocity
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Multiplies the emission amount by the speed of the effect's world velocity, typically the velocity of the projectile or object playing it. The vanilla EMP missile's thruster lightning uses this.
 
 ## ScaleEmissionWithPartSize
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Multiplies the emission amount by the hit part's area in tiles (width times height), falling back to 1 when no part is involved. Vanilla salvage and construction poof effects use this so larger parts make larger bursts.
 
 ## ScaleEmissionWithPartPhysicalSize
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Multiplies the emission amount by the area of the hit part's physical size rather than its full logical footprint. The vanilla shield overload sizzle scales with this.
 
 ## CaptureBackBuffer
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Captures the scene rendered so far and binds it as the `CapturedBackBuffer` shader texture before the particles draw, letting distortion shaders sample and warp the image behind them. Used by vanilla shockwave and heat distortion particles.
 
 ## Filter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+A filter matched against what the effect hit, such as the hit ship, part, shield, bullet, or crew member. When the filter rejects the target, the effect does not play. Vanilla fire sparks restrict themselves to ship hits this way.

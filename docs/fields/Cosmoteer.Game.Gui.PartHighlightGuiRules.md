@@ -10,14 +10,14 @@
 ## Color
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The fill color painted over every tile of the highlighted area in the blueprint overlay, one quad per tile. Its alpha channel is additionally scaled by `AlphaOverIntensity`, so the alpha written here is the value at full intensity only if that range ends at 1.
 
 ## BorderColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The color of the outline drawn along the outer edge of the highlighted area, meaning only those tile edges that have no other highlighted tile beyond them. No outline is drawn when this is omitted or when its alpha is 0, and unlike the fill it is not scaled by intensity.
 
 ## AlphaOverIntensity
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The alpha multiplier applied to `Color`, interpolated between the low and high ends of the range as the tile's highlight intensity goes from 0 to 1. Intensity comes from the area provider, for example [[Cosmoteer.Ships.Statuses.StatusValueRegulatorRules.Falloff]] which makes outer tiles of a regulator area weaker, while buff ranges report a flat intensity of 1.

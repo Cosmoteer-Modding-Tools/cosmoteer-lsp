@@ -10,4 +10,4 @@
 ## Exponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The effect scale is raised to this power to produce the modifier value, which ModificationMode then combines with the running value. At the default of 1 the modifier value is the effect scale itself.

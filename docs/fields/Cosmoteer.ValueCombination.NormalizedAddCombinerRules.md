@@ -30,4 +30,4 @@ Whether negative input values should be reduced by the inverse value.
 ## MinFactor
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Floor on the inverse-value reduction. The reduction factor is `pow(1 - normalizedBase * (1 - MinFactor), InverseValueExponent)`, so when the base value sits at the top of ValueRange the other value's contribution is retained at MinFactor rather than dropping to zero. Defaults to 0, allowing full reduction.

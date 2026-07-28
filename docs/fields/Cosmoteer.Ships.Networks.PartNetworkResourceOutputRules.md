@@ -10,4 +10,4 @@
 ## Mode
 `enum MultiResourceStorageMode` · optional · default `DistributeEvenly` · one of: `InOrder`, `InReverseOrder`, `PrioritizeMostEmptyCapacity`, `PrioritizeLeastEmptyCapacity`, `PrioritizeMostResources`, `PrioritizeLeastResources`, `DistributeEvenly`, `DistributeRandomly`, `DistributeProportionallyByAvailable`, `DistributeProportionallyByCapacity`
 
-<!-- TODO: needs documentation -->
+Strategy for pulling resources out of the subnetwork's sources. Passed straight to the subnetwork's PullResources call, so it decides which source storages drain first when the output draws from multiple providers. See the MultiResourceStorageMode values for each ordering rule.

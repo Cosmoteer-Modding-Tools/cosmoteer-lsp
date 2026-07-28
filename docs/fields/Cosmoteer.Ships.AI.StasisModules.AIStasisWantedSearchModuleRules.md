@@ -10,14 +10,14 @@
 ## DefaultStasisSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed in world units per second at which the stasis spawner drifts toward a random point inside the nearest wanted search area. Overridden per ship by [[Cosmoteer.Ships.AI.AIParameters.StasisSpeed]]. Vanilla police use 100 here, faster than the 75 of their other stasis modules.
 
 ## AvoidableDoodadTags
 `→ SimObjectSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Ids of doodad spawners, such as `sun`, that the spawner will neither pick as a search destination nor drift through. Leaving it unset disables doodad avoidance, nebulas flagged as AI-avoidable are still routed around either way.
 
 ## AvoidableDoodadBuffer
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Extra distance in world units added to the radius of every doodad matched by [[Cosmoteer.Ships.AI.StasisModules.AIStasisWantedSearchModuleRules.AvoidableDoodadTags]]. Vanilla police use 100 around suns.

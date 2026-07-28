@@ -10,14 +10,14 @@
 ## ID
 `→ PartStatRules` · required
 
-<!-- TODO: needs documentation -->
+Identifies this stat. A part's `Stats` and `StatCategories` maps supply values under this id, and stat bars and icon widgets in the build toolbox refer to it. Position in the game's `PartStats` list also decides the order stats appear in a part's tooltip, not the order the part declares them.
 
 ## FormatKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the line printed in the part tooltip. The stat's values are passed in as the format arguments, so a stat holding two numbers such as `Size` uses a key with two placeholders.
 
 ## DefaultBuiltinStat
 `enum BuiltinStat` · optional
 
-<!-- TODO: needs documentation -->
+Fills this stat from a value the engine already knows about when a part does not declare it explicitly, for example `Cost`, `MaxHealth` or `CrewCapacity`. Several of these are converted for display rather than passed raw. `Size` and `PhysicalSize` are multiplied by the ship scale to give two values in meters, `ExplosiveDamageAbsorption` and the crew speed factors are multiplied by 100 to give percentages, and the penetration resistances have 1 subtracted so they read as the extra resistance above normal. Some builtins are also skipped when they would be uninteresting, for example a penetration resistance of 1 or below, or a crew capacity of zero.

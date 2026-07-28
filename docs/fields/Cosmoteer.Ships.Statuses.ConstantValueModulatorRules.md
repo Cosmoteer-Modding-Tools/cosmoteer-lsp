@@ -10,9 +10,9 @@
 ## Value
 `float` · required
 
-<!-- TODO: needs documentation -->
+The fixed amount fed into `ModificationMode` every tick, independent of the current status value. With `Add` and `ScaleByDeltaTime` on, this is a change per second.
 
 ## AffectedValueRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The status values this modulator applies to. The lower bound is inclusive and the upper bound is exclusive, so adjacent bands can be written back to back without overlapping.

@@ -10,69 +10,69 @@
 ## CombineMode
 `enum ValueCombineMode` · optional · one of: `Max`, `Min`, `Add`, `Multiply`
 
-<!-- TODO: needs documentation -->
+How the raw values of multiple providers buffing the same receiver are merged into one number, before [[Cosmoteer.Ships.Buffs.BuffType.Exponent]], [[Cosmoteer.Ships.Buffs.BuffType.Multiplier]] and [[Cosmoteer.Ships.Buffs.BuffType.BaseValue]] are applied. Defaults to `Max`. Vanilla engine-room thrust takes the strongest single buff with `Max` while factory and railgun buffs stack with `Add`.
 
 ## BaseValue
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Amount added to the buff value as the final step of the math, after [[Cosmoteer.Ships.Buffs.BuffType.Exponent]] and [[Cosmoteer.Ships.Buffs.BuffType.Multiplier]]. The full pipeline is `combined ^ Exponent * Multiplier + BaseValue`, clamped between [[Cosmoteer.Ships.Buffs.BuffType.MinValue]] and [[Cosmoteer.Ships.Buffs.BuffType.MaxValue]]. It only applies while at least one provider is buffing the receiver, an unbuffed receiver has no buff value at all, which is why vanilla multiplier-style buffs like `Engine` set `BaseValue = 100%` so a provider's contribution reads as a bonus on top of the normal 1.0.
 
 ## MinValue
 `float` · optional · default `-∞`
 
-<!-- TODO: needs documentation -->
+Lower clamp on the final buff value, applied after all other math. A receiving part can raise this floor further through [[Cosmoteer.Ships.Parts.PartRules.MinBuffValues]], the larger of the two bounds wins.
 
 ## MaxValue
 `float` · optional · default `∞`
 
-<!-- TODO: needs documentation -->
+Upper clamp on the final buff value, applied after all other math. A receiving part can lower this ceiling further through [[Cosmoteer.Ships.Parts.PartRules.MaxBuffValues]], the smaller of the two bounds wins.
 
 ## Exponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Power the combined provider value is raised to, before [[Cosmoteer.Ships.Buffs.BuffType.Multiplier]] and [[Cosmoteer.Ships.Buffs.BuffType.BaseValue]]. With [[Cosmoteer.Ships.Buffs.BuffType.CombineMode]] `Add`, values below 1 give diminishing returns per provider. The vanilla `RailgunShot` buff uses 0.8 so each additional accelerator adds less damage.
 
 ## Multiplier
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Scale applied to the combined provider value after [[Cosmoteer.Ships.Buffs.BuffType.Exponent]] and before [[Cosmoteer.Ships.Buffs.BuffType.BaseValue]] is added.
 
 ## Icon
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite drawn centered over each affected part when the build UI shows this buff's connections, for example over the receivers of a selected provider or over a part receiving the buff. The sprite's own Size is in tiles. Only one buff icon is shown per part, see [[Cosmoteer.Ships.Buffs.BuffType.IconPriority]].
 
 ## IconTextFormatKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key formatted with the buff's display number to draw a text label at affected parts in the build overlay. When omitted no text is shown. Vanilla buffs use `BuildBox/BuffPercentageFmt`, which renders as `+{0:0}%`.
 
 ## IconTextMultiply
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Scale applied to the buff value for the overlay label, the displayed number is `value * IconTextMultiply + IconTextAdd`. Vanilla percentage buffs use 100 together with [[Cosmoteer.Ships.Buffs.BuffType.IconTextAdd]] `-100`, turning a 1.25 buff value into a displayed 25.
 
 ## IconTextAdd
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Offset added to the buff value after [[Cosmoteer.Ships.Buffs.BuffType.IconTextMultiply]] to produce the number shown in the overlay label. Affects only the displayed text, not the buff itself.
 
 ## IconPriority
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Sort priority when a part is covered by several buff overlays. Buffs with higher priority get their icon and label drawn first, and since each part shows at most one buff icon they win the spot. The vanilla `RocketThrust` buff uses 1 to override the engine-room buff icon on rocket thrusters.
 
 ## ShowIconTextForZeroValue
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the overlay label is drawn when the displayed number (after [[Cosmoteer.Ships.Buffs.BuffType.IconTextMultiply]] and [[Cosmoteer.Ships.Buffs.BuffType.IconTextAdd]]) equals 0. Vanilla percentage buffs set this to false so an unchanged value shows no `+0%` label.
 
 ## RectBorderColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+Border color of the highlight rectangle drawn over the connected provider parts when the build overlay shows this buff. Used together with [[Cosmoteer.Ships.Buffs.BuffType.RectFillColor]].
 
 ## RectFillColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+Fill color of the highlight rectangle drawn over the connected provider parts when the build overlay shows this buff. When set, the fill and [[Cosmoteer.Ships.Buffs.BuffType.RectBorderColor]] pair is also registered as a part-highlight style under the buff's ID, which shades a provider's area of effect in the blueprint overlay.

@@ -10,24 +10,24 @@
 ## Fame
 `int` · required
 
-<!-- TODO: needs documentation -->
+The player fame at which this title takes over. The list is walked in order until a threshold is not reached yet, so entries must be sorted ascending and the first one is the starting title. The value is also the milestone position on the fame bar in the reputation log.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key of the title's name. It appears as the milestone label on the fame bar and, uppercased, in the fame level up banner.
 
 ## WantedPoliceTier
 `int` · required
 
-<!-- TODO: needs documentation -->
+The builtin ship tier police ships are drawn from while the player is wanted. It is used as an exact tier rather than an upper bound.
 
 ## IsVictory
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, reaching this title ends the run. The victory dialog is shown once the fame level up animation finishes.
 
 ## FameLevelMultiplier
 `float` · required
 
-<!-- TODO: needs documentation -->
+Scales the fame-priced numbers that apply at this title, namely [[Cosmoteer.Modes.Career.DialogueRules.FameLostOnTruceBreak]], [[Cosmoteer.Modes.Career.DialogueRules.PlayerSurrenderBaseCost]] and [[Cosmoteer.Modes.Career.DialogueRules.PlayerWantedPayoffCost]]. Vanilla ramps it from 1 at the lowest title to 15 at the highest.

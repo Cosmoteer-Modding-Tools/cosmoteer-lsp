@@ -10,14 +10,14 @@
 ## ValueSource
 `ComponentValueReferenceRules` · required
 
-<!-- TODO: needs documentation -->
+The watched value component. Whenever its value changes the trigger fires, and this component's own value becomes the change delta, new value minus old. Written either as a bare component ID or as a group with `ID` and an optional `ValueID`, and changes are only observed while the component is operational.
 
 ## TriggerOnIncrease
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether increases of the source value fire the trigger. A filtered-out change neither fires nor updates the exposed delta value.
 
 ## TriggerOnDecrease
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether decreases of the source value fire the trigger.

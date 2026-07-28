@@ -10,4 +10,4 @@
 ## JumpEffectsSource
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Ship-local point on the gate from which FTL jump-in and jump-out media effects emanate. It is transformed to world space when a ship jumps through the gate. When omitted, the gate ship's center is used instead.

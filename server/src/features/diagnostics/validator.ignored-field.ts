@@ -26,6 +26,7 @@ import {
     resolveGroupClass,
 } from '../../document/schema/schema-context';
 import { classAncestry, discriminatorIsAmbiguous, fieldOf, fieldsOf, schema } from '../../document/schema/schema';
+import { documentRootClass } from '../../document/schema/document-root';
 import { deprecatedField } from '../../document/schema/deprecations';
 import { ValidationError, ValidationErrorData } from './validator';
 import { getStartOfAstNode } from '../../utils/ast.utils';
@@ -101,7 +102,7 @@ const isFalseValue = (value: AbstractNode | null | undefined): boolean => {
  * @param except the element making the query, excluded from the search.
  * @returns true when another element already carries the name.
  */
-const siblingNamed = (group: GroupNode, name: string, except: AbstractNode): boolean => {
+const siblingNamed = (group: FieldContainer, name: string, except: AbstractNode): boolean => {
     const wanted = name.toLowerCase();
     return group.elements.some(
         (sibling) =>
@@ -120,7 +121,7 @@ const siblingNamed = (group: GroupNode, name: string, except: AbstractNode): boo
  * @param group the part group to search.
  * @returns the local list node, or undefined when the group has none (or an unclosed one).
  */
-const localTypeCategoriesList = (group: GroupNode): ListNode | undefined => {
+const localTypeCategoriesList = (group: FieldContainer): ListNode | undefined => {
     for (const element of group.elements) {
         const list = isListNode(element)
             ? element
@@ -295,6 +296,12 @@ export const isIgnoredSchemaField = (node: ValueNode): boolean => {
 };
 
 /**
+ * A node whose `elements` hold named members: a group, or the document itself when the whole file is
+ * one object (a media effect, a part override fragment). Both carry fields the same way.
+ */
+type FieldContainer = { elements: AbstractNode[] };
+
+/**
  * The lower-cased names of every schema field flagged `dead` (declared by the game but never read
  * by its code, per schemagen's whole-assembly read scan), so the per-assignment check below can
  * bail on cheap name membership before resolving any group class or ancestry. Built once at module
@@ -322,11 +329,23 @@ for (const type of Object.values(schema.types)) {
  * @param document the containing document, for the reference-usage scan.
  * @returns the class FullName that declares the dead field, or undefined.
  */
-const deadDeclaredFieldClass = (group: GroupNode, name: string, document: AbstractNodeDocument): string | undefined => {
-    if (!deadFieldNames.has(name.toLowerCase())) return undefined;
+const deadDeclaredFieldClass = (group: GroupNode, name: string, document: AbstractNodeDocument): string | undefined =>
+    deadDeclaredIn(resolveGroupClass(group), name, document);
+
+/**
+ * The declaring ancestor of a dead member on an already-resolved class. Split out of
+ * {@link deadDeclaredFieldClass} so the document root, whose class comes from the rooting engine
+ * rather than from a group's slot, can reuse the same verdict.
+ *
+ * @param cls the class the container resolved to, or undefined when it did not resolve.
+ * @param name the member's written field name.
+ * @param document the containing document, for the reference-usage scan.
+ * @returns the class FullName that declares the dead field, or undefined.
+ */
+const deadDeclaredIn = (cls: string | undefined, name: string, document: AbstractNodeDocument): string | undefined => {
+    if (!cls || !deadFieldNames.has(name.toLowerCase())) return undefined;
     if (referencedSegments(document).has(name.toLowerCase())) return undefined;
-    const cls = resolveGroupClass(group);
-    if (!cls || !fieldOf(cls, name)?.dead) return undefined;
+    if (!fieldOf(cls, name)?.dead) return undefined;
     const lowered = name.toLowerCase();
     return classAncestry(cls).find((ancestor) =>
         schema.types[ancestor]?.fields.some((field) => field.dead && field.name.toLowerCase() === lowered)
@@ -350,6 +369,101 @@ export const validateIgnoredFields = async (
 ): Promise<ValidationError[]> => {
     if (isModRules(document.uri)) return [];
     const errors: ValidationError[] = [];
+    /**
+     * Emit the hint for one ignored member.
+     *
+     * @param node the container holding the member, for the sibling and category lookups.
+     * @param element the member's assignment.
+     * @param cls the class that declares the dead field, or owns the group the member is foreign to.
+     */
+    const report = (node: FieldContainer, element: AssignmentNode, cls: string): void => {
+        const name = element.left.name;
+        const classLabel = schema.types[cls]?.name ?? cls;
+        const declaredButDead = !!fieldOf(cls, name);
+        // A field the game deleted in an update (a mod written against an older Cosmoteer):
+        // say what replaced it instead of the bare never-reads hint, so the modder learns the
+        // migration and not just the removal. The registry records the declaring class, so a
+        // derived resolution walks its ancestry to find the entry.
+        let deprecation: ReturnType<typeof deprecatedField>;
+        for (const ancestor of classAncestry(cls)) deprecation ??= deprecatedField(ancestor, name);
+        const start = element.left.position.start;
+        const end = element.right?.position?.end ?? element.left.position.end;
+        const data: ValidationErrorData = {
+            remove: {
+                title: l10n.t("Remove '{0}'", name),
+                start,
+                end,
+            },
+        };
+        if (deprecation) {
+            data.migration = { version: deprecation.version };
+            if (deprecation.replacement && !siblingNamed(node, deprecation.replacement, element)) {
+                // A same-shaped successor took over the deleted field's job: renaming keeps
+                // the author's configured value alive, which a bare removal would drop.
+                data.migration.apply = 'rewrite';
+                data.rewrite = {
+                    title: l10n.t("Change to '{0}'", deprecation.replacement),
+                    edits: [
+                        {
+                            start: element.left.position.start,
+                            end: element.left.position.end,
+                            newText: deprecation.replacement,
+                        },
+                    ],
+                };
+            } else if (name.toLowerCase() === 'flammable') {
+                if (isFalseValue(element.right)) {
+                    // `Flammable = false` was a fireproofing, and since Meltdown that
+                    // intent is spelled as the `non_flammable` part category. Only a
+                    // doc-local `TypeCategories` list can be appended to safely (a fresh
+                    // assignment would override an inherited list), so without one the
+                    // finding stays manual.
+                    const categories = localTypeCategoriesList(node);
+                    if (categories) {
+                        data.migration.apply = 'rewrite';
+                        data.rewrite = {
+                            title: l10n.t("Replace with a 'non_flammable' TypeCategories entry"),
+                            edits: [
+                                { start, end, newText: '' },
+                                {
+                                    start: categories.position.end - 1,
+                                    end: categories.position.end - 1,
+                                    newText: categories.elements.length > 0 ? ', non_flammable' : 'non_flammable',
+                                },
+                            ],
+                        };
+                    }
+                } else {
+                    // `Flammable = true` restates the old default: removal is the migration.
+                    data.migration.apply = 'remove';
+                }
+            } else if (deprecation.removeOnMigrate || deprecation.replacement) {
+                // Removal is sanctioned: the field is officially unused, or its still-present
+                // successor already carries the configuration beside it.
+                data.migration.apply = 'remove';
+            }
+        }
+        errors.push({
+            message: deprecation
+                ? deprecation.version
+                    ? l10n.t("'{0}' was removed in game version {1} ({2}).", name, deprecation.version, deprecation.note)
+                    : l10n.t("'{0}' was removed in a newer game version ({1}).", name, deprecation.note)
+                : declaredButDead
+                ? l10n.t("'{0}' is declared by {1} but the game's code never reads it.", name, classLabel)
+                : l10n.t(
+                      "'{0}' is not a member of {1} and is never referenced in this file, so the game ignores it.",
+                      name,
+                      classLabel
+                  ),
+            node: element.left,
+            // Fade the value along with the key: the game reads neither, and the span then
+            // matches what the remove fix deletes.
+            range: { start, end },
+            severity: 'hint',
+            unnecessary: true,
+            data,
+        });
+    };
     const visit = (node: AbstractNode): void => {
         if (cancellationToken.isCancellationRequested) return;
         if (isGroupNode(node)) {
@@ -357,92 +471,7 @@ export const validateIgnoredFields = async (
                 if (!isAssignmentNode(element)) continue;
                 const name = element.left.name;
                 const cls = ignoredFieldClass(node, name, document) ?? deadDeclaredFieldClass(node, name, document);
-                if (!cls) continue;
-                const classLabel = schema.types[cls]?.name ?? cls;
-                const declaredButDead = !!fieldOf(cls, name);
-                // A field the game deleted in an update (a mod written against an older Cosmoteer):
-                // say what replaced it instead of the bare never-reads hint, so the modder learns the
-                // migration and not just the removal. The registry records the declaring class, so a
-                // derived resolution walks its ancestry to find the entry.
-                let deprecation: ReturnType<typeof deprecatedField>;
-                for (const ancestor of classAncestry(cls)) deprecation ??= deprecatedField(ancestor, name);
-                const start = element.left.position.start;
-                const end = element.right?.position?.end ?? element.left.position.end;
-                const data: ValidationErrorData = {
-                    remove: {
-                        title: l10n.t("Remove '{0}'", name),
-                        start,
-                        end,
-                    },
-                };
-                if (deprecation) {
-                    data.migration = { version: deprecation.version };
-                    if (deprecation.replacement && !siblingNamed(node, deprecation.replacement, element)) {
-                        // A same-shaped successor took over the deleted field's job: renaming keeps
-                        // the author's configured value alive, which a bare removal would drop.
-                        data.migration.apply = 'rewrite';
-                        data.rewrite = {
-                            title: l10n.t("Change to '{0}'", deprecation.replacement),
-                            edits: [
-                                {
-                                    start: element.left.position.start,
-                                    end: element.left.position.end,
-                                    newText: deprecation.replacement,
-                                },
-                            ],
-                        };
-                    } else if (name.toLowerCase() === 'flammable') {
-                        if (isFalseValue(element.right)) {
-                            // `Flammable = false` was a fireproofing, and since Meltdown that
-                            // intent is spelled as the `non_flammable` part category. Only a
-                            // doc-local `TypeCategories` list can be appended to safely (a fresh
-                            // assignment would override an inherited list), so without one the
-                            // finding stays manual.
-                            const categories = localTypeCategoriesList(node);
-                            if (categories) {
-                                data.migration.apply = 'rewrite';
-                                data.rewrite = {
-                                    title: l10n.t("Replace with a 'non_flammable' TypeCategories entry"),
-                                    edits: [
-                                        { start, end, newText: '' },
-                                        {
-                                            start: categories.position.end - 1,
-                                            end: categories.position.end - 1,
-                                            newText: categories.elements.length > 0 ? ', non_flammable' : 'non_flammable',
-                                        },
-                                    ],
-                                };
-                            }
-                        } else {
-                            // `Flammable = true` restates the old default: removal is the migration.
-                            data.migration.apply = 'remove';
-                        }
-                    } else if (deprecation.removeOnMigrate || deprecation.replacement) {
-                        // Removal is sanctioned: the field is officially unused, or its still-present
-                        // successor already carries the configuration beside it.
-                        data.migration.apply = 'remove';
-                    }
-                }
-                errors.push({
-                    message: deprecation
-                        ? deprecation.version
-                            ? l10n.t("'{0}' was removed in game version {1} ({2}).", name, deprecation.version, deprecation.note)
-                            : l10n.t("'{0}' was removed in a newer game version ({1}).", name, deprecation.note)
-                        : declaredButDead
-                        ? l10n.t("'{0}' is declared by {1} but the game's code never reads it.", name, classLabel)
-                        : l10n.t(
-                              "'{0}' is not a member of {1} and is never referenced in this file, so the game ignores it.",
-                              name,
-                              classLabel
-                          ),
-                    node: element.left,
-                    // Fade the value along with the key: the game reads neither, and the span then
-                    // matches what the remove fix deletes.
-                    range: { start, end },
-                    severity: 'hint',
-                    unnecessary: true,
-                    data,
-                });
+                if (cls) report(node, element, cls);
             }
         }
         const children: AbstractNode[] =
@@ -453,6 +482,18 @@ export const validateIgnoredFields = async (
                   : [];
         for (const child of children) if (child) visit(child);
     };
+    // A file that is one object writes its members at the top level (a whole-file media effect, a
+    // part override fragment), where there is no enclosing group to judge them against. Only the
+    // dead-declaration verdict runs here: it needs no class-fit heuristic, since the root class comes
+    // from the rooting engine rather than from a guessed slot. The not-a-member path stays
+    // group-only, where a mis-resolved container can still be detected.
+    const rootClass = documentRootClass(document);
+    for (const element of document.elements) {
+        if (cancellationToken.isCancellationRequested) break;
+        if (!isAssignmentNode(element)) continue;
+        const cls = deadDeclaredIn(rootClass, element.left.name, document);
+        if (cls) report(document, element, cls);
+    }
     for (const element of document.elements) visit(element);
     return errors;
 };

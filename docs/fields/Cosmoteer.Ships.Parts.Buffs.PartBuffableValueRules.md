@@ -10,9 +10,9 @@
 ## Value
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The base value this component reports to components that reference it, defaulting to 1. Being modifiable, it can carry buff and status modifiers, and referencing components see the modified result update live as the part's buffs and statuses change. Vanilla thrusters wrap values like their maximum activation in a `BuffableValue` so overclock buffs can scale what other components read.
 
 ## IncludeInBlueprints
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Creates a blueprint counterpart of the component so build-mode logic can read the value as well. Off by default.

@@ -10,24 +10,24 @@
 ## ToggleID
 `→ PartToggleGuiRules` · optional
 
-<!-- TODO: needs documentation -->
+The part toggle this choice belongs to, matching a `PartToggleGuiRules` ID such as `missile_type`.
 
 ## Mode
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The mode number of the locked choice within that toggle. It is the choice's own `Mode` when the toggle declares one, otherwise its index in the toggle's `Choices` list.
 
 ## PartID
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+Restricts the lock to one part. Without it the choice is locked on every part that offers the toggle, and the game checks both the part-specific and the part-agnostic form when deciding whether a choice is available.
 
 ## 0
 `→ PartToggleGuiRules` · optional
 
-<!-- TODO: needs documentation -->
+The toggle ID, when the choice is written in the short two-element list form `[missile_type, 0]` instead of a group. Equivalent to [[Cosmoteer.Modes.Career.TechTree.TechRules+ToggleChoice.ToggleID]].
 
 ## 1
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The mode number, when the choice is written in the short two-element list form `[missile_type, 0]` instead of a group. Equivalent to [[Cosmoteer.Modes.Career.TechTree.TechRules+ToggleChoice.Mode]], and the list form cannot express a `PartID`.

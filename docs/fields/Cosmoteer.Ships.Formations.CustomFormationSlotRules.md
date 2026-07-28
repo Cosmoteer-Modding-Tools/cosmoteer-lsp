@@ -10,9 +10,9 @@
 ## LetterKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the slot's single-letter label used to identify the slot in a custom formation.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the slot's full display name.

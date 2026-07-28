@@ -10,14 +10,14 @@
 ## DefaultPatrolRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radius in world units of the circle around the ship's origin inside which random patrol destinations are rolled. Overridden per ship by [[Cosmoteer.Ships.AI.AIParameters.PatrolRadius]].
 
 ## AvoidableDoodadTags
 `→ SimObjectSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Ids of doodad spawners, such as `sun` or `station`, whose areas a patrol destination must not fall inside. A destination that lands in one is simply dropped for that tick.
 
 ## AvoidableDoodadBuffer
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Extra distance in world units added to the radius of every doodad matched by [[Cosmoteer.Ships.AI.StrategyModules.AIAreaPatrolModuleRules.AvoidableDoodadTags]]. Vanilla combat AIs use 100.

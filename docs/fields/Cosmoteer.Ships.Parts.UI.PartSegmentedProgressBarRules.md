@@ -20,14 +20,14 @@ Whether the progress bar colors will be calculated per-segment, or for the whole
 ## LowColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The color of a segment at 0% fill, blended toward [[Cosmoteer.Ships.Parts.UI.PartSegmentedProgressBarRules.HighColor]] in HSVA space as the segment fills. With [[Cosmoteer.Ships.Parts.UI.PartSegmentedProgressBarRules.PerSegmentColor]] false, the blend uses the whole bar's fill fraction instead. Defaults to gray.
 
 ## HighColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The color a segment approaches as it nears 100% fill, blended from [[Cosmoteer.Ships.Parts.UI.PartSegmentedProgressBarRules.LowColor]] in HSVA space. Defaults to gray. A completely full segment uses [[Cosmoteer.Ships.Parts.UI.PartSegmentedProgressBarRules.FullColor]] instead.
 
 ## FullColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The color that replaces the [[Cosmoteer.Ships.Parts.UI.PartSegmentedProgressBarRules.LowColor]] to [[Cosmoteer.Ships.Parts.UI.PartSegmentedProgressBarRules.HighColor]] blend once a segment, or the whole bar with [[Cosmoteer.Ships.Parts.UI.PartSegmentedProgressBarRules.PerSegmentColor]] false, is completely full. Defaults to white.

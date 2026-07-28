@@ -10,14 +10,14 @@
 ## TriggerID
 `→ PartTriggerGuiRules` · required
 
-<!-- TODO: needs documentation -->
+The trigger button this component responds to, matching the `TriggerID` of an entry in the game GUI's `PartTriggers` list. Pressing that button while the part is selected fires this component's trigger, which other components on the part can reference as a trigger source. A part may have at most one UITrigger per TriggerID.
 
 ## RequiresCommand
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether firing the trigger requires that the ship can currently execute commands from the player.
 
 ## AutoTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+A trigger on a component of the same part that fires this UI trigger automatically, exactly as if the player had pressed the button. May be written as a bare component ID, or as a group with `ID` plus an inner `TriggerID` for components exposing several triggers.

@@ -10,4 +10,4 @@
 ## File
 `string` · required
 
-<!-- TODO: needs documentation -->
+Path to the audio file this track streams. The game registers the `music` extension as Ogg Vorbis, so tracks point at `.music` (Ogg) files. The filename also serves as the track's default name in the music debugger when no [[Cosmoteer.Music.MusicTrackRules#DebugName|DebugName]] is given.

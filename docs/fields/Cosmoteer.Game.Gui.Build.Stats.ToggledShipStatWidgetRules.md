@@ -10,4 +10,4 @@
 ## ToggleButtonID
 `→ StatToggleButtonRules` · optional
 
-<!-- TODO: needs documentation -->
+References a [[Cosmoteer.Game.Gui.Build.Stats.StatToggleButtonRules|StatToggleButtonRules]] that gates this widget's visibility. The widget is shown only while that toggle button is selected. When omitted the widget is always shown.

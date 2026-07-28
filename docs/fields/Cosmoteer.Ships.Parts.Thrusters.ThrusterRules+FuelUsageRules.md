@@ -10,9 +10,9 @@
 ## FuelStorage
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The resource storage component on the same part that this drain pulls fuel from while the thruster is firing.
 
 ## FuelUsagePerSecond
 `number` · required
 
-<!-- TODO: needs documentation -->
+Fuel units drained per second from [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules+FuelUsageRules.FuelStorage]] at an activation level of 1. Consumption scales linearly with the thruster's current activation level, and fractional amounts accumulate until whole units can be deducted.

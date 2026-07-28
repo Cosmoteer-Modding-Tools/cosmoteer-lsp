@@ -10,24 +10,24 @@
 ## HudIcon
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Icon shown on the HUD indicator that marks this point of interest. When omitted, no indicator is created for the doodad. Its size also sets the indicator's UI size.
 
 ## UndiscoveredHudIcon
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Icon used in place of [[HudIcon]] while the point of interest is undiscovered. Falls back to [[HudIcon]] when not set.
 
 ## OverrideHudIconColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+Color for the HUD indicator. When omitted the indicator uses the player's current neutral color.
 
 ## DefaultToUndiscovered
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, the point of interest starts undiscovered so it shows the [[UndiscoveredHudIcon]] and undiscovered description until the player reveals it. A per-instance parameter can override this.
 
 ## IndicatorSort
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Adjusts the HUD indicator's sort order relative to other point-of-interest indicators. Higher values draw on top. It is added to a large negative base so these indicators sit below most others by default.

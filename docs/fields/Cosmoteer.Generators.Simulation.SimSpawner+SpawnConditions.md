@@ -10,54 +10,54 @@
 ## OnlySectorTypes
 `→ SectorTypeRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Limits the spawner to career sectors whose sector type appears in this set. The test is skipped in game modes other than career, so the spawner still runs there.
 
 ## ExcludeSectorTypes
 `→ SectorTypeRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Blocks the spawner in career sectors whose sector type appears in this set. Like `OnlySectorTypes` it is ignored outside career mode.
 
 ## RequireSpawnFlags
 `→ SpawnFlag[]` · optional
 
-<!-- TODO: needs documentation -->
+Every flag listed here must be among the spawn flags that sector generation was started with, otherwise the spawner is skipped. Vanilla uses flags such as `binary_sun`, `no_sun` and `no_standard_nebulas`.
 
 ## ProhibitSpawnFlags
 `→ SpawnFlag[]` · optional
 
-<!-- TODO: needs documentation -->
+Skips the spawner if any one of these flags is among the sector's spawn flags. The mirror image of `RequireSpawnFlags`.
 
 ## IsInitNode
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Requires the career map node being generated to be the player's starting node when true, or any other node when false. Ignored outside career mode.
 
 ## ParentIndex
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+Restricts the spawner to sub-spawner runs whose parent object has an index inside this inclusive range, counted from 0 in the order the parent spawner placed its objects. Top-level spawners always see index 0, so a range that excludes 0 never fires there.
 
 ## MinNodeTier
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The career map node must reach at least this danger tier. The node is rejected only when the top of its tier range falls below the value, and the test is ignored outside career mode.
 
 ## MaxNodeTier
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The career map node must not start above this danger tier. The node is rejected only when the bottom of its tier range exceeds the value, and the test is ignored outside career mode.
 
 ## MinParentFieldTier
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The lowest tier field value allowed at the parent object's location. Tier fields are the career-mode danger gradient spread across the sector, and the test is ignored outside career mode.
 
 ## MaxParentFieldTier
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The highest tier field value allowed at the parent object's location. See `MinParentFieldTier` for how tier fields are sampled.
 
 ## RequiredFame
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The player's current career fame must be at least this much for the spawner to run. Ignored outside career mode, and the default of 0 lets everything through.

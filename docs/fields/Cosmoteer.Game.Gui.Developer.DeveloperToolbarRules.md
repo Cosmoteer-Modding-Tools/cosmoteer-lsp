@@ -10,4 +10,4 @@
 ## ToolbarIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite drawn on the narrow toggle button at the right edge of the game screen that opens and closes the developer tools drawer. The button is a fixed 20 by 50 pixels, so the sprite is scaled into that shape.

@@ -10,14 +10,14 @@
 ## Type
 `→ DoodadRules` · optional
 
-<!-- TODO: needs documentation -->
+The doodad to spawn. Its `SpawnRadius` becomes the spawned object's radius for all the distance checks, and its own tags are attached to the object on top of the spawner's `Tags`.
 
 ## ChanceWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Relative weight of this entry in the lottery that picks which doodad type to spawn. It is multiplied by the faction strength lookup when `Faction` is set.
 
 ## Faction
 `→ FactionRules` · optional
 
-<!-- TODO: needs documentation -->
+Scales `ChanceWeight` by how strong this faction is at the map node being generated, so faction-flavoured doodads only turn up in that faction's territory. A faction with no strength at the node makes the entry unpickable.

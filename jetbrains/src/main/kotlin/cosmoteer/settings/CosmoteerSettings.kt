@@ -1,9 +1,14 @@
 package cosmoteer.settings
 
+import com.google.gson.Gson
+import com.google.gson.JsonObject
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
+import com.intellij.openapi.project.ProjectManager
+import com.redhat.devtools.lsp4ij.LanguageServerManager
+import org.eclipse.lsp4j.DidChangeConfigurationParams
 
 /**
  * Application-level settings for the Cosmoteer language server, mirroring the
@@ -22,8 +27,8 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var ignorePaths: MutableList<String> = mutableListOf()
         var maxNumberOfProblems: Int = 100
         var traceServer: String = "off"
-        var validateWholeWorkspace: Boolean = false
-        var workspaceValidationScope: String = "allFiles"
+        var validateWholeWorkspace: Boolean = true
+        var workspaceValidationScope: String = "modRulesReachable"
         var validateComponentReferences: Boolean = true
         var validateCrossFileReferences: Boolean = true
         var validateRequiredFields: Boolean = true
@@ -33,6 +38,8 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateRedundantSeparators: Boolean = true
         var validateIgnoredFields: Boolean = true
         var validateDefaultValues: Boolean = true
+        var codeModsEnabled: Boolean = true
+        var codeModsAutoRefresh: Boolean = true
         var inlayShowBaseValue: Boolean = true
         var allowEditingVanillaFiles: Boolean = false
         var formattingEnabled: Boolean = true
@@ -45,6 +52,12 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
          * asynchronously after every edit, which reads as constant color flicker.
          */
         var semanticTokensEnabled: Boolean = false
+        /**
+         * JetBrains-only, not sent to the server: whether the user has already been told that the
+         * whole mod is validated, not only the open files. Shown at most once, the first time a
+         * pass does real work.
+         */
+        var workspaceValidationNoticeShown: Boolean = false
     }
 
     private var state = SettingsState()
@@ -79,6 +92,10 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateIgnoredFields" to state.validateIgnoredFields,
             "validateDefaultValues" to state.validateDefaultValues,
         ),
+        "codeMods" to mapOf(
+            "enabled" to state.codeModsEnabled,
+            "autoRefresh" to state.codeModsAutoRefresh,
+        ),
         "inlayHints" to mapOf("showBaseValue" to state.inlayShowBaseValue),
         "rename" to mapOf("allowEditingVanillaFiles" to state.allowEditingVanillaFiles),
         "decompiler" to mapOf(
@@ -102,5 +119,29 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
          */
         fun getInstance(): CosmoteerSettings =
             ApplicationManager.getApplication().getService(CosmoteerSettings::class.java)
+
+        /**
+         * Sends `workspace/didChangeConfiguration` to every project's running server. The server
+         * ignores the payload under the pull model and re-requests `workspace/configuration`, which
+         * is answered from the just-saved settings, so a change lands without a restart.
+         *
+         * Shared by the settings page and by anything else that writes a setting on the user's
+         * behalf, such as the whole-mod validation notice's "Only open files" action.
+         */
+        fun notifyRunningServers() {
+            val settingsJson = JsonObject().apply {
+                add("cosmoteerLSPRules", Gson().toJsonTree(getInstance().toConfigurationMap()))
+            }
+            for (project in ProjectManager.getInstance().openProjects) {
+                LanguageServerManager.getInstance(project)
+                    .getLanguageServer(SERVER_ID)
+                    .thenAccept { item ->
+                        item?.server?.workspaceService?.didChangeConfiguration(DidChangeConfigurationParams(settingsJson))
+                    }
+            }
+        }
+
+        /** The LSP4IJ server id the plugin registers the Cosmoteer server under. */
+        private const val SERVER_ID = "cosmoteerLanguageServer"
     }
 }

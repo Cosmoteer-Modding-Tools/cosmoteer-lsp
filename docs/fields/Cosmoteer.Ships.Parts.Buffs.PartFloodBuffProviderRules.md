@@ -10,7 +10,7 @@
 ## BuffRegion
 `IPartRelativeRegion` · required
 
-<!-- TODO: needs documentation -->
+The part-relative region in which the buff spreads, applied first around this part and then again around every part already receiving the buff, so the buff flood-fills outward through chains of receivers. A part is buffed when its footprint lies in the region of the provider or of any part already in the chain, subject to [[Cosmoteer.Ships.Parts.Buffs.PartFloodBuffProviderRules.FloodFillLimitRegion]] and [[Cosmoteer.Ships.Parts.Buffs.PartFloodBuffProviderRules.ChainLengthLimit]].
 
 ## FloodFillLimitRegion
 `IPartRelativeRegion` · optional
@@ -25,14 +25,14 @@ The maximum number of parts aside from the source that can be chained through to
 ## BuffsSelf
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets the provider buff its own part in addition to the parts reached by the flood fill. Off by default.
 
 ## Criterias
 `RelativePartCriteria[]` · optional
 
-<!-- TODO: needs documentation -->
+Filters that a candidate part must additionally match to receive the buff, always evaluated against the original providing part rather than the part being chained through. Each entry can require part IDs or categories, exclusions, and a specific rotation, flip, or position relative to the provider, and matching any single entry is enough. When absent, every reachable part is buffed.
 
 ## Criteria
 `RelativePartCriteria` · optional
 
-<!-- TODO: needs documentation -->
+A single filter used instead of [[Cosmoteer.Ships.Parts.Buffs.PartFloodBuffProviderRules.Criterias]] when one entry suffices. Only read when Criterias is absent.

@@ -10,9 +10,9 @@
 ## HeightExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The exponent applied to each sampled height before the normal map is computed. Values above 1 exaggerate tall features and values below 1 flatten them.
 
 ## HeightMapName
 `string` · optional
 
-<!-- TODO: needs documentation -->
+The name of the heightmap, from the generator's set of named heightmaps, used as the height source. If no heightmap with this name exists, heights are treated as zero.

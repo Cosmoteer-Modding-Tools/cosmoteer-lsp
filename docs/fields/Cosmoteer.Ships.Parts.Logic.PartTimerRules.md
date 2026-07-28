@@ -10,49 +10,49 @@
 ## Duration
 `number` · required
 
-<!-- TODO: needs documentation -->
+The countdown length in seconds. When a running timer's remaining time reaches zero it fires its trigger, and as a toggle provider the component reads on once expired. The component also acts as a value provider reporting the remaining time as a fraction of this duration, and exposes whether it is counting down under the toggle ID `IsRunning`.
 
 ## AutoStart
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Starts the countdown automatically the first time the component becomes operational, unless the timer has already run before.
 
 ## Repeats
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Restarts the countdown immediately after each expiry, so the timer keeps firing its trigger every [[Cosmoteer.Ships.Parts.Logic.PartTimerRules.Duration]] seconds instead of stopping after the first one.
 
 ## StartTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+A trigger that starts the countdown. An already expired timer is first reset to the full [[Cosmoteer.Ships.Parts.Logic.PartTimerRules.Duration]], while a stopped timer resumes with its remaining time. Has no effect while the timer is already running.
 
 ## StopTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+A trigger that pauses the countdown, preserving the remaining time. A later start via [[Cosmoteer.Ships.Parts.Logic.PartTimerRules.StartTrigger]] resumes from that remaining time.
 
 ## ResetTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+A trigger that sets the remaining time back to [[Cosmoteer.Ships.Parts.Logic.PartTimerRules.DurationAfterResetTrigger]], or the full [[Cosmoteer.Ships.Parts.Logic.PartTimerRules.Duration]] if that is unset. Does not start or stop the countdown by itself.
 
 ## DurationAfterResetTrigger
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The remaining time, in seconds, the timer is set to when [[Cosmoteer.Ships.Parts.Logic.PartTimerRules.ResetTrigger]] fires. Falls back to [[Cosmoteer.Ships.Parts.Logic.PartTimerRules.Duration]] when unset. The vanilla overclock reset timer uses 0 so a reset expires it instantly.
 
 ## TriggerWhenStarted
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Fires the timer's trigger immediately whenever the countdown is started, in addition to firing when it expires.
 
 ## StartExpired
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Puts the timer into the already expired state, with zero remaining time, when it first becomes operational. Its toggle therefore reads on before the timer has ever been started. The vanilla `base_part_overclock.rules` combines this with [[Cosmoteer.Ships.Parts.Logic.PartTimerRules.StartTrigger]] to gate re-enabling overclock behind a cooldown.
 
 ## InvertToggle
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Inverts the timer's toggle output, so it reads on while time remains instead of once the countdown has expired.

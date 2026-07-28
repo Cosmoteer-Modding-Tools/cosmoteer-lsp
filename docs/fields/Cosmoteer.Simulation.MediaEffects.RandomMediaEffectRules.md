@@ -10,9 +10,9 @@
 ## RandomOptions
 `EffectSet[]` · optional
 
-<!-- TODO: needs documentation -->
+The candidate effect sets. Each time this effect plays, one set is picked at random with probability proportional to its [[Cosmoteer.Simulation.MediaEffects.RandomMediaEffectRules+EffectSet.RandomWeight]] and all of that set's media effects are played together.
 
 ## Deterministic
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Draws the random pick from the simulation's deterministic random stream instead of the purely visual one, so every client and replay picks the same option. The stream's state is restored afterwards, leaving simulation behavior unaffected.

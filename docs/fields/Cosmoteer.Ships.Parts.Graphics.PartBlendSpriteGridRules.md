@@ -10,14 +10,14 @@
 ## GridSpacing
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The distance, in tiles, between neighboring blend sprites of the grid along X and Y. Each sprite is placed at its grid coordinate times this spacing, offset from the component's location. Defaults to `[1, 1]` for one sprite per cell.
 
 ## GridSize
 `IntVector2` · optional
 
-<!-- TODO: needs documentation -->
+The number of grid columns and rows of blend sprites to render, each cell computing its own blend situation code from its neighbors. When set explicitly, the component's `Location` defaults to `[0.5, 0.5]`. When unset, the size is taken from the part rect chosen by [[Cosmoteer.Ships.Parts.Graphics.PartBlendSpriteGridRules.RectType]], the cell offset is shifted to that rect's origin, and `Location` defaults to the origin cell center.
 
 ## RectType
 `enum PartRectType` · optional · one of: `Normal`, `Physical`
 
-<!-- TODO: needs documentation -->
+Which part rect supplies the grid dimensions when [[Cosmoteer.Ships.Parts.Graphics.PartBlendSpriteGridRules.GridSize]] is unset. `Normal` uses the part's full size, `Physical` its physical rect. Ignored when GridSize is set.

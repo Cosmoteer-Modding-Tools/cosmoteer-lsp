@@ -10,4 +10,4 @@
 ## Routes
 `[→ PartComponentRules, → PartComponentRules, float][]` · optional
 
-<!-- TODO: needs documentation -->
+List of `[A, B, Cost]` entries. Each entry is expanded at load into two directed routes, A to B and B to A, both with the given path cost, so a single line defines a two-way connection between the two components.

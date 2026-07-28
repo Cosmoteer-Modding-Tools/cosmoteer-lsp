@@ -10,9 +10,9 @@
 ## VerticalLines
 `int` · optional · default `10`
 
-<!-- TODO: needs documentation -->
+The number of evenly spaced vertical grid lines drawn across the texture. Lines are drawn one pixel wide in white.
 
 ## HorizontalLines
 `int` · optional · default `10`
 
-<!-- TODO: needs documentation -->
+The number of evenly spaced horizontal grid lines drawn across the texture. Lines are drawn one pixel wide in white.

@@ -10,9 +10,9 @@
 ## MinHealthFraction
 `float` · required
 
-<!-- TODO: needs documentation -->
+The lower bound, inclusive, of the health range within which the toggle is on. Health is measured as a 0..1 fraction of the part's `MaxHealth`, re-evaluated on every health change.
 
 ## MaxHealthFraction
 `float` · required
 
-<!-- TODO: needs documentation -->
+The upper bound, inclusive, of the health range within which the toggle is on. See [[Cosmoteer.Ships.Parts.Logic.PartHealthToggleRules.MinHealthFraction]].

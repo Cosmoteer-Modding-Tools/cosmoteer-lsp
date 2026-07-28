@@ -10,19 +10,19 @@
 ## Toggles
 `ToggleRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The toggle components whose states are combined according to [[Cosmoteer.Ships.Parts.Logic.PartMultiToggleRules.Mode]]. Each entry can be written as just the component's name, or as a group with [[Cosmoteer.Ships.Parts.Logic.PartMultiToggleRules+ToggleRules.Toggle]] and [[Cosmoteer.Ships.Parts.Logic.PartMultiToggleRules+ToggleRules.Invert]] fields. The vanilla small crew quarters combines its two door toggles with `Toggles = [LeftDoorToggle, RightDoorToggle]`.
 
 ## ViaBuffs
 `BuffMultiProxyRules` · optional
 
-<!-- TODO: needs documentation -->
+Additionally includes toggle components from other parts connected through the buff system. The group names the `ComponentID` (or `ComponentIDs`) to pick up in each connected part, with either `IncomingBuffTypes` selecting parts that buff this part or `OutgoingBuffProviders` selecting parts buffed by this part's own buff provider components.
 
 ## Mode
 `enum MultiToggleMode` · required · one of: `All`, `Any`, `One`, `None`
 
-<!-- TODO: needs documentation -->
+How the sub-toggle states combine into this toggle's state. `All` is on when every listed toggle is on, `Any` when at least one is, `One` when exactly one is, and `None` when none are. With no toggles at all, `All` and `None` are on while `Any` and `One` are off.
 
 ## Invert
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Flips the combined result after [[Cosmoteer.Ships.Parts.Logic.PartMultiToggleRules.Mode]] is applied.

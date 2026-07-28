@@ -10,4 +10,4 @@
 ## Options
 `map<string, int>` · optional
 
-<!-- TODO: needs documentation -->
+The lobby settings this ruleset presets, keyed by each mode config option's sync name. Drop lists take the index of the wanted entry, checkboxes take 0 or 1, and number boxes take the number itself. Options left out keep their built-in default.

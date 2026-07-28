@@ -10,7 +10,7 @@
 ## ID
 `→ StatusType` · required
 
-<!-- TODO: needs documentation -->
+The identifier other rules use to refer to this status, for example the `StatusType` field of a StatusApplication hit effect, a StatusToggle component or a StatusValueRegulator. Vanilla ids are namespaced like `cosmoteer.fire`.
 
 ## IndicatorSprite
 `AtlasSprite` · optional
@@ -40,12 +40,12 @@ The range that instances of this StatusType will have their values clamped to.
 ## RemoveAtMinValue
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether an instance is deleted as soon as its value reaches `ValueClampRange` Min. It also stops diffusion and status application from creating an instance that would start at exactly that minimum. See `TriggerEffectsOnMinValueRemove` for whether `RemovalEffects` fire in that case.
 
 ## TriggerEffectsOnMinValueRemove
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether `RemovalEffects` and `RemovalMediaEffects` are performed when an instance is deleted by `RemoveAtMinValue`. Has no bearing on removals from any other cause.
 
 ## TransferToUnderlyingOnPartDestroyed
 `bool` · optional
@@ -70,7 +70,7 @@ The severity value used to determine whether certain jobs should be cancelled by
 ## Filter
 `StatusApplicationFilter` · optional
 
-<!-- TODO: needs documentation -->
+Restricts which parts and cells this status can be applied to. The same filter also decides whether a status may transfer onto a replacement part under `TransferToUnderlyingOnPartDestroyed`, and whether diffusion may seed a new instance in a cell.
 
 ## ResourceSink
 `StatusResourceSinkRules` · optional
@@ -85,7 +85,7 @@ The rules defining the status' soft-repair behaviour, if any.
 ## Diffusion
 `DiffusionRules` · optional
 
-<!-- TODO: needs documentation -->
+Makes the status spread between neighbouring cells each physics tick, the way heat conducts through a ship. Only works when `Layer` is `Tile` and `StatusCombineMode` is not `ApplyNewInstance`.
 
 ## ValueModulators
 `MultiValueModulatorRules` · optional
@@ -120,27 +120,27 @@ Whether the instances of this status should be removed (without triggering effec
 ## MediaIntensityValueType
 `enum StatusValueType` · optional · one of: `Raw`, `Interpolated`
 
-<!-- TODO: needs documentation -->
+Whether the status value handed to media effects as their Intensity is the raw value or interpolated into a 0 to 1 fraction. Interpolation uses `MediaIntensityInterpolationRange` when set, otherwise `ValueClampRange`.
 
 ## UseDurationForMediaIntensity
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the media effect Intensity is derived from the status' remaining duration in seconds rather than from its value. Vanilla fire foam uses this so the foam effect fades out as the foam expires.
 
 ## MediaIntensityInterpolationRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The value range mapped onto 0 to 1 when `MediaIntensityValueType` is `Interpolated`. Leave unset to reuse `ValueClampRange`, which is what you want unless the visual should saturate well before the gameplay maximum.
 
 ## ClampMediaIntensity
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the interpolated media Intensity is clamped to 0 to 1. Only has an effect when `MediaIntensityInterpolationRange` is set, since the fallback to `ValueClampRange` always clamps. Vanilla heat turns it off so the glow keeps intensifying past 1000 heat.
 
 ## ParentMediaEffectsToShip
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether media effect nodes are attached to the ship and positioned in ship-local space, so they move and rotate with it, instead of being spawned at a fixed world location.
 
 ## StatusResistances
 `map<→ StatusType, StatusResistanceRules>` · optional

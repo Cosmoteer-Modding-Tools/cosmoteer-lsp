@@ -10,4 +10,4 @@
 ## Proximity
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The distance, in tiles, to the target's center below which the bullet dies, checked every fixed update. Defaults to 0. Does nothing when the bullet has no target.

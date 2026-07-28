@@ -18,7 +18,10 @@ structural reference/inheritance rules. The schema is extracted from `Cosmoteer.
   `SchemaBundle` so the type checker does **not** infer a giant literal from the 1.2 MB file. The
   runtime is bundled by esbuild (which inlines the JSON). `tsc` only type-checks.
 - **`schema.ts`**: the read side, `fieldsOf(class)` (walks `extends`), `fieldOf`, `enumDef`,
-  `registryOf`, `classByDiscriminator(disc, registryHint?)`.
+  `registryOf`, `classByDiscriminator(disc, registryHint?)`. Also the one write seam,
+  `extendSchemaWithMods`, which merges the types a **code mod's** assembly declares (see
+  `../../features/mod-schema/README.md`). It is additive and game-first: a mod adds types and
+  discriminators, never redefines one, and every lookup index and memo here is rebuilt on merge.
 - **`schema-context.ts`**: the AST ⇄ schema bridge. `classOfGroup(group)` resolves a group's concrete
   class from its own `Type=` field. `registryForContainer(container)` infers which polymorphic
   registry a container's children belong to by reading a sibling's `Type` (so a part's `Components`

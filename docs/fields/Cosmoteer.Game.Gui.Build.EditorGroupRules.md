@@ -10,19 +10,19 @@
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the group's display name, shown as the tooltip of the group's tab button in the build toolbox.
 
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite shown on the group's 50x50 tab button in the build toolbox part list.
 
 ## IconTextKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for text drawn bottom-right over the group button using the shadow font, on top of the [[Icon]]. When omitted the button shows only the icon.
 
 ## SortOrder
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+Sort key for ordering group tab buttons in the toolbox, ascending. The default of int.MaxValue pushes groups without an explicit order to the end.

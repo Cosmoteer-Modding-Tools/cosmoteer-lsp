@@ -10,69 +10,69 @@
 ## From
 `ResourceInfo[]` · optional
 
-<!-- TODO: needs documentation -->
+The resource inputs consumed on each conversion. Every entry must pass its availability check before a conversion runs, and then all entries are drained together. The vanilla ammo factory consumes sulfur and battery power together this way to produce bullets.
 
 ## To
 `ResourceInfo[]` · optional
 
-<!-- TODO: needs documentation -->
+The resource outputs produced on each conversion. Every entry must have enough free capacity before a conversion runs, and then all entries are filled together.
 
 ## Interval
 `number` · required
 
-<!-- TODO: needs documentation -->
+Seconds between conversion attempts. The value is buff-modifiable, and when a modifier changes it mid-wait the pending conversion is rescheduled by the difference. The converter also reports a component value to other components that ramps from 0 to 1 over each interval.
 
 ## InitialDelay
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds until the first conversion attempt after the component first becomes operational. Falls back to [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.Interval]] when unset.
 
 ## DelayTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+A trigger component whose firing pushes the next conversion attempt back to [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.DelayAfterTrigger]] seconds from that moment. The vanilla medium and large cannons point this at their Turret so the ammo loader pauses for half a second after each shot.
 
 ## DelayAfterTrigger
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds after [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.DelayTrigger]] fires before the next conversion attempt. At the default of 0 the next attempt happens immediately after the trigger.
 
 ## CheckResourceLimits
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Additionally requires ship-wide room for each output before converting. The ship's total of the output's resource type, counting stored, crew-carried, and anticipated deliveries, must stay within the ship's total capacity, further capped by any quantity the player has requested in resource management. The vanilla diamond factory uses this so it stops producing once the ship is full.
 
 ## FromStorage
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Shorthand that appends a single input entry to [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.From]]. Names the storage component drained by the conversion, configured through [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.FromQuantity]] and [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.MinFromQuantityForConversion]].
 
 ## FromQuantity
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The number of resources removed from [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.FromStorage]] per conversion. Defaults to 1 and is only read when FromStorage is set.
 
 ## MinFromQuantityForConversion
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The minimum resources ready to use in [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.FromStorage]] for a conversion to run, defaulting to [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.FromQuantity]]. Setting it lower lets the conversion run partially supplied, consuming only what is available. Only read when FromStorage is set.
 
 ## ToStorage
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Shorthand that appends a single output entry to [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.To]]. Names the storage component filled by the conversion, configured through [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.ToQuantity]], [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.MinToQuantityForConversion]], and [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.CheckAnticipatedCapacity]].
 
 ## ToQuantity
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The number of resources added to [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.ToStorage]] per conversion. Defaults to 1 and is only read when ToStorage is set.
 
 ## MinToQuantityForConversion
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The minimum free capacity [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.ToStorage]] must have for a conversion to run. Defaults to 1 and is only read when ToStorage is set.
 
 ## CheckAnticipatedCapacity
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Makes the capacity check for the [[Cosmoteer.Ships.Parts.Resources.ResourceConverterRules.ToStorage]] shorthand entry count anticipated resources, which include incoming deliveries, instead of only what is currently stored. Only read when ToStorage is set.

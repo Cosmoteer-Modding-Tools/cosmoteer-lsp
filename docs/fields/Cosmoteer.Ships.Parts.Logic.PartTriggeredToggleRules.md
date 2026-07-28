@@ -10,14 +10,14 @@
 ## OnTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+The trigger component that switches the toggle on, written as a component name or as a group with `ID` and an optional `TriggerID`. When [[Cosmoteer.Ships.Parts.Logic.PartTriggeredToggleRules.OffTrigger]] resolves to the same trigger, each firing flips the toggle instead.
 
 ## OffTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+The trigger component that switches the toggle off. The toggle also switches off whenever this component becomes non-operational.
 
 ## StartsOn
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+The toggle state taken when the component is added to its part. The current state is saved and loaded with the ship afterwards.

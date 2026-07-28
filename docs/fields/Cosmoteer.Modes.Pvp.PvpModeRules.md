@@ -10,114 +10,114 @@
 ## MapGenerator
 `GalaxyGenerator` · required
 
-<!-- TODO: needs documentation -->
+The galaxy generator run once at match start to build the map the battle takes place on. The generated node closest to the origin becomes the sector everyone plays in, and vanilla points this at an otherwise empty galaxy so a PvP match is a single sector.
 
 ## AllowedShipClasses
 `→ ShipRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The set of ship classes a design must belong to before it counts as legal for this mode. A design of any other class is rejected, alongside the `RequiredPartCategories` and blueprint validity checks.
 
 ## RequiredPartCategories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+The part categories a design must have at least one part from, all of them. Missing even a single listed category makes the design illegal for the mode, and vanilla requires only `command`.
 
 ## Teams
 `Teams[]` · optional
 
-<!-- TODO: needs documentation -->
+The team-count choices offered in the host's lobby drop list. A `TeamCount` of 0 means free for all, where every player becomes their own team, and exactly one entry must set `IsDefault` or the lobby throws.
 
 ## TimeLimits
 `TimeLimit[]` · optional
 
-<!-- TODO: needs documentation -->
+The match-length choices offered in the host's lobby drop list. Exactly one entry must set `IsDefault`.
 
 ## AsteroidDensities
 `PvpMapType[]` · optional
 
-<!-- TODO: needs documentation -->
+The asteroid-field choices offered in the host's lobby drop list. The chosen entry's `Generator` is run at match start over the whole play area, out to the perimeter radius.
 
 ## NebulasTypes
 `PvpMapType[]` · optional
 
-<!-- TODO: needs documentation -->
+The nebula choices offered in the host's lobby drop list. The chosen entry's `Generator` is run at match start over the whole play area, exactly like `AsteroidDensities`.
 
 ## FleetDistances
 `FleetDistance[]` · optional
 
-<!-- TODO: needs documentation -->
+The starting-separation choices offered in the host's lobby drop list, in world units. With two teams each fleet is placed this far from the map center, and with more teams the value is treated as an edge-to-edge gap and converted into a circumradius.
 
 ## PerimeterDistances
 `PerimeterDistance[]` · optional
 
-<!-- TODO: needs documentation -->
+The choices offered in the host's lobby drop list for the breathing room between the outermost starting object and the perimeter of death, in world units. A chosen `Radius` of 0 disables the perimeter entirely.
 
 ## PerimeterDamageFractionPerTick
 `float` · required
 
-<!-- TODO: needs documentation -->
+The fraction of a part's max health destroyed each time the perimeter of death hits it, before the distance term is added. Only parts whose own center lies outside the current perimeter are eligible.
 
 ## PerimeterDamageFractionPerTickPerDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Extra damage fraction added per world unit that the ship's center sits beyond the perimeter, on top of `PerimeterDamageFractionPerTick`. The distance is measured once per ship, so every eligible part on that ship takes the same amount.
 
 ## PerimeterDamageChancePerTick
 `float` · required
 
-<!-- TODO: needs documentation -->
+The chance per physics tick that any one part outside the perimeter is hit. Vanilla writes it as a per-second figure divided by `PhysicsUpdatesPerSecond`.
 
 ## PerimeterDamageMediaEffects
 `MultiMediaEffectRules` · required
 
-<!-- TODO: needs documentation -->
+The effects played at each part the perimeter of death damages. Domination mode reuses this same list for the damage enemy ships take inside a spawn point, despite the name.
 
 ## PerimeterCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The ring drawn at the perimeter of death, rendered only when the perimeter is not fully on screen. Its `UVRect` width is recomputed at match start from the circumference and `Thickness` so the texture repeats evenly all the way round.
 
 ## PerimeterCircleThicknessZoomExponent
 `float` · required
 
-<!-- TODO: needs documentation -->
+The exponent applied to the camera's world scale before it multiplies the perimeter ring's thickness. 0 keeps the ring a constant width in world units and 1 makes it scale fully with zoom, and vanilla uses .4 for something in between.
 
 ## GameEndSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+The sound played once when the match ends.
 
 ## SpawnPatterns
 `Vector2[][]` · optional
 
-<!-- TODO: needs documentation -->
+The starting formation offsets for one player's fleet, indexed by ship count minus one, so the first entry is used for a single ship, the second for two ships and so on. Each offset is scaled by `DistBetweenShipsInPattern` plus twice the largest ship's bounding radius, so the values are relative rather than absolute positions.
 
 ## DistBetweenShipsInPattern
 `float` · required
 
-<!-- TODO: needs documentation -->
+The base spacing multiplied into the `SpawnPatterns` offsets, in world units. Twice the largest ship's bounding radius is added to it first, so the gap grows with fleet size.
 
 ## DistBetweenPlayersOnTeam
 `float` · required
 
-<!-- TODO: needs documentation -->
+The vertical gap left between the formations of two players on the same team when their fleets are stacked at match start, in world units. Build Battle mode uses this value in place of `DistBetweenShipsInPattern` when it lays out a team.
 
 ## ShipSaleRefund
 `float` · required
 
-<!-- TODO: needs documentation -->
+The fraction of a ship's or part's cost paid back when it is sold. Vanilla refunds 75%.
 
 ## NebulaSizeFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the size of the nebula triangle grid used to render and simulate nebulas in PvP matches. Vanilla shrinks it to 0.2 of the default so nebulas have finer detail on a small map.
 
 ## ForfeitIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite on the forfeit button in the in-game HUD.
 
 ## OfficialRulesets
 `OfficialRuleset[]` · optional
 
-<!-- TODO: needs documentation -->
+The preset lobby configurations offered at the top of the rulesets drop list, above any custom rulesets the player has saved. Each entry's `Options` group supplies values by the same setting names the lobby widgets use.

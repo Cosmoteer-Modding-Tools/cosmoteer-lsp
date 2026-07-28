@@ -10,94 +10,94 @@
 ## PixelOrthographicFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Pixels-per-world-unit factor for the orthographic viewport, divided by the global UI scale before use. Sets how many screen pixels one world unit spans at camera scale 1, shared by the simulation, galaxy map and editor viewports.
 
 ## DefaultScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Initial camera zoom (uniform scale) applied when the camera node is created, and its starting target zoom. Clamped between [[MinScale]] and [[MaxScale]].
 
 ## MinScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Smallest allowed camera zoom scale, the most zoomed-in the player can go. Exposed as the scene's minimum camera scale and the view controller's minimum zoom. Pairs with [[MaxScale]].
 
 ## MaxScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Largest allowed camera zoom scale, the most zoomed-out the player can go. Also used as the reference zoom for music parameters and nebula rendering. Pairs with [[MinScale]].
 
 ## MousePanBorderThickness
 `int` · required
 
-<!-- TODO: needs documentation -->
+Thickness in pixels (scaled by the global UI scale) of the screen-edge band where holding the mouse triggers edge panning of the camera.
 
 ## MouseWheelZoomSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Base rate multiplier for mouse-wheel zooming. Multiplied by the square of the player's own mouse-wheel zoom sensitivity setting when the zoom scale moves toward its target, and also factored into the zoom sound volume.
 
 ## BorderClampPanSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it.
 
 ## FollowFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Smoothing factor for how the camera follows its focus target. Fed into a SmoothDamp so lower values give looser, more gradual following and higher values snap the camera to the target faster.
 
 ## AutoTrackRampTime
 `float` · required
 
-<!-- TODO: needs documentation -->
+Seconds for auto-tracking of on-screen ships to ramp fully in or out. The tracking weight moves between 0 and 1 at a rate of delta time divided by this value.
 
 ## DirectControlOffsetFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplier on how far the camera shifts toward the cursor during direct control when "view follows cursor" is enabled. Larger values push the framing further off the ship toward the mouse.
 
 ## DirectControlZoomFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Upper bound on the automatic zoom-out applied during direct control when "auto zoom view" is enabled. The zoom eases from 1 up to this factor (or the max zoom, whichever is smaller) as the cursor moves toward the screen edge.
 
 ## DirectControlZoomDeadZone
 `float` · required
 
-<!-- TODO: needs documentation -->
+Normalized cursor distance from screen center (0..1) below which direct-control auto-zoom does nothing. Auto-zoom eases in over the range from this dead zone out to 1. Works with [[DirectControlZoomFactor]].
 
 ## DirectControlSmoothStrength
 `float` · required
 
-<!-- TODO: needs documentation -->
+Rate at which the cursor position used for direct-control aiming is smoothed toward the real mouse location each frame. Higher values track the mouse more tightly, lower values add lag.
 
 ## ScreenShakeExponent
 `float` · required
 
-<!-- TODO: needs documentation -->
+Exponent shaping the screen-shake response curve. The summed shake amount is clamped to 1 and raised to this power before driving the shake, so values above 1 suppress weak shakes and emphasize strong ones. Only applies when the player has screen shake enabled.
 
 ## LinearShakeAmount
 `float` · required
 
-<!-- TODO: needs documentation -->
+Maximum positional offset of the screen-shake, before scaling. The curved shake value multiplies this and is divided by the camera's zoom scale, then offsets the camera along both axes via [[ShakePerlinNoise]]. Rotational shake uses [[AngularShakeAmount]].
 
 ## AngularShakeAmount
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+Maximum rotational offset of the screen-shake in degrees, before scaling. Multiplied by the curved shake value and divided by the camera zoom scale, then applied as a rotation sampled from [[ShakePerlinNoise]]. Positional counterpart is [[LinearShakeAmount]].
 
 ## FTLZoomOutBufferMult
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplier on the extra framing margin the camera zooms out to when lining up a local FTL jump, so both the ship and its jump destination fit on screen with padding. Only applies when the player has zoom-out-on-FTL enabled.
 
 ## ShakePerlinNoise
 `PerlinNoise1D` · required
 
-<!-- TODO: needs documentation -->
+Perlin noise generator sampled over clock time to produce the screen-shake motion. Separate noise channels drive the X offset, Y offset and rotation so the shake looks smooth and non-repeating. Amplitudes come from [[LinearShakeAmount]] and [[AngularShakeAmount]].
 
 ## ZoomClickSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Looping sound played while the camera is zooming with the mouse wheel. Its playback speed scales with the current zoom, and its volume tracks the zoom rate against [[MouseWheelZoomSpeed]].

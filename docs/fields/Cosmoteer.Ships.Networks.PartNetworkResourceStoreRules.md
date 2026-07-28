@@ -10,7 +10,7 @@
 ## ResourceType
 `→ ResourceRules` · required
 
-<!-- TODO: needs documentation -->
+The resource the store trades on the part network. Exposed as the store's sink and source ResourceType, so it only provides and receives this one resource type through the network.
 
 ## ResourceStorage
 `→ PartComponentRules` · required

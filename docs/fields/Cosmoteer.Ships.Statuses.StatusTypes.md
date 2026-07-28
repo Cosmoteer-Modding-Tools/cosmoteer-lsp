@@ -15,4 +15,4 @@ The parameters for creation of the status indicator atlases.
 ## Statuses
 `StatusType[]` · optional
 
-<!-- TODO: needs documentation -->
+Every status type in the game, keyed internally by each entry's `ID`. Vanilla includes one file per status here, covering fire, scorched, heat, fire foam, shield overload and disruptor drain.

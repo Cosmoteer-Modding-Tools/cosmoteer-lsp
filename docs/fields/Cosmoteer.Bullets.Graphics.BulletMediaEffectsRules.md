@@ -10,29 +10,29 @@
 ## MediaEffects
 `MultiMediaEffectRules` · required
 
-<!-- TODO: needs documentation -->
+The set of media effects (particles, sounds, lights) played continuously on the bullet for as long as it exists. The effect node is attached to the bullet at [[Cosmoteer.Bullets.Graphics.BulletMediaEffectsRules.Offset]] and inherits the bullet's velocity and frame of reference each physics tick. The vanilla railgun bullet attaches its trail particle effects this way.
 
 ## Offset
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The position, in tiles, where the effects are attached relative to the bullet's center, in the bullet's own rotated frame.
 
 ## Rotation
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+The rotation of the attached effects relative to the bullet's facing, in degrees.
 
 ## MediaEffectsScale
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The base intensity multiplier for the played effects, defaulting to 1. It is a modifiable value evaluated against the bullet's buffs and effect scale, so it can react to buffs. The vanilla railgun bullet multiplies it by the `RailgunShot` buff to grow the trail with charge.
 
 ## FactorEffectsWith
 `→ BulletComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+ID of a sibling bullet component whose factor (a 0..1 value such as a damage pool's remaining-damage fraction or `Targetable`'s remaining-health fraction) multiplies the effect intensity every physics tick on top of [[Cosmoteer.Bullets.Graphics.BulletMediaEffectsRules.MediaEffectsScale]]. The vanilla nuke missile's first stage uses `FactorEffectsWith = Targetable` to fade its effects as the missile takes damage.
 
 ## FactorEffectsExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Has no effect. The game stores the value but never reads it, so the [[Cosmoteer.Bullets.Graphics.BulletMediaEffectsRules.FactorEffectsWith]] factor is always applied linearly. The working equivalent for sprites is [[Cosmoteer.Bullets.Graphics.BulletSpriteRules.ReduceScaleExponent]].

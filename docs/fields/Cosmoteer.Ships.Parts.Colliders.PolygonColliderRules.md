@@ -10,4 +10,4 @@
 ## Vertices
 `Vector2[]` · optional
 
-<!-- TODO: needs documentation -->
+The corner points of the polygon, in tiles relative to the component's own location, rotating with the component and mirrored when the part is flipped. The enclosed area times the collider's density gives the mass the collider adds to the ship.

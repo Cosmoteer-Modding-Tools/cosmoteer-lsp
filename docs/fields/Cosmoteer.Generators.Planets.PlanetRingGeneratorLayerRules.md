@@ -10,29 +10,29 @@
 ## RingThickness
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Width of the ring band, sent to the shader. Default 0.2.
 
 ## Resolution
 `IntVector2` · optional
 
-<!-- TODO: needs documentation -->
+Pixel resolution of the generated ring texture, passed as the texture size to the ring's texture generator. Default 1 by 128.
 
 ## Tilt
 `range<number (degrees)>` · optional
 
-<!-- TODO: needs documentation -->
+Range for the ring's tilt angle. A random angle in the range is chosen and its sine and cosine are sent to the shader. Default 45 degrees.
 
 ## Angle
 `range<number (degrees)>` · optional
 
-<!-- TODO: needs documentation -->
+Range for the ring's rotation around the planet. A random angle in the range is chosen and added to the planet's rotation. Default 0 to 360 degrees.
 
 ## ShadowSphereRadius
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Radius of the planet sphere that casts a shadow onto the ring, sent to the shader divided by [[Scale]]. Default 0.9.
 
 ## Penumbra
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Softness of the ring shadow's edge, sent to the shader as the shadow light radius divided by [[Scale]]. Default 0.3.

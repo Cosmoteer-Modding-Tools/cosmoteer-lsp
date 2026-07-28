@@ -10,47 +10,47 @@
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the stat's name, inserted into the default tooltip format `BuildBox/StatBarTipFmt`. Ignored when [[CustomTooltipTextKey]] is set.
 
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown left of the value text, scaled to 32px tall with its aspect ratio preserved.
 
 ## Stat
 `→ PartStatRules` · required
 
-<!-- TODO: needs documentation -->
+References the [[Cosmoteer.Game.PartStatRules|PartStatRules]] whose summed value across the ship is displayed. Collection is controlled by [[StatMode]].
 
 ## NumberFormat
 `string` · optional
 
-<!-- TODO: needs documentation -->
+.NET numeric format string applied to the stat total for the value text. Ignored when [[CustomValueTextKey]] is set. Without it the value is formatted with the current culture's default.
 
 ## CustomValueTextKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key formatted with the stat total to produce the value text, replacing the plain number from [[NumberFormat]].
 
 ## CustomTooltipTextKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key formatted with the stat total to produce the tooltip, replacing the default `BuildBox/StatBarTipFmt` built from [[NameKey]].
 
 ## CustomValueLabel
 `Label` · optional
 
-<!-- TODO: needs documentation -->
+Label style override for the value text. Falls back to the defaults provider's value label, then the standard widget label.
 
 ## MinWidth
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Minimum width of the widget in pixels. The widget otherwise auto-sizes to its contents.
 
 ## MinHeight
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Minimum height in pixels applied to the widget, its value label, and its icon. The widget height is otherwise 32px.
 
 ## StatMode
 `enum StatCollectionMode` · optional · one of: `StatBlocks`, `Providers`, `ProvidersThenStatBlocks`

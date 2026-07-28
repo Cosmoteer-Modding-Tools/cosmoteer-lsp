@@ -10,19 +10,19 @@
 ## TargeterID
 `→ PartTargeterGuiRules` · required
 
-<!-- TODO: needs documentation -->
+The targeter button this component responds to, matching the `TargeterID` of an entry in the game GUI's `PartTargeters` list. While parts with this component are selected, that button lets the player pick targets for the listed weapons. The vanilla tractor beam wires the `tractor_beam` targeter to its turret. A part may have at most one UITargeter per TargeterID.
 
 ## RequiresCommand
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether assigning or cancelling targets through this targeter requires that the ship can currently execute commands from the player.
 
 ## Weapon
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Single-entry shorthand for [[Cosmoteer.Ships.Parts.UI.PartUITargeterRules.Weapons]]. Both fields may be given and their entries are combined, but at least one weapon must be specified between the two or the part fails to load.
 
 ## Weapons
 `→ PartComponentRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The weapon components on the same part that receive targets picked through this targeter. Every chosen target is enqueued as an explicit target on each listed weapon. Combined with [[Cosmoteer.Ships.Parts.UI.PartUITargeterRules.Weapon]], and at least one weapon is required.

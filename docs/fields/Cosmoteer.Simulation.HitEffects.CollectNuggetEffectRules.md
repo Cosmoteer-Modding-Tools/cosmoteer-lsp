@@ -10,24 +10,24 @@
 ## AccelerationOverDistance
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The acceleration, in tiles per second squared, pulling the targeted resource nugget toward its destination sink each tick. Interpolated from Min to Max as the remaining distance moves across [[Cosmoteer.Simulation.HitEffects.CollectNuggetEffectRules.OverDistance]], so the Min applies up close and the Max applies far away. The effect only acts when the weapon's current target is a nugget-collection target with an outstanding transfer job requesting resources, as with the vanilla manipulator beam's `TargetType = CollectNugget` mode.
 
 ## DampingOverDistance
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The fraction of the nugget's current velocity removed per second, interpolated from Min to Max across [[Cosmoteer.Simulation.HitEffects.CollectNuggetEffectRules.OverDistance]]. The vanilla manipulator beam uses `[8, 0.01]` so nuggets brake near the sink but coast freely at range.
 
 ## OverDistance
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The distance span, in tiles from the sink's delivery point, that maps the remaining distance onto the interpolation of [[Cosmoteer.Simulation.HitEffects.CollectNuggetEffectRules.AccelerationOverDistance]] and [[Cosmoteer.Simulation.HitEffects.CollectNuggetEffectRules.DampingOverDistance]]. Distances at or below the Min use those fields' Min values, distances at or beyond the Max use their Max values.
 
 ## DeliveryDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+The distance, in tiles, from the sink's delivery point at which the nugget's requested resources transfer into the sink, judged with the nugget's next tick of travel already counted. Resources beyond what the sink's jobs requested are split off into a separate nugget, and anything the sink cannot receive is requeued to other sinks on the ship.
 
 ## DoorOpenDistance
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The distance, in tiles, within which the sink part's crew-proximity door toggle is held open while the nugget approaches, letting the delivery through the airlock doors. Defaults to 0, which disables the door opening.

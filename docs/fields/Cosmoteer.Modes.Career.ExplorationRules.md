@@ -10,44 +10,44 @@
 ## SectorSize
 `float` · required
 
-<!-- TODO: needs documentation -->
+Edge length in tiles of one fog of war cell. A cell is revealed as a whole as soon as any player radar circle touches it, so smaller values give finer grained but more expensive fog. Vanilla uses 512.
 
 ## UnexploredRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radius in tiles of the circle of fog placed around the system center at the start of a game. Everything outside the circle counts as already explored, and the covered square of cells sizes the fog texture. Vanilla fogs 60 sectors, that is 30720 tiles.
 
 ## UnexploredTextureSizeFactor
 `int` · required
 
-<!-- TODO: needs documentation -->
+How many texture pixels are allocated per fog cell along each axis. The game writes one flat color across every pixel of a cell, so raising this adds no detail to the fog and only costs texture memory. Vanilla uses 1.
 
 ## UnexploredMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+The material the fog quad is drawn with, including its shader, tint and blend mode. The fog texture is bound to it and stores full alpha for unexplored cells and zero alpha for revealed ones.
 
 ## BreadcrumbPoints
 `int` · required
 
-<!-- TODO: needs documentation -->
+Maximum number of trail points kept per player ship. Once the cap is reached the oldest point is dropped for each new one, so together with [[Cosmoteer.Modes.Career.ExplorationRules.BreadcrumbPointDistance]] this sets how far back a trail reaches. Vanilla keeps 600.
 
 ## BreadcrumbPointDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Minimum distance in tiles a ship must move from its last trail point before a new one is recorded. Vanilla uses 50.
 
 ## BreadcrumbTrailBeginColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color at the newest end of the trail, next to the ship. The gradient runs from [[Cosmoteer.Modes.Career.ExplorationRules.BreadcrumbTrailEndColor]] at the oldest point up to this color, so vanilla fades the trail in from fully transparent to half opaque grey.
 
 ## BreadcrumbTrailEndColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color at the oldest end of the trail, applied to the first point still stored rather than to the segment nearest the ship. Vanilla makes it fully transparent so the tail dissolves.
 
 ## BreadcrumbMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+The material the trail line segments are drawn with. Vanilla only overrides its blend mode to add-alpha-blend.

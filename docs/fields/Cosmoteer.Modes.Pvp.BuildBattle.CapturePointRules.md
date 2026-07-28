@@ -10,84 +10,84 @@
 ## Radius
 `float` · required
 
-<!-- TODO: needs documentation -->
+The radius of the capture circle in world units. Any significant ship that can still take orders and overlaps the circle counts as occupying the point.
 
 ## TimeToCapture
 `Time` · required
 
-<!-- TODO: needs documentation -->
+The seconds a single team needs inside the circle to take a neutral point from no progress to fully captured. Progress drains at the same rate when a different team moves in before the capture finishes.
 
 ## TimeToUncapture
 `Time` · required
 
-<!-- TODO: needs documentation -->
+The seconds a rival team needs inside the circle to drag an already captured point back to neutral. The same rate refills progress once the owning team is alone in the circle again.
 
 ## IncomeRate
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the host's capture point income setting for the figure printed in the point's on-map label. The payout actually credited to the owning team uses the host setting unscaled, so any value other than 100% makes the label disagree with the money paid.
 
 ## MinDistanceBuffer
 `float` · required
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it. Build and Battle always places its one capture point at the map center, so the map generator spacing this feeds in Domination mode has nothing to do here.
 
 ## AreaExpand
 `float` · required
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it. Build and Battle does not size its map from capture point areas the way Domination does.
 
 ## Circle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The ring drawn at the capture radius in the world, tinted with the owning team's color and flashed through `TransitionColorMultiply` when ownership changes.
 
 ## ProgressCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The band drawn inside the ring to show capture progress. Its outer radius is `Radius` times the current progress, and its inner radius animates over `ProgressCircleTransitionDuration`.
 
 ## TextYOffset
 `float` · required
 
-<!-- TODO: needs documentation -->
+How far below the capture ring the name and income label sits, on top of `Radius`. It is multiplied by the camera scale, so the gap widens as the view zooms out.
 
 ## TextFadeZoomRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The two camera scales between which the capture point's label crossfades from fully transparent to fully opaque.
 
 ## MinimapThicknessScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the minimap pixel scale used for the ring's thickness on the minimap, so a ring that is thin in the world stays readable at minimap size.
 
 ## ProgressCircleTransitionDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+The seconds the progress band takes to collapse or expand after the point reaches full capture or starts slipping away from it.
 
 ## ColorTransitionDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+The seconds the ring takes to fade from the previous owner's color to the new owner's color after the point changes hands.
 
 ## TransitionColorMultiply
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Multiplied into the ring color during a change of ownership, peaking halfway through `ColorTransitionDuration` and returning to white at the end. Vanilla doubles the alpha so the ring flashes.
 
 ## AlertSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays for the owning team's players at the moment a fully captured point starts losing progress to a rival.
 
 ## ActivateSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays for the capturing team's players the instant progress reaches full and the point becomes theirs.
 
 ## DeactivateSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays for the losing team's players the instant progress reaches zero and the point goes neutral.

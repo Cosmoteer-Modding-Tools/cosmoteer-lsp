@@ -10,29 +10,29 @@
 ## FactionID
 `→ FactionRules` · required
 
-<!-- TODO: needs documentation -->
+Faction whose territory this entry places.
 
 ## TerritoryRatio
 `float` · required
 
-<!-- TODO: needs documentation -->
+Fraction of the map's total nodes this faction claims, rounded up. Territory grows outward from the homeworld until this many nodes are covered.
 
 ## AvoidOtherFactionsStrength
 `float` · optional · default `0.2`
 
-<!-- TODO: needs documentation -->
+How strongly this faction's homeworld is pushed away from other faction homeworlds during the relaxation passes controlled by [[Cosmoteer.Generators.Galaxies.FactionsSpawner#AvoidIterations]]. Default 0.2.
 
 ## AvoidEdgeStrength
 `float` · optional · default `0.2`
 
-<!-- TODO: needs documentation -->
+How strongly this faction's homeworld is pulled toward the map center, away from the edge, during the relaxation passes. Default 0.2.
 
 ## FactionStrengthExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Exponent shaping how faction strength falls off from the homeworld to the territory edge, where strength is the remaining-node fraction raised to this power. The default of 1 gives a linear falloff, higher values a steeper one.
 
 ## MinFactionStrength
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Nodes whose computed strength falls below this are not assigned to the faction, trimming the faint outer edge of its territory.

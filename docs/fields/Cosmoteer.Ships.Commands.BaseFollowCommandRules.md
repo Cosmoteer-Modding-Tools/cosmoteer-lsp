@@ -10,149 +10,149 @@
 ## MaxFollowRadiusFactor
 `float` · optional · default `∞`
 
-<!-- TODO: needs documentation -->
+Caps how far the ship may be told to sit from its target, as a multiple of the larger of the two ships' bounding radii and measured between their bounding circles rather than between their centers. The cap applies every time the follow distance is set, including the default distance chosen when the command is created and any distance the player drags out.
 
 ## MatchVelocityFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Fraction of the target's velocity that the follower adds to its own desired velocity so it keeps station instead of chasing from behind. A value of 1 matches the target exactly, and it is only applied while the ship actually has a follow distance and is not being diverted by collision avoidance.
 
 ## AvoidanceLookaheadTime
 `float` · required
 
-<!-- TODO: needs documentation -->
+Seconds of the ship's current velocity projected ahead of it to build a probe destination for collision avoidance once it is already holding station. The probe is only used when it lands farther away than the real follow destination.
 
 ## RightClickAdjustPixelThreshold
 `float` · required
 
-<!-- TODO: needs documentation -->
+Screen distance in pixels, scaled by the global UI scale, that the mouse must travel while the command button is held before the follow distance and angle start being adjusted.
 
 ## RightClickSetsAngleThreshold
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+Controls how far around the target the cursor must be dragged before a fixed follow angle is locked in rather than cleared. The authored angle is divided by the current follow distance in tiles and then multiplied by the camera zoom, so the effective threshold shrinks the farther away the ship is following from. A value of 0 means any drag at all sets an angle.
 
 ## Circle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The circle drawn around the target ship while this command is displayed. It is drawn once per target regardless of how many ships are following that target.
 
 ## CircleAddedRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Tiles added to the target ship's bounding radius, scaled by the target's own sprite scale, to get the radius of `Circle`.
 
 ## CircleDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds over which `Circle` fades in and shrinks to its final size after the command is given. Clicks on the target only start passing through to its individual parts once this time has elapsed.
 
 ## CircleShrinkFromFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radius multiplier that `Circle` starts at, shrinking to 1 over `CircleDuration`.
 
 ## RadiusAngleCircle
 `CircleRenderer` · optional
 
-<!-- TODO: needs documentation -->
+The arc drawn around the target, from the target's own facing to the chosen follow angle, showing where in the target's frame of reference the ship will sit. It is only drawn while the command has a target-relative follow angle set.
 
 ## RadiusAngleLines
 `CappedLine` · optional
 
-<!-- TODO: needs documentation -->
+The line style used for the two radial lines drawn from the target's center out to the ends of the `RadiusAngleCircle` arc.
 
 ## MovePathLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The line drawn from the previous command's endpoint to this command's follow destination.
 
 ## MovePathLineCamScaleExponent
 `float` · required
 
-<!-- TODO: needs documentation -->
+Exponent applied to the camera scale to get the thickness scale of `MovePathLine`, so that the line does not thin out linearly as the player zooms. The result is floored at the camera scale times `MinMovePathLineSize`.
 
 ## MinMovePathLineSize
 `float` · required
 
-<!-- TODO: needs documentation -->
+Floor on the `MovePathLine` thickness scale, expressed as a fraction of the camera scale. When a formation follower draws the lead ship's queued destinations the same expression is combined with a minimum instead of a maximum, so there it acts as a ceiling.
 
 ## TargetPathLine
 `CappedLine` · optional
 
-<!-- TODO: needs documentation -->
+The line drawn from the follow destination to the target ship's center. Unlike `MovePathLine` it is drawn at the command's full color without the distance and angle fade.
 
 ## TargetPathLineCamScaleExponent
 `float` · required
 
-<!-- TODO: needs documentation -->
+Exponent applied to the camera scale to get the thickness scale of `TargetPathLine`, floored at the camera scale times `MinTargetPathLineSize`.
 
 ## MinTargetPathLineSize
 `float` · required
 
-<!-- TODO: needs documentation -->
+Floor on the `TargetPathLine` thickness scale, expressed as a fraction of the camera scale.
 
 ## RotationTargetLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The line drawn from the follow destination to the separate rotation target a command can be given. It is always drawn in the current player color rather than in the command's own color.
 
 ## GhostColorFactor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplier for the translucent ship ghost drawn at the follow destination.
 
 ## GhostBlinkColorFactor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplier the destination ghost blends toward on each blink right after the command is given.
 
 ## BlinkInterval
 `float` · required
 
-<!-- TODO: needs documentation -->
+Length in seconds of one full blink cycle of the destination ghost, split evenly between `GhostColorFactor` and `GhostBlinkColorFactor`.
 
 ## BlinkCount
 `int` · required
 
-<!-- TODO: needs documentation -->
+Number of blink cycles the destination ghost performs after the command is given.
 
 ## FadeMinDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance in tiles between the previous command's endpoint and this destination at which the ghost and the move path line begin to appear. Below it they are invisible unless the rotation difference keeps them visible.
 
 ## FadeMaxDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance in tiles at which the ghost and the move path line reach full opacity.
 
 ## FadeMinAngle
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+Difference between the ship's current rotation and the commanded rotation at which the ghost and the move path line begin to appear. Whichever of the distance fade and the angle fade gives the higher opacity wins.
 
 ## FadeMaxAngle
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+Rotation difference at which the ghost and the move path line reach full opacity.
 
 ## MoverWidget
 `CommandWidgetRules` · required
 
-<!-- TODO: needs documentation -->
+The widget dragged to change the follow distance and the follow angle at once. It sits on the follow destination and points at the target.
 
 ## RotatorWidget
 `CommandWidgetRules` · required
 
-<!-- TODO: needs documentation -->
+The widget dragged to change the rotation the ship holds while following. It sits one ship bounding radius from the follow destination, in the direction the destination ghost faces.
 
 ## DeleterWidget
 `CommandWidgetRules` · required
 
-<!-- TODO: needs documentation -->
+The widget clicked to delete this command. It sits diagonally off the follow destination by one ship bounding radius plus one tile and stays aligned with the camera.
 
 ## DistIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon shown on the ship card beside the remaining distance to the follow destination.

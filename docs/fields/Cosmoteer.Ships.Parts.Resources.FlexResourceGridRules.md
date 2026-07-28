@@ -10,54 +10,54 @@
 ## GridRect
 `IntRect` · required
 
-<!-- TODO: needs documentation -->
+The part-relative rectangle of cells `[x, y, width, height]`, in tiles, that makes up the storage grid. Each cell holds one independent stack that can be any stackable resource type, storing up to that resource's [[Cosmoteer.Resources.ResourceRules.MaxStackSize]], and crew pick up from and deliver to each cell individually. Vanilla cargo bays cover their whole interior, for example `[0, 0, 2, 2]` on the 2x2 Cargo Bay.
 
 ## IsDrainable
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the stacks in this grid can be emptied by `ResourceDrain`, `AreaResourceDrain` and `ExplosiveResourceDrain` hit effects. Defaults to false.
 
 ## DrainResistance
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The fraction of incoming resource drain this grid ignores, as a 0..1 value. Drained amounts are multiplied by one minus this value, and at 1 the grid cannot be drained at all. Supports value modifiers.
 
 ## Layer
 `→ ShipRenderLayerRules` · required
 
-<!-- TODO: needs documentation -->
+The ship render layer on which the stack sprites of stored resources are drawn. Vanilla storage parts use `doodads_low` so stacks appear above the floor but below crew and roofs.
 
 ## SpriteInset
 `Borders` · optional
 
-<!-- TODO: needs documentation -->
+Margins, in tiles, trimmed off the edges of [[Cosmoteer.Ships.Parts.Resources.FlexResourceGridRules.GridRect]] before the tile visuals are laid out. The stack sprites and their tooltip rects are proportionally squeezed into the shrunk rectangle. Either a single number for all four sides or `[left, top, right, bottom]`, typically expressed in sprite pixels like `8/64`.
 
 ## RandomSpriteRotation
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Rotates each cell's stack sprite by a random multiple of 90 degrees, chosen once per tile. Vanilla cargo bays use this to make stored stacks look less uniform.
 
 ## OverridePriorityPart
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+The part whose crew job priorities this grid uses instead of registering its own. When set, this part adds no priority rows of its own and role priorities are looked up under the referenced part's ID. Vanilla larger cargo bays all point at `cosmoteer.storage_2x2` so every storage size shares a single priority row per resource.
 
 ## OverridePriorityKey
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The component key under which the crew delivery priority is registered and looked up, replacing each stackable resource's [[Cosmoteer.Resources.ResourceRules.FlexGridPriorityKey]]. Because the same key is then used for every resource type, all deliveries to this grid share one priority row instead of one per resource.
 
 ## OverridePriorityName
 `string` · optional
 
-<!-- TODO: needs documentation -->
+The localization key of the display name for this grid's crew job priority row. Falls back to the `JobNames/ResourceFetchFmt` format string filled with each resource's name.
 
 ## AllowExternalPickupAndDelivery
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether crew from outside this grid's ship can pick up resources from it and deliver resources to it, walking on the ship's exterior. External deliveries to such a grid are also strongly prioritized over internal ones. Vanilla cargo bays enable this so storage can be loaded and unloaded from other ships.
 
 ## AccessWarningLevel
 `enum AccessWarningLevel` · optional · default `Strong` · one of: `None`, `Weak`, `Strong`
 
-<!-- TODO: needs documentation -->
+The severity of the build-mode warning shown when the part has no crew access path, since crew are needed to move resources in and out of the grid. `Strong` shows the standard no-crew-access warning, `Weak` shows a softer variant, and `None` suppresses the check for this component.

@@ -10,39 +10,39 @@
 ## SituationCode
 `string` · required
 
-<!-- TODO: needs documentation -->
+Eight-character pattern describing which of the eight surrounding neighbor slots this sprite blends against. Each character is `0` (no neighbor), `1` (neighbor present) or `*` (either, expanded into both cases). Must be exactly 8 characters or generation throws. A single ambiguous code expands into every matching 8-bit neighbor configuration.
 
 ## MinDamageFraction
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Lower bound of the damage range this sprite covers, from 0 (undamaged) to 1 (destroyed). The part's damage fraction is remapped across [[#MinDamageFraction]] to [[#MaxDamageFraction]] before selecting which entry of [[#DamageLevels]] to show.
 
 ## MaxDamageFraction
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Upper bound of the damage range this sprite covers. When the part's damage exceeds this value the sprite is not drawn at all, letting a different blend sprite take over at higher damage.
 
 ## AllowRotation
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+When true the sprite is also emitted for the three 90-degree rotations of its situation code, rotating both the neighbor bit pattern and the sprite's UVs. Set false for sprites that must not be reused rotated, such as directional or text decals.
 
 ## AtlasSprite
 `AtlasSprite` · optional
 
-<!-- TODO: needs documentation -->
+Single sprite for this situation, with no damage or random variation. One of `AtlasSprite`, [[#RandomAtlasSprite]], [[#DamageLevels]] or [[#RandomDamageLevels]] must be defined.
 
 ## RandomAtlasSprite
 `AtlasSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+List of interchangeable sprites, one picked at random per part instance, with no damage variation. Use to break up visual repetition across identical tiles.
 
 ## DamageLevels
 `AtlasSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+Sprites ordered from least to most damaged. The part's remapped damage fraction indexes into the list, so later entries show as the part takes more damage. No random variation.
 
 ## RandomDamageLevels
 `AtlasSprite[][]` · optional
 
-<!-- TODO: needs documentation -->
+Combines both axes: the outer list is random variants (one chosen per instance) and each inner list is that variant's damage-level sprites indexed by damage fraction.

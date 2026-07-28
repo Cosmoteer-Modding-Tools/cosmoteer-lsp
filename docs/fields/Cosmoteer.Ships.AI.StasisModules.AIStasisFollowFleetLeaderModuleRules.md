@@ -10,14 +10,14 @@
 ## DefaultStasisSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed in world units per second at which the stasis spawner drifts toward its fleet leader. Overridden per ship by [[Cosmoteer.Ships.AI.AIParameters.StasisSpeed]]. The module does nothing at all while [[Cosmoteer.Ships.AI.AIParameters.FleetLeader]] is unset or points at something that no longer exists.
 
 ## AvoidableDoodadTags
 `→ SimObjectSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Ids of doodad spawners, such as `sun` or `station`, that the spawner steers around while following its leader. Leaving it unset disables doodad avoidance, nebulas flagged as AI-avoidable are still routed around either way.
 
 ## AvoidableDoodadBuffer
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Extra distance in world units added to the radius of every doodad matched by [[Cosmoteer.Ships.AI.StasisModules.AIStasisFollowFleetLeaderModuleRules.AvoidableDoodadTags]].

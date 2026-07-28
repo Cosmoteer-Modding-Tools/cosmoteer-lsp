@@ -10,17 +10,17 @@
 ## Density
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The physics density of the collider's material, falling back to the part's [[Cosmoteer.Ships.Parts.PartRules.Density]] when unset. It is used both for the physics fixture and for the collider's contribution to ship mass, which is its area times this density.
 
 ## IsHigh
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether this collider counts as a high collider rather than a low one for collision filtering, so beams and projectiles that pass over low parts still strike it. Selects which collision categories the fixture is placed in.
 
 ## DamageResistances
 `map<→ DamageType, range<number>>` · optional
 
-<!-- TODO: needs documentation -->
+Per-damage-type resistances used in place of the part's own [[Cosmoteer.Ships.Parts.PartRules.DamageResistances]] for hits that struck this collider. Each range interpolates from Min to Max as the part's damage fraction goes from 0 to 1, and status effects can then modify the result.
 
 ## StatusResistances
 `map<→ StatusType, StatusResistance>` · optional
@@ -30,4 +30,4 @@ The collider's base resistances to status types, interpolated by the current Dam
 ## InitialPenetrationResistance
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The penetration resistance drained from a penetrating shot that enters the part through this collider, used in place of the part's [[Cosmoteer.Ships.Parts.PartRules.InitialPenetrationResistance]]. Interpolated from Min to Max by the part's damage fraction.

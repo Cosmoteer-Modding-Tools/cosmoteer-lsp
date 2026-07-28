@@ -51,8 +51,8 @@ All settings live under the `cosmoteerLSPRules.` prefix.
 | `cosmoteerPath` | `""` | Path to the Cosmoteer installation (auto-detected when empty) |
 | `ignorePaths` | `[]` | Reference paths to exclude from validation, any path containing one of these strings is ignored |
 | `maxNumberOfProblems` | `100` | Maximum number of problems reported per file |
-| `diagnostics.validateWholeWorkspace` | off | Validate every `.rules` file in the workspace, not just open files |
-| `diagnostics.workspaceValidationScope` | `allFiles` | Scope of the whole-workspace pass: all files, or only the files reachable from the `mod.rules` manifest |
+| `diagnostics.validateWholeWorkspace` | on | Validate the whole mod, not just the files open in the editor. Cached on disk per file, so only the first open of a project pays for the scan |
+| `diagnostics.workspaceValidationScope` | `modRulesReachable` | Scope of the whole-workspace pass: only the files the `mod.rules` actions actually load (their includes, inheritance and the strings folder), or `allFiles` for every `.rules` under the workspace. A workspace with no manifest is unrestricted either way |
 | `diagnostics.validateComponentReferences` | on | Flag a component ID reference that names no component in the part or its bases |
 | `diagnostics.validateCrossFileReferences` | on | Flag a GUI toggle/color/targeter/trigger id with no declaration in the project or game data |
 | `diagnostics.validateRequiredFields` | on | Flag a group missing a schema-required field (inherited fields count as present) |
@@ -62,6 +62,8 @@ All settings live under the `cosmoteerLSPRules.` prefix.
 | `diagnostics.validateRedundantSeparators` | on | Hint at a `,`/`;` separator a line break already makes redundant (shown as an editor hint, not in the Problems panel) |
 | `diagnostics.validateIgnoredFields` | on | Hint at a field the game never reads, with a remove quick fix (shown as an editor hint, not in the Problems panel) |
 | `diagnostics.validateDefaultValues` | on | Fade a field written at the game's own default, with a remove quick fix. Only inside groups that do not inherit, since an explicit default can override a base's value |
+| `codeMods.enabled` | on | Read the types, fields and `Type=` values a mod's `.dll` declares and merge them into the schema, so modded components complete, hover and validate like built-in ones. Covers the workspace, the installed workshop mods and your own `Mods` folder. Off scans nothing and uses the shipped schema alone |
+| `codeMods.autoRefresh` | on | Pick up a code mod installed, updated or rebuilt while the editor is open, by watching the assemblies the schema was built from. Off leaves that to `Cosmoteer: Rebuild Schema from Code Mod Assemblies` |
 | `inlayHints.showBaseValue` | on | Show the referenced group's `BaseValue` inline: a reference to a group with a `BaseValue` member renders `/BaseValue = 160d` |
 | `rename.allowEditingVanillaFiles` | off | Allow Rename to edit files inside the game `Data` install |
 | `decompiler.showInHover` | off | Power user: end schema hovers with an "Open in decompiler" link that opens the owning C# class from the game's assemblies |
@@ -137,6 +139,7 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 -   Full `mod.rules` manifest support: parsing, validation and completion of `Actions`
 -   Mod overview report (CodeLens or `Cosmoteer: Show Mod Overview`): what the manifest does, whether each action target resolves, and which files are unreachable by the game
 -   One-command migration (`Cosmoteer: Migrate Mod to Current Game Version`, also in the JetBrains Tools menu): applies every known game-update rename, deletion and rewrite across the whole workspace as one undoable edit, reports the fixes grouped by game version, lists the findings that need author judgment, and can optionally strip fields the game never reads
+-   Code mod support: a mod that ships a `.dll` gets its own serializable types read straight out of the assembly, so its `Type=` discriminators, fields and enums complete, hover and validate like the game's own. Covers assemblies in the workspace and in the installed workshop mods, needs no .NET install, and refreshes on demand with `Cosmoteer: Rebuild Schema from Code Mod Assemblies` (also in the JetBrains Tools menu)
 -   Localization-key completion and hover for `KeyString` fields, with an insert-into-all-strings quick fix
 -   Color swatches with an in-place picker, part-category completion
 -   Multi-root workspace support, localization (en, de)
@@ -155,7 +158,42 @@ Special thanks to Walt for the open communication and allowance. Also to Celeste
 
 ## Showcase
 
-![Basic Syntax Highlighting Example Image](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/syntax_highlighting.png?raw=true)
-![Diagnostics for syntax errors Example Image](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/diagnostics.png?raw=true)
+**Computed values inline.** Inlay hints evaluate the math a field actually resolves to, references included.
 
-https://github.com/user-attachments/assets/b1de7a49-404f-483b-8739-f1e7b6706a50
+![Inlay hints showing computed math results next to a part's stats](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/inlay_hints.png?raw=true)
+
+**Hover.** A field's type, default and documentation from the game's own classes, plus what the reference resolves to.
+
+![Hover on a field showing its type, documentation and resolved value](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/hover_field.png?raw=true)
+
+Asset paths hover with a sprite preview.
+
+![Hover on an asset path showing the sprite it resolves to](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/hover_asset.png?raw=true)
+
+**Completion.** Field names with their type, default and documentation, inserted as ready-to-fill snippets.
+
+![Field-name completion with documentation](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/completion.png?raw=true)
+
+**Diagnostics.** Unknown fields, invalid enums, unresolved references and assets, missing separators, missing required fields, deprecated symbols.
+
+![Diagnostics in the editor and the Problems panel](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/diagnostics.png?raw=true)
+
+Most of them come with a quick fix.
+
+![Quick fix suggesting the correct enum value](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/quick_fix.png?raw=true)
+
+**Live shader preview.** The material rendered the way the game renders it, with the shader's constants as live controls.
+
+![Live WebGL shader preview next to the material's rules](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/shader_preview.png?raw=true)
+
+**Part grid editor.** Cells, doors, walls and component locations edited on the part itself.
+
+![The part grid editor next to the part's rules](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/part_grid.png?raw=true)
+
+**Mod overview.** What the manifest does, whether each action target resolves, and which files the game never loads.
+
+![Mod overview report listing the manifest's actions and file reachability](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/mod_overview.png?raw=true)
+
+**One-command migration.** Every known game-update rename, deletion and rewrite applied across the workspace as one undoable edit.
+
+![Migration summary after upgrading the mod to the current game version](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/migration.png?raw=true)

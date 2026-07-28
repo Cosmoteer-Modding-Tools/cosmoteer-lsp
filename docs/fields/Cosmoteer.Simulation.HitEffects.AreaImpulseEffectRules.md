@@ -10,39 +10,39 @@
 ## Impulse
 `number` · required
 
-<!-- TODO: needs documentation -->
+The strength of the impulse. Ship hulls receive it per part tile within the radius, applied at each tile, and shields per tile of arc length within the radius. Bullets, crew, and resource nuggets each receive the full amount. Negative values pull toward the center instead of pushing away. At 0 the effect does nothing.
 
 ## Radius
 `number` · required
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, of the affected circle around the effect point. Nothing happens when 0 or less.
 
 ## Falloff
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The exponent shaping how the impulse fades with distance from the center, multiplying its strength by `(1 - distance/radius)^Falloff`. Defaults to 1, a linear fade to zero at the rim. 0 removes the falloff entirely.
 
 ## InvertFalloff
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Reverses the falloff to `(distance/radius)^Falloff`, so strength grows from zero at the center to full at the rim. The overclocked vanilla tractor beam emitter pairs this with a negative [[Cosmoteer.Simulation.HitEffects.AreaImpulseEffectRules.Impulse]] for its pull burst.
 
 ## Delay
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds to wait before the impulse is applied. During the wait the effect point follows the hit ship's movement, or drifts on at that ship's last velocity if it is destroyed.
 
 ## UseEffectDirection
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Pushes everything along the hit effect's world direction instead of radially away from the center point.
 
 ## PushShipCenterOfMassOnly
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Applies a single impulse to each affected ship at its center of mass, so ships are pushed without spin, instead of individual impulses at every part tile in range. Strength is [[Cosmoteer.Simulation.HitEffects.AreaImpulseEffectRules.Impulse]] with falloff at the distance of the ship's nearest part, directed from the effect point toward the ship's center of mass unless [[Cosmoteer.Simulation.HitEffects.AreaImpulseEffectRules.UseEffectDirection]] is set.
 
 ## Filter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+The filter deciding what gets pushed. Its category flags gate whole object classes, with shields, ships, crew, and nuggets on and bullets off by default, and the per-object checks then decide each candidate. The overclocked vanilla tractor beam emitter enables `Bullets` in a second effect to shove projectiles.

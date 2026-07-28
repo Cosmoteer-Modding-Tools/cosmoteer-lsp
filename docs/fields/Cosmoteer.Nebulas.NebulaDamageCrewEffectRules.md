@@ -10,19 +10,19 @@
 ## DamageChancePerCrewPerTick
 `float` · required
 
-<!-- TODO: needs documentation -->
+The probability per physics tick that a single crew member in space inside the nebula takes a hit, multiplied by the nebula strength at that crew member's location. Values of 0 or less disable the effect entirely.
 
 ## DamagePerCrewPerTick
 `int` · required
 
-<!-- TODO: needs documentation -->
+The hit points removed from a crew member each time the `DamageChancePerCrewPerTick` roll succeeds. The damage is clamped so health never drops below `MinHealthRemaining`.
 
 ## MinHealthRemaining
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The health floor this effect will not damage a crew member below. Leave at 0 to let the nebula kill crew outright.
 
 ## OnDamageMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+The one-shot media effects played at the crew member's location whenever this effect actually removes health.

@@ -10,114 +10,114 @@
 ## TargeterID
 `→ PartTargeterGuiRules` · required
 
-<!-- TODO: needs documentation -->
+The name this targeter is known by. A part joins the targeter by carrying a `UITargeter` component with the same `TargeterID`, and the button only appears while at least one selected part or ship owns such a component. The id is also the key under which the player's rebound hotkeys are saved and under which the hotkey's display name is looked up as `Inputs/PartTargeters/<id>`.
 
 ## ButtonTextKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+The localization key of the caption drawn on the targeter button on top of `ButtonSprite`. The text is rendered with XML formatting enabled, so markup tags work. Vanilla's targeters are icon only and leave this unset.
 
 ## ButtonToolTipKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+The localization key of the tooltip shown when hovering the targeter button, for example `PartTargeters/TractorBeam`.
 
 ## ButtonSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+The icon of the targeter button in the command card. Leaving it unset gives a button with no image, so pair that with `ButtonTextKey`.
 
 ## HasCancelButton
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether a second button that clears the targets of every matching weapon is placed next to the targeter button. It also gates hotkey registration, so `DefaultCancelHotkey` is ignored when this is false. The cancel button only becomes clickable while at least one matching weapon actually has an explicit target.
 
 ## CancelButtonTextKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+The localization key of the caption drawn on the cancel button, rendered with XML formatting like `ButtonTextKey`.
 
 ## CancelButtonToolTipKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+The localization key of the tooltip shown when hovering the cancel button.
 
 ## CancelButtonSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+The icon of the cancel button. Vanilla's tractor beam uses a dedicated image while the headlight reuses the generic halt icon.
 
 ## Cursor
 `Cursor` · optional
 
-<!-- TODO: needs documentation -->
+The mouse cursor shown for as long as the targeting mode is active, applied every frame in both the main view and the miniview. Leaving it unset keeps whatever cursor the game would otherwise show.
 
 ## TargetObjectCursor
 `Cursor` · optional
 
-<!-- TODO: needs documentation -->
+The cursor shown instead of `Cursor` while the mouse is over a ship or part that this targeter can actually target. It is never applied in `ShipLocalPoint` mode, since free points are not objects.
 
 ## OverrideTentativeTargetNineSlice
 `NineSlice` · optional
 
-<!-- TODO: needs documentation -->
+The frame drawn around the part currently under the cursor, replacing the shared `Commands/WeaponTarget/TentativeTargetNineSlice`. When this override is used the frame is drawn at plain white rather than the player's configured enemy color, so any tint has to be baked into the sprites, as vanilla's tractor beam does with a blue `VertexColor`.
 
 ## OverrideTentativeTargetCircle
 `CircleRenderer` · optional
 
-<!-- TODO: needs documentation -->
+The circle drawn around the ship currently under the cursor, sized to the ship's bounding radius and replacing the shared `Commands/WeaponTarget/TentativeTargetCircle`. As with `OverrideTentativeTargetNineSlice`, the override is drawn white instead of the player's enemy color.
 
 ## TentativeTargetLine
 `CappedLine` · optional
 
-<!-- TODO: needs documentation -->
+The preview line drawn from each participating weapon to the point or object under the cursor, in the player's configured enemy color. No preview line is drawn at all when this is unset, which is what vanilla's tractor beam does.
 
 ## DefaultHotkey
 `enum ViKey[]` · optional
 
-<!-- TODO: needs documentation -->
+The key combination that activates this targeter out of the box, written as the whole chord such as `[PlatformCmdCtrl, T]`. It is registered in the ship command input context when `ShowWithShipCommands` is true and in the parts control context otherwise, and the player can rebind it in the controls settings.
 
 ## DefaultCancelHotkey
 `enum ViKey[]` · optional
 
-<!-- TODO: needs documentation -->
+The key combination that clears this targeter's targets out of the box. Only registered when `HasCancelButton` is true.
 
 ## SortOrder
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The ascending sort key that positions this targeter's buttons among all part command buttons in the card, shared with part triggers, toggles and color pickers. The targeter button and its cancel button both carry this value, and buttons with equal values keep their creation order.
 
 ## ShowWithShipCommands
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the button also appears on the ship command card, which is the card shown when whole ships rather than individual parts are selected. It additionally decides the input context the hotkeys live in, so a targeter meant to be usable with a ship selected needs this true for its hotkey to fire.
 
 ## TargetTypes
 `enum PartTargeterTypes` · optional · default `Ships, Parts` · one of: `Ships`, `Parts`, `ShipLocalPoint`
 
-<!-- TODO: needs documentation -->
+Which kinds of things clicking can pick as the target. The flags are evaluated in a fixed order regardless of how they are listed, and the `SelectParts` modifier, Control by default, switches between them. With `Ships` and `Parts` both set, ships are targeted normally and holding the modifier targets individual parts. With `Parts` and `ShipLocalPoint` both set, parts are targeted normally and holding the modifier drops to a free ship-relative point.
 
 ## TargetPartCategories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Restricts part targeting to parts that list one of these categories in their `TypeCategories`. Leaving it unset lets any part be targeted, and it has no effect on `Ships` or `ShipLocalPoint` targeting.
 
 ## AllowAppend
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether holding the `AppendSelection` modifier, Shift by default, adds the clicked target to the weapons' existing target list instead of replacing it. With this false the modifier is simply ignored and every click replaces the target.
 
 ## AllowSameShipTarget
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the targeter may pick a target on the same ship it lives on. With this false, such targets are skipped when validating the click, so the button also stops showing a tentative highlight over them. The targeting part can never target itself either way.
 
 ## SnapToAngles
 `number (degrees)[]` · optional
 
-<!-- TODO: needs documentation -->
+The directions, relative to the targeting part's own facing, that a `ShipLocalPoint` target snaps onto. The point snaps to the nearest ray cast from the first weapon's ship location along one of these directions, and holding the `SelectParts` modifier suppresses snapping so the point can be placed freely.
 
 ## SnapToAngleDistance
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+How close, in tiles, the cursor's ship-relative point must be to one of the `SnapToAngles` rays for it to snap onto that ray. Nothing snaps when the nearest ray is further away than this.

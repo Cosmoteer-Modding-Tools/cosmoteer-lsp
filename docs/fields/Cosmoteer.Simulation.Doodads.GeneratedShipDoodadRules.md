@@ -10,9 +10,9 @@
 ## Allegiance
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Player index assigned to the generated ship. Defaults to `0` when omitted.
 
 ## Generator
 `ShipGenerator` · required
 
-<!-- TODO: needs documentation -->
+Ship generator that procedurally builds the ship this doodad spawns.

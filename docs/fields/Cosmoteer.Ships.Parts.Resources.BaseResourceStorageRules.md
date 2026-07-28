@@ -10,92 +10,92 @@
 ## ResourceType
 `→ ResourceRules` · required
 
-<!-- TODO: needs documentation -->
+The type of resource this storage holds. Crew can only pick up and deliver this type here, the stored amount counts toward the ship's total of this type, and only sinks or sources of the same type can exchange resources with it.
 
 ## IsDrainable
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether resource drain hit effects (such as `ResourceDrain`, `AreaResourceDrain`, and `ExplosiveResourceDrain`) can remove resources from this storage. Plain `ResourceStorage` components default this to true, other storage types default to false. Drained amounts are reduced by [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.DrainResistance]].
 
 ## DrainResistance
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The fraction, 0..1, of resource drain that this storage resists. Drain effects multiply the amount they remove by one minus this value, and at 1 or above the storage is immune. Being modifiable, it can be driven by buffs.
 
 ## SuppliesResources
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Registers the storage as an automatic resource source, letting crew pick resources up from it to deliver to consumers elsewhere on the ship. When false the storage only receives. Supplying is further gated by [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.SuppliesResourcesToggle]] and by the player's supply toggle when [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.SupplyToggleButtonOffset]] is set, and it also makes the part a valid target for `CrewSource` components.
 
 ## SuppliesResourcesToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A toggle component on the same part that gates supplying: while the toggle is off, the storage stops offering its resources to crew. Only consulted when [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.SuppliesResources]] is true. The vanilla battery station uses separate power toggles for its normal and overclocked supply modes.
 
 ## AllowManualReceiveToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A toggle component on the same part that gates manual player-ordered deliveries: while the toggle is off, the player cannot manually give this storage resources. The vanilla chaingun points this at `IsShellFullyClosed` so ammo cannot be loaded while the shell is open.
 
 ## IsIntermediateStorage
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the storage as a middle tier in crew logistics by giving it a supply priority between plain supplier storages and storages with an attached `ResourceConsumer`. Resources then flow from ordinary storages into it and from it onward to consumer-fed storages, never backwards. The vanilla battery station uses this so it buffers power between reactors and the parts that use it.
 
 ## MinResourcesPickUp
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The granularity of crew pick-ups from this storage. Requested amounts are rounded up to multiples of this, so a crew takes at least this many per trip. Vanilla battery storages use 1000 so crew always grab a whole battery.
 
 ## MaxResourcesPickUp
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The most of this resource a single crew can carry away from this storage per trip. Defaults to the resource type's `MaxPerNugget`.
 
 ## InitPickUp
 `int` · optional
 
-<!-- TODO: needs documentation -->
+An exact lump of resources handed over the moment an empty-handed crew starts picking up, bypassing [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.PickUpRate]]. If fewer than this many can be given the crew receives nothing that tick. The vanilla medium reactor hands 1001 instantly and then streams the rest at its pick-up rate.
 
 ## PickUpRate
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The rate, in resources per second, at which a crew standing at this storage picks resources up, continuing until it reaches [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.MaxResourcesPickUp]]. When unset the full amount is handed over instantly. The initial [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.InitPickUp]] lump ignores this rate.
 
 ## PickUpLocation
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The point, in tiles in the part's rules space, crew walk to when picking up from this storage. Rotated and flipped along with the part. When unset, crew may stand anywhere on the part.
 
 ## DeliveryLocation
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The point, in tiles in the part's rules space, crew walk to when delivering into this storage. Rotated and flipped along with the part. When unset, crew may stand anywhere on the part.
 
 ## ExternalPickUpLocation
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Overrides the pick-up point for crew picking up from outside the ship, in tiles in the part's rules space. Only relevant when [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.AllowExternalPickupAndDelivery]] is enabled.
 
 ## ExternalDeliveryLocation
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Overrides the delivery point for crew delivering from outside the ship, in tiles in the part's rules space. Only relevant when [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.AllowExternalPickupAndDelivery]] is enabled.
 
 ## ExpectedResourceGenerationRate
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The rate, in resources per second, at which this storage is expected to gain resources, letting the logistics planner send crew before the resources exist. Pick-up jobs wait at the storage for production instead of leaving, delivery planning credits the source with rate times travel time, and the storage stays registered as a source even while empty. Vanilla reactors derive it from their battery producer's quantity divided by its interval.
 
 ## ExpectedResourceGenerationToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A toggle component on the same part gating [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.ExpectedResourceGenerationRate]]: while the toggle is off, the storage counts as not generating and the expected rate reads as 0. Vanilla reactors point this at `IsOperational`.
 
 ## AnticipateMoreResourcesFrom
 `→ PartComponentRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Other storage components on the same part whose anticipated resources also count toward this storage's anticipated amount. Consumers waiting on this storage then treat stock inbound to those storages as if it were already on its way here. Vanilla cannons list their `AmmoStorage` so the loader counts ammo still being delivered to the rack.
 
 ## ToggleOnResources
 `int` · optional · default `1`
@@ -118,39 +118,39 @@ one below the on threshold.
 ## ProvidedValueRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The value span the storage reports to other components when used as a value source, interpolated from Min to Max as the storage fills from empty to full. Defaults to `[0, 1]`, so the reported value is the fill fraction. [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.ProvidedValuePerResource]] is added on top.
 
 ## ProvidedValuePerResource
 `float` · optional
 
-<!-- TODO: needs documentation -->
+An amount added to the storage's reported value for every stored resource, on top of [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.ProvidedValueRange]]. Vanilla reactors use `1/1000` with a zero range so the value equals the number of whole batteries stored.
 
 ## SupplyToggleButtonOffset
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Setting this gives the storage a player-facing supply on/off button in the resources view, drawn at this offset in tiles relative to the part and toggling the storage's automatic supply. When unset the storage's supply cannot be toggled by the player. Vanilla factories place it at `[0, -.4]` on their output storage.
 
 ## UITileRect
 `Rect` · optional
 
-<!-- TODO: needs documentation -->
+A rectangle, in tiles in the part's rules space, in which the stored resources are displayed in the resources view and which the player can click for manual resource transfers. Setting it makes the storage a valid manual source and sink and anchors its tool-tip. Vanilla ammo racks inset it `7/64` from the tile edges.
 
 ## AllowExternalPickupAndDelivery
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets crew coming from outside the ship pick up from and deliver to this storage, and boosts its priority for such external deliveries. Vanilla factories enable it on their input and output storages. [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.ExternalPickUpLocation]] and [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.ExternalDeliveryLocation]] can override where external crew stand.
 
 ## ReceiveResourceMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played each time the storage receives resources, such as the vanilla chaingun's reload sounds on its ammo boxes.
 
 ## GiveResourceMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played when a crew carrying none of the resource takes its first resources from the storage. Vanilla reactors and battery stations play the power pick-up sound.
 
 ## AccessWarningLevel
 `enum AccessWarningLevel` · optional · default `Strong` · one of: `None`, `Weak`, `Strong`
 
-<!-- TODO: needs documentation -->
+The severity of the build-mode crew-access warning for this storage, checked only when [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.SuppliesResources]] is true. `Strong` shows the full no-crew-access warning when no crew can reach the part, `Weak` a milder one, and `None` skips the check entirely.

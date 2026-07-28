@@ -10,9 +10,9 @@
 ## ResourceType
 `→ ResourceRules` · required
 
-<!-- TODO: needs documentation -->
+Resource type of the nugget this doodad spawns. Resolved against the registered resource rules.
 
 ## Quantity
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+Range from which the spawned nugget's resource amount is randomly picked. Defaults to `1`.

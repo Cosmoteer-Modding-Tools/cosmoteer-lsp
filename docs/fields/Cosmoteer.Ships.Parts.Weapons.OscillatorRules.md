@@ -10,24 +10,24 @@
 ## Angle
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+The angular amplitude of the oscillation, written with a `d` suffix for degrees. The component's rotation follows a cosine wave that deviates up to this angle to either side of its rest rotation. The vanilla small mining laser wobbles its beam emitters by a third of a degree.
 
 ## Interval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds for one full back-and-forth cycle of the oscillation.
 
 ## Interpolate
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Updates the rotation every rendered frame using the real-time clock, giving a smooth swing. When false, the default, the rotation updates once per simulation tick using deterministic logical time. Gameplay logic must not depend on an interpolating oscillator, since the real-time clock is not deterministic across players.
 
 ## ResetWhenOperational
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Restarts the oscillation whenever the component becomes operational, beginning centered on the rest rotation. When false the swing resumes from the phase it had when it last stopped. The vanilla small mining laser resets so its wobble always starts from center.
 
 ## ResetWhenNonOperational
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Snaps the oscillation back to its starting phase when the component becomes non-operational, parking the rotation at the full [[Cosmoteer.Ships.Parts.Weapons.OscillatorRules.Angle]] deflection. When false the rotation freezes wherever the swing happened to be.

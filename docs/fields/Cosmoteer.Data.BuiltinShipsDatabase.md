@@ -10,4 +10,4 @@
 ## _ships
 `BuiltinShipRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The full list of built-in ship entries, written as the database's bare contents (empty alias). Each entry's [[Cosmoteer.Data.BuiltinShipRules|ID]] and OtherIDs are indexed for lookup, and duplicates throw. Deserialized in parallel.

@@ -10,29 +10,29 @@
 ## Faction
 `→ FactionRules` · optional
 
-<!-- TODO: needs documentation -->
+The faction whose reputation changes. Leaving it out falls back to the mission's own faction, and if the mission has none either the reward is dropped and nothing is given.
 
 ## Reputation
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+Base reputation granted with the faction, rolled randomly from this range when the mission spawns. Negative values are allowed and are shown in red in the reward list. The final amount is scaled by the game's economic difficulty setting.
 
 ## ReputationPerLowTier
 `map<int, range<int>>` · optional
 
-<!-- TODO: needs documentation -->
+Reputation added according to the lowest danger tier among the mission's objectives, rolled randomly from the range in the matching row. A tier with no row simply adds nothing.
 
 ## ReputationPerHighTier
 `map<int, range<int>>` · optional
 
-<!-- TODO: needs documentation -->
+Reputation added according to the highest danger tier among the mission's objectives, rolled randomly from the range in the matching row. A tier with no row simply adds nothing.
 
 ## ReputationPerTierMultiplier
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Scales the combined `ReputationPerLowTier` and `ReputationPerHighTier` bonus, rolled randomly from this range. It does not touch the flat `Reputation` amount, and it is skipped entirely when the tier bonus came out as zero. Vanilla uses values from 2 to 5 here.
 
 ## RoundToMultiple
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Rounds the final reputation change to the nearest multiple of this value. Applied after the tier bonuses and multiplier.

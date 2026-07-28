@@ -10,9 +10,9 @@
 ## Value
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The resistance to the applied status value, where 0 lets it through unchanged and 1 blocks the application entirely. The Min and Max ends are interpolated by the part's DamageFraction, so a damaged part can resist differently from an intact one.
 
 ## Duration
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The resistance to the applied status duration, on the same 0 to 1 scale and interpolated by DamageFraction the same way as `Value`. Writing the whole StatusResistance as a single value or a single range sets both fields at once.

@@ -10,17 +10,17 @@
 ## TargetValue
 `float` · required
 
-<!-- TODO: needs documentation -->
+The status value crew repair work drives the instance toward, in raw status units. Vanilla fire, heat and scorched all use 0, meaning crew work the status away entirely.
 
 ## WorkPerValueChange
 `float` · required
 
-<!-- TODO: needs documentation -->
+The crew work units needed to move the status value by 1. Vanilla heat uses 0.02 and scorched 0.1, so a scorch point costs five times as much crew effort as a point of heat.
 
 ## CrewRequestCountOverride
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Replaces the number of crew the repair job asks for, which otherwise defaults to the area of the repair grid rectangle. Overrides from several soft repairs blocking the same part are summed.
 
 ## RegistrationValueRange
 `range<float>` · optional

@@ -10,79 +10,79 @@
 ## Name
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Editor-facing label for this object type. Only the object's `ToString` returns it, so it appears in the background editor's object list and nowhere in the rendered background.
 
 ## Count
 `range<int>` · required
 
-<!-- TODO: needs documentation -->
+Number of instances of this object placed per background region. A value is rolled from the range for each region tile, so the density scales with how many regions the camera view spans. Region size is set by the style's [[Cosmoteer.Backgrounds.BackgroundStyleRules#RegionSize|RegionSize]].
 
 ## TextureFiles
 `string[]` · optional
 
-<!-- TODO: needs documentation -->
+Sprite images for this object. All entries across every style are packed into the shared background atlas, and each placed instance picks one entry at random. Files that don't tile cleanly are canvas-padded up to the atlas mip alignment.
 
 ## Size
 `range<Vector2>` · optional
 
-<!-- TODO: needs documentation -->
+Base on-screen dimensions of the sprite before [[Cosmoteer.Backgrounds.BackgroundObjectRules#Scale|Scale]] is applied. A vector is rolled per instance, so a range gives a spread of widths and heights.
 
 ## Scale
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Per-instance multiplier applied to [[Cosmoteer.Backgrounds.BackgroundObjectRules#Size|Size]]. Both the maximum Size and maximum Scale feed the object's culling radius, so overly large ranges widen the region padding needed to avoid pop-in.
 
 ## Z
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Parallax depth of each instance, rolled per instance. `0` sits at the near plane and higher values recede toward the far plane, moving more slowly as the camera pans. The minimum of the range also scales the object's culling radius against the style's near and far plane distances.
 
 ## Rot
 `Arc` · optional
 
-<!-- TODO: needs documentation -->
+Range of starting orientations. Each instance is given a random direction within the arc when spawned.
 
 ## RotSpeed
 `range<number (degrees)>` · optional
 
-<!-- TODO: needs documentation -->
+Continuous spin applied to each instance, rolled per instance. The shader animates the quad's rotation over time from this value.
 
 ## ColorHue
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Hue in degrees (0 to 360, wrapped) for the per-instance random tint. Combined with [[Cosmoteer.Backgrounds.BackgroundObjectRules#ColorSat|ColorSat]], [[Cosmoteer.Backgrounds.BackgroundObjectRules#ColorVal|ColorVal]] and [[Cosmoteer.Backgrounds.BackgroundObjectRules#ColorAlpha|ColorAlpha]] into an HSVA color multiplied onto the sprite.
 
 ## ColorSat
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Saturation (0 to 1) of the per-instance random tint. See [[Cosmoteer.Backgrounds.BackgroundObjectRules#ColorHue|ColorHue]].
 
 ## ColorVal
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Value or brightness (0 to 1) of the per-instance random tint. See [[Cosmoteer.Backgrounds.BackgroundObjectRules#ColorHue|ColorHue]].
 
 ## ColorAlpha
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Opacity (0 to 1) of the per-instance random tint. See [[Cosmoteer.Backgrounds.BackgroundObjectRules#ColorHue|ColorHue]].
 
 ## TwinkleInterval
 `range<Time>` · optional
 
-<!-- TODO: needs documentation -->
+Period of the twinkle animation, rolled per instance. Each instance also gets a random phase offset within its own interval so they don't pulse in unison. Paired with [[Cosmoteer.Backgrounds.BackgroundObjectRules#TwinkleAddColor|TwinkleAddColor]].
 
 ## TwinkleAddColor
 `range<Color>` · optional
 
-<!-- TODO: needs documentation -->
+Color added to the sprite at the peak of each twinkle cycle, rolled per instance. Zero disables the effect. See [[Cosmoteer.Backgrounds.BackgroundObjectRules#TwinkleInterval|TwinkleInterval]].
 
 ## PerlinProbability
 `PerlinNoise2D` · optional
 
-<!-- TODO: needs documentation -->
+Perlin noise field that biases where instances are placed. When set, candidate positions are rejected unless a random draw falls under the noise value at that point, clustering objects in high-noise areas. When absent, positions are uniformly random within the region.
 
 ## PerlinRandExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Shapes the random draw used against [[Cosmoteer.Backgrounds.BackgroundObjectRules#PerlinProbability|PerlinProbability]]. The unit random is raised to this power before being remapped to -1..1, so values above `1` push placement toward the strongest parts of the noise field. Has no effect without a PerlinProbability.

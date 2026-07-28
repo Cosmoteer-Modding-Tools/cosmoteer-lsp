@@ -10,19 +10,19 @@
 ## ColorFactor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+Base tint multiplied into the route line's color. Defaults to white (no tint).
 
 ## DisconnectedColorFactor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+Extra tint multiplied into the line color when its route endpoint is not connected. Applied only when set, on top of [[#ColorFactor]].
 
 ## UnroutableColorFactor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+Extra tint multiplied into the line color when the route cannot be reached from the selected part. Applied only when set, on top of [[#ColorFactor]] and any disconnected tint.
 
 ## RenderToSeparateTexture
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true the lines are first drawn to an offscreen mipmapped render target and then composited once over the scene, avoiding double-blending where semi-transparent lines overlap and giving smoother downscaling. When false they draw straight to the screen.

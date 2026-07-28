@@ -10,44 +10,44 @@
 ## RingCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+Circle renderer that draws the ring around the point of interest's area. Its thickness and texture drive the ring's appearance, including the dashed look in vanilla.
 
 ## DefaultScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+World radius given to the ring when the player places this doodad in creative mode, used for both the placement ghost and the spawned doodad's scale.
 
 ## CameraRelativeThickness
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, the ring thickness scales with the camera zoom so it stays a constant apparent width on screen. When false the thickness is a fixed world size.
 
 ## DynamicUPerCircumference
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Number of texture U repeats per unit of ring circumference, controlling how densely the ring texture (such as dashes) tiles around the circle. When unset the texture is drawn without dynamic tiling.
 
 ## MinimapThickness
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Thickness in minimap pixels of the ring when drawn on the minimap. A value of zero keeps the ring off the minimap.
 
 ## MouseHoverColorFactor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+Color multiplier blended in while the mouse hovers the point of interest's indicator. Defaults to white (no change).
 
 ## MouseHoverColorTweenTime
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Duration over which the ring tweens toward [[MouseHoverColorFactor]] as the mouse enters or leaves the indicator.
 
 ## DiscoveredAlphaTweenTime
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Duration over which the ring fades in after the point of interest is discovered.
 
 ## FadeOutSizeRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+On-screen ring size range over which the ring's alpha fades out. Rings smaller than the range's low end fade toward invisible, which hides rings that shrink too small to be useful at the current zoom.

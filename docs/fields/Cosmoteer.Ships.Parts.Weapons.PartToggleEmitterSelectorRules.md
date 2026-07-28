@@ -10,14 +10,14 @@
 ## Toggle
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The toggle component on the same part whose state selects which of the two emitters this component exposes to whatever is chained to it.
 
 ## ToggleOffEmitter
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The emitter exposed while [[Cosmoteer.Ships.Parts.Weapons.PartToggleEmitterSelectorRules.Toggle]] is off. Range, aim, and spawn queries go through whichever emitter is currently exposed, and trigger events are forwarded only from that emitter. The vanilla laser blasters expose their normal bullet emitter here.
 
 ## ToggleOnEmitter
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The emitter exposed while [[Cosmoteer.Ships.Parts.Weapons.PartToggleEmitterSelectorRules.Toggle]] is on. The vanilla laser blasters switch to their overclocked beam emitter through this slot when their overclock toggle turns on.

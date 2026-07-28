@@ -10,4 +10,4 @@
 ## HaltForTrade
 `bool` · required
 
-<!-- TODO: needs documentation -->
+Whether the ship also stops for an in-progress trade rather than only for an open comms channel. With it on the ship stays put while it has pre-purchased resources pending, manual resource transfer jobs running, crew off ship, or unassigned crew aboard. Either way it does not halt if it is already within `DestinationReachedDistance` of where its current command was sending it.

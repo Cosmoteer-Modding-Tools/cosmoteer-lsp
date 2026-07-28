@@ -10,4 +10,4 @@
 ## FlySprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite for a crew member in a spacesuit flying through open space (for example after being ejected or boarding). Built into the crew's fly quad. Each crew's suit type is chosen by a stable per-crew seed.

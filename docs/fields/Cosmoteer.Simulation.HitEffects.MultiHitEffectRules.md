@@ -10,4 +10,4 @@
 ## Effects
 `HitEffectRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The hit effects applied one after another, in order, each time the group fires. Serialized under the empty alias, so the effect list is written directly as the content of the field, each entry a group choosing its effect with `Type`.

@@ -10,4 +10,4 @@
 ## DefaultValue
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The value the component starts with. The value can afterwards be edited live through the in-game part debugger, making this a development aid rather than a gameplay component.

@@ -10,14 +10,14 @@
 ## SubGenerators
 `Entry[]` · optional
 
-<!-- TODO: needs documentation -->
+Ordered list of sub-generators whose outputs are concatenated into one name. Each entry runs in turn subject to its own [[Cosmoteer.Generators.Names.MultiNameGenerator+Entry#Chance]], with [[AddComma]] and [[AddSpace]] deciding the separator between parts.
 
 ## AddComma
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true a comma is inserted before each part after the first. Default false.
 
 ## AddSpace
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+When true a space is inserted before each part after the first, following the comma if [[AddComma]] is also set. Default true.

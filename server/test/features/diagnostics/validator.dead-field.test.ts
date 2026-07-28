@@ -10,6 +10,8 @@ import { validateIgnoredFields } from '../../../src/features/diagnostics/validat
 // the migration, and carry the fix the workspace migration applies.
 const token = CancellationToken.None;
 const parse = (src: string) => parser(lexer(src), 'file:///data/parts/t.rules').value;
+/** A status type, whose `ContinuousMediaEffects` list holds media-effect groups (vanilla's `scorched`). */
+const parseStatus = (src: string) => parser(lexer(src), 'file:///data/statuses/scorched/scorched.rules').value;
 
 describe('dead declared fields', () => {
     it('hints a declared-but-never-read field with a remove fix', async () => {
@@ -100,6 +102,24 @@ describe('dead declared fields', () => {
         expect(hit).toBeTruthy();
         expect(hit!.message).toContain('removed in game version 0.24.1');
         expect(hit!.data?.migration?.apply).toBe('remove');
+    });
+
+    it('hints a Z on a part quad effect, whose verdict comes from the overlay', async () => {
+        // `Z` is one or two letters, so schemagen's reflection guard (any matching string literal
+        // anywhere) suppresses its dead verdict. The overlay carries the hand-traced verdict instead,
+        // so the hint has to survive the whole schema-load path, not just the pinned bundle.
+        const doc = parseStatus('ContinuousMediaEffects\n[\n\t{\n\t\tType = PartQuad\n\t\tZ = 0.5\n\t}\n]\n');
+        const errors = await validateIgnoredFields(doc, token);
+        const hit = errors.find((e) => e.message.includes('Z'));
+        expect(hit).toBeTruthy();
+        expect(hit!.message).toContain('never reads');
+        expect(hit!.severity).toBe('hint');
+    });
+
+    it('leaves the same Z on a plain quad effect alone, since QuadEffect reads it', async () => {
+        const doc = parseStatus('ContinuousMediaEffects\n[\n\t{\n\t\tType = Quad\n\t\tZ = 0.5\n\t}\n]\n');
+        const errors = await validateIgnoredFields(doc, token);
+        expect(errors.filter((e) => e.message.includes('Z'))).toEqual([]);
     });
 
     it('leaves a live sibling field alone', async () => {

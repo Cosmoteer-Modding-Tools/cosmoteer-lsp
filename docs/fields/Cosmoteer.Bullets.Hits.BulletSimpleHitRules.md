@@ -10,94 +10,94 @@
 ## FriendlyShipLowCollisions
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the projectile collides with the low (ordinary) part colliders of ships it cannot damage, including the ship that fired it. Setting this false lets the shot fly over friendly ships while still hitting their high colliders, as the deck cannon's bullet does. Also accepted under the alias `SourceShipLowCollisions`.
 
 ## FriendlyShipHighCollisions
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the projectile collides with the high part colliders of ships it cannot damage. High colliders are those marked `IsHigh` on raised parts such as the deck cannon turret or sensor array. Also accepted under the alias `SourceShipHighCollisions`.
 
 ## NonFriendlyShipLowCollisions
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the projectile collides with the low (ordinary) part colliders of ships it can damage. Setting this false makes the shot pass over enemy ships and only interact with their high colliders.
 
 ## NonFriendlyShipHighCollisions
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the projectile collides with the high part colliders of ships it can damage. High colliders are those marked `IsHigh` on raised parts such as the deck cannon turret or sensor array.
 
 ## SourcePartCollisionDelay
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Time, in seconds after spawning, during which collisions with the part that fired the projectile are ignored. Vanilla missiles and mines use about 1.5 physics ticks so they can leave their launcher without immediately hitting it.
 
 ## ShieldCollisions
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+Filter deciding whose shields the projectile collides with. Defaults to enemy shields, plus a friendly ship's shields when that ship is the deliberate target, but never the firing ship's own shields. Allowed shield hits trigger [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.HitShield]].
 
 ## BulletCollisions
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+Filter deciding which other targetable projectiles this projectile can collide with. Collisions are off by default, and the point defense shot enables them for the `missile`, `mine` and `bullet` categories to shoot ordnance down. Allowed hits trigger [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.HitBullet]], and whether the projectile survives is controlled by [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.PenetratesBullets]].
 
 ## PenetratesBullets
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the projectile keeps flying after hitting another projectile. When false it is destroyed on the spot. Only relevant when [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.BulletCollisions]] allows bullet hits.
 
 ## CrewCollisions
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+Filter deciding which crew in space the projectile collides with. Collisions are off by default, and allowed hits trigger [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.HitCrew]]. Due to a quirk, the physics category for crew collisions is only enabled when [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.BulletCollisions]] also allows at least one allegiance, so crew hits require bullet collisions to be enabled as well, as the point defense shot does.
 
 ## PenetratesCrew
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the projectile keeps flying after hitting a crew member in space. When false it is destroyed on the hit. Only relevant when [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.CrewCollisions]] allows crew hits.
 
 ## FactorEffectsWith
 `→ BulletComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Name of another component on the same projectile, such as a `Targetable` or `DamagePool`, whose remaining-strength factor scales this hit's effect intensity and media intensity.
 
 ## HitOperational
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied when the projectile hits an operational part. Unless [[Cosmoteer.Bullets.Hits.HitRules.Bounce]] is set the projectile is destroyed at the hit point.
 
 ## HitStructural
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied when the projectile hits a structural part such as armor or structure. Structural parts are only collided with at all when the projectile's deliberate target is structural, unless [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.IgnoreStructureUnlessTargeted]] is disabled or [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.HitsFriendlyStructure]] is set.
 
 ## HitShield
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied when the projectile hits a shield allowed by [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.ShieldCollisions]]. Unless [[Cosmoteer.Bullets.Hits.HitRules.Bounce]] is set the projectile is destroyed at the shield.
 
 ## HitFriendly
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects that replace the normal hit rules whenever the struck ship cannot be damaged by the projectile's source, such as a friendly ship. When unset, friendly hits use the regular hit rules. Vanilla missiles use it to play their impact visuals and sound without dealing any damage.
 
 ## HitBullet
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied when the projectile hits another projectile allowed by [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.BulletCollisions]].
 
 ## HitCrew
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied when the projectile hits a crew member in space allowed by [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.CrewCollisions]].
 
 ## HitsFriendlyStructure
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether structural hit effects also trigger on ships the projectile cannot damage. Enabling it additionally makes the projectile collide with structural parts even when they are not its deliberate target, overriding [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.IgnoreStructureUnlessTargeted]].
 
 ## IgnoreStructureUnlessTargeted
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the projectile ignores structural parts such as armor and structure unless its deliberate target is a structural part. When true, a shot aimed at an operational part flies over bare armor and structure instead of detonating on it.

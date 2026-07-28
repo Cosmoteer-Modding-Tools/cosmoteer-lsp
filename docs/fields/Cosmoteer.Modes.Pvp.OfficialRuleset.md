@@ -10,14 +10,14 @@
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for the ruleset's name in the lobby's ruleset drop list.
 
 ## ShortNameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for a compact name, shown beside the match in the multiplayer game browser where the full name would not fit.
 
 ## IsDefault
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the ruleset applied when the host opens the lobby. Unlike the other option lists this one tolerates having no default, in which case the lobby starts on the built-in fallback values.

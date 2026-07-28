@@ -10,17 +10,17 @@
 ## Toggle
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+A toggle component on the same part that is watched. The trigger fires whenever that toggle changes state, filtered by [[Cosmoteer.Ships.Parts.Logic.PartToggleTriggerRules.TriggerWhenOn]] and [[Cosmoteer.Ships.Parts.Logic.PartToggleTriggerRules.TriggerWhenOff]], and only while this component is operational unless [[Cosmoteer.Ships.Parts.Logic.PartToggleTriggerRules.AllowOperationalBypass]] applies.
 
 ## TriggerWhenOn
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the trigger fires when the watched toggle switches on.
 
 ## TriggerWhenOff
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the trigger fires when the watched toggle switches off. With both this and [[Cosmoteer.Ships.Parts.Logic.PartToggleTriggerRules.TriggerWhenOn]] true, the trigger fires on every change.
 
 ## AllowOperationalBypass
 `bool` · optional

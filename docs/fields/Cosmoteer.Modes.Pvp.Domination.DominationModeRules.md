@@ -10,44 +10,44 @@
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite identifying domination mode in the multiplayer game list and in the lobby's mode header.
 
 ## IncomeInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How often every team is paid its accumulated basic and capture point income. The capture point label and the income readout divide it by the current game speed so they show real seconds.
 
 ## SpawnSeparationRadiusFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Inflates each ship's bounding circle by this factor while a newly spawned ship is pushed clear of existing ships. Values above 1 leave visible space between hulls instead of parking them edge to edge.
 
 ## JunkDamageFractionPerTick
 `float` · required
 
-<!-- TODO: needs documentation -->
+The fraction of a part's max health destroyed each time decay damage hits a part of a derelict ship. Ships whose rules set `ImmuneToEnvDamage` are skipped.
 
 ## JunkDamageChancePerTick
 `float` · required
 
-<!-- TODO: needs documentation -->
+The chance per physics tick that any one part of a derelict ship is hit by decay damage. Vanilla writes it as a per-second figure divided by `PhysicsUpdatesPerSecond`.
 
 ## PerimeterDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+The clearance in world units left between the outermost capture or spawn point circle and the perimeter of death. Domination has no perimeter distance drop list in the lobby, so this fixed value is used for every match instead of `PvpModeRules/PerimeterDistances`.
 
 ## MapStyles
 `DominationMapRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The map layouts offered in the host's lobby drop list, in declaration order. The host's choice is stored as an index, so inserting an entry in the middle changes what saved rulesets select.
 
 ## CapturePointTypes
 `CapturePointRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The capture point types a map style may place. `CapturePointTypeCounts` and `StartingCapturePointTypeCountsPerTeam` index into this list by position.
 
 ## SpawnPointType
 `SpawnPointRules` · required
 
-<!-- TODO: needs documentation -->
+The single spawn point definition used for every team's spawn area.

@@ -10,24 +10,24 @@
 ## ResourceType
 `→ ResourceRules` · required
 
-<!-- TODO: needs documentation -->
+The resource that is drained from the hit part. The drain is taken from the part's drainable storages of this resource type, one after another until [[Cosmoteer.Simulation.HitEffects.ResourceDrainEffectRules.Amount]] is used up. Storages whose rules set `IsDrainable = false` are skipped.
 
 ## Amount
 `number` · required
 
-<!-- TODO: needs documentation -->
+Whole resource units drained from the hit part, scaled by the game mode's damage factor. A storage's `DrainResistance` makes draining it cost proportionally more of this budget, and a resistance of 1 or more blocks the drain entirely. A negative value gives resources instead, filling the part's storages up to their capacity, which the vanilla ion beam prism uses with `Amount = -1000` to charge its ion energy.
 
 ## Filter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+The filter deciding which ships and parts can be drained. Defaults to enemy ships only.
 
 ## TreatShieldAsPart
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Applies the drain even when the hit was intercepted by a shield, draining the shield generator part itself. When false, the default, the effect does nothing on shield hits. The vanilla disruptor bolt enables this so it drains a shield generator's stored battery power through its own shield.
 
 ## MediaEffectsOnDrain
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played at the center of the hit part when it actually loses or gains resources, oriented to the part's direction. Their intensity is the fraction of [[Cosmoteer.Simulation.HitEffects.ResourceDrainEffectRules.Amount]] that was actually applied.

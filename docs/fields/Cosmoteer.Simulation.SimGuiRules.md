@@ -300,7 +300,7 @@ Nine-slice box drawn around each part that a selected ship's crew has been order
 ## TentativeScheduledSalvageNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+Has no effect. The game requires and stores the sprite but no code ever reads it, so it is never rendered.
 
 ## TentativeSalvageNineSlice
 `NineSlice` · required

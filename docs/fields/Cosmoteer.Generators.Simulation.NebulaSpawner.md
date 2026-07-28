@@ -10,89 +10,89 @@
 ## NebulaType
 `→ NebulaTypeRules` · required
 
-<!-- TODO: needs documentation -->
+The nebula type painted onto the triangle grid. Whatever was in a triangle before is overwritten, subject to `OnlyReplaceNebulaTypes` and `DontReplaceNebulaTypes`.
 
 ## NebulaRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radius in world units of the circle the nebula is generated inside, before `MultiplyNebulaRadius` and `AddNebulaRadius` are applied. In splat mode the circle also caps how far the splat may grow.
 
 ## MultiplyNebulaRadius
 `enum DynamicValueMode` · optional · one of: `None`, `ParentToGrandparent`, `ParentToWorldCenter`, `AreaSquareKM`, `AreaRadiusKM`
 
-<!-- TODO: needs documentation -->
+Selects a dynamic value that `NebulaRadius` is multiplied by. `None` leaves the radius alone.
 
 ## AddNebulaRadius
 `enum DynamicValueMode` · optional · one of: `None`, `ParentToGrandparent`, `ParentToWorldCenter`, `AreaSquareKM`, `AreaRadiusKM`
 
-<!-- TODO: needs documentation -->
+Selects a dynamic value added to `NebulaRadius`, applied after `MultiplyNebulaRadius`. `None` adds nothing.
 
 ## NebulaSplatTriCount
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+Switches the nebula to splat mode and gives the number of triangles to try, drawn uniformly inclusive. A splat grows outward from the centre triangle rather than testing every triangle in the circle, which produces compact blobs instead of a full circular cloud.
 
 ## UseIrregularSplatShape
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Gives every triangle on the splat's growth front the same chance of being chosen next. Without it a triangle's chance rises with the number of neighbours already taken, which rounds the blob out, so turning this on yields stringier and more ragged shapes. Only meaningful together with `NebulaSplatTriCount`.
 
 ## MaxDistanceFromWorldOrigin
 `float` · optional · default `∞`
 
-<!-- TODO: needs documentation -->
+Maximum distance in world units from the world origin at which nebula triangles may be placed. Vanilla ties it to the career mode unexplored radius so nebulas stop at the edge of the map.
 
 ## ContiguousPathCheckSearchIterations
 `int` · optional
 
-<!-- TODO: needs documentation -->
+How many breadth-first steps are spent checking that filling a triangle does not cut the open space around it into disconnected pockets. A triangle whose free neighbours cannot be reconnected within this many steps is left empty, which keeps a nebula from sealing off flyable corridors. Vanilla uses 20 for ion storms and supernova nebulas.
 
 ## OnlyReplaceNebulaTypes
 `→ NebulaTypeRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Restricts painting to triangles whose current nebula type is in this set. Triangles holding anything else are left untouched.
 
 ## DontReplaceNebulaTypes
 `→ NebulaTypeRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Prevents painting over triangles whose current nebula type is in this set. Checked after `OnlyReplaceNebulaTypes`.
 
 ## PerlinNoise
 `PerlinNoise2D` · optional
 
-<!-- TODO: needs documentation -->
+A 2D Perlin noise field sampled once per triangle to decide whether that triangle joins the nebula, which is what gives nebulas their cloudy outline. It is sampled at the triangle's offset from the nebula centre divided by the nebula radius, so the field scales with the nebula rather than with world units.
 
 ## PerlinNoiseRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The band of noise values that count as inside the nebula, tested after `PerlinNoiseEdgeOffset` and `PerlinNoiseCenterOffset` have been added. Perlin output is clamped to -1..1 by default, so the default lower bound of 0 keeps roughly the upper half of the field.
 
 ## PerlinNoiseEdgeOffset
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Added to the noise value at the nebula's outer rim and faded to nothing at its centre, so a negative value thins the cloud out towards the edge. The shape of the fade is set by `PerlinNoiseEdgeOffsetExponent`.
 
 ## PerlinNoiseEdgeOffsetExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Exponent applied to the 0..1 distance from the nebula centre before it is used to blend in `PerlinNoiseEdgeOffset`. Values above 1 squeeze the offset into a narrow band right at the rim.
 
 ## PerlinNoiseCenterOffset
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Added to the noise value at the nebula's centre and faded to nothing at its rim, so a negative value hollows the cloud out in the middle. Vanilla pairs -1 with an exponent of 4 to punch a hole in the cloudy nebula.
 
 ## PerlinNoiseCenterOffsetExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Exponent applied to the 0..1 distance from the nebula's rim before it is used to blend in `PerlinNoiseCenterOffset`. Higher values confine the offset to a tighter core.
 
 ## UsePolarPerlinCoordinates
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Samples the noise field in polar coordinates, feeding the angle around the nebula centre in as X over a 0..1 range per full turn and the distance from the centre in as Y, instead of plain X and Y offsets. Pairing it with a `Repeat` on the noise's X axis makes the nebula outline wrap around seamlessly.
 
 ## MinPerlinNebulaTris
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Discards connected clumps of nebula smaller than this many triangles, restoring whatever those triangles held before, which cleans up the speckle a noisy Perlin field leaves behind. Values of 1 or less turn the pass off, and it never runs in splat mode.

@@ -10,9 +10,9 @@
 ## RandomWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The relative weight of this option in the random pick. An option's probability is its weight divided by the sum of all weights in [[Cosmoteer.Simulation.HitEffects.RandomHitEffectRules.RandomOptions]].
 
 ## HitEffects
 `MultiHitEffectRules` · required
 
-<!-- TODO: needs documentation -->
+The hit effects applied when this option is the one picked.

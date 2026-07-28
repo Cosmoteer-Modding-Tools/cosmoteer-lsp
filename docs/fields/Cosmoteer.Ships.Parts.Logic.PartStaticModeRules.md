@@ -10,4 +10,4 @@
 ## Mode
 `int` · required
 
-<!-- TODO: needs documentation -->
+The fixed integer mode value this component reports to other components, such as a ModeToggle or ModeTrigger.

@@ -10,9 +10,9 @@
 ## RandomWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The relative likelihood of this set being picked, proportional to the summed weight of all entries in [[Cosmoteer.Simulation.MediaEffects.RandomMediaEffectRules.RandomOptions]].
 
 ## MediaEffects
 `MultiMediaEffectRules` · required
 
-<!-- TODO: needs documentation -->
+The media effects played when this set is picked. They all play together, and the surrounding Random effect counts as finished once every effect of the picked set has finished.

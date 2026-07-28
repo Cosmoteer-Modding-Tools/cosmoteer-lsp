@@ -135,7 +135,7 @@ Nominal body radius of a crew member, in tiles. Used for selection hit-testing, 
 ## PathfindRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Has no effect. The game requires and stores the value but no code ever reads it, so it plays no role in crew pathfinding.
 
 ## CollisionRadius
 `float` · required

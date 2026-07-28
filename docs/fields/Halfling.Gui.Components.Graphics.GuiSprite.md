@@ -55,4 +55,4 @@ The amount by which the sprite will extend passed its rect.
 ## Source
 `Rect` · optional
 
-<!-- TODO: needs documentation -->
+The pixel rectangle `[x, y, width, height]` on [[Halfling.Gui.Components.Graphics.GuiSprite.Texture]] to display, converted to UV coordinates on load. Only used when [[Halfling.Gui.Components.Graphics.GuiSprite.UVRect]] is not set and a texture is present. When both are absent the whole texture is shown.

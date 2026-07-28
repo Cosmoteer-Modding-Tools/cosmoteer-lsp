@@ -10,24 +10,24 @@
 ## Layer
 `→ ShipRenderLayerRules` · required
 
-<!-- TODO: needs documentation -->
+The ship render layer the sprite is drawn on, such as `doors` or `roofs`.
 
 ## OpenAtlasSprite
 `AtlasSprite` · optional
 
-<!-- TODO: needs documentation -->
+The single sprite shown while the component's `OperationalToggle` is on. Exactly one of this or [[Cosmoteer.Ships.Parts.Graphics.PartOpenCloseSpriteRules.OpenDamageLevels]] must be defined. When the state flips, an animated sprite is started partway through to mirror how far the other state's animation had played, so an interrupted door animation reverses smoothly, as on the vanilla airlock and storage doors.
 
 ## OpenDamageLevels
 `AtlasSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+Sprites shown while the component's `OperationalToggle` is on, indexed by the part's damage fraction with the 0..1 range split evenly across the array. An alternative to [[Cosmoteer.Ships.Parts.Graphics.PartOpenCloseSpriteRules.OpenAtlasSprite]] for parts whose open state has damage variants.
 
 ## ClosedAtlasSprite
 `AtlasSprite` · optional
 
-<!-- TODO: needs documentation -->
+The single sprite shown while the component's `OperationalToggle` is off. Exactly one of this or [[Cosmoteer.Ships.Parts.Graphics.PartOpenCloseSpriteRules.ClosedDamageLevels]] must be defined.
 
 ## ClosedDamageLevels
 `AtlasSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+Sprites shown while the component's `OperationalToggle` is off, indexed by the part's damage fraction with the 0..1 range split evenly across the array. An alternative to [[Cosmoteer.Ships.Parts.Graphics.PartOpenCloseSpriteRules.ClosedAtlasSprite]].

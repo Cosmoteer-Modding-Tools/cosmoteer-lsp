@@ -10,29 +10,29 @@
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the mission's title as shown in the mission log and HUD. The mission's own data is passed as formatting arguments, so the string may reference things like the target faction or ship name.
 
 ## DescriptionKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for the longer description shown under the mission title. When absent the mission simply has no description text.
 
 ## CategoryID
 `→ MissionCategory` · required
 
-<!-- TODO: needs documentation -->
+The `MissionCategory` this mission is filed under in the mission log.
 
 ## OverrideMissionCompletedKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key replacing the default `CareerMode/MissionCompleted` banner text shown when the mission is completed.
 
 ## AutoTrack
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the mission is automatically added to the tracked-mission list on the HUD when it is accepted. Tracking still only happens if the tracked list is below `MaxTrackedMissions` in the missions GUI rules.
 
 ## KeepInLog
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the mission stays in the mission log after it has been completed. By default a completed mission is removed from the log once its rewards have been given.

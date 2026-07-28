@@ -10,29 +10,29 @@
 ## Colors
 `→ PartComponentRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The color components on the same part whose current colors are combined into this component's single output color. The combined result updates whenever any source color changes and can be fed to any field that takes a color component, such as a sprite's `GetColorFrom`.
 
 ## ViaBuffs
 `BuffMultiProxyRules` · optional
 
-<!-- TODO: needs documentation -->
+A buff proxy that lets color components be attached to this part through the buff system. Colors arriving via buffs are combined into the output together with [[Cosmoteer.Ships.Parts.Graphics.PartMultiColorRules.Colors]].
 
 ## RGBMode
 `enum MultiValueMode` · optional · default `Multiply` · one of: `Add`, `Multiply`, `Min`, `Max`, `Average`
 
-<!-- TODO: needs documentation -->
+How the red, green and blue channels of all source colors are combined. Average sums the channels and divides by the number of [[Cosmoteer.Ships.Parts.Graphics.PartMultiColorRules.Colors]] entries only, so buff-provided colors are included in the sum but not in the divisor. In the current game code the `Max` mode mistakenly takes the componentwise minimum of the RGB channels, behaving like `Min`.
 
 ## AMode
 `enum MultiValueMode` · optional · default `Multiply` · one of: `Add`, `Multiply`, `Min`, `Max`, `Average`
 
-<!-- TODO: needs documentation -->
+How the alpha channels of all source colors are combined, independently of [[Cosmoteer.Ships.Parts.Graphics.PartMultiColorRules.RGBMode]]. All five modes work as named for alpha. Average divides by the number of [[Cosmoteer.Ships.Parts.Graphics.PartMultiColorRules.Colors]] entries only, even when buff-provided colors contribute to the sum.
 
 ## InvertRGB
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Inverts the combined red, green and blue channels after combining, computing each channel as 1 minus the combined value.
 
 ## InvertA
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Inverts the combined alpha channel after combining, computing it as 1 minus the combined value.

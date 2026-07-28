@@ -10,4 +10,4 @@
 ## Mode
 `enum ValueCombineMode` · required · one of: `Max`, `Min`, `Add`, `Multiply`
 
-<!-- TODO: needs documentation -->
+The arithmetic used to combine two values into one. `Max` and `Min` take the larger or smaller, `Add` sums them, and `Multiply` takes their product.

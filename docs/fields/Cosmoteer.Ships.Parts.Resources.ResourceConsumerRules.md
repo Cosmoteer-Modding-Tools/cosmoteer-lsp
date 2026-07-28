@@ -10,59 +10,59 @@
 ## ResourceType
 `→ ResourceRules` · required
 
-<!-- TODO: needs documentation -->
+The type of resource this consumer requests. Crew deliver it into [[Cosmoteer.Ships.Parts.Resources.ResourceConsumerRules.Storage]], and the part becomes a valid target for suppliers of this type.
 
 ## Storage
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The storage component on the same part into which delivered resources are placed. The vanilla cannons point this at their ammo storage and the factories at their battery storage.
 
 ## DefaultPriority
 `int` · required
 
-<!-- TODO: needs documentation -->
+The default crew priority for delivery jobs to this consumer, registered as a player-adjustable entry in the part's crew priority list. Priorities of 0 or less disable delivery entirely, and a non-operational part is served at the priority minus 1000. Vanilla parts reference shared constants such as `&/PRIORITIES/Weapon_Supply`.
 
 ## OverridePriorityPart
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+A part type whose crew priority entry this consumer uses instead of registering its own. When set, no new priority entry is added for this consumer and [[Cosmoteer.Ships.Parts.Resources.ResourceConsumerRules.DefaultPriority]] only serves as the fallback when the crew role has no value for that entry.
 
 ## OverridePriorityKey
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The component id used in this consumer's priority key in place of its own id, letting multiple consumers on the same part share a single player-adjustable priority entry.
 
 ## OverridePriorityName
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for the display name of this consumer's priority entry in the crew priority UI. When unset the name is the `JobNames/ResourceFetchFmt` text formatted with the resource's name.
 
 ## ResupplyThreshold
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The minimum free capacity in [[Cosmoteer.Ships.Parts.Resources.ResourceConsumerRules.Storage]] before the consumer requests deliveries again, so resupplies arrive in batches of at least this size. The vanilla factories set 500 on their 2000-capacity battery storages.
 
 ## AllowNonOperationalMinPriorityDelivery
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the consumer keeps accepting deliveries while its part is non-operational, at its priority reduced by 1000. When false, deliveries stop entirely whenever the part is not operational.
 
 ## AllowNonContiguousCrewSearch
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets crew that are not in the same connected section of the ship be assigned to deliver to this consumer. Manual delivery orders ignore this and always allow it.
 
 ## OverrideExclusiveCrewAssignment
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets automatic delivery jobs to this consumer use crew that are exclusively assigned to other parts. Manual delivery orders always may.
 
 ## ConsumptionToggleButtonOffset
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Placement of the in-game button that lets the player toggle automatic resource delivery on and off, and its presence is what enables the toggle at all. Each coordinate's sign picks the anchor on the part's UI rect, negative for the left or top edge, positive for the right or bottom, zero for the center, and the value itself is then added as a tile offset. Vanilla consumers use `[0, -.4]` to float the button above the part.
 
 ## AccessWarningLevel
 `enum AccessWarningLevel` · optional · default `Strong` · one of: `None`, `Weak`, `Strong`
 
-<!-- TODO: needs documentation -->
+Severity of the build-mode warning shown when the placed part has no crew path to a supplier of [[Cosmoteer.Ships.Parts.Resources.ResourceConsumerRules.ResourceType]]. `Strong` shows the full no-access warning, `Weak` a softer one, and `None` skips the check for this consumer.

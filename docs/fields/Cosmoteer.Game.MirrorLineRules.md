@@ -10,14 +10,14 @@
 ## MirrorLineColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color of the centerline drawn across the ship for a mirror axis. It is drawn as a plain untextured line segment, so the color is the only thing controlling how it looks.
 
 ## HandleSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The image of the two draggable grips at either end of the centerline, used to slide the mirror axis. Both grips rotate to follow the line, and their drawn size is divided by the square root of the camera zoom so they stay a roughly constant size on screen.
 
 ## HandleSize
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+The clickable size of each grip in UI pixels, which is scaled by camera zoom the same way the sprite is. It is independent of the sprite's own size, so vanilla uses a 64 by 64 sprite inside a 32 by 32 handle.

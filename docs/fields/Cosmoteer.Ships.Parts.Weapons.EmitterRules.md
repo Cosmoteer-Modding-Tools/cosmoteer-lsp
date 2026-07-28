@@ -10,74 +10,74 @@
 ## FireTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+The trigger component whose triggering makes this emitter fire. Written either as just the component's ID or as a group naming the component and a specific trigger within it. The vanilla chaingun's bullet emitter fires from its `FixedWeaponShooter` trigger.
 
 ## GetTargetFrom
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The weapon component on the same part that supplies this emitter's fire target, ship target, permission to fire, and direct control state. The vanilla chaingun's bullet emitter reads these from its `Turret` component.
 
 ## FireDelay
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds between the fire trigger and the actual emission, counted down tick by tick. Triggers arriving while a delayed shot is still pending are ignored, and the delay is also included when predicting aim lead. At 0, the default, the shot is emitted immediately.
 
 ## DynamicDelayPredictor
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A time-providing component on the same part whose current time is added to [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.FireDelay]] in the delay used for aim lead prediction. It does not change the actual emission countdown. The vanilla railgun launcher points this at its `Projectile` component so aiming accounts for the projectile's travel time through the railgun before launch.
 
 ## ResourceUsage
 `ResourceUsageRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The resource costs of firing, as a list of entries that each drain a storage component on the same part per shot. The older flat [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.ResourceStorage]] form adds one entry to this list.
 
 ## Recoil
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The strength of the backward impulse applied to the ship at the emitter's location each time it fires. The vanilla chaingun uses 10, tripled while overclocked.
 
 ## Burst
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The number of shots fired per trigger, rolled between Min and Max. Follow-up shots are spaced by [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.BurstDelay]] and the burst ends early if resources run out. Defaults to a single shot.
 
 ## BurstDelay
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds between the shots of a burst. At 0, the default, all shots of the burst are emitted in the same tick.
 
 ## Pellets
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The number of bullets or beams emitted per shot, rolled between Min and Max. Each pellet can get its own angular deviation through the emitter's PelletSpread field, such as [[Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules.PelletSpread]].
 
 ## UseResourcePerShotInBurst
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Deducts resources on every shot of a burst instead of only once on the burst's final shot. Resource availability is checked before every shot either way. The vanilla overclocked chaingun enables this.
 
 ## ResourceScaleFactor
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A value component on the same part whose current value multiplies every ResourcesUsed amount, with the result rounded up. The vanilla ion beam prism scales its resource usage by its stored ion energy.
 
 ## RevealsShip
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether firing marks the ship as having fired its weapons, which temporarily reveals the ship through fog of war for [[Cosmoteer.Ships.ShipRules.WeaponFireRevealDuration]]. The vanilla manipulator beam sets this false so it can fire without revealing the ship.
 
 ## ResourceStorage
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The single-storage form of [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.ResourceUsage]]. When set, it is converted into one resource usage entry together with the sibling [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.ResourcesUsed]] and [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.MinResourcesUsed]] fields.
 
 ## ResourcesUsed
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The amount drained from [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.ResourceStorage]] per shot in the single-storage form, scaled by [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.ResourceScaleFactor]] and rounded up. Only read when ResourceStorage is set.
 
 ## MinResourcesUsed
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The minimum amount that must be ready in [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.ResourceStorage]] for the emitter to fire, checked instead of the scaled ResourcesUsed amount. The amount actually deducted is unchanged. Vanilla beam weapons set 1 so they can keep firing from a nearly empty battery.

@@ -10,4 +10,4 @@
 ## ValueID
 `→ Single` · optional
 
-<!-- TODO: needs documentation -->
+The named value looked up in the modification data. Its current value becomes the modifier value, which ModificationMode then combines with the running value. If the named value is not present, the modifier leaves the value unchanged.

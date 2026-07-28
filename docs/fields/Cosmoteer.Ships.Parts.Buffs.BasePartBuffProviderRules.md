@@ -10,12 +10,12 @@
 ## BuffAmount
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The strength of the buff delivered to each receiver, defaulting to 1. Each receiver gets this amount multiplied by the provider shape's distance falloff factor and by the value of the [[Cosmoteer.Ships.Parts.Buffs.BasePartBuffProviderRules.BuffMultiplier]] component, and the values of all providers are then combined according to the buff type's CombineMode. Being modifiable, it can itself be scaled by buffs on the providing part.
 
 ## BuffMultiplier
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A value component on the same part whose current value multiplies the provided buff amount, with the buff updating live whenever that value changes. The vanilla chaingun points this at its ramp-up accumulator so its buff scales with spin-up, and overclock kits use a toggle-driven 0-or-1 value to switch a buff on and off.
 
 ## BlueprintBuffMultiplier
 `ComponentValueReferenceRules` · optional
@@ -25,29 +25,29 @@ The value reference for the buff value multiplier for the BlueprintPartBuffProvi
 ## ShowBuffRange
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Highlights every cell of the buff's area in the build-mode blueprint overlay. The highlight colors come from the `PartHighlights` entry in the game GUI rules whose ID matches the buff type's ID. No vanilla part enables it.
 
 ## BlueprintsOnly
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Skips creating the runtime component, so the provider exists only on ship blueprints and never buffs the live ship. Vanilla uses it for display-only providers such as the chaingun magazine's connection indicators, which exist purely to draw build-mode overlays.
 
 ## BlueprintOverlayToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A toggle component on the same part that gates this provider's build-mode overlay, so its buffed parts are only highlighted while the toggle is on. Has no effect on the actual buff. The vanilla railgun launcher points its normal and overclocked chain providers at its overclock mode toggle so only the active one draws its overlay.
 
 ## InvertBlueprintOverlayToggle
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Reverses [[Cosmoteer.Ships.Parts.Buffs.BasePartBuffProviderRules.BlueprintOverlayToggle]] so the provider's build-mode overlay is drawn only while the toggle is off.
 
 ## BuffType
 `→ BuffType` · optional
 
-<!-- TODO: needs documentation -->
+The type of buff this provider gives, referenced by its key in the buffs map (`Data/buffs/buffs.rules` in vanilla). Only parts that list the type in their [[Cosmoteer.Ships.Parts.PartRules.ReceivableBuffs]] register as receivers for it. Although marked optional, the value is always read and loading fails without it.
 
 ## ChainsFromBuffType
 `→ BuffType` · optional
 
-<!-- TODO: needs documentation -->
+Declares that this provider passes on a buff of the given type that its own part receives, letting the build-mode overlay walk chains of providers when highlighting buffed parts and computing displayed buff totals. The type must be listed in the part's [[Cosmoteer.Ships.Parts.PartRules.ReceivableBuffs]] or loading fails. Only the build-mode GUI reads it, as used by the vanilla railgun accelerators and rocket thruster parts that relay buffs down a line.

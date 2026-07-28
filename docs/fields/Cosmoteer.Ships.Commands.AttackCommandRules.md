@@ -10,4 +10,4 @@
 ## FocusWidget
 `CommandWidgetRules` · required
 
-<!-- TODO: needs documentation -->
+The widget drawn halfway between the attacking ship and its target that focuses the camera on both of them when clicked. It only appears while the ship is selected and this is its displayed command, and it hides itself when the camera is already focused on exactly those two objects or when the player has turned off the midpoint focus widget in the camera settings.

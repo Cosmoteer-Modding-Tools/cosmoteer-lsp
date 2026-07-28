@@ -20,9 +20,9 @@ The Y (2nd) component of this Vector2.
 ## 0
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The X (1st) component when the vector is written in list form `[x, y]`.
 
 ## 1
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The Y (2nd) component when the vector is written in list form `[x, y]`.

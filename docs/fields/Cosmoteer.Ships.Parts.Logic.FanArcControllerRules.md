@@ -10,29 +10,29 @@
 ## GetTargetFrom
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+A weapon component on the same part whose current ship target determines the fan's arc. While that weapon has a ship target, the arc is derived from the angular width the target's hull spans as seen from this controller. The vanilla tractor beam points this at its turret.
 
 ## FanComponents
 `→ PartComponentRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The chainable components that are spread across the arc. Each listed component must be chained to this controller and receives a rotation offset, evenly spaced in list order from one edge of the arc to the other. The vanilla tractor beam fans its five beam emitters this way.
 
 ## MinArc
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The minimum fan arc, as an angle such as `5d`. The arc computed from the target's hull width is clamped to at least this. Defaults to 0. Being modifiable, it can be driven by buffs.
 
 ## MaxArc
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The maximum fan arc, as an angle such as `10d`. The arc computed from the target's hull width is clamped to at most this. Defaults to 360 degrees. Being modifiable, it can be driven by buffs.
 
 ## DefaultArc
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The arc used whenever the weapon in [[Cosmoteer.Ships.Parts.Logic.FanArcControllerRules.GetTargetFrom]] has no ship target. Defaults to 0, which collapses the fan so all components point straight ahead. The vanilla tractor beam sets it to its `MaxArc`.
 
 ## ArcSizeFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplier applied to the target hull's angular width before clamping to [[Cosmoteer.Ships.Parts.Logic.FanArcControllerRules.MinArc]] and [[Cosmoteer.Ships.Parts.Logic.FanArcControllerRules.MaxArc]]. Values below 1 concentrate the fan inside the target's silhouette, as the vanilla tractor beam does with `70%`.

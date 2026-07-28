@@ -10,19 +10,19 @@
 ## Location
 `IntVector2` · required
 
-<!-- TODO: needs documentation -->
+The tile the line starts at, in the part's unrotated rules coordinate space. Transformed with the part's rotation and flip to find the ship cell the line is walked from.
 
 ## Direction
 `enum OrthogonalRotation` · optional · default `Right` · one of: `Right`, `Down`, `Left`, `Up`
 
-<!-- TODO: needs documentation -->
+The part-relative orthogonal direction the line extends in, transformed by the part's rotation and flip. The vanilla radiator points its dissipation line `Up`, away from the panel.
 
 ## MaxTiles
 `int` · optional · default `0`
 
-<!-- TODO: needs documentation -->
+The number of tiles walked and scored along the line, which is also the full length used by [[Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValueRules.Falloff]]. The default of 0 scores nothing.
 
 ## MaxOcclusionDistance
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+The maximum length, in tiles from the line's start, of the occlusion raycast against other ships. The ray actually cast covers the currently scored tiles capped at this distance. A value of 0 or less disables occlusion checking for the line. The vanilla radiator caps its 120-tile line at 10.

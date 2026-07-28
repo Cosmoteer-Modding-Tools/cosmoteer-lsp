@@ -10,19 +10,19 @@
 ## SubObjectives
 `ObjectiveSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+The child objectives, which must be completed in the order listed. Only the objectives up to and including the current one are shown in the mission log, so later steps stay hidden until the player gets there.
 
 ## TierCombineMode
 `enum TierCombine` · optional · one of: `Range`, `Max`, `ValueSum`, `None`
 
-<!-- TODO: needs documentation -->
+How the danger tiers of the sub-objectives are folded into one tier. `Range` spans the lowest and highest child tier, `Max` takes the highest, `ValueSum` adds up the approximate ship values behind each child tier and converts the total back into a tier, and `None` reports no tier at all.
 
 ## TierOffset
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Tiers added to (or with a negative value subtracted from) the combined tier. Has no effect while `TierCombineMode` is `None`.
 
 ## OverrideDisplayFormatKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for a single mission log line that replaces the step-by-step lines of the sub-objectives. It is looked up as plain text with no formatting arguments.

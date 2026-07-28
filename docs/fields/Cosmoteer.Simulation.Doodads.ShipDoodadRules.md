@@ -10,9 +10,9 @@
 ## Ship
 `ShipFile` · required
 
-<!-- TODO: needs documentation -->
+Pre-designed ship blueprint that this doodad spawns. The blueprint is loaded and initialized to full health when the doodad is placed.
 
 ## Allegiance
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Player index assigned to the spawned ship. When omitted the ship keeps the allegiance from its blueprint.

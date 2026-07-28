@@ -10,4 +10,4 @@
 ## CommandPoints
 `int` · required
 
-<!-- TODO: needs documentation -->
+The number of command points this component supplies to the ship while operational. A ship can receive and execute commands only while the total provided points are above zero and at least the points used by operational `CommandConsumer` components, which is how losing every control room leaves a ship uncontrollable.

@@ -10,24 +10,24 @@
 ## Money
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+Base credits paid out, rolled randomly from this range when the mission spawns. Tier bonuses are added on top before rounding.
 
 ## MoneyPerLowTier
 `map<int, range<int>>` · optional
 
-<!-- TODO: needs documentation -->
+Credits added according to the lowest danger tier among the mission's objectives, rolled randomly from the range in the matching row. A tier with no row simply adds nothing.
 
 ## MoneyPerHighTier
 `map<int, range<int>>` · optional
 
-<!-- TODO: needs documentation -->
+Credits added according to the highest danger tier among the mission's objectives, rolled randomly from the range in the matching row. A tier with no row simply adds nothing.
 
 ## MoneyPerTierMultiplier
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Scales the combined `MoneyPerLowTier` and `MoneyPerHighTier` bonus, rolled randomly from this range. It does not touch the flat `Money` amount, and it is skipped entirely when the tier bonus came out as zero.
 
 ## RoundToMultiple
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Rounds the final payout to the nearest multiple of this value, so 500 keeps rewards at round numbers. Applied after the tier bonuses and multiplier.

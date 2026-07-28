@@ -10,7 +10,7 @@
 ## LimitMaxResources
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+Caps both the resource count and the capacity that the proxy reports for the proxied storage, after [[Cosmoteer.Ships.Parts.Resources.ResourceStorageProxyRules.QuantityScale]] is applied. The vanilla rocket thruster nozzle uses it to limit a chained extender's battery pool to its own local capacity.
 
 ## QuantityScale
 `float` · optional · default `1`

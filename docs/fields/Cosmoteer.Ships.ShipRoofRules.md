@@ -8,91 +8,91 @@
 > the [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## RoofFadeInDuration
-`float` · required
+`number` · required
 
-<!-- TODO: needs documentation -->
+Seconds over which roof opacity moves back to full when the interior view is dismissed. Drives how fast roofs fade in.
 
 ## RoofFadeOutDuration
-`float` · required
+`number` · required
 
-<!-- TODO: needs documentation -->
+Seconds over which roof opacity fades to zero when the ship interior is revealed. Paired with [[#RoofFadeInDuration]].
 
 ## RoofTexturesFolders
-`string[]` · optional
+`asset (folder)[]` · optional
 
-<!-- TODO: needs documentation -->
+Folders scanned for `*.png` roof base textures, each keyed by its filename without extension. When the same filename appears in more than one folder, the folder later in the list wins.
 
 ## DefaultRoofTexture
 `→ RoofTexture` · optional
 
-<!-- TODO: needs documentation -->
+ID of the roof texture applied when a ship has none set. Resolves against the textures loaded from [[#RoofTexturesFolders]].
 
 ## RoofTextureSizePerTile
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Size, in texture units per ship tile, at which the roof base texture is tiled. Sets the UV scale so the texture repeats consistently regardless of ship size.
 
 ## DecalsShader
-`asset (shader)` · required
+`Shader` · required
 
-<!-- TODO: needs documentation -->
+Shader used to draw roof decals.
 
 ## RoofDecalGroups
 `DecalGroupRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Groups of decal image folders loaded into the roof decals atlas. Each group's folders are scanned for `*.png` decals, optionally filtered by a `whitelist.txt`, and the groups organize decals in the paint UI. See [[Cosmoteer.Ships.DecalGroupRules]].
 
 ## RoofDecalDefaultSizes
-`map<→ Decal, IntVector2>` · optional
+`{ → Decal: IntVector2 }` · optional
 
-<!-- TODO: needs documentation -->
+Overrides the default placement size, in tiles, for specific decals. When a decal is absent here its size is derived from its image dimensions divided by [[#DecalSizePerTile]].
 
 ## RoofDecalUpgrades
-`map<→ Decal, Decal>` · optional
+`{ → Decal: Decal }` · optional
 
-<!-- TODO: needs documentation -->
+Remaps old decal IDs (`Old`) to replacement decals (`New`) when loading saved ships, so renamed or removed decals still resolve.
 
 ## DecalsAtlasParams
 `AtlasTextureParams` · required
 
-<!-- TODO: needs documentation -->
+Texture-generation settings for the combined roof decals atlas. See [[Cosmoteer.Ships.Rendering.AtlasTextureParams]].
 
 ## DecalSizePerTile
 `IntVector2` · required
 
-<!-- TODO: needs documentation -->
+Pixel dimensions of one tile's worth of decal texture. Every decal image's dimensions must be exact multiples of this or atlas building throws, and the quotient is the decal's size in tiles.
 
 ## BaseColorSRange
-`range<float>` · required
+`Range<float>` · required
 
-<!-- TODO: needs documentation -->
+Allowed saturation range for the roof base color. Colors the player picks are clamped into this range.
 
 ## BaseColorVRange
-`range<float>` · required
+`Range<float>` · required
 
-<!-- TODO: needs documentation -->
+Allowed value (brightness) range for the roof base color, clamping player-picked colors.
 
 ## BaseTextureARange
-`range<float>` · required
+`Range<float>` · required
 
-<!-- TODO: needs documentation -->
+Allowed alpha range for the roof base color, limiting how transparent or opaque the roof texture can be made.
 
 ## DecalsSRange
-`range<float>` · required
+`Range<float>` · required
 
-<!-- TODO: needs documentation -->
+Allowed saturation range for decal colors. Clamps colors chosen in the decal color picker.
 
 ## DecalsVRange
-`range<float>` · required
+`Range<float>` · required
 
-<!-- TODO: needs documentation -->
+Allowed value (brightness) range for decal colors, used by the decal color picker and by the metadata clamp when loading a ship. Note that `PaintUpdateInfo.SetRoofDecalColor` mistakenly clamps brightness against [[#DecalsSRange]] instead of this range, so this range is not applied on that particular path.
 
 ## DefaultBaseColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Roof base color a ship starts with before the player repaints it.
 
 ## DefaultDecalsColors
-`Color[]` · optional
+`Color[]` · required
 
-<!-- TODO: needs documentation -->
+Default color of each decal layer, one entry per layer, applied to new ships.

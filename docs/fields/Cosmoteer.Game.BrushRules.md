@@ -10,29 +10,29 @@
 ## ID
 `string` · required
 
-<!-- TODO: needs documentation -->
+Identifies this brush. The game registers one rebindable hotkey per brush id and stores the player's binding under `Brushes/<ID>` in the input settings, so ids must be unique across every brush group and renaming one loses existing bindings. Vanilla uses names like `block1` and `line`.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the brush's display name. It is drawn in bold on the first line of the brush's tooltip and is also what the key bindings screen calls the brush.
 
 ## IconNameKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for a short caption drawn in the bottom right corner of the brush button, and mirrored onto the toolbox's brush selector once the brush is chosen. Vanilla uses it for the terse size labels such as `1x1`.
 
 ## TipKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for an extra paragraph appended to the brush's tooltip below the name, for explaining how the brush behaves.
 
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The image on the brush button in the build and paint toolboxes, and on the toolbox's brush selector button once this brush is chosen.
 
 ## DefaultEditorHotkey
 `enum ViKey[]` · optional
 
-<!-- TODO: needs documentation -->
+The out of the box key combination that selects this brush in the designer, written as the list of keys that must be held. Players can rebind it, and the current binding is appended to the brush's tooltip.

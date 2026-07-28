@@ -10,19 +10,19 @@
 ## MinLength
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Shortest name the generator will accept. Candidates shorter than this are discarded and regenerated. Default 1.
 
 ## MaxLength
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+Longest name the generator will accept. Candidates longer than this, or longer than the caller's own limit, are discarded and regenerated. Default unbounded.
 
 ## MaxConsecutiveConsonants
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+Longest run of consecutive consonants a name may contain before it is discarded and regenerated. Vowels a, e, i, o, u reset the run. Default unbounded.
 
 ## MarkovFile
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Path to the pre-built binary Markov chain file loaded when the generator is read. The chain drives the letter-by-letter name generation.

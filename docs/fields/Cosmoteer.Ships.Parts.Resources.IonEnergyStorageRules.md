@@ -10,4 +10,4 @@
 ## ReductionFactorPerBeam
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The diminishing-returns factor applied when multiple beam hits are pooled. Additions are combined largest first, and before each further addition is added the running total is multiplied by this factor, so with a value below 1 every extra beam contributes less to the total energy. At the default 1 the additions simply sum. The vanilla ion beam prism uses `.75`.

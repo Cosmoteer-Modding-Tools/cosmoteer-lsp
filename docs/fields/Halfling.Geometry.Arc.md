@@ -10,19 +10,19 @@
 ## NearEdge
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+The direction of the arc's starting edge. 0 points along +X and positive angles rotate toward +Y, which is clockwise on screen since the Y axis points downward. Angles are usually written with the `d` suffix for degrees, for example `45d`, while a bare number is read as radians.
 
 ## Width
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+The angular size of the arc, sweeping from [[Halfling.Geometry.Arc.NearEdge]] in the positive (clockwise) rotation direction to the far edge. A width of `360d` or more makes the arc cover every direction.
 
 ## 0
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+The near edge direction when the arc is written in list form `[nearEdge, width]`, as in the vanilla `Arc = [22.5d, 360d]` in command_attack.rules.
 
 ## 1
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+The angular width in the list form `[nearEdge, width]`.

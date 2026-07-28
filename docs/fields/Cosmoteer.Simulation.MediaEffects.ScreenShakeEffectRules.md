@@ -10,34 +10,34 @@
 ## ShakeAmount
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Strength multiplier for the shake fed into the camera's screen shake controller, which converts it into positional and angular jitter. The applied amount is further scaled by the effect's intensity, the distance factor, and the remaining-duration falloff. Defaults to 1.
 
 ## Duration
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds the shake lasts after it starts, decaying to nothing over this time following [[Cosmoteer.Simulation.MediaEffects.ScreenShakeEffectRules.DurationFalloff]]. A continuously played shake instead holds full strength until ended and then decays over this duration. Defaults to 1.
 
 ## DurationFalloff
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Exponent applied to the fraction of [[Cosmoteer.Simulation.MediaEffects.ScreenShakeEffectRules.Duration]] still remaining when computing the shake strength. 1 decays linearly to zero and higher values fade the shake out sooner. Defaults to 1.
 
 ## MaxDistance
 `float` · optional · default `3.4028235e+38`
 
-<!-- TODO: needs documentation -->
+The distance from the camera center at which the shake has no effect. Distance is measured in view-relative units where 1 spans from the center of the screen to its edge, so the falloff region scales with zoom. The float-max default disables distance attenuation.
 
 ## MinDistance
 `float` · optional · default `3.4028235e+38`
 
-<!-- TODO: needs documentation -->
+The view-relative distance up to which the shake applies at full strength. Between here and [[Cosmoteer.Simulation.MediaEffects.ScreenShakeEffectRules.MaxDistance]] the strength falls off along the [[Cosmoteer.Simulation.MediaEffects.ScreenShakeEffectRules.DistanceFalloff]] curve.
 
 ## DistanceFalloff
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Exponent shaping the strength falloff between [[Cosmoteer.Simulation.MediaEffects.ScreenShakeEffectRules.MinDistance]] and [[Cosmoteer.Simulation.MediaEffects.ScreenShakeEffectRules.MaxDistance]]. 1 is linear and higher values fall off more quickly.
 
 ## Filter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+Conditions on what the effect hit, such as ship allegiance, part categories, shields, bullets, or crew, that must pass for the shake to occur. The filter is re-checked every frame while the shake is active, dropping the strength to zero whenever the conditions stop holding.

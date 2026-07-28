@@ -10,64 +10,64 @@
 ## TopLeftSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite for the top-left corner cell of the nine-slice, drawn at a fixed size given by the left and top [[Borders]]. Corner cells never stretch. Omit any slice to leave that cell empty.
 
 ## TopSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite for the top edge cell, spanning between the left and right corners. Stretches horizontally with the rectangle unless [[EdgeCenterUPerWidth]] makes it tile.
 
 ## TopRightSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite for the top-right corner cell, drawn at a fixed size given by the right and top [[Borders]].
 
 ## LeftSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite for the left edge cell, spanning between the top and bottom corners. Stretches vertically with the rectangle unless [[EdgeCenterVPerHeight]] makes it tile.
 
 ## CenterSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite for the center cell, filling the area inside all four [[Borders]]. Stretches in both axes unless [[EdgeCenterUPerWidth]] or [[EdgeCenterVPerHeight]] make it tile.
 
 ## RightSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite for the right edge cell, spanning between the top and bottom corners. Stretches vertically with the rectangle unless [[EdgeCenterVPerHeight]] makes it tile.
 
 ## BottomLeftSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite for the bottom-left corner cell, drawn at a fixed size given by the left and bottom [[Borders]].
 
 ## BottomSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite for the bottom edge cell, spanning between the left and right corners. Stretches horizontally with the rectangle unless [[EdgeCenterUPerWidth]] makes it tile.
 
 ## BottomRightSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite for the bottom-right corner cell, drawn at a fixed size given by the right and bottom [[Borders]].
 
 ## Borders
 `Borders` · optional
 
-<!-- TODO: needs documentation -->
+Left, top, right, and bottom inset widths in world units that mark where the nine cells meet. The corner and edge sprites occupy these insets while the center fills what remains. Scaled by the caller's border scale.
 
 ## Bleed
 `Borders` · optional
 
-<!-- TODO: needs documentation -->
+Left, top, right, and bottom amounts by which the drawn rectangle is expanded outward before slicing, so the sprites bleed past the nominal bounds. Scaled by the caller's border scale.
 
 ## EdgeCenterUPerWidth
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Tiles the horizontal-spanning cells (top, bottom, center) along U by multiplying their UV width by the rectangle width times this value, instead of stretching a single copy. Zero stretches the sprite to fit.
 
 ## EdgeCenterVPerHeight
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Tiles the vertical-spanning cells (left, right, center) along V by multiplying their UV height by the rectangle height times this value, instead of stretching a single copy. Zero stretches the sprite to fit.

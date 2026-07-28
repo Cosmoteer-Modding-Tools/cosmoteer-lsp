@@ -10,24 +10,24 @@
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The image drawn in place of the ship's default indicator dot while this component is operational. It is drawn centered on the indicator at the sprite's own size in pixels, and the ship ghost normally shown when zoomed out is suppressed. The vanilla asteroid resource deposits use their resource's overlay sprite here.
 
 ## Weight
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The vote weight of this component when several operational `CustomShipIcon` components exist on the same ship. Each component adds its weight to its icon and the icon with the highest total is displayed. The vanilla uranium deposits reference their resource amount so richer deposits win the vote.
 
 ## PulseInterval
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds per pulse cycle of the icon's tint, which oscillates between white and [[Cosmoteer.Ships.Parts.Graphics.CustomShipIconRules.PulseColor]]. Defaults to 1.
 
 ## PulseColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The color the icon's tint oscillates toward every [[Cosmoteer.Ships.Parts.Graphics.CustomShipIconRules.PulseInterval]]. Defaults to white, which makes the pulse invisible. The vanilla uranium deposits pulse toward `[255, 255, 255, 64]` to fade the icon in and out.
 
 ## ShowAtZoom
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Replaces the ship's bounding radius in the indicator visibility calculation with this multiple of the indicator system's maximum ship-size threshold, so the icon appears at a fixed zoom-out level regardless of the ship's actual size. Higher values require zooming out further before the icon appears. Ignored while the ship is selected, and when unset the ship's real radius is used. The vanilla resource deposits use 5.

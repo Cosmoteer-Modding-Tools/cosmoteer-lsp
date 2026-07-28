@@ -10,24 +10,24 @@
 ## Seed
 `int` · optional
 
-<!-- TODO: needs documentation -->
+A per-layer seed XORed with the generator's seed to pick the random shift amounts. Changing it produces a different color shift.
 
 ## HueShift
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The range from which a single hue offset in degrees is chosen. That one offset is added to every pixel's hue (wrapping at 360), so the whole underlying layer is rotated in hue by the same amount.
 
 ## SatShift
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The range from which a single saturation offset is chosen and added to every pixel's saturation, clamped to 0 to 1.
 
 ## ValShift
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The range from which a single brightness (value) offset is chosen and added to every pixel's value, clamped to 0 to 1.
 
 ## AlphaShift
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The range from which a single alpha offset is chosen and added to every pixel's alpha, clamped to 0 to 1.

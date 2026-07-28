@@ -10,104 +10,104 @@
 ## TotalDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Total length of the FTL warp animation. Internal progress runs from 0 to 1 over this time when jumping out and back from 1 to 0 when jumping in. Every phase timing below ([[CropTime]], [[WarpEffectIn]], [[WarpEffectOut]]) is measured in seconds against progress multiplied by this duration.
 
 ## CropTime
 `range<Time>` · required
 
-<!-- TODO: needs documentation -->
+Time window (in elapsed jump seconds) over which the crop line, the leading edge that wipes the ship into and out of warp, sweeps across the ship's bounding rect from one side to the other. Also drives the position of the [[CropSprite]] along that sweep.
 
 ## CropSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite drawn at the moving crop edge as the ship wipes into warp. Its position tracks the [[CropTime]] sweep, its size comes from [[CropSizeFactor]] modulated by the pulse fields, and its alpha ramps in via [[CropZeroAlphaSize]] and [[CropFullAlphaSize]].
 
 ## CropSizeFactor
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Base width and height multipliers for the [[CropSprite]], applied against the ship's convex hull width along and across the jump direction. The pulse fields [[CropWidthPulse]] and [[CropHeightPulse]] are added on top each frame.
 
 ## CropPulseInterval
 `float` · required
 
-<!-- TODO: needs documentation -->
+Interval of the sine wave (sampled over clock time) that pulses the [[CropSprite]]. The single wave value scales the width, height and alpha pulse amounts each frame.
 
 ## CropAlphaPulse
 `float` · required
 
-<!-- TODO: needs documentation -->
+Amount the [[CropSprite]] alpha oscillates by, driven by the [[CropPulseInterval]] wave. Added to the sprite's base vertex alpha each frame.
 
 ## CropWidthPulse
 `float` · required
 
-<!-- TODO: needs documentation -->
+Amount the [[CropSprite]] width oscillates by, driven by the [[CropPulseInterval]] wave. Added to the X component of [[CropSizeFactor]] each frame. Height counterpart is [[CropHeightPulse]].
 
 ## CropHeightPulse
 `float` · required
 
-<!-- TODO: needs documentation -->
+Amount the [[CropSprite]] height oscillates by, driven by the [[CropPulseInterval]] wave. Added to the Y component of [[CropSizeFactor]] each frame. Width counterpart is [[CropWidthPulse]].
 
 ## CropZeroAlphaSize
 `float` · required
 
-<!-- TODO: needs documentation -->
+Apparent crop size (0..1, peaking at the middle of the sweep and falling to 0 at each end) at or below which the [[CropSprite]] is fully transparent. Alpha ramps up from here to [[CropFullAlphaSize]], so the sprite fades out as it reaches the edges of the ship.
 
 ## CropFullAlphaSize
 `float` · required
 
-<!-- TODO: needs documentation -->
+Apparent crop size (0..1) at or above which the [[CropSprite]] reaches full opacity. Together with [[CropZeroAlphaSize]] it defines the size window over which the crop sprite fades between transparent and opaque as it sweeps.
 
 ## WarpEffectIn
 `range<Time>` · required
 
-<!-- TODO: needs documentation -->
+Time window (in elapsed jump seconds) over which the warp ghost drawn with [[WarpEffectShader]] fades in at the start of a jump. Its alpha interpolates from 0 to 1 across this range. The fade-out counterpart is [[WarpEffectOut]].
 
 ## WarpEffectOut
 `range<Time>` · required
 
-<!-- TODO: needs documentation -->
+Time window (in elapsed jump seconds) over which the warp ghost fades back out toward the end of a jump. Its alpha interpolates from 1 down to 0 across this range. The fade-in counterpart is [[WarpEffectIn]].
 
 ## WarpEffectShader
 `asset (shader)` · required
 
-<!-- TODO: needs documentation -->
+Shader that draws the warping ship ghost during a jump, distorting the captured background. Fed the FTL background capture and [[WarpEffectTexture]], with alpha driven by [[WarpEffectIn]] and [[WarpEffectOut]].
 
 ## WarpEffectTexture
 `asset (image)` · required
 
-<!-- TODO: needs documentation -->
+Texture bound to the [[WarpEffectShader]] as the warp distortion source when rendering the warping ship ghost.
 
 ## LightSpeedEffectShader
 `asset (shader)` · required
 
-<!-- TODO: needs documentation -->
+Shader that draws the light-speed streak ghost over the ship during a jump, tinted by [[LightSpeedEffectColor]] and composited with [[LightSpeedEffectBlendMode]]. Its overall alpha fades as the jump progresses.
 
 ## LightSpeedEffectColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Tint applied to the light-speed streak ghost drawn by [[LightSpeedEffectShader]]. Its alpha is additionally scaled down by the square of jump progress, so the streak is strongest at the start of the effect and fades to nothing.
 
 ## LightSpeedEffectBlendMode
 `TargetBlendMode` · required
 
-<!-- TODO: needs documentation -->
+Blend mode used to composite the light-speed streak ghost onto the scene when drawing it with [[LightSpeedEffectShader]].
 
 ## JumpOutMediaEffects
 `MultiMediaEffectRules` · required
 
-<!-- TODO: needs documentation -->
+Media effects (particles, sounds) spawned at the ship's location when it jumps out to FTL, after the [[JumpOutDelay]]. Counterpart is [[JumpInMediaEffects]].
 
 ## JumpOutDelay
 `range<Time>` · required
 
-<!-- TODO: needs documentation -->
+Randomized delay before the jump-out animation and [[JumpOutMediaEffects]] begin. A value is picked uniformly from this range each time a ship jumps out.
 
 ## JumpInMediaEffects
 `MultiMediaEffectRules` · required
 
-<!-- TODO: needs documentation -->
+Media effects (particles, sounds) spawned at the ship's location when it arrives from FTL, after the [[JumpInDelay]]. Counterpart is [[JumpOutMediaEffects]].
 
 ## JumpInDelay
 `range<Time>` · required
 
-<!-- TODO: needs documentation -->
+Randomized delay before the jump-in animation and [[JumpInMediaEffects]] begin. A value is picked uniformly from this range each time a ship arrives from FTL.

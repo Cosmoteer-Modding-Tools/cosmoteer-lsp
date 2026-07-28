@@ -10,9 +10,9 @@
 ## ComponentIDs
 `→ PartComponentRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The set of components to fully interconnect. At load, a directed route is generated between every ordered pair of these components (both directions for each pair), so all listed components can route to each other.
 
 ## Cost
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The path cost applied to every route the generator produces between the ComponentIDs.

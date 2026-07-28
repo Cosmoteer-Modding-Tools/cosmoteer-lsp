@@ -10,19 +10,19 @@
 ## ScaleFactor
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Size multiplier applied to each spawned doodad, drawn uniformly from this range and then multiplied by the value selected by `ScaleMode`. A value of 1 is the doodad's authored size.
 
 ## ScaleMode
 `enum DynamicValueMode` · optional · one of: `None`, `ParentToGrandparent`, `ParentToWorldCenter`, `AreaSquareKM`, `AreaRadiusKM`
 
-<!-- TODO: needs documentation -->
+Selects a dynamic value that the drawn `ScaleFactor` is multiplied by, for example `AreaRadiusKM` to make doodads grow with the size of the play area. `None` leaves the drawn scale alone.
 
 ## DoodadType
 `DoodadTypeInfo` · optional
 
-<!-- TODO: needs documentation -->
+A single doodad type to spawn, written either as a bare doodad ID or as a `DoodadTypeInfo` group. Any parameters the doodad type itself defines are read from the spawner's own group, and one of `DoodadType` or `DoodadTypes` has to be present.
 
 ## DoodadTypes
 `DoodadTypeInfo[]` · optional
 
-<!-- TODO: needs documentation -->
+The candidate doodad types, one of which is drawn per spawned object by a lottery weighted on their `ChanceWeight`. Ignored when `DoodadType` is also given.

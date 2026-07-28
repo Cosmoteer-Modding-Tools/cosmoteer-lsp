@@ -10,29 +10,29 @@
 ## WalkSprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Animated sprite played while a crew member walks. Its animation duration sets the walk cycle length, sped up or slowed by the crew's movement speed factor. One of the four per-state animations alongside [[CarrySprite]], [[OperateSprite]] and [[IdleSprite]].
 
 ## CarrySprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Animated sprite played while a crew member walks carrying resources. Its animation duration is scaled by the crew's speed like [[WalkSprite]].
 
 ## OperateSprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Animated sprite played while a crew member operates a station. Loops at its own animation duration while the crew is working a part.
 
 ## IdleSprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Animated sprite played while a crew member stands idle with nothing to do. Loops at its own animation duration.
 
 ## SkinColors
 `Color[]` · optional
 
-<!-- TODO: needs documentation -->
+Palette of skin colors for this body type. Each crew member picks one by a stable per-crew seed (modulo the array length), and players can also choose an index in the crew editor. Hair palette is [[HairColors]].
 
 ## HairColors
 `Color[]` · optional
 
-<!-- TODO: needs documentation -->
+Palette of hair colors for this body type, indexed the same way as [[SkinColors]] by a per-crew seed or by an explicit choice in the crew editor.

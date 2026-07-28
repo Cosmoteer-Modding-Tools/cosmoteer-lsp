@@ -10,39 +10,39 @@
 ## MaxTradeShipsPerEndpoint
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplied by the number of trade endpoints in the system, meaning FTL gates plus operating space stations, and rounded up to get the cap on simultaneous trade ships. A system with fewer than two endpoints gets no trade ships at all. Vanilla uses 2.25.
 
 ## MaxSimultaneousTradeShipsPerStation
 `int` · required
 
-<!-- TODO: needs documentation -->
+How many trade ships may dock at the same station at once. A ship that arrives at a full station immediately picks a different destination instead of waiting.
 
 ## TradeShipSpawnInterval
 `range<Time>` · required
 
-<!-- TODO: needs documentation -->
+The delay between trade ship arrivals, rolled fresh after each spawn. It only counts down while the system is below the cap set by [[Cosmoteer.Modes.Career.TradeRoutes.TradeRoutesRules.MaxTradeShipsPerEndpoint]]. Vanilla waits 5 to 10 seconds.
 
 ## DestinationReachedDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+How close, in tiles, a trade ship's center must get to its destination before it counts as arrived and starts trading. The `HaltForComms` AI module uses the same distance to decide the ship is already close enough to stop.
 
 ## DestinationReachedSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+How slowly a trade ship must be moving before it counts as arrived. The game compares the ship's squared velocity against this raw number without squaring it, so the effective cut-off is the square root. Vanilla's 0.25 therefore means half a tile per second.
 
 ## FtlRemoveDelay
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long after a trade ship starts its FTL jump-out animation at a gate before it is removed from the simulation. Vanilla ties it to the standard ship FTL effect duration so the ship vanishes as the effect ends.
 
 ## MinTradeShipSpawnDistFromEndpoints
 `float` · required
 
-<!-- TODO: needs documentation -->
+How much room, in tiles, to leave clear of both endpoints when seeding trade ships along existing routes as a system is first generated. Ships that spawn later arrive through an FTL gate and ignore this. Vanilla keeps 1000 tiles.
 
 ## StationResourceTradeDeltas
 `StationResourceRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The per-resource stocking targets stations trade toward. It also acts as the whitelist of tradeable goods, since only resource types listed here are ever moved between a station and a trade ship.

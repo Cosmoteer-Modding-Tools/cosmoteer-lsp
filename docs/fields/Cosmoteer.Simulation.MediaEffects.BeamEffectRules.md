@@ -10,49 +10,49 @@
 ## Z
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The depth coordinate written into the beam's vertices along with the start position, passed through to the sprite's shader.
 
 ## SpeedOverIntensity
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The rate at which the beam's shader animation clock advances, in seconds per second, interpolated between Min and Max by the effect's current intensity. Negative intensity runs the clock backwards. Defaults to a constant 1, and the vanilla thruster plumes set it to 0 so only their shader's own noise animates.
 
 ## LengthOverIntensity
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the beam's visual length, interpolated without clamping between Min and Max by the current intensity. The final length is this multiplier times the beam length supplied by the emitting component times the sprite's world width. The vanilla thruster plumes use `[0, 1]` so the plume extends with throttle, while beam weapons leave it at the default constant 1.
 
 ## LengthMultipliedByIntensity
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Declares that the sprite's shader stretches the beam by its intensity, enlarging the beam's culling bounds by the current intensity when it exceeds 1 so the stretched visual is not culled early. It does not change the vertex data itself. The vanilla thruster plume light effects use it.
 
 ## LengthSmoothSpeed
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The smoothing rate for changes in the beam's visual length. Each frame the length moves toward its target by this rate times the frame time, so higher values track faster. When unset the length snaps instantly.
 
 ## RotationSmoothSpeed
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The smoothing rate for the beam's displayed direction, which eases toward the node's actual rotation by this rate times the frame time. This gives the vanilla thruster plumes, which use 15, their trailing swish when a ship turns. When unset the beam always points exactly where its node points.
 
 ## MaxRotationSmoothDelta
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+The maximum angle the smoothed direction may trail behind the node's actual rotation when [[Cosmoteer.Simulation.MediaEffects.BeamEffectRules.RotationSmoothSpeed]] is set. Larger lags are clamped to this offset. The default of 360d imposes no limit, and the vanilla thruster plumes use 30d.
 
 ## RotationSmoothSkewMode
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Keeps the beam's start edge aligned with the node's actual rotation while only the far end follows the smoothed direction, skewing the beam like a flexible plume instead of rotating it rigidly. Requires [[Cosmoteer.Simulation.MediaEffects.BeamEffectRules.RotationSmoothSpeed]] to have a visible effect. Used by all vanilla thruster plumes.
 
 ## RandomTimeOffset
 `range<Time>` · optional
 
-<!-- TODO: needs documentation -->
+The range, in seconds, from which the beam's shader animation clock is randomly seeded each time the beam starts playing, so identical beams do not animate in sync. The clock then advances at the rate set by [[Cosmoteer.Simulation.MediaEffects.BeamEffectRules.SpeedOverIntensity]].
 
 ## IntensityOverZoom
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+When set, the effect's intensity is additionally multiplied by how far the camera's zoom scale sits between Min and Max, reaching zero at Min and full at Max. When the miniview is shown, the lower of the two zoom scales is used. The vanilla crew jetpack plume uses `[3, 1]` so the plume only fades in as the camera zooms out.

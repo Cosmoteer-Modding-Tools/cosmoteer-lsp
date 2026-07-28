@@ -10,19 +10,19 @@
 ## ValueSource
 `ComponentValueReferenceRules` · required
 
-<!-- TODO: needs documentation -->
+The value component this component's own value chases over time. Written either as a bare component ID or as a group with `ID` and an optional `ValueID` naming a specific sub-value. If the smoothed value ever becomes NaN it snaps directly to the source value.
 
 ## MaxDelta
 `number` · required
 
-<!-- TODO: needs documentation -->
+The maximum rate, in value units per second, at which the smoothed value moves toward the source value. Accepts buff modifiers. The vanilla small thruster smooths its normalized activation for overclock heat output with `MaxDelta = 1 / (&../Overclock_ThrusterHeatProducer/Interval)`.
 
 ## StartValue
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The value the component starts at when added to its part. When unset it starts at the source's current value.
 
 ## Deterministic
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the value advances on fixed simulation ticks, keeping it consistent across the deterministic simulation. When false it advances once per rendered frame instead, which is only safe for purely visual values.

@@ -11,9 +11,17 @@ suite('Should do completion', () => {
     const docUri = getDocUri('completion.rules');
 
     // `Ref = &TestBase/Value` references into `TestBase`, whose members are
-    // `ValueOne`/`ValueTwo`. Completing the partial `Value` segment must offer both.
+    // `ValueOne`/`ValueTwo`. Completing the partial `Value` segment must offer both. The caret goes
+    // at the end of the line, inside that segment: completion resolves the segment under the caret,
+    // so a caret parked inside `TestBase` completes root names instead.
     test('Completes reference members in a rules file', async () => {
-        await testCompletion(docUri, new vscode.Position(4, 10), ['ValueOne', 'ValueTwo']);
+        await testCompletion(docUri, new vscode.Position(4, 21), ['ValueOne', 'ValueTwo']);
+    });
+
+    // The sibling case, guarding the segment-under-caret rule the position above depends on: a caret
+    // inside the first segment completes what can start the reference, not the target's members.
+    test('Completes the first reference segment when the caret sits in it', async () => {
+        await testCompletion(docUri, new vscode.Position(4, 10), ['TestBase'], false);
     });
 
     // The post-snippet state of the component-name completion: a fresh component block whose

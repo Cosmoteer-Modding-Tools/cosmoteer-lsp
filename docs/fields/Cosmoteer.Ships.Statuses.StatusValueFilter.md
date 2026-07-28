@@ -10,14 +10,14 @@
 ## MinValue
 `float` · optional · default `-∞`
 
-<!-- TODO: needs documentation -->
+The lowest combined status value that still counts as a match, inclusive.
 
 ## MaxValue
 `float` · optional · default `∞`
 
-<!-- TODO: needs documentation -->
+The highest combined status value that still counts as a match, inclusive.
 
 ## StatusType
 `→ StatusType` · optional
 
-<!-- TODO: needs documentation -->
+The status whose combined value at the location is tested. A location with no instance of this status never matches, whatever `MinValue` and `MaxValue` say.

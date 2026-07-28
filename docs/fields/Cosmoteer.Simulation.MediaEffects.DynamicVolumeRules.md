@@ -10,44 +10,44 @@
 ## MaxDistance
 `float` · optional · default `3.4028235e+38`
 
-<!-- TODO: needs documentation -->
+The distance from the camera center at which the sound becomes silent. Distance is measured in view-relative units where 1 spans from the center of the screen to its edge, so the fade region scales with zoom. The float-max default disables distance attenuation. Vanilla ambient part sounds use around 1.25, fading out just past the screen edge.
 
 ## MinDistance
 `float` · optional · default `3.4028235e+38`
 
-<!-- TODO: needs documentation -->
+The view-relative distance up to which the sound plays at full volume. Between here and [[Cosmoteer.Simulation.MediaEffects.DynamicVolumeRules.MaxDistance]] the volume fades out along the [[Cosmoteer.Simulation.MediaEffects.DynamicVolumeRules.DistanceFalloff]] curve.
 
 ## DistanceFalloff
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Exponent shaping the volume fade between [[Cosmoteer.Simulation.MediaEffects.DynamicVolumeRules.MinDistance]] and [[Cosmoteer.Simulation.MediaEffects.DynamicVolumeRules.MaxDistance]]. 1 fades linearly and higher values fade out more quickly.
 
 ## UseCustomShapeForDistance
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Measures the camera distance to the closest point of the effect's custom shape instead of to the effect's node location. Beam sounds such as the vanilla tractor beam and spreading status effects such as fire use this so the sound stays audible along their whole extent.
 
 ## MaxZoom
 `float` · optional · default `3.4028235e+38`
 
-<!-- TODO: needs documentation -->
+The camera zoom scale at which the sound becomes silent. The zoom scale is 1 when fully zoomed in and grows as the player zooms out. The float-max default disables zoom attenuation. Vanilla interior ambience fades out by 4 while exterior ambience persists up to 70.
 
 ## MinZoom
 `float` · optional · default `3.4028235e+38`
 
-<!-- TODO: needs documentation -->
+The camera zoom scale up to which the sound plays at full volume. Between here and [[Cosmoteer.Simulation.MediaEffects.DynamicVolumeRules.MaxZoom]] the volume fades out along the [[Cosmoteer.Simulation.MediaEffects.DynamicVolumeRules.ZoomFalloff]] curve. Vanilla ambient sounds typically use 1.
 
 ## ZoomFalloff
 `float` · optional · default `2`
 
-<!-- TODO: needs documentation -->
+Exponent shaping the volume fade between [[Cosmoteer.Simulation.MediaEffects.DynamicVolumeRules.MinZoom]] and [[Cosmoteer.Simulation.MediaEffects.DynamicVolumeRules.MaxZoom]]. 1 fades linearly and higher values fade out more quickly as the player zooms out.
 
 ## PlayAtZeroVolume
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Starts one-shot sounds even when their computed volume is currently 0, which would normally skip the play entirely. The sound can then become audible if the camera moves, zooms, or regains sight while it is still playing.
 
 ## ExteriorVolume
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Volume multiplier blended in proportionally to the roof opacity of the relevant ship. At full roof opacity the sound plays at exactly this multiplier, and with the roof faded out it plays unmodified. Vanilla interior ambience uses 0 so machinery is only heard while the interior is visible. Defaults to 1.

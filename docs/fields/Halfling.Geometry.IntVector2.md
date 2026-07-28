@@ -10,19 +10,19 @@
 ## X
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The whole-number X (1st) component of this IntVector2. Positive X points to the right.
 
 ## Y
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The whole-number Y (2nd) component of this IntVector2. The Y axis points downward, so positive values are further down.
 
 ## 0
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The X component when the vector is written in list form `[x, y]`.
 
 ## 1
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The Y component when the vector is written in list form `[x, y]`.

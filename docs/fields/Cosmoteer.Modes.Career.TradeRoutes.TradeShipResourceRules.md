@@ -10,14 +10,14 @@
 ## ResourceType
 `→ ResourceRules` · required
 
-<!-- TODO: needs documentation -->
+The resource a storage tile is loaded with when this entry is drawn.
 
 ## RandomWeight
 `float` · required
 
-<!-- TODO: needs documentation -->
+The relative weight of this entry on the roulette wheel used to fill each untyped storage tile. Vanilla runs from 3 for mine parts up to 40 for steel.
 
 ## RandomQuantity
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The amount put in the tile as a fraction of the resource's maximum stack size, rolled between Min and Max. The low end is rounded up and the high end down before the roll.

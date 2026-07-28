@@ -10,4 +10,4 @@
 ## Spawners
 `GalaxySpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Ordered list of spawners run in sequence to populate the galaxy map. Each spawner rolls its own [[Cosmoteer.Generators.Galaxies.GalaxySpawner#SpawnChance]] before running.

@@ -10,44 +10,44 @@
 ## HitEffects
 `MultiHitEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Gameplay effects such as `Damage`, `ExplosiveDamage` or `SpawnBullets` run at the hit point when this hit triggers. They receive whatever was hit, a part, shield, projectile or crew member, as their target.
 
 ## HitEffectsScale
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the effect scale passed to [[Cosmoteer.Bullets.Hits.HitRules.HitEffects]], default 1. Stacks with the projectile's own effect scale and any `FactorEffectsWith` factor, and accepts value modifiers so buffs can change it.
 
 ## MediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Purely audiovisual effects such as particles, sounds and screen shake played at the hit point. Volume hits play them continuously along the target's path through the volume instead of as a one-shot.
 
 ## MediaEffectsScale
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the intensity of [[Cosmoteer.Bullets.Hits.HitRules.MediaEffects]], default 1. Accepts value modifiers, which the overclocked railgun shot uses to grow its impact effects with the overclock buff.
 
 ## DamagePoolBulletSplitting
 `DamagePoolBulletSplitRules` · optional
 
-<!-- TODO: needs documentation -->
+Splits the projectile into fragments spawned by [[Cosmoteer.Bullets.Hits.DamagePoolBulletSplitRules.SpawnEffect]] whenever this hit's effects drain enough damage from a `DamagePool` component. Only hits of a `PenetratingHit` component apply it. The overclocked railgun shot uses it to shed fragment bullets as it penetrates.
 
 ## ReduceEffectsByPenetration
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Scales this hit's effect scale and media intensity by the fraction of [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] the projectile has left, so deeper hits are weaker. Only hits of a `PenetratingHit` component honor it.
 
 ## Bounce
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the projectile ricochets off instead of being destroyed by this hit. When true the collision is handed back to the physics engine so the projectile bounces away after the effects play. No vanilla shot uses it.
 
 ## FrameOfReference
 `enum BulletFrameOfReference` · optional · one of: `Grid`, `Inherit`, `Bullet`, `HitObject`
 
-<!-- TODO: needs documentation -->
+Velocity frame the spawned effects inherit, so particles drift along with the chosen object. When unset, `HitObject` is used, which takes the velocity of whatever was hit at the hit point. `Bullet` uses the projectile's velocity, `Inherit` the frame of reference the projectile itself inherited, and `Grid` the stationary world frame.
 
 ## Offset
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Offset in tiles added to the hit point before effects are placed, rotated to the projectile's facing. The point defense shot uses `[-0.15, 0]` to pull its impact effects slightly back along the shot. Volume hits ignore it.

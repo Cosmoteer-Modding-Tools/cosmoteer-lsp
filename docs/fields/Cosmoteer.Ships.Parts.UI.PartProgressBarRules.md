@@ -10,14 +10,14 @@
 ## LowColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The bar's color at 0% fill, blended toward [[Cosmoteer.Ships.Parts.UI.PartProgressBarRules.HighColor]] in HSVA space as the bar fills. Defaults to gray. The vanilla shield generators use the same blue for all three colors so their charge bar never shifts hue.
 
 ## HighColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The color the bar approaches as it nears 100% fill, blended from [[Cosmoteer.Ships.Parts.UI.PartProgressBarRules.LowColor]] in HSVA space. Defaults to gray. A completely full bar uses [[Cosmoteer.Ships.Parts.UI.PartProgressBarRules.FullColor]] instead.
 
 ## FullColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The color of the bar when it is completely full, replacing the [[Cosmoteer.Ships.Parts.UI.PartProgressBarRules.LowColor]] to [[Cosmoteer.Ships.Parts.UI.PartProgressBarRules.HighColor]] blend. Defaults to white.

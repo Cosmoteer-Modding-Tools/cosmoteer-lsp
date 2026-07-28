@@ -94,4 +94,4 @@ flickering off for less than this neither dismisses the operators
 ## AccessWarningLevel
 `enum AccessWarningLevel` · optional · default `Strong` · one of: `None`, `Weak`, `Strong`
 
-<!-- TODO: needs documentation -->
+Severity of the build-mode warning shown when the placed part has no walkable crew path to a crew source. `Strong` shows the full no-crew-access warning and highlights long paths more aggressively, `Weak` shows a softer variant, and `None` skips the crew-access check for this component.

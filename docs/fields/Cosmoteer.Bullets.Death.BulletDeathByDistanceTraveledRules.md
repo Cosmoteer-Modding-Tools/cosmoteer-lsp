@@ -10,9 +10,9 @@
 ## Distance
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+How far the bullet travels before dying, in tiles, rolled randomly between Min and Max when the bullet spawns. Travel is measured relative to the bullet's frame of reference, so drifting along with a moving battle frame does not count. When unset, the distance is the bullet's [[Cosmoteer.Bullets.BulletRules.Range]].
 
 ## HasTarget
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Restricts when this death component is attached at all. True attaches it only to bullets fired with a target, false only to bullets fired without one, and leaving it unset attaches it always.

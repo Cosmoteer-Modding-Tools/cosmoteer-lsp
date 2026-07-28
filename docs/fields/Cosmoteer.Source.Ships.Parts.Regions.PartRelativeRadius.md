@@ -10,9 +10,9 @@
 ## Radius
 `float` · required
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, of the circular region measured from the part's center. A cell counts as inside when its center is within this distance, and the falloff factor runs from 0 at the center to 1 at the radius.
 
 ## BlueprintRenderer
 `CircleRenderer` · optional
 
-<!-- TODO: needs documentation -->
+The circle renderer that draws the region outline in the build view, its thickness set to [[Cosmoteer.Source.Ships.Parts.Regions.PartRelativeRadius.Radius]]. Unset means the region draws nothing in the blueprint.

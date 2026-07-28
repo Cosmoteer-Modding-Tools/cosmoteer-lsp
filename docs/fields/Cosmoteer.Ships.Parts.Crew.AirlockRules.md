@@ -10,44 +10,44 @@
 ## EnterExitPoint
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+The point, in tiles relative to the unrotated part's upper-left corner, where crew leave and enter the ship and where ejected resource nuggets spawn. The cell containing it also decides which contiguous crew path network the airlock serves. The vanilla airlock uses `[.5, .5]`, the center of its single tile.
 
 ## NuggetEjectVelocity
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The speed, in tiles per second, given to ejected resource nuggets, rolled at random between Min and Max for each nugget and added on top of the ship's own velocity at the eject point. The vanilla airlock uses `[1.5, 2.5]`.
 
 ## NuggetEjectDirection
 `range<number (degrees)>` · required
 
-<!-- TODO: needs documentation -->
+The direction ejected resource nuggets fly, as an angular range relative to the airlock component's world direction, rolled at random for each nugget. The vanilla airlock uses `[-100d, -80d]`.
 
 ## NuggetEjectDoorOpenDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds the airlock's crew-proximity door is held open whenever a resource nugget is ejected. The vanilla airlock uses 0.65.
 
 ## UITileRect
 `Rect` · optional
 
-<!-- TODO: needs documentation -->
+The rectangle, in tiles relative to the unrotated part's upper-left corner, drawn as this airlock's overlay tile in the resource-management view, where the airlock acts as a drop target for ejecting resources. Falls back to the part's physical rect when unset.
 
 ## EntryToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The game deserializes the reference but no code ever reads it, so an airlock's entry side cannot be gated by a toggle component.
 
 ## ExitToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The game deserializes the reference but no code ever reads it, so an airlock's exit side cannot be gated by a toggle component.
 
 ## CrewLeaveEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played when a crew member exits the ship through this airlock and becomes a space-walking crew.
 
 ## CrewEnterEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played when a space-walking crew member arrives at [[Cosmoteer.Ships.Parts.Crew.AirlockRules.EnterExitPoint]] and enters the ship through this airlock.

@@ -10,9 +10,9 @@
 ## Type
 `→ ShipAIRules` · optional
 
-<!-- TODO: needs documentation -->
+The ship AI rules to run on ships that match this entry's tag.
 
 ## PatrolOriginTag
 `SpawnedObjectSearch` · optional
 
-<!-- TODO: needs documentation -->
+A search for an already-spawned tagged object whose centre becomes the AI's patrol origin, overriding whatever the AI parameters hold. Generation throws if nothing matching the search has been spawned yet.

@@ -10,14 +10,14 @@
 ## ResourceType
 `→ ResourceRules` · required
 
-<!-- TODO: needs documentation -->
+The resource this stocking rule applies to. Only resources listed in `StationResourceTradeDeltas` are traded at all.
 
 ## PercentOfTypedTiles
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The share of the station's storage tiles that are dedicated to this resource that it wants filled, rolled between Min and Max on each trade. Vanilla asks for 80% to 90% across the board.
 
 ## PercentOfUntypedTiles
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The share of the station's untyped storage tiles it additionally wants filled with this resource, rolled between Min and Max on each trade. Negative values pull the target below what the station already holds, which makes it sell that resource to the trade ship rather than buy it. Vanilla spans -10% to 10% depending on how common the good is.

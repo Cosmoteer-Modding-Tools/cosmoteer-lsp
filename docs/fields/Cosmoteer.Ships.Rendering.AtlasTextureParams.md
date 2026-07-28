@@ -10,29 +10,29 @@
 ## SampleMode
 `enum TextureSampleMode` · optional · one of: `Point`, `Linear`
 
-<!-- TODO: needs documentation -->
+Texture filtering for the generated atlas. `Point` gives crisp nearest-neighbor sampling, `Linear` smooths between texels. When omitted, the game's default sample mode is used.
 
 ## ColorKey
 `IntColor` · optional
 
-<!-- TODO: needs documentation -->
+Every pixel that exactly matches this color is replaced with fully transparent black before the atlas is built. Skipped when left at the default (transparent black), so a color key of `0, 0, 0, 0` means no keying.
 
 ## MultiplyByAlpha
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Premultiplies each pixel's red, green and blue channels by its alpha. Enables premultiplied-alpha blending and produces cleaner mipmaps, since mipmap generation then treats the texture as premultiplied.
 
 ## FixTransparentColors
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Replaces the color of every fully transparent pixel with the average of its opaque neighbors. Prevents dark or wrong-colored halos bleeding in around sprite edges under `Linear` sampling.
 
 ## MipLevels
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Number of mipmap levels to generate for the atlas. A value of `1` disables mipmaps. Also determines the padding each source sprite is rounded up to (a multiple of `2^(MipLevels-1)` pixels). When omitted, the graphics default mip count is used.
 
 ## Compression
 `enum CompressionFormat` · optional · one of: `None`, `NoAlpha`, `AlphaCutout`, `FullAlpha`, `NormalMap`
 
-<!-- TODO: needs documentation -->
+GPU compression applied to the finished atlas. When anything other than `None`, the texture is first padded to a multiple of 4 pixels and then block-compressed. `NoAlpha`, `AlphaCutout` and `FullAlpha` trade alpha fidelity for size, and `NormalMap` uses a normal-map-specific scheme.

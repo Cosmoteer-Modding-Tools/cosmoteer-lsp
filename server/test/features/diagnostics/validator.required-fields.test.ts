@@ -71,4 +71,24 @@ describe('validateRequiredFields', () => {
     it('ignores mod.rules documents', async () => {
         expect(await validateRequiredFields(parse(toggle(''), 'file:///mod.rules'), token)).toHaveLength(0);
     });
+
+    // The schema overlay marks the parallel-deserialized music track collections required, since the
+    // game dereferences them without a null guard, so an absent key crashes the load. schemagen leaves
+    // every collection optional, so this check only fires through the overlay.
+    const musicUri = 'file:///data/music/test.rules';
+    // A nested Layers sub-track inside a Layers list, so it is a resolvable group the check reaches
+    // (the whole-file track at the document root is not a group node and is not inspected).
+    const nestedLayers = (inner: string) => `Type = Layers\nLayers\n[\n\t{\n\t\tType = Layers\n${inner}\n\t}\n]\n`;
+
+    it('flags a Layers music track missing its required Layers collection', async () => {
+        const errors = await validateRequiredFields(parse(nestedLayers(''), musicUri), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('Layers');
+        expect(errors[0].message).toContain('MusicLayersTrackRules');
+    });
+
+    it('does not flag a Layers music track that writes its Layers collection', async () => {
+        const src = nestedLayers('\t\tLayers\n\t\t[\n\t\t\t{\n\t\t\t\tType = File\n\t\t\t\tFile = "x.music"\n\t\t\t}\n\t\t]');
+        expect(await validateRequiredFields(parse(src, musicUri), token)).toHaveLength(0);
+    });
 });

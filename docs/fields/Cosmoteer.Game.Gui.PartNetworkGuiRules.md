@@ -20,24 +20,24 @@ The sprite rendered at the central joint between multiple route lines.
 ## DefaultPortSprite
 `PartNetworkOverlayIcon` · required
 
-<!-- TODO: needs documentation -->
+The icon drawn at a network port that does not name its own icon in the port's `Overlay/OverlayIcon`. Vanilla uses a small green port marker.
 
 ## OverlayIcons
 `map<→ PartNetworkOverlayIcon, PartNetworkOverlayIcon>` · optional
 
-<!-- TODO: needs documentation -->
+The library of named port icons that part network ports pick from by ID through `Overlay/OverlayIcon` and `Overlay/ConnectedEdgeIcon`. Every sprite listed here is packed into the shared overlay icon atlas at load time, so an icon must be registered here to be usable.
 
 ## OverlayIconMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+The material the port and route hub icon quads are drawn with. Vanilla points it at `overlay_icons.shader`.
 
 ## OverlayIconsAtlasParams
 `AtlasTextureParams` · required
 
-<!-- TODO: needs documentation -->
+The atlas build settings, mainly mip level count, for the texture atlas assembled at load time from `DefaultRouteHubSprite`, `DefaultPortSprite` and every sprite in `OverlayIcons`.
 
 ## RouteLines
 `map<→ BasePartNetworkRouteLine, BasePartNetworkRouteLine>` · optional
 
-<!-- TODO: needs documentation -->
+The library of named route line styles that ports pick from by ID through `Overlay/RouteLine`. Ports that name none draw with `DefaultRouteLine`, and the lines between the strongly connected components inside one part always use `DefaultRouteLine` regardless of the ports involved.

@@ -10,4 +10,4 @@
 ## EnforceRotation
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether a crew standing at this location also has their rendered facing overridden by the location's rotation, which is how gunners face along their weapon. When false only the position is enforced and the crew keeps their own facing.

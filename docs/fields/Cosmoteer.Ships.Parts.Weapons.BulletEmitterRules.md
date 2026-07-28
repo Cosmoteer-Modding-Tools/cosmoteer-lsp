@@ -10,42 +10,42 @@
 ## Bullet
 `BulletRules` · required
 
-<!-- TODO: needs documentation -->
+The bullet this emitter spawns each shot. Its [[Cosmoteer.Bullets.BulletRules.Range]] also serves as the weapon's maximum and ideal attack range for the ship AI.
 
 ## TargetLeadPrediction
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Leads the target when aiming, using the bullet's speed (the average of Min and Max for ranged speeds), the target's motion, and the firing ship's own velocity. When false the emitter aims straight at the target's center, as the vanilla missile launchers do since their missiles steer themselves.
 
 ## Spread
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+A random angular deviation added to the shot's direction, rolled between Min and Max once per shot and shared by all pellets of that shot. Angles are written with a `d` suffix for degrees.
 
 ## EvenSpread
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Replaces the random spread roll with an interpolation from [[Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules.Spread]] Min to Max across the shots of a burst, so the burst sweeps evenly across the spread range.
 
 ## AntiPhasingRaycastDistance
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The distance, in tiles, behind the muzzle from which a raycast is cast forward to the spawn point to detect part colliders overlapping the emitter. When one is hit, the bullet spawns at the hit point instead, preventing shots from phasing through objects pressed against the weapon. Vanilla cannons use 1.5 to 2.
 
 ## AntiPhasingRaycastIgnoreLowCollisions
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Makes the anti-phasing raycast test only high part colliders instead of operational part colliders, so parts with only low colliders no longer catch the spawn point.
 
 ## PelletSpread
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+An extra angular deviation rolled between Min and Max for each pellet when [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.Pellets]] emits more than one, applied on top of [[Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules.Spread]]. With a single pellet, or when unset, no per-pellet deviation is applied.
 
 ## EvenPelletSpread
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Spaces the pellets evenly across the [[Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules.PelletSpread]] range instead of rolling each pellet's angle at random.
 
 ## TriggerValueIsShotOffsetTime
 `bool` · optional

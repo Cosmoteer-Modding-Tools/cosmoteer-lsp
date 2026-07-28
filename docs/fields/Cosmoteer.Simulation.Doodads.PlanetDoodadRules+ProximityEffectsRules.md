@@ -10,69 +10,69 @@
 ## InstantKillRadiusFactor
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the planet's radius defining the inner zone where parts are destroyed outright and space crew are killed each tick. The zone radius is this factor times the planet's scale divided by two. It also marks the inner edge of the falloff used by the raycast effects (see [[EffectsScaleOverDistance]]). Ships treat this zone as an area to avoid.
 
 ## EffectsRadiusFactor
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the planet's radius defining the outer zone where raycast damage and effects apply. The zone radius is this factor times the planet's scale divided by two. Ships treat this zone as an area to avoid, and the warning circle is drawn at this radius.
 
 ## EffectsRadiusFactorShipQueryBuffer
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Extra world distance added when searching for ships to affect, so ships whose hull sits just outside the effects radius are still processed. Vanilla suns set this to a large shield's radius so shielded ships are caught.
 
 ## RaycastsPerDiameterPerSecond
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Density of damage rays cast against each affected ship, expressed per unit of ship diameter per second. No raycast damage or effects occur when this is zero or negative.
 
 ## HitOperationalEffects
 `MultiHitEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Hit effects applied when a damage ray strikes a part with operational health.
 
 ## HitStructuralEffects
 `MultiHitEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Hit effects applied when a damage ray strikes a part with structural health.
 
 ## HitShieldEffects
 `MultiHitEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Hit effects applied when a damage ray strikes a shield.
 
 ## EffectsScaleOverDistance
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Effect strength interpolated across the falloff zone, from the inner instant-kill edge to the outer effects edge. Defaults to `[1, 0]`, so effects are full strength close to the planet and fade to nothing at the outer edge. The interpolation position is shaped by [[EffectsDistanceExponent]] and scales the hit effects and media intensity.
 
 ## EffectsDistanceExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Exponent applied to the normalized distance before it indexes [[EffectsScaleOverDistance]], shaping the falloff curve. Values below one keep effects strong further out, values above one concentrate them near the planet.
 
 ## IgnoreShipTypes
 `→ ShipRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Ship types exempted from the proximity effects. Vanilla suns list asteroids, megaroids, and ancient ships so they are not damaged.
 
 ## MediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Continuous media effects played on each affected ship, with intensity accumulated from the raycast effect strength at the points that were hit.
 
 ## WarningCircle
 `CircleRenderer` · optional
 
-<!-- TODO: needs documentation -->
+On-screen ring drawn at the [[EffectsRadiusFactor]] radius to warn the player of the danger zone. Rendering of the danger zone requires both this and [[EffectsRadiusFactor]] to be set.
 
 ## WarningCircleThicknessZoomExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Exponent applied to the camera zoom scale when computing the [[WarningCircle]] thickness, controlling how the ring's thickness responds to zooming.
 
 ## WarningMinimapCircle
 `CircleRenderer` · optional
 
-<!-- TODO: needs documentation -->
+Ring drawn at the effects radius on the minimap. Requires [[EffectsRadiusFactor]] to be set.

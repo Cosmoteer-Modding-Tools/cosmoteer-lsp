@@ -10,24 +10,24 @@
 ## SourceLowTierDelta
 `int` · required
 
-<!-- TODO: needs documentation -->
+Added to the source node's current low tier to get the low tier this rule wants to place on a neighbouring node. Vanilla uses values from +3 down to -1 so the path mostly climbs but can double back.
 
 ## Priority
 `int` · required
 
-<!-- TODO: needs documentation -->
+Ranks this rule against the others, lower being more important. It also selects which of the walk's queues the claimed node is appended to, so it doubles as an index and must be less than the number of entries in [[Cosmoteer.Modes.Career.Map.ProgressionNodeTiersSpawner.DesiredTierDeltas]] or the generator throws. A node already claimed at a given priority is only re-claimed by a rule with a strictly lower number.
 
 ## HighTierSpread
 `int` · optional
 
-<!-- TODO: needs documentation -->
+How far above the desired low tier the claimed node's tier range extends, in tiers. 0 gives the node a single tier, and the top is clamped to [[Cosmoteer.Modes.Career.Map.ProgressionNodeTiersSpawner.MaxHighTier]].
 
 ## SourceLowTierRange
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+Limits this rule to source nodes whose current low tier falls inside the range, so different deltas can apply early and late in the progression. Defaults to everything from 0 upwards.
 
 ## PreferredAvailableConnections
 `int` · optional
 
-<!-- TODO: needs documentation -->
+How many onward unclaimed connections the chosen neighbour ideally has. Each candidate's free-connection count is capped at this number before comparing, so every candidate that reaches it ranks equally and the tie is settled by whichever node's original tier is closest to the desired one. The default of 0 caps every candidate to 0 and leaves the choice purely to tier distance.

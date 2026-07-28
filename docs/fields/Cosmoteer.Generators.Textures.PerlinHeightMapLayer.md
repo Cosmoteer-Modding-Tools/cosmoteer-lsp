@@ -10,9 +10,9 @@
 ## PerlinNoise
 `PerlinNoise2D` · optional
 
-<!-- TODO: needs documentation -->
+The perlin noise field sampled once per cell to produce this layer's height values.
 
 ## EdgeEffects
 `PerlinNoiseEdgeEffects` · optional
 
-<!-- TODO: needs documentation -->
+Modifications applied to the sampled noise based on proximity to the heightmap edges, before it becomes the cell's height.

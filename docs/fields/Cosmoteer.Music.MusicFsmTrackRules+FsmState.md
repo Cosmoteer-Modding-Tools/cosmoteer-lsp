@@ -10,14 +10,14 @@
 ## CueCondition
 `code (python)` · optional
 
-<!-- TODO: needs documentation -->
+Python expression evaluated against the music parameters that gates whether this state is eligible to be chosen. When it returns false the state is skipped during selection. With no condition the state is always eligible.
 
 ## MaxConsecutivePlays
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+Cap on how many times in a row this same state may be selected. Once it has played back-to-back this many times it is excluded from the next random pick, forcing variety. The default is effectively unlimited.
 
 ## NextTracks
 `FsmState[]` · optional
 
-<!-- TODO: needs documentation -->
+Candidate states the machine may move to when this state's track finishes, one chosen at random among those whose [[Cosmoteer.Music.MusicFsmTrackRules+FsmState#CueCondition|CueCondition]] and [[Cosmoteer.Music.MusicFsmTrackRules+FsmState#MaxConsecutivePlays|MaxConsecutivePlays]] allow it. When unset the machine falls back to the track's [[Cosmoteer.Music.MusicFsmTrackRules#DefaultNextTracks|DefaultNextTracks]].

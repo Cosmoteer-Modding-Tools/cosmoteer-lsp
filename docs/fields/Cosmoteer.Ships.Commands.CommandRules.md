@@ -10,39 +10,39 @@
 ## Move
 `MoveCommandRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the move command. They also govern a ship that has no command at all and a ship running only auto-fired thrusters, both of which read their thruster and avoidance settings from here.
 
 ## Attack
 `AttackCommandRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the attack command, which follows its target at a weapons range chosen from the ship's own weapons.
 
 ## Follow
 `FollowCommandRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the follow command, which also backs the ad hoc formations created when several ships are moved together.
 
 ## Salvage
 `SalvageCommandRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the salvage command, which flies to a wreck and queues salvage jobs on its parts.
 
 ## DirectControl
 `BaseCommandRules` · required
 
-<!-- TODO: needs documentation -->
+Rules used while the player flies a ship manually. Only the base command fields apply, and vanilla overrides just `ThrusterSRFFactors` to weight rotation far above translation.
 
 ## FtlGateJump
 `FtlGateJumpCommandRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for jumping out through an FTL gate. The game also reads `AvoidableDoodadTags` and `DestinationSeparationRadiusFactor` from this group when placing ships arriving from any FTL jump.
 
 ## FtlLocalJump
 `FtlLocalJumpCommandRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for jumping to another point within the same sector.
 
 ## WeaponTarget
 `WeaponTargetRules` · required
 
-<!-- TODO: needs documentation -->
+Rules for the overlays and the sound used by explicitly assigned weapon targets. These are not a ship command, they just live in the same group.

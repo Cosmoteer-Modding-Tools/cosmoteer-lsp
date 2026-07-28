@@ -20,7 +20,7 @@ The mode used to determine the validity of a connection between two blueprint po
 ## Overlay
 `PartNetworkPortOverlayOptions` · optional
 
-<!-- TODO: needs documentation -->
+Visual options controlling how the port is drawn in the ship's network overlay. Its sub-fields (OverlayIcon, ConnectedEdgeIcon, RouteLine, DrawRouteHub, RouteDrawMode, IconDrawMode, HighlightPartOnPrimaryConnection, PartHighlightColor, SpreadHighlightThroughNetwork) are read directly into the port's own group rather than under a nested `Overlay` key. Purely cosmetic, none of it affects routing or connection validity.
 
 ## RouteEndpoint
 `→ PartComponentRules` · optional

@@ -10,19 +10,19 @@
 ## ValueFrom
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+A value component on the same part whose current value is watched. The toggle is on while that value lies between [[Cosmoteer.Ships.Parts.Logic.PartThresholdToggleRules.MinAmount]] and [[Cosmoteer.Ships.Parts.Logic.PartThresholdToggleRules.MaxAmount]] inclusive. Also accepted under the alias `AmountFrom`.
 
 ## MinAmount
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The lower bound, inclusive, of the on range. Defaults to unbounded. Being modifiable, buffs and statuses can move the bound, and the toggle re-evaluates when they change. The vanilla chaingun's IsShellFullyOpen toggle sets `MinAmount = 100%` on its shell-opening tween value.
 
 ## MaxAmount
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The upper bound, inclusive, of the on range. Defaults to unbounded. The vanilla chaingun's IsShellFullyClosed toggle sets `MaxAmount = 0%` on the same tween value.
 
 ## Invert
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Reverses the result, so the toggle is on while the value lies outside the range instead of inside it.

@@ -10,19 +10,19 @@
 ## AllowHumanTrade
 `bool` · required
 
-<!-- TODO: needs documentation -->
+Whether the ship opens its trade tab to a human player's ship. Ships preparing to FTL jump and space stations that are not operating refuse regardless.
 
 ## AllowNpcTrade
 `bool` · required
 
-<!-- TODO: needs documentation -->
+Whether the ship trades with other AI ships. Enemies are always refused, whichever of the two flags applies.
 
 ## HelpWithConstruction
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the ship lends its crew to construction and repair work on a non-enemy caller's ship.
 
 ## AllowO2Refill
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether crew belonging to a non-enemy player may refill their oxygen at this ship's airlocks.

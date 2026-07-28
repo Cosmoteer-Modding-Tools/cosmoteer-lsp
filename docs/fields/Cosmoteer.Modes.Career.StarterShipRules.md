@@ -10,9 +10,9 @@
 ## Ship
 `ShipFile` · required
 
-<!-- TODO: needs documentation -->
+The `.ship.png` loaded when the player picks this starter ship. Its design has to pass the career mode legality check, and unless construction is free its blueprint cost and required techs are deducted from the economy difficulty's [[Cosmoteer.Modes.Career.EconDifficultyRules.StartingMoney]].
 
 ## DescriptionKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the blurb shown beside the ship preview on the new game screen, between the ship's name and its cost summary.

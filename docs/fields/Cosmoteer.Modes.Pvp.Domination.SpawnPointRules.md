@@ -10,39 +10,39 @@
 ## Radius
 `float` · required
 
-<!-- TODO: needs documentation -->
+The radius of the spawn area in world units. New ships appear at its center, and any enemy ship overlapping the circle takes damage.
 
 ## SightRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+The radius of the vision the spawn point grants its own team, in world units, independent of any ship being present. Vanilla makes it twice `Radius`.
 
 ## EnemyDamageFractionPerTick
 `float` · required
 
-<!-- TODO: needs documentation -->
+The fraction of a part's max health destroyed each time an enemy ship inside the spawn area is hit. Unlike the perimeter and junk damage, this ignores `ImmuneToEnvDamage`.
 
 ## EnemyDamageChancePerTick
 `float` · required
 
-<!-- TODO: needs documentation -->
+The chance per physics tick that any one part of an enemy ship inside the spawn area is hit. The hits play `PvpModeRules/PerimeterDamageMediaEffects`.
 
 ## MinDistanceBuffer
 `float` · required
 
-<!-- TODO: needs documentation -->
+The minimum clearance in world units the map generator keeps between this spawn point and any capture point. It is checked from both sides, so whichever of the two buffers is larger wins.
 
 ## AreaExpand
 `float` · required
 
-<!-- TODO: needs documentation -->
+The area in square world units one team's spawn point contributes to the circle the map is generated inside. It is multiplied by the map style's team count, so more teams give a proportionally larger map.
 
 ## Circle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The ring drawn around the spawn area in the world, tinted with the owning team's color.
 
 ## MinimapThicknessScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the minimap pixel scale used for the spawn area ring's thickness on the minimap, so a ring that is thin in the world stays readable at minimap size.

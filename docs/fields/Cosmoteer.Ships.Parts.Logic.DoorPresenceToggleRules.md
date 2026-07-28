@@ -10,4 +10,4 @@
 ## AdjacentCell
 `IntVector2` · required
 
-<!-- TODO: needs documentation -->
+The part-relative coordinates of a cell bordering the part. The toggle is on while a door exists between the part and that cell, following the part's rotation and flip. The vanilla small crew quarters watches `[-1, 0]` and `[1, 0]` to react to doors on its left and right walls.

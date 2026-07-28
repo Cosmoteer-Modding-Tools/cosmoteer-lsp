@@ -10,9 +10,9 @@
 ## Fame
 `int` · required
 
-<!-- TODO: needs documentation -->
+The total player fame that must be reached for the objective to complete. It is a threshold on the player's overall fame score rather than an amount earned during this mission, and the objective reports the mission's prerequisites as already satisfied once the player is at or above it.
 
 ## Tier
 `int` · optional
 
-<!-- TODO: needs documentation -->
+A fixed danger tier reported by this objective, which feeds the mission's tier range and any tier-scaled reward tables. Without it the objective reports no tier.

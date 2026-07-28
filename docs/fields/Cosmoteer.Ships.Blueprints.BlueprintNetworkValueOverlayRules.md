@@ -10,27 +10,27 @@
 ## BorderColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+Color of the border drawn as four segments around the part's rect when the overlay is active. If both this and [[#FillColor]] are unset, no highlight box is drawn (only the value text).
 
 ## FillColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+Color of the solid quad that fills the part's rect when the overlay is active. Combines with [[#BorderColor]] for a filled-and-outlined highlight.
 
 ## ValueSource
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+ID of the component (an `IComponentValueProvider`) on this part whose numeric value is read and displayed. Its value is multiplied by [[#ValueScale]] then formatted with [[#FormatKey]].
 
 ## FormatKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key passed to the string formatter along with the scaled value to produce the displayed text, letting the number be labeled and unit-formatted.
 
 ## ValueScale
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplier applied to [[#ValueSource]]'s raw value before it is formatted and shown, for converting internal units into display units.
 
 ## ValidSignals
 `→ BlueprintNetworkOverlaySignalRules[]` · optional

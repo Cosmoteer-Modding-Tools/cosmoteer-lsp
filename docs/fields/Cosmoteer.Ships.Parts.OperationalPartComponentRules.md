@@ -10,14 +10,14 @@
 ## OperationalToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A toggle component on the same part that gates whether this component operates. The component is operational only while the part is active and the toggle reads on. When unset, the component operates whenever the part is active. Vanilla parts typically point this at an `IsOperational` toggle chain combining power, crew, and mode conditions.
 
 ## InvertOperationalToggle
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Reverses the reading of [[Cosmoteer.Ships.Parts.OperationalPartComponentRules.OperationalToggle]], so the component operates while the toggle is off and shuts down while it is on.
 
 ## DisableWhenDeconstructing
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Makes the component non-operational while its part is queued for deconstruction. It resumes operating if the deconstruction order is cancelled.

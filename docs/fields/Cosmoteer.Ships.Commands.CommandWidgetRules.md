@@ -10,29 +10,29 @@
 ## StateNoneSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite drawn while the cursor is not over the widget. Its `Size` is in pixels and gets multiplied by the camera's pixel-to-world scale and the global UI scale before the two size caps below are applied.
 
 ## StateOverSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite drawn while the cursor is over the widget but no mouse button is held on it.
 
 ## StateDownSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite drawn while the mouse button is held down on the widget.
 
 ## PixelOffset
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Offset in pixels from the widget's anchor point, rotated along with the widget and scaled by the same pixel-to-world and UI scale as the sprite. Whenever `MaxWorldSize` or `MaxShipRelativeSize` shrinks the sprite, the offset shrinks by the same ratio so the widget keeps its relative placement.
 
 ## MaxWorldSize
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Upper bound on the drawn size of the widget in world tiles, applied per axis. Leaving it at zero turns the cap off.
 
 ## MaxShipRelativeSize
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Upper bound on the drawn size of the widget as a fraction of the commanded ship's bounding diameter, applied per axis. Leaving it at zero turns the cap off.

@@ -10,14 +10,14 @@
 ## AffectedValueRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The status value range, inclusive of both ends, that counts as inside. The modifier value is InsideRangeValue when the status value falls within this range and OutsideRangeValue otherwise.
 
 ## InsideRangeValue
 `float` · required
 
-<!-- TODO: needs documentation -->
+Modifier value used when the status value is within AffectedValueRange. ModificationMode combines it with the running value.
 
 ## OutsideRangeValue
 `float` · required
 
-<!-- TODO: needs documentation -->
+Modifier value used when the status value is outside AffectedValueRange. ModificationMode combines it with the running value.

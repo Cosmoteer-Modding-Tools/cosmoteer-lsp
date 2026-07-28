@@ -10,9 +10,9 @@
 ## HitEffects
 `MultiHitEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Hit effects applied back at the source of the current hit, at the firing part's location on the firing ship. Source and hit roles are swapped for the contained effects, so the firing ship becomes their hit ship and the originally hit ship becomes their source. The vanilla tractor beam pulls the hit ship with a negative `Impulse` and uses `Feedback` to apply the equal and opposite impulse to itself.
 
 ## MediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Media effects played as a one-shot at the firing part's location on the firing ship, moving in that ship's frame of reference. Their intensity follows the hit's effect scale.

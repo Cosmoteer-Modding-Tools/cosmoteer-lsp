@@ -15,4 +15,4 @@ The resource threshold at which the storage triggers and consumes the threshold 
 ## MaxResources
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+The storage's reported capacity in resources. It bounds how much can be delivered at once and is the denominator of the fill fraction used for [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.ProvidedValueRange]]. Effectively unlimited by default.

@@ -10,39 +10,39 @@
 ## Radius
 `float` · required
 
-<!-- TODO: needs documentation -->
+The radius of a team's build circle in world units. Ships that drift outside it during the build phase are pushed back inside, and teammates' ships are spread around a circle of half this radius.
 
 ## SightRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+The radius in world units of the vision the build area grants its own team, and only during the build phase. Vanilla makes it slightly larger than `Radius`.
 
 ## TargetingAsteroidDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+How far in world units from the build area center the practice asteroid is spawned. The direction around the build area is random.
 
 ## TargetingAsteroidRules
 `→ DoodadRules` · required
 
-<!-- TODO: needs documentation -->
+The doodad spawned once next to each build area to give players something to shoot at while testing their design.
 
 ## MinDistanceBuffer
 `float` · required
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it. Build and Battle lays its build areas out on a fixed ring, so it never runs the spacing check that Domination uses this for.
 
 ## AreaExpand
 `float` · required
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it. Build and Battle does not size its map from the areas it places the way Domination does.
 
 ## Circle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The ring drawn around the build area in the world, tinted with the owning team's color.
 
 ## MinimapThicknessScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the minimap pixel scale used for the build area ring's thickness on the minimap, so a ring that is thin in the world stays readable at minimap size.

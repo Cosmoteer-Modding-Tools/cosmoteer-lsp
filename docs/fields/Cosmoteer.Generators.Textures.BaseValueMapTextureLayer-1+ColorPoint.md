@@ -10,9 +10,9 @@
 ## Color
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The color at this point on the layer's value ramp.
 
 ## Position
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The value at which this color sits on the ramp, matched against the layer's computed pixel value (typically in the -1 to 1 range). Points are kept sorted by `Position`, and values between two points are blended per the layer's `Interpolate` mode.

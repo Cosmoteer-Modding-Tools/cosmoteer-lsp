@@ -10,4 +10,4 @@
 ## CommandPoints
 `int` · required
 
-<!-- TODO: needs documentation -->
+The number of command points this component uses while operational. When operational consumers use more points than `CommandProvider` components supply, the ship can no longer receive or execute commands.

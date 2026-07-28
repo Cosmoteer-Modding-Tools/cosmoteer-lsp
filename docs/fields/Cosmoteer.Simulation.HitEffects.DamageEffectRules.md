@@ -10,52 +10,52 @@
 ## Damage
 `number` · required
 
-<!-- TODO: needs documentation -->
+The base damage dealt to the hit object, whether a ship part, shield, targetable projectile, or crew member in space. Multiplied by the game mode's damage factor between the two ships and, for parts, reduced by the part's resistance to [[Cosmoteer.Simulation.HitEffects.DamageEffectRules.DamageType]].
 
 ## DamagePerTileHealth
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Extra damage equal to this value times the hit part's `HealthPerTile`, added on top of [[Cosmoteer.Simulation.HitEffects.DamageEffectRules.Damage]]. Lets a weapon scale with the toughness of what it hits. Only applies to ship parts. Defaults to 0.
 
 ## DamagePool
 `→ BulletComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The ID of a `DamagePool` component on the source bullet. When set, the effect additionally deals damage drawn from that shared pool, and the pool is debited by the damage actually dealt, so several hits from the same bullet share one damage budget. The vanilla railgun shot spends its 10000-point pool across every part it penetrates this way.
 
 ## DamagePoolFactor
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The fraction of the pool's remaining damage dealt per hit when [[Cosmoteer.Simulation.HitEffects.DamageEffectRules.DamagePool]] is set. Defaults to 1, meaning each hit tries to spend the whole remaining pool. The pool is debited by the damage dealt divided by this factor. Ignored for shield hits, which always drain the pool 1:1.
 
 ## MaxDamageFromPool
 `number` · optional
 
-<!-- TODO: needs documentation -->
+A cap on the damage a single hit may draw from [[Cosmoteer.Simulation.HitEffects.DamageEffectRules.DamagePool]]. Unlimited when unset. Not applied to shield hits.
 
 ## DoPooledDamageFirst
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the pooled damage from [[Cosmoteer.Simulation.HitEffects.DamageEffectRules.DamagePool]] is applied before the base [[Cosmoteer.Simulation.HitEffects.DamageEffectRules.Damage]] rather than after it. Defaults to false.
 
 ## DamageType
 `→ DamageType` · optional
 
-<!-- TODO: needs documentation -->
+The damage type used to look up the target part's damage resistance. Defaults to the built-in `Default` type. The special `Salvage` type additionally marks damaged parts as salvaged so that destroying them drops their resources.
 
 ## SpawnUnderlying
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether a part destroyed by this damage leaves its underlying part, typically the structure beneath it, behind. Set to false to vaporize the part outright with nothing left in its place.
 
 ## Filter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+The filter deciding which of the hit objects, ship part, shield, targetable projectile, or crew, actually receive the damage. Defaults to an enemy-only filter. The vanilla overclocked Ion Prism lightning sets `Self = true` so its chained damage can also hurt the firing ship.
 
 ## TreatShieldAsPart
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the hit part is damaged even when the hit was absorbed by a shield. By default a hit that struck a shield damages only the shield and skips the part behind it.
 
 ## HitAreaMode
 `enum PartHitAreaMode` · optional · default `HitPoint` · one of: `None`, `HitPoint`, `PartRect`

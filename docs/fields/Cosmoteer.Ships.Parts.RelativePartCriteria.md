@@ -10,69 +10,69 @@
 ## Rot
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The rotation, in quarter turns 0 to 3, that the checked part must have relative to the part declaring the criteria. The difference between the two parts' rotations is wrapped into 0..3 before comparing, so 0 means same facing and 2 means opposite facing. The vanilla railgun accelerator requires `Rot = 0` so a chain only forms from identically facing segments.
 
 ## FlipX
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the checked part must be mirrored relative to the declaring part. `true` matches only when exactly one of the two parts is flipped, `false` only when their flip states are equal. When omitted, flip state is ignored.
 
 ## Left
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+The allowed range for the left edge of the checked part's footprint, in tiles, measured in the declaring part's own rules space (as if the declaring part were unrotated and unflipped with its origin at its top-left corner). A single number is accepted as a Min = Max range.
 
 ## Right
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+The allowed range for the right edge of the checked part's footprint, in tiles, in the declaring part's rules space. See [[Cosmoteer.Ships.Parts.RelativePartCriteria.Left]]. The vanilla chaingun uses `Right = 0` to match a part adjacent to its left side.
 
 ## Top
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+The allowed range for the top edge of the checked part's footprint, in tiles, in the declaring part's rules space. See [[Cosmoteer.Ships.Parts.RelativePartCriteria.Left]].
 
 ## Bottom
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+The allowed range for the bottom edge of the checked part's footprint, in tiles, in the declaring part's rules space. See [[Cosmoteer.Ships.Parts.RelativePartCriteria.Left]].
 
 ## IDs
 `→ PartRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The part types the checked part must be one of. When omitted, any part type passes. Combined with any single entry given via [[Cosmoteer.Ships.Parts.RelativePartCriteria.ID]].
 
 ## ID
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+Single-entry convenience form of [[Cosmoteer.Ships.Parts.RelativePartCriteria.IDs]]. The value is appended to that list.
 
 ## Categories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+The part categories of which the checked part must have at least one in its [[Cosmoteer.Ships.Parts.PartRules.TypeCategories]]. When omitted, categories are not checked. Combined with any single entry given via [[Cosmoteer.Ships.Parts.RelativePartCriteria.Category]].
 
 ## Category
 `→ PartCategory` · optional
 
-<!-- TODO: needs documentation -->
+Single-entry convenience form of [[Cosmoteer.Ships.Parts.RelativePartCriteria.Categories]]. The value is appended to that list.
 
 ## ExcludeIDs
 `→ PartRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Part types that are rejected outright. A checked part whose ID appears in this list never matches, even if it passes every other criterion.
 
 ## ExcludeID
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+Intended as the single-entry convenience form of [[Cosmoteer.Ships.Parts.RelativePartCriteria.ExcludeIDs]]. Due to a bug in the game's reader the value is actually appended to the [[Cosmoteer.Ships.Parts.RelativePartCriteria.IDs]] allow list instead of the exclusion list, so it requires the part rather than excluding it. Use `ExcludeIDs` with a one-element list instead.
 
 ## ExcludeCategories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Part categories that are rejected outright. A checked part with any listed category in its [[Cosmoteer.Ships.Parts.PartRules.TypeCategories]] never matches. Combined with any single entry given via [[Cosmoteer.Ships.Parts.RelativePartCriteria.ExcludeCategory]].
 
 ## ExcludeCategory
 `→ PartCategory` · optional
 
-<!-- TODO: needs documentation -->
+Single-entry convenience form of [[Cosmoteer.Ships.Parts.RelativePartCriteria.ExcludeCategories]]. The value is appended to that list.

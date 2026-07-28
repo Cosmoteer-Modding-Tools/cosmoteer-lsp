@@ -10,14 +10,14 @@
 ## MinSpeed
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The speed, in tiles per second, below which the bullet dies. Checked every fixed update. The vanilla mine shot uses `MinSpeed = 30` so the launched mine deploys once drag has slowed it down enough.
 
 ## MaxSpeed
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The speed, in tiles per second, above which the bullet dies. Checked every fixed update.
 
 ## RelativeToFrameOfReference
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Measures the bullet's speed relative to its frame of reference instead of as absolute world speed, so a bullet drifting along with a moving battle frame counts as stationary. Off by default.

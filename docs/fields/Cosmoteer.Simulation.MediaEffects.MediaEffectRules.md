@@ -10,9 +10,9 @@
 ## Delay
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds the effect waits after being triggered before it actually plays. Applies only to one-shot playback, continuous playback always starts immediately. Being modifiable, it can be driven by buffs carried in the effect's parameters.
 
 ## IgnoreIntensity
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The game stores the value but no media effect type ever reads it.

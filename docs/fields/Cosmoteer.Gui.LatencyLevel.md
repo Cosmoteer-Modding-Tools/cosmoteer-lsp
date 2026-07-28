@@ -10,9 +10,9 @@
 ## MaxLatency
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+The upper ping bound this level covers, in seconds. The multiplayer lobby and scoreboard pick the first level in the list whose `MaxLatency` is at or above a player's measured latency, so order the list from lowest bound to highest. The default of positive infinity makes a level the catch-all for any ping.
 
 ## Sprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The signal-strength icon shown next to a player whose ping falls in this level's [[Cosmoteer.Gui.LatencyLevel.MaxLatency]] band.

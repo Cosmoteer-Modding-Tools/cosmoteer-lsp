@@ -9,16 +9,17 @@ export interface CosmoteerSettings {
     };
     ignorePaths: string[];
     diagnostics: {
-        // When true, validate every `.rules` file in the open workspace folder(s), not just the
-        // files open in the editor. Off by default: parsing the whole project keeps every file's
-        // AST in memory and costs CPU up front, which low-memory machines may not want.
+        // When true (the default), validate every `.rules` file the scope below covers, not just the
+        // files open in the editor, so the Problems panel describes the mod rather than the tabs.
+        // The scan is cached on disk per file, so only the first open of a project pays for it.
+        // Turn it off on a low-memory machine: the pass holds every scanned file's AST while it runs.
         validateWholeWorkspace: boolean;
-        // Which files the whole-workspace pass covers. 'allFiles' (the default) validates every
-        // `.rules` under the workspace folders. 'modRulesReachable' restricts the pass to the files
-        // the game can actually load. That is the closure of the mod.rules action sources, their
-        // includes and inheritance, plus the strings folder, so backups, templates and other dead
-        // content stop flooding the Problems panel. Files open in the editor always validate either
-        // way.
+        // Which files the whole-workspace pass covers. 'modRulesReachable' (the default) restricts
+        // it to the files the game can actually load: the closure of the mod.rules action sources,
+        // their includes and inheritance, plus the strings folder, so backups, templates and other
+        // dead content stop flooding the Problems panel. 'allFiles' validates every `.rules` under
+        // the workspace folders instead. A workspace with no manifest to scope by is unrestricted
+        // either way, and files open in the editor always validate either way.
         workspaceValidationScope: 'allFiles' | 'modRulesReachable';
         // When true (the default), flag a component `ID<…>` reference (e.g. `OperationalToggle =
         // IsOperational`) whose id names no component anywhere in the part, its inherited bases, or
@@ -71,6 +72,20 @@ export interface CosmoteerSettings {
         // keeps it out of the Problems panel.
         validateDefaultValues: boolean;
     };
+    codeMods: {
+        // When true (the default), a mod that ships a `.dll` has its own serializable types, fields
+        // and `Type=` discriminators read out of the assembly and merged into the schema, so its
+        // components validate, complete and hover like built-in ones. Turning it off skips the
+        // discovery walk entirely and leaves the shipped schema alone, at the price of every type
+        // such a mod adds being reported as an unknown discriminator.
+        enabled: boolean;
+        // When true (the default), the assemblies the merge came from are watched, so a mod
+        // installed, updated or rebuilt while the editor is open is picked up on its own. Turning it
+        // off keeps the startup merge but makes `Cosmoteer: Rebuild Schema from Code Mod Assemblies`
+        // the only way to pick up a change. Costs nothing while idle; each change re-walks the mod
+        // folders.
+        autoRefresh: boolean;
+    };
     inlayHints: {
         // When true (the default), a reference whose target is a group in the game's
         // ModifiableValue shape (`Arc { BaseValue = 160d }`) is annotated with that member:
@@ -119,8 +134,8 @@ export const defaultSettings: CosmoteerSettings = {
     },
     ignorePaths: [],
     diagnostics: {
-        validateWholeWorkspace: false,
-        workspaceValidationScope: 'allFiles',
+        validateWholeWorkspace: true,
+        workspaceValidationScope: 'modRulesReachable',
         validateComponentReferences: true,
         validateCrossFileReferences: true,
         validateRequiredFields: true,
@@ -130,6 +145,10 @@ export const defaultSettings: CosmoteerSettings = {
         validateRedundantSeparators: true,
         validateIgnoredFields: true,
         validateDefaultValues: true,
+    },
+    codeMods: {
+        enabled: true,
+        autoRefresh: true,
     },
     inlayHints: {
         showBaseValue: true,

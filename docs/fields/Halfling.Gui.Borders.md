@@ -10,39 +10,39 @@
 ## Left
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The size of the border along the left edge, in the pixel units of the rect the borders apply to. Defaults to 0. A Borders value can also be written as a single plain number that sets all four edges, or as the list `[Left, Top, Right, Bottom]`.
 
 ## Top
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The size of the border along the top edge, in the pixel units of the rect the borders apply to. Defaults to 0.
 
 ## Right
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The size of the border along the right edge, in the pixel units of the rect the borders apply to. Defaults to 0.
 
 ## Bottom
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The size of the border along the bottom edge, in the pixel units of the rect the borders apply to. Defaults to 0.
 
 ## 0
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The left border size when the value is written in list form. The list order is `[Left, Top, Right, Bottom]` and all four entries are required.
 
 ## 1
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The top border size in the list form `[Left, Top, Right, Bottom]`.
 
 ## 2
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The right border size in the list form `[Left, Top, Right, Bottom]`.
 
 ## 3
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The bottom border size in the list form `[Left, Top, Right, Bottom]`.

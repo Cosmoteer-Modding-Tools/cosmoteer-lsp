@@ -10,19 +10,19 @@
 ## Distortion
 `float` · optional · default `0.25`
 
-<!-- TODO: needs documentation -->
+The magnitude of the pixel displacement, as a fraction of the texture size. Each output pixel is sampled from a source position offset by the perlin noise value times this amount, so larger values smear the image more.
 
 ## Wrap
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, pixels whose displaced source falls past an edge sample from the opposite side of the texture. When false, sampling is clamped to the texture bounds.
 
 ## PerlinNoise
 `PerlinNoise2D` · optional
 
-<!-- TODO: needs documentation -->
+The perlin noise field that drives the displacement. It is sampled once for the horizontal offset and again with the seed bitwise-inverted for the vertical offset, so the two axes are displaced independently.
 
 ## EdgeEffects
 `PerlinNoiseEdgeEffects` · optional
 
-<!-- TODO: needs documentation -->
+Modifications applied to the displacement noise based on proximity to the texture edges, letting the distortion fade toward the borders.

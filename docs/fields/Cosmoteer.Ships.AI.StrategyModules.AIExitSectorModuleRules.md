@@ -10,4 +10,4 @@
 ## IsActivated
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it, because the strategy module is always built with its parameterless constructor and so never sees the rules object. The module is instead switched on at runtime when the ship surrenders, or when the ship leaves stasis with an activated stasis ExitSector module. Vanilla `ai_police.rules` sets it and is affected by this.

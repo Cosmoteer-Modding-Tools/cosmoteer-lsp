@@ -10,44 +10,44 @@
 ## PatrolRadius
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Overrides the AreaPatrol strategy and stasis modules' `DefaultPatrolRadius` for this one ship. Radius in world units of the circle around [[Cosmoteer.Ships.AI.AIParameters.PatrolOrigin]] in which patrol destinations are rolled.
 
 ## MinPatrolRadius
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Radius in world units of an inner keep-out circle around [[Cosmoteer.Ships.AI.AIParameters.PatrolOrigin]]. A rolled patrol destination is discarded when the straight line to it would cut through that inner circle, unless the ship is already inside it. Leaving it unset means no inner circle is enforced.
 
 ## PatrolOrigin
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+World location the ship treats as its home point. It centers the patrol circle, it is the point the AggroEnemies module falls back to when it retreats, and it is the reference for [[Cosmoteer.Ships.AI.AIParameters.TargetAcquireRangeFromOrigin]] and [[Cosmoteer.Ships.AI.AIParameters.TargetUnacquireRangeFromOrigin]]. Falls back to the location at which the ship first appeared.
 
 ## TargetAcquireRangeFromOrigin
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Distance in world units from [[Cosmoteer.Ships.AI.AIParameters.PatrolOrigin]] within which the AggroEnemies module engages freely. Outside it the ship only keeps fighting if it has not already begun retreating, and normal aggression is restored only once it is back inside the circle.
 
 ## TargetUnacquireRangeFromOrigin
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Hard leash distance in world units from [[Cosmoteer.Ships.AI.AIParameters.PatrolOrigin]]. Past it the AggroEnemies module always heads back to the origin, keeping its target in the firing arc if it still has one. Leaving it unset means the ship is never leashed.
 
 ## StasisSpeed
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Overrides the stasis modules' `DefaultStasisSpeed` for this one ship. Speed in world units per second at which the stasis spawner drifts toward its destination. The kick of velocity a ship is given as it leaves stasis still uses the rules value, not this one.
 
 ## ChanceToConsiderSurrenderingToPlayer
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Overrides the Dialogue comms module's [[Cosmoteer.Ships.AI.CommsModules.AIDialogueModuleRules.DefaultChanceToConsiderSurrenderingToPlayer]] for this one ship. A 0..1 probability that is rolled once, the first time the ship ticks. Career mode mission objectives set it to 0 on ships that must not be able to surrender.
 
 ## FleetLeader
 `ObjectID` · optional
 
-<!-- TODO: needs documentation -->
+Object id of the ship or stasis spawner this ship follows. The FollowFleetLeader strategy and stasis modules do nothing while it is unset.
 
 ## PatrolAroundWorldOrigin
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Forces [[Cosmoteer.Ships.AI.AIParameters.PatrolOrigin]] to the world origin (0, 0). It is applied after the rest of the parameters are read, so it overrides any [[Cosmoteer.Ships.AI.AIParameters.PatrolOrigin]] given alongside it.

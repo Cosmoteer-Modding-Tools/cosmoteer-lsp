@@ -10,14 +10,14 @@
 ## Distortion
 `float` · optional · default `0.25`
 
-<!-- TODO: needs documentation -->
+The magnitude of the height displacement, as a fraction of the heightmap size. Each output cell is sampled from a source position offset by the perlin noise value times this amount, so larger values smear the heightmap more.
 
 ## PerlinNoise
 `PerlinNoise2D` · optional
 
-<!-- TODO: needs documentation -->
+The perlin noise field that drives the displacement. It is sampled once for the horizontal offset and again with the seed bitwise-inverted for the vertical offset. Displaced samples always wrap around the heightmap edges.
 
 ## EdgeEffects
 `PerlinNoiseEdgeEffects` · optional
 
-<!-- TODO: needs documentation -->
+Modifications applied to the displacement noise based on proximity to the heightmap edges, letting the distortion fade toward the borders.

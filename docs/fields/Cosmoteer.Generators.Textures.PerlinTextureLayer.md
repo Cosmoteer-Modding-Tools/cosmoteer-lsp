@@ -10,9 +10,9 @@
 ## PerlinNoise
 `PerlinNoise2D` · optional
 
-<!-- TODO: needs documentation -->
+The perlin noise field sampled once per pixel to produce the value that is mapped through the layer's `Colors` ramp.
 
 ## EdgeEffects
 `PerlinNoiseEdgeEffects` · optional
 
-<!-- TODO: needs documentation -->
+Modifications applied to the sampled noise based on proximity to the texture edges, before it is mapped to a color.

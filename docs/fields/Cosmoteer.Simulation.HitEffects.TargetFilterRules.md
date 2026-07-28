@@ -10,14 +10,14 @@
 ## Filter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+The filter the shot's intended target must pass for [[Cosmoteer.Simulation.HitEffects.TargetFilterRules.HitEffects]] to run. The check is made against what the weapon was aimed at, a targeted part and its ship or a targeted bullet, not against whatever was actually hit. When unset the contained effects always run.
 
 ## AllowNoTarget
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets the contained effects run when the shot has no targeted part or bullet to check against [[Cosmoteer.Simulation.HitEffects.TargetFilterRules.Filter]]. Without it, such untargeted shots are rejected once a Filter is set.
 
 ## HitEffects
 `MultiHitEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+The hit effects applied when the target check passes, receiving the same hit parameters as this effect.

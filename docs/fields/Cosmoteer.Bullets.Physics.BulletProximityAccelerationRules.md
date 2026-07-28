@@ -10,39 +10,39 @@
 ## Range
 `number` · required
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, of the circle around the bullet that is searched every physics tick for ships and bullets to accelerate toward. Objects at the edge of this radius contribute nothing, with influence growing toward the bullet per [[Cosmoteer.Bullets.Physics.BulletProximityAccelerationRules.Falloff]].
 
 ## Acceleration
 `number` · required
 
-<!-- TODO: needs documentation -->
+The acceleration, in tiles per second squared, applied along the combined pull of everything in range. Negative values repel instead, as the deployed vanilla mine uses `-10` to push away from other mines.
 
 ## Falloff
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Exponent shaping how each object's pull weakens with distance. The per-object weight runs from 1 at the bullet's location to 0 at the edge of [[Cosmoteer.Bullets.Physics.BulletProximityAccelerationRules.Range]] and is raised to this power, so values above 1 concentrate the pull at close distances.
 
 ## AccelerateTowardsShips
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether ship parts in range pull the bullet. Each part is weighted by its physical area times its density, so massive parts attract more strongly.
 
 ## AccelerateTowardsBullets
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether bullets in range pull the bullet. Only bullets with a `Targetable` component count.
 
 ## AccelerateTowardsBulletCategories
 `→ BulletTargetableRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Restricts the bullet pull to bullets whose [[Cosmoteer.Bullets.Targeting.BulletTargetableRules.TargetCategory]] is in this list. When unset every targetable bullet counts. The deployed vanilla mine uses `[mine]` so mines only repel each other.
 
 ## AccelerateTowardsFriendlies
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether non-hostile objects contribute to the pull. For ships this means ships the bullet cannot damage, and for bullets it means bullets the firing ship would not target.
 
 ## AccelerateTowardsEnemies
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether hostile objects contribute to the pull. For ships this means ships the bullet can damage, and for bullets it means bullets the firing ship would target.

@@ -10,6 +10,7 @@ import {
     Uri,
     TextDocument,
     MarkdownString,
+    ConfigurationTarget,
 } from 'vscode';
 
 import {
@@ -96,6 +97,12 @@ export async function activate(context: ExtensionContext) {
         await commands.executeCommand('workbench.action.openSettings2', params);
     });
 
+    // Whole-mod validation is on by default, which is work the user never asked for. Tell them once,
+    // the first time it actually costs something, and offer the switch right there.
+    client.onNotification('cosmoteer/workspaceValidated', async (params: WorkspaceValidatedParams) => {
+        await showWorkspaceValidationNotice(context, params);
+    });
+
     // Live shader preview: a CodeLens above each `Shader = …` and a command that opens the WebGL
     // preview for the material at a position (the lens passes it, the palette uses the cursor).
     context.subscriptions.push(
@@ -169,7 +176,112 @@ export async function activate(context: ExtensionContext) {
         })
     );
 
+    // Code mod schema: a command that re-reads every mod assembly and merges the types it declares
+    // into the schema, so a mod's own `Type=` discriminators and fields resolve. The server loads
+    // the cached result at startup on its own, so this is for picking up a mod that was just built
+    // or installed. A distinct command id from the server's executeCommand id, for the same reason
+    // as the migration above.
+    context.subscriptions.push(
+        commands.registerCommand('cosmoteer.buildModSchemaFromMods', async () => {
+            const summary = (await client.sendRequest(ExecuteCommandRequest.type, {
+                command: 'cosmoteer.buildModSchema',
+                arguments: [],
+            })) as ModSchemaSummary | null;
+            if (!summary) {
+                window.showInformationMessage(l10n.t('Cosmoteer code mod schema: no workspace folder is open.'));
+                return;
+            }
+            if (summary.disabled) {
+                window.showInformationMessage(
+                    l10n.t(
+                        'Cosmoteer code mod schema: code mod support is turned off (cosmoteerLSPRules.codeMods.enabled).'
+                    )
+                );
+                return;
+            }
+            if (summary.types === 0) {
+                window.showInformationMessage(
+                    l10n.t('Cosmoteer code mod schema: no code mod assemblies found, nothing to add.')
+                );
+                return;
+            }
+            window.showInformationMessage(
+                l10n.t(
+                    'Cosmoteer code mod schema: added {0} types and {1} discriminators from {2} assemblies.',
+                    summary.types,
+                    summary.discriminators,
+                    summary.assemblies
+                )
+            );
+        })
+    );
+
     return client.start();
+}
+
+/** What the server reports after a whole-mod validation pass (see server.ts `announceWorkspaceValidation`). */
+interface WorkspaceValidatedParams {
+    files: number;
+    fresh: number;
+    elapsedMs: number;
+    scope: 'allFiles' | 'modRulesReachable';
+}
+
+/** Remembers that the whole-mod validation notice has been shown, so it is shown exactly once. */
+const WORKSPACE_VALIDATION_NOTICE_KEY = 'cosmoteer.workspaceValidationNoticeShown';
+
+/**
+ * Tell the user once that the whole mod is validated, not just their open tabs, and let them switch
+ * it off without going looking for the setting.
+ *
+ * The server only reports a pass that actually did work, so a project where this is instant never
+ * produces the notice at all — and the flag stays unset, so the first genuinely large project the
+ * user opens is still the one that tells them.
+ *
+ * @param context the extension context, whose global state remembers that the notice was shown.
+ * @param params what the pass covered.
+ * @returns once the user answered or dismissed the notice.
+ */
+async function showWorkspaceValidationNotice(
+    context: ExtensionContext,
+    params: WorkspaceValidatedParams
+): Promise<void> {
+    if (context.globalState.get<boolean>(WORKSPACE_VALIDATION_NOTICE_KEY)) return;
+    await context.globalState.update(WORKSPACE_VALIDATION_NOTICE_KEY, true);
+
+    const openFilesOnly = l10n.t('Only open files');
+    const settingsAction = l10n.t('Settings');
+    const message =
+        params.scope === 'modRulesReachable'
+            ? l10n.t(
+                  'Cosmoteer: the Problems panel now covers your whole mod, not just open files. {0} files the mod.rules actions load were validated, and the results are cached, so later starts are fast.',
+                  params.files
+              )
+            : l10n.t(
+                  'Cosmoteer: the Problems panel now covers your whole workspace, not just open files. {0} files were validated, and the results are cached, so later starts are fast.',
+                  params.files
+              );
+    const choice = await window.showInformationMessage(message, openFilesOnly, settingsAction);
+    if (choice === openFilesOnly) {
+        await workspace
+            .getConfiguration('cosmoteerLSPRules')
+            .update('diagnostics.validateWholeWorkspace', false, ConfigurationTarget.Global);
+    } else if (choice === settingsAction) {
+        await commands.executeCommand('workbench.action.openSettings2', {
+            query: 'cosmoteerLSPRules.diagnostics.validateWholeWorkspace',
+        });
+    }
+}
+
+/** Mirror of the server's code mod schema summary (see server features/mod-schema/mod-schema.ts). */
+interface ModSchemaSummary {
+    assemblies: number;
+    types: number;
+    discriminators: number;
+    fromCache: boolean;
+    unreadable: string[];
+    /** Set when `codeMods.enabled` is off, so the command says so instead of "nothing found". */
+    disabled?: boolean;
 }
 
 // The command id schema-hover "Open in decompiler" links invoke. The language client registers

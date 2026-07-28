@@ -15,9 +15,9 @@ The data that will be initialized to the value.
 ## ValueType
 `enum FlexValueType` · optional
 
-<!-- TODO: needs documentation -->
+The type of the constant and of the [[Halfling.Particles.Updaters.ParticleSetValue.DataOut]] channel. One of `Float`, `Angle`, `Vector2`, `Vector3`, `Vector4`, `Color`, `Int`, `IntVector2`, `IntVector3` or `IntVector4`. `Angle` behaves identically to `Float`.
 
 ## Value
 `FlexValueComponent` · optional
 
-<!-- TODO: needs documentation -->
+The constant written to [[Halfling.Particles.Updaters.ParticleSetValue.DataOut]] for every particle each time the updater runs, in the type selected by [[Halfling.Particles.Updaters.ParticleSetValue.ValueType]].

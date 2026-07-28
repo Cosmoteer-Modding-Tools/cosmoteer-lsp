@@ -10,4 +10,4 @@
 ## Value
 `float` · required
 
-<!-- TODO: needs documentation -->
+The constant value the component provides to other components. Vanilla parts define tiny `Zero` and `One` StaticValue components as fixed inputs for value selectors, as the small thruster's overclock state selector does.

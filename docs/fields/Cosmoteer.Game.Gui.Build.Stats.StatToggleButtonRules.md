@@ -10,19 +10,19 @@
 ## TooltipKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the toggle button's tooltip in the build toolbox stats bar.
 
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite shown on the 32x32 toggle button.
 
 ## EnabledByDefault
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the toggle starts selected the first time it is shown. The player's choice is then remembered per button in the build stat toggle settings, overriding this default on later loads.
 
 ## SortPriority
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Sort key for ordering the toggle buttons in the stats bar, ascending.

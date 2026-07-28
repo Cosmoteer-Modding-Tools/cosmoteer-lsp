@@ -27,6 +27,7 @@ import { documentsMentioning, uriToFsPath } from '../navigation/workspace-files'
 import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
 import { parseText } from '../../utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
+import { workshopContentDir } from '../../workspace/workshop-dir';
 import { closestMatch } from '../../utils/did-you-mean';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
@@ -172,15 +173,6 @@ const gameTreeVerdicts = new Map<string, boolean>();
 /** Every id the game-tree consult has exempted this session, exposed so the vanilla scan can assert
  *  the set stays exactly the known stale leftovers (the regression tripwire lives in the test). */
 export const gameTreeExemptions = new Set<string>();
-
-/** The Steam workshop content folder for Cosmoteer (app 799600) next to the detected install, or
- *  undefined when the game was not installed through Steam. */
-const workshopContentDir = (): string | undefined => {
-    const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
-    if (!dataRoot) return undefined;
-    const dir = join(dataRoot, '..', '..', '..', 'workshop', 'content', '799600');
-    return existsSync(dir) ? dir : undefined;
-};
 
 /** Per-session verdicts of the installed-mods consult, so each unknown id costs one scan. */
 const installedModVerdicts = new Map<string, boolean>();

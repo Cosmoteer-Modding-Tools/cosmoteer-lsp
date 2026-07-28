@@ -10,17 +10,17 @@
 ## MaxResources
 `int` · required
 
-<!-- TODO: needs documentation -->
+The storage's capacity in resources. Stored amounts are clamped to it, it counts toward the ship's capacity totals for the resource type, and the stored resources' buy price is included in the ship's cost, using [[Cosmoteer.Ships.Parts.Resources.ResourceStorageRules.InitToMaxResources]] instead when that is set.
 
 ## StartingResources
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The amount of resources in the storage when the component is first created. Vanilla reactors set it to `&MaxResources` so they spawn full.
 
 ## InitToMaxResources
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The fill level used instead of [[Cosmoteer.Ships.Parts.Resources.ResourceStorageRules.MaxResources]] when a ship is initialized to maximum, as when spawning or restocking in creative mode. It also replaces MaxResources in the stored-resource cost added to the ship's price.
 
 ## IgnoreResourcesForInitToMax
 `bool` · optional
@@ -30,19 +30,19 @@ Whether the current resource level is ignored when initializing the storage to '
 ## DelayBeforeReadyToUse
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds after the stored amount increases before any of the resources count as ready to use. Until the delay passes, components waiting on ready resources see 0. Vanilla cannons use `.25` on their loaded-shot storage so a freshly delivered round cannot fire instantly.
 
 ## DrainOnFtlJump
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Empties the storage right before the ship makes an FTL jump. Vanilla shield generators use this so shields arrive discharged.
 
 ## DropResourcesWhenDestroyed
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Drops the stored resources into space as collectible nuggets when the part is destroyed, with the amount scaled by the part's salvage fraction. Vanilla hyperdrives and loaded cannon rounds use this.
 
 ## DropResourcesWhenRemoved
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Drops the stored resources into space as collectible nuggets when the part is removed from the ship, for example when scrapped in build mode. Unlike [[Cosmoteer.Ships.Parts.Resources.ResourceStorageRules.DropResourcesWhenDestroyed]] the full stored amount is dropped.

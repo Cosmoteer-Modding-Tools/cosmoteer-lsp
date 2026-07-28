@@ -25,14 +25,14 @@ Whether the LerpIn value should be inverted.
 ## ValueType
 `enum FlexValueType` · optional
 
-<!-- TODO: needs documentation -->
+The type of the interpolated value and of the [[Halfling.Particles.Updaters.ParticleLerp.DataOut]] channel. One of `Float`, `Angle`, `Vector2`, `Vector3`, `Vector4`, `Color`, `Int`, `IntVector2`, `IntVector3` or `IntVector4`. `Angle` behaves identically to `Float`.
 
 ## FromValue
 `FlexValueComponent` · optional
 
-<!-- TODO: needs documentation -->
+The value written when the [[Halfling.Particles.Updaters.ParticleLerp.LerpIn]] T value is 0, or when it is 1 if [[Halfling.Particles.Updaters.ParticleLerp.Invert]] is set. The interpolation is not clamped, so T values outside 0..1 extrapolate past the endpoints.
 
 ## ToValue
 `FlexValueComponent` · optional
 
-<!-- TODO: needs documentation -->
+The value written when the [[Halfling.Particles.Updaters.ParticleLerp.LerpIn]] T value is 1, or when it is 0 if [[Halfling.Particles.Updaters.ParticleLerp.Invert]] is set. The vanilla radiator's hit_sparks effect lerps each spark's `velocity` from (1, 1) down to a ToValue of (0, 0) over its life.

@@ -10,9 +10,9 @@
 ## ValueSource
 `ComponentValueReferenceRules` · required
 
-<!-- TODO: needs documentation -->
+The value component polled once per fixed simulation tick while the component is operational, with its value republished to listeners on change. This lets components that need change notifications read lazily evaluated values such as timers. Written either as a bare component ID or as a group with `ID` and an optional `ValueID`.
 
 ## DefaultValue
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The value reported before the first poll and restored whenever the component becomes non-operational. The vanilla tractor beam uses 0 so its overload charge progress reads zero while the overload toggle is off.

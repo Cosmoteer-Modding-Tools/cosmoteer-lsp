@@ -10,9 +10,9 @@
 ## Occupied
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies DiffusionRules `SpeedFactor` for transfers between this part and a neighbouring cell that also holds a part. The two cells' factors are averaged, then the product is clamped to 0 to 1.
 
 ## Empty
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies DiffusionRules `EmptyCellSpeedFactor` for transfers from this part into a neighbouring cell that holds no part. Only the losing cell's factor is used, there is no averaging.

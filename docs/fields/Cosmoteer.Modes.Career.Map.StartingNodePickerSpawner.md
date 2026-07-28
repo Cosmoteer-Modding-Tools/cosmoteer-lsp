@@ -10,54 +10,54 @@
 ## AllowedFactions
 `→ FactionRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Restricts starting-node candidates to map nodes controlled by one of the listed factions. Nodes with no controlling faction are always discarded when this is set. Vanilla lists only `fringe`.
 
 ## MinTier
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Discards candidate nodes whose tier range starts below this tier. Values of 0 or less disable the filter, and nodes that have no tier range assigned yet are discarded whenever it is active.
 
 ## MaxTier
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+Discards candidate nodes whose tier range ends above this tier. The default of `int.MaxValue` disables the filter, and nodes with no tier range assigned yet are discarded whenever it is active.
 
 ## MinConnections
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Discards candidate nodes that have fewer than this many map connections to neighbouring nodes. Vanilla uses 2 so the player never starts in a dead end.
 
 ## MaxConnections
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+Discards candidate nodes that have more than this many map connections. The default of `int.MaxValue` disables the filter.
 
 ## CandidatesClosestToCenter
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Keeps only this many candidates, the ones with the smallest distance from the galaxy origin. 0 disables the trim.
 
 ## CandidatesFarthestFromCenter
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Keeps only this many candidates, the ones with the largest distance from the galaxy origin. Applied after [[Cosmoteer.Modes.Career.Map.StartingNodePickerSpawner.CandidatesClosestToCenter]], so setting both leaves the farthest ones from the already-trimmed set.
 
 ## CandidatesClosestToFactions
 `[int, → FactionRules[]]` · optional
 
-<!-- TODO: needs documentation -->
+Keeps only `Count` candidates, the ones whose shortest map-graph hop distance to any node controlled by one of the listed factions is smallest. This trim runs last of all the candidate trims, after [[Cosmoteer.Modes.Career.Map.StartingNodePickerSpawner.CandidatesFarthestFromFactions]], regardless of the order the fields appear in.
 
 ## CandidatesFarthestFromFactions
 `[int, → FactionRules[]]` · optional
 
-<!-- TODO: needs documentation -->
+Keeps only `Count` candidates, the ones whose shortest map-graph hop distance to any node controlled by one of the listed factions is largest. Vanilla keeps the 5 nodes farthest from `imperium` and `io`, then narrows those to the 1 closest to `monolith` and `cabal`.
 
 ## SetTierRangeTo
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+Overwrites the chosen starting node's tier range after it has been picked, so the first system can be forced to low difficulty no matter what the tier spawners produced. Vanilla sets `[1, 1 + TierSpread]`.
 
 ## SetSectorTypeTo
 `→ SectorTypeRules` · optional
 
-<!-- TODO: needs documentation -->
+Overwrites the chosen starting node's sector type after it has been picked. Vanilla forces `basic` so the first system is never a nebula or supernova.

@@ -10,19 +10,19 @@
 ## Chance
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it. It was meant to scale how often a status such as fire takes hold between the player and the enemies at a given career combat difficulty, but nothing in the game ever asks for the factors.
 
 ## Value
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it. It was meant to scale the strength of an applied status, alongside `Chance`.
 
 ## 0
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect, like the rest of this type. In the list shorthand, position 0 is `Chance`. A one element list leaves `Value` at zero instead of at its usual default of 1, while writing a bare number instead of a list or group copies that number into both fields.
 
 ## 1
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect, like the rest of this type. In the two element list shorthand `[chance, value]`, position 1 is `Value`.

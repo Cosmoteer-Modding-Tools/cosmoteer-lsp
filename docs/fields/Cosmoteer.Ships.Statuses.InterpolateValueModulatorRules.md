@@ -10,14 +10,14 @@
 ## InterpolationRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The output values produced at the bottom and top of `AffectedValueRange`. Combined with `ModificationMode` `Add` this gives a rate that ramps across the band, and the two ends may be written in either order.
 
 ## Exponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The power applied to the position within `AffectedValueRange` before interpolating. Above 1 keeps the output near the Min end for most of the band, below 1 pushes it toward the Max end early.
 
 ## AffectedValueRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The status values this modulator applies to, and also the range the interpolation is measured across. The lower bound is inclusive and the upper bound is exclusive.

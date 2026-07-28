@@ -10,54 +10,54 @@
 ## TurnVelocity
 `number` · required
 
-<!-- TODO: needs documentation -->
+The maximum rate at which the bullet turns toward its target, written with a `d` suffix for degrees per second. Each physics tick the bullet's angular velocity is capped at this rate, so lower values give wider homing arcs. Vanilla missiles use `240d`.
 
 ## ModifiesLinearVelocity
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Redirects the bullet's velocity relative to its frame of reference along its facing every tick, keeping the speed unchanged, so the bullet actually changes course as it turns. When false, the default, homing only rotates the bullet and its flight path is left to other components.
 
 ## Delay
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds before homing kicks in, during which the bullet flies straight with no turning. The countdown only runs while the bullet has a live target. Vanilla missiles use `.1` so they leave the launcher before curving.
 
 ## AvoidanceRaycastDistance
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The length, in tiles, of the look-ahead raycasts used to steer around ships other than the target ship. When greater than 0 the bullet probes its desired heading, then offsets of 45, 90, 135, and 180 degrees to either side, and flies the first clear direction, preferring the one closest to its current facing. If every direction is blocked it does not steer that tick. The `Avoids` fields choose what counts as an obstacle.
 
 ## TargetLeadPrediction
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Aims at a predicted intercept point computed from the target's motion and the bullet's current speed instead of the target's current center. Falls back to the center when no intercept solution exists.
 
 ## VelocityCompensation
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Blends the bullet's velocity relative to the target into its steering, so it turns to cancel sideways drift instead of merely pointing at the target. Higher values weight the drift correction more strongly, and 0, the default, disables it. Vanilla missiles use `60%`.
 
 ## AvoidsEnemies
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the avoidance raycasts treat ships hostile to the firing ship as obstacles. The target ship itself is never avoided. Only relevant when [[Cosmoteer.Bullets.Physics.BulletTargetHomingRules.AvoidanceRaycastDistance]] is greater than 0.
 
 ## AvoidsFriendlies
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the avoidance raycasts treat ships not hostile to the firing ship as obstacles, so homing shots steer around allies. The target ship itself is never avoided. Only relevant when [[Cosmoteer.Bullets.Physics.BulletTargetHomingRules.AvoidanceRaycastDistance]] is greater than 0.
 
 ## AvoidsJunk
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the avoidance raycasts treat junk that does not block weapon line of sight as an obstacle. Junk whose ship rules set [[Cosmoteer.Ships.ShipRules.JunkBlocksWeaponLOS]] is instead handled by [[Cosmoteer.Bullets.Physics.BulletTargetHomingRules.AvoidsEnemies]] and [[Cosmoteer.Bullets.Physics.BulletTargetHomingRules.AvoidsFriendlies]].
 
 ## AvoidsStructural
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Includes structure colliders in the avoidance raycasts, so bare structure blocks a probed direction. Off by default, letting homing shots fly over structure.
 
 ## AvoidsOperational
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Includes operational (non-structure) part colliders in the avoidance raycasts, so those parts block a probed direction.

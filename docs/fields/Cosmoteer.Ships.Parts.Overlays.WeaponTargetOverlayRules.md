@@ -10,19 +10,19 @@
 ## Weapon
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The weapon component on the same part whose current target this overlay marks. Must be a turret weapon.
 
 ## TargetSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+A sprite drawn centered on the weapon's current target while the overlay renders. Its base size, in tiles, comes from the sprite's own `Size`, scaled with the camera zoom according to [[Cosmoteer.Ships.Parts.Overlays.WeaponTargetOverlayRules.CameraScaleExponent]].
 
 ## CameraScaleExponent
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The exponent applied to the camera's zoom scale when sizing [[Cosmoteer.Ships.Parts.Overlays.WeaponTargetOverlayRules.TargetSprite]]. At 0, the default, the sprite keeps a constant world-space size, while 1 makes it grow as the camera zooms out so it keeps a roughly constant on-screen size.
 
 ## TargetLineColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The color of a straight line drawn from the weapon to its target's center, rendered in the underlay pass beneath the target sprite. Defaults to fully transparent, which disables the line, so drawing it requires an alpha above 0.

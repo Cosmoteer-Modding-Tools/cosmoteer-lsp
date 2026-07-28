@@ -10,24 +10,24 @@
 ## InputRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The range of existing height values that is remapped. A value at `InputRange` min maps to `OutputRange` min and a value at `InputRange` max maps to `OutputRange` max.
 
 ## OutputRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The range of height values that `InputRange` is remapped onto.
 
 ## ClampInputValue
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, input values outside `InputRange` are clamped to it before remapping, so they map to the ends of `OutputRange`. When false, the mapping is extrapolated for values outside the range.
 
 ## ClampOutputValue
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, the remapped result is clamped to `OutputRange`. When false, results can fall outside `OutputRange` when the input falls outside `InputRange`.
 
 ## IgnoreOutsideInputRange
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, height values outside `InputRange` are left untouched instead of being remapped.

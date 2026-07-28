@@ -10,9 +10,9 @@
 ## InputRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The span of the ship renderer's current roof opacity, a 0..1 fraction, that is remapped into [[Cosmoteer.Ships.Parts.Graphics.PartRoofOpacityValueRules.OutputRange]]. The opacity is inverse-lerped through this range to get the interpolation fraction. Defaults to `[0, 1]`.
 
 ## OutputRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The range the component's reported value is lerped across as the roof opacity moves through [[Cosmoteer.Ships.Parts.Graphics.PartRoofOpacityValueRules.InputRange]]. Defaults to `[0, 1]`, passing the opacity through unchanged. The value is computed on demand and never raises change notifications, so it can only feed components that poll it. The vanilla hyperdrive beacon, which factors its effect intensity with such a component, warns that `RoofOpacity` components are for rendering only and cause desyncs if used for gameplay logic.

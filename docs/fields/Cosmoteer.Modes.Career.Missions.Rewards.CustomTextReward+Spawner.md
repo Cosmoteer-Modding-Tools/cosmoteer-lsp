@@ -10,4 +10,4 @@
 ## TextKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for a line of text added to the mission's reward list. This reward gives the player nothing, it only annotates the mission with something like a story note or a hint at an off-book payoff.

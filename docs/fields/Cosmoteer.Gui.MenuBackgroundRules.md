@@ -10,14 +10,14 @@
 ## BackgroundStyle
 `→ BackgroundStyleRules` · required
 
-<!-- TODO: needs documentation -->
+Background style shown behind the menu. Resolved to a [[Cosmoteer.Backgrounds.BackgroundStyleRules|BackgroundStyleRules]] and rendered with a fresh random seed each time the menu opens.
 
 ## Planet
 `MenuBackgroundPlanetRules` · optional
 
-<!-- TODO: needs documentation -->
+Optional planet drawn in front of the background. Omit for a background with no planet. See [[Cosmoteer.Gui.MenuBackgroundPlanetRules|MenuBackgroundPlanetRules]].
 
 ## LightSource
 `Vector3` · optional
 
-<!-- TODO: needs documentation -->
+Direction the scene light comes from. Only the X and Y components are used: they are negated and normalized, then combined with a fixed Z of `0.75` for the final light normal, so the Z you supply here has no effect.

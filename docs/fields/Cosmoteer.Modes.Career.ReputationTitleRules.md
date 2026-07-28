@@ -10,59 +10,59 @@
 ## Reputation
 `int` · required
 
-<!-- TODO: needs documentation -->
+The reputation with a faction at which this title takes over. The list is walked in order until a threshold is not reached yet, so entries must be sorted ascending and the first one acts as the floor. In the reputation log a negative threshold is displayed as one point below the next title's threshold instead.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key of the title's name. It appears as the milestone label in the reputation log and, uppercased, in the reputation level up and level down banner.
 
 ## TipKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key of the tooltip shown on this title's milestone in the reputation log.
 
 ## MissionMoneyRewardFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies money rewards from missions given by a faction the player holds this title with. Applied on top of the economy difficulty's money reward factor.
 
 ## ResourceBuyCostFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies the price the player pays for resources bought from this faction. Above 1 makes buying more expensive.
 
 ## ResourceSellCostFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies the money the player receives for resources sold to this faction, on top of the economy difficulty's sale refund. Vanilla leaves it at 1 for every title.
 
 ## CrewBuyCostFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies the price of hiring crew from this faction.
 
 ## TechBuyCostFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies the price of techs bought from this faction.
 
 ## WantedDurationFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies [[Cosmoteer.Modes.Career.WantedRules.SearchingExpireTime]], so it controls how long this faction keeps searching for the player after losing track.
 
 ## WantedSearchRadiusFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies [[Cosmoteer.Modes.Career.WantedRules.SearchRadius]] for this faction's active search areas. Vanilla leaves it at 1 for every title.
 
 ## WantedPoliceCount
 `int` · optional
 
-<!-- TODO: needs documentation -->
+How many police ships this faction keeps spawned while it is hunting the player. Leaving it out means 0, so no police are sent.
 
 ## WantedPayoffMultiple
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Multiplies the whole price the player pays to surrender to a faction that has the player wanted. Leaving it out means 0, which makes the payoff free.

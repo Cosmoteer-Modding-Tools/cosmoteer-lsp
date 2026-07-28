@@ -10,19 +10,19 @@
 ## LineColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color of the grid lines and crosses. As the camera zooms and the grid changes resolution the game cross-fades two levels by scaling this color's alpha, so it also serves both the lines and crosses grid styles.
 
 ## DesiredLinesAcross
 `int` · required
 
-<!-- TODO: needs documentation -->
+Target number of grid divisions across the view. The spacing is chosen so roughly this many lines fit the larger of the view's width and height, then quantized to a power of [[Cosmoteer.Backgrounds.GridRules#ResolutionIncrementFactor|ResolutionIncrementFactor]].
 
 ## ResolutionIncrementFactor
 `int` · required
 
-<!-- TODO: needs documentation -->
+Factor by which grid spacing snaps between zoom levels. Spacing steps in multiples of this factor and the two nearest levels are blended, so a value of 2 doubles or halves the grid density at each transition.
 
 ## MinViewSize
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Floor on the view size used to compute grid spacing. When the view is smaller than this, spacing stops getting finer, keeping the grid from becoming too dense when fully zoomed in.

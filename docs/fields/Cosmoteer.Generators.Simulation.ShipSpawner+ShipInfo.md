@@ -10,9 +10,9 @@
 ## ShipID
 `→ BuiltinShipRules` · optional
 
-<!-- TODO: needs documentation -->
+The built-in ship blueprint to spawn. A `ShipInfo` written as a bare value is read as just this field, which is why `Ship = cosmoteer.some_ship` works.
 
 ## ChanceWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Relative weight of this entry in the lottery that picks one ship out of the spawner's `Ships` list for each object. It has no meaning for a lone `Ship`.

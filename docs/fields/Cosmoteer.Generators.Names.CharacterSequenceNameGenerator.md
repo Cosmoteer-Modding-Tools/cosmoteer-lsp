@@ -10,9 +10,9 @@
 ## AvailableCharacters
 `string` · required
 
-<!-- TODO: needs documentation -->
+Pool of characters the name is built from. Each position draws one character uniformly at random from the whole string, so repeats are possible and every character has equal odds.
 
 ## Length
 `int` · required
 
-<!-- TODO: needs documentation -->
+Number of characters in the generated name, each drawn independently from [[AvailableCharacters]].

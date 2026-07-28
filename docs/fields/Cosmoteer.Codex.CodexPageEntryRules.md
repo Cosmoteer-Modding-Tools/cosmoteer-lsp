@@ -10,9 +10,9 @@
 ## Image
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite shown for this entry. When paired with [[Cosmoteer.Codex.CodexPageEntryRules#TextKey|TextKey]] it sits to the left of the text at its native size, otherwise it stands alone as an image-only block. An entry with neither field renders nothing.
 
 ## TextKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for this entry's body text, rendered as a left-aligned label with XML formatting enabled. Shown beside an [[Cosmoteer.Codex.CodexPageEntryRules#Image|Image]] when both are set, or as a standalone paragraph on its own.

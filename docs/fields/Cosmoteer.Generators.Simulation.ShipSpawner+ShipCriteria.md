@@ -10,54 +10,54 @@
 ## Factions
 `→ FactionRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Limits the candidate ships to these factions. When `UseLocalFactionWeights` is on it acts as the pool the single local faction is drawn from instead, and it is bypassed entirely once an enclosing `SynchronizeFactions` has already locked a faction in.
 
 ## UseLocalFactionWeights
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Draws one faction at random, weighted by each faction's strength at the map node being generated, and then searches only within that faction. Factions with no presence at the node cannot be drawn, and `Factions` still restricts which ones are eligible.
 
 ## Tier
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+The range of built-in ship tiers that may be picked, compared against each ship's `SpawnTier` falling back to its `Tier`. `UseLocalTier` and `UseTierField` shift this range rather than replacing it.
 
 ## UseLocalTier
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Adds the career map node's own tier range to `Tier`, so a `Tier` of [0, 1] means the node's tier up to one above it. Career mode only, and combining it with `UseTierField` throws.
 
 ## UseEvenTierDistribution
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Spreads the objects of a single spawn evenly across the tier range instead of drawing each ship's tier at random, so four ships over tiers 1 to 4 give one of each. Tiers at either end of the range that no ship matches are trimmed off first.
 
 ## UseTierField
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Adds the career tier field value sampled at the spawn position to `Tier`, so ships get stronger the deeper into a dangerous region they appear. Career mode only, and combining it with `UseLocalTier` throws.
 
 ## AllowTierRangeExpansion
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Widens the tier range by one in each direction and searches again whenever nothing matches, instead of failing. Without it a spawner asking for a combination no built-in ship satisfies throws and aborts sector generation.
 
 ## Difficulty
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+The range of built-in ship difficulty ratings that may be picked. Left unset any difficulty is accepted.
 
 ## Tags
 `→ BuiltinShipTag[]` · optional
 
-<!-- TODO: needs documentation -->
+Only built-in ships carrying every one of these tags are considered. Vanilla uses tags such as `combat` to keep civilian hulls out of a fight.
 
 ## UseEvenShipTypeDistribution
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Walks the matching ships in database order instead of drawing at random, so a spawn of several ships cycles through the different hulls rather than repeating one. The starting offset is randomized once per spawner run.
 
 ## FleetTierRemapTable
 `map<int, int[][]>` · optional
 
-<!-- TODO: needs documentation -->
+Replaces the one ship a spawn would have produced with a whole fleet of weaker ships. Each entry is keyed on the original tier and lists alternative fleets, one of which is drawn at random, and every number in the chosen fleet spawns one ship of that tier. The tier has to resolve to a single value, otherwise generation throws.

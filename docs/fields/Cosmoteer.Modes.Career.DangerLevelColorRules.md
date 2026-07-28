@@ -10,9 +10,9 @@
 ## Tier
 `int` · required
 
-<!-- TODO: needs documentation -->
+The danger tier this stop of the color ramp is pinned to. Entries have to be listed in ascending tier order, since the game takes the first entry whose tier is at least the tier being colored. Vanilla pins only tiers 1 and 18.
 
 ## Color
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color used at this stop. Tiers between two stops are blended in HSVA space, tiers below the first stop take its color outright, and tiers above the last stop take the last color. Vanilla runs green at tier 1 to red at tier 18.

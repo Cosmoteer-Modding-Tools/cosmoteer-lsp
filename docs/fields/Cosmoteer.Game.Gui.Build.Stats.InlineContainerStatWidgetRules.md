@@ -10,9 +10,9 @@
 ## Padding
 `float` · optional · default `10`
 
-<!-- TODO: needs documentation -->
+Horizontal gap in pixels between the child stat widgets. Vertical padding is always zero.
 
 ## StatWidgets
 `IShipStatWidgetRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Child stat widgets laid out horizontally in a single inline row, stretched right to left. Each is built with the container's default rules provider and no per-child toggle.

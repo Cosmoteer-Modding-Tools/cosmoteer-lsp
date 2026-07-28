@@ -10,34 +10,34 @@
 ## Values
 `→ PartComponentRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The IDs of the value components whose values are combined into this component's output. The output is recomputed whenever any of them changes.
 
 ## ViaBuffs
 `BuffMultiProxyRules` · optional
 
-<!-- TODO: needs documentation -->
+Gathers additional input values from components on other parts linked through the buff system, combined together with any components listed in [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.Values]]. The group must name the component to proxy on each linked part via `ComponentID` or `ComponentIDs`, and establishes the links via `IncomingBuffTypes` or `OutgoingBuffProviders`.
 
 ## Mode
 `enum MultiValueMode` · required · one of: `Add`, `Multiply`, `Min`, `Max`, `Average`
 
-<!-- TODO: needs documentation -->
+How the input values are combined into one. `Add` sums them, `Multiply` multiplies them, `Min` and `Max` take the smallest or largest, and `Average` divides the sum by the number of entries in [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.Values]]. Inputs gathered through [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.ViaBuffs]] are added to an `Average` sum but not counted in its divisor.
 
 ## Abs
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Takes the absolute value of the combined result. Applied before [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.Invert]], [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.OneOver]] and [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.Negate]].
 
 ## Negate
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Flips the sign of the combined result. Applied last, after [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.Abs]], [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.Invert]] and [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.OneOver]].
 
 ## Invert
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Replaces the combined result x with 1 - x, turning a 0..1 fraction into its complement. Applied after [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.Abs]] and before [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.OneOver]].
 
 ## OneOver
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Replaces the combined result with its reciprocal. Applied after [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.Invert]] and before [[Cosmoteer.Ships.Parts.Logic.BasePartMultiValueRules.Negate]].

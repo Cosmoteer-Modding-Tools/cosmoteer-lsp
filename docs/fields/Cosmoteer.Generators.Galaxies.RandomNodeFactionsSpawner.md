@@ -10,9 +10,9 @@
 ## FactionStrengths
 `map<→ FactionRules, range<float>>` · optional
 
-<!-- TODO: needs documentation -->
+Per faction strength ranges. At each node every listed faction rolls a random strength from its range and is assigned wherever the roll is positive. When omitted, every faction instead rolls a strength from -1 to 1 and is assigned on a positive roll.
 
 ## GuaranteeFactions
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+When true a node is re-rolled until at least one faction ends up with strength there, so no node is left without a faction. Default true.

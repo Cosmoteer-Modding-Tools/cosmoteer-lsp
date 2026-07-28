@@ -10,14 +10,14 @@
 ## Category
 `→ PartCategory` · required
 
-<!-- TODO: needs documentation -->
+The part category this limit applies to. Its [[Min]] and [[Max]] bound how many parts of this category a ship may or must have.
 
 ## Min
 `int` · optional · default `0`
 
-<!-- TODO: needs documentation -->
+Minimum number of parts in this [[Category]] that a ship must contain to count as complete. A blueprint reports having its minimum categories only when every category limit is met. Default 0 imposes no minimum.
 
 ## Max
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+Maximum number of parts in this [[Category]] a ship may contain. The build tool blocks placing more than this many. The default (int max) means unlimited.

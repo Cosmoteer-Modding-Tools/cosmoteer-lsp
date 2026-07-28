@@ -10,14 +10,14 @@
 ## DistRadiusFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Gap between the bounding circles of the salvaging ship and its target that a new salvage command starts with, as a multiple of the salvaging ship's own bounding radius.
 
 ## QueueSalvageDistanceAsRadiusFraction
 `float` · required
 
-<!-- TODO: needs documentation -->
+How close the ship must get to its station-keeping spot, as a fraction of its own bounding radius, before salvage jobs are queued for the target's parts. The jobs are queued only once per command.
 
 ## CommandColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Base color for this command's path lines, destination ghost, target circle and widgets.

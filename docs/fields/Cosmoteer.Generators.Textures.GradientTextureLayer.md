@@ -10,9 +10,9 @@
 ## GradientDirection
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+The direction the gradient runs, as an angle. Each pixel's distance is measured along this direction, so the mapped value goes from the ramp's low end at the trailing corner to the high end at the leading corner. Defaults to pointing right.
 
 ## GradientScale
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+A divisor applied to each pixel's distance along the gradient before it is normalized onto the color ramp. Because the corner distances used to normalize the range are not scaled, values above 1 shift and compress the gradient toward the ramp's low end rather than simply stretching it.

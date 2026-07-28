@@ -10,49 +10,49 @@
 ## Interval
 `number` · required
 
-<!-- TODO: needs documentation -->
+The time between proximity checks, in seconds. The first check runs one interval after the bullet spawns, and the timer restarts after every check. The vanilla deployed mine checks every 0.1 seconds.
 
 ## Range
 `number` · required
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, of the circular detection area around the bullet. Any valid ship or bullet intersecting this circle counts as a detection for that check.
 
 ## StartDelay
 `number` · required
 
-<!-- TODO: needs documentation -->
+The arming delay, in seconds, after the bullet spawns during which no proximity checks run at all. The vanilla deployed mine arms after 0.5 seconds and drives its arming animation from this value.
 
 ## AccumulateThreshold
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The accumulator value at which the bullet dies, defaulting to 1. Each check that detects something adds [[Cosmoteer.Bullets.Death.BulletDeathByEnemyProximityRules.AccumulateRate]] and each empty check subtracts [[Cosmoteer.Bullets.Death.BulletDeathByEnemyProximityRules.DeaccumulateRate]]. With all three at their defaults of 1, a single detection triggers death immediately.
 
 ## AccumulateRate
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The amount added to the accumulator by each proximity check that detects a valid ship or bullet, defaulting to 1. Values below [[Cosmoteer.Bullets.Death.BulletDeathByEnemyProximityRules.AccumulateThreshold]] make the bullet require sustained proximity across several checks before dying.
 
 ## DeaccumulateRate
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The amount subtracted from the accumulator by each proximity check that detects nothing, defaulting to 1. The accumulator never drops below 0.
 
 ## DetectsShips
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether ships trigger detection. A ship counts when it is an enemy of the bullet's source ship, or when it is the bullet's target ship and can be damaged by the source. Nothing is ever detected when the bullet has no source ship.
 
 ## DetectsBullets
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether other bullets trigger detection, off by default. Only bullets with a `Targetable` component count, and only when the bullet's source ship would target them, so friendly and allied bullets are ignored.
 
 ## DetectsBulletCategories
 `→ BulletTargetableRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Limits bullet detection to targetable bullets whose [[Cosmoteer.Bullets.Targeting.BulletTargetableRules.TargetCategory]] matches one of the listed IDs. When unset, any enemy targetable bullet triggers detection. Only relevant when [[Cosmoteer.Bullets.Death.BulletDeathByEnemyProximityRules.DetectsBullets]] is true.
 
 ## OutputFactorRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The factor span this component reports when another component references it via [[Cosmoteer.Bullets.Death.BaseBulletDeathRules.FactorEffectsWith]], defaulting to 0..1. The current accumulator's progress toward [[Cosmoteer.Bullets.Death.BulletDeathByEnemyProximityRules.AccumulateThreshold]] is mapped linearly from Min to Max.

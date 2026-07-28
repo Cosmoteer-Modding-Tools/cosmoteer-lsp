@@ -10,24 +10,24 @@
 ## ResourceType
 `→ ResourceRules` · required
 
-<!-- TODO: needs documentation -->
+The resource that is drained. Affected objects are the drainable part storages of this resource type in range, arc shields whose storage holds this resource type if the filter allows shields, and `ExplosiveResourceDrainSink` components of this resource type such as the vanilla armor's EMP absorber.
 
 ## TotalDrain
 `number` · required
 
-<!-- TODO: needs documentation -->
+The total resource units the explosion can drain, scaled by the game mode's damage factor. Like explosive damage, the pool is divided into angular slices around the epicenter and spent on objects nearest the epicenter first, so nearby storages soak up drain before it reaches things behind them. A negative value gives resources instead, filling storages up to their capacity.
 
 ## Filter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+The filter deciding which ships, parts, and shields can be drained. Defaults to enemy ships with `Shields = false`, so shields are ignored unless explicitly enabled. The vanilla EMP missile sets `Shields = true` and `Friendlies = true` to also drain shield batteries and work on any ship.
 
 ## MediaEffectsOnDrain
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played at the center of each part whose storage or drain sink is hit, oriented to the part's direction. Their intensity is the amount drained from that object multiplied by [[Cosmoteer.Simulation.HitEffects.ExplosiveResourceDrainEffectRules.MediaEffectsOnDrainFactor]].
 
 ## MediaEffectsOnDrainFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplier converting the resource units drained from an object into the intensity of [[Cosmoteer.Simulation.HitEffects.ExplosiveResourceDrainEffectRules.MediaEffectsOnDrain]]. The vanilla EMP missile uses `0.0005` so its 18000 total drain maps to sensible effect intensities.

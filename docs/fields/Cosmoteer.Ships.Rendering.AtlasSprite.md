@@ -10,94 +10,94 @@
 ## File
 `asset (image)` · optional
 
-<!-- TODO: needs documentation -->
+Single image file for a one-frame sprite. Mutually exclusive with [[#AnimationFiles]]: the deserializer reads `File` first and only falls back to `AnimationFiles` when `File` is absent. Its pixels are baked into the ship's shared texture atlas.
 
 ## AnimationFiles
 `asset (image)[]` · optional
 
-<!-- TODO: needs documentation -->
+List of image files laid out into a horizontal animation sequence, one file per frame, played in order. Every frame must be exactly the same pixel size or atlas generation throws. Use [[#File]] instead for a static single-frame sprite. [[#NormalsAnimationFiles]] supplies the matching normal maps.
 
 ## NormalsFile
 `asset (image)` · optional
 
-<!-- TODO: needs documentation -->
+Normal map paired with [[#File]] for lit rendering. Must be exactly the same pixel size as the base sprite. When omitted, a flat neutral normal map is generated automatically from the base sprite's alpha.
 
 ## NormalsAnimationFiles
 `asset (image)[]` · optional
 
-<!-- TODO: needs documentation -->
+Normal maps paired frame-for-frame with [[#AnimationFiles]]. The count must exactly equal the number of sprite frames or loading throws. Each must match its base frame's pixel size.
 
 ## Size
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Width and height of the sprite quad in tiles. The quad is centered on the sprite's ship location, then shifted by [[#Offset]]. Defaults to `1, 1` when a file is present and `0, 0` otherwise.
 
 ## Offset
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Shifts the drawn sprite away from its centered position, in tiles. [[#RotSpeed]] rotation still pivots around the original unshifted center rather than the shifted quad center.
 
 ## Z
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Height (depth) value, scaled by the ship's world scale. Higher values render above lower ones within the same layer and drive parallax and lighting height.
 
 ## VertexColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+Tint multiplied into every pixel of the sprite. Defaults to white (no tint) when a file is present, or transparent white when there is no file.
 
 ## UVRotation
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Rotates the texture in 90-degree clockwise steps. The value is a whole number of quarter turns and is combined with any rotation the renderer applies.
 
 ## MirrorU
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Mirrors the texture horizontally (flips the U axis).
 
 ## MirrorV
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Mirrors the texture vertically (flips the V axis).
 
 ## AnimationInterval
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Time between animation frames. Only has an effect when the sprite has more than one frame. Defaults to one second.
 
 ## AnimationStartTime
 `enum AnimStartTimeMode` · optional · one of: `Zero`, `MinValue`, `WhenSpawned`, `Random`, `Default`
 
-<!-- TODO: needs documentation -->
+When a newly spawned sprite's animation begins. `Zero` anchors it to time 0, `MinValue` far in the past (effectively already looping), `WhenSpawned` at the moment of spawn, and `Random` at a random offset within one full loop so identical sprites do not animate in lockstep. `Default` resolves to `WhenSpawned`.
 
 ## ClampAnimation
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true the animation holds on its final frame instead of looping back to the start.
 
 ## RotSpeed
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Angular speed at which the sprite spins continuously around its center. Pivots around the unshifted center even when [[#Offset]] is set.
 
 ## SampleMode
 `enum TextureSampleMode` · optional · one of: `Point`, `Linear`
 
-<!-- TODO: needs documentation -->
+Has no effect here. AtlasSprite's deserializer never reads this value. Texture sampling is controlled by the [[Cosmoteer.Ships.Rendering.AtlasTextureParams]] of the containing render layer instead.
 
 ## MipLevels
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect here. AtlasSprite's deserializer never reads this value. Mip generation is controlled by the [[Cosmoteer.Ships.Rendering.AtlasTextureParams]] of the containing render layer instead.
 
 ## FixTransparentColors
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect here. AtlasSprite's deserializer never reads this value. Transparent-color fixing is controlled by the [[Cosmoteer.Ships.Rendering.AtlasTextureParams]] of the containing render layer instead.
 
 ## PreMultiplyByAlpha
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The game contains no field of this name anywhere in its code, so the value is read from the rules and discarded. Alpha premultiplication is controlled by `MultiplyByAlpha` on [[Cosmoteer.Ships.Rendering.AtlasTextureParams]].

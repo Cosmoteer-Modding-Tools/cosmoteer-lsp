@@ -10,49 +10,49 @@
 ## AmbiguousSprites
 `AmbiguousBlendSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+The blend sprite table. Each entry pairs an 8-character `SituationCode` of `0`, `1`, and `*` wildcards, one character per surrounding cell describing which neighbors blend, with artwork given as one of `AtlasSprite`, `RandomAtlasSprite`, `DamageLevels`, or `RandomDamageLevels`, and rotated variants are generated automatically unless the entry sets `AllowRotation = false`. All 256 possible neighbor arrangements must be covered unless [[Cosmoteer.Ships.Parts.Graphics.PartBlendSpriteRules.AllowUndefinedBlendSprites]] is set. Vanilla parts reference shared tables such as `walls/walls.rules` for their wall blending.
 
 ## Layer
 `→ ShipRenderLayerRules` · required
 
-<!-- TODO: needs documentation -->
+The render layer the blend sprite draws on, one of the layer ids declared in the ship type's RenderLayers. The layer's `Inflate` setting is also applied to the quad.
 
 ## BlendsWithCategories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Restricts blending to adjacent parts whose `TypeCategories` include at least one of the listed categories. When unset, any adjacent part blends, and a part always blends with its own cells. The vanilla corridor blends its walls only with other `[corridor]` parts, while structure scaffolding sets an empty list so it blends with nothing but itself.
 
 ## AlwaysBlendWithSelf
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The blend check unconditionally treats the part's own cells as blendable, so the game now always behaves as if this were true. Vanilla structure parts still set it as a legacy leftover.
 
 ## BlendCheckRectType
 `enum PartRectType` · optional · one of: `Normal`, `Physical`
 
-<!-- TODO: needs documentation -->
+Which rectangle of neighboring parts is checked when scanning the eight surrounding cells. `Normal` considers a neighbor's full rect while `Physical` considers only its physical rect.
 
 ## AllowUndefinedBlendSprites
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Permits neighbor arrangements that no [[Cosmoteer.Ships.Parts.Graphics.PartBlendSpriteRules.AmbiguousSprites]] entry covers. Uncovered situations simply render no sprite instead of failing to load. Vanilla structure base parts enable this for their construction scaffolding overlays, which only define a partial table.
 
 ## RequireExternalWallsToBlend
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Additionally requires a neighboring part to declare external walls covering the shared edge or corner (per its `ExternalWalls` flags) before it counts as blendable. Not used by any vanilla part.
 
 ## UseConstructionProgressAsDamage
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Feeds the part's construction progress (0 to 1) into the damage-level selection instead of the actual damage fraction, so blend sprites that define `DamageLevels` play as a build sequence. Vanilla structure base parts use this to advance their scaffolding sprites while under construction.
 
 ## CellOffset
 `IntVector2` · optional
 
-<!-- TODO: needs documentation -->
+The part-local cell, in rules coordinates before rotation and flipping, whose eight surrounding cells are examined for the blend check. Defaults to the part's origin cell `[0, 0]`, so this matters only for parts larger than one cell.
 
 ## GetColorFrom
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Names a component that provides a color, such as a `MultiColor`, `ValueColor`, or the built-in construction tracker. The color tints the blend sprite and follows the source whenever it changes, defaulting to white. Vanilla structure base parts tint their construction animation overlay from `ConstructionTracker`.

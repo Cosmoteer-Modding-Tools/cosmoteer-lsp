@@ -10,44 +10,44 @@
 ## Bullet
 `BulletRules` · required
 
-<!-- TODO: needs documentation -->
+The full definition of the bullet to spawn, typically referenced from its own file. The vanilla mine spawns `&<mine_shrapnel.rules>` this way.
 
 ## Count
 `range<number>` · required
 
-<!-- TODO: needs documentation -->
+The number of bullets spawned, rolled randomly from the range.
 
 ## Distance
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The distance, in tiles, from the hit point at which each bullet spawns, rolled randomly from the range per bullet and measured along the bullet's own launch direction. Defaults to 0, spawning bullets exactly at the hit point.
 
 ## Arc
 `Arc` · optional
 
-<!-- TODO: needs documentation -->
+The arc over which the bullets' launch directions are evenly distributed, oriented relative to the triggering hit's travel direction. Defaults to a full 360 degrees. For a partial arc both edges receive a bullet, while a full circle spaces the bullets without doubling the seam.
 
 ## Spread
 `range<number (degrees)>` · optional
 
-<!-- TODO: needs documentation -->
+An extra random angle, in degrees, rolled from the range and added to each bullet's launch direction on top of the [[Cosmoteer.Simulation.HitEffects.SpawnBulletsEffectRules.Arc]] distribution. The vanilla mine uses `[-15d, 15d]` to roughen its shrapnel ring.
 
 ## InheritVelocity
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether spawned bullets inherit the full world velocity of whatever triggered the effect, such as the impacting projectile. When false, the default, they inherit only the local frame of reference velocity, for example that of the hit ship.
 
 ## RandomizeTarget
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether each spawned bullet is retargeted at a random part of the target ship instead of the part the effect targeted. Only applies when the current target is a ship part. Defaults to false.
 
 ## HealthFactor
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The fraction of its normal starting health each spawned bullet begins with, applying to bullets that are targetable and have health. Defaults to 1.
 
 ## EffectScale
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The effect scale the spawned bullets are initialized with, scaling their modifiable stats such as speed and any modifiable values in their own hit effects. Defaults to 1.

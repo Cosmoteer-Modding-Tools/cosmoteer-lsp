@@ -10,19 +10,19 @@
 ## Type
 `→ SectorTypeRules` · required
 
-<!-- TODO: needs documentation -->
+The sector type assigned to the node when this entry is rolled.
 
 ## RandomWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The relative weight of this entry on the roulette wheel. An entry with weight 0.5 is picked half as often as one with weight 1.
 
 ## MinTier
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The lowest node tier this sector type may appear at. A node qualifies when the top of its tier range reaches this value, so a node spanning tiers 4 to 6 still accepts a `MinTier` of 5. Nodes with no tier range assigned yet are rejected.
 
 ## MaxTier
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The highest node tier this sector type may appear at. A node qualifies when the bottom of its tier range is at or below this value. Nodes with no tier range assigned yet are rejected.

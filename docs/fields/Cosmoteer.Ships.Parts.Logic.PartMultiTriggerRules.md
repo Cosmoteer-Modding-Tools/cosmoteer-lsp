@@ -10,9 +10,9 @@
 ## Triggers
 `ComponentTriggerReferenceRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The source triggers merged into this one. A firing of any of them re-fires this trigger with the same event value, as long as this component is operational. Each entry can be written as just the component name, or as a group with `ID` and an optional `TriggerID`.
 
 ## ViaBuffs
 `BuffMultiProxyRules` · optional
 
-<!-- TODO: needs documentation -->
+Additionally relays firings from trigger components in other parts connected through the buff system. The group names the `ComponentID` (or `ComponentIDs`) to pick up in each connected part, with either `IncomingBuffTypes` selecting parts that buff this part or `OutgoingBuffProviders` selecting parts buffed by this part's own buff provider components.

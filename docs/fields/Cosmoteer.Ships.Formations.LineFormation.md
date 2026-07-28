@@ -10,14 +10,14 @@
 ## RadiusFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Spacing factor between consecutive ships in the line. The gap between two neighbors is the sum of their bounding radii plus RadiusFactor times the larger radius, so higher values spread the line out.
 
 ## LeftWingAngle
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+Heading offset of the left wing relative to the lead ship's flight direction. Ships placed on the left wing (every second follower) trail the lead at this angle. Defaults to pointing up relative to the lead.
 
 ## RightWingAngle
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+Heading offset of the right wing relative to the lead ship's flight direction. Ships placed on the right wing (every other follower) trail the lead at this angle. Defaults to pointing down relative to the lead.

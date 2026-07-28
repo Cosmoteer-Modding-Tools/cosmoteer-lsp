@@ -10,4 +10,4 @@
 ## ProportionalSize
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the sprite is registered as a proportionally sized inline text image, scaling with the surrounding font size rather than being drawn at a fixed pixel size.

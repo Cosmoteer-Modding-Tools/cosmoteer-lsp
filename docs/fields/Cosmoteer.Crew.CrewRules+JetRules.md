@@ -10,14 +10,14 @@
 ## Location
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Offset from the crew member's center where this spacesuit jet's [[MediaEffects]] are emitted. Each entry in the crew jets list places one thruster effect at its own location.
 
 ## Rotation
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+Facing of this jet's [[MediaEffects]] in degrees, relative to the crew member, so the thruster flame points the intended way.
 
 ## MediaEffects
 `MultiMediaEffectRules` · required
 
-<!-- TODO: needs documentation -->
+The thruster media effect (particles and sound) shown for a crew member's spacesuit jet, spawned at this jet's [[Location]] and [[Rotation]] while the crew is flying through space.

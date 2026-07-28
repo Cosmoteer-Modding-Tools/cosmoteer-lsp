@@ -10,19 +10,19 @@
 ## UseFogDot
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether scanned nuggets of this rarity are shown as a fog-of-war map dot when off-screen. When false, nuggets of this rarity are never batched into the dot renderer. [[FogDotSprite]] supplies the dot image.
 
 ## BucketOrder
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Offset added to the render bucket of nuggets of this rarity, controlling their draw order relative to other nuggets. Higher values draw later (on top).
 
 ## FogDotSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite drawn for the fog-of-war map dot representing a scanned nugget of this rarity. Its size sets the dot's on-screen footprint. Only used when [[UseFogDot]] is true.
 
 ## FogDotSizeExponent
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Exponent applied to the camera's zoom when scaling the fog dot, as `pow(worldScale, FogDotSizeExponent)`. Lower values make the dot shrink less as the player zooms out, keeping distant nuggets visible.

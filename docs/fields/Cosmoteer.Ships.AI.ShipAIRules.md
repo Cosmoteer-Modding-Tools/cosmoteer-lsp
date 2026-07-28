@@ -10,54 +10,54 @@
 ## NameKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for the AI's display name, shown in the creative mode "Set AI" menu, the creative mode battle helper and the multiplayer game setup AI drop list. Entries without a key fall back to the `Misc/Unknown` string.
 
 ## UpdateInterval
 `range<Time>` · required
 
-<!-- TODO: needs documentation -->
+Random range, in seconds, between AI ticks. A fresh value is drawn from the range after every tick, and each tick re-runs the strategy, tactics and targeting modules once. Stasis modules are not driven by this value, they run on the simulation's global stasis update interval.
 
 ## IsAvailableInCreativeMode
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether this AI appears in the creative mode "Set AI" menu and in the battle helper's AI list.
 
 ## IsCreativeModeDefault
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the creative mode battle helper preselects this AI. The first AI in the rules with this set is the one that is picked.
 
 ## IsAvailableInMultiplayer
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether this AI appears in the multiplayer game setup screen's AI drop list.
 
 ## IsMultiplayerDefault
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether this AI is the preselected entry of the multiplayer game setup AI drop list.
 
 ## StrategyModules
 `AIStrategyModuleRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The modules that issue the ship's high level commands, such as patrolling, attacking, fleeing or repairing, once per AI tick. They are evaluated from the last entry to the first and the first module that reports it acted stops the rest, so entries later in the list have higher priority.
 
 ## TacticsModules
 `AITacticsModuleRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The modules that adjust the ship's current attack command, its approach angle in one pass and its attack radius and rotation in a second pass. Each pass runs from the last entry to the first and stops at the first module that reports it acted.
 
 ## TargetingModules
 `AITargetingModuleRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The modules that assign targets to individual weapons. They are evaluated from the last entry to the first, each removing the weapons it handled from the pool, until no untargeted weapon is left.
 
 ## CommsModules
 `AICommsModuleRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The modules that decide whether the ship answers hails and whether it trades, provides crew, missions, techs or dialogue. Each question is put to the modules from the last entry to the first and the first non-null answer wins, while the per-tick update runs on all of them in list order.
 
 ## StasisModules
 `AIStasisModuleRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The modules that move and manage the ship while it is in stasis, that is while it is simulated cheaply as an off screen spawner. Like [[Cosmoteer.Ships.AI.ShipAIRules.StrategyModules]] they are evaluated from the last entry to the first and stop at the first module that acted.

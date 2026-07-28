@@ -10,4 +10,4 @@
 ## ToggleOn
 `bool` · required
 
-<!-- TODO: needs documentation -->
+The fixed on or off state this component reports to other components. The vanilla overclock base part uses an always-on StaticToggle as its default `IsOperational` component, and the resonance beam turret uses an always-off one as its `OverclockModeToggle`.

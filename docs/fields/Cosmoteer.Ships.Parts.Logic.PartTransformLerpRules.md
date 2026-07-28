@@ -10,24 +10,24 @@
 ## ValueFrom
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+A value component on the same part whose current value drives the interpolation, with 0 giving the Start transform and 1 the End transform. The vanilla chaingun drives its `TurretSlider` from a `ValueTween` to slide the turret while changing shells.
 
 ## StartLocation
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The location offset, in tiles, applied at value 0. Offsets are relative to the component's normal location and rotate with the component. Components chained to this one follow the interpolated transform. Defaults to `[0, 0]`.
 
 ## EndLocation
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The location offset, in tiles, applied at value 1. The component's actual offset is interpolated between [[Cosmoteer.Ships.Parts.Logic.PartTransformLerpRules.StartLocation]] and this as the value goes from 0 to 1. Defaults to `[0, 0]`.
 
 ## StartRotation
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+The rotation offset, in degrees, added to the component's normal rotation at value 0. While the part is not operational the component reverts to its uninterpolated transform.
 
 ## EndRotation
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+The rotation offset, in degrees, added at value 1. The actual offset is interpolated between [[Cosmoteer.Ships.Parts.Logic.PartTransformLerpRules.StartRotation]] and this as the value goes from 0 to 1.

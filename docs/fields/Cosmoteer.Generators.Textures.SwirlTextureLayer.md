@@ -10,9 +10,9 @@
 ## SwirlAmount
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The amount of rotation at the center of each swirl, measured in full turns. The pixel at a swirl's center rotates by `SwirlAmount` times 360 degrees, and the rotation decreases to zero at the swirl's edge.
 
 ## SwirlExponent
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The exponent controlling how the swirl's rotation falls off from center to edge. Values above 1 concentrate the twist near the center, and 1 gives a linear falloff.

@@ -10,24 +10,24 @@
 ## Comms
 `CommsGuiRules` · required
 
-<!-- TODO: needs documentation -->
+The icons, sounds, cursors and beam materials used by the comms tool, the hailing banners and the comm window.
 
 ## Missions
 `MissionsGuiRules` · required
 
-<!-- TODO: needs documentation -->
+The icons, sounds and animations used by the mission log, the fame and reputation level banners and the mission notifications.
 
 ## DangerLevelColors
 `DangerLevelColorRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Color stops that tint danger tier labels, each entry pairing a tier with a color. Colors for tiers between two stops are interpolated in HSVA, and tiers above the last stop use its color.
 
 ## TierValueMaximums
 `int[]` · optional
 
-<!-- TODO: needs documentation -->
+The largest ship value in credits that still counts as each tier, in ascending order. A ship's estimated tier is the position of the first entry its value fits into, and anything above the last entry becomes one tier higher than the list length.
 
 ## TierValueCombineOverhead
 `int` · required
 
-<!-- TODO: needs documentation -->
+The per-ship value overhead removed when several ships are summed into one fleet tier. A fleet of N ships of tier T is valued as N times its tier maximum minus this overhead, plus the overhead once.

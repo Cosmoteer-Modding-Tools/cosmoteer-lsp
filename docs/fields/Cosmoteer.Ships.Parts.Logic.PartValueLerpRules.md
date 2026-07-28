@@ -10,24 +10,24 @@
 ## InputValue
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The ID of the value component whose value is remapped. The output is recomputed whenever the input changes.
 
 ## InputRange
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The input span mapped from. The input's position between the range's Min and Max yields the interpolation fraction. Defaults to 0 to 1, and both ends accept buff modifiers.
 
 ## OutputRange
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The output span mapped onto. The interpolation fraction from [[Cosmoteer.Ships.Parts.Logic.PartValueLerpRules.InputRange]] picks the output linearly between the range's Min and Max. Defaults to 0 to 1, both ends accept buff modifiers, and Min may be larger than Max to reverse the mapping, as the vanilla tractor beam does with `OutputRange = [10, 1]` to fade its overload charging effects.
 
 ## ClampInput
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Clamps the interpolation fraction to 0..1, so inputs outside [[Cosmoteer.Ships.Parts.Logic.PartValueLerpRules.InputRange]] pin to its ends. Set to false to extrapolate the fraction beyond the range instead.
 
 ## ClampOutput
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Clamps the result to stay within [[Cosmoteer.Ships.Parts.Logic.PartValueLerpRules.OutputRange]]. Set to false to allow extrapolated results outside it, which only matters when [[Cosmoteer.Ships.Parts.Logic.PartValueLerpRules.ClampInput]] is also false.

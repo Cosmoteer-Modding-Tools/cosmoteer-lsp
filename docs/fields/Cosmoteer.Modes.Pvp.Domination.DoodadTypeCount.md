@@ -10,14 +10,14 @@
 ## DoodadID
 `→ DoodadRules` · required
 
-<!-- TODO: needs documentation -->
+The doodad type to scatter over the map. Its `SpawnRadius` is what the generator keeps clear of other objects, so a doodad with a small spawn radius may end up crowding capture points. Also accepted as element 0 of the positional `[id, count, conditions]` form vanilla uses.
 
 ## Count
 `int` · required
 
-<!-- TODO: needs documentation -->
+How many of this doodad to place across the whole map. The count is rounded down to a multiple of the map style's `Teams` so every team gets the same share, and the remainder is dropped rather than placed at the center. Also accepted as element 1 of the positional form.
 
 ## Conditions
 `SpawnConditions` · optional
 
-<!-- TODO: needs documentation -->
+Conditions checked once per doodad just before it is created, with the doodad skipped if they fail. Domination only supplies the map's spawn flags, so `RequireSpawnFlags` and `ProhibitSpawnFlags` are the useful ones and the career-only checks such as sector type and node tier never reject anything. Vanilla prohibits `disable_asteroids` so asteroid doodads vanish when the host turns asteroid spawning off. Also accepted as element 2 of the positional form.

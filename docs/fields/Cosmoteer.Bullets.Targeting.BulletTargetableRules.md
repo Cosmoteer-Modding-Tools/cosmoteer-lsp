@@ -10,24 +10,24 @@
 ## Health
 `number` · required
 
-<!-- TODO: needs documentation -->
+Hit points the bullet has against weapons that shoot at bullets, such as point defense. Incoming damage reduces it, and at 0 the bullet dies and plays its [[Cosmoteer.Bullets.Death.BaseBulletDeathRules.OnDeath]] effects. Hit components that set `FactorEffectsWith` to this component scale their effects by the fraction of health remaining.
 
 ## TargetCategory
 `→ BulletTargetableRules` · optional
 
-<!-- TODO: needs documentation -->
+A category label compared by equality wherever bullet categories are filtered, such as a weapon's `BulletTargetCategories`, effect filter bullet categories, [[Cosmoteer.Bullets.Physics.BulletProximityAccelerationRules.AccelerateTowardsBulletCategories]], and [[Cosmoteer.Bullets.Targeting.BulletTargetSearchRules.BulletTargetCategories]]. A bullet with no category never matches any filter list. Vanilla uses the labels `missile`, `mine`, `laser`, and `bullet`.
 
 ## ExplosiveDamageAbsorption
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The fraction, 0 to 1, of an explosion's remaining damage pool that can be applied to this bullet when it is caught in explosive area damage. Lower values let more of the explosion continue past the bullet to objects behind it. Defaults to 1, absorbing the full share.
 
 ## DamageResistances
 `map<→ DamageType, range<number>>` · optional
 
-<!-- TODO: needs documentation -->
+Resistance per damage type against hits on this bullet, each a 0 to 1 fraction subtracted from incoming damage. A ranged value interpolates from Min at full health to Max as the bullet nears destruction. Vanilla laser bolts use `shrapnel = 50%` to survive flak better.
 
 ## ExplosiveDamageResistance
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Legacy shorthand that inserts its value as the `explosive` entry of [[Cosmoteer.Bullets.Targeting.BulletTargetableRules.DamageResistances]]. Ignored when that map already contains an `explosive` entry.

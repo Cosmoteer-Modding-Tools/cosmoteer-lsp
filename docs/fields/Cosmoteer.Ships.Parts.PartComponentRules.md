@@ -10,22 +10,22 @@
 ## OnlyWithRotation
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Restricts the component to one part rotation (0 to 3 quarter turns). At any other rotation the component is simply not created, which also applies to its blueprint and destroyed-part forms. Combine several rotation-locked components to give a part different behavior or graphics per orientation.
 
 ## OnlyWithFlip
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Restricts the component to one horizontal-flip state of the part, so it only exists when the part's flip matches. The vanilla tri-steel factory declares a `FloorSprite` with `OnlyWithFlip = false` and a mirrored `FloorSpriteFlipped` with `OnlyWithFlip = true`.
 
 ## IncludeWhenUnderConstruction
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the component is also created while the part is an unfinished construction site. Off by default, though collider and death-effect components force it on in code. Vanilla `base_part_terran.rules` enables it, with [[Cosmoteer.Ships.Parts.PartComponentRules.IncludeWhenNotUnderConstruction]] set to false, for its construction scaffolding sprites.
 
 ## IncludeWhenNotUnderConstruction
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the component is created on the finished part. Setting this to false while enabling [[Cosmoteer.Ships.Parts.PartComponentRules.IncludeWhenUnderConstruction]] makes a construction-site-only component, such as the vanilla scaffolding and construction progress sprites.
 
 ## BlueprintSortOrder
 `int` · optional

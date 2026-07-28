@@ -10,64 +10,64 @@
 ## ColorID
 `→ PartColorGuiRules` · required
 
-<!-- TODO: needs documentation -->
+Identifies this color picker. A part opts into the picker by declaring a `PartUIColor` component whose `ColorID` matches, and the chosen color is stored per part under this id in the ship's metadata. Vanilla uses `"roof_light"`.
 
 ## ColoredSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The image on the picker button in the command card. The game tints it with the currently selected color, so it doubles as the swatch that shows what color the part is set to.
 
 ## ButtonTextKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for the label drawn on the picker button. The label is rendered with XML formatting enabled, so markup like `<b>` works.
 
 ## ButtonToolTipKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for the picker button's tooltip.
 
 ## ColorChangeSound
 `ISoundEffect` · optional
 
-<!-- TODO: needs documentation -->
+Plays once when the player finishes changing the color, not continuously while dragging inside the picker.
 
 ## AllowAlpha
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Adds an alpha slider next to the hue and saturation/value picker so the player can also set transparency. Without it the color's alpha is left alone and `AlphaRange` is never used.
 
 ## HueRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Limits the hue slider to this span in degrees on the 0 to 360 color wheel. The slider maps its full length onto the range, so a narrow range gives finer control over fewer hues.
 
 ## SaturationRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Limits the horizontal axis of the saturation/value square to this span, as a 0..1 fraction. Vanilla's roof light color caps it at 0.85 to keep the light from looking fully saturated.
 
 ## ValueRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Limits the vertical axis of the saturation/value square to this span, as a 0..1 fraction. Vanilla's roof light color starts at 0.25 so the player cannot pick a near-black light.
 
 ## AlphaRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Limits the alpha slider to this span, as a 0..1 fraction. Only used when `AllowAlpha` is set.
 
 ## SortOrder
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Orders this button among all the trigger, targeter, toggle and color buttons on a part's command card. Lower values are placed first.
 
 ## ShowWithShipCommands
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Also shows this picker on the ship command card, not just on the parts card for the selected parts.
 
 ## ShowInEditor
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Makes the picker available in the ship designer, so the player can set the color while placing parts and on parts selected with the select tool.

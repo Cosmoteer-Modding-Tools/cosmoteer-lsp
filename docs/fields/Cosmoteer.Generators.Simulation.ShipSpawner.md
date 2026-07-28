@@ -10,119 +10,119 @@
 ## AIByTag
 `map<→ BuiltinShipTag, AIInfo>` · optional
 
-<!-- TODO: needs documentation -->
+Maps a built-in ship tag to the AI given to ships carrying that tag. The picked ship's tags are tried in order and the first match wins, and the entry under the empty tag, which is what the `AI` shorthand creates, is the fallback for everything else.
 
 ## Features
 `enum SpawnedShipFeatures` · optional · one of: `None`, `Landmark`, `Station`, `OperationalStation`, `FtlPoint`, `HideUntilDiscovered`, `Invulnerable`
 
-<!-- TODO: needs documentation -->
+Extra roles attached to the spawned ships, combinable as flags: station, operational station, landmark, FTL point, hidden until discovered, and invulnerable. `Station` and `OperationalStation` also make the ship get stocked by the sector's trade route rules when no `ResourceLoadout` is given. The station, landmark and invulnerability components themselves are only attached when a ship is built out of stasis, so a ship the generator places directly into the live simulation does not get them until it has been through stasis once.
 
 ## Allegiance
 `enum ShipAllegiance` · optional · default `Neutral` · one of: `Player`, `Neutral`, `Barbarian`, `Junk`, `FactionMilitary`, `FactionCivilian`, `Unique`
 
-<!-- TODO: needs documentation -->
+Who owns the spawned ships. `Player` is player 0, `Neutral`, `Barbarian` and `Junk` are the fixed negative player indexes, `FactionMilitary` and `FactionCivilian` read the index off the ship's own faction and throw if the ship has none, and `Unique` allocates a fresh player index per ship in career mode.
 
 ## InitToMax
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Fills the ship's resource storage and resource grids to capacity and moves the crew to their assigned stations at spawn time. With false the ship starts with whatever the blueprint stored.
 
 ## SpawnCrew
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the ship is created with the crew its blueprint calls for. With false the ship spawns empty, which is how derelicts and abandoned ships are made.
 
 ## RememberPhysicalState
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Keeps a full snapshot of the ship, including damage and part layout, when it is pushed into stasis, so that it comes back exactly as the player left it. Without this an altered ship is rebuilt from its blueprint when it respawns.
 
 ## RememberResourcesAndCrew
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Remembers the stackable resources and crew of an unaltered ship when it is pushed into stasis and restores them when it comes back. Ignored when `RememberPhysicalState` already snapshots the whole ship.
 
 ## NameGenerator
 `NameGenerator` · optional
 
-<!-- TODO: needs documentation -->
+The generator used to invent a name for each spawned ship, replacing the name stored in the blueprint. Without it the blueprint's own name is kept.
 
 ## MaxNameLength
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+The character limit handed to `NameGenerator`. It does nothing on its own.
 
 ## Fame
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Base fame the player earns for destroying one of these ships, before any `FamePerTier` bonus is added. Fame is only recorded in career mode and only when the total comes out above 0.
 
 ## MaxFame
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+The player fame level at which these ships stop being worth anything. The actual reward is the smaller of the ship's fame and `MaxFame` minus the player's current fame, so a famous player earns progressively less from the same ship.
 
 ## FamePerTier
 `map<int, range<int>>` · optional
 
-<!-- TODO: needs documentation -->
+Extra fame per built-in ship tier, drawn uniformly from the range listed for the tier of the ship that was actually picked and added on top of `Fame`. Tiers with no entry add nothing.
 
 ## MaxFamePerTier
 `map<int, range<int>>` · optional
 
-<!-- TODO: needs documentation -->
+Per-tier override for `MaxFame`, drawn uniformly from the range listed for the tier of the ship that was actually picked. The lower of that roll and `MaxFame` is used, and tiers with no entry leave `MaxFame` alone.
 
 ## RandomHealthRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Randomizes the health of every part on the spawned ship, as a fraction of that part's max health drawn uniformly between the two ends. Parts never drop below 1 health, and without this field ships spawn undamaged.
 
 ## ResourceLoadout
 `ResourceTypeLoadoutRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Fills the ship's flexible resource storage with a random mix, rolling the loadout lottery once per storage tile. Tiles whose resource type is pinned by the blueprint are left alone, and setting this also replaces the station trade-stocking pass that `Features` would otherwise trigger.
 
 ## Labels
 `string[]` · optional
 
-<!-- TODO: needs documentation -->
+Free-form text labels attached to the spawned ships. Codex and tutorial conditions can test for them with `sim.HasShipWithLabelInSight('...')`, which is how vanilla drives the abandoned ship tutorial off the `abandoned` label.
 
 ## InitialShipCommandByTag
 `map<→ BuiltinShipTag, ShipCommand>` · optional
 
-<!-- TODO: needs documentation -->
+Maps a built-in ship tag to the order the spawned ship is given the moment it appears. The picked ship's tags are tried in order and the first match wins, with the entry under the empty tag, which the `InitialShipCommand` shorthand creates, as the fallback. Ships that spawn straight into stasis get no command at all.
 
 ## Ship
 `ShipInfo` · optional
 
-<!-- TODO: needs documentation -->
+A single built-in ship to spawn, written either as a bare ship ID or as a `ShipInfo` group. Exactly one of `Ship`, `Ships` or `ShipCriteria` has to be present, and `Ship` takes precedence if more than one is given.
 
 ## Ships
 `ShipInfo[]` · optional
 
-<!-- TODO: needs documentation -->
+The candidate built-in ships, one of which is drawn per spawned object by a lottery weighted on their `ChanceWeight`. The list must not be empty, and it is ignored when `Ship` is also present.
 
 ## ShipCriteria
 `ShipCriteria` · optional
 
-<!-- TODO: needs documentation -->
+Selects ships out of the built-in ship database by faction, tier, difficulty and tags instead of naming them. Only consulted when neither `Ship` nor `Ships` is given.
 
 ## AI/Type
 `→ ShipAIRules` · optional
 
-<!-- TODO: needs documentation -->
+The ship AI to attach to every ship this spawner creates. Reading it registers an `AIByTag` entry under the empty tag, so a per-tag entry in `AIByTag` wins over it for ships that match one.
 
 ## AI
 `AIParameters` · optional
 
-<!-- TODO: needs documentation -->
+The AI parameters, written directly inside the `AI` group next to `Type`. They are copied per ship whenever a patrol origin or a fleet leader has to be filled in, so the same parameters can be shared by a whole fleet.
 
 ## AI/PatrolOriginTag
 `SpawnedObjectSearch` · optional
 
-<!-- TODO: needs documentation -->
+A search for an already-spawned tagged object whose centre becomes the AI's patrol origin, overriding whatever the AI parameters hold. Generation throws if nothing matching the search has been spawned yet.
 
 ## InitialShipCommand
 `ShipCommand` · optional
 
-<!-- TODO: needs documentation -->
+The order given to every ship this spawner creates as soon as it appears. Reading it registers an `InitialShipCommandByTag` entry under the empty tag, so a per-tag entry wins over it for ships that match one.

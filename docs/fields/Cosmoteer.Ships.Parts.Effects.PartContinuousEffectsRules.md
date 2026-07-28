@@ -10,64 +10,64 @@
 ## MediaEffects
 `MultiMediaEffectRules` · required
 
-<!-- TODO: needs documentation -->
+The media effects (particles, sounds, lights) played in a continuous loop at the component's location for as long as the component is operational and not suppressed by the view, zoom, or intensity conditions. The part's buffs are applied to the effect parameters when the loop starts.
 
 ## MediaEffectsIntensityFactor
 `number` · optional
 
-<!-- TODO: needs documentation -->
+A multiplier on the intensity of [[Cosmoteer.Ships.Parts.Effects.PartContinuousEffectsRules.MediaEffects]]. Defaults to 1 and accepts the modifiable-value form, so it can be scaled by buffs and statuses. Multiplied with the value of the [[Cosmoteer.Ships.Parts.Effects.PartContinuousEffectsRules.FactorMediaEffectsIntensityWith]] component, if any.
 
 ## FactorMediaEffectsIntensityWith
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A component on the same part whose current value is multiplied into the effect intensity, on top of [[Cosmoteer.Ships.Parts.Effects.PartContinuousEffectsRules.MediaEffectsIntensityFactor]]. Vanilla thrusters point this at their thruster component so the exhaust scales with actual thrust.
 
 ## IntensityTweenDuration
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The time, in seconds, over which the effect intensity glides toward a new target value instead of jumping. Each time the target intensity changes, the tween speed is recomputed so that covering the full change takes this long. When omitted, intensity changes apply instantly. Vanilla thrusters use 0.1.
 
 ## MinMediaEffectsIntensity
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The intensity below which the continuous effects are stopped entirely. Compared against [[Cosmoteer.Ships.Parts.Effects.PartContinuousEffectsRules.MediaEffectsIntensityFactor]] times the [[Cosmoteer.Ships.Parts.Effects.PartContinuousEffectsRules.FactorMediaEffectsIntensityWith]] value, or against the tweened intensity while it is still higher. Setting this is also what makes the component react to value changes of the factor component at all.
 
 ## MaxMediaEffectsZoom
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The most zoomed-out camera scale at which the effects still play. When the player zooms out beyond this value the effects stop, and they restart on zooming back in. Vanilla factories and the sensor array use 4 to cull their ambient effects at a distance.
 
 ## MediaEffectsRequireShipInView
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the effects only play while the ship is inside the local player's view, stopping when it moves offscreen. Set to false to keep the effects running regardless of visibility.
 
 ## GetColorFrom
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A component on the same part whose current color tints the media effects. White is used when unset or the component reports no color. The vanilla roof light pulls its glow color from its `ColorPicker` component, and crew quarters color their crew beam from `CrewSource`.
 
 ## ParentToShip
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Attaches the effect node to the ship instead of placing it in world space, so it moves and rotates rigidly with the ship. The vanilla tractor beam emitter enables this for its ambient effects.
 
 ## StartMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played each time the continuous effects start, in addition to the looping [[Cosmoteer.Ships.Parts.Effects.PartContinuousEffectsRules.MediaEffects]].
 
 ## EndMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played each time the continuous effects stop. Whether they also play when the stop was caused by the component turning non-operational is controlled by [[Cosmoteer.Ships.Parts.Effects.PartContinuousEffectsRules.PlayEndMediaOnNonOperational]].
 
 ## UpdateMediaBuffs
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Re-applies the part's buffs to the running effects whenever a buff is added, updated, or removed, keeping buff-modifiable effect parameters current. When false, buffs are captured only once when the effects start.
 
 ## PlayEndMediaOnNonOperational
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether [[Cosmoteer.Ships.Parts.Effects.PartContinuousEffectsRules.EndMediaEffects]] also plays when the effects stop because the component turned non-operational. Set to false to reserve the end effects for other stop causes, such as zooming out past [[Cosmoteer.Ships.Parts.Effects.PartContinuousEffectsRules.MaxMediaEffectsZoom]] or dropping below [[Cosmoteer.Ships.Parts.Effects.PartContinuousEffectsRules.MinMediaEffectsIntensity]].

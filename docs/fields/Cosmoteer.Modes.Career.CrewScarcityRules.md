@@ -10,34 +10,34 @@
 ## ID
 `→ CrewScarcityRules` · required
 
-<!-- TODO: needs documentation -->
+The identifier this level is stored under in save games and in the multiplayer input that changes crew scarcity mid game. Loading a save whose stored id no longer matches any entry throws, so renaming an id breaks existing saves.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the level's name as it appears in the crew scarcity drop list.
 
 ## TipKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the tooltip shown when hovering this level in the crew scarcity drop list.
 
 ## IsDefault
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks this level as the preselected one in the new game screens and the one restored when a save has no stored crew scarcity. Exactly one entry in [[Cosmoteer.Modes.Career.CareerModeRules.CrewScarcityLevels]] should set it, since the lookup throws when none does.
 
 ## CrewFamePrereqFameRange
 `range<int>` · required
 
-<!-- TODO: needs documentation -->
+The fame span the crew cap is spread over. A crew count at the bottom of [[Cosmoteer.Modes.Career.CrewScarcityRules.CrewFamePrereqCountRange]] requires the minimum fame and one at the top requires the maximum, interpolating linearly in between. All vanilla levels run from 0 to the tier table's maximum fame.
 
 ## CrewFamePrereqFameRoundToMultiple
 `int` · required
 
-<!-- TODO: needs documentation -->
+Rounds the interpolated fame requirement to a multiple of this before it is matched against the fame titles, which keeps the crew cap stepping in tidy increments. Vanilla rounds to 5.
 
 ## CrewFamePrereqCountRange
 `range<int>` · required
 
-<!-- TODO: needs documentation -->
+Total crew the player may have at the lowest and the highest fame. The maximum is a hard ceiling, since asking for more crew than this reports that it can never be hired. Vanilla runs 24 to 1500 on standard and 2000 to 2000 on max, which removes the limit entirely.

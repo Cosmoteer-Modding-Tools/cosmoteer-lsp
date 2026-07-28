@@ -10,37 +10,37 @@
 ## ToggleID
 `→ PartToggleGuiRules` · required
 
-<!-- TODO: needs documentation -->
+The part setting this component exposes, matching the `ToggleID` of a toggle declared in the game GUI's `PartToggles` list. Selecting the part shows that toggle's button, which switches this component between the toggle's choice modes. A part may have at most one UIToggle per ToggleID.
 
 ## Default
 `int` · required
 
-<!-- TODO: needs documentation -->
+The mode number the toggle starts at when the part is placed, and the value assumed whenever no saved state exists. Mode numbers correspond to the Choices of the referenced GUI toggle, either a choice's explicit Mode or its index in the choice list.
 
 ## AvailableChoices
 `int[]` · optional
 
-<!-- TODO: needs documentation -->
+The choice mode numbers this part actually offers. Choices outside the list are hidden from the toggle button and rejected when a player tries to set them. When unset, every choice of the GUI toggle is available, as most parts want. The vanilla point defense turret offers only choices `[-1, 1, 2]` of its fire_mode toggle.
 
 ## ToggledOnChoices
 `int[]` · optional
 
-<!-- TODO: needs documentation -->
+The mode numbers in which this toggle counts as on when read as an on/off toggle, for example through an `OperationalToggle` or [[Cosmoteer.Ships.Parts.UI.PartUIToggleRules.VisibilityToggle]] reference. When unset, every nonzero mode counts as on. The list also steers [[Cosmoteer.Ships.Parts.UI.PartUIToggleRules.AutoOnTrigger]], which jumps to its first entry, and [[Cosmoteer.Ships.Parts.UI.PartUIToggleRules.AutoOffTrigger]], which picks the lowest mode not listed.
 
 ## RememberValue
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Stores the toggle's value in the ship's metadata, keyed to the part's position, whenever it differs from [[Cosmoteer.Ships.Parts.UI.PartUIToggleRules.Default]], and restores it when a part is re-added there. Set to false for transient states, as the vanilla boost thruster's boost toggle and the chaingun's force-fire toggle do.
 
 ## RequiresCommand
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether changing the toggle requires that the ship can currently execute commands from the player. When false, the toggle stays usable on any ship the player can command at all.
 
 ## AlwaysAllowInBuildMode
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Lets the toggle be changed while editing the ship in build mode even when [[Cosmoteer.Ships.Parts.UI.PartUIToggleRules.RequiresCommand]] would forbid it, provided the ship's construction is legal.
 
 ## VisibilityToggle
 `→ PartComponentRules` · optional
@@ -50,9 +50,9 @@ ID of the toggle that determines whether this UIToggle's button is shown when it
 ## AutoOnTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+A trigger on a component of the same part that switches this toggle on automatically when it fires. A toggle that is currently off jumps to the first entry of [[Cosmoteer.Ships.Parts.UI.PartUIToggleRules.ToggledOnChoices]], or to mode 1 when that list is unset. May be written as a bare component ID, or as a group with `ID` plus an inner `TriggerID` for components exposing several triggers.
 
 ## AutoOffTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+A trigger on a component of the same part that switches this toggle off automatically when it fires. A toggle that is currently on jumps to the lowest mode number not in [[Cosmoteer.Ships.Parts.UI.PartUIToggleRules.ToggledOnChoices]], or to mode 0 when that list is unset. The vanilla chaingun's force-fire toggle turns itself off this way when it runs out of ammo or its turret takes over.

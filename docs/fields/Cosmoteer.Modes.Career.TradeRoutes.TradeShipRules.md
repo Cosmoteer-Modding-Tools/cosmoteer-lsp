@@ -10,69 +10,69 @@
 ## ShipID
 `→ BuiltinShipRules` · required
 
-<!-- TODO: needs documentation -->
+The built-in ship design flown by this trade ship, named by its ship-library entry such as `Courier`.
 
 ## Faction
 `→ FactionRules` · required
 
-<!-- TODO: needs documentation -->
+The faction that owns the ship. Trade ships are only eligible in a system where their faction has some influence, and the spawned ship belongs to that faction's civilian player.
 
 ## TierRange
 `range<int>` · required
 
-<!-- TODO: needs documentation -->
+The node difficulty tiers this ship can appear at. One tier is rolled from the current map node's tier range and must fall inside this span for the ship to enter the pool.
 
 ## AI
 `→ ShipAIRules` · required
 
-<!-- TODO: needs documentation -->
+The ship AI rules the trade ship runs, which for vanilla is `TradeShip` and drives the gate-to-station route logic.
 
 ## RandomWeight
 `float` · required
 
-<!-- TODO: needs documentation -->
+The relative weight of this ship among all eligible trade ships of the same faction and tier. A weight of 0 removes it from the pool entirely.
 
 ## MultiThreadedSpawnDelay
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long the game waits while a physically spawned trade ship's design is loaded on a background thread. Saving is blocked for the duration, so keeping it short matters. Vanilla uses 1 second.
 
 ## StasisSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+How fast the ship travels, in tiles per second, while it is being simulated abstractly in stasis. It is also the velocity the ship is given the moment it materializes into the real simulation. Vanilla ranges from 25 for lumbering freighters to 88 for blockade runners.
 
 ## StasisTradeTime
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long a stasis trade ship sits at a station before its resources and crew are swapped in one instant transaction. Vanilla uses 20 seconds for crew shuttles and 40 to 100 seconds for freighters.
 
 ## AvoidableDoodadTags
 `→ SimObjectSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+The doodad spawner tags the ship steers around while moving in stasis, and which also disqualify a candidate spawn location. Vanilla lists `sun`.
 
 ## AvoidableDoodadBuffer
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The clearance kept around avoided doodads, in tiles. Only matters when [[Cosmoteer.Modes.Career.TradeRoutes.TradeShipRules.AvoidableDoodadTags]] is set. Vanilla keeps 100 tiles from suns.
 
 ## EmptyTileChance
 `float` · required
 
-<!-- TODO: needs documentation -->
+The 0..1 chance that an untyped storage tile spawns empty instead of drawing from [[Cosmoteer.Modes.Career.TradeRoutes.TradeShipRules.ResourcesCarried]]. Tiles that already have a preferred resource type ignore this and always try to fill. Vanilla leaves 40% empty.
 
 ## TransferableCrew
 `float` · required
 
-<!-- TODO: needs documentation -->
+The fraction of the ship's crew capacity it is willing to hand over at a station. The ship keeps at least the remaining fraction of its capacity aboard, so vanilla's 30% means a full ship gives away up to 30% of its berths' worth of crew. Crew only flows from the trade ship to the station, never back.
 
 ## RememberResourcesAndCrew
 `bool` · required
 
-<!-- TODO: needs documentation -->
+Whether the ship's stackable cargo and crew are snapshotted when it leaves the real simulation for stasis and restored when it comes back. With it false the ship reverts to a fresh loadout every time it materializes.
 
 ## ResourcesCarried
 `TradeShipResourceRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The weighted pool of resources used to fill the ship's untyped storage tiles at spawn. Tiles with a preferred resource type only fill if that exact type appears in the pool.

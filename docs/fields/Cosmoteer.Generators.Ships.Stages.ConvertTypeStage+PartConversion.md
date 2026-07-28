@@ -10,9 +10,9 @@
 ## From
 `→ PartRules` · required
 
-<!-- TODO: needs documentation -->
+Existing part type that this entry converts. Every part of this type on the ship is a candidate for conversion.
 
 ## To
 `→ PartRules` · required
 
-<!-- TODO: needs documentation -->
+Part type that a matching [[From]] part is replaced with, keeping its location, rotation and flip.

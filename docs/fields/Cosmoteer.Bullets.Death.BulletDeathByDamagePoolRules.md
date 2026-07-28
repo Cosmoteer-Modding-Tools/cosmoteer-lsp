@@ -10,4 +10,4 @@
 ## DamagePool
 `→ BulletComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The ID of the sibling `DamagePool` component to watch. The bullet dies as soon as that pool's remaining damage reaches 0, checked when the bullet activates and whenever the pool's value changes. The vanilla overclocked deck cannon and railgun shots use this so the projectile disappears once its damage budget is spent.

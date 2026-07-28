@@ -10,24 +10,24 @@
 ## FilterType
 `enum FilterType` · required · one of: `LowPass`, `LowPassAmplify`, `HighPass`, `HighPassAmplify`, `BandPassAmplify`, `Notch`
 
-<!-- TODO: needs documentation -->
+The shape of frequency filter applied to the sound. The precise frequency response of each variant is implemented by the Halfling audio engine. Vanilla effects use `LowPassAmplify` to muffle sounds heard from far away or while zoomed out.
 
 ## FromFrequency
 `int` · required
 
-<!-- TODO: needs documentation -->
+The filter frequency in Hz when the filter has only just begun to engage. As distance or zoom raise the filter strength toward full, the frequency moves toward [[Cosmoteer.Simulation.MediaEffects.DynamicFilterParams.ToFrequency]], shaped by [[Cosmoteer.Simulation.MediaEffects.DynamicFilterParams.FrequencyFactorExponent]]. Vanilla muffling filters start at 7350.
 
 ## ToFrequency
 `int` · required
 
-<!-- TODO: needs documentation -->
+The filter frequency in Hz at full filter strength, reached at maximum distance or zoom. Vanilla muffling filters sweep down to 500.
 
 ## FrequencyFactorExponent
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Exponent shaping how the frequency sweeps from [[Cosmoteer.Simulation.MediaEffects.DynamicFilterParams.FromFrequency]] to [[Cosmoteer.Simulation.MediaEffects.DynamicFilterParams.ToFrequency]] as the filter strength rises from 0 to 1. 1 gives a linear sweep and vanilla uses 0.5. With the default of 0 the frequency sits at ToFrequency whenever the filter is engaged at all, so set an exponent for a gradual sweep.
 
 ## QFactor
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The resonance (Q) value passed to the audio engine's filter, multiplied by the current filter strength so it intensifies as the filter engages.

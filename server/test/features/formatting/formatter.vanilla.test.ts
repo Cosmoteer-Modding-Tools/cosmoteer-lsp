@@ -61,5 +61,7 @@ describe.skipIf(!HAVE_DATA)('formatter over vanilla Data', () => {
             if (formatShaderDocument(once, tabs) !== once) broken.push(relative(DATA_DIR, file) + ' (not idempotent)');
         }
         expect(broken, `shader formatter broke:\n${broken.join('\n')}`).toEqual([]);
-    });
+        // Same headroom as the rules corpus above: this walk is 3s alone and exceeds the default
+        // 5s timeout when the whole suite runs in parallel workers.
+    }, 60000);
 });

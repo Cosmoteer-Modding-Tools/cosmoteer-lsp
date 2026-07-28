@@ -10,69 +10,69 @@
 ## FadeInTime
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Seconds over which the arc fades in after it starts playing. During the fade the arc's tint eases from [[Cosmoteer.Simulation.MediaEffects.ArcShieldEffectRules.FadeFromColor]] to white and its radius scale from [[Cosmoteer.Simulation.MediaEffects.ArcShieldEffectRules.FadeFromScale]] to 1.
 
 ## HoldTime
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Seconds a one-shot arc stays at full strength between fade-in and fade-out. Continuous playback ignores it and holds until the effect is ended, as when a shield turns off.
 
 ## FadeOutTime
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Seconds over which the arc fades out, easing its tint toward [[Cosmoteer.Simulation.MediaEffects.ArcShieldEffectRules.FadeToColor]] and its radius scale toward [[Cosmoteer.Simulation.MediaEffects.ArcShieldEffectRules.FadeToScale]]. For one-shots the fade begins after [[Cosmoteer.Simulation.MediaEffects.ArcShieldEffectRules.FadeInTime]] plus [[Cosmoteer.Simulation.MediaEffects.ArcShieldEffectRules.HoldTime]], while a continuous arc starts fading when it is ended. The effect finishes once the fade completes.
 
 ## FadeFromColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The color multiplier the arc's tint starts at when fading in, easing to white over [[Cosmoteer.Simulation.MediaEffects.ArcShieldEffectRules.FadeInTime]]. Defaults to transparent white, giving a pure alpha fade-in.
 
 ## FadeToColor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The color multiplier the arc's tint eases toward while fading out over [[Cosmoteer.Simulation.MediaEffects.ArcShieldEffectRules.FadeOutTime]]. Defaults to transparent white, giving a pure alpha fade-out.
 
 ## FadeFromScale
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplier on the arc's radius at the start of fade-in, easing to 1 over [[Cosmoteer.Simulation.MediaEffects.ArcShieldEffectRules.FadeInTime]]. The vanilla small shield uses `.8` so the bubble expands slightly into place as it appears.
 
 ## FadeToScale
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplier on the arc's radius reached at the end of fade-out, easing from 1 over [[Cosmoteer.Simulation.MediaEffects.ArcShieldEffectRules.FadeOutTime]].
 
 ## Radius
 `number` · required
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, of the circle the arc is bent around. The circle's center sits that distance behind the effect node along its facing, so the arc's outer edge passes through the node's location. Being modifiable it can be driven by buffs, and the vanilla shield generators reference their shield component's own Radius here so the visual tracks overclock modifiers.
 
 ## Arc
 `number` · required
 
-<!-- TODO: needs documentation -->
+The full angular width of the arc, centered on the effect node's facing. Angles are written with a `d` suffix for degrees. The drawn span is this angle times the effect's runtime arc-fraction parameter, which arc shields set to the covered fraction of their arc for each unblocked segment, while hit effects like the vanilla shield's 20d impact flash draw the whole angle.
 
 ## ArcAngleAffectsUVs
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Scales the sprite's horizontal texture span in proportion to the arc's angle, at [[Cosmoteer.Simulation.MediaEffects.ArcShieldEffectRules.UPerNinetyDegrees]] texture widths per 90 degrees. When false the texture is stretched exactly once across the arc regardless of its angle.
 
 ## UPerNinetyDegrees
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The number of horizontal texture widths spanned per 90 degrees of arc when [[Cosmoteer.Simulation.MediaEffects.ArcShieldEffectRules.ArcAngleAffectsUVs]] is enabled. With a wrapping texture, values above 1 repeat it more densely.
 
 ## ArcSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite bent around the arc. Its height sets the arc band's radial thickness in tiles, extending inward from the outer edge, and its vertex color multiplies the effect's color parameter. The vanilla shields use a wrapping energy texture rendered with their shield shader, which also receives the effect's intensity per vertex to blend between full-power and low-power colors.
 
 ## ArcSpriteSegments
 `int` · required
 
-<!-- TODO: needs documentation -->
+The number of quads the full arc is subdivided into. More segments make a smoother curve, and only the quads covered by the currently active span are drawn. The vanilla shield generators use 64.
 
 ## Bucket
 `→ MediaEffectBucketsRules` · required
 
-<!-- TODO: needs documentation -->
+The effect bucket the arc renders in, named in one of the lists of [[Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules.LowerBuckets]] and its sibling fields. The vanilla shields use `Lower2`, so the bubble draws above ship structure but beneath floors and everything on top of them.

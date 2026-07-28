@@ -10,9 +10,9 @@
 ## Rewards
 `RewardSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Rewards attached to this individual objective rather than to the mission as a whole, granted when the objective itself completes. The tier range passed to these spawners comes from this objective alone, and no faction is passed, so a `Reputation` reward here produces nothing unless it names its own `Faction`.
 
 ## DisableDisplayLines
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether this objective is hidden from the mission log and HUD. The objective still runs and still has to be completed, it just contributes no text lines.

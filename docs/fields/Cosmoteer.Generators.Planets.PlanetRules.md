@@ -10,24 +10,24 @@
 ## Styles
 `map<→ PlanetStyleRules, PlanetStyleRules>` · optional
 
-<!-- TODO: needs documentation -->
+Named collection of planet styles keyed by ID. A planet doodad selects its style from this map by its StyleID, and each style is a set of layers.
 
 ## DefaultPlanetMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material used as the default for a texture layer's Material when the layer does not specify one.
 
 ## DefaultWavesMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material used as the default for a waves layer's Material when the layer does not specify one.
 
 ## DefaultHaloMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material used as the default for a halo layer's Material when the layer does not specify one. Halo layers also clear their generator layers and use a white base color.
 
 ## DefaultRingMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material used as the default for a ring layer's Material when the layer does not specify one.

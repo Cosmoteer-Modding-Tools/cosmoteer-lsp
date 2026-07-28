@@ -10,14 +10,14 @@
 ## Seconds
 `float` · required
 
-<!-- TODO: needs documentation -->
+The length of the timed phase in seconds. A value of zero or less means no time limit at all.
 
 ## NameFmtKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for this entry's label in the time limit drop list. It is formatted with one argument, `Seconds` divided by 60, so the vanilla strings print minutes.
 
 ## IsDefault
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the entry preselected when the host opens the lobby. Exactly one entry in the list must set it, since the game takes the first match and throws when there is none.

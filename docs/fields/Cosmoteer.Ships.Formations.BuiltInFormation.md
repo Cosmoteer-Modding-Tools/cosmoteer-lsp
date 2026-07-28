@@ -10,9 +10,9 @@
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the formation's display name shown in the UI.
 
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite drawn on the formation's button in the fleet formation UI.

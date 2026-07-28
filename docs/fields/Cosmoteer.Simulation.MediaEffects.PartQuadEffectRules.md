@@ -10,24 +10,24 @@
 ## RectType
 `enum PartRectType` · optional · one of: `Normal`, `Physical`
 
-<!-- TODO: needs documentation -->
+Which rectangle of the hit part the quad covers, either the part's full footprint (`Normal`, the default) or its declared PhysicalRect (`Physical`). The effect requires a hit part in its parameters and fails without one, so it is only usable in contexts that hit a part.
 
 ## Inflate
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Distance, in tiles, the part's rectangle is expanded on every side before the quad is drawn. The vanilla ship salvage progress glow inflates by 0.5 so the glow bleeds past the part's edges.
 
 ## Z
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The part quad renderer never reads it, it builds the quad from the part rect alone. The identically named [[Cosmoteer.Simulation.MediaEffects.QuadEffectRules.Z]] on a plain quad effect is the one that works.
 
 ## ColorOverIntensity
 `range<Color>` · optional
 
-<!-- TODO: needs documentation -->
+A color multiplier sampled between Min and Max by the effect's current smoothed intensity, applied on top of the sprite's vertex color and the effect's color parameter. Defaults to a constant white. The vanilla salvage progress glow samples from transparent black to white so the quad brightens with salvage progress.
 
 ## ColorOverFade
 `range<Color>` · optional
 
-<!-- TODO: needs documentation -->
+A color multiplier sampled by the fade progress, at Min when fully faded out and at Max when fully faded in, following the fade-in, hold, and fade-out times inherited from the base quad effect. Defaults to transparent white through white, a pure alpha fade.

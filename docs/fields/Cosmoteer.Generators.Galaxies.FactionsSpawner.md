@@ -10,24 +10,24 @@
 ## Factions
 `FactionSpawnRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Factions to place, each with its own territory rules. Homeworld locations for all of them are computed first, then each faction's territory is grown outward from its homeworld.
 
 ## RemainderFaction
 `→ FactionRules` · optional
 
-<!-- TODO: needs documentation -->
+Optional faction that fills in nodes left weakly claimed. After the main factions spawn, any node whose total faction strength is below [[RemainderFactionThreshold]] gets this faction added to make up the difference.
 
 ## RemainderFactionThreshold
 `float` · optional · default `0.5`
 
-<!-- TODO: needs documentation -->
+Total faction strength a node must reach before the remainder faction stops filling it. Nodes below this are topped up by [[RemainderFaction]] up to this value. Default 0.5.
 
 ## MinRemainderFactionStrength
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Minimum strength the remainder faction must contribute at a node. If the top-up amount would be smaller than this, the node is left as is.
 
 ## AvoidIterations
 `int` · optional · default `10`
 
-<!-- TODO: needs documentation -->
+Number of relaxation passes that push faction homeworlds apart and away from the map edge, using each faction's [[Cosmoteer.Generators.Galaxies.FactionsSpawner+FactionSpawnRules#AvoidOtherFactionsStrength]] and [[Cosmoteer.Generators.Galaxies.FactionsSpawner+FactionSpawnRules#AvoidEdgeStrength]]. Default 10.

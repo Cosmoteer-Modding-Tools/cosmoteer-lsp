@@ -10,29 +10,29 @@
 ## Styles
 `BackgroundStyleRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Every background style the game knows about. Styles flagged [[Cosmoteer.Backgrounds.BackgroundStyleRules#InGameBackground|InGameBackground]] become selectable in-game, and those also flagged [[Cosmoteer.Backgrounds.BackgroundStyleRules#IsDefault|IsDefault]] form the default rotation. All of their object sprites are packed together into one shared atlas at load.
 
 ## AtlasTextureParams
 `AtlasTextureParams` · required
 
-<!-- TODO: needs documentation -->
+Post-processing and sampling parameters for the shared background sprite atlas built from every style's object textures. Controls mip levels and sample mode of the packed texture.
 
 ## ShroudMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material used to draw the shroud pass that darkens space outside the ship's line of sight. It samples the captured background so fogged regions still show a dimmed starfield, and the minimap reuses it for the same effect.
 
 ## SightMaskScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Resolution multiplier for the sight-mask render target relative to the screen. Below `1` renders the fog-of-war mask at reduced resolution for softer, cheaper edges.
 
 ## SightMaskEdgeSize
 `float` · required
 
-<!-- TODO: needs documentation -->
+Thickness of the feathered edge drawn around sight circles, in world units before camera scaling. Sets the outer sight-circle line thickness and the same value drives the minimap's sight edge.
 
 ## StaticBackgroundTextureSize
 `IntVector2` · required
 
-<!-- TODO: needs documentation -->
+Pixel dimensions of the texture generated from a style's [[Cosmoteer.Backgrounds.BackgroundStyleRules#StaticBackgroundTexture|StaticBackgroundTexture]] generator. Styles without a static texture ignore this.

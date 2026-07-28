@@ -10,24 +10,24 @@
 ## AtlasTextureParams
 `AtlasTextureParams` · required
 
-<!-- TODO: needs documentation -->
+Texture-generation settings for the combined blueprint sprite atlas shared by all blueprint part sprites. See [[Cosmoteer.Ships.Rendering.AtlasTextureParams]].
 
 ## Material
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material used to draw blueprint part sprites where the part's placement is valid.
 
 ## InvalidMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material used to draw blueprint part sprites where placement is invalid, typically tinting them red. Chosen instead of [[#Material]] whenever the part cannot be legally placed.
 
 ## ExternalWalls
 `ExternalBlueprintWallRules` · required
 
-<!-- TODO: needs documentation -->
+Blend-sprite rules for drawing the outer hull edge of the ship's blueprint. See [[Cosmoteer.Ships.Blueprints.ExternalBlueprintWallRules]].
 
 ## DrawProhibitedZoneCategories
 `→ ProhibitCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Set of prohibit-category IDs whose prohibited zones are drawn in build mode. A part's prohibited zone is only shown if its category is in this set.

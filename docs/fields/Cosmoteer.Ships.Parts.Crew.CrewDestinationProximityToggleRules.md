@@ -10,4 +10,4 @@
 ## Distance
 `float` · required
 
-<!-- TODO: needs documentation -->
+The range, in tiles, at which a space-walking crew heading for a destination on this part flips the toggle on, measured from the crew to its destination point. Vanilla airlocks and factory roof doors use it to swing their outer door open as EVA crew approach. The toggle is also held open briefly when crew enter or exit and when nuggets are ejected or collected.

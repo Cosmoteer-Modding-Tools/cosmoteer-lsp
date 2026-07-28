@@ -10,39 +10,39 @@
 ## ViewRectNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+The nine-slice frame drawn on the minimap around the world rectangle the main camera is currently showing. It is stretched to that rectangle in world coordinates, so its border thickness is scaled by the minimap's zoom rather than being a fixed pixel size.
 
 ## FriendlyPipSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The blip drawn on the minimap for ships allied with the local player. Its `Size` is in UI pixels and the sprite is tinted by the ship's indicator color, so a plain white texture is usual.
 
 ## NeutralPipSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The blip drawn on the minimap for ships that are neither allied nor hostile to the local player. Vanilla uses a smaller sprite than `FriendlyPipSprite` so the player's own fleet stands out.
 
 ## EnemyPipSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The blip drawn on the minimap for ships hostile to the local player.
 
 ## NorthArrowSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The arrow button pinned to the inner rim of the minimap that points toward world north. It only appears when the minimap is rotated with the camera, and clicking it clears the camera's frame of rotation and turns the view back to north.
 
 ## Grid
 `GridRules` · required
 
-<!-- TODO: needs documentation -->
+The coordinate grid drawn in `Lines` style behind everything else on the minimap. It is a separate rules block from the world background grid, so the minimap can use its own density and colors.
 
 ## ShroudMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+The material that draws the fog of war over the minimap. The sight circles of the local player are first rendered into an offscreen mask, then one quad covering the whole minimap is drawn with this material and that mask as its texture. Vanilla's shader takes a `_bgColor` for the unseen area and a `_borderAddColor` added at the edge of vision.
 
 ## SightMaskEdgeSize
 `float` · required
 
-<!-- TODO: needs documentation -->
+The width of the soft feathered rim at the outer edge of each sight circle in the fog of war mask, in minimap UI pixels. The value is converted to world units using the minimap's current world-per-pixel scale and then clamped to the circle's radius, so it stays a constant on-screen thickness as the minimap zooms.

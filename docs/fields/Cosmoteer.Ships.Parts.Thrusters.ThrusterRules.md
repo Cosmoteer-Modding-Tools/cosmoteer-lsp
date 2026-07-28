@@ -10,69 +10,69 @@
 ## Force
 `number` · required
 
-<!-- TODO: needs documentation -->
+The thrust strength at an activation level of 1, applied to the ship at the component's location and pushing opposite the component's rotation. The force actually exerted each tick is this value times the current activation level. The vanilla small thruster uses 400.
 
 ## MinActivation
 `number` · required
 
-<!-- TODO: needs documentation -->
+The lower bound of the thruster's activation level, as a fraction of full thrust. Vanilla thrusters use 0, and a negative value lets the thrust solver run the thruster in reverse.
 
 ## MaxActivation
 `number` · required
 
-<!-- TODO: needs documentation -->
+The upper bound of the thruster's activation level, as a fraction of full thrust, normally 1. Buffs can push it above 1, as vanilla thrusters do when overclocked.
 
 ## MinUncommandedActivation
 `number` · required
 
-<!-- TODO: needs documentation -->
+The lower activation bound enforced while the ship is unable to execute commands, for example after losing its last control room. The clamp applies each tick until the ship's uncommanded shutdown delay elapses, after which all thrusters drop to 0. Vanilla thrusters reference their normal [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.MinActivation]] here.
 
 ## MaxUncommandedActivation
 `number` · required
 
-<!-- TODO: needs documentation -->
+The upper activation bound enforced while the ship is unable to execute commands. See [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.MinUncommandedActivation]]. Vanilla thrusters reference their normal [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.MaxActivation]] here.
 
 ## ActivationIncreaseTime
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds to ramp the activation level from 0 to full when throttling up. The thrust solver also uses it to know how much activation is reachable within a tick and to plan when to begin decelerating. At 0, the default, throttle-up is instantaneous, while the vanilla rocket thruster ramps up over 4 seconds.
 
 ## ActivationDecreaseTime
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds to ramp the activation level from full back to 0 when throttling down. At 0, the default, throttle-down is instantaneous, while the vanilla rocket thruster ramps down over 2 seconds.
 
 ## ActivationRecoveryTime
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds for the thruster's recovery ceiling to drain from full to 0 after throttling down. Until it drains, the activation can jump straight back up to the recently held level without ramping through [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.ActivationIncreaseTime]] again. At 0, the default, no such memory is kept.
 
 ## SoftOperationalToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A toggle component on the same part that gates whether the thruster may produce thrust. While the toggle is off the thruster is excluded from thrust planning and its activation ramps down to zero at the [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.ActivationDecreaseTime]] rate, without the component itself becoming non-operational. Vanilla thrusters point this at their IsOperational toggle.
 
 ## FuelUsage
 `FuelUsageRules[]` · optional
 
-<!-- TODO: needs documentation -->
+A list of fuel drains applied while the thruster is firing, each naming a storage component and a per-second rate. All entries are consumed simultaneously, letting one thruster draw from several storages. A single drain can instead be written with the flat [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.FuelStorage]] and [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.FuelUsagePerSecond]] fields, which vanilla thrusters use.
 
 ## ValueOutputFactor
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on the value this thruster reports to other components on the part, which is its current activation level times this factor. Defaults to 1, so value readers such as progress bars see the raw activation level.
 
 ## AllowAutoFire
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the player can order this thruster to fire continuously at [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.MaxActivation]] with the manual thruster auto-fire command. When false such orders skip this thruster and it only responds to normal steering.
 
 ## FuelStorage
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+The resource storage component on the same part that fuel is drawn from, in the flat single-drain form of [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.FuelUsage]]. When present it is read together with [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.FuelUsagePerSecond]] into a one-entry fuel usage list. The vanilla small thruster drains its BatteryStorage this way.
 
 ## FuelUsagePerSecond
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Fuel units drained per second from [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.FuelStorage]] at an activation level of 1, in the flat single-drain form of [[Cosmoteer.Ships.Parts.Thrusters.ThrusterRules.FuelUsage]]. Consumption scales linearly with the current activation level, and fractional amounts accumulate until whole units can be deducted.

@@ -10,9 +10,9 @@
 ## Probability
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The decal placement probability, from 0 to 1, at this point on the ramp.
 
 ## Position
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The perlin noise value at which this probability applies. A sampled noise value between two points interpolates their probabilities linearly, and points are kept sorted by `Position`.

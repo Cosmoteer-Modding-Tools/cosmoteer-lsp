@@ -10,9 +10,9 @@
 ## SightRadius
 `number` · required
 
-<!-- TODO: needs documentation -->
+The sight distance, in tiles, this sensor grants its ship, measured outward from the ship's bounding circle and scaled by any nebula sight-range factor. The ship uses the single largest value among its operational sensors and the ship's base sight radius. Being modifiable, buffs can raise it, as the vanilla sensor array does on top of its base 800.
 
 ## RadarRadius
 `number` · required
 
-<!-- TODO: needs documentation -->
+The radar (blip) distance, in tiles, this sensor grants its ship, measured outward from the ship's bounding circle and scaled by any nebula radar-range factor. The ship uses the single largest value among its operational sensors and the ship's base radar radius. Ships detected within radar range but outside sight range show up as blips.

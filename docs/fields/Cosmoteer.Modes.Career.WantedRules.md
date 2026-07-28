@@ -10,49 +10,49 @@
 ## SearchRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radius in tiles of the area police sweep around the player's last known position once they have lost sight of the player. It is scaled by the faction reputation title's `WantedSearchRadiusFactor`, and while the player is still being tracked directly the radius is 0. Vanilla uses 4000.
 
 ## AggroRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+How far in tiles a police ship looks for a wanted search area to head for. Last known positions further away than this are ignored, so a police ship outside this range has nothing to hunt. Vanilla uses 4000.
 
 ## SearchingExpireTime
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds after the player was last seen before a faction gives up on that sighting and, once all of its sightings expire, despawns its police response. The faction's reputation title scales this through `WantedDurationFactor`. Vanilla uses 60 seconds.
 
 ## PoliceShipTags
 `→ BuiltinShipTag[]` · optional
 
-<!-- TODO: needs documentation -->
+Tags a builtin ship must carry to be picked as a police responder. Candidates are further filtered to the offended faction and to the tier range of the player's current fame title, and spawning throws if nothing matches. Vanilla asks for `combat`.
 
 ## PoliceSpawnDistance
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Distance in tiles from the player's last known position at which police warp in, rolled per ship in a random direction. Vanilla spawns them 2000 to 3000 tiles out.
 
 ## PoliceSpawnAvoidableDoodadTags
 `→ SimObjectSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Tags of avoidable doodads that police must not warp on top of. Up to 100 spawn positions are rolled until one is clear, and the last roll is used regardless if none of them is. Vanilla avoids `sun`.
 
 ## PoliceSpawnAvoidableDoodadBuffer
 `float` · required
 
-<!-- TODO: needs documentation -->
+Extra clearance in tiles added around each avoided doodad, and around AI avoided nebulas, when testing a candidate police spawn position. Vanilla uses 100.
 
 ## PoliceAIType
 `→ ShipAIRules` · required
 
-<!-- TODO: needs documentation -->
+The ship AI given to spawned police ships, which is what makes them hunt wanted search areas. Vanilla uses `Police`.
 
 ## MultiThreadedPoliceSpawnDelay
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds of preload time granted per police ship that is still spawning, so a wave of responders staggers in instead of stalling the game at once. Saving is blocked while a spawn is waiting. Vanilla uses 1 second.
 
 ## WantedAlertSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+The sound played the moment the wanted indicator appears on the HUD.

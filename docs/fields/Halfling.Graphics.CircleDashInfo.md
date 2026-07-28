@@ -10,39 +10,39 @@
 ## SizeWeight
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The share of the circle's arc this dash occupies relative to the other dashes in [[Halfling.Graphics.CircleRenderer.Dashes]]. Each repeat of the dash pattern splits its slice of [[Halfling.Graphics.CircleRenderer.Arc]] among the dashes in proportion to their weights. Defaults to 1.
 
 ## DashURange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The horizontal texture coordinate range `[from, to]` mapped along the main body of the dash, as 0..1 fractions across the width of the renderer's [[Halfling.Graphics.CircleRenderer.UVRect]]. Defaults to `[0, 1]`. The vanilla ship selection circle in `gui/game/sim_gui.rules` uses ranges like `[32/128, 96/128]` to pick strips of its texture.
 
 ## BeginCapLength
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The length of the cap rendered at the start of the dash, as a distance along the circumference in the same units as the circle's radius. Added to the result of [[Halfling.Graphics.CircleDashInfo.BeginCapLengthPerThickness]]. When the begin and end caps together would exceed the dash's length they are scaled down proportionally to fit. Defaults to 0.
 
 ## BeginCapLengthPerThickness
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Extra begin-cap length per unit of the circle's [[Halfling.Graphics.CircleRenderer.Thickness]]. The product is added to [[Halfling.Graphics.CircleDashInfo.BeginCapLength]], so a value of 1 makes the cap as long as the ring is thick. Defaults to 0.
 
 ## BeginCapURange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The horizontal texture coordinate range `[from, to]` mapped along the begin cap, as 0..1 fractions across the width of the renderer's [[Halfling.Graphics.CircleRenderer.UVRect]]. Defaults to `[0, 0]`.
 
 ## EndCapLength
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The length of the cap rendered at the end of the dash, as a distance along the circumference in the same units as the circle's radius. Added to the result of [[Halfling.Graphics.CircleDashInfo.EndCapLengthPerThickness]]. Defaults to 0.
 
 ## EndCapLengthPerThickness
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Extra end-cap length per unit of the circle's [[Halfling.Graphics.CircleRenderer.Thickness]]. The product is added to [[Halfling.Graphics.CircleDashInfo.EndCapLength]]. Defaults to 0.
 
 ## EndCapURange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The horizontal texture coordinate range `[from, to]` mapped along the end cap, as 0..1 fractions across the width of the renderer's [[Halfling.Graphics.CircleRenderer.UVRect]]. Defaults to `[0, 0]`.

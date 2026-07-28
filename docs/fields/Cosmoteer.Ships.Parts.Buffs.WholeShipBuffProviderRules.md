@@ -10,4 +10,4 @@
 ## BuffsSelf
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets the provider buff its own part in addition to every other part on the ship. Off by default.

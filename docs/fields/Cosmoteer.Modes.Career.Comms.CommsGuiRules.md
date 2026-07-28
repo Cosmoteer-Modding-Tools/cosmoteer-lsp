@@ -10,194 +10,194 @@
 ## ToolIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the comms button in the ship HUD's tool bar, next to the crew and resources buttons. Clicking it opens the comms toolbox.
 
 ## HailIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the "Hail" button of each ship row in the comms toolbox, shown for ships the player can call. Ships that are already hailing the player get accept and decline buttons instead.
 
 ## AcceptHailIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the "Accept" button of a comms toolbox row for a ship that is currently hailing the player. Accepting skips the outgoing hail and opens the comm window directly.
 
 ## DeclineHailIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the small decline button next to the accept button of an incoming hail. Clicking it drops the hail and plays [[Cosmoteer.Modes.Career.Comms.CommsGuiRules.HailFailedSound]].
 
 ## HailingIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the floating banner shown near the top of the screen while a call is being placed and while an AI ship is hailing the player. The banner pulses in opacity until the call resolves.
 
 ## AIHailingIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it. It was meant to be the banner icon for an incoming AI hail, but both branches of the check that picks the icon use [[Cosmoteer.Modes.Career.Comms.CommsGuiRules.HailingIcon]].
 
 ## HailingFailedIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the banner shown when a called ship does not answer. The banner fades out between 1.5 and 2.5 seconds after it appears.
 
 ## HailingSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the player places a call and when an AI ship starts hailing the player. For a player-placed call the duration of its first sound also decides how long the hailing banner stays up before the answer resolves.
 
 ## HailAnsweredSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the called ship answers and the comm window opens.
 
 ## HailFailedSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when a called ship refuses to answer and when the player declines an incoming hail from the comms toolbox.
 
 ## TruceBrokenSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays at the start of the "truce broken" screen animation, which fires when the player breaks a truce and loses fame for it.
 
 ## CursorValid
 `Cursor` · required
 
-<!-- TODO: needs documentation -->
+The mouse cursor shown while the comms tool is active and a callable ship is under the cursor.
 
 ## CursorInvalid
 `Cursor` · required
 
-<!-- TODO: needs documentation -->
+The cursor intended for the comms tool when no callable ship is under the cursor. The game never shows it, because the input handler returns early when there is no valid target, so the cursor check always picks [[Cosmoteer.Modes.Career.Comms.CommsGuiRules.CursorValid]].
 
 ## RadioUnderlayUntargetedMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+The material of the radio beam drawn from the selected ship toward the mouse while the comms tool is active and no ship is targeted. The beam ends in a circle twice the selected ship's bounding radius.
 
 ## RadioUnderlayTargetedMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+The material of the radio beam drawn from the calling ship to the ship the player is about to call.
 
 ## HailUnderlayUntargetedMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+The material of the radio beam drawn from each ship hailing the player back to the player ship that would answer, while that hailer is not under the cursor.
 
 ## HailUnderlayInCommsMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+The material of the radio beam drawn between two ships that already have a comm window open with each other.
 
 ## HailUnderlayTargetedMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+The material used in place of [[Cosmoteer.Modes.Career.Comms.CommsGuiRules.HailUnderlayUntargetedMaterial]] for the hailing ship the player is currently pointing at.
 
 ## HailUnderlayDecliningMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+The material used in place of [[Cosmoteer.Modes.Career.Comms.CommsGuiRules.HailUnderlayTargetedMaterial]] while the mouse is over that hailer's decline button, to signal that clicking will drop the call.
 
 ## MissionsTabIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon of the missions tab in the comm window. The tab only appears if the called ship's AI is willing to offer missions to the caller.
 
 ## HireTabIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon of the crew hiring tab in the comm window. The tab only appears if the called ship's AI is willing to sell crew to the caller.
 
 ## TradeTabIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon of the resource trading tab in the comm window. The tab only appears if the called ship's AI is willing to trade with the caller.
 
 ## TechsTabIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon of the tech purchase tab in the comm window. The tab only appears if the called ship's AI is willing to sell techs to the caller.
 
 ## DialogueTabIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon of the dialogue tab in the comm window. The tab only appears if the called ship's AI has dialogue for the caller.
 
 ## DefaultDialogueLineIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon shown next to a dialogue line and on its reply buttons when the dialogue itself supplies no override icon. Its sprite size also fixes the size of the icon box in the dialogue tab.
 
 ## AcceptSurrenderIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the reply button that accepts an AI ship's offer to surrender in exchange for a payout.
 
 ## RejectSurrenderIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the reply button that turns down a surrender offer, whether the AI or the player made it.
 
 ## OfferSurrenderIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the reply button the player uses to surrender to an AI ship or to pay off a bounty that ship's faction holds.
 
 ## HoldGuiOnAICallDuration
 `float` · required
 
-<!-- TODO: needs documentation -->
+Seconds the hailing banner stays on screen after an AI ship starts hailing the player. Vanilla uses 3.
 
 ## TruceBrokenTitleColorAnim
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes animating the large "Truce Broken" headline, each entry a time in seconds paired with a color. Alpha components above 255 produce a bloom flash.
 
 ## TruceBrokenInfoColorAnim
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes animating the smaller explanation line under the "Truce Broken" headline, each entry a time in seconds paired with a color.
 
 ## TruceBrokenFameAnimIn
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes fading in the fame loss counter below the truce broken text. It starts after [[Cosmoteer.Modes.Career.Comms.CommsGuiRules.TruceBrokenDelayBeforeFameDuration]] has elapsed.
 
 ## TruceBrokenFameAnimOut
 `[Time, Color][]` · optional
 
-<!-- TODO: needs documentation -->
+Color keyframes fading the fame loss counter back out once the count down has finished and the hold delay has elapsed.
 
 ## TruceBrokenFameTickDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds the fame loss counter takes to count from 0 down to the full amount of fame lost.
 
 ## TruceBrokenDelayBeforeFameDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds between the "Truce Broken" text appearing and the fame loss counter appearing.
 
 ## TruceBrokenHoldAnimDelayOut
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds the finished fame loss counter is held on screen before its fade out animation plays.
 
 ## LoopCommsWaveEmptySound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+The looping sound played while the comms tool is active and pointed at empty space rather than a callable ship. It stops while a call is already in progress.
 
 ## LoopCommsWaveTargettingSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+The looping sound played while the comms tool is locked onto a callable ship. It replaces the empty wave loop and also stops while a call is in progress.
 
 ## CommsWaveFalloffDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds a comms wave loop takes to fade from full volume to silence once it stops applying. Volume drops by the frame delta divided by this value each frame.

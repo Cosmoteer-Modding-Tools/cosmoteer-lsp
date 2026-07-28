@@ -10,44 +10,44 @@
 ## GridRect
 `IntRect` · required
 
-<!-- TODO: needs documentation -->
+The part-relative rectangle of cells `[x, y, width, height]`, in tiles, that makes up the storage grid. Each cell holds one stack of [[Cosmoteer.Ships.Parts.Resources.BaseResourceStorageRules.ResourceType]] storing up to its [[Cosmoteer.Resources.ResourceRules.MaxStackSize]], so total capacity is the number of enabled cells times the stack size. Vanilla ammo factories and cannon magazines use this for their visible ammo racks.
 
 ## DisableCells
 `IntVector2[]` · optional
 
-<!-- TODO: needs documentation -->
+Grid-relative cell coordinates within [[Cosmoteer.Ships.Parts.Resources.TypedResourceGridRules.GridRect]] that hold no resources. Disabled cells have zero capacity and never display a stack. The vanilla Large Flak Cannon disables two corner cells of its 3x2 ammo grid to fit its sprite.
 
 ## Layer
 `→ ShipRenderLayerRules` · required
 
-<!-- TODO: needs documentation -->
+The ship render layer on which the stack sprites of stored resources are drawn. Vanilla factories and magazines use `doodads_low` so stacks appear above the floor but below crew and roofs.
 
 ## SpriteInset
 `Borders` · optional
 
-<!-- TODO: needs documentation -->
+Margins, in tiles, trimmed off the edges of [[Cosmoteer.Ships.Parts.Resources.TypedResourceGridRules.GridRect]] before the tile visuals are laid out. The stack sprites and their tooltip rects are proportionally squeezed into the shrunk rectangle. Either a single number for all four sides or `[left, top, right, bottom]`, typically expressed in sprite pixels like `[11/64, 8/64, 11/64, 8/64]`.
 
 ## RandomSpriteRotation
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Rotates each cell's stack sprite by a random multiple of 90 degrees, chosen once per tile.
 
 ## StartingResources
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The game stores the value but never reads it for typed resource grids, so a grid always starts empty unless filled another way. The identically named [[Cosmoteer.Ships.Parts.Resources.ResourceStorageRules.StartingResources]] on plain resource storages is the one that works.
 
 ## InitToMaxResources
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The amount this grid is filled to when a ship spawns with full storage, and the amount of stored resources whose buy price is added to the ship's cost. Defaults to the grid's full capacity when unset. Vanilla factories set 0 so their output buffers start empty and add nothing to the part's price.
 
 ## DelayBeforeReadyToUse
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds that must pass after resources arrive before any of the grid's contents count as ready to use. Until then, consumers that check ready resources, such as weapons drawing ammo, see the grid as empty, and each new delivery restarts the delay. Vanilla cannons use 0.25 on their loaded-ammo grids to simulate loading time.
 
 ## DrainOnFtlJump
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Empties the grid right before its ship performs an FTL jump. Vanilla shield generators enable this so stored shield energy is lost on hyperjumps.

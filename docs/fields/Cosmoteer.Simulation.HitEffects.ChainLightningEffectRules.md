@@ -10,104 +10,104 @@
 ## MaxChainLength
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The maximum number of strike generations, counting the initial strikes as the first, rolled randomly from the range when the effect triggers. A value of 1 fires only the initial strikes, 2 allows one chain hop from each initial target, and so on. A rolled value of 0 or less cancels the whole effect. Also the reference length for [[Cosmoteer.Simulation.HitEffects.ChainLightningEffectRules.ChainEffectFalloff]].
 
 ## InitialRadius
 `number` · required
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, around the triggering hit point that is searched for initial strike targets. A value of 0 or less disables the effect. The vanilla overclocked Ion Prism lightning uses its beam offset plus 1.5.
 
 ## ChainRadius
 `number` · required
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, around each struck target that is searched for the next chain targets.
 
 ## HitEffects
 `MultiHitEffectRules` · required
 
-<!-- TODO: needs documentation -->
+The hit effects applied at every struck target, both initial and chained. Chained applications receive a reduced effect scale per [[Cosmoteer.Simulation.HitEffects.ChainLightningEffectRules.ChainEffectFalloff]], which shrinks any modifiable values in these effects such as damage.
 
 ## InitialChance
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The probability, as a 0..1 fraction, that the effect triggers at all, rolled once per triggering hit. Defaults to 1.
 
 ## InitialStrikes
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The number of initial lightning strikes launched from the hit point, rolled randomly from the range. Defaults to 1. Each strike picks a random target found within [[Cosmoteer.Simulation.HitEffects.ChainLightningEffectRules.InitialRadius]], and a rolled value of 0 or less cancels the effect.
 
 ## InitialStrikeRandomOffsetRadius
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, of a circle around the hit point within which each initial strike's origin is randomly placed. The origin is where the strike visually starts and where the [[Cosmoteer.Simulation.HitEffects.ChainLightningEffectRules.RaycastInitialTargets]] raycast begins. Defaults to 0, meaning all strikes start exactly at the hit point.
 
 ## MaxInitialAngle
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The maximum angle, in degrees, between the triggering hit's travel direction and the direction to a candidate target for that target to be eligible for an initial strike. Values of 180 or more allow targets in all directions, which is the default. The vanilla overclocked Ion Prism lightning uses `60d`.
 
 ## RaycastInitialTargets
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether each initial strike raycasts from its origin to the chosen target. When an obstructing part or shield lies in the way, the strike hits that obstruction instead of the chosen target. Defaults to false, letting strikes reach their target directly.
 
 ## ChainChance
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The probability, as a 0..1 fraction, that the lightning chains onward from each struck target, rolled per target. Defaults to 1. On chained targets the roll uses the falloff-reduced effect scale when evaluating modifiers.
 
 ## ChainStrikes
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The number of follow-up strikes launched from each target that chains, rolled randomly from the range per target. Defaults to 1. Values above 1 make the lightning fork.
 
 ## ChainEffectFalloff
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The exponent controlling how the effect scale decays along the chain. A chained strike at hop N uses scale `(1 - N / MaxChainLength) ^ ChainEffectFalloff`, so 1 gives linear decay toward zero at [[Cosmoteer.Simulation.HitEffects.ChainLightningEffectRules.MaxChainLength]] and larger values decay faster. A value of exactly 0 disables falloff entirely. The reduced scale shrinks modifiable values in [[Cosmoteer.Simulation.HitEffects.ChainLightningEffectRules.HitEffects]] and the intensity of [[Cosmoteer.Simulation.HitEffects.ChainLightningEffectRules.ChainMediaEffects]].
 
 ## MaxChainAngle
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The maximum angle, in degrees, between the previous hop's travel direction and the direction to a candidate target for the lightning to chain to it, making arcs prefer to continue forward. Values of 180 or more allow chaining in all directions, which is the default.
 
 ## ChainDelay
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The pause, in seconds, between successive chain generations. All strikes of one generation land, the delay elapses, then the next generation fires. Defaults to 0.
 
 ## PreventSameTargetForSplitStrikes
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether multiple strikes fired in the same generation must each pick a distinct target. When false, an already struck target stays in the candidate pool as long as it is still alive, so split strikes can hit the same object repeatedly.
 
 ## RectType
 `enum PartRectType` · optional · one of: `Normal`, `Physical`
 
-<!-- TODO: needs documentation -->
+Which footprint rectangle of a part is used when checking whether a searched cell belongs to it, its normal rect or its physical collision rect. Defaults to `Normal`.
 
 ## HitFilter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+The filter the triggering hit's ship and part must pass for the effect to run at all. When unset, the effect runs on any hit.
 
 ## InitialFilter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+The filter deciding which objects, such as ship parts, shields, targetable projectiles, and crew in space, are valid initial strike targets. Defaults to an enemy-only filter. Its `Ships`, `Shields`, `Bullets`, and `Crew` switches also decide which object kinds are searched for.
 
 ## ChainFilter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+The filter deciding which objects are valid chain targets. Falls back to [[Cosmoteer.Simulation.HitEffects.ChainLightningEffectRules.InitialFilter]] when unset.
 
 ## MediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+The visual and audio effects played once per initial strike at the struck target, with the effect's source location set to the strike origin so beam-like particles can span the arc. The vanilla overclocked Ion Prism plays its lightning arc particles here.
 
 ## ChainMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+The visual and audio effects played once per chained strike at the struck target, with the source location set to the previous target the arc jumped from. Their intensity is reduced by [[Cosmoteer.Simulation.HitEffects.ChainLightningEffectRules.ChainEffectFalloff]].

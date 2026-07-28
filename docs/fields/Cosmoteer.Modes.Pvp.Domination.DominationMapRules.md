@@ -10,29 +10,29 @@
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for this map style's name in the host's map style drop list.
 
 ## DescriptionKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for the tooltip shown beside the map style in the lobby.
 
 ## Teams
 `int` · required
 
-<!-- TODO: needs documentation -->
+The number of teams this map style is built for, which also sets the rotational symmetry of everything the generator places. A value of 2 additionally lets the generator pick a left-right mirrored layout at random instead of a rotated one.
 
 ## CapturePointTypeCounts
 `int[]` · optional
 
-<!-- TODO: needs documentation -->
+The total number of capture points of each type to place across the whole map, positionally matching `DominationModeRules/CapturePointTypes`. A count that is not a multiple of `Teams` has its remainder replaced by exactly one extra point placed alone at the map center, so `[2, 1, 0]` on a two-team map means one small point per team plus a single large point in the middle.
 
 ## StartingCapturePointTypeCountsPerTeam
 `int[]` · optional
 
-<!-- TODO: needs documentation -->
+How many capture points of each type each team already owns at match start, positionally matching `DominationModeRules/CapturePointTypes`. Lone points at the map center are never pre-owned, so only points placed in symmetric sets can be counted here.
 
 ## DoodadTypeCounts
 `DoodadTypeCount[]` · optional
 
-<!-- TODO: needs documentation -->
+The doodads scattered symmetrically over the generated map, on top of whatever the asteroid and nebula generators add. Every doodad in one symmetric group is generated from the same random seed, so mirrored halves of the map look identical.

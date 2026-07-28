@@ -10,9 +10,9 @@
 ## AmbiguousSprites
 `AmbiguousBlendSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+The blend sprites that draw the hull walls around the ship's interior, matched by an eight-character situation code describing which of a cell's eight neighbors it should not have a wall toward. Wildcard codes are expanded at load and every possible code must be covered by some entry, with no undefined codes allowed. The sprite's damage level is picked from the average health of the surrounding parts, and random variants are supported.
 
 ## Layer
 `→ ShipRenderLayerRules` · required
 
-<!-- TODO: needs documentation -->
+The ship render layer (see [[Cosmoteer.Ships.ShipRules.RenderLayers]]) the wall sprites are drawn into. Vanilla uses `"external_walls"` for [[Cosmoteer.Ships.ShipRules.ExternalWalls]] and `"roofs"` for [[Cosmoteer.Ships.ShipRules.ExternalRoofWalls]].

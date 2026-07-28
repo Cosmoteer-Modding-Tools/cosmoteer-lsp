@@ -10,14 +10,14 @@
 ## ValueType
 `enum StatusValueType` · optional · one of: `Raw`, `Interpolated`
 
-<!-- TODO: needs documentation -->
+How the status value is interpreted before use. `Raw` uses the value as-is. `Interpolated` maps it to 0..1 across the status type's clamp range (inverse lerp), so the modifier works with a normalized fraction rather than absolute units.
 
 ## BaseStatusValue
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Constant added to the status's raw value before it is converted per ValueType, shifting the status reading up or down.
 
 ## StatusType
 `→ StatusType` · optional
 
-<!-- TODO: needs documentation -->
+The status whose current value drives the modifier. The modifier only takes effect when this status is present and valid on the target, otherwise it leaves the value unchanged.

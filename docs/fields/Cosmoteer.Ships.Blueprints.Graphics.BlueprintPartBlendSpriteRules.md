@@ -10,34 +10,34 @@
 ## Location
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Offset in tiles of the sprite from the part's center, before the part's build rotation and flip are applied. Combines with each sprite's own [[Cosmoteer.Ships.Rendering.AtlasSprite]] offset.
 
 ## AmbiguousSprites
 `AmbiguousBlendSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+Blend sprites keyed by neighbor situation code, chosen at draw time from which of the eight surrounding cells this part blends with. Although marked optional here, the deserializer requires it.
 
 ## BlendsWithCategories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Part categories this sprite is allowed to blend against. A neighboring cell only counts as present if its part belongs to one of these categories. When omitted, the sprite blends with any neighboring part.
 
 ## BlendCheckRectType
 `enum PartRectType` · optional · one of: `Normal`, `Physical`
 
-<!-- TODO: needs documentation -->
+Which rect of a neighboring part is tested when deciding whether that cell is occupied. `Normal` uses the part's logical footprint, `Physical` uses its collision footprint.
 
 ## AllowUndefinedBlendSprites
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, neighbor configurations with no matching sprite draw nothing instead of throwing. When false, every one of the 256 configurations must be covered by [[#AmbiguousSprites]] or building fails.
 
 ## RequireExternalWallsToBlend
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, a neighboring part only counts for blending if it has a blueprint external wall facing this cell. Lets the sprite blend along solid hull edges only rather than across every adjacent part.
 
 ## CellOffset
 `IntVector2` · optional
 
-<!-- TODO: needs documentation -->
+Shifts, in whole cells, the grid position at which neighbor occupancy is sampled when computing the situation code. Used to align blending for sprites that sit off the part's origin cell.

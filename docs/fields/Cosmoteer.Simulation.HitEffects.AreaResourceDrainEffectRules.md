@@ -10,39 +10,39 @@
 ## ResourceType
 `→ ResourceRules` · required
 
-<!-- TODO: needs documentation -->
+The resource that is drained. On each affected part the drain is taken from that part's drainable storages of this resource type, one after another until the part's drain amount is used up. Storages whose rules set `IsDrainable = false` are skipped.
 
 ## AmountPerPart
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Whole resource units drained from each part inside [[Cosmoteer.Simulation.HitEffects.AreaResourceDrainEffectRules.Radius]], scaled by the distance falloff and by the game mode's resource drain factor. A negative value gives resources instead, filling the part's storages up to their capacity. Defaults to 0, and when both this and [[Cosmoteer.Simulation.HitEffects.AreaResourceDrainEffectRules.FractionPerPart]] are 0 the effect does nothing.
 
 ## FractionPerPart
 `number` · optional
 
-<!-- TODO: needs documentation -->
+An additional drain per part equal to this fraction of the maximum capacity of each drainable storage of the resource type on that part, scaled by the distance falloff. Added on top of [[Cosmoteer.Simulation.HitEffects.AreaResourceDrainEffectRules.AmountPerPart]]. Defaults to 0.
 
 ## Radius
 `number` · required
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, of the world-space circle around the impact point within which parts are drained. Every part cell whose center lies inside the circle is considered, and a multi-cell part uses its strongest cell rather than the sum. At 0 or less the effect does nothing.
 
 ## Falloff
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The exponent shaping how the drain weakens with distance. The base factor runs linearly from 1 at the epicenter to 0 at the edge of [[Cosmoteer.Simulation.HitEffects.AreaResourceDrainEffectRules.Radius]] and is raised to this power, so values above 1 concentrate the drain near the center while 0 drains every part in range at full strength. Defaults to 1.
 
 ## Delay
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds to wait after the hit before the drain is applied. During the wait the effect point follows the motion of the ship that was hit. Defaults to 0.
 
 ## Filter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+The filter deciding which ships and parts can be drained. Defaults to enemy ships only.
 
 ## MediaEffectsOnDrain
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played at the center of each part that actually lost or gained resources, oriented to the part's direction. Their intensity is the fraction of that part's requested drain that was actually applied.

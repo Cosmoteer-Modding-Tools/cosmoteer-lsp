@@ -10,14 +10,14 @@
 ## IntroTracks
 `FsmState[]` · optional
 
-<!-- TODO: needs documentation -->
+Candidate starting states for the state machine, one of which is chosen at random when the track begins. Required. The constructor iterates it with no null check, so an FSM track without this key crashes on load. Each state's own [[Cosmoteer.Music.MusicFsmTrackRules+FsmState#NextTracks|NextTracks]] chains into the rest of the machine, falling back to [[Cosmoteer.Music.MusicFsmTrackRules#DefaultNextTracks|DefaultNextTracks]].
 
 ## FirstBootIntroTracks
 `FsmState[]` · optional
 
-<!-- TODO: needs documentation -->
+Alternate set of starting states used only on the game's very first boot. When unset the machine starts from [[Cosmoteer.Music.MusicFsmTrackRules#IntroTracks|IntroTracks]] as usual.
 
 ## DefaultNextTracks
 `FsmState[]` · optional
 
-<!-- TODO: needs documentation -->
+Fallback set of next states used whenever the current state's own [[Cosmoteer.Music.MusicFsmTrackRules+FsmState#NextTracks|NextTracks]] is unset. If this is also unset the machine has nowhere to go and the track ends.
