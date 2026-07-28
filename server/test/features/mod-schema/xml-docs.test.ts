@@ -105,6 +105,7 @@ describe('applyModFieldDocs', () => {
         assemblyOf: { 'Mod.Thing': 'C:/mods/ModAsm.dll' },
         // `Radius` is written under that name but declared as the C# member `_radius`.
         memberNames: { 'Mod.Thing': { Count: 'Count', Enabled: 'Enabled', Radius: '_radius' } },
+        modLinks: {},
     });
 
     const docs = new Map([
