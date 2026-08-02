@@ -71,6 +71,11 @@ export interface CosmoteerSettings {
         // game never reads, and fields any reference in the file reads are left alone. Hint severity
         // keeps it out of the Problems panel.
         validateDefaultValues: boolean;
+        // When true (the default), fade a SCREAMING_CASE constant that nothing reads, including a
+        // chain of constants that only read each other and never reach a field. Only judged when no
+        // other file in the project spells the name, so a constant read from another file (or by a
+        // mod that ships a `.dll`) is left alone. Hint severity keeps it out of the Problems panel.
+        validateUnusedConstants: boolean;
     };
     codeMods: {
         // When true (the default), a mod that ships a `.dll` has its own serializable types, fields
@@ -145,6 +150,7 @@ export const defaultSettings: CosmoteerSettings = {
         validateRedundantSeparators: true,
         validateIgnoredFields: true,
         validateDefaultValues: true,
+        validateUnusedConstants: true,
     },
     codeMods: {
         enabled: true,

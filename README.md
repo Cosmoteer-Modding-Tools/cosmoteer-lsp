@@ -62,6 +62,7 @@ All settings live under the `cosmoteerLSPRules.` prefix.
 | `diagnostics.validateRedundantSeparators` | on | Hint at a `,`/`;` separator a line break already makes redundant (shown as an editor hint, not in the Problems panel) |
 | `diagnostics.validateIgnoredFields` | on | Hint at a field the game never reads, with a remove quick fix (shown as an editor hint, not in the Problems panel) |
 | `diagnostics.validateDefaultValues` | on | Fade a field written at the game's own default, with a remove quick fix. Only inside groups that do not inherit, since an explicit default can override a base's value |
+| `diagnostics.validateUnusedConstants` | on | Fade a `SCREAMING_CASE` constant nothing reads, and a chain of constants that only read each other, with a remove quick fix. Only judged when no other file in the project spells the name |
 | `codeMods.enabled` | on | Read the types, fields and `Type=` values a mod's `.dll` declares and merge them into the schema, so modded components complete, hover and validate like built-in ones. Covers the workspace, the installed workshop mods and your own `Mods` folder. Off scans nothing and uses the shipped schema alone |
 | `codeMods.autoRefresh` | on | Pick up a code mod installed, updated or rebuilt while the editor is open, by watching the assemblies the schema was built from. Off leaves that to `Cosmoteer: Rebuild Schema from Code Mod Assemblies` |
 | `inlayHints.showBaseValue` | on | Show the referenced group's `BaseValue` inline: a reference to a group with a `BaseValue` member renders `/BaseValue = 160d` |

@@ -95,6 +95,7 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
             row { checkBox("Hint at redundant separators").bindSelected(state::validateRedundantSeparators) }
             row { checkBox("Hint at fields the game ignores").bindSelected(state::validateIgnoredFields) }
             row { checkBox("Fade fields written at their default").bindSelected(state::validateDefaultValues) }
+            row { checkBox("Fade constants nothing reads").bindSelected(state::validateUnusedConstants) }
         }
         group("Code mods") {
             row {

@@ -268,6 +268,12 @@
                     "default": true,
                     "description": "Fade a field that restates the game's own default, so deleting it changes nothing. Only checked inside groups that do not inherit, since an explicitly written default can deliberately override a base's value. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
                 },
+                "cosmoteerLSPRules.diagnostics.validateUnusedConstants": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Fade a SCREAMING_CASE constant that nothing reads, and a chain of constants that only read each other without ever reaching a field. Only judged when no other file in the project spells the name. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
+                },
                 "cosmoteerLSPRules.codeMods.enabled": {
                     "scope": "resource",
                     "type": "boolean",

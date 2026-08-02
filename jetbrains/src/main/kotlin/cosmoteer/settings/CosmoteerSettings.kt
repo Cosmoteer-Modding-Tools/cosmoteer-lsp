@@ -38,6 +38,7 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateRedundantSeparators: Boolean = true
         var validateIgnoredFields: Boolean = true
         var validateDefaultValues: Boolean = true
+        var validateUnusedConstants: Boolean = true
         var codeModsEnabled: Boolean = true
         var codeModsAutoRefresh: Boolean = true
         var inlayShowBaseValue: Boolean = true
@@ -91,6 +92,7 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateRedundantSeparators" to state.validateRedundantSeparators,
             "validateIgnoredFields" to state.validateIgnoredFields,
             "validateDefaultValues" to state.validateDefaultValues,
+            "validateUnusedConstants" to state.validateUnusedConstants,
         ),
         "codeMods" to mapOf(
             "enabled" to state.codeModsEnabled,

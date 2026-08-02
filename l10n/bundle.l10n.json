@@ -65,6 +65,8 @@
   "You either reference a non-existing identifier or an identifier that is not in scope": "You either reference a non-existing identifier or an identifier that is not in scope",
   "Fragile relative path into the workshop folder": "Fragile relative path into the workshop folder",
   "This path resolves relative to this file and breaks when the file moves. \"{0}\" resolves from the game folder and works from any file.": "This path resolves relative to this file and breaks when the file moves. \"{0}\" resolves from the game folder and works from any file.",
+  "'{0}' is only read by constants that are themselves never read, so the game loads none of them.": "'{0}' is only read by constants that are themselves never read, so the game loads none of them.",
+  "'{0}' is a constant that nothing reads, so the game ignores it.": "'{0}' is a constant that nothing reads, so the game ignores it.",
   "a number": "a number",
   "a list of numbers": "a list of numbers",
   "Unknown shader constant '{0}'. The shader '{1}' declares no such uniform.": "Unknown shader constant '{0}'. The shader '{1}' declares no such uniform.",

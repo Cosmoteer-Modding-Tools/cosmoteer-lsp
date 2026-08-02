@@ -141,12 +141,83 @@ const localTypeCategoriesList = (group: FieldContainer): ListNode | undefined =>
  * @param text the reference path text.
  * @param out the set collecting the lower-cased segments.
  */
-const addSegments = (text: string, out: Set<string>): void => {
+export const addSegments = (text: string, out: Set<string>): void => {
     const withoutFile = text.replace(/<[^>]*>/g, ' ');
     for (const raw of withoutFile.split('/')) {
         const segment = raw.replace(/[&~^.:\s]/g, '');
         if (segment) out.add(segment.toLowerCase());
     }
+};
+
+/** References embedded in a quoted expression string, which the game evaluates like a bare one. */
+const EMBEDDED_REFERENCE = /&[^\s()"]+/g;
+
+/** A value that is a single identifier, the shape a schema id field uses to name a member. */
+const BARE_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
+
+/** The callbacks {@link walkReferenceReads} feeds, one per read shape it finds. */
+export interface ReferenceReadHooks {
+    /** A reference text: a Reference value, a `&…` embedded in a string, a bare `&…` member. */
+    reference: (text: string, owner: string | undefined) => void;
+    /** A string value that is a plain identifier, the shape a schema id field names a member with. */
+    bareName?: (text: string, owner: string | undefined) => void;
+    /** The owner a node's children attribute their reads to. Omitted, ownership never starts. */
+    declare?: (node: AbstractNode, owner: string | undefined, container: AbstractNode) => string | undefined;
+}
+
+/**
+ * Walks every reference-shaped read in a document and hands each to the hooks: reference values
+ * (including function arguments and math operands), inheritance lists, references embedded in quoted
+ * expression strings (`HEAT_PER_INTERVAL = ceil("(&A) / (&B)")`, re-evaluated by the game), bare
+ * `&…` members (which parse as IdentifierNodes), and plain identifier string values when asked. The
+ * one walk serves both the ignored-field and the unused-constant pass, so a new reference shape only
+ * has to be taught here.
+ *
+ * @param document the parsed document to walk.
+ * @param hooks the per-shape callbacks.
+ */
+export const walkReferenceReads = (document: AbstractNodeDocument, hooks: ReferenceReadHooks): void => {
+    const declare = hooks.declare ?? ((_node: AbstractNode, owner: string | undefined) => owner);
+    const visit = (node: AbstractNode | null | undefined, owner: string | undefined, container: AbstractNode): void => {
+        if (!node) return;
+        if (isValueNode(node)) {
+            if (node.valueType.type === 'Reference') {
+                hooks.reference(String(node.valueType.value), owner);
+            } else if (node.valueType.type === 'String') {
+                const text = String(node.valueType.value);
+                for (const embedded of text.match(EMBEDDED_REFERENCE) ?? []) hooks.reference(embedded, owner);
+                if (hooks.bareName && BARE_NAME.test(text.trim())) hooks.bareName(text.trim(), owner);
+            }
+            return;
+        }
+        // A bare `&…` member parses as an identifier rather than as a value.
+        if (isIdentifierNode(node)) {
+            if (node.name.startsWith('&')) hooks.reference(node.name, owner);
+            return;
+        }
+        if (isGroupNode(node) || isListNode(node)) {
+            const inner = declare(node, owner, container);
+            for (const inherited of node.inheritance ?? []) visit(inherited, inner, node);
+            for (const child of node.elements) visit(child, inner, node);
+            return;
+        }
+        if (isDocumentNode(node)) {
+            for (const child of node.elements) visit(child, owner, node);
+            return;
+        }
+        if (isAssignmentNode(node)) {
+            visit(node.right, declare(node, owner, container), container);
+            return;
+        }
+        if (isFunctionCallNode(node)) {
+            for (const argument of node.arguments) visit(argument, owner, container);
+            return;
+        }
+        if (isMathExpressionNode(node)) {
+            for (const element of node.elements) visit(element, owner, container);
+        }
+    };
+    visit(document, undefined, document);
 };
 
 /**
@@ -162,36 +233,7 @@ export const referencedSegments = (document: AbstractNodeDocument): Set<string> 
     const cached = segmentsCache.get(document);
     if (cached) return cached;
     const out = new Set<string>();
-    const visit = (node: AbstractNode | null | undefined): void => {
-        if (!node) return;
-        if (isValueNode(node)) {
-            if (node.valueType.type === 'Reference') {
-                addSegments(String(node.valueType.value), out);
-            } else if (node.valueType.type === 'String') {
-                // A quoted expression string is re-evaluated by the game (`HEAT_PER_INTERVAL =
-                // ceil("(&A) / (&B)")`), so references embedded in any string value count as reads.
-                for (const embedded of String(node.valueType.value).match(/&[^\s()"]+/g) ?? []) {
-                    addSegments(embedded, out);
-                }
-            }
-            return;
-        }
-        if (isIdentifierNode(node)) {
-            if (node.name.startsWith('&')) addSegments(node.name, out);
-            return;
-        }
-        if (isGroupNode(node) || isListNode(node) || isDocumentNode(node)) {
-            if (!isDocumentNode(node)) for (const inherited of node.inheritance ?? []) visit(inherited);
-            for (const child of node.elements) visit(child);
-        } else if (isAssignmentNode(node)) {
-            visit(node.right);
-        } else if (isFunctionCallNode(node)) {
-            for (const argument of node.arguments) visit(argument);
-        } else if (isMathExpressionNode(node)) {
-            for (const element of node.elements) visit(element);
-        }
-    };
-    visit(document);
+    walkReferenceReads(document, { reference: (text) => addSegments(text, out) });
     segmentsCache.set(document, out);
     return out;
 };

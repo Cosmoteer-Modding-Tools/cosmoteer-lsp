@@ -115,6 +115,7 @@ export const extendSchemaWithMods = (extension: ModSchemaExtension | undefined):
     fieldIndexCache.clear();
     acceptsShaderConstantsCache.clear();
     localizationKeyFieldNameSet = undefined;
+    declaredFieldNameSet = undefined;
 };
 
 /** The mod schema currently merged in, for a consumer that needs to know whether one is active. */
@@ -317,6 +318,29 @@ export const localizationKeyFieldNames = (): ReadonlySet<string> => {
         }
     }
     return localizationKeyFieldNameSet;
+};
+
+let declaredFieldNameSet: Set<string> | undefined;
+
+/**
+ * The lower-cased names (and aliases) of every field any class in the schema declares. A key spelled
+ * like one of these can be read by the game even when its container's class does not resolve, so the
+ * unused-constant check treats such a name as a field rather than as a user constant. Callers must
+ * lower-case the written name before membership tests. Computed once and cached.
+ *
+ * @returns the lower-cased set of every declared field name in the schema.
+ */
+export const declaredFieldNames = (): ReadonlySet<string> => {
+    if (!declaredFieldNameSet) {
+        declaredFieldNameSet = new Set();
+        for (const type of Object.values(schema.types)) {
+            for (const field of type.fields) {
+                declaredFieldNameSet.add(field.name.toLowerCase());
+                for (const alias of field.aliases ?? []) declaredFieldNameSet.add(alias.toLowerCase());
+            }
+        }
+    }
+    return declaredFieldNameSet;
 };
 
 /** Memo of {@link acceptsShaderConstants} per class, checked for every `_`-prefixed field. */

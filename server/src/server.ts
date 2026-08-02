@@ -63,6 +63,7 @@ import { ValidationForAssignment } from './features/diagnostics/validator.assign
 import { validateRedundantSeparators } from './features/diagnostics/validator.separator';
 import { validateIgnoredFields } from './features/diagnostics/validator.ignored-field';
 import { validateDefaultValuedFields } from './features/diagnostics/validator.default-value';
+import { validateUnusedConstants } from './features/diagnostics/validator.unused-constant';
 import { ValidationForMath } from './features/diagnostics/validator.math';
 import { ValidationForDocumentDuplicates, ValidationForGroupDuplicates } from './features/diagnostics/validator.duplicate-key';
 import { validateInheritanceCycles } from './features/diagnostics/validator.inheritance-cycle';
@@ -1125,6 +1126,15 @@ async function validateTextDocument(
             );
             validationErrors = validationErrors.concat(defaultValueErrors);
         }
+        // Separate pass: SCREAMING_CASE constants no reference reads, chains of them included. Needs
+        // the project's mention index to prove the name is spelled nowhere else, so it runs with the
+        // same folder set the cross-file checks use.
+        if (settings.diagnostics?.validateUnusedConstants) {
+            const unusedConstantErrors = await timedPass('scan.vUnusedConstantMs', async () =>
+                validateUnusedConstants(parserResult.value, await searchFolderUris(), cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(unusedConstantErrors);
+        }
         if (isModRules(textDocument.uri)) {
             // Separate pass: validate the manifest's action verbs/targets against the
             // effective game tree (the AstType-keyed Validator allows only one pass per type).
@@ -1404,7 +1414,8 @@ const scanRevisionSum = (): number =>
     ActionRootingIndex.instance.revision +
     SchemaIdIndex.instance.revision +
     TemplateBaseIndex.instance.revision +
-    LocalizationKeyIndex.instance.revision;
+    LocalizationKeyIndex.instance.revision +
+    MentionIndex.instance.revision;
 
 /**
  * Validate a single `.rules` file from disk and publish its diagnostics. Skips files open in the
@@ -2546,9 +2557,7 @@ async function modAssemblyRoots(): Promise<string[]> {
  * @returns once the extension is merged, or immediately when there is nothing to search.
  */
 async function loadModSchema(): Promise<void> {
-    // Off means off: no discovery walk, no assembly read, nothing merged. A user who does not use
-    // code mods pays nothing for the feature, and one who does not want a mod's types recognized
-    // gets exactly the shipped schema.
+    // Off means: no assembly walk, no assembly read, nothing merged.
     if (!codeModsEnabled()) {
         extendSchemaWithMods(undefined);
         return;

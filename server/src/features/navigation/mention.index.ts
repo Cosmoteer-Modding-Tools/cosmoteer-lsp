@@ -11,6 +11,142 @@ import { readFilesAhead, uriToFsPath } from './workspace-files';
 /** The word tokens a file's raw text is split into (contiguous identifier characters). */
 const WORD_RE = /[A-Za-z0-9_]+/g;
 
+/**
+ * The spans of every comment in the text, in order, by the lexer's own rules: `//` to end of line
+ * and a block comment to its closer, with quoted strings (`"…"` with `\` escapes, verbatim `@"…"`
+ * with `""` doubling) shielding their content, so a `//` inside a string never starts a comment. A
+ * word inside a comment is dead text to the game and must not vouch for a constant as read.
+ *
+ * @param text the file's raw text.
+ * @returns the `[start, end)` spans of the comments, in text order.
+ */
+const commentSpansOf = (text: string): Array<[number, number]> => {
+    const spans: Array<[number, number]> = [];
+    let i = 0;
+    while (i < text.length) {
+        const char = text[i];
+        if (char === '@' && text[i + 1] === '"') {
+            i += 2;
+            while (i < text.length) {
+                if (text[i] === '"') {
+                    if (text[i + 1] === '"') {
+                        i += 2;
+                        continue;
+                    }
+                    i++;
+                    break;
+                }
+                i++;
+            }
+            continue;
+        }
+        if (char === '"') {
+            i++;
+            while (i < text.length) {
+                if (text[i] === '\\') {
+                    i += 2;
+                    continue;
+                }
+                if (text[i] === '"') {
+                    i++;
+                    break;
+                }
+                i++;
+            }
+            continue;
+        }
+        if (char === '/' && text[i + 1] === '/') {
+            const start = i;
+            while (i < text.length && text[i] !== '\n') i++;
+            spans.push([start, i]);
+            continue;
+        }
+        if (char === '/' && text[i + 1] === '*') {
+            const start = i;
+            i += 2;
+            while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++;
+            i = Math.min(i + 2, text.length);
+            spans.push([start, i]);
+            continue;
+        }
+        i++;
+    }
+    return spans;
+};
+
+/** Lookup for the characters that can sit between a word and the `:` opening its inheritance
+ *  list: identifier and reference-path characters, commas, blanks. Charcode-indexed, since the
+ *  backward scan below runs per candidate word of every ingested file. */
+const BASE_LIST_CHAR = new Uint8Array(128);
+for (const range of [
+    [0x30, 0x39],
+    [0x41, 0x5a],
+    [0x61, 0x7a],
+] as const) {
+    for (let code = range[0]; code <= range[1]; code++) BASE_LIST_CHAR[code] = 1;
+}
+for (const char of '_&/<>.~^-, \t') BASE_LIST_CHAR[char.charCodeAt(0)] = 1;
+
+/**
+ * Whether a word at `index` sits in inheritance-target position: preceded on its own line by a `:`
+ * (`Child : BASE {`), possibly through the earlier bases of a multi-base list (`Child : A, B {`).
+ * The parser normalizes such a bare name to a `&BASE` reference, so it is a read even though a `{`
+ * follows it. The backward scan stays on the line and only crosses base-list content, so a `,`
+ * that is a mere member separator (`{ A = 1, B = 2 }` hits the `=`) never counts.
+ *
+ * @param text the file's raw text.
+ * @param index the word's start offset.
+ * @returns true when the word is an inheritance target.
+ */
+const isInheritanceTarget = (text: string, index: number): boolean => {
+    for (let i = index - 1; i >= 0; i--) {
+        const code = text.charCodeAt(i);
+        if (code === 0x3a) return true;
+        if (code < 128 && BASE_LIST_CHAR[code] === 1) continue;
+        return false;
+    }
+    return false;
+};
+
+/**
+ * One pass over a file's raw text producing both word tables: every word token (the candidate
+ * pre-filter, comments included since the caller re-checks every candidate), and the subset written
+ * as a read rather than as a declaration. A word counts as read when it sits at the end of a path
+ * (`&~/NAME`, `<file.rules>/NAME`, a mod action target), which is always a reference, when it is a
+ * bare inheritance target (`Child : NAME {`, normalized to a `&NAME` reference by the parser), or
+ * when nothing that opens a declared value (`=`, `:`, `{`, `[`) follows it, which covers a bare id
+ * value (`ComponentID = NAME`) and a list element. Left out are the declaration itself, so a name
+ * written in file after file of a copied template does not make every copy look read, and every
+ * word inside a comment, which the game never reads.
+ *
+ * @param text the file's raw text.
+ * @returns the lower-cased word set and its read subset.
+ */
+const wordTablesOf = (text: string): { words: Set<string>; readWords: Set<string> } => {
+    const words = new Set<string>();
+    const readWords = new Set<string>();
+    const comments = commentSpansOf(text);
+    let commentIndex = 0;
+    for (const match of text.matchAll(WORD_RE)) {
+        const word = match[0].toLowerCase();
+        words.add(word);
+        if (readWords.has(word)) continue;
+        while (commentIndex < comments.length && comments[commentIndex][1] <= match.index) commentIndex++;
+        if (commentIndex < comments.length && comments[commentIndex][0] <= match.index) continue;
+        const before = match.index > 0 ? text[match.index - 1] : '';
+        if (before !== '&' && before !== '/' && !isInheritanceTarget(text, match.index)) {
+            let after = match.index + match[0].length;
+            while (after < text.length && (text[after] === ' ' || text[after] === '\t' || text[after] === '\r' || text[after] === '\n')) {
+                after++;
+            }
+            const opener = text[after];
+            if (opener === '=' || opener === ':' || opener === '{' || opener === '[') continue;
+        }
+        readWords.add(word);
+    }
+    return { words, readWords };
+};
+
 /** A folder's normalized prefix, the form file keys are compared against for containment. */
 const prefixOf = (folder: string): string => normalizeUri(uriToFsPath(folder)).replace(/\/+$/, '');
 
@@ -25,10 +161,13 @@ interface IndexedFile {
     size: number;
     mtimeMs: number;
     words: string[];
+    /** The subset of {@link words} the file writes as a read rather than as a declaration, see
+     *  {@link wordTablesOf}. */
+    readWords: string[];
 }
 
 /** Bump when the serialized mention-cache shape (or the word extraction) changes. */
-const MENTION_CACHE_FORMAT_VERSION = 3;
+const MENTION_CACHE_FORMAT_VERSION = 5;
 
 /** The on-disk shape of the persisted word index (game tree plus workspace files). Words live in
  *  one global table and each file lists indices into it: the same identifiers recur across
@@ -39,7 +178,7 @@ interface MentionCacheFile {
     serverBuildId: string;
     dataRoot: string;
     words: string[];
-    files: Array<[key: string, path: string, size: number, mtimeMs: number, wordIds: number[]]>;
+    files: Array<[key: string, path: string, size: number, mtimeMs: number, wordIds: number[], readWordIds: number[]]>;
 }
 
 /**
@@ -60,6 +199,11 @@ interface MentionCacheFile {
  * every candidate before parsing, so this index only pre-filters and never changes what is found.
  * Open editor buffers are not consulted here at all: the caller yields every open document
  * unfiltered, exactly as the full scan did.
+ *
+ * A second table records, per file, which of its words are written as a read rather than as a
+ * declaration (see {@link wordTablesOf}). It answers "does anything in the project read this name"
+ * from memory, which is what the unused-constant check needs and what no substring pre-filter can
+ * tell apart.
  */
 export class MentionIndex {
     private static _instance: MentionIndex;
@@ -82,6 +226,8 @@ export class MentionIndex {
     private readonly files = new Map<string, IndexedFile>();
     /** Lower-cased word → normalized keys of the files whose text contains it. */
     private readonly byWord = new Map<string, Set<string>>();
+    /** Lower-cased word → normalized keys of the files that read it, see {@link wordTablesOf}. */
+    private readonly byReadWord = new Map<string, Set<string>>();
     /**
      * Whether the client watches `.rules` files, so disk changes arrive through {@link markDirty}.
      * With a watcher, a query after the first full sweep only re-checks the dirtied files instead
@@ -99,12 +245,31 @@ export class MentionIndex {
     /** Entries fed by {@link ingestDiskText} since the last cache write, so a sweep that re-read
      *  nothing itself still persists what the project walk fed. */
     private unsavedFeeds = 0;
+    /** Bumped whenever an indexed file's words change, so a consumer can key a memo of its own
+     *  derived answers on it and drop them the moment any file's content moved. */
+    private contentRevision = 0;
 
     private constructor() {}
 
     public static get instance(): MentionIndex {
         if (!MentionIndex._instance) MentionIndex._instance = new MentionIndex();
         return MentionIndex._instance;
+    }
+
+    /** The current content revision, bumped whenever any indexed file's words change. */
+    public get revision(): number {
+        return this.contentRevision;
+    }
+
+    /**
+     * Whether the index holds a file, which is how a consumer tells "nothing in the project reads
+     * this" apart from "the index has not covered the project yet".
+     *
+     * @param key the file's normalized key.
+     * @returns true when the file is indexed.
+     */
+    public knows(key: string): boolean {
+        return this.files.has(key);
     }
 
     /** Forget everything (e.g. on workspace re-initialization). */
@@ -114,10 +279,12 @@ export class MentionIndex {
         this.syncPromise = undefined;
         this.files.clear();
         this.byWord.clear();
+        this.byReadWord.clear();
         this.dirty.clear();
         this.fullSyncDone = false;
         this.lastFullSweepMs = 0;
         this.seedAttempted = false;
+        this.contentRevision++;
         this.unsavedFeeds = 0;
     }
 
@@ -210,6 +377,29 @@ export class MentionIndex {
     }
 
     /**
+     * The normalized keys of every indexed file under `folderPaths` that reads `word`, meaning the
+     * word appears somewhere other than in its own declaration (see {@link wordTablesOf}). Answered
+     * from the word table, so it costs no file reads. Matching is case-folded, like the game's own
+     * name lookup. The index is not synced first: a caller that needs current disk state calls
+     * {@link ensureBuilt} once for the whole batch rather than once per word.
+     *
+     * @param word the identifier to look for. A name holding a non-identifier character can never be
+     * a token and answers with no files.
+     * @param folderPaths the project folders to search, as a containment filter over the coverage.
+     * @returns the keys of the files that read `word`.
+     */
+    public filesReading(word: string, folderPaths: string[]): string[] {
+        const keys = this.byReadWord.get(word.toLowerCase());
+        if (!keys) return [];
+        const requested = folderPaths.map(prefixOf);
+        const out: string[] = [];
+        for (const key of keys) {
+            if (requested.some((prefix) => key === prefix || key.startsWith(`${prefix}/`))) out.push(key);
+        }
+        return out;
+    }
+
+    /**
      * Builds or refreshes the index without a query. Used by the startup warm-up so the first
      * find-all-references doesn't pay the one-time read of the whole project.
      *
@@ -219,6 +409,27 @@ export class MentionIndex {
      */
     public async ensureBuilt(folderPaths: string[], cancellationToken: CancellationToken): Promise<void> {
         await this.ensureFresh(folderPaths, cancellationToken);
+    }
+
+    /**
+     * Re-reads exactly the watcher-dirtied files, without any walk or stat sweep. A no-op when
+     * nothing is dirty, so a caller that only needs the dirtied files reflected (the per-file
+     * unused-constant pass over a whole-workspace scan) can afford it per query where a full
+     * {@link ensureBuilt} sweep would re-stat the project thousands of times.
+     *
+     * @param cancellationToken cancels the re-reads.
+     * @returns once the dirtied files are current.
+     */
+    public async syncDirty(cancellationToken: CancellationToken): Promise<void> {
+        // A running sync empties the dirty set before its updates land, so wait it out first.
+        if (this.syncPromise) await this.syncPromise.catch(() => undefined);
+        if (this.dirty.size === 0) return;
+        if (!this.syncPromise) {
+            this.syncPromise = this.syncDirtyFiles(cancellationToken).finally(() => {
+                this.syncPromise = undefined;
+            });
+        }
+        await this.syncPromise;
     }
 
     /**
@@ -436,7 +647,7 @@ export class MentionIndex {
             if (cache.dataRoot !== dataRoot) return;
             if (!Array.isArray(cache.words)) return;
             const table = cache.words;
-            for (const [key, path, size, mtimeMs, wordIds] of cache.files) {
+            for (const [key, path, size, mtimeMs, wordIds, readWordIds] of cache.files) {
                 // An entry the project walk fed is fresher than the persisted one, keep it.
                 if (this.files.has(key)) continue;
                 const words: string[] = [];
@@ -444,9 +655,17 @@ export class MentionIndex {
                     const word = table[id];
                     if (word !== undefined) words.push(word);
                 }
-                this.files.set(key, { path, size, mtimeMs, words });
+                const readWords: string[] = [];
+                for (const id of readWordIds ?? []) {
+                    const word = table[id];
+                    if (word !== undefined) readWords.push(word);
+                }
+                this.files.set(key, { path, size, mtimeMs, words, readWords });
                 for (const word of words) {
                     (this.byWord.get(word) ?? this.byWord.set(word, new Set()).get(word)!).add(key);
+                }
+                for (const word of readWords) {
+                    (this.byReadWord.get(word) ?? this.byReadWord.set(word, new Set()).get(word)!).add(key);
                 }
             }
         } catch {
@@ -478,7 +697,7 @@ export class MentionIndex {
         };
         const entries: MentionCacheFile['files'] = [];
         for (const [key, file] of this.files) {
-            entries.push([key, file.path, file.size, file.mtimeMs, file.words.map(idOf)]);
+            entries.push([key, file.path, file.size, file.mtimeMs, file.words.map(idOf), file.readWords.map(idOf)]);
         }
         if (entries.length === 0) return;
         try {
@@ -507,12 +726,22 @@ export class MentionIndex {
      */
     private indexText(meta: { key: string; path: string; size: number; mtimeMs: number }, text: string): void {
         this.removeSource(meta.key);
+        this.contentRevision++;
         // Words are stored lower-cased so candidate matching is case-insensitive like the game's
         // name resolution. The raw text keeps its casing; only this index folds.
-        const words = new Set<string>((text.match(WORD_RE) ?? []).map((word) => word.toLowerCase()));
-        this.files.set(meta.key, { path: meta.path, size: meta.size, mtimeMs: meta.mtimeMs, words: [...words] });
+        const { words, readWords } = wordTablesOf(text);
+        this.files.set(meta.key, {
+            path: meta.path,
+            size: meta.size,
+            mtimeMs: meta.mtimeMs,
+            words: [...words],
+            readWords: [...readWords],
+        });
         for (const word of words) {
             (this.byWord.get(word) ?? this.byWord.set(word, new Set()).get(word)!).add(meta.key);
+        }
+        for (const word of readWords) {
+            (this.byReadWord.get(word) ?? this.byReadWord.set(word, new Set()).get(word)!).add(meta.key);
         }
     }
 
@@ -524,10 +753,16 @@ export class MentionIndex {
     private removeSource(key: string): void {
         const file = this.files.get(key);
         if (file) {
+            this.contentRevision++;
             for (const word of file.words) {
                 const sources = this.byWord.get(word);
                 sources?.delete(key);
                 if (sources && sources.size === 0) this.byWord.delete(word);
+            }
+            for (const word of file.readWords) {
+                const sources = this.byReadWord.get(word);
+                sources?.delete(key);
+                if (sources && sources.size === 0) this.byReadWord.delete(word);
             }
         }
         this.files.delete(key);
