@@ -67,7 +67,12 @@ of truth. Regenerate it on a Cosmoteer update, then re-run the scaffolder to fol
 fields (see `docs/fields/README.md`).
 
 ## Code mods (C# mods)
-# This is basically an idea of how to support feature mods, i don't think there is yet a single mod out there that adds new serializable types, but if there were, this is how you would extract them.
+
+> The language server does this on its own now, at run time. `server/src/features/mod-schema` is a
+> TypeScript port of this `--mod` path over its own .NET metadata reader, so a user needs no .NET
+> install for their mod's types to resolve. The two are pinned byte-for-byte against each other by
+> `server/test/features/mod-schema/extract.oracle.test.ts`, which invokes this tool as the oracle,
+> so a change to the extraction rules below belongs in both.
 
 A code mod ships a `.dll` that adds new serializable types, parts, components, effects with their
 own `Type=` discriminators (`Type = AmmoChange`, …). Point the extractor at the mod's assemblies so

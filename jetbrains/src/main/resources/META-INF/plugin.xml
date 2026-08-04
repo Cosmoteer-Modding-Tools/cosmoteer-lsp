@@ -89,5 +89,19 @@
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
+        <action id="cosmoteer.migrateMod"
+                class="cosmoteer.actions.MigrateModAction"
+                text="Cosmoteer: Migrate Mod to Current Game Version"
+                description="Apply the known game-update renames, rewrites, and removals to every rules file"
+                icon="/icons/rules.png">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="cosmoteer.buildModSchema"
+                class="cosmoteer.actions.BuildModSchemaAction"
+                text="Cosmoteer: Rebuild Schema from Code Mod Assemblies"
+                description="Re-read every code mod assembly so its own types and Type= discriminators resolve"
+                icon="/icons/rules.png">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
     </actions>
 </idea-plugin>

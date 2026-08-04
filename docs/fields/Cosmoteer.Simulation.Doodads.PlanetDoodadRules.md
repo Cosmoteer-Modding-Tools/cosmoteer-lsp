@@ -10,59 +10,59 @@
 ## StyleID
 `→ PlanetStyleRules` · required
 
-<!-- TODO: needs documentation -->
+Planet style used to procedurally generate the planet's appearance. Resolved against the registered planet styles.
 
 ## TextureSize
 `IntVector2` · required
 
-<!-- TODO: needs documentation -->
+Base resolution in pixels of the generated planet texture. The effective size is this multiplied by the doodad's texture scale and the player's planet-resolution graphics setting. Larger values give a sharper planet at higher memory cost.
 
 ## ScaleRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Minimum and maximum world size the planet may take. A spawned planet's scale is picked from this range (or from [[RandomScaleRange]] if set), and manual resizing is clamped to it.
 
 ## DefaultScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+World size used as the starting scale when the player places this planet manually in creative mode. It is also the reference scale for computing the planet's level-of-detail texture resolution during random spawning.
 
 ## RandomScaleRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Overrides [[ScaleRange]] as the range a random scale is drawn from when the planet is spawned by a generator. Manual placement and resize limits still use [[ScaleRange]].
 
 ## DistanceRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Range of parallax distances from the gameplay plane the planet may sit at. Greater distance means slower parallax and a smaller apparent size. A spawned planet draws its distance from this range unless [[RandomDistanceRange]] is set.
 
 ## RandomDistanceRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Overrides [[DistanceRange]] as the range a random distance is drawn from when the planet is spawned by a generator.
 
 ## DefaultDistance
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Parallax distance used as the starting value when the player places this planet manually in creative mode. It also acts as the reference distance for the texture level-of-detail calculation when [[DistanceRange]] has a positive minimum.
 
 ## RenderStage
 `enum PlanetRenderStage` · optional · one of: `Lower`, `Upper`
 
-<!-- TODO: needs documentation -->
+Render layer the planet draws on. `Lower` renders it behind gameplay objects, `Upper` in front. The stage only applies in-game, and planets fall back to `Lower` outside of a game (such as in menus).
 
 ## IsLightSource
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, the planet acts as a light source, contributing to the lighting normal used to shade ships. Suns set this.
 
 ## MinimapColorScale
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+Tint applied to the planet when it is drawn on the minimap. Defaults to white. An alpha of zero keeps the planet off the minimap entirely.
 
 ## ProximityEffects
 `ProximityEffectsRules` · optional
 
-<!-- TODO: needs documentation -->
+Configures damage and visual effects inflicted on ships that come near the planet, such as a sun's heat. See [[Cosmoteer.Simulation.Doodads.PlanetDoodadRules+ProximityEffectsRules]].

@@ -10,17 +10,17 @@
 ## RemapFrom
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Input range of the converted status value that gets mapped. A value at RemapFrom.Min maps to RemapTo.Min and one at RemapFrom.Max maps to RemapTo.Max. Also the range compared against by IgnoreValuesBelowRange and IgnoreValuesAboveRange.
 
 ## RemapTo
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Output range the status value is mapped onto. The mapped result becomes the modifier value that ModificationMode then combines with the running value.
 
 ## Clamp
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+When true the status value is clamped to RemapFrom before mapping, so values outside the input range produce RemapTo.Min or RemapTo.Max rather than extrapolating past them. When false the mapping is unclamped.
 
 ## IgnoreValuesBelowRange
 `bool` · optional
@@ -35,4 +35,4 @@ Whether to skip modification when the input value is above the RemapFrom range.
 ## Exponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Power curve applied to the remap interpolation, biasing where the input maps within RemapTo. At the default of 1 the mapping is linear.

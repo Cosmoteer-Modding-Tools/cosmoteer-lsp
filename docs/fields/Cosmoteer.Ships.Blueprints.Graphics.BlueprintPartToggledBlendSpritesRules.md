@@ -10,19 +10,19 @@
 ## Location
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Offset in tiles of the sprite from the part's origin, transformed by the part's placement.
 
 ## SituationToggles
 `→ PartComponentRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Ordered list of toggle component IDs whose on/off states form the situation code. Each toggle contributes one bit, so the code length equals the list length and the shown sprite depends on the combined toggle states. Although marked optional here, the deserializer requires it.
 
 ## AmbiguousSprites
 `AmbiguousToggledBlendSprites[]` · optional
 
-<!-- TODO: needs documentation -->
+Blend sprites keyed by situation code, expanded to cover the toggle-state combinations. Every combination of the [[#SituationToggles]] bits must be covered unless [[#AllowUndefinedBlendSprites]] is set. Although marked optional here, the deserializer requires it.
 
 ## AllowUndefinedBlendSprites
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, toggle-state combinations with no matching sprite draw nothing instead of throwing during generation. When false, every combination must be defined.

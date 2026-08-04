@@ -10,24 +10,24 @@
 ## TargetType
 `enum WeaponTargetType` · required · one of: `ShipParts`, `ShipCenters`, `Bullets`, `Crew`, `Salvage`, `CollectNuggets`, `MoveCrew`
 
-<!-- TODO: needs documentation -->
+The kind of object this auto-target entry searches for. `ShipParts` targets individual parts of ships, `ShipCenters` targets a ship's center as a whole (used by the vanilla tractor beam), `Bullets` targets projectiles matching [[Cosmoteer.Ships.Parts.Weapons.WeaponAutoTargetRules.BulletTargetCategories]], `Crew` targets crew floating in space, `Salvage` targets parts marked for salvage, `CollectNuggets` targets nuggets queued for collection, and `MoveCrew` targets space crew traveling to a destination. Turret weapons try the entries of [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.AutoTargets]] in order, so earlier entries take priority, while a fixed weapon's single [[Cosmoteer.Ships.Parts.Weapons.FixedWeaponRules.AutoTarget]] accepts only `ShipParts` and refuses to load any other type.
 
 ## BulletTargetCategories
 `→ BulletTargetableRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The bullet category labels this entry can target, matched against each targetable projectile's [[Cosmoteer.Bullets.Targeting.BulletTargetableRules.TargetCategory]]. Only used when [[Cosmoteer.Ships.Parts.Weapons.WeaponAutoTargetRules.TargetType]] is `Bullets`, and when left unset the entry matches no bullets at all. The vanilla point defense turret lists `[missile, mine, bullet]`.
 
 ## Toggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A toggle component on the same part that enables this entry only while the toggle is on. A target acquired through this entry is dropped as soon as the toggle turns off. The vanilla point defense turret gates its bullet entry on its defend toggle and its ship-parts entry on its attack toggle.
 
 ## Overridable
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets earlier, higher-priority entries in [[Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules.AutoTargets]] keep searching while the weapon holds a target acquired through this entry, replacing the target when one of them finds a match. When false the weapon keeps this entry's target until it becomes invalid. The vanilla point defense turret marks its ship-parts entry overridable so intercepting bullets always takes priority.
 
 ## EnableInDirectControlMode
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Keeps this entry acquiring targets while the player is directly controlling the weapon. By default auto-targeting pauses under direct control. The vanilla missile launchers set this so their missiles still pick their own targets while the launcher is player-controlled.

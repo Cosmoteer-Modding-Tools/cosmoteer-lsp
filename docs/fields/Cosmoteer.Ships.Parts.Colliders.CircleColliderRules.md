@@ -10,4 +10,4 @@
 ## Radius
 `float` · required
 
-<!-- TODO: needs documentation -->
+The radius of the circular collider, in tiles, centered on the component's location. The circle's area times the collider's density gives the mass the collider adds to the ship.

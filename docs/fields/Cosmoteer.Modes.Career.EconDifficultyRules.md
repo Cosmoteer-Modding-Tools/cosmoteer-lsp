@@ -10,69 +10,69 @@
 ## ID
 `→ EconDifficultyRules` · required
 
-<!-- TODO: needs documentation -->
+The identifier this level is stored under in save games and in the multiplayer input that changes difficulty mid game. Loading a save whose stored id no longer matches any entry throws, so renaming an id breaks existing saves.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the level's name as it appears in the economy difficulty drop list.
 
 ## TipKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the tooltip shown when hovering this level in the economy difficulty drop list.
 
 ## IsDefault
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks this level as the preselected one in the new game screens and the one restored when a save has no stored economy difficulty. Exactly one entry in [[Cosmoteer.Modes.Career.CareerModeRules.EconDifficultyLevels]] should set it, since the lookup throws when none does.
 
 ## StartingMoney
 `int` · required
 
-<!-- TODO: needs documentation -->
+Credits the player begins the game with. Unless construction is free, the blueprint cost of the chosen starter ship and of the techs it needs is subtracted from this, and the new game screen refuses ships that cost more than this amount.
 
 ## StartingFame
 `int` · required
 
-<!-- TODO: needs documentation -->
+Fame the player begins the game with, which in turn sets the starting fame title and the initial crew cap. Every vanilla level starts at 0.
 
 ## EnemyResourceDropRateFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies the chance that a destroyed part on a non player ship drops a resource nugget. Vanilla ranges from 50% on the slow economy to 200% on the fast one.
 
 ## SelfResourceDropRateFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies the chance that a destroyed part on the player's own ships drops a resource nugget. The factor is blended back toward 1 as the part's salvage fraction rises, so deliberately salvaged parts are unaffected.
 
 ## MoneyRewardFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies the credits paid out by mission money rewards, before the salvaging and reputation title multipliers are applied.
 
 ## FameRewardFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies the fame paid out by mission fame rewards and the fame value credited for mission target ships.
 
 ## ReputationRewardFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies reputation gained from mission rewards and, despite the name, also the reputation lost from damaging a faction's ships. A generous setting therefore makes reputation swing faster in both directions.
 
 ## ResourceSaleRefund
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Fraction of a resource's base price the player receives when selling it, before the buyer's reputation title factor. All vanilla levels refund 50%.
 
 ## ConstructionMode
 `enum ConstructionMode` · optional · default `CrewResources` · one of: `InstantFree`, `InstantCredits`, `InstantResources`, `CrewResources`
 
-<!-- TODO: needs documentation -->
+How ships are built and repaired at this difficulty. `InstantFree` also unlocks every part and door, skipping the tech tree entirely. The in-game options for disabling salvaging or crew construction override this with `InstantCredits` and `InstantResources` respectively.
 
 ## DisabledInIronmanMode
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Hides this level from the difficulty drop lists while ironman mode is enabled, forcing a switch to the first level that allows it. Vanilla marks the free build economy this way.

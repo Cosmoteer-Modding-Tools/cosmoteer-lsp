@@ -10,89 +10,89 @@
 ## Radius
 `number` · required
 
-<!-- TODO: needs documentation -->
+The distance, in tiles, from the component's location at which the shield arc is projected. Shots only register as shield hits within half a tile of this radius, so the shield is a thin band along its rim rather than a filled circle.
 
 ## Arc
 `number` · required
 
-<!-- TODO: needs documentation -->
+The angular width of the shield, centered on the component's facing direction. Written with a `d` suffix for degrees, for example `90d`.
 
 ## BlockedByOperationalParts
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether operational part colliders overlapping the shield circle block it, considering both the shield's own ship and other ships. Blocked stretches of the arc let shots pass through unhindered and are cut out of the shield visuals.
 
 ## BlockedByStructuralParts
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether structure colliders overlapping the shield circle block it, exactly like [[Cosmoteer.Ships.Parts.Defenses.ArcShieldRules.BlockedByOperationalParts]] but for structural parts.
 
 ## PenetrationResistance
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The penetration strength subtracted from a penetrating shot that hits the shield, interpolated from Min at full charge to Max as the [[Cosmoteer.Ships.Parts.Defenses.ArcShieldRules.DrainResourcesFrom]] storage empties, then scaled by the shot's [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.ShieldPenetrationFactor]]. The vanilla small shield generator uses `[25, 0]` so a fresh shield resists penetration far better than a drained one.
 
 ## DrainResourcesFrom
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A resource storage component on the same part that absorbs damage for the shield. Each hit drains it by the damage times [[Cosmoteer.Ships.Parts.Defenses.ArcShieldRules.ResourceDrainPerDamage]], and its fill state drives the Min-to-Max interpolation of the ranged resistance fields. When unset the shield has unlimited health and hits drain nothing.
 
 ## ResourceDrainPerDamage
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Resources drained from [[Cosmoteer.Ships.Parts.Defenses.ArcShieldRules.DrainResourcesFrom]] per point of damage taken, applied after damage resistances. Defaults to 1, and the shield's effective health is the storage's resources divided by this value.
 
 ## ExplosiveDamageAbsorption
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The fraction of an explosion's remaining damage that is applied to this shield when the blast reaches it, interpolated from Min at full charge to Max as the drain storage empties. Defaults to a constant 1.
 
 ## DamageResistances
 `map<→ DamageType, range<number>>` · optional
 
-<!-- TODO: needs documentation -->
+Per damage type, the fraction of incoming damage of that type the shield ignores before draining its storage, interpolated from Min at full charge to Max as the storage empties. Damage types without an entry get no resistance.
 
 ## ShieldMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Continuous media effects that render the shield itself, one instance per unblocked stretch of the arc, centered on the stretch at the shield radius. Their intensity follows the drain storage's value and their arc factor parameter carries the stretch's share of the full arc.
 
 ## HitMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played at the point where a shot strikes the shield, with intensity following the drain storage's value.
 
 ## BlueprintArcSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+A sprite bent around the shield's arc and drawn in the ship blueprint view to show the shield's coverage. When unset, the shield draws no blueprint arc.
 
 ## BlueprintArcSpriteSegments
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The number of segments [[Cosmoteer.Ships.Parts.Defenses.ArcShieldRules.BlueprintArcSprite]] is split into when bent around the arc. More segments give a smoother curve, and the two end segments fade out. The vanilla shield generators use 64.
 
 ## CoverageArcSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+A sprite bent around the shield's arc and drawn when the game displays this shield's coverage overlay in the simulation.
 
 ## CoverageArcSpriteSegments
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The number of segments [[Cosmoteer.Ships.Parts.Defenses.ArcShieldRules.CoverageArcSprite]] is split into, like [[Cosmoteer.Ships.Parts.Defenses.ArcShieldRules.BlueprintArcSpriteSegments]] for the blueprint arc.
 
 ## BlueprintArcToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A toggle component on the same part that gates whether the blueprint arc is drawn. The referenced component must support sharing blueprint toggle state, otherwise the game errors. The vanilla shield generators point this at their overclock mode toggle together with [[Cosmoteer.Ships.Parts.Defenses.ArcShieldRules.InvertBlueprintToggle]], hiding the standard arc while an overclock mode is selected.
 
 ## InvertBlueprintToggle
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Inverts the [[Cosmoteer.Ships.Parts.Defenses.ArcShieldRules.BlueprintArcToggle]] test so the blueprint arc is drawn while the toggle is off instead of while it is on.
 
 ## ExplosiveDamageResistance
 `number` · optional
 
-<!-- TODO: needs documentation -->
+A shorthand that stores its value as a constant resistance against the Explosive damage type in [[Cosmoteer.Ships.Parts.Defenses.ArcShieldRules.DamageResistances]]. Ignored when that map already contains an Explosive entry.

@@ -10,4 +10,4 @@
 ## AmbiguousSprites
 `AmbiguousBlendSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+Blend sprites that draw the outer edge of a ship's blueprint where its parts meet open space. Each entry's situation code is expanded into unambiguous per-neighbor sprites covering all 256 edge configurations. Every configuration must be covered or building the wall throws, since undefined codes are not allowed here.

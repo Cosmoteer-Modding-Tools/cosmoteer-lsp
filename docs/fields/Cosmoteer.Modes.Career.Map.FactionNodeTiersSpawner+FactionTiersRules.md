@@ -10,24 +10,24 @@
 ## FactionID
 `→ FactionRules` · required
 
-<!-- TODO: needs documentation -->
+The faction whose influence on a map node drives that node's difficulty tier. Nodes where this faction has a strength of 0 are skipped entirely.
 
 ## TierRangeLow
 `range<int>` · required
 
-<!-- TODO: needs documentation -->
+The span the node's low difficulty tier is interpolated across, Min at the bottom of [[Cosmoteer.Modes.Career.Map.FactionNodeTiersSpawner+FactionTiersRules.FactionStrengthRange]] and Max at the top.
 
 ## TierRangeHigh
 `range<int>` · required
 
-<!-- TODO: needs documentation -->
+The span the node's high difficulty tier is interpolated across, using the same faction strength fraction as [[Cosmoteer.Modes.Career.Map.FactionNodeTiersSpawner+FactionTiersRules.TierRangeLow]].
 
 ## FactionStrengthRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The faction strength values that map onto the two tier ranges, defaulting to 0..1. Strength is the influence the galaxy generator gave this faction on the node, and values outside the range extrapolate rather than clamp.
 
 ## CombineMode
 `enum CombineMode` · optional · one of: `Max`, `Min`, `Sum`
 
-<!-- TODO: needs documentation -->
+How the tiers this entry computes merge into a tier range another entry or spawner already put on the node. `Max` and `Min` take the larger or smaller of each end, `Sum` adds the two ranges together. Defaults to `Max`.

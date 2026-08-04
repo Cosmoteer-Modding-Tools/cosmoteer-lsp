@@ -7,7 +7,8 @@ import bundle from './cosmoteer.schema.json';
 import { SchemaBundle, SchemaEnum, SchemaField, SchemaRegistry, SchemaTypeDef, ValueType } from './schema.types';
 import { applySchemaOverlay } from './schema-overlay';
 import { applyFieldDocs } from './field-docs';
-import { deprecatedDiscriminator } from './deprecations';
+import { deprecatedDiscriminator, deprecatedField } from './deprecations';
+import type { ModSchemaExtension } from '../../features/mod-schema/extract';
 
 // Merge hand-authored corrections for custom-deserialized types schemagen can't reflect (e.g. the
 // dual-form `Texture` group), then attach community-maintained prose descriptions. Both additive
@@ -16,13 +17,164 @@ const schema: SchemaBundle = applyFieldDocs(applySchemaOverlay(bundle));
 
 /** discriminator value -> the registry/class candidates that declare it (15 values collide across registries). */
 const discriminatorIndex = new Map<string, Array<{ registryKey: string; cls: string }>>();
-for (const [registryKey, registry] of Object.entries(schema.registries)) {
-    for (const [disc, cls] of Object.entries(registry.members)) {
-        const list = discriminatorIndex.get(disc) ?? [];
-        list.push({ registryKey, cls });
-        discriminatorIndex.set(disc, list);
+/** Short registry `name` → registry, so a name lookup is not a scan over all registries. */
+const registryByShortName = new Map<string, SchemaRegistry>();
+
+/**
+ * Rebuild the lookup indexes over the current bundle. Run once at load and again whenever a code
+ * mod's extracted types are merged in (see {@link extendSchemaWithMods}).
+ */
+const buildIndexes = (): void => {
+    discriminatorIndex.clear();
+    registryByShortName.clear();
+    for (const [registryKey, registry] of Object.entries(schema.registries)) {
+        for (const [disc, cls] of Object.entries(registry.members)) {
+            const list = discriminatorIndex.get(disc) ?? [];
+            list.push({ registryKey, cls });
+            discriminatorIndex.set(disc, list);
+        }
+        if (!registryByShortName.has(registry.name)) registryByShortName.set(registry.name, registry);
     }
+};
+buildIndexes();
+
+/** The mod extension currently merged in, so re-applying a changed one starts from the game schema. */
+let appliedModExtension: ModSchemaExtension | undefined;
+
+/**
+ * What the merge actually inserted, which is not the same as what the extension offered: an entry
+ * the game already declares is skipped, and unmerging must not then delete the game's own. Kept as
+ * the exact undo of the last merge.
+ */
+interface AppliedModKeys {
+    types: Set<string>;
+    enums: string[];
+    registries: string[];
+    /** Discriminators added to a game registry, as `[registry, discriminator]`. */
+    members: Array<[string, string]>;
 }
+let appliedModKeys: AppliedModKeys | undefined;
+
+/**
+ * Merge the schema surface of the workspace's code mods into the bundle, replacing whatever
+ * extension was merged before.
+ *
+ * A code mod ships a `.dll` declaring new serializable types with their own `Type=` discriminators.
+ * The game loads them like its own, so its `.rules` files legitimately name classes and fields the
+ * shipped schema has never heard of. Merging the extracted surface makes those resolve everywhere
+ * the schema is consulted: discriminator validation, field completion, hover, and the required and
+ * ignored-field checks.
+ *
+ * Additive only, and the game's own definitions always win: a mod cannot redefine a game type or
+ * re-point an existing discriminator, which keeps a broken or hostile assembly from turning valid
+ * vanilla content into diagnostics.
+ *
+ * @param extension what the mods add, or undefined to drop back to the plain game schema.
+ */
+export const extendSchemaWithMods = (extension: ModSchemaExtension | undefined): void => {
+    // Undo exactly what the last merge inserted. Deriving this from the extension instead would
+    // delete a game definition the merge had refused to overwrite in the first place.
+    if (appliedModKeys) {
+        for (const fullName of appliedModKeys.types) delete schema.types[fullName];
+        for (const fullName of appliedModKeys.enums) delete schema.enums[fullName];
+        for (const fullName of appliedModKeys.registries) delete schema.registries[fullName];
+        for (const [registryName, disc] of appliedModKeys.members) delete schema.registries[registryName]?.members[disc];
+    }
+    appliedModExtension = extension;
+    appliedModKeys = undefined;
+    if (extension) {
+        const applied: AppliedModKeys = { types: new Set(), enums: [], registries: [], members: [] };
+        for (const [fullName, type] of Object.entries(extension.types)) {
+            if (schema.types[fullName]) continue;
+            schema.types[fullName] = type;
+            applied.types.add(fullName);
+        }
+        for (const [fullName, def] of Object.entries(extension.enums)) {
+            if (schema.enums[fullName]) continue;
+            schema.enums[fullName] = def;
+            applied.enums.push(fullName);
+        }
+        for (const [fullName, registry] of Object.entries(extension.registries)) {
+            if (schema.registries[fullName]) continue;
+            schema.registries[fullName] = registry;
+            applied.registries.push(fullName);
+        }
+        for (const [registryName, members] of Object.entries(extension.registryMembers)) {
+            const registry = schema.registries[registryName];
+            if (!registry) continue;
+            for (const [disc, cls] of Object.entries(members)) {
+                if (disc in registry.members) continue;
+                registry.members[disc] = cls;
+                applied.members.push([registryName, disc]);
+            }
+        }
+        appliedModKeys = applied;
+    }
+    buildIndexes();
+    fieldsOfCache.clear();
+    fieldIndexCache.clear();
+    acceptsShaderConstantsCache.clear();
+    localizationKeyFieldNameSet = undefined;
+    declaredFieldNameSet = undefined;
+};
+
+/** The mod schema currently merged in, for a consumer that needs to know whether one is active. */
+export const activeModSchema = (): ModSchemaExtension | undefined => appliedModExtension;
+
+/**
+ * A signature of what the merged mod extension contributes: its types with their field names and
+ * which of them carry prose, and every discriminator it adds. Two builds with the same signature
+ * answer every completion, hover and diagnostic identically, so a re-extraction triggered by a file
+ * event that changed nothing relevant can be dropped instead of invalidating every cache.
+ *
+ * @returns the signature, empty when no mod extension is merged.
+ */
+export const modSchemaSignature = (): string => {
+    const extension = appliedModExtension;
+    if (!extension) return '';
+    const parts: string[] = [];
+    for (const [fullName, type] of Object.entries(extension.types)) {
+        parts.push(`T ${fullName} ${type.fields.map((field) => `${field.name}${field.description ? '*' : ''}`).join(',')}`);
+    }
+    for (const [fullName, def] of Object.entries(extension.enums)) parts.push(`E ${fullName} ${def.members.join(',')}`);
+    for (const [name, registry] of Object.entries(extension.registries)) {
+        parts.push(`R ${name} ${Object.keys(registry.members).join(',')}`);
+    }
+    for (const [name, members] of Object.entries(extension.registryMembers)) {
+        parts.push(`M ${name} ${Object.keys(members).join(',')}`);
+    }
+    return parts.sort().join('|');
+};
+
+/**
+ * The assembly a class was extracted from, for the classes a code mod contributed.
+ *
+ * @param fullName the class FullName.
+ * @returns the absolute path of the mod assembly declaring it, or undefined for a game class (which
+ *          lives in the game's own assemblies) or when no mod schema is merged.
+ */
+export const modAssemblyOfClass = (fullName: string): string | undefined =>
+    isModContributedClass(fullName) ? appliedModExtension?.assemblyOf[fullName] : undefined;
+
+/**
+ * Whether a class came from a code mod's assembly rather than the game's.
+ *
+ * @param fullName the class FullName.
+ * @returns true when the currently merged mod schema declares it.
+ */
+export const isModContributedClass = (fullName: string): boolean => appliedModKeys?.types.has(fullName) === true;
+
+/**
+ * Where the code mod that declares a class is published.
+ *
+ * @param fullName the class FullName.
+ * @returns the mod's Steam Workshop page and manifest name, or undefined for a game class or a mod
+ *          that is not a subscribed workshop mod (one being developed locally has no page yet).
+ */
+export const modWorkshopLink = (fullName: string): { url: string; name?: string } | undefined => {
+    const assembly = appliedModExtension?.assemblyOf[fullName];
+    return assembly ? appliedModExtension?.modLinks[assembly] : undefined;
+};
 
 /** A type definition by C# FullName. */
 export const typeDef = (fullName: string): SchemaTypeDef | undefined => schema.types[fullName];
@@ -52,12 +204,6 @@ export const scalarReferenceTargetOf = (cls: string): string | undefined => {
     }
     return undefined;
 };
-
-/** Short registry `name` → registry, so a name lookup is not a scan over all registries. */
-const registryByShortName = new Map<string, SchemaRegistry>();
-for (const registry of Object.values(schema.registries)) {
-    if (!registryByShortName.has(registry.name)) registryByShortName.set(registry.name, registry);
-}
 
 /** A registry by FullName, or by its short `name`. */
 export const registryOf = (fullNameOrName: string): SchemaRegistry | undefined =>
@@ -172,6 +318,29 @@ export const localizationKeyFieldNames = (): ReadonlySet<string> => {
         }
     }
     return localizationKeyFieldNameSet;
+};
+
+let declaredFieldNameSet: Set<string> | undefined;
+
+/**
+ * The lower-cased names (and aliases) of every field any class in the schema declares. A key spelled
+ * like one of these can be read by the game even when its container's class does not resolve, so the
+ * unused-constant check treats such a name as a field rather than as a user constant. Callers must
+ * lower-case the written name before membership tests. Computed once and cached.
+ *
+ * @returns the lower-cased set of every declared field name in the schema.
+ */
+export const declaredFieldNames = (): ReadonlySet<string> => {
+    if (!declaredFieldNameSet) {
+        declaredFieldNameSet = new Set();
+        for (const type of Object.values(schema.types)) {
+            for (const field of type.fields) {
+                declaredFieldNameSet.add(field.name.toLowerCase());
+                for (const alias of field.aliases ?? []) declaredFieldNameSet.add(alias.toLowerCase());
+            }
+        }
+    }
+    return declaredFieldNameSet;
 };
 
 /** Memo of {@link acceptsShaderConstants} per class, checked for every `_`-prefixed field. */
@@ -647,19 +816,51 @@ export const fieldSignatureMarkdown = (field: SchemaField, owningType?: string):
     } else if (inner.kind === 'reference') {
         extra.push(`reference → \`${inner.targetName}\``);
     }
-    const signature = extra.length > 0 ? `${head}\n\n${extra.join(' · ')}` : head;
+    let signature = extra.length > 0 ? `${head}\n\n${extra.join(' · ')}` : head;
+    // A member the game deleted in an update (with its migration when known) or declares but never
+    // reads: warn right under the signature, so hover and completion tell the truth about dead weight.
+    const deprecation = owningType ? deprecatedField(owningType, field.name) : undefined;
+    if (deprecation) {
+        signature += `\n\n⚠ removed in a newer game version (${deprecation.note})`;
+    } else if (field.dead) {
+        signature += "\n\n⚠ declared but never read by the game's code";
+    }
     // The prose description, when documented, goes below the type signature separated by a rule.
     const described = field.description ? `${signature}\n\n---\n\n${renderDocCrefs(field.description)}` : signature;
     // A structured (group-valued) field additionally shows a generated `{ … }` example, so the
     // type name alone (`ISoundEffect`) never leaves the reader guessing what to write.
     const example = fieldExampleMarkdown(field);
     const body = example ? `${described}\n\n${example}` : described;
-    // A footer link to the most relevant modding-wiki page for the field's owning class (a buff →
-    // /Buffs, a part → /Data_fields, …), so a modder can read further from hover or completion. Only a
-    // specialized page is linked. The generic /Modding landing page is not, since a link that always
-    // points at the same top-level page on every field is noise rather than help.
+    const footer = documentationLink(owningType);
+    return footer ? `${body}\n\n${footer}` : body;
+};
+
+/**
+ * The footer link under a field's signature, pointing at whatever actually documents the field's
+ * owning class.
+ *
+ * For a game class that is the most relevant specialized modding-wiki page (a buff → /Buffs, a part
+ * → /Data_fields, …), so a modder can read further from hover or completion. Only a specialized page
+ * is linked. The generic /Modding landing page is not, since a link that always points at the same
+ * top-level page on every field is noise rather than help.
+ *
+ * For a class a code mod declares, the wiki documents none of it, but the mod's own Steam Workshop
+ * page does, so that is linked instead. A locally-developed mod has no published page and gets no
+ * link, the same as any class with nothing worth pointing at.
+ *
+ * @param owningType the class the hovered field belongs to.
+ * @returns the markdown link line, or undefined when nothing documents the class.
+ */
+const documentationLink = (owningType?: string): string | undefined => {
+    if (!owningType) return undefined;
+    if (isModContributedClass(owningType)) {
+        const mod = modWorkshopLink(owningType);
+        if (!mod) return undefined;
+        const label = mod.name ? `${mod.name} on the Steam Workshop` : 'This mod on the Steam Workshop';
+        return `_[${label} ↗](${mod.url})_`;
+    }
     const wiki = wikiUrlForType(owningType);
-    return wiki ? `${body}\n\n_[Cosmoteer modding wiki ↗](${wiki})_` : body;
+    return wiki ? `_[Cosmoteer modding wiki ↗](${wiki})_` : undefined;
 };
 
 const WIKI = 'https://cosmoteer.wiki.gg/wiki';
@@ -708,9 +909,15 @@ export const commonAncestorClass = (classes: readonly string[]): string | undefi
  * Returns undefined when no specific page applies: the caller then links nothing rather than the
  * generic /Modding landing page, so a wiki link only appears where it points somewhere useful. Only
  * pages verified to exist on cosmoteer.wiki.gg are linked.
+ *
+ * A class a code mod contributed links nothing either. Its game ancestry would match a page (a modded
+ * component still descends from `PartComponentRules`), but that page documents the game's own content
+ * and says nothing about the mod's class or its fields, so the link would promise help it cannot give.
+ * A field inside the mod's group that belongs to a plain game class still resolves to that class and
+ * keeps its link.
  */
 export const wikiUrlForType = (owningType?: string): string | undefined => {
-    if (!owningType) return undefined;
+    if (!owningType || isModContributedClass(owningType)) return undefined;
     const chain = typeChain(owningType);
     const has = (needle: string): boolean => chain.some((c) => c.includes(needle));
     // A proxy is also a component, so match it before the component rule.

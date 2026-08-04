@@ -15,7 +15,7 @@ The IPartComponentValue component to use as the current bar value.
 ## Height
 `float` · optional · default `5`
 
-<!-- TODO: needs documentation -->
+The vertical thickness of the bar, in screen pixels before UI scaling. Bars of a part stack downward under its health bar, each taking its own height. The vanilla shield generators use 10 for their charge bars.
 
 ## Invert
 `bool` · optional
@@ -25,4 +25,4 @@ Whether to invert the displayed progress value.
 ## ValueRange
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The span of [[Cosmoteer.Ships.Parts.UI.BasePartProgressBarRules.ShowProgressFor]] values mapped onto the empty to full bar. The component's current value is inverse-lerped between Min and Max, so a value at Min draws an empty bar and a value at Max a full one. Defaults to `[0, 1]`, and both ends are modifiable values that buffs can adjust.

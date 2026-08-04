@@ -10,14 +10,14 @@
 ## Generator
 `TextureGenerator` · optional
 
-<!-- TODO: needs documentation -->
+Texture generator that produces the layer's diffuse texture, assigned to the material. When it has no layers a 1 by 1 texture is used. See [[NormalsGenerator]] for the matching normal map.
 
 ## NormalsGenerator
 `TextureGenerator` · optional
 
-<!-- TODO: needs documentation -->
+Texture generator that produces the layer's normal map, bound to the material as its normals shader constant. When it has no layers a 1 by 1 texture is used. Defaults to a flat normal color (127, 127, 255).
 
 ## Material
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+Material the layer is rendered with, receiving the generated diffuse texture and normal map. Defaults to a copy of DefaultPlanetMaterial from the planet rules.

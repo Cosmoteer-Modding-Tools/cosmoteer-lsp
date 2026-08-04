@@ -10,9 +10,9 @@
 ## Category
 `→ PartCategory` · required
 
-<!-- TODO: needs documentation -->
+The part category the ship is expected to contain. If the ship has no parts in this category, its warning is shown in the build UI.
 
 ## WarningKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key of the message displayed when the ship is missing any part in Category.

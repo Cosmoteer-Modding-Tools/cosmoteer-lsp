@@ -10,59 +10,59 @@
 ## LeftAdd
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Added to the perlin noise value near the left edge of the texture, weighted by proximity to that edge. The weight is 1 at the left edge and falls to 0 at the right edge, shaped by `LeftExponent`. This addition is applied before `LeftMultiply`.
 
 ## LeftMultiply
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Scales the perlin noise value near the left edge. The noise is multiplied by a factor interpolated from 1 at the right edge to `LeftMultiply` at the left edge, so the default of 1 leaves it unchanged. Applied after `LeftAdd`.
 
 ## LeftExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The exponent applied to the left-edge weight (the fraction of distance from the right edge). Values above 1 concentrate `LeftAdd` and `LeftMultiply` closer to the left edge, values below 1 spread them further inward. 1 gives a linear falloff.
 
 ## RightAdd
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Added to the perlin noise value near the right edge, weighted by proximity to that edge. The weight is 1 at the right edge and falls to 0 at the left edge, shaped by `RightExponent`. Applied before `RightMultiply`.
 
 ## RightMultiply
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Scales the perlin noise value near the right edge. The noise is multiplied by a factor interpolated from 1 at the left edge to `RightMultiply` at the right edge, so the default of 1 leaves it unchanged. Applied after `RightAdd`.
 
 ## RightExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The exponent applied to the right-edge weight. Values above 1 concentrate `RightAdd` and `RightMultiply` closer to the right edge. 1 gives a linear falloff.
 
 ## TopAdd
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Added to the perlin noise value near the top edge, weighted by proximity to that edge. The weight is 1 at the top edge and falls to 0 at the bottom edge, shaped by `TopExponent`. Applied before `TopMultiply`.
 
 ## TopMultiply
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Scales the perlin noise value near the top edge. The noise is multiplied by a factor interpolated from 1 at the bottom edge to `TopMultiply` at the top edge, so the default of 1 leaves it unchanged. Applied after `TopAdd`.
 
 ## TopExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The exponent applied to the top-edge weight. Values above 1 concentrate `TopAdd` and `TopMultiply` closer to the top edge. 1 gives a linear falloff.
 
 ## BottomAdd
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Added to the perlin noise value near the bottom edge, weighted by proximity to that edge. The weight is 1 at the bottom edge and falls to 0 at the top edge, shaped by `BottomExponent`. Applied before `BottomMultiply`.
 
 ## BottomMultiply
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Scales the perlin noise value near the bottom edge. The noise is multiplied by a factor interpolated from 1 at the top edge to `BottomMultiply` at the bottom edge, so the default of 1 leaves it unchanged. Applied after `BottomAdd`.
 
 ## BottomExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The exponent applied to the bottom-edge weight. Values above 1 concentrate `BottomAdd` and `BottomMultiply` closer to the bottom edge. 1 gives a linear falloff.

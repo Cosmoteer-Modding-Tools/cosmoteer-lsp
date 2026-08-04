@@ -10,14 +10,14 @@
 ## Location
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The component's position, in tiles in the part's un-rotated rules space, with `[0, 0]` at the part's top-left corner. With [[Cosmoteer.Ships.Parts.ChainablePartComponentRules.ChainedTo]] set it instead becomes an offset from the chained component, rotated by that component's rotation, so the component follows the chained one as it moves and turns.
 
 ## Rotation
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+The component's facing, in degrees. With [[Cosmoteer.Ships.Parts.ChainablePartComponentRules.ChainedTo]] set it is added on top of the chained component's rotation.
 
 ## ChainedTo
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Another chainable component on the same part that this component's [[Cosmoteer.Ships.Parts.ChainablePartComponentRules.Location]] and [[Cosmoteer.Ships.Parts.ChainablePartComponentRules.Rotation]] are measured relative to. Chains may be several links long, and position and rotation updates propagate down them, which is how vanilla weapons keep muzzles and emitters attached to their rotating turret.

@@ -10,14 +10,14 @@
 ## CrewForHireFraction
 `float` · required
 
-<!-- TODO: needs documentation -->
+Fraction of the ship's total bed capacity that is offered to the player for hire. The crew put on offer are taken from the ship's assigned crew in ascending order of their role's assignment priority, with roleless crew first.
 
 ## CrewHireCostPerCrewRatio
 `[float, int][]` · optional
 
-<!-- TODO: needs documentation -->
+Table of ratio and cost pairs that prices a single hire against the buying player's crew count divided by their current fame based crew cap. Costs are interpolated linearly between entries, and any ratio past the last entry pays the last entry's cost.
 
 ## CrewHireCostRoundToMultiple
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The hire price is rounded to a multiple of this after the faction reputation discount has been applied. Use 1 for no rounding.

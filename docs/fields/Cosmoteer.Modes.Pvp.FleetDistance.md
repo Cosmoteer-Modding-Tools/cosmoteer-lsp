@@ -10,14 +10,14 @@
 ## Distance
 `float` · required
 
-<!-- TODO: needs documentation -->
+How far in world units from the map center each team's fleet starts.
 
 ## NameFmtKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for this entry's label in the fleet distance drop list. It is formatted with one argument, `Distance` in world units.
 
 ## IsDefault
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the entry preselected when the host opens the lobby. Exactly one entry in the list must set it, since the game takes the first match and throws when there is none.

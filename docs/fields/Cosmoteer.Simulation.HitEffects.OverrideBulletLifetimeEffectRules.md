@@ -10,19 +10,19 @@
 ## LifetimeComponent
 `→ BulletComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The `DeathByLifetime` component on the bullet that delivered this hit, identified by its component ID. The effect rewrites that component's remaining lifetime. Nothing happens when there is no source bullet or the bullet has no component with this ID.
 
 ## Lifetime
 `number` · required
 
-<!-- TODO: needs documentation -->
+The lifetime, in seconds, combined with the bullet's current remaining lifetime according to [[Cosmoteer.Simulation.HitEffects.OverrideBulletLifetimeEffectRules.Mode]].
 
 ## Mode
 `enum LifetimeMode` · optional · one of: `Set`, `Min`, `Max`
 
-<!-- TODO: needs documentation -->
+How [[Cosmoteer.Simulation.HitEffects.OverrideBulletLifetimeEffectRules.Lifetime]] is applied to the remaining lifetime. `Set`, the default, overwrites it, `Min` lowers it to at most Lifetime, and `Max` raises it to at least Lifetime.
 
 ## HasTarget
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The game stores the value but never reads it, unlike the working [[Cosmoteer.Bullets.Death.BulletDeathByLifetimeRules.HasTarget]] it appears to be copied from.

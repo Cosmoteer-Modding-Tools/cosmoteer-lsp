@@ -15,14 +15,14 @@ The data that will received the lerped values.
 ## ValueType
 `enum FlexValueType` · optional
 
-<!-- TODO: needs documentation -->
+The type of value to randomize and of the [[Halfling.Particles.Updaters.ParticleSetRandom.DataOut]] channel. One of `Float`, `Angle`, `Vector2`, `Vector3`, `Vector4`, `Color`, `Int`, `IntVector2`, `IntVector3` or `IntVector4`. `Angle` behaves identically to `Float`.
 
 ## FromValue
 `FlexValueComponent` · optional
 
-<!-- TODO: needs documentation -->
+The lower bound of the random range, in the type selected by [[Halfling.Particles.Updaters.ParticleSetRandom.ValueType]]. Each particle receives an independent uniform random value between this and [[Halfling.Particles.Updaters.ParticleSetRandom.ToValue]], inclusive. For vector and color types every component is drawn independently.
 
 ## ToValue
 `FlexValueComponent` · optional
 
-<!-- TODO: needs documentation -->
+The upper bound of the random range, in the type selected by [[Halfling.Particles.Updaters.ParticleSetRandom.ValueType]]. The vanilla radiator's hit_sparks effect randomizes `base_scale` between a FromValue of 0.5 and a ToValue of 2 and picks each spark's `base_color` between two Color bounds.

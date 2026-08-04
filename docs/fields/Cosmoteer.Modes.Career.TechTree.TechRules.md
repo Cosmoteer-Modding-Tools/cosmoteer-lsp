@@ -10,74 +10,74 @@
 ## ID
 `→ TechRules` · required
 
-<!-- TODO: needs documentation -->
+The identifier this tech is referenced by, from another tech's [[Cosmoteer.Modes.Career.TechTree.TechRules.Prerequisites]] or [[Cosmoteer.Modes.Career.TechTree.TechRules.UpgradedFrom]], from save games, and from mission scripts. Every ID in the career mode tech list must be unique or loading fails.
 
 ## OtherIDs
 `→ TechRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Extra identifiers this tech also answers to, so an ID renamed in a later game version keeps resolving. They are registered in the tech lookup alongside [[Cosmoteer.Modes.Career.TechTree.TechRules.ID]] and must not collide with any other tech.
 
 ## Categories
 `→ TechCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Tags used to group techs for scripting. A mission script can ask whether the player has unlocked anything in a category, which vanilla uses for the `overclock` group.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for the tech's name in the trading window's tech list.
 
 ## DescriptionKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+The localization key for the tech's description, rendered with XML formatting below the name in the tech list.
 
 ## Icon
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+The icon shown next to the tech in the trading window's tech list. It is drawn greyed out while the tech's prerequisites are unmet.
 
 ## SecondaryIcon
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+An extra sprite layered on top of [[Cosmoteer.Modes.Career.TechTree.TechRules.Icon]], used by the vanilla missile techs to overlay the warhead type on the launcher icon.
 
 ## PartsUnlocked
 `→ PartRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The parts that become buildable once the tech is bought. Any part listed by at least one tech starts the career locked, so a part no tech mentions is available from the start.
 
 ## DoorsUnlocked
 `→ DoorRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The door types that become buildable once the tech is bought, working the same way as [[Cosmoteer.Modes.Career.TechTree.TechRules.PartsUnlocked]].
 
 ## ToggleChoicesUnlocked
 `ToggleChoice[]` · optional
 
-<!-- TODO: needs documentation -->
+The part toggle settings that become selectable once the tech is bought, for example a single missile warhead type on the missile launcher. Any choice listed by a tech starts locked.
 
 ## UpgradedFrom
 `→ TechRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Older techs this one replaces. Loading a save that has one of those older techs unlocked also unlocks this tech, and any other tech that listed the old ID as a prerequisite has it swapped for this one.
 
 ## Cost
 `int` · required
 
-<!-- TODO: needs documentation -->
+The price in credits to buy the tech at a station. The player's reputation title with the seller's faction multiplies it through `TechBuyCostFactor`, and free-build modes charge nothing. Vanilla ranges from 1000 for a small laser blaster to 20000 for nukes.
 
 ## Prerequisites
 `→ TechRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The techs that must already be unlocked before this one can be bought. The requirement is transitive when the game totals up the techs a ship design needs.
 
 ## EditorGroup
 `→ EditorGroupRules` · optional
 
-<!-- TODO: needs documentation -->
+The single build-menu group this tech is listed under in the trading window. Use it instead of [[Cosmoteer.Modes.Career.TechTree.TechRules.EditorGroups]] when the tech belongs in exactly one tab, which is what every vanilla tech does.
 
 ## EditorGroups
 `→ EditorGroupRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The build-menu groups this tech is listed under in the trading window, one entry per tab it should appear in. Read only when [[Cosmoteer.Modes.Career.TechTree.TechRules.EditorGroup]] is absent, and one of the two is required.

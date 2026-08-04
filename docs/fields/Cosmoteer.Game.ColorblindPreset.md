@@ -10,24 +10,24 @@
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the preset's entry in the accessibility settings drop list. Vanilla names presets after the condition they suit, such as `Colorblind/Deuteranopia`.
 
 ## PlayerColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color this preset assigns to the player's own ships and crew. Selecting the preset copies it straight into the player's setting, replacing `DefaultPlayerColor`.
 
 ## EnemyColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color this preset assigns to hostile ships and targets.
 
 ## AllyColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color this preset assigns to friendly ships the player does not control.
 
 ## NeutralColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color this preset assigns to neutral ships and objects.

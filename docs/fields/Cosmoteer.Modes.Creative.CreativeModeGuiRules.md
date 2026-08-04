@@ -10,114 +10,114 @@
 ## ShipLibraryIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the menu bar button that opens the ship library toolbox for spawning saved designs.
 
 ## DoodadsIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the menu bar button that opens the doodads toolbox for spawning asteroids and other scenery.
 
 ## EditNodesIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the galaxy map button for the tool that creates, renames and deletes star map nodes.
 
 ## EditConnectionsIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the galaxy map button for the tool that draws and deletes connections between star map nodes.
 
 ## SelectObjectsIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the menu bar button for the tool that selects and transforms objects already in the system.
 
 ## SelectObjectsCursor
 `Cursor` · required
 
-<!-- TODO: needs documentation -->
+The mouse cursor used while the select objects tool is active.
 
 ## ObjectSelectionOutlineSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite whose material and vertex color draw the four edges of the drag selection box. Each edge takes the matching edge of the sprite's UV rectangle.
 
 ## ObjectSelectionFillSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite that fills the inside of the drag selection box while the box is being dragged.
 
 ## SelectedObjectNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+The frame drawn around every object that is already selected. It is drawn at the camera's world scale so it keeps a constant size on screen.
 
 ## TentativeSelectedObjectNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+The frame drawn around objects that the current drag selection box would add once the mouse is released.
 
 ## ObjectGhostColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Tints the translucent preview of an object drawn at its prospective new position, rotation or scale while a move, rotate or scale drag is in progress.
 
 ## ShipsPresentSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The badge drawn on a galaxy map node that holds ships, unless it is the node the player is currently in.
 
 ## ShipsPresentSpriteOffset
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Offsets `ShipsPresentSprite` from the node's center in map units. The offset rotates with the node and scales with the map zoom.
 
 ## OtherPlayerCursorSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The pointer drawn at every other player's mouse position, both in the system view and on the galaxy map, tinted with that player's color.
 
 ## OtherPlayerCursorOffset
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Offsets `OtherPlayerCursorSprite` from the other player's actual cursor position in pixels, so the sprite's tip rather than its corner lands on the point. It is multiplied by the global UI scale.
 
 ## DefaultNewNodeNameGenerator
 `NameGenerator` · required
 
-<!-- TODO: needs documentation -->
+Generates the name prefilled into the rename dialog that opens when a new galaxy map node is created. It is asked for a name of at most 30 characters.
 
 ## DefaultNewNodeConnectionDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+The radius in map units searched around a new galaxy map node for existing nodes to auto connect it to. Nodes whose connection would cross an existing one are skipped, and the whole search is skipped when auto connecting is turned off.
 
 ## DefaultNewNodeConnectionLineColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color of the rubber band line drawn while dragging a new connection between galaxy map nodes, and of the preview lines to the nodes a new node would auto connect to.
 
 ## DeleteConnectionLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The line style drawn over an existing galaxy map connection while the cursor hovers it, marking it as the one that would be deleted.
 
 ## ObjectMoverWidget
 `SOSWidgetRules` · required
 
-<!-- TODO: needs documentation -->
+The drag handle that moves the selected object. One is created per selected transformable object.
 
 ## ObjectRotatorWidget
 `SOSWidgetRules` · required
 
-<!-- TODO: needs documentation -->
+The drag handle that rotates the selected object. It is anchored above the object.
 
 ## ObjectScalerWidget
 `SOSWidgetRules` · required
 
-<!-- TODO: needs documentation -->
+The drag handle that resizes the selected object. Four are created, one at each corner of the selection.
 
 ## ObjectConfigWidget
 `SOSWidgetRules` · required
 
-<!-- TODO: needs documentation -->
+The click handle that opens the selected object's configuration dialog.

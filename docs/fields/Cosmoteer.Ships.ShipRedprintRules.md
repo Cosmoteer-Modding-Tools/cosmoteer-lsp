@@ -10,24 +10,24 @@
 ## Material
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material used to draw the redprint (destroyed-part outline) sprites shown where parts are missing or awaiting rebuild.
 
 ## RepairIndicatorAtlasTextureParams
 `AtlasTextureParams` · required
 
-<!-- TODO: needs documentation -->
+Texture-generation settings for the atlas holding the repair indicator sprites. See [[Cosmoteer.Ships.Rendering.AtlasTextureParams]].
 
 ## IndicatorsMaterial
 `Material` · required
 
-<!-- TODO: needs documentation -->
+Material used to draw the repair indicator sprites over parts.
 
 ## RepairIndicatorSprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite shown over a part that is queued or flagged for repair but not yet actively being repaired.
 
 ## RepairingIndicatorSprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite shown over the part currently being repaired.

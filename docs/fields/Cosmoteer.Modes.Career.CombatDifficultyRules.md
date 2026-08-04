@@ -10,69 +10,69 @@
 ## ID
 `→ CombatDifficultyRules` · required
 
-<!-- TODO: needs documentation -->
+The identifier this level is stored under in save games and in the multiplayer input that changes difficulty mid game. Loading a save whose stored id no longer matches any entry throws, so renaming an id breaks existing saves.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the level's name as it appears in the combat difficulty drop list.
 
 ## TipKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the tooltip shown when hovering this level in the combat difficulty drop list.
 
 ## IsDefault
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks this level as the preselected one in the new game screens and the one restored when a save has no stored combat difficulty. Exactly one entry in [[Cosmoteer.Modes.Career.CareerModeRules.CombatDifficultyLevels]] should set it, since the lookup throws when none does.
 
 ## DamageVsEnemies
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies all damage a human player deals to a non player ship. It is not applied when the target has already become junk. Vanilla ranges from 70% on very hard to 140% on easy.
 
 ## DamageFromEnemies
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies all damage dealt to a human player's ships by anything that is not a human player. Vanilla ranges from 70% on easy to 140% on very hard.
 
 ## IsPlayerInvulnerable
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Makes every ship belonging to a human player immune to damage. Vanilla uses it for the "no death" level, which also marks itself [[Cosmoteer.Modes.Career.CombatDifficultyRules.DisabledInIronmanMode]].
 
 ## ResourceDrainVsEnemies
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies the amount of stored resources that player weapons drain out of enemy ships, the counterpart of [[Cosmoteer.Modes.Career.CombatDifficultyRules.DamageVsEnemies]] for drain effects.
 
 ## ResourceDrainFromEnemies
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies the amount of stored resources that enemy weapons drain out of the player's ships.
 
 ## DisabledInIronmanMode
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Hides this level from the difficulty drop lists while ironman mode is enabled, forcing a switch to the first level that allows it. Vanilla marks the "no death" level this way.
 
 ## StatusFactorsVsEnemies
 `map<→ StatusType, StatusFactors>` · optional
 
-The chance and value factors for status types when applied to enemies.
+Has no effect. The table would scale the chance and strength of each status the player applies to an enemy, but the only code that reads it is `GetStatusFactors`, which nothing in the game calls. Its sibling damage multiplier [[Cosmoteer.Modes.Career.CombatDifficultyRules.DamageVsEnemies]] does work.
 
 ## StatusFactorsFromEnemies
 `map<→ StatusType, StatusFactors>` · optional
 
-The chance and value factors for status types when applied by enemies.
+Has no effect. The table would scale the chance and strength of each status an enemy applies to the player, but the only code that reads it is `GetStatusFactors`, which nothing in the game calls. See [[Cosmoteer.Modes.Career.CombatDifficultyRules.StatusFactorsVsEnemies]].
 
 ## EnemyCombatNoBuildRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radius in tiles around a ship inside which a recently firing enemy blocks construction, and the radius checked around the target spot before a brand new ship may be started. The check only runs in the `InstantCredits` and `InstantResources` construction modes, so with vanilla rules it is reached only after the player disables salvaging or crew construction. Vanilla uses 800, or 0 on the "no death" level.
 
 ## EnemyCombatNoBuildDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds after an enemy last fired a weapon during which it still counts as blocking construction. The same value doubles as how long a failed construction check is cached before it is retested. Vanilla uses 5 seconds.

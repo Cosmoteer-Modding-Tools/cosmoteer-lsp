@@ -10,9 +10,9 @@
 ## Conditions
 `SpawnConditions` · optional
 
-<!-- TODO: needs documentation -->
+Gates whether this spawner runs at all. The check is made by whoever owns the spawner, the `SimulationGenerator` for top-level entries and the enclosing `SimObjectSpawner` for entries in its `SubSpawners`, and a spawner whose conditions fail is skipped along with everything under it.
 
 ## RandomWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Relative likelihood of surviving the cut when the parent spawner uses `RandomSubSpawnerCount` to keep only some of its sub-spawners. The game feeds the reciprocal of this value into the removal lottery, so a higher weight makes a sub-spawner less likely to be dropped. It is ignored completely when the parent has no `RandomSubSpawnerCount`.

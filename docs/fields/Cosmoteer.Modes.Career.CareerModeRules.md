@@ -10,154 +10,154 @@
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The small career mode icon shown beside the mode name in the multiplayer game browser and at the top of the multiplayer game setup screen.
 
 ## LargeIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The large career mode icon shown on the single player new game screen where the player picks a game mode.
 
 ## Gui
 `CareerModeGuiRules` · required
 
-<!-- TODO: needs documentation -->
+Career specific interface rules, covering the comms window, the mission log and HUD, the danger level color ramp and the fleet tier value tables.
 
 ## Map
 `CareerModeMapRules` · required
 
-<!-- TODO: needs documentation -->
+Galaxy map extras drawn only in career mode. It currently holds just the marker used for nodes where the player has ships parked.
 
 ## StarterShips
 `StarterShipRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The ships the player can cycle through on the single player new game screen. The player's remembered pick is stored as an index into this list, so inserting or reordering entries changes which ship an existing profile preselects.
 
 ## MapSizes
 `MapSize[]` · optional
 
-<!-- TODO: needs documentation -->
+The galaxy sizes offered in the new game drop list, each naming the galaxy generator that builds the map. There is no default flag, so the multiplayer setup screen preselects the first entry.
 
 ## CombatDifficultyLevels
 `CombatDifficultyRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The combat difficulty levels offered in the new game drop lists, in display order. Exactly one entry should set [[Cosmoteer.Modes.Career.CombatDifficultyRules.IsDefault]], because the game looks the default up by that flag when a save has no stored difficulty and throws if no entry carries it.
 
 ## EconDifficultyLevels
 `EconDifficultyRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The economy difficulty levels offered in the new game drop lists, in display order. Exactly one entry should set [[Cosmoteer.Modes.Career.EconDifficultyRules.IsDefault]], because the game looks the default up by that flag when a save has no stored difficulty and throws if no entry carries it.
 
 ## CrewScarcityLevels
 `CrewScarcityRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The crew scarcity levels offered in the new game drop lists, in display order. Exactly one entry should set [[Cosmoteer.Modes.Career.CrewScarcityRules.IsDefault]], because the game looks the default up by that flag when a save has no stored level and throws if no entry carries it.
 
 ## Techs
 `TechRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The whole tech tree. Every `ID` and `OtherIDs` entry across the list must be unique or loading throws, and at load time a prerequisite that points at a tech which some other tech lists in its `UpgradedFrom` is rewritten to require those upgrade techs instead.
 
 ## SectorTypes
 `SectorTypeRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The kinds of star system a galaxy node can be, each with its own system generator and trade routes. IDs must be unique or loading throws, and a node with no explicit sector type falls back to the first entry in the list.
 
 ## TradeShips
 `map<→ TradeShipRules, TradeShipRules>` · optional
 
-<!-- TODO: needs documentation -->
+The pool of AI trade ships that fly between stations and gates, keyed by an id that saved trade traffic refers back to.
 
 ## Exploration
 `ExplorationRules` · required
 
-<!-- TODO: needs documentation -->
+Fog of war and breadcrumb trail settings for the in-system view.
 
 ## Wanted
 `WantedRules` · required
 
-<!-- TODO: needs documentation -->
+Settings for the wanted system, covering how long a faction keeps hunting the player and how its police ships are spawned.
 
 ## Dialogue
 `DialogueRules` · required
 
-<!-- TODO: needs documentation -->
+Settings for comms dialogue, surrender negotiation, truces and the money they cost or pay out.
 
 ## MissionMetatypes
 `map<→ MissionMetatype, MissionMetatype>` · optional
 
-<!-- TODO: needs documentation -->
+The mission metatypes available in career mode, keyed by id. A mission stores only its metatype id and looks the rules back up here.
 
 ## MissionCategories
 `MissionCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+The categories that group entries in the mission log. List order is the display order, since a category's sort value is simply its index in this list.
 
 ## SystemVisitMissions
 `SystemVisitMissionsRules` · required
 
-<!-- TODO: needs documentation -->
+The template for the automatic "visit this system" mission that career mode creates for every map node except the one the player starts in.
 
 ## MaxPlayers
 `int` · required
 
-<!-- TODO: needs documentation -->
+The number of player slots reserved for humans. Indices 0 up to this value minus one count as human players, and the multiplayer setup screen offers lobbies from 2 up to this many. Vanilla uses 4.
 
 ## AllowedShipClasses
 `→ ShipRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The ship classes a design must belong to for career mode to consider it legal, which also filters the hulls offered by the new ship button. Vanilla allows only `cosmoteer.terran`.
 
 ## AIStationAvoidanceDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+How far beyond a space station's bounding circle, in tiles, AI ships steer around it. The same distance is used as a plain radius around a stasis space station. Vanilla uses 3000.
 
 ## StationOperationalEnemyCheckDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+The radius in tiles around a shut down space station that must be free of enemy ships and enemy stasis spawners before the station switches to operating. A station that is not operating keeps all of its weapons suppressed and cannot be hailed for trade or construction help.
 
 ## ReputationLossPerValueDamageMilitary
 `float` · required
 
-<!-- TODO: needs documentation -->
+Reputation lost per point of ship value the player destroys on a faction's military ships. The loss is scaled by the economy difficulty's [[Cosmoteer.Modes.Career.EconDifficultyRules.ReputationRewardFactor]] and accumulates as a fraction until it reaches whole points. Vanilla uses 1/10000.
 
 ## ReputationLossPerValueDamageCivilian
 `float` · required
 
-<!-- TODO: needs documentation -->
+The same per value rate as [[Cosmoteer.Modes.Career.CareerModeRules.ReputationLossPerValueDamageMilitary]], applied when the damaged ship is civilian. Vanilla charges 4/10000, four times the military rate.
 
 ## SalvagingDisabledMoneyRewardFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies mission money rewards when the game was started with salvaging disabled, compensating for the lost salvage income. Vanilla doubles them.
 
 ## NonJunkShipCategorySets
 `→ PartCategory[][]` · optional
 
-<!-- TODO: needs documentation -->
+Sets of part categories that decide when a battered AI ship turns into junk. If for any single set the ship's blueprint contained parts in those categories but no working ones are left, the hulk is handed to the junk player and its crew is reassigned to nobody. Vanilla uses reactors, command parts, and weapons together with thrusters.
 
 ## NpcSpawnedResourceFractions
 `map<→ ResourceRules, range<float>>` · optional
 
-<!-- TODO: needs documentation -->
+Per resource, the fraction of a full storage that non player ships spawned with the initial galaxy start with. A fresh roll from the range is made for each storage on the ship. Vanilla gives new NPC ships 25% to 75% of their hyperium.
 
 ## FameTitles
 `FameTitleRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The player's fame ranks, listed in ascending fame order. The first entry is the rank the player starts at, and the game walks the list forward while the player's fame still meets the next entry's threshold.
 
 ## ReputationTitles
 `ReputationTitleRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The per faction reputation ranks, listed in ascending reputation order. The first entry is the fallback used below every threshold.
 
 ## CustomMarkerDoodad
 `→ DoodadRules` · required
 
-<!-- TODO: needs documentation -->
+The doodad spawned when the player drops a custom marker with the button next to the minimap. It has to name a POI doodad, since the game casts the looked up rules to that type without checking.
 
 ## CustomMarkerIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite for the custom marker tool button placed just above the minimap.

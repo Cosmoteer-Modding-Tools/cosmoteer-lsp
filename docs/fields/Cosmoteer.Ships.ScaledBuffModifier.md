@@ -10,14 +10,14 @@
 ## Scale
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplier applied to the buff amount's distance from Basis. The scaled value is `(buff - Basis) * Scale + Basis`, so the buff amount is stretched or compressed around the Basis pivot.
 
 ## Exponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Power the scaled buff value is raised to before ModificationMode combines it with the running value. At the default of 1 no power curve is applied.
 
 ## Basis
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Pivot point the scaling is measured from. The buff amount is scaled toward or away from this value rather than from zero. Defaults to 0.

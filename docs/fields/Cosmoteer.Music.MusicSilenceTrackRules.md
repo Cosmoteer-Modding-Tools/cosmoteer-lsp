@@ -10,4 +10,4 @@
 ## Length
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Duration in seconds of the silence this track produces. Useful as a timed gap between sub-tracks in a [[Cosmoteer.Music.MusicSequenceTrackRules|Sequence]] or as a state in an [[Cosmoteer.Music.MusicFsmTrackRules|FSM]].

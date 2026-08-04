@@ -10,14 +10,14 @@
 ## RemapFrom
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Input range of the buff's amount that gets mapped. A buff value at RemapFrom.Min maps to RemapTo.Min and one at RemapFrom.Max maps to RemapTo.Max, linearly in between.
 
 ## RemapTo
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Output range the buff amount is mapped onto. The mapped result becomes the modifier value that ModificationMode then combines with the running value.
 
 ## Clamp
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+When true the buff amount is clamped to RemapFrom before mapping, so values outside the input range produce RemapTo.Min or RemapTo.Max rather than extrapolating past them. When false the mapping is unclamped.

@@ -10,219 +10,219 @@
 ## OffScreenDistFromEdge
 `float` · required
 
-<!-- TODO: needs documentation -->
+How far inside the screen edge, in UI pixels, the indicator for an off-screen object is parked. The indicator's center sits this far in from the point where the line to the object crosses the edge, plus half the indicator's own size on top.
 
 ## TextOffset
 `float` · required
 
-<!-- TODO: needs documentation -->
+The vertical gap in UI pixels between an indicator and its label. The label normally sits this far below the indicator and flips to the same distance above it once the indicator gets within two indicator heights of the bottom of the screen.
 
 ## ArrowDistFromEdge
 `float` · required
 
-<!-- TODO: needs documentation -->
+How far inside the screen edge, in UI pixels, the off-screen direction arrow is drawn. Making it smaller than `OffScreenDistFromEdge` puts the arrow between the icon and the edge, which is what vanilla does with 16 against 35.
 
 ## ArrowSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The arrow drawn beside an off-screen indicator, rotated to point away from the screen center toward the object. Its `Size` is in UI pixels and its `VertexColor` is multiplied by the source object's own arrow color.
 
 ## PulseSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The looping halo drawn behind indicators whose object asks for a pulse, which for ships means any ship outside the local player's line of sight. Its `Size` in UI pixels is the size at scale 1, and the drawn size is that multiplied by the current pulse scale.
 
 ## PulseInterval
 `float` · required
 
-<!-- TODO: needs documentation -->
+The period of the pulse loop in seconds. The game clock wrapped into this period is fed straight into `PulseScaleRange`, `CustomIconPulseScaleRange` and `PulseAlphaRange` as the interpolation factor without first being divided by the period, so only a value of 1 maps one full period onto those ranges. Vanilla uses 1, as do the matching pulse intervals on the galaxy map.
 
 ## PulseScaleRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The scale applied to `PulseSprite` over one pulse, from Min at the start of the interval to Max at the end, for indicators that draw no custom icon such as crew warnings and points of interest. Vanilla grows the halo from 0.1 to 1.
 
 ## CustomIconPulseScaleRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The same scale sweep as `PulseScaleRange` but used for indicators whose object draws its own custom icon. Every ship indicator reports a custom icon, so in practice this is the range that governs ship pulses. Vanilla starts it larger, at 0.4, so the halo does not shrink inside the ship shape.
 
 ## PulseAlphaRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The alpha multiplier applied to the pulse over one interval, on top of the object's own indicator color. Vanilla goes from 1 down to 0 so each pulse fades out as it expands.
 
 ## PingSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The one-shot ring that expands out of an indicator the moment its object becomes pingable, which for ships means an enemy or other significant ship entering the local player's radar for the first time. Vanilla reuses `PulseSprite`.
 
 ## PingDuration
 `float` · required
 
-<!-- TODO: needs documentation -->
+How long one ping animation lasts, in seconds. Progress through it is normalized to 0..1 and used to interpolate `PingScaleRange` and `PingAlphaRange`, and the renderer removes itself when it reaches the end.
 
 ## PingScaleRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The scale applied to `PingSprite` across the ping, from Min at the start to Max at the end. Vanilla expands from 0 to 2.
 
 ## PingAlphaRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The alpha multiplier applied to the ping across its duration, on top of the object's indicator color. Vanilla fades from 1 to 0.
 
 ## PingSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+The sound played on the interface audio group when a non-hostile object pings. It is skipped when the player has turned friendly pings off in the settings.
 
 ## EnemyPingSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+The sound played when a hostile object pings, skipped when the player has turned enemy pings off. This ping is also what can trigger the auto slow or auto pause setting.
 
 ## ShipIconGlowShader
 `asset (shader)` · required
 
-<!-- TODO: needs documentation -->
+The shader used for the separable blur that puts a glow around a ship's rendered icon. It is run alternately in the horizontal and vertical direction, reading `_direction` as its step vector.
 
 ## ShipIconGlowShipScale
 `float` · required
 
-<!-- TODO: needs documentation -->
+The fraction of the ship icon's render target that the ship silhouette itself occupies, leaving the rest as empty margin for the glow to bleed into. Values below 1 enlarge the render target and the drawn quad by the reciprocal, so vanilla's 0.75 gives a third more room around the ship.
 
 ## ShipIconGlowIterations
 `float` · required
 
-<!-- TODO: needs documentation -->
+The number of blur passes per pixel of icon resolution. It is multiplied by the larger of the icon's two dimensions and rounded up, so vanilla's `5/128` means five horizontal and five vertical passes on a 128 pixel icon and proportionally more on a larger one.
 
 ## ShipIconGlowDisplacement
 `float` · required
 
-<!-- TODO: needs documentation -->
+How far each blur pass samples, in pixels of the icon render target. It is divided by the target's width or height before being handed to the shader, so it stays a pixel distance no matter the icon resolution.
 
 ## FriendlyShipDotNormalSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The blip drawn for a ship allied with the local player while the indicator is idle. All ship dot sprites are tinted by the ship's indicator color on top of their own `VertexColor`, so vanilla only varies the alpha between the three states.
 
 ## FriendlyShipDotHighlightedSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The blip for an allied ship while the mouse is over its indicator.
 
 ## FriendlyShipDotPressedSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The blip for an allied ship while its indicator is being clicked.
 
 ## NeutralShipDotNormalSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The blip drawn for a ship that is neither allied nor hostile while the indicator is idle. Stasis landmarks reuse this sprite set for their own icons.
 
 ## NeutralShipDotHighlightedSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The blip for a neutral ship while the mouse is over its indicator.
 
 ## NeutralShipDotPressedSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The blip for a neutral ship while its indicator is being clicked.
 
 ## EnemyShipDotNormalSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The blip drawn for a ship hostile to the local player while the indicator is idle.
 
 ## EnemyShipDotHighlightedSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The blip for a hostile ship while the mouse is over its indicator.
 
 ## EnemyShipDotPressedSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The blip for a hostile ship while its indicator is being clicked.
 
 ## FtlPointNormalSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The indicator icon for a landmark that is an FTL jump point, used only once the landmark has been discovered. Undiscovered landmarks fall back to the ordinary ship dot sprites.
 
 ## FtlPointHighlightedSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The FTL jump point icon while the mouse is over its indicator.
 
 ## FtlPointPressedSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The FTL jump point icon while its indicator is being clicked.
 
 ## FtlGateNormalSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The indicator icon for a discovered FTL gate. Like the jump point icons it is only used once the gate has been discovered.
 
 ## FtlGateHighlightedSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The FTL gate icon while the mouse is over its indicator.
 
 ## FtlGatePressedSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The FTL gate icon while its indicator is being clicked.
 
 ## ShipSizeThresholdRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The band of apparent ship sizes over which the on-screen blip for a visible ship fades out, measured as the ship's world bounding radius divided by the camera's uniform scale. The blip is fully opaque for ships at or below Min, fades linearly to nothing at Max, and is not drawn at all for ships larger than Max. Ships small enough to qualify only get a blip if the player has zoomed-out blips enabled or is choosing an FTL destination.
 
 ## ShipGhostNormalColorFactor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color multiplied into a ship's silhouette ghost, the shape drawn in place of a plain dot for ships within sight, while its indicator is idle. Vanilla only varies alpha across the three states, from 204 here up to fully opaque when pressed.
 
 ## ShipGhostHighlightedColorFactor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color factor applied to a ship's silhouette ghost while the mouse is over its indicator.
 
 ## ShipGhostPressedColorFactor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color factor applied to a ship's silhouette ghost while its indicator is being clicked.
 
 ## FtlGateColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The indicator color of an FTL gate, replacing the allegiance color that ordinary ships use. It tints the gate's icon, its pulse and its ping.
 
 ## DestinationGateNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+The pulsing frame drawn around the FTL gate the player has picked as their jump destination. It is drawn around the indicator when the gate is off screen or too small, and around the gate itself in world space when the gate is entirely on screen.
 
 ## DestinationGateNineSlicePulseInterval
 `float` · required
 
-<!-- TODO: needs documentation -->
+The period of the destination gate frame's pulse, in seconds. Unlike the indicator pulse this one uses a triangle wave, so the frame eases back and forth between the two scales instead of snapping back.
 
 ## DestinationGateNineSlicePulseScaleBegin
 `float` · required
 
-<!-- TODO: needs documentation -->
+The size multiplier of the destination gate frame at one end of its pulse, relative to the indicator or the gate's bounding rectangle. Vanilla's 1.25 makes the frame start noticeably larger than the gate.
 
 ## DestinationGateNineSlicePulseScaleEnd
 `float` · required
 
-<!-- TODO: needs documentation -->
+The size multiplier at the other end of the destination gate frame's pulse. Vanilla's 1 makes the frame settle exactly on the gate.
 
 ## SpaceStationColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The indicator color used for a space station, overriding its allegiance color. Stations that are hostile to the local player are excluded and keep the normal enemy coloring.

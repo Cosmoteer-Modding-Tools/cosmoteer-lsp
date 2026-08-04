@@ -20,17 +20,17 @@ The inner radius within which cells will be ignored.
 ## ChanceFalloff
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The exponent shaping how [[Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules.StatusChance]] fades from the center to the edge of [[Cosmoteer.Simulation.HitEffects.AreaStatusApplicationEffectRules.Radius]]. Each cell's chance is multiplied by `(1 - distance/radius)^ChanceFalloff`, with distance measured outward from [[Cosmoteer.Simulation.HitEffects.AreaStatusApplicationEffectRules.ExclusionRadius]] when set. At 0, the default, the chance is constant across the area, and 1 gives a linear fade to zero at the edge.
 
 ## ValueFalloff
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The exponent shaping how [[Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules.StatusValue]] and [[Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules.MaxStatusValue]] fade from the center to the edge of [[Cosmoteer.Simulation.HitEffects.AreaStatusApplicationEffectRules.Radius]], multiplying them by `(1 - distance/radius)^ValueFalloff` per cell. At 0, the default, the value is constant across the area, and 1 gives a linear fade to zero at the edge.
 
 ## DurationFalloff
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The exponent shaping how [[Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules.StatusDuration]] and [[Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules.InitialStatusDuration]] fade from the center to the edge of [[Cosmoteer.Simulation.HitEffects.AreaStatusApplicationEffectRules.Radius]], multiplying them by `(1 - distance/radius)^DurationFalloff` per cell. At 0, the default, the duration is constant across the area, and 1 gives a linear fade to zero at the edge.
 
 ## AllowOverlappingApplications
 `bool` · optional · default `true`

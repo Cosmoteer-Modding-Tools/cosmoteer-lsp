@@ -10,4 +10,4 @@
 ## ValueFrom
 `ComponentValueReferenceRules` · required
 
-<!-- TODO: needs documentation -->
+The value component on the same part whose current value selects which sprite from [[Cosmoteer.Ships.Parts.Graphics.BasePartValueSpritesRules.ValueLevels]] is shown, refreshed whenever the value changes. Can be written as just the component's name, or as a group with `ID` and `ValueID` to read a named sub-value. Unless [[Cosmoteer.Ships.Parts.Graphics.BasePartValueSpritesRules.Range]] says otherwise the value is treated as a 0..1 fraction, as with the vanilla railgun loader's overclock charge lights fed by a normalized `ValueOperation`.

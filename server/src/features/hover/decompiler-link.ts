@@ -2,7 +2,7 @@ import * as path from 'path';
 import { AbstractNode, isDocumentNode, isGroupNode } from '../../core/ast/ast';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { documentRootClass } from '../../document/schema/document-root';
-import { typeDef } from '../../document/schema/schema';
+import { modAssemblyOfClass, typeDef } from '../../document/schema/schema';
 import { globalSettings } from '../../settings';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 
@@ -29,13 +29,8 @@ export const decompilerHoverLink = (node: AbstractNode): string | null => {
     if (!globalSettings.decompiler?.showInHover) return null;
     const cls = owningClassOf(node);
     if (!cls || !typeDef(cls)) return null;
-    const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
-    if (!dataRoot) return null;
-
-    // The schema is extracted from exactly these two assemblies (see tools/schemagen): the game's
-    // own `*Rules` classes live in Cosmoteer.dll, the nested engine types in HalflingCore.dll.
-    const assembly = cls.startsWith('Halfling') ? 'HalflingCore.dll' : 'Cosmoteer.dll';
-    const assemblyPath = path.join(dataRoot, '..', 'Bin', assembly);
+    const assemblyPath = assemblyPathOf(cls);
+    if (!assemblyPath) return null;
 
     // Cecil FullNames separate nested classes with `/`. The XML doc-ID convention both decompilers
     // navigate by uses `.` throughout.
@@ -43,6 +38,27 @@ export const decompilerHoverLink = (node: AbstractNode): string | null => {
     const shortName = cls.split(/[./]/).pop();
     const args = encodeURIComponent(JSON.stringify([{ assemblyPath, docId }]));
     return `_[Open \`${shortName}\` in decompiler ↗](command:${OPEN_IN_DECOMPILER_COMMAND}?${args})_`;
+};
+
+/**
+ * The assembly that declares a schema class.
+ *
+ * A class a code mod contributed lives in that mod's own `.dll`, which the extraction recorded when
+ * it read the type, so the link opens the mod's assembly rather than a game assembly that does not
+ * contain the class at all. (The decompiler resolves the mod's references to the game types on its
+ * own, from the assemblies beside it and the ones already open.) Everything else comes from the two
+ * assemblies the shipped schema is extracted from (see tools/schemagen): the game's own `*Rules`
+ * classes in Cosmoteer.dll, the nested engine types in HalflingCore.dll.
+ *
+ * @param cls the class FullName.
+ * @returns the absolute assembly path, or undefined when the game install is unknown.
+ */
+const assemblyPathOf = (cls: string): string | undefined => {
+    const modAssembly = modAssemblyOfClass(cls);
+    if (modAssembly) return modAssembly;
+    const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+    if (!dataRoot) return undefined;
+    return path.join(dataRoot, '..', 'Bin', cls.startsWith('Halfling') ? 'HalflingCore.dll' : 'Cosmoteer.dll');
 };
 
 /**

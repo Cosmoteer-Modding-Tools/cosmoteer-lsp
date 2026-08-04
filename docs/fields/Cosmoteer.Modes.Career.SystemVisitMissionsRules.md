@@ -10,14 +10,14 @@
 ## Metatype
 `→ MissionMetatype` · required
 
-<!-- TODO: needs documentation -->
+The mission metatype used for the automatically created "visit this system" missions, one per map node other than the one the player starts at.
 
 ## FamePrereqPerLowTier
 `map<int, int>` · optional
 
-<!-- TODO: needs documentation -->
+The fame the player needs before a node's visit mission becomes available, keyed by the lower bound of that node's tier range. Written as `Tier` and `Fame` pairs.
 
 ## Rewards
 `RewardSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+The reward spawners rolled once for each node's visit mission, each given the node's tier range so higher tier systems can pay more. Spawners that produce nothing are skipped.

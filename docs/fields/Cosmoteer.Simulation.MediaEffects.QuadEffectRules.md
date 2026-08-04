@@ -10,19 +10,19 @@
 ## Z
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The depth coordinate given to the quad's vertices, passed through to the sprite's shader.
 
 ## IntensityScaleFactor
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Scales the quad with the effect's intensity. When nonzero, the quad's world size is the sprite's size times the intensity raised to [[Cosmoteer.Simulation.MediaEffects.QuadEffectRules.IntensityScaleExponent]] times this factor. At 0, the default, intensity does not affect size and the sprite draws at its natural size. The vanilla resonance beam's hit flash uses 4.
 
 ## IntensityScaleExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The exponent applied to the effect's intensity when computing the quad's size with [[Cosmoteer.Simulation.MediaEffects.QuadEffectRules.IntensityScaleFactor]]. Values below 1 damp the growth, as with the 0.5 used by the vanilla ion and resonance beam hit flashes.
 
 ## RandomTimeOffset
 `range<Time>` · optional
 
-<!-- TODO: needs documentation -->
+The range, in seconds, from which a random time offset is rolled each time the quad starts playing. The value is passed to the sprite's shader per vertex, letting shader animations desynchronize between quads. Defaults to `[0, 1]`.

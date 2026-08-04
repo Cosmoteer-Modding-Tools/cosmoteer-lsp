@@ -10,59 +10,59 @@
 ## IssueSound
 `ISoundEffect` · optional
 
-<!-- TODO: needs documentation -->
+The interface sound played once when the player assigns a batch of explicit weapon targets.
 
 ## TargetNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+The box drawn around a part that has been explicitly targeted. Weapons can override it with their own `OverrideTargetNineSlice`, and only this default box is tinted with the player's enemy color.
 
 ## TargetCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The circle drawn around a whole ship that has been explicitly targeted. Weapons can override it with their own `OverrideTargetCircle`, and only this default circle is tinted with the player's enemy color.
 
 ## TentativeTargetNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+The box drawn around a part the player is about to target, used by the weapon targeting mode, the miniview and the part targeter buttons.
 
 ## TentativeTargetCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The circle drawn around a whole ship the player is about to target from a part targeter button, used unless that button's rules supply an `OverrideTentativeTargetCircle`.
 
 ## TargetLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The line drawn from the weapon to its explicit target, and from one target to the next when a weapon has several. Weapons can override it with their own `OverrideTargetLine`.
 
 ## TargetLineFadeOutDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds over which the target line fades away after the target was assigned, so the boxes and circles stay while the connecting lines disappear.
 
 ## TargetNineSliceShrinkDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds over which the box around a newly targeted part fades in and shrinks down onto the part.
 
 ## TargetNineSliceShrinkFromInflate
 `float` · required
 
-<!-- TODO: needs documentation -->
+Tiles by which the box around a newly targeted part is inflated on every side at the start of its shrink animation.
 
 ## TargetCircleShrinkDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds over which the circle around a newly targeted ship shrinks down onto the ship. Unlike the part box, this circle does not fade in.
 
 ## TargetCircleShrinkFromInflate
 `float` · required
 
-<!-- TODO: needs documentation -->
+Tiles added to the radius of the circle around a newly targeted ship at the start of its shrink animation.
 
 ## ReticleSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The reticle drawn on top of every explicit target, kept aligned with the camera. Weapons can override it with their own `OverrideReticleSprite`, and only this default reticle is tinted with the player's enemy color.

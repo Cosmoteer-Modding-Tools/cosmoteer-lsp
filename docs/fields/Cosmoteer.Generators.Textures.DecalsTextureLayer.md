@@ -10,24 +10,24 @@
 ## DecalFiles
 `string[]` · optional
 
-<!-- TODO: needs documentation -->
+The image files that can be stamped as decals. One file is chosen at random for each decal placed. Loaded files are cached and shared across layers.
 
 ## Hue
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The range of hues, in degrees, from which each decal's tint hue is randomly chosen. The decal's pixels are multiplied by the resulting HSVA color, so the tint shifts the decal toward that hue.
 
 ## Sat
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The range from which each decal's tint saturation is randomly chosen, clamped to 0 to 1. A saturation of 0 leaves the decal's own colors mostly intact.
 
 ## Val
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The range from which each decal's tint brightness (value) is randomly chosen, clamped to 0 to 1. Defaults to 1, which preserves the decal's original brightness.
 
 ## Alpha
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The range from which each decal's tint alpha is randomly chosen, clamped to 0 to 1. Defaults to 1. Lower values make the stamped decal more transparent.

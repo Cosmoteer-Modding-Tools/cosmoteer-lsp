@@ -10,69 +10,69 @@
 ## X
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The horizontal position of the rectangle's left edge. Together with [[Halfling.Geometry.Rect.Y]], [[Halfling.Geometry.Rect.Width]] and [[Halfling.Geometry.Rect.Height]] it forms the primary group spelling, which the game tries before the edge-based and corner-plus-size spellings. Units depend on the field using the rectangle.
 
 ## Y
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The vertical position of the rectangle's top edge. The Y axis points downward, so the bottom edge sits at Y plus [[Halfling.Geometry.Rect.Height]].
 
 ## Width
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The horizontal extent of the rectangle. The right edge sits at [[Halfling.Geometry.Rect.X]] plus Width.
 
 ## Height
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The vertical extent of the rectangle. The bottom edge sits at [[Halfling.Geometry.Rect.Y]] plus Height.
 
 ## Left
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The position of the left edge in the edge-based spelling. All four of Left, [[Halfling.Geometry.Rect.Right]], [[Halfling.Geometry.Rect.Top]] and [[Halfling.Geometry.Rect.Bottom]] must be given together, and this spelling is only used when the X/Y/Width/Height keys are not all present.
 
 ## Right
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The position of the right edge in the edge-based spelling. The game stores it as a width of Right minus [[Halfling.Geometry.Rect.Left]].
 
 ## Top
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The position of the top edge in the edge-based spelling. The Y axis points downward, so Top should not exceed [[Halfling.Geometry.Rect.Bottom]] if the rectangle is to have a positive height.
 
 ## Bottom
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The position of the bottom edge in the edge-based spelling. The game stores it as a height of Bottom minus [[Halfling.Geometry.Rect.Top]].
 
 ## Location
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The top-left corner, written as a vector such as `[x, y]`, in the corner-plus-size spelling. Must be paired with [[Halfling.Geometry.Rect.Size]], and this spelling is only used when neither the X/Y/Width/Height nor the Left/Right/Top/Bottom keys are complete.
 
 ## Size
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The width and height, written as a vector such as `[w, h]`, in the corner-plus-size spelling. Must be paired with [[Halfling.Geometry.Rect.Location]].
 
 ## 0
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The left edge's X position when the whole rectangle is written in list form `[x, y, width, height]`. Vanilla writes most rectangles this way, for example `UVRect = [.5, 0, .5, 1]` in command_move.rules.
 
 ## 1
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The top edge's Y position in the list form `[x, y, width, height]`.
 
 ## 2
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The width in the list form `[x, y, width, height]`.
 
 ## 3
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The height in the list form `[x, y, width, height]`.

@@ -10,7 +10,7 @@
 ## Scale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplier applied to the effect scale's distance from Basis. The scaled value is `(effectScale - Basis) * Scale + Basis`, then raised to the inherited Exponent before ModificationMode combines it with the running value.
 
 ## Basis
 `float` · optional

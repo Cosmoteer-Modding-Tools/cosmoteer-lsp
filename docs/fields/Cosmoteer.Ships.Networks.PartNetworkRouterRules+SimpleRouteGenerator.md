@@ -10,4 +10,4 @@
 ## Routes
 `PartNetworkRouteRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Explicit list of individual directed routes, each with its own Start, End, and Cost. Unlike the bidirectional and omni generators, entries are used as-is with no automatic reverse or pairwise expansion.

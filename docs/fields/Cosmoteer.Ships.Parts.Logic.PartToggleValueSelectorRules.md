@@ -10,7 +10,7 @@
 ## Toggle
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The ID of the toggle component whose state selects the output. While the toggle is on the output is the value of [[Cosmoteer.Ships.Parts.Logic.PartToggleValueSelectorRules.ToggleOnValue]], while off it is [[Cosmoteer.Ships.Parts.Logic.PartToggleValueSelectorRules.ToggleOffValue]].
 
 ## BlueprintToggle
 `→ PartComponentRules` · optional
@@ -20,19 +20,19 @@ The toggle to use in place of Toggle for blueprints, if any.
 ## ToggleOffValue
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The ID of the value component whose value is output while the toggle is off. The vanilla small thruster selects between `Zero` and `One` StaticValue components this way to report its overclock state.
 
 ## ToggleOnValue
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The ID of the value component whose value is output while the toggle is on. Changes of the selected component's value pass through immediately.
 
 ## IncludeInPhysical
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the component is created on physical in-game ships. Set to false together with [[Cosmoteer.Ships.Parts.Logic.PartToggleValueSelectorRules.IncludeInBlueprints]] to make a blueprint-only selector.
 
 ## IncludeInBlueprints
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether a blueprint version of the component is also created for ship blueprints. The blueprint version uses [[Cosmoteer.Ships.Parts.Logic.PartToggleValueSelectorRules.BlueprintToggle]] in place of [[Cosmoteer.Ships.Parts.Logic.PartToggleValueSelectorRules.Toggle]] when that is set.

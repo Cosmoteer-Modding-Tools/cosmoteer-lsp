@@ -10,39 +10,39 @@
 ## MediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects (particles, sounds, lights) played at the part's location when the part is destroyed. Only played while the ship is within sight of the local player, and only if the component was operational at the moment of destruction.
 
 ## HitEffects
 `MultiHitEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Gameplay hit effects applied at the part's location when the part is destroyed, with the owning ship as both source and hit ship. These run deterministically, so death explosions that damage neighbors belong here.
 
 ## MediaEffectsFactor
 `number` · optional
 
-<!-- TODO: needs documentation -->
+A multiplier on the intensity of [[Cosmoteer.Ships.Parts.Effects.PartDeathEffectsRules.MediaEffects]]. Defaults to 1 and accepts the modifiable-value form, so it can be scaled by buffs and statuses. Multiplied with the value of the [[Cosmoteer.Ships.Parts.Effects.PartDeathEffectsRules.FactorMediaEffectsWith]] component, if any.
 
 ## HitEffectsFactor
 `number` · optional
 
-<!-- TODO: needs documentation -->
+A multiplier on the effect scale passed to [[Cosmoteer.Ships.Parts.Effects.PartDeathEffectsRules.HitEffects]]. Defaults to 1 and accepts the modifiable-value form, so it can be scaled by buffs and statuses. Multiplied with the value of the [[Cosmoteer.Ships.Parts.Effects.PartDeathEffectsRules.FactorHitEffectsWith]] component, if any.
 
 ## FactorMediaEffectsWith
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A component on the same part whose current value is multiplied into the media effect intensity, on top of [[Cosmoteer.Ships.Parts.Effects.PartDeathEffectsRules.MediaEffectsFactor]].
 
 ## FactorHitEffectsWith
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A component on the same part whose current value is multiplied into the hit effect scale, on top of [[Cosmoteer.Ships.Parts.Effects.PartDeathEffectsRules.HitEffectsFactor]].
 
 ## WhenSalvaged
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Selects which kind of removal fires the effects. When false (the default) they play only when the part is destroyed normally. When true they play only when the part is removed by salvaging. Vanilla base parts declare a second `DeathEffects` component with `WhenSalvaged = true` to give salvaging its own effect.
 
 ## SuppressWhenSpawnedFromDestroyedTime
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+The grace period, in seconds, during which a part spawned from an already destroyed part suppresses its own death effects if it is destroyed again. Measured from when the component became operational. Defaults to 0.5 and prevents effect chains from re-triggering immediately after a ship breaks apart.

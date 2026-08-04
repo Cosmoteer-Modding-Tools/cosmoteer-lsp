@@ -10,9 +10,9 @@
 ## Part
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+Existing part type the new parts should be placed near. Defaults to the ship class's first part type when left unset.
 
 ## Weight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+How strongly nearness to this part type is favored when scoring candidate locations. Higher weights pull new parts closer to parts of this type, and closeness matters more the nearer the part is within the search range. Default 1.

@@ -10,7 +10,7 @@
 ## Sprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+The icon drawn on the network overlay, centered on the port's cell edge midpoint shifted by `EdgeOffset` and rotated to face the port's direction. Its `Size` is in tiles, and every icon sprite in [[Cosmoteer.Game.Gui.PartNetworkGuiRules.OverlayIcons]] plus the two default sprites is packed into a single atlas at load time.
 
 ## RouteLineOffset
 `float` · optional
@@ -30,4 +30,4 @@ Whether an additional line to the actual, un-offset edge should be drawn when th
 ## UnroutableColorFactor
 `Color` · optional
 
-<!-- TODO: needs documentation -->
+The color multiplied into the icon when its port cannot be reached from the part currently being placed or selected, typically a white with reduced alpha to fade unreachable ports out. Routable ports always draw at plain white, and leaving this unset makes unroutable ports draw at plain white too.

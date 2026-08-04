@@ -10,39 +10,39 @@
 ## TriggerID
 `→ PartTriggerGuiRules` · required
 
-<!-- TODO: needs documentation -->
+Identifies this trigger. A part opts into it by declaring a `PartUITrigger` component whose `TriggerID` matches, and clicking the button fires every matching trigger on the selected parts, or on the selected ships when no individual parts are selected. Vanilla defines `"detonate"`.
 
 ## DefaultHotkey
 `enum ViKey[]` · optional
 
-<!-- TODO: needs documentation -->
+The out of the box key combination that fires the trigger, written as the list of keys that must be held. Vanilla's detonate trigger uses `[PlatformCmdCtrl, Shift, D]`. Players can rebind it, and the binding is stored under `PartTriggers/<TriggerID>`.
 
 ## ButtonTextKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for the label drawn on the trigger button. The label is rendered with XML formatting enabled.
 
 ## ButtonToolTipKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for the trigger button's tooltip.
 
 ## ButtonSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+The image drawn on the trigger button in the command card.
 
 ## SortOrder
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Orders this button among all the trigger, targeter, toggle and color buttons on a part's command card. Lower values are placed first.
 
 ## ShowWithShipCommands
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Also shows this trigger on the ship command card, not just on the parts card for the selected parts. It also puts the hotkey in the general command input context instead of the parts control context.
 
 ## OnlyOne
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Fires just one of the matching parts instead of all of them. The candidates are shuffled first, so the part that fires is picked at random among those that are operational.

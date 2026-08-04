@@ -30,54 +30,54 @@ The alpha component.
 ## 0
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The red component, 0..255, when the color is written in list form `[R, G, B]` or `[R, G, B, A]`. A color can also be written as a plain named value such as `White` or `Red`.
 
 ## 1
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The green component, 0..255, in the list form `[R, G, B]` or `[R, G, B, A]`.
 
 ## 2
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The blue component, 0..255, in the list form `[R, G, B]` or `[R, G, B, A]`.
 
 ## 3
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The alpha (opacity) component, 0..255, in the list form `[R, G, B, A]`. When the list has only three entries the color is fully opaque.
 
 ## H
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The hue in degrees, 0..360. When [[Halfling.Graphics.IntColor.H]], [[Halfling.Graphics.IntColor.S]] and [[Halfling.Graphics.IntColor.V]] are all present the red, green and blue components are computed from them and any R/G/B fields are ignored. Opacity still comes from [[Halfling.Graphics.IntColor.A]] or [[Halfling.Graphics.IntColor.Af]].
 
 ## S
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The saturation as a 0..1 fraction of the HSV form. Only used when [[Halfling.Graphics.IntColor.H]], [[Halfling.Graphics.IntColor.S]] and [[Halfling.Graphics.IntColor.V]] are all present.
 
 ## V
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The brightness value as a 0..1 fraction of the HSV form. Only used when [[Halfling.Graphics.IntColor.H]], [[Halfling.Graphics.IntColor.S]] and [[Halfling.Graphics.IntColor.V]] are all present.
 
 ## Rf
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The red component as a 0..1 fraction, converted to a 0..255 byte on load. Alternative to [[Halfling.Graphics.IntColor.R]]. In group form each of red, green and blue must be given via either its byte or fractional field unless the HSV fields are all present.
 
 ## Gf
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The green component as a 0..1 fraction, converted to a 0..255 byte on load. Alternative to [[Halfling.Graphics.IntColor.G]].
 
 ## Bf
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The blue component as a 0..1 fraction, converted to a 0..255 byte on load. Alternative to [[Halfling.Graphics.IntColor.B]].
 
 ## Af
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The alpha (opacity) component as a 0..1 fraction, converted to a 0..255 byte on load. Alternative to [[Halfling.Graphics.IntColor.A]]. When neither is given the color is fully opaque.

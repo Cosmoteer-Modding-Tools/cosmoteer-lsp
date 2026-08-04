@@ -10,14 +10,14 @@
 ## TargetChecksPerUpdate
 `int` · required
 
-<!-- TODO: needs documentation -->
+Number of randomly drawn parts of the target ship that are scored each AI tick, on top of the part already being shot at. Only parts with a positive [[Cosmoteer.Ships.Parts.PartRules.AIValueFactor]] are scored, and if none of them qualifies a random one of the remaining parts is picked instead.
 
 ## TargetSwitchThresholdFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the score of the part currently being shot at while candidates are compared, so a different part has to beat it by this factor before the weapons retarget. Vanilla combat AIs use 2.
 
 ## TargetValueFactorPerPenetrationDist
 `float` · required
 
-<!-- TODO: needs documentation -->
+Base of an exponential falloff applied per tile of ship between the shooter and the part. A part's value is multiplied by this raised to the distance in tiles from the first hull hit along the line of fire to the part's centre, so the vanilla 0.75 makes deeply buried parts much less attractive.

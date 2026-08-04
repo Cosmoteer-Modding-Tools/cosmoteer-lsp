@@ -10,9 +10,9 @@
 ## Area
 `IntRect` · required
 
-<!-- TODO: needs documentation -->
+The rectangle of cells the region covers, in un-rotated cells relative to the part. It is transformed by the part's placement, so it rotates and flips with the part. The distance factor for effects that use one falls off from the rectangle's bounding circle center to its radius.
 
 ## BlueprintMaterial
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The material used to fill the region rectangle in the build view. Unset means the region draws nothing in the blueprint.

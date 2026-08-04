@@ -10,29 +10,29 @@
 ## LinearDamping
 `float` · required
 
-<!-- TODO: needs documentation -->
+Viscous linear drag applied to loose resource nuggets. Each tick a nugget loses `velocity * LinearDamping * dt`, and the same coefficient feeds the nugget's drag solver so it coasts to a stop. Pairs with [[AngularDamping]] for spin.
 
 ## AngularDamping
 `float` · required
 
-<!-- TODO: needs documentation -->
+Viscous rotational drag applied to loose resource nuggets, damping their spin the same way [[LinearDamping]] damps linear motion.
 
 ## DropLinearVelocity
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Speed range for the random launch velocity given to a nugget when it is dropped. A magnitude is picked from this range and applied in a random direction. Paired with [[DropAngularVelocity]] for spin.
 
 ## DropAngularVelocity
 `range<number (degrees)>` · required
 
-<!-- TODO: needs documentation -->
+Spin range for the random angular velocity given to a nugget when it is dropped with randomized motion. When a nugget is placed without random velocity, the spin is zero instead.
 
 ## SelectionRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radius in world units of the circular area around a nugget used for mouse picking and spatial indexing. The click circle is scaled by the camera's zoom.
 
 ## Rarities
 `map<→ ResourceRarity, ResourceRarityRules>` · optional
 
-<!-- TODO: needs documentation -->
+Per-rarity rendering rules keyed by resource rarity ID. Each resource's [[Cosmoteer.Resources.ResourceRules|Rarity]] looks up its entry here to decide fog-dot display, draw order, and dot sprite. See [[Cosmoteer.Resources.ResourceRarityRules|ResourceRarityRules]].

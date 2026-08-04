@@ -10,9 +10,9 @@
 ## TierRangeLow
 `range<int>` · required
 
-<!-- TODO: needs documentation -->
+The span the low end of each map node's difficulty tier range is rolled from. Every node on the map gets an independent roll.
 
 ## TierRangeHigh
 `range<int>` · required
 
-<!-- TODO: needs documentation -->
+The span the high end of each map node's difficulty tier range is rolled from. It is rolled independently of [[Cosmoteer.Modes.Career.Map.RandomNodeTiersSpawner.TierRangeLow]] and is not clamped against it, so overlapping spans can produce a node whose high tier is below its low tier.

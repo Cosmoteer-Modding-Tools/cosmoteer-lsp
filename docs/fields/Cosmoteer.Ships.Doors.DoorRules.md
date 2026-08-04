@@ -10,129 +10,129 @@
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The door's display name, shown as the title of its build tooltip and in the controls settings when listing door hotkeys.
 
 ## IconNameKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Label shown on the door's button in the build palette. Falls back to [[Cosmoteer.Ships.Doors.DoorRules.NameKey]] when omitted.
 
 ## ID
 `→ DoorRules` · required
 
-<!-- TODO: needs documentation -->
+Game-wide unique ID of the door. Must be in the form `author_name.door_name`, loading fails otherwise. The vanilla door is `cosmoteer.door`.
 
 ## OtherIDs
 `→ DoorRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Alternate IDs this door also answers to. Each one is registered as a full lookup alias, so saved ships and references that use an old ID still resolve to this door. The vanilla door lists its pre-rename ID `door`.
 
 ## Resources
 `[→ ResourceRules, int][]` · optional
 
-<!-- TODO: needs documentation -->
+Resource type and quantity pairs defining what the door costs to build. Their combined buy price is the door's money cost, and crew deliver exactly these resources during construction and haul them away again during deconstruction.
 
 ## IsBuildable
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+If false, the door is hidden from the build palette, gets no editor hotkey, and door blueprints of this type are never valid to construct.
 
 ## Layer
 `→ ShipRenderLayerRules` · required
 
-<!-- TODO: needs documentation -->
+The ship render layer the door's open and closed sprites are drawn on, which also decides the sprite atlas they are packed into. Must be a layer declared in the ship's `RenderLayers`. Vanilla uses the `doors` layer.
 
 ## StencilLayer
 `→ ShipRenderLayerRules` · required
 
-<!-- TODO: needs documentation -->
+The ship render layer the door's stencil sprite is drawn on. Vanilla uses the `walls_stencil` layer, the stencil pass of the exterior walls.
 
 ## DescriptionKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Descriptive text shown in the door's build tooltip, below the name and cost line.
 
 ## DefaultEditorHotkey
 `enum ViKey[]` · optional
 
-<!-- TODO: needs documentation -->
+The default key binding that selects this door for placement in the ship editor, rebindable by the player. Only registered when [[Cosmoteer.Ships.Doors.DoorRules.IsBuildable]] is true. The vanilla door uses `[X]`.
 
 ## EditorIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon shown on the door's button in the build palette.
 
 ## HorizontalOpenSprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite shown for a horizontally-oriented door while at least one crew member is holding it open. Its animation restarts whenever the door opens, picking up at the position matching how far the closing animation had progressed, so vanilla uses the door-opening frames with `ClampAnimation` for a smooth swing.
 
 ## VerticalOpenSprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite shown for a vertically-oriented door while at least one crew member is holding it open. See [[Cosmoteer.Ships.Doors.DoorRules.HorizontalOpenSprite]].
 
 ## HorizontalClosedSprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite shown for a horizontally-oriented door while no crew member is holding it open, which is also the door's resting state. Its animation restarts whenever the last crew member releases the door, so vanilla plays the opening frames in reverse here as a closing animation.
 
 ## VerticalClosedSprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite shown for a vertically-oriented door while no crew member is holding it open. See [[Cosmoteer.Ships.Doors.DoorRules.HorizontalClosedSprite]].
 
 ## HorizontalStencilSprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite a horizontally-oriented door constantly renders on [[Cosmoteer.Ships.Doors.DoorRules.StencilLayer]] while it exists and is not under construction.
 
 ## VerticalStencilSprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite a vertically-oriented door constantly renders on [[Cosmoteer.Ships.Doors.DoorRules.StencilLayer]] while it exists and is not under construction.
 
 ## HorizontalBlueprintSprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite representing a horizontally-oriented door in blueprint mode and over destroyed doors awaiting repair. Drawn with the ship's blueprint materials, using the invalid material when the door blueprint cannot be built.
 
 ## VerticalBlueprintSprite
 `AtlasSprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite representing a vertically-oriented door in blueprint mode and over destroyed doors awaiting repair. See [[Cosmoteer.Ships.Doors.DoorRules.HorizontalBlueprintSprite]].
 
 ## HorizontalDoorSize
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Width and height, in tiles, of the highlight rectangle the build tools draw centered on a horizontally-oriented door, for hover highlights, the removal X, and repair markers. The vanilla door uses `[1, .5]`.
 
 ## VerticalDoorSize
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Width and height, in tiles, of the highlight rectangle the build tools draw centered on a vertically-oriented door. The vanilla door uses `[.5, 1]`.
 
 ## ConstructionFinishedMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot effects played at the door's location when its construction completes, meaning the last required resource has been delivered. The vanilla door plays a construction sound here.
 
 ## DeconstructionFinishedMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot effects played at the door's location when its deconstruction completes, meaning the last stored resource has been carried away.
 
 ## FractionalNonPlayerRefund
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The fraction (0..1) of the door's cost refunded in Career mode when selling a door the player did not build, for example on a bought or captured ship, floored to whole credits. Doors built by the player refund their full cost. Defaults to 0.25 in code, and vanilla sets it to `25%` explicitly.
 
 ## EditorGroups
 `→ EditorGroupRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The build-palette group tabs this door's button appears under, with one button per listed group. Grouped door buttons use the large button size and can be marked as favorites. Without any group the door lands in the ungrouped palette section with a small button.
 
 ## EditorGroup
 `→ EditorGroupRules` · optional
 
-<!-- TODO: needs documentation -->
+Single-group shorthand for [[Cosmoteer.Ships.Doors.DoorRules.EditorGroups]]. Only read when `EditorGroups` is absent.

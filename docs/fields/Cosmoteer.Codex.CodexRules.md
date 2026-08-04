@@ -10,14 +10,14 @@
 ## CodexPages
 `CodexPageRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Full set of codex and tutorial pages in the game. Each is evaluated against game state to decide when it appears, and pages flagged with [[Cosmoteer.Codex.CodexPageRules#IsTip|IsTip]] are additionally gathered into the tips pool.
 
 ## NewTutorialSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Sound effect played on the interface audio group whenever a new codex page becomes visible on the HUD, alerting the player that a tutorial or tip is available.
 
 ## TipsRequiredTutorials
 `string[]` · optional
 
-<!-- TODO: needs documentation -->
+Set of codex page [[Cosmoteer.Codex.CodexPageRules#ID|IDs]] that must all have been seen before the startup Tips dialog is allowed to appear. Gates tips behind finishing the core tutorials, unless tutorials are disabled in settings.

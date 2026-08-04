@@ -20,4 +20,4 @@ The value that the status' rect size is multiplied by when retrieving a random p
 ## Effects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+The media effects driven by the custom shape. A bare list can be written here in place of the whole group, in which case the other fields keep their defaults.

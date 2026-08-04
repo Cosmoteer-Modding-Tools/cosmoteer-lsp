@@ -10,104 +10,104 @@
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon shown for Build and Battle in the multiplayer game mode picker.
 
 ## VictoryPointIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The empty victory point pip. One is drawn above the phase timer for each point of the host's victory point limit, and it is also the unfilled pip in the scoreboard's victory point column.
 
 ## VictoryPointWonIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Replaces `VictoryPointIcon` on a pip once the team has won that many rounds. The sprite is tinted with the team's color.
 
 ## RefundIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the small button that sells a tech back during the same build phase it was bought in.
 
 ## StashIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The placeholder image filling the stash slot while no tech is stashed in it.
 
 ## SendToStashIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the button that moves an offered tech into the stash so it can still be bought in a later round.
 
 ## BuildGameSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the host's build phase time limit to give the real length of a build phase. The simulation clock runs at normal speed while building, so 1 makes a build phase last exactly its configured time, while the battle phase is instead stretched by the host's game speed setting.
 
 ## CapturePointIncomeInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+The seconds between capture point payouts during the battle phase. The same value divided by the current clock scale is shown in the label under the capture point.
 
 ## BaseCountdownInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+The spacing in seconds between countdown beeps while more than `FastCountdownStart` of the current phase remains. A beep fires whenever the whole seconds remaining is an exact multiple of this.
 
 ## FastCountdownStart
 `Time` · required
 
-<!-- TODO: needs documentation -->
+The seconds remaining in the phase at or below which beeps switch from `BaseCountdownInterval` spacing to `FastCountdownInterval` spacing.
 
 ## FastCountdownInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+The spacing in seconds between countdown beeps once the remaining phase time has dropped to `FastCountdownStart`.
 
 ## FastestCountdownStart
 `Time` · required
 
-<!-- TODO: needs documentation -->
+The seconds remaining in the phase at or below which the countdown beeps once every second, ignoring both intervals.
 
 ## ShipRules
 `→ ShipRules` · required
 
-<!-- TODO: needs documentation -->
+The ship class every player builds in. Its whole part list starts out locked apart from `PartsWhitelist`, and each player's starting hull is spawned from it.
 
 ## AIRules
 `→ ShipAIRules` · required
 
-<!-- TODO: needs documentation -->
+The ship AI given to the cloned combat ships when the host turns on AI controlled battles. The AI's origin is set to the capture point so the ships fight over the center of the map.
 
 ## RandomOfferingsPerRound
 `int` · required
 
-<!-- TODO: needs documentation -->
+How many techs are offered each build phase from any category or from no category at all, on top of the per category counts in `TechOfferingsPerRound`. A category that cannot fill its quota hands its leftover slots to this pool.
 
 ## ExtraFirstRoundOfferings
 `int` · required
 
-<!-- TODO: needs documentation -->
+Added to `RandomOfferingsPerRound` during the first round only, so players get a wider choice to open with.
 
 ## TechOfferingsPerRound
 `[→ BuildBattleTechCategory, int][]` · optional
 
-<!-- TODO: needs documentation -->
+Pairs of tech category and the number of techs from that category offered each build phase. Listing the same category twice is a load error, and a tech whose `Category` names a category missing from this list makes loading fail.
 
 ## Techs
 `BuildBattleTechRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Every tech that can be offered during the game. Each entry's `ID` must be unique.
 
 ## PartsWhitelist
 `→ PartRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Parts of `ShipRules` that are never locked behind a tech, so they can be built from the first round on. Everything else in the ship class starts locked.
 
 ## CapturePointRules
 `CapturePointRules` · required
 
-<!-- TODO: needs documentation -->
+The single capture point, which is always placed at the exact center of the map.
 
 ## BuildAreaRules
 `BuildAreaRules` · required
 
-<!-- TODO: needs documentation -->
+The per team build areas. One is created per team, spaced evenly around a circle 10000 world units from the map center.

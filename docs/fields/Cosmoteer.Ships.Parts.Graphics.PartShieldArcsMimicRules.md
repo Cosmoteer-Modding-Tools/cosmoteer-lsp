@@ -10,22 +10,22 @@
 ## Shield
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The `ArcShield` component on the same part whose arc effects this component mirrors. Each time the shield's arcs update, matching effect instances are repositioned to the same offsets, rotations, and arc factors.
 
 ## ContinuousEffects
 `MultiMediaEffectRules` · required
 
-<!-- TODO: needs documentation -->
+The media effects played continuously at each of the mimicked shield's arcs, one instance per arc, following the arc's position, rotation, and arc factor. The vanilla shield generators use this to layer extra overclock visuals on top of their `ArcShield`.
 
 ## FactorMediaEffectsIntensityWith
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A value component on the same part whose current value drives the intensity parameter of the arc effects, tracked live as the value changes. Defaults to a constant intensity of 1. The vanilla small shield generator's extended-shield effect factors intensity with its `BatteryStorage`.
 
 ## FactorRedVertexColorWith
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A value component on the same part whose current value replaces the red channel of the arc effects' vertex color, tracked live as the value changes. The vanilla shield generators point this at their `OverloadValue` so the overclock arcs redden as overload builds.
 
 ## MimicFadeInStartTime
 `bool` · optional · default `true`

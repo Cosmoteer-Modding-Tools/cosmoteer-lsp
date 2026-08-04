@@ -10,4 +10,4 @@
 ## Tracks
 `MusicTrackRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Sub-tracks played one after another in the listed order, advancing to the next as each finishes. Required. The track reads its length with no null check, so a sequence track without this key crashes on load, and a written-but-empty list throws for having no sub-tracks.

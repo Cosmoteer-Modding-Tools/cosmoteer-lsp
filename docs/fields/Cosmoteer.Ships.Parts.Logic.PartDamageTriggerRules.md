@@ -10,9 +10,9 @@
 ## MinDamage
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The least health the part must lose in a single health change for the trigger to fire, inclusive. Health gains count as negative damage, and both bounds default to unbounded, so by default any health change fires. The fired event carries the damage amount.
 
 ## MaxDamage
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The most health the part may lose in a single health change for the trigger to fire, inclusive. Defaults to unbounded. See [[Cosmoteer.Ships.Parts.Logic.PartDamageTriggerRules.MinDamage]].

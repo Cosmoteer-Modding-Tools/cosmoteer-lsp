@@ -10,4 +10,4 @@
 ## SpawnChance
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Probability from 0 to 1 that this spawner runs. A value of 0 or a failed roll skips it entirely, and the default of 1 always runs it.

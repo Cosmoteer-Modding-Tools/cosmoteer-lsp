@@ -10,34 +10,34 @@
 ## DefaultDistRadiusFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Gap between the bounding circles of the two ships that a new follow command starts with, as a multiple of the larger of their two bounding radii. It is used for any target that is neither a space station nor junk.
 
 ## JunkDistRadiusFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Gap used instead of `DefaultDistRadiusFactor` when the target is junk, as a multiple of the following ship's own bounding radius rather than the larger of the two.
 
 ## StationFollowDistRadiusFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Gap used instead of `DefaultDistRadiusFactor` when the target is a space station, as a multiple of the larger of the two bounding radii. Vanilla keeps it small so ships park close to stations.
 
 ## AdHocFormationRadiusFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+How close two selected ships must be to be swept into the same ad hoc formation. They are grouped when the gap between their bounding circles is no wider than this multiple of the larger of their two radii.
 
 ## FinalCircle
 `CircleRenderer` · required
 
-<!-- TODO: needs documentation -->
+The circle drawn at each of the lead ship's queued destinations when a formation follower is showing where the formation is ultimately headed. It is only drawn while the lead ship is selected.
 
 ## FinalCircleDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds over which `FinalCircle` grows and fades away, measured from the time the lead ship's own command was given.
 
 ## FinalCircleGrowFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radius multiplier `FinalCircle` grows to over `FinalCircleDuration`, starting from the following ship's bounding radius.

@@ -10,44 +10,44 @@
 ## Location
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Offset from the crew member where this salvage or construction beam originates. The [[BeamMediaEffects]] node is spawned at this point on the crew body.
 
 ## Rotation
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+Base direction of the beam in degrees relative to the crew member. A wobble from [[OscillationAmount]] over [[OscillationInterval]] is added on top each frame.
 
 ## Length
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Base length of the beam. A wobble from [[LengthOscillationAmount]] over [[LengthOscillationInterval]] is added on top, and the sum drives where [[HitMediaEffects]] appears at the far end.
 
 ## LengthOscillationAmount
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Amplitude of the beam length wobble, added to and subtracted from [[Length]] as a mirrored wave cycling over [[LengthOscillationInterval]]. Zero keeps the beam a fixed length.
 
 ## LengthOscillationInterval
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Period of the beam length wobble driven by [[LengthOscillationAmount]]. Defaults to 1 second.
 
 ## OscillationAmount
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+Amplitude in degrees of the beam rotation wobble, added to [[Rotation]] as a mirrored wave cycling over [[OscillationInterval]]. Zero keeps the beam pointing at a fixed angle.
 
 ## OscillationInterval
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Period of the beam rotation wobble driven by [[OscillationAmount]]. Defaults to 1 second.
 
 ## BeamMediaEffects
 `MultiMediaEffectRules` · required
 
-<!-- TODO: needs documentation -->
+The beam's own media effect (the beam visual and any sound), spawned at [[Location]] and oriented by [[Rotation]]. Its length is set from [[Length]] plus oscillation. Impact effects at the far end come from [[HitMediaEffects]].
 
 ## HitMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Optional media effect spawned where the beam strikes the target part, at the end of the beam computed from [[Location]], [[Rotation]] and [[Length]]. Omit it for a beam with no impact effect.

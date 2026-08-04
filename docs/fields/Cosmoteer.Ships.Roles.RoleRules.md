@@ -10,19 +10,19 @@
 ## DefaultRoleColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color given to the built-in default crew role that every ship starts with.
 
 ## NewRoleColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color assigned to a freshly created crew role when the player adds one.
 
 ## RoleColorSRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Saturation range the role color picker is limited to, keeping player-chosen role colors within a usable saturation band.
 
 ## RoleColorVRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Value (brightness) range the role color picker is limited to, keeping player-chosen role colors within a usable brightness band.

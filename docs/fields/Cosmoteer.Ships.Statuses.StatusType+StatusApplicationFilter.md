@@ -10,29 +10,29 @@
 ## PartRectType
 `enum PartRectType` · optional · one of: `Normal`, `Physical`
 
-<!-- TODO: needs documentation -->
+Which rectangle of a part is consulted when looking up the part occupying a cell. `Normal` uses the part's full footprint, `Physical` uses the smaller PhysicalRect a part may declare, so cells inside the footprint but outside that rect count as empty.
 
 ## NonWalkable
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the status may also be applied where crew cannot walk. Setting it false rejects parts with a zero CrewSpeedFactor and cells that block crew travel, which is how a status is kept to walkable floor only.
 
 ## OnlyPartCategories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Restricts application to parts that carry at least one of these part categories. Unset means no category requirement.
 
 ## ExcludePartCategories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Rejects any part that carries one of these part categories. Applied after `OnlyPartCategories`, so a part matching both lists is rejected.
 
 ## OperationalHealth
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the status may be applied to parts whose HealthType is `Operational`, meaning most functional parts. Set false to make the status affect structure only.
 
 ## StructuralHealth
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the status may be applied to parts whose HealthType is `Structural`, meaning armor and structure. Set false to make the status affect functional parts only.

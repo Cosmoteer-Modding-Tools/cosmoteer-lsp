@@ -10,4 +10,4 @@
 ## IgnoreRepairs
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Excludes queued repairs, so the toggle is on only while the ship has non-repair construction operations queued. The vanilla overclock base part sets this true and pairs the toggle with a ToggleTrigger that fires when construction ends.

@@ -10,9 +10,9 @@
 ## ContinueAfterFirstModulation
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the remaining modulators still run after one has matched. Left off, the list behaves like a first-match chain, which is how vanilla fire selects one curve per value band.
 
 ## Modulators
 `ValueModulatorRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The modulators tried in order against the status value. Each entry picks its kind through a `Type` field, one of `Constant`, `Interpolate` or `InterpolateSine`.

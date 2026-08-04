@@ -10,14 +10,14 @@
 ## InterpolationRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The output values produced at the bottom and top of `AffectedValueRange`, with a quarter-sine curve in between instead of the straight line an `Interpolate` modulator would use.
 
 ## InvertCurve
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Swaps the easing while keeping the same endpoints. Off, the output rises quickly and flattens near the top of the band, on it starts slowly and accelerates.
 
 ## AffectedValueRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The status values this modulator applies to, and also the range the sine curve is measured across. The lower bound is inclusive and the upper bound is exclusive.

@@ -10,19 +10,19 @@
 ## Toggle
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The toggle component on the same part being watched. Every change of its state plays one of the two media effect sets, provided the part is active and has health remaining.
 
 ## ToggledOnMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played each time the toggle switches on. The vanilla large cannon plays its reload sound this way when its loaded-ammo toggle turns on.
 
 ## ToggledOffMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played each time the toggle switches off.
 
 ## AnchorMediaEffects
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Anchors the played effects to this component so they follow the part as the ship moves and rotates, instead of staying behind at the world position where they spawned.

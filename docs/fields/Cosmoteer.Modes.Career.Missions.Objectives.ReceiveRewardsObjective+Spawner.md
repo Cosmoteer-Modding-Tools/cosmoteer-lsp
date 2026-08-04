@@ -10,9 +10,9 @@
 ## ContactShipTag
 `SpawnedObjectSearch` · optional
 
-<!-- TODO: needs documentation -->
+Search for the specific ship or station the player must contact to collect the mission's rewards. Leaving it out lets the player collect from any station in the star system the mission was spawned in.
 
 ## ContactShipAreaTag
 `SpawnedObjectSearch` · optional
 
-<!-- TODO: needs documentation -->
+Search for a point-of-interest doodad marking the rough area of the contact ship, used as the mission log's map marker.

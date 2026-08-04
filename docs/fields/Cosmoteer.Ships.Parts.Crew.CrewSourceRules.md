@@ -10,19 +10,19 @@
 ## Crew
 `int` · required
 
-<!-- TODO: needs documentation -->
+The number of crew this part houses. It becomes the part's crew capacity and the assignment capacity of this source, and a part may have at most one CrewSource component. The vanilla small crew quarters houses 2.
 
 ## IdleRect
 `Rect` · optional
 
-<!-- TODO: needs documentation -->
+The rectangle, in part rules coordinates, where this part's assigned crew stand while idling at home. Each idle crew picks a random point inside it. When unset, the part's physical rect shrunk by 0.25 tiles on each side is used.
 
 ## ColorSRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The saturation band, as 0..1 fractions, that the assigned role's color is remapped into for this component's color, which sprites with `GetColorFrom` pointed at the source display. The role color's own saturation interpolates within the band. Vanilla crew quarters use `[0, 0.25]` for a desaturated role tint on their bunks.
 
 ## ColorVRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The brightness band, as 0..1 fractions, that the assigned role's color is remapped into for this component's color. The counterpart of [[Cosmoteer.Ships.Parts.Crew.CrewSourceRules.ColorSRange]] for the color's value channel, `[0.5, 0.75]` in vanilla crew quarters.

@@ -10,14 +10,14 @@
 ## ResourceStorage
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The resource storage component on the same part whose contents are added to or removed from when [[Cosmoteer.Ships.Parts.Resources.ResourceChangeRules.Trigger]] fires. Any storage-like component works, including grids, plain storages, and storage proxies.
 
 ## Trigger
 `ComponentTriggerReferenceRules` · required
 
-<!-- TODO: needs documentation -->
+The component trigger that causes the change. Accepts a bare component ID for that component's default trigger, or a group with `ID` and `TriggerID` fields to select a named trigger within the component.
 
 ## Amount
 `number` · required
 
-<!-- TODO: needs documentation -->
+The number of resources added to the storage each time the trigger fires, with negative values removing resources. Supports value modifiers, and the trigger's reported value is fed in as the effect scale, so a modifier with `EffectScaleExponent = 1` makes the change proportional to that value. The vanilla Engine Room converts overclocked battery consumption into heat this way.

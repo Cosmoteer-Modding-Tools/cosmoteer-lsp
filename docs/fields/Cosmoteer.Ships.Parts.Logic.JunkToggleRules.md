@@ -10,4 +10,4 @@
 ## OnWhenJunk
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the toggle is on while the owning ship is junk. Set to false to make it on while the ship is not junk instead. Re-evaluated whenever the ship changes owner, as used by vanilla reactors, factories, and small thrusters.

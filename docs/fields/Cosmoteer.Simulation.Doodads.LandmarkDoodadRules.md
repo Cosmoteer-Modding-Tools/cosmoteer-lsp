@@ -10,4 +10,4 @@
 ## IsFtlPoint
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, the landmark counts as an FTL point that ships can jump to. Passed to the landmark component created for the spawned ship.

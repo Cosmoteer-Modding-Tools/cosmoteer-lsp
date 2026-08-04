@@ -10,94 +10,94 @@
 ## AudioSpeedIncreaseDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+When the simulation clock speeds up, game audio ramps toward the new pitch over this duration. The change rate is the speed difference divided by this time. Paired with [[AudioSpeedDecreaseDuration]] for slowdowns.
 
 ## AudioSpeedDecreaseDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+When the simulation clock slows down, game audio ramps toward the new pitch over this duration. The counterpart to [[AudioSpeedIncreaseDuration]].
 
 ## PhysicsUpdatesPerSecond
 `float` · required
 
-<!-- TODO: needs documentation -->
+Fixed physics tick rate of the whole simulation. The simulation root steps at an interval of `1 / PhysicsUpdatesPerSecond`, and many other per-second budgets (crew updates, job assignments, network timing) are divided down from this rate. Changing it rescales the core simulation timestep.
 
 ## CCDThresholdVelocity
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed above which a physics body switches to continuous collision detection so fast movers do not tunnel through thin objects. Applied to crew bodies directly and to ship bodies scaled by the ship's uniform scale.
 
 ## SightCircleFadeDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds a sight circle (a unit's vision area) takes to fade in when it appears and to fade back out when it disappears. Alpha lerps over this window from the circle's appear and disappear times.
 
 ## SightCircleSizeTweenSpeed
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Rate at which a sight circle's rendered radius moves toward its true radius each frame. Higher values make the circle resize more quickly as vision range changes.
 
 ## StasisCellSize
 `float` · required
 
-<!-- TODO: needs documentation -->
+Side length in world units of one cell in the stasis spatial grid. Object locations are floored into cells of this size to partition which stasis spawners are woken or slept. Related to [[StasisLiveRange]] and [[StasisPreloadRange]].
 
 ## StasisLiveRange
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance in world units from a root location (such as a player ship or camera focus) within which stasis spawners become live and spawn their contents. Spawners farther than this stay asleep. Compare [[StasisPreloadRange]], the larger radius at which content is prepared ahead of time.
 
 ## StasisPreloadRange
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance in world units within which stasis spawners are preloaded, ahead of the smaller [[StasisLiveRange]] at which they go fully live. Measured against root locations and temporary preload points.
 
 ## StasisUpdateInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Simulation time between stasis manager update passes. Each interval the manager re-evaluates which spawners are in live or preload range and advances stasis spawner updates by this amount.
 
 ## StandardLightHeight
 `float` · required
 
-<!-- TODO: needs documentation -->
+Z height fed into the light normal computed for flat objects that opt into standard lighting (bullets, crew, resource nuggets). A larger height flattens the normal toward straight down, making those sprites light more top-down and less from the world light's direction.
 
 ## ShipHideAlphaTweenDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds over which a ship's rendered alpha tweens between fully visible and fully hidden when it is hidden or unhidden (for example under a fog overlay). The move rate is scaled by clock speed.
 
 ## Network
 `NetworkRules` · required
 
-<!-- TODO: needs documentation -->
+Nested rules for the multiplayer networking logic, such as input tick rate and input delay bounds. See [[Cosmoteer.Simulation.NetworkRules]].
 
 ## Grid
 `GridRules` · required
 
-<!-- TODO: needs documentation -->
+Nested rules for rendering the background reference grid to the camera, including line color and desired line density. See [[Cosmoteer.Backgrounds.GridRules]].
 
 ## Camera
 `CameraRules` · required
 
-<!-- TODO: needs documentation -->
+Nested rules for the in-simulation camera, covering zoom range, panning, follow behavior and screen shake. See [[Cosmoteer.Simulation.Cameras.CameraRules]].
 
 ## SimGui
 `SimGuiRules` · required
 
-<!-- TODO: needs documentation -->
+Nested rules for the in-game gameplay GUI and world overlays, such as ship label colors. See [[Cosmoteer.Simulation.SimGuiRules]].
 
 ## GameSpeeds
 `GameSpeed[]` · optional
 
-<!-- TODO: needs documentation -->
+The ordered list of selectable simulation speed presets, each pairing a clock multiplier with display names and transition sounds. The speed control bar steps through these entries. See [[Cosmoteer.Simulation.GameSpeed]].
 
 ## DebugPointLightSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite drawn at the mouse for the debug point-light tool, which places a movable test light to inspect normal-mapped lighting. Only used by the in-game debug tools, not during normal play. Paired with [[DebugPointLightHeight]].
 
 ## DebugPointLightHeight
 `float` · required
 
-<!-- TODO: needs documentation -->
+Z height of the debug point light placed by the debug tools, passed to the point-light shader constant. Debug-only, alongside [[DebugPointLightSprite]].

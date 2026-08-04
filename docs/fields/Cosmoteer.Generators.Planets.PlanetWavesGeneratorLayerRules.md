@@ -10,19 +10,19 @@
 ## Interval
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Seconds each normal map is shown before the animation cross-fades to the next entry of [[NormalsGenerators]], wrapping around at the end. Default 1.
 
 ## Generator
 `TextureGenerator` · optional
 
-<!-- TODO: needs documentation -->
+Texture generator producing the waves' diffuse texture, assigned to the material. When it has no layers a 1 by 1 texture is used.
 
 ## NormalsGenerators
 `TextureGenerator[]` · optional
 
-<!-- TODO: needs documentation -->
+List of texture generators producing the normal maps the animation cycles through, cross-fading from one to the next every [[Interval]] seconds and wrapping around. Two flat normal maps are provided by default.
 
 ## Material
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+Material the waves layer is rendered with. Defaults to a copy of DefaultWavesMaterial from the planet rules.

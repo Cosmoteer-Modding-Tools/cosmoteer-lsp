@@ -10,14 +10,14 @@
 ## DamagePool
 `→ BulletComponentRules` · required
 
-<!-- TODO: needs documentation -->
+Name of the `DamagePool` component on the same projectile whose drain is measured. The number of fragments spawned is derived from how much the pool drops while the owning hit's effects run, and damage that falls short of a full split carries over to later hits.
 
 ## DamagePerSplit
 `int` · required
 
-<!-- TODO: needs documentation -->
+Pool damage consumed per fragment spawned. Each hit spawns one fragment for every full `DamagePerSplit` points it drained from [[Cosmoteer.Bullets.Hits.DamagePoolBulletSplitRules.DamagePool]], then the remaining pool is divided evenly between the original projectile and the new fragments.
 
 ## SpawnEffect
 `SpawnBulletsEffectRules` · required
 
-<!-- TODO: needs documentation -->
+The `SpawnBullets` effect that creates each fragment, run once per split at the hit point. Its effect scale is set to the fragment's share of the remaining pool relative to the pool's base damage, so each fragment carries a proportional slice of the parent's strength.

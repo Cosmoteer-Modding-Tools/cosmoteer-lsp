@@ -10,14 +10,14 @@
 ## Acceleration
 `range<number>` · required
 
-<!-- TODO: needs documentation -->
+The acceleration, in tiles per second squared, applied to the bullet every physics tick. Interpolated from Min to Max as the bullet's age moves through [[Cosmoteer.Bullets.Physics.BulletAccelerationRules.AccelerationOverTime]], and a plain single value applies constantly. Negative values brake the bullet.
 
 ## AccelerationOverTime
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+The lifetime window, in seconds since spawn, over which [[Cosmoteer.Bullets.Physics.BulletAccelerationRules.Acceleration]] interpolates from its Min to its Max. Defaults to `[0, 0]`, making the acceleration constant. Vanilla missiles use a second component with `Acceleration = [-90, 0]` and `AccelerationOverTime = [0, .75]` to bleed off inherited launch velocity.
 
 ## Direction
 `enum AccelerationDirection` · optional · one of: `Bullet`, `Target`, `Velocity`, `FrameOfReferenceVelocity`
 
-<!-- TODO: needs documentation -->
+The direction the acceleration pushes in. `Bullet`, the default, pushes along the bullet's facing, `Target` toward its current target, `Velocity` along its velocity, and `FrameOfReferenceVelocity` along its velocity relative to its frame of reference. With `Target` and no living target no force is applied.

@@ -10,9 +10,9 @@
 ## BuffType
 `→ BuffType` · required
 
-<!-- TODO: needs documentation -->
+The buff applied to every part of a ship while it is inside the nebula. See `BuffAmount` for the strength.
 
 ## BuffAmount
 `float` · required
 
-<!-- TODO: needs documentation -->
+The buff value provided at full nebula strength, scaled linearly by how deeply the ship is immersed in the nebula (0 at the outer feather edge, 1 well inside). Vanilla uses fractions such as `90%` for a bonus and `-40%` for a penalty.

@@ -10,19 +10,19 @@
 ## Mode
 `enum MultiToggleMode` · required · one of: `All`, `Any`, `One`, `None`
 
-<!-- TODO: needs documentation -->
+How the on/off states of the toggles received from the subnetwork are combined into this receiver's single toggle state. `All` on, `Any` on, exactly `One` on, or `None` on (all off). Fed to the subnetwork's toggle-mode handle.
 
 ## Invert
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Flips the combined result, so the receiver reads as on precisely when the Mode condition is not met.
 
 ## IncludeInPhysical
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the component exists on the built ship, backing `HasPhysicalComponent`. When false it has no physical presence and exists only in blueprint mode.
 
 ## IncludeInBlueprints
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the component's blueprint variant is created, backing `HasBlueprintComponent`, so it works while the ship is a blueprint.

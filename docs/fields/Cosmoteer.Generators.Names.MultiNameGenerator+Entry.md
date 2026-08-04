@@ -10,4 +10,4 @@
 ## Chance
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Probability from 0 to 1 that this sub-generator contributes to the name. The default of 1 always includes it, lower values include it only on a passing roll.

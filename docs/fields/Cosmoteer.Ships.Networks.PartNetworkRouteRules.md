@@ -25,14 +25,14 @@ The path cost of traversing the route.
 ## 0
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+List-form index 0. When a route is written as a 3-element list `[Start, End, Cost]` instead of a named group, this is the origin component, equivalent to Start.
 
 ## 1
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+List-form index 1. The destination component in the `[Start, End, Cost]` list form, equivalent to End.
 
 ## 2
 `float` · optional
 
-<!-- TODO: needs documentation -->
+List-form index 2. The path cost in the `[Start, End, Cost]` list form, equivalent to Cost.

@@ -10,24 +10,24 @@
 ## DoodadID
 `→ DoodadRules` · required
 
-<!-- TODO: needs documentation -->
+Planet doodad drawn in the menu background. Must resolve to a planet doodad rules entry, which is instantiated once behind the logo ship.
 
 ## Seed
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Random seed passed to the planet doodad, so a fixed value reproduces the same planet appearance every time the menu loads.
 
 ## Location
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it. The planet is instead positioned at the logo ship's bounding-box center, or the origin when there is no logo ship.
 
 ## Rotation
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+Orientation applied to the planet doodad.
 
 ## Scale
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Size multiplier passed to the planet doodad as its origin scale.

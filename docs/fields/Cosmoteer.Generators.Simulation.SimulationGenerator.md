@@ -10,4 +10,4 @@
 ## Spawners
 `SimSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+The top-level spawners that populate a freshly generated simulation, run in the order they are listed. Each one only runs if its `Conditions` pass, is given the generator's root location as its parent, and everything deeper in the sector comes from their `SubSpawners`.

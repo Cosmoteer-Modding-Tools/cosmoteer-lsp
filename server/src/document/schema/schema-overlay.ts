@@ -213,13 +213,17 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
     'Cosmoteer.Ships.Parts.Buffs.PartSelfBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
     'Cosmoteer.Ships.Parts.Buffs.PartAreaBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
     'Cosmoteer.Ships.Parts.Buffs.PartGridBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
-    // `PartRules` reads the `Flammable` bool and the thruster part reads these force/fuel values off the
-    // part rules, none as a generic `*FromPath<T>` call. `Components` is the part's custom-read
-    // component map: typing it makes every component resolve through the slot, so a partial fragment
-    // whose only component has no (or a broken) `Type=` still knows its registry without a valid
-    // sibling to infer from.
+    // The thruster part reads these force/fuel values off the part rules, none as a generic
+    // `*FromPath<T>` call. `Flammable` is the opposite case: the Meltdown fire rework deleted it from
+    // the game entirely (zero occurrences in the current decompile, fire immunity moved to the
+    // `non_flammable` part category), but vanilla and pre-Meltdown mods still write it. Keeping the
+    // member lets those files parse and hover, and the `dead` flag routes it into the ignored-field
+    // hint, upgraded with the category migration note (see `deprecatedField` in deprecations.ts).
+    // `Components` is the part's custom-read component map: typing it makes every component resolve
+    // through the slot, so a partial fragment whose only component has no (or a broken) `Type=` still
+    // knows its registry without a valid sibling to infer from.
     'Cosmoteer.Ships.Parts.PartRules': [
-        { name: 'Flammable', valueType: { kind: 'bool' }, optional: true },
+        { name: 'Flammable', valueType: { kind: 'bool' }, optional: true, dead: true },
         { name: 'ThrusterForce', valueType: MODIFIABLE_FLOAT, optional: true },
         { name: 'FuelUsage', valueType: MODIFIABLE_FLOAT, optional: true },
         { name: 'ThrustRecoveryTime', valueType: MODIFIABLE_TIME, optional: true },
@@ -267,6 +271,31 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
     ],
     // A turret weapon names the emitter component it fires through.
     'Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules': [{ name: 'Emitter', valueType: COMPONENT_REF, optional: true }],
+    // Fields deleted by game updates that old mods still write, kept as `dead` members like
+    // `Flammable` above: the member lets those files parse and hover, and the `dead` flag routes it
+    // into the ignored-field hint, upgraded with the per-version migration note (see
+    // `deprecatedField` in deprecations.ts). Necessary because the not-a-member path only judges
+    // `purelyReflective` classes, which the weapon/thruster/hit classes are not.
+    'Cosmoteer.Ships.Parts.Weapons.WeaponRules': [
+        {
+            name: 'SuppressWholeShipTargetOverlaysForPartsFilter',
+            valueType: { kind: 'group', ref: 'Cosmoteer.Simulation.EffectFilter', name: 'EffectFilter' },
+            optional: true,
+            dead: true,
+        },
+        {
+            name: 'SuppressWholeShipTargetOverlaysWhenTargetingShipRelativePoints',
+            valueType: { kind: 'bool' },
+            optional: true,
+            dead: true,
+        },
+    ],
+    'Cosmoteer.Ships.Parts.Thrusters.ThrusterRules': [
+        { name: 'ValueOutputSmoothing', valueType: { kind: 'float' }, optional: true, dead: true },
+    ],
+    'Cosmoteer.Bullets.Hits.BulletPenetratingHitRules': [
+        { name: 'PenetrationRectType', valueType: { kind: 'string' }, optional: true, dead: true },
+    ],
     // The particle emitter and quad renderer carry these custom-read members.
     'Halfling.Particles.ParticleEmitterDef': [
         { name: 'UpdatedEmittedParticles', valueType: { kind: 'bool' }, optional: true },
@@ -316,6 +345,85 @@ const OVERLAY_ENUMS: Record<string, SchemaEnum> = {
 };
 
 /**
+ * Members proven dead by hand that schemagen's IL scan cannot flag on its own.
+ *
+ * The scan has three blind spots. Two are deliberate over-approximations of the IL read scan: it
+ * suppresses a verdict whenever any method body loads a string literal equal to the member name (its
+ * reflection guard against the string-keyed read paths), which a one or two letter name trips against
+ * some unrelated literal nearly every time. And it counts a read in any method body, including one no
+ * live code path ever calls, so a member read only by an uncalled constructor still looks alive. The
+ * third is a field a curated custom-deserializer type (SchemaGen.Curation.cs) lists but whose
+ * hand-written `ReadContentFrom` does not actually read, so no `[Serialize]` member exists for the
+ * scan to judge at all. Tightening the scan would trade these misses for false `dead` diagnostics, so
+ * the verdicts are carried here instead.
+ *
+ * Every entry needs a decompiled trace showing that no runtime class reads the member. Entries are
+ * self-retiring: a member schemagen later flags itself keeps the same `dead: true` and can be dropped
+ * from this list without any behavior change.
+ */
+const OVERLAY_DEAD_FIELDS: Record<string, string[]> = {
+    // `Z` on the quad effects: `QuadEffect` applies its own rules' `Z` to all four vertices, but the
+    // part and tile variants build their quads from the part or cell rect and never read theirs, so a
+    // `Z` written on either effect is silently ignored (`PartQuadEffect.cs` / `TileQuadEffect.cs`).
+    'Cosmoteer.Simulation.MediaEffects.PartQuadEffectRules': ['Z'],
+    'Cosmoteer.Simulation.MediaEffects.TileQuadEffectRules': ['Z'],
+    // `AIExitSectorModuleRules.CreateModule` returns `new AIExitSectorModule()`, the parameterless
+    // constructor. The overload that copies `IsActivated` across is never called from anywhere in the
+    // assembly, so the flag never reaches the module. Vanilla `ai/ai_police.rules` sets it, which is
+    // why idle police only leave a sector when they came out of stasis: the stasis twin
+    // `AIStasisExitSectorModuleRules` does pass its rules, and hands its state to the strategy module
+    // on wake.
+    'Cosmoteer.Ships.AI.StrategyModules.AIExitSectorModuleRules': ['IsActivated'],
+    // Both flags are tested by an `if` whose body is empty in the shipped build, the shape a
+    // `[Conditional("DEBUG")]` warning call leaves behind. The branch still loads the value, which is
+    // why the read scan counts it, but nothing happens either way.
+    'Cosmoteer.Generators.Simulation.SimObjectSpawner': ['SuppressLocationAssertions'],
+    'Cosmoteer.Generators.Simulation.ShipSpawner/ShipCommand': ['SuppressNoTagTargetFound'],
+    // The tech button renders the name and the price only, and has no tooltip, so the description key
+    // is never resolved. Every vanilla Build and Battle tech sets it anyway.
+    'Cosmoteer.Modes.Pvp.BuildBattle.BuildBattleTechRules': ['DescriptionKey'],
+    // Both status tables are read only by `CareerSimModeManager.GetStatusFactors`, and nothing in the
+    // game calls that method (its sibling `GetDamageFactor` has a dozen call sites). Career combat
+    // difficulty therefore never scales status chance or strength.
+    'Cosmoteer.Modes.Career.CombatDifficultyRules': ['StatusFactorsVsEnemies', 'StatusFactorsFromEnemies'],
+    // AtlasSprite's curated field list (SchemaGen.Curation.cs) carries four texture-loading options,
+    // but its `ReadContentFrom` reads only File/Size/Offset/Z/VertexColor/UV/Mirror/Animation/RotSpeed.
+    // These four are the `Texture` group's keys copied onto the sprite in error: a sprite loads its
+    // image through a bare `File` path, and sampling, mip levels and transparency handling come from
+    // the render layer's `AtlasTextureParams` instead. `FixTransparentColors` is doubly moot, since the
+    // sprite always runs `TextureData.FixTransparentColors()`. No vanilla sprite writes any of them.
+    'Cosmoteer.Ships.Rendering.AtlasSprite': ['SampleMode', 'MipLevels', 'FixTransparentColors', 'PreMultiplyByAlpha'],
+};
+
+/**
+ * Members schemagen marks optional but whose absence crashes the game load, so they are genuinely
+ * required.
+ *
+ * schemagen's `optional` flag treats every collection (list/map) as optional on the theory that an
+ * absent collection is simply empty. That is a deliberate leniency: a `[Serialize]` collection with
+ * no `Optional=true` actually makes the reflective read throw when the key is absent, but flagging all
+ * ~180 such collections produced too much noise, so the required-field validator does not raise them.
+ * A few collections break that leniency because their own constructor or their runtime consumer
+ * dereferences the array unconditionally, so an absent key is a null-reference crash, not an empty
+ * list. Those cannot be told apart from a lenient collection by any attribute, only by reading the
+ * consumer, so the hand-verified verdicts live here.
+ *
+ * Each entry needs a decompiled trace showing the game dereferences the member without a null guard.
+ * The field keeps its `absentThrows` (schemagen already emits it, since the member has no
+ * `Optional=true`), so nothing else needs to change.
+ */
+const OVERLAY_REQUIRED_FIELDS: Record<string, string[]> = {
+    // The three parallel-deserialized music track collections. Each is read with no null guard: the
+    // FSM rules' own constructor does `foreach (state in IntroTracks)`, `MusicSequenceTrack` reads
+    // `rules.Tracks.Length` in its constructor, and `MusicLayersTrack` sizes an array from
+    // `rules.Layers.Length`. An absent key leaves the field null, so the track crashes on load. Every
+    // vanilla FSM, Sequence and Layers track writes its collection.
+    'Cosmoteer.Music.MusicFsmTrackRules': ['IntroTracks'],
+    'Cosmoteer.Music.MusicSequenceTrackRules': ['Tracks'],
+    'Cosmoteer.Music.MusicLayersTrackRules': ['Layers'],
+};
+
+/**
  * Merge the hand-authored corrections into a freshly-loaded bundle. Additive only: an entry already
  * present in the extracted bundle is left untouched, so the overlay self-retires as schemagen
  * improves. Mutates and returns `bundle`.
@@ -332,6 +440,22 @@ export const applySchemaOverlay = (bundle: SchemaBundle): SchemaBundle => {
         if (!type) continue;
         const present = new Set(type.fields.map((f) => f.name));
         for (const field of extra) if (!present.has(field.name)) type.fields.push(field);
+    }
+    for (const [fullName, names] of Object.entries(OVERLAY_DEAD_FIELDS)) {
+        const type = bundle.types[fullName];
+        if (!type) continue;
+        for (const name of names) {
+            const field = type.fields.find((f) => f.name === name);
+            if (field) field.dead = true;
+        }
+    }
+    for (const [fullName, names] of Object.entries(OVERLAY_REQUIRED_FIELDS)) {
+        const type = bundle.types[fullName];
+        if (!type) continue;
+        for (const name of names) {
+            const field = type.fields.find((f) => f.name === name);
+            if (field) field.optional = false;
+        }
     }
     // Inline-member expansion: schemagen marks every class with a group-typed empty-alias member
     // (`inlineFrom`), whose fields are written directly in the containing group. Each source

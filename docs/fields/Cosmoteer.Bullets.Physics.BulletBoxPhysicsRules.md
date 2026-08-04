@@ -10,9 +10,9 @@
 ## Size
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+The dimensions, in tiles, of the bullet's rectangular physics collider, with X along the bullet's facing. Vanilla missiles use `[1.5, .5]`.
 
 ## Density
 `float` · required
 
-<!-- TODO: needs documentation -->
+The mass density of the collider, giving the body a mass of the rectangle's area times this value. Mass mainly matters when bullets physically collide via [[Cosmoteer.Bullets.Physics.BulletPhysicsRules.CollidesWithBullets]].

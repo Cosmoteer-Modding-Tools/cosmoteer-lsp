@@ -10,32 +10,32 @@
 ## Line
 `TileLine` · required
 
-<!-- TODO: needs documentation -->
+The tile line this component scores. Walking outward from the line's start, each tile contributes its score from [[Cosmoteer.Ships.Parts.Logic.BaseTileScoreValueRules.PartIDTileScores]], [[Cosmoteer.Ships.Parts.Logic.BaseTileScoreValueRules.PartCategoryTileScores]] or [[Cosmoteer.Ships.Parts.Logic.BaseTileScoreValueRules.EmptyTileScore]], stopping at the first blocking tile. The running total becomes the component's value. The vanilla radiator scores a 120-tile line to compute its heat dissipation rate.
 
 ## BlockingPartIDs
 `→ PartRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Parts that terminate the line. When a tile is occupied by one of these parts, scoring stops at that tile and it contributes nothing.
 
 ## BlockingPartCategories
 `→ PartCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Part categories that terminate the line, matched against the occupying part's type categories. Checked after [[Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValueRules.BlockingPartIDs]].
 
 ## ZeroScoreTilesBlock
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether a tile whose score works out to 0 also terminates the line, in addition to the explicit blocking-part checks.
 
 ## EmptyTilesBlock
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether a tile with no part terminates the line. When false, empty tiles contribute [[Cosmoteer.Ships.Parts.Logic.BaseTileScoreValueRules.EmptyTileScore]] instead.
 
 ## Falloff
 `float` · optional
 
-<!-- TODO: needs documentation -->
+An exponent that fades tile scores with distance along the line. Each tile's score is multiplied by `((MaxTiles - distance) / MaxTiles) ^ Falloff`, so 0 disables the falloff and 1 fades linearly to zero at the line's full length. The same curve scales occlusion effects by hit distance and fades out the blueprint overlay line.
 
 ## OcclusionCheckInterval
 `Time` · optional
@@ -70,32 +70,32 @@ The value passed to media effects as intensity. Defaults to the effect scale if 
 ## CustomShapeMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Continuous media effects played while the component is operational and at least one tile is scored. The effects receive the scored stretch of the line as a custom shape and the number of scored tiles as their intensity.
 
 ## CustomShapeValueSource
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A value component on the same part whose value is reported when [[Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValueRules.CustomShapeMediaEffects]] sample a random point with an associated value. Defaults to 1 when unset.
 
 ## BlueprintMaterial
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The material the line is drawn with in blueprint mode. The overlay quad covers the scored tiles, ends at the first blocking tile, and fades out along its length according to [[Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValueRules.Falloff]]. No line is drawn when unset.
 
 ## BlueprintLineWidthScale
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+A multiplier on the width of the blueprint overlay line, where 1 draws it a full tile wide. The vanilla radiator uses 0.1.
 
 ## ValueTextFormatKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+A localization key whose text is drawn at the line's starting tile in blueprint mode. Format argument `{0}` receives the line score multiplied by [[Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValueRules.TextValueScaleFactor]] and `{1}` receives the secondary value derived from [[Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValueRules.FractionalTextValueBasis]]. No text is drawn when unset.
 
 ## TextValueScaleFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+A multiplier applied to the line score before it is passed as format argument `{0}` to [[Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValueRules.ValueTextFormatKey]].
 
 ## FractionalTextValueBasis
 `float` · optional

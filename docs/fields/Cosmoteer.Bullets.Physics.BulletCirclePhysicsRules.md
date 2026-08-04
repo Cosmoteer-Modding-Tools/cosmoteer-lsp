@@ -10,9 +10,9 @@
 ## Radius
 `float` · required
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, of the bullet's circular physics collider. Vanilla laser bolts use a tiny `0.01` while the mine body uses `.3`.
 
 ## Density
 `float` · required
 
-<!-- TODO: needs documentation -->
+The mass density of the collider, giving the body a mass of the circle's area times this value. Mass mainly matters when bullets physically collide via [[Cosmoteer.Bullets.Physics.BulletPhysicsRules.CollidesWithBullets]].

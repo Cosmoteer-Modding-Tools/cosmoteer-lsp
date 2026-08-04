@@ -10,59 +10,59 @@
 ## ID
 `→ BuildBattleTechRules` · required
 
-<!-- TODO: needs documentation -->
+The unique identifier for this tech. Other techs reference it through `Prerequisites`, and a duplicate ID is a load error.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for the tech name printed along the bottom of its offer button.
 
 ## DescriptionKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it. The offer button shows only the name and the price, and there is no tooltip that would use a description.
 
 ## Icon
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+The sprite on the tech's offer button, greyed out through the disabled icon shader while the button cannot be pressed. The button uses it without a null check even though the field is optional, so every tech should set one.
 
 ## SecondaryIcon
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+An extra sprite drawn over `Icon` in the same rectangle at its natural size. Vanilla uses it to badge overclock techs on top of the part icon they modify.
 
 ## Category
 `→ BuildBattleTechCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+The tech categories this tech belongs to, deciding which per category slots of `TechOfferingsPerRound` may offer it. A tech with no category can only appear through a random offering, and naming a category that `TechOfferingsPerRound` does not list makes loading fail.
 
 ## PartsUnlocked
 `→ PartRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The parts added to the buyer's buildable set when the tech is purchased. A refund is refused while the player's ship still contains one of these parts and no other owned tech unlocks it.
 
 ## ResourcesUnlocked
 `→ ResourceRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The resources the buyer may start designating when the tech is purchased. A refund is refused while the ship still uses one of them and no other owned tech unlocks it.
 
 ## ToggleChoicesUnlocked
 `ToggleChoice[]` · optional
 
-<!-- TODO: needs documentation -->
+The part toggle settings the buyer may start selecting when the tech is purchased. A refund is refused while any part on the ship is still set to one of them and no other owned tech unlocks it.
 
 ## Cost
 `int` · required
 
-<!-- TODO: needs documentation -->
+The base price of the tech in credits. Every further tech bought in the same round adds the host's additional unlock cost on top of this.
 
 ## FundsThresholdBeforeOffered
 `int` · required
 
-<!-- TODO: needs documentation -->
+The tech stays out of the offer pool until the funds handed out through the current round reach this many credits. The comparison uses the sum of the host's per round funds up to and including the current round, not the player's actual balance.
 
 ## Prerequisites
 `→ BuildBattleTechRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Techs the player must already own before this one can be offered. All of them are required, not just one.

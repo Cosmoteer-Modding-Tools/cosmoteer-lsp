@@ -10,19 +10,19 @@
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite identifying elimination mode in the multiplayer game list and in the lobby's mode header.
 
 ## VictoryConditions
 `VictoryCondition[]` · optional
 
-<!-- TODO: needs documentation -->
+The destruction goal choices offered in the host's lobby drop list. Exactly one entry must set `IsDefault` or the lobby throws.
 
 ## FullHealthColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color of a team's strength bar while that team still has all of its starting fleet value.
 
 ## ZeroHealthColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color of a team's strength bar once its remaining fleet value reaches zero. The bar blends between this and `FullHealthColor` in HSVA, so a hue difference sweeps through the intervening hues rather than desaturating.

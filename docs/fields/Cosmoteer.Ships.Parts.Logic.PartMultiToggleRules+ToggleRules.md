@@ -10,9 +10,9 @@
 ## Toggle
 `ComponentToggleReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+The toggle component this entry reads, referenced by its component ID, or as a group with `ID` and an optional `ToggleID` selecting a named toggle within that component. The whole entry can also be written as just the component name, in which case it is read directly as this reference.
 
 ## Invert
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Flips this entry's state before it is combined by [[Cosmoteer.Ships.Parts.Logic.PartMultiToggleRules.Mode]].

@@ -10,34 +10,34 @@
 ## DefaultChanceToConsiderSurrenderingToPlayer
 `float` · required
 
-<!-- TODO: needs documentation -->
+Probability from 0 to 1 that the ship is willing to surrender to the player at all, rolled once on the ship's first tick from a generator seeded with its unique id. Overridden per ship by [[Cosmoteer.Ships.AI.AIParameters.ChanceToConsiderSurrenderingToPlayer]].
 
 ## ChanceToConsiderAcceptingSurrenderFromPlayer
 `float` · required
 
-<!-- TODO: needs documentation -->
+Probability from 0 to 1, rolled once per ship, that the ship is willing to accept a surrender from the player. A player who is wanted by the ship's faction can always buy off the bounty regardless.
 
 ## ChanceToConsiderOfferingSurrender
 `float` · required
 
-<!-- TODO: needs documentation -->
+Probability from 0 to 1 that a ship which already passed [[Cosmoteer.Ships.AI.CommsModules.AIDialogueModuleRules.DefaultChanceToConsiderSurrenderingToPlayer]] will hail the player on its own to offer its surrender. Ships that fail this roll still surrender if the player opens comms with them.
 
 ## ChanceToConsiderDemandingSurrender
 `float` · required
 
-<!-- TODO: needs documentation -->
+Probability from 0 to 1 that a ship which already passed [[Cosmoteer.Ships.AI.CommsModules.AIDialogueModuleRules.ChanceToConsiderAcceptingSurrenderFromPlayer]] will hail the player to demand that the player surrenders. Only the dialogue leader of a nearby group does the hailing, and it silences the demand for the rest of the group.
 
 ## ValueRatioDifferenceRangeToSurrender
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Range from which each ship rolls its personal strength ratio threshold once. A surrender is only on the table when the surrendering side's weighted strength divided by the other side's is at or below that threshold, so lower values mean the ship must be more thoroughly outmatched before it gives up. Strength here combines nearby allied firepower, blueprint cost and remaining health.
 
 ## PlayerSurrenderPayoutMultiple
 `float` · required
 
-<!-- TODO: needs documentation -->
+Fraction of the damage value the player has done to the surrounding enemy ships that the player pays to surrender. The career mode base surrender cost, and any wanted payoff and reputation multiplier, are added on top.
 
 ## AISurrenderPayoutMultiple
 `float` · required
 
-<!-- TODO: needs documentation -->
+Fraction of the AI ship's current physical value that it pays the player when it surrenders. It stands in for the loot the player gives up by not destroying the ship.

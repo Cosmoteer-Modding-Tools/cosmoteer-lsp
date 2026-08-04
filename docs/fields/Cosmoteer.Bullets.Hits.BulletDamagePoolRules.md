@@ -10,4 +10,4 @@
 ## Damage
 `number` · required
 
-<!-- TODO: needs documentation -->
+Damage capacity of the pool, scaled by the projectile's effect scale. `Damage` hit effects that reference the pool drain it as they deal damage, other components can read the remaining fraction through their `FactorEffectsWith` field, and a `DeathByDamagePool` component can destroy the projectile once the pool is empty. The overclocked large flak field uses a 400 point pool shared by its bullet hits and beam attenuation.

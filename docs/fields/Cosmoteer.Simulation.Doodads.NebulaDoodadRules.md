@@ -10,4 +10,4 @@
 ## NebulaID
 `→ NebulaTypeRules` · required
 
-<!-- TODO: needs documentation -->
+Nebula type to paint into the sector at the spawn location. Placing this doodad sets the nebula cell under the point rather than creating a standalone object.

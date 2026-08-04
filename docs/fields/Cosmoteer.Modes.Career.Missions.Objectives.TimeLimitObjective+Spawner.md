@@ -10,9 +10,9 @@
 ## TimeLimit
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long the player has, in seconds, before the objective and its mission fail. A countdown line showing the remaining minutes and seconds is added to the mission log below the sub-objective lines.
 
 ## StartOnCreation
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the clock starts the moment the mission is spawned rather than when the player accepts it. With it on the mission can expire out of the available list before it is ever taken.

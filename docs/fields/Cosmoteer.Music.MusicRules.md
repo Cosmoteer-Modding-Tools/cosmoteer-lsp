@@ -10,24 +10,24 @@
 ## RootTrack
 `MusicTrackRules` · required
 
-<!-- TODO: needs documentation -->
+Top-level track of the whole music system, rendered continuously by the game. Every other track hangs off it as a sub-track. If its [[Cosmoteer.Music.MusicTrackRules#DynamicCondition|DynamicCondition]] or [[Cosmoteer.Music.MusicTrackRules#DynamicVolume|DynamicVolume]] is left unset, the game supplies `True` and `1` respectively.
 
 ## BufferTime
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Amount of audio, in seconds, buffered ahead when streaming the music. Fed into the streaming sound configuration. Larger values guard against playback hitches at the cost of latency when the music changes.
 
 ## MenuZoom
 `float` · required
 
-<!-- TODO: needs documentation -->
+Zoom value supplied to every track's [[Cosmoteer.Music.MusicTrackRules#ZoomVolumes|ZoomVolumes]] curve when the game is not in a simulation, such as in menus. In-game the real camera scale is used instead.
 
 ## ChannelCount
 `int` · required
 
-<!-- TODO: needs documentation -->
+Number of audio channels the music is rendered at (for example 2 for stereo). Propagated to every track and used together with [[Cosmoteer.Music.MusicRules#Frequency|Frequency]] to convert between samples and playback time.
 
 ## Frequency
 `int` · required
 
-<!-- TODO: needs documentation -->
+Sample rate in Hz at which the music is rendered (for example 44100). Determines how sample counts map to seconds, driving every time-based feature such as [[Cosmoteer.Music.MusicTrackRules#TimeVolumes|TimeVolumes]] and the fade-out timings.

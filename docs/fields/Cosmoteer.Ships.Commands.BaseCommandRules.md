@@ -10,74 +10,74 @@
 ## IssueSound
 `ISoundEffect` · optional
 
-<!-- TODO: needs documentation -->
+The interface sound played when the player issues a command of this kind. When several commands are given at once only the first one in the batch plays its sound.
 
 ## ReplaceSound
 `ISoundEffect` · optional
 
-<!-- TODO: needs documentation -->
+The interface sound played when a command of this kind replaces an existing command rather than being newly enqueued. `IssueSound` is played instead when this is left out.
 
 ## ThrusterSRFFactors
 `Vector3` · required
 
-<!-- TODO: needs documentation -->
+Weights the thruster solver applies to the forward axis, the sideways axis and the torque axis while the ship is still flying toward its destination. The X and Y components are measured relative to the ship's flight direction, and raising a component makes the solver spend more thrust satisfying that axis. Vanilla direct control uses `[1, 2, 100]` to prioritise rotation far above translation, while RTS commands use `[1, 2, 1]`.
 
 ## ThrusterSRFStrafeFactors
 `Vector3` · required
 
-<!-- TODO: needs documentation -->
+The same axis weights as `ThrusterSRFFactors`, used once the ship is close enough to be adjusting its position and rotation in place. It is also the weighting used for every maximum-acceleration and deceleration query, for holding still while waiting for crew, and for ships that currently have no command.
 
 ## AvoidRadiusBuffer
 `float` · required
 
-<!-- TODO: needs documentation -->
+Extra radius in tiles added to the ship's bounding circle when it searches for objects it might run into. Larger values make ships start steering around obstacles from farther away.
 
 ## AvoidSlowdownAroundRadiusFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the radius of the obstacle being avoided when the intermediate steering point is pushed outward past that obstacle. Higher values make the ship swing wider around whatever it is dodging.
 
 ## AvoidSlowdownAroundRadiusAngleRange
 `range<number (degrees)>` · required
 
-<!-- TODO: needs documentation -->
+Angular range over which the ship blends between aiming at the far edge of its clear arc and aiming at the point right next to the obstacle. The angle measured is between the direction to the real destination and the direction to the avoidance point, so the bigger the detour the closer in the ship aims, which slows it down.
 
 ## AvoidModeVelocityFactorThreshold
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the ship's current speed to get an obstacle radius in tiles. While a ship is still flying toward its destination, obstacles smaller than that are dodged toward whichever side of the clear arc is closest to the current flight direction, and larger ones toward whichever side needs the shorter sideways detour.
 
 ## AvoidanceMergeSpeedThreshold
 `float` · required
 
-<!-- TODO: needs documentation -->
+Largest difference in velocity, in tiles per second, that two neighbouring obstacles may have and still be merged into a single blob that the ship steers around as one.
 
 ## RepulseRadiusBufferMult
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the ship's bounding radius to get the circle inside which other objects push it away. The push ramps from nothing at the edge of that inflated circle up to full strength at actual contact and is split between the two objects according to their masses.
 
 ## AvoidInsignificantMassFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Fraction of the ship's own mass below which another ship is too light to bother avoiding. During normal path avoidance it only excuses junk, enemies and insignificant ships, but during the close-range repulsion pass it applies to every ship.
 
 ## AvoidableDoodadTags
 `→ SimObjectSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+The doodad spawner tags, vanilla uses just `sun`, that ships steer around and route their nebula paths around. The copy on the FtlGateJump rules is also what the game consults when placing ships arriving from an FTL jump.
 
 ## IgnoreCollisionTimeThreshold
 `float` · required
 
-<!-- TODO: needs documentation -->
+Longest predicted time to collision, in seconds, that still counts as worth avoiding. Collisions predicted farther in the future than this are ignored entirely.
 
 ## WeaponOutOfCoverageColorFactor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color multiplier applied to the weapon coverage overlay for weapons that cannot cover the target from the position being previewed. Vanilla halves both brightness and alpha.
 
 ## WeaponCoverageFadeInDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds over which the weapon and shield coverage overlay fades in after the player starts dragging a command into place.

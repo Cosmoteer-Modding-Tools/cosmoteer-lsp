@@ -10,69 +10,69 @@
 ## MatchTransformOf
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The component on the same part whose transform this component continuously tracks while operational. Each simulation tick the component's own location and rotation move toward the target's, but only along the axes for which [[Cosmoteer.Ships.Parts.Logic.PartTransformMatchRules.MatchLocationSpeed]] or [[Cosmoteer.Ships.Parts.Logic.PartTransformMatchRules.MatchRotationSpeed]] is set.
 
 ## MatchLocationSpeed
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The speed, in tiles per second, at which the component's location moves toward the location of [[Cosmoteer.Ships.Parts.Logic.PartTransformMatchRules.MatchTransformOf]]. When unset, the location is not matched at all and stays at the component's own rules-defined position.
 
 ## MatchRotationSpeed
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+The speed, in degrees per second, at which the component's rotation turns toward the rotation of [[Cosmoteer.Ships.Parts.Logic.PartTransformMatchRules.MatchTransformOf]]. When unset, the rotation is not matched. The vanilla chaingun's `AimingTurretSlider` uses 100 degrees per second to follow its turret.
 
 ## ResetTransformWhen
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A toggle component on the same part. While its toggle is on, this component moves back toward its own rules-defined transform instead of tracking [[Cosmoteer.Ships.Parts.Logic.PartTransformMatchRules.MatchTransformOf]], using [[Cosmoteer.Ships.Parts.Logic.PartTransformMatchRules.ResetLocationSpeed]] and [[Cosmoteer.Ships.Parts.Logic.PartTransformMatchRules.ResetRotationSpeed]]. The chaingun resets its aiming slider whenever its shell is not fully open.
 
 ## InvertResetTransformWhen
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Inverts the [[Cosmoteer.Ships.Parts.Logic.PartTransformMatchRules.ResetTransformWhen]] test, so the transform resets back to its rules-defined position while that toggle is off instead of on.
 
 ## ResetLocationSpeed
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The speed, in tiles per second, used while the location is resetting back to its rules-defined position. Falls back to [[Cosmoteer.Ships.Parts.Logic.PartTransformMatchRules.MatchLocationSpeed]] when unset.
 
 ## ResetRotationSpeed
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+The speed, in degrees per second, used while the rotation is resetting back to its rules-defined direction. Falls back to [[Cosmoteer.Ships.Parts.Logic.PartTransformMatchRules.MatchRotationSpeed]] when unset.
 
 ## ClampLocationToRect
 `Rect` · optional
 
-<!-- TODO: needs documentation -->
+A rules-relative rectangle the component's location is clamped into every tick, limiting how far it can follow the matched component.
 
 ## ClampLocationToCircle
 `Circle` · optional
 
-<!-- TODO: needs documentation -->
+A rules-relative circle the component's location is clamped into every tick. Applied after [[Cosmoteer.Ships.Parts.Logic.PartTransformMatchRules.ClampLocationToRect]] when both are set.
 
 ## ClampRotationToArc
 `Arc` · optional
 
-<!-- TODO: needs documentation -->
+An arc the component's rotation is constrained to while turning toward its target. The chaingun clamps its aiming slider to the turret's firing arc.
 
 ## ToggleOnLocationThreshold
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The distance, in tiles, within which the component's location counts as having caught up with its target. The component is itself a toggle provider that reads on only when both location and rotation are within their thresholds, and always off while resetting. Defaults to 0, requiring an exact match.
 
 ## ToggleOnRotationThreshold
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+The angular distance, in degrees, within which the component's rotation counts as having caught up with its target for the component's own toggle output. The chaingun turns its slider into an is-aimed toggle with a 2 degree threshold.
 
 ## InterpolateLocation
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Smooths the matched location by interpolating between fixed simulation ticks on every rendered frame. Without it the location only jumps at the fixed tick rate.
 
 ## InterpolateRotation
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Smooths the matched rotation by interpolating between fixed simulation ticks on every rendered frame. Without it the rotation only jumps at the fixed tick rate.

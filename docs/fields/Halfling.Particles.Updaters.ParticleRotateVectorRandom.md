@@ -10,19 +10,19 @@
 ## VectorIn
 `ParticleDataID` · optional
 
-<!-- TODO: needs documentation -->
+The Vector2 data channel read as the vector to rotate. Defaults to the channel named `vector_in`.
 
 ## VectorOut
 `ParticleDataID` · optional
 
-<!-- TODO: needs documentation -->
+The Vector2 data channel that receives the rotated result. May name the same channel as [[Halfling.Particles.Updaters.ParticleRotateVectorRandom.VectorIn]] to rotate in place. Defaults to the channel named `rotated_vector`.
 
 ## Rotation
 `range<number (degrees)>` · optional
 
-<!-- TODO: needs documentation -->
+The rotation range in degrees. Each particle is rotated by an independent random angle drawn uniformly between Min and Max, inclusive. The vanilla radiator's hit_sparks effect uses -60d to 60d to vary each spark's hit-normal direction.
 
 ## Origin
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The pivot point the input vector is rotated around. Defaults to (0, 0), which rotates the vector about the coordinate origin.

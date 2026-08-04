@@ -1,10 +1,7 @@
 package cosmoteer.settings
 
-import com.google.gson.Gson
-import com.google.gson.JsonObject
 import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.options.BoundConfigurable
-import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.ui.DialogPanel
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.bindIntText
@@ -13,8 +10,6 @@ import com.intellij.ui.dsl.builder.bindSelected
 import com.intellij.ui.dsl.builder.bindText
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.dsl.builder.toNullableProperty
-import com.redhat.devtools.lsp4ij.LanguageServerManager
-import org.eclipse.lsp4j.DidChangeConfigurationParams
 
 /**
  * The Settings | Tools | Cosmoteer Rules page. Mirrors the VS Code extension's
@@ -76,11 +71,20 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
             row {
                 checkBox("Validate the whole workspace, not only open files")
                     .bindSelected(state::validateWholeWorkspace)
+                    .comment(
+                        "On by default, so the Problems view describes the mod rather than the open tabs. " +
+                        "Results are cached on disk per file, so only the first open of a project pays for " +
+                        "the scan. Turn off on a low-memory machine."
+                    )
             }
             row("Workspace validation scope:") {
-                comboBox(listOf("allFiles", "modRulesReachable"))
+                comboBox(listOf("modRulesReachable", "allFiles"))
                     .bindItem(state::workspaceValidationScope.toNullableProperty())
-                    .comment("With modRulesReachable only files reachable from a mod.rules manifest are validated.")
+                    .comment(
+                        "modRulesReachable (the default) validates only what the game loads: the mod.rules " +
+                        "action sources, their includes and inheritance, and the strings folder, so backups " +
+                        "and templates stay out. A project with no manifest is unrestricted either way."
+                    )
             }
             row { checkBox("Validate component references").bindSelected(state::validateComponentReferences) }
             row { checkBox("Validate cross-file references").bindSelected(state::validateCrossFileReferences) }
@@ -91,6 +95,28 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
             row { checkBox("Hint at redundant separators").bindSelected(state::validateRedundantSeparators) }
             row { checkBox("Hint at fields the game ignores").bindSelected(state::validateIgnoredFields) }
             row { checkBox("Fade fields written at their default").bindSelected(state::validateDefaultValues) }
+            row { checkBox("Fade constants nothing reads").bindSelected(state::validateUnusedConstants) }
+        }
+        group("Code mods") {
+            row {
+                checkBox("Understand mods that ship a .dll")
+                    .bindSelected(state::codeModsEnabled)
+                    .comment(
+                        "Reads the types, fields and 'Type=' values a mod's assembly declares and merges " +
+                        "them into the schema, so a modded component completes, hovers and validates like " +
+                        "a built-in one. Covers the open project, the installed workshop mods and your own " +
+                        "Mods folder. Off means those types are reported as unknown."
+                    )
+            }
+            row {
+                checkBox("Pick up mod changes automatically")
+                    .bindSelected(state::codeModsAutoRefresh)
+                    .comment(
+                        "Watches the assemblies the schema was built from, so a mod installed, updated or " +
+                        "rebuilt while the IDE is open is merged on its own. Off means only " +
+                        "Tools | Cosmoteer | Rebuild Schema from Code Mod Assemblies updates it."
+                    )
+            }
         }
         group("Editing") {
             row {
@@ -146,24 +172,7 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
 
     override fun apply() {
         super.apply()
-        notifyRunningServers()
-    }
-
-    /**
-     * Sends `workspace/didChangeConfiguration` to every project's running server. The server
-     * ignores the payload under the pull model and re-requests `workspace/configuration`, which is
-     * answered from the just-saved settings.
-     */
-    private fun notifyRunningServers() {
-        val settingsJson = JsonObject().apply {
-            add("cosmoteerLSPRules", Gson().toJsonTree(CosmoteerSettings.getInstance().toConfigurationMap()))
-        }
-        for (project in ProjectManager.getInstance().openProjects) {
-            LanguageServerManager.getInstance(project)
-                .getLanguageServer("cosmoteerLanguageServer")
-                .thenAccept { item ->
-                    item?.server?.workspaceService?.didChangeConfiguration(DidChangeConfigurationParams(settingsJson))
-                }
-        }
+        // Pushes the saved settings to every running server, so the change lands without a restart.
+        CosmoteerSettings.notifyRunningServers()
     }
 }

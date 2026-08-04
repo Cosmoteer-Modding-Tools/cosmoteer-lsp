@@ -10,4 +10,4 @@
 ## SectorTypes
 `SectorTypeInfo[]` · optional
 
-<!-- TODO: needs documentation -->
+The pool of sector types this spawner draws from, each with its own weight and tier limits. Every map node that does not already have a sector type assigned gets one rolled from this pool.

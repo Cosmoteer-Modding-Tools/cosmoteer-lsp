@@ -10,9 +10,9 @@
 ## RenderWhenPartSelected
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether this overlay draws while its own part is individually selected.
 
 ## RenderWhenShipSelected
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether this overlay draws while its whole ship is selected. When individual parts are selected instead, only the overlays of those parts draw.

@@ -10,4 +10,4 @@
 ## HoldRotation
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Also pins the ship to the facing it had when it first took up position, instead of only pinning its location. When false the ship holds its spot but is free to turn, which lets the tactics modules aim it.

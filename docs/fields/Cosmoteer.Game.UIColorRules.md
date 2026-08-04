@@ -10,24 +10,24 @@
 ## DefaultPlayerColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color used for the local player's own ships and crew in the interface, applied to selection outlines, ship logos, minimap icons and text markup. It is only a fallback, so a player who picks a color in the accessibility settings overrides it. Vanilla is a green `[10, 212, 98]`.
 
 ## DefaultEnemyColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The interface color for hostile ships and targets, used for target reticles, targeting lines and enemy markers. Overridden by the accessibility settings, and vanilla is a red `[246, 49, 42]`.
 
 ## DefaultAllyColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The interface color for friendly ships that the player does not control. Overridden by the accessibility settings, and vanilla is a cyan `[10, 212, 212]`.
 
 ## DefaultNeutralColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The interface color for ships and objects that are neither friendly nor hostile. Overridden by the accessibility settings, and vanilla is a grey `[153, 153, 153]`.
 
 ## ColorblindPresets
 `ColorblindPreset[]` · optional
 
-<!-- TODO: needs documentation -->
+The presets offered in the accessibility settings drop list. Picking one writes all four of its colors into the player's settings at once, and the drop list re-selects a preset automatically when the player's four colors happen to match it exactly.

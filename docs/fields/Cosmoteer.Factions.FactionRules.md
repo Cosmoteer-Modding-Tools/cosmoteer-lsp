@@ -10,29 +10,29 @@
 ## ID
 `→ FactionRules` · required
 
-<!-- TODO: needs documentation -->
+Unique identifier for the faction, referenced by [[Cosmoteer.Data.BuiltinShipRules|BuiltinShipRules]] and career systems. Also forms the faction's inline text-icon name `faction_{ID}`.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key resolving to the faction's display name, shown in career menus, missions, and reputation UI.
 
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Faction emblem sprite shown in the UI. It is also registered as the inline text image `faction_{ID}` (scaled to fit a unit square) so it can be embedded in localized strings.
 
 ## BorderColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color used to draw this faction's territory borders on the galaxy map.
 
 ## MilitaryPlayerIndex
 `int` · required
 
-<!-- TODO: needs documentation -->
+Player index assigned to this faction's military (hostile) ships. Must be at least 100 or deserialization throws. Paired with [[CivilianPlayerIndex]] to identify which player slots belong to the faction.
 
 ## CivilianPlayerIndex
 `int` · required
 
-<!-- TODO: needs documentation -->
+Player index assigned to this faction's civilian (non-hostile) ships. Must be at least 100 or deserialization throws. Paired with [[MilitaryPlayerIndex]].

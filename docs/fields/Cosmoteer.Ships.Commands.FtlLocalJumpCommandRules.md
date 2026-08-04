@@ -10,49 +10,49 @@
 ## FtlReadinessIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon shown on the ship card with the FTL drive charge as a percentage. It reads 100% for the whole time the jump sequence is running.
 
 ## PreJumpDelay
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds the ship waits after its drive reports ready before the jump sequence actually begins. The command and the destination are re-checked when the delay ends, so a target that disappears in the meantime cancels the jump.
 
 ## ShipRemoveDelay
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds between the jump-out animation starting and the ship being taken out of the sector.
 
 ## ShipTransitDelay
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Seconds the ship spends in transit after leaving the sector, before it is placed at its destination and the jump-in animation plays.
 
 ## DestinationDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Tiles beyond the destination object's bounding circle at which the ship arrives. It comes out on the side it jumped from and is then nudged to the nearest free spot large enough for the ship.
 
 ## CommandColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Color this command reports along with its destination to the ship destination overlay. The course line uses white pulsed with `CourseLinePulseColorFactor` instead.
 
 ## CourseLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The line drawn from the ship to its jump destination for as long as the destination is valid.
 
 ## CourseLinePulseInterval
 `float` · required
 
-<!-- TODO: needs documentation -->
+Seconds per pulse cycle of the course line, which oscillates between plain white and `CourseLinePulseColorFactor`.
 
 ## CourseLinePulseColorFactor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+The color the course line pulses toward on each cycle.
 
 ## CourseLineUOffsetSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Rate at which the course line's texture scrolls along the line. It is multiplied by elapsed time and by the camera scale, so the apparent scroll speed on screen stays constant across zoom levels.

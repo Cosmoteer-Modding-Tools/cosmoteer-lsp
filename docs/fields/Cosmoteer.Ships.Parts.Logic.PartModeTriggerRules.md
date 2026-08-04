@@ -10,9 +10,9 @@
 ## Mode
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+A mode component on the same part that is watched. The trigger fires each time its mode changes, as long as this component is operational.
 
 ## TriggerInModes
 `int[]` · optional
 
-<!-- TODO: needs documentation -->
+The mode values that fire the trigger, checked against the new mode after each change. When unset, every mode change fires.

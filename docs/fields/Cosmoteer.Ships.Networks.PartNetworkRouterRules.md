@@ -10,14 +10,14 @@
 ## RouteGenerators
 `IRouteGenerator[]` · optional
 
-<!-- TODO: needs documentation -->
+The set of route generators the router uses to define its internal routes. Each generator (`Simple`, `Bidirectional`, or `Omni`, chosen by its `Type`) yields a collection of directed routes between the router's own port components, and the router concatenates all of them.
 
 ## IncludeInPhysical
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the router exists on the built ship, backing `HasPhysicalComponent`. When false the router has no physical component and its routes only exist in blueprint mode.
 
 ## IncludeInBlueprints
 `enum BlueprintInclusionMode` · optional · one of: `None`, `Normal`, `All`
 
-<!-- TODO: needs documentation -->
+When the router's blueprint component is created. `None` (alias `false`) never creates it, `Normal` (alias `true`) creates it for regular blueprint updates, and `All` also includes it in lightweight blueprint validity checks. Backs `HasBlueprintComponent` and `IncludeInLightweightBlueprintUpdates`.

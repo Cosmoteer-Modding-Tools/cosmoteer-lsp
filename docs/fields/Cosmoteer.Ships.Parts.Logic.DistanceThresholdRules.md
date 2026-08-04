@@ -10,34 +10,34 @@
 ## ThresholdDistance
 `number` · required
 
-<!-- TODO: needs documentation -->
+The distance, in tiles, that the measured distance is compared against. The component's toggle turns on when the distance from [[Cosmoteer.Ships.Parts.Logic.DistanceThresholdRules.GetDistanceFrom]] is at or beyond this threshold. Being modifiable, it can be driven by buffs.
 
 ## UseCommandDistance
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Substitutes the ship's current follow order for the configured threshold. While the ship's confirmed command is a follow-style command targeting the same ship the distance component is tracking, the command's follow radius replaces [[Cosmoteer.Ships.Parts.Logic.DistanceThresholdRules.ThresholdDistance]] and the direct ship-to-ship distance is compared instead.
 
 ## GetDistanceFrom
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+A component on the same part that reports a distance to its current target, such as a turret weapon or beam emitter. Its distance is checked against the threshold every fixed update while the part is operational.
 
 ## InvertToggle
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Reverses the toggle condition, so the toggle is on when the measured distance is below the threshold instead of at or beyond it. While the part is not operational the toggle is always off, regardless of this setting.
 
 ## ValueFalloffFromThreshold
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The distance span, in tiles, over which the component's reported value falls from 1 to 0 as the measured distance deviates from the threshold. The value peaks at 1 exactly at the threshold distance and drops off symmetrically on both sides, reaching 0 once the deviation equals this span.
 
 ## ValueFalloffFromThresholdExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+An exponent applied to the normalized deviation fraction before it is turned into the reported value. Values above 1 keep the value near 1 for longer around the threshold, values below 1 make it drop off more sharply. See [[Cosmoteer.Ships.Parts.Logic.DistanceThresholdRules.ValueFalloffFromThreshold]].
 
 ## InvertValue
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Reverses the reported value, so it is 0 at the threshold distance and rises to 1 as the measured distance deviates by [[Cosmoteer.Ships.Parts.Logic.DistanceThresholdRules.ValueFalloffFromThreshold]] or more.

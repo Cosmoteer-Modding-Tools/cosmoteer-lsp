@@ -10,39 +10,39 @@
 ## RotZeroWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Weight of the unrotated orientation (0 degrees) in the weighted-random ordering of orientations the stage tries. A weight of 0 excludes it, higher weights make it more likely to be tried first. Editor slider runs 0 to 10.
 
 ## RotOneWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Weight of the 90 degree orientation in the weighted-random ordering the stage tries. A weight of 0 excludes it, higher weights make it more likely to be tried first. Editor slider runs 0 to 10.
 
 ## RotTwoWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Weight of the 180 degree orientation in the weighted-random ordering the stage tries. A weight of 0 excludes it, higher weights make it more likely to be tried first. Editor slider runs 0 to 10.
 
 ## RotThreeWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Weight of the 270 degree orientation in the weighted-random ordering the stage tries. A weight of 0 excludes it, higher weights make it more likely to be tried first. Editor slider runs 0 to 10.
 
 ## RotZeroFlippedWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Weight of the horizontally mirrored, unrotated orientation in the weighted-random ordering. A weight of 0 excludes it, higher weights make it more likely to be tried first. Editor slider runs 0 to 10.
 
 ## RotOneFlippedWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Weight of the horizontally mirrored 90 degree orientation in the weighted-random ordering. A weight of 0 excludes it, higher weights make it more likely to be tried first. Editor slider runs 0 to 10.
 
 ## RotTwoFlippedWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Weight of the horizontally mirrored 180 degree orientation in the weighted-random ordering. A weight of 0 excludes it, higher weights make it more likely to be tried first. Editor slider runs 0 to 10.
 
 ## RotThreeFlippedWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Weight of the horizontally mirrored 270 degree orientation in the weighted-random ordering. A weight of 0 excludes it, higher weights make it more likely to be tried first. Editor slider runs 0 to 10.

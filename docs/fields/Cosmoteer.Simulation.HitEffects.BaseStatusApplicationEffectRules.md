@@ -30,7 +30,7 @@ The value given to applied statuses.
 ## MaxStatusValue
 `number` · optional
 
-<!-- TODO: needs documentation -->
+A cap on the status value a target can accumulate from this effect. Newly created statuses start at no more than this, and when an application stacks onto an existing status the combined value is clamped to it. Interpreted according to [[Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules.ValueType]] just like [[Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules.StatusValue]]. Defaults to no cap. The vanilla resonance beam ramps up `shield_overload` in small per-hit increments toward a buff-scaled MaxStatusValue.
 
 ## ValueType
 `enum StatusValueType` · optional · one of: `Raw`, `Interpolated`
@@ -45,4 +45,4 @@ The filter a hit must pass to apply a status.
 ## StatusType
 `→ StatusType` · optional
 
-<!-- TODO: needs documentation -->
+The status type to apply, referenced by its ID from the statuses database, for example `cosmoteer.heat` or `cosmoteer.shield_overload` from vanilla's `statuses/statuses.rules`. The status type's layer decides whether the effect writes to individual tiles or to whole parts.

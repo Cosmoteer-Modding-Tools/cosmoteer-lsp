@@ -10,19 +10,19 @@
 ## PartRectType
 `enum PartRectType` · optional · one of: `Normal`, `Physical`
 
-<!-- TODO: needs documentation -->
+Which footprint rectangle of parts is used when determining what part occupies a tile. `Normal`, the default, uses a part's full rectangle. `Physical` uses only its physical rectangle, so tiles inside a part's footprint but outside its physical shape count as empty.
 
 ## PartIDTileScores
 `map<→ PartRules, float>` · optional
 
-<!-- TODO: needs documentation -->
+The score contributed by each tile occupied by a part with the given part ID. An exact ID match takes priority over [[Cosmoteer.Ships.Parts.Logic.BaseTileScoreValueRules.PartCategoryTileScores]]. Parts matched by neither map contribute 0 per tile.
 
 ## PartCategoryTileScores
 `map<→ PartCategory, float>` · optional
 
-<!-- TODO: needs documentation -->
+The score contributed by each tile occupied by a part belonging to the given type category. Only consulted when the part's ID has no entry in [[Cosmoteer.Ships.Parts.Logic.BaseTileScoreValueRules.PartIDTileScores]], and the first listed category the part belongs to wins.
 
 ## EmptyTileScore
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The score contributed by each tile in the scored area that has no part on it, judged by [[Cosmoteer.Ships.Parts.Logic.BaseTileScoreValueRules.PartRectType]].

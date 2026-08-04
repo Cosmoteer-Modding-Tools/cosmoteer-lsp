@@ -10,19 +10,19 @@
 ## AmountFrom
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+A value component on the same part whose current value is watched. The trigger fires at the moment the value enters the range between [[Cosmoteer.Ships.Parts.Logic.PartThresholdTriggerRules.MinAmount]] and [[Cosmoteer.Ships.Parts.Logic.PartThresholdTriggerRules.MaxAmount]], and not again until the value has left the range and re-entered it. Vanilla thrusters watch their thrust level this way to fire burst effects.
 
 ## MinAmount
 `float` · optional · default `-3.4028235e+38`
 
-<!-- TODO: needs documentation -->
+The lower bound, inclusive, of the value range that satisfies the trigger. Defaults to no lower bound. The vanilla medium thruster uses `MinAmount = .5` so its `BurstTrigger` fires when thrust output reaches half strength.
 
 ## MaxAmount
 `float` · optional · default `3.4028235e+38`
 
-<!-- TODO: needs documentation -->
+The upper bound, inclusive, of the value range that satisfies the trigger. Defaults to no upper bound.
 
 ## Invert
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Reverses the condition, so the trigger fires when the watched value leaves the Min to Max range instead of entering it.

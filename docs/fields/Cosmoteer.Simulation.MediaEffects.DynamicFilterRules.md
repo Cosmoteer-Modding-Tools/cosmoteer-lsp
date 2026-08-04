@@ -10,39 +10,39 @@
 ## MaxDistance
 `float` · optional · default `3.4028235e+38`
 
-<!-- TODO: needs documentation -->
+The distance from the camera center at which the filter reaches full strength. Distance is measured in view-relative units where 1 spans from the center of the screen to its edge, so the region scales with zoom. With the float-max default, distance never engages the filter.
 
 ## MinDistance
 `float` · optional · default `3.4028235e+38`
 
-<!-- TODO: needs documentation -->
+The view-relative distance up to which the filter stays fully disengaged. Between here and [[Cosmoteer.Simulation.MediaEffects.DynamicFilterRules.MaxDistance]] the filter strength rises along the [[Cosmoteer.Simulation.MediaEffects.DynamicFilterRules.DistanceFalloff]] curve.
 
 ## DistanceFalloff
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Exponent shaping how the filter strength rises between [[Cosmoteer.Simulation.MediaEffects.DynamicFilterRules.MinDistance]] and [[Cosmoteer.Simulation.MediaEffects.DynamicFilterRules.MaxDistance]]. 1 is linear and higher values engage the filter more quickly.
 
 ## UseCustomShapeForDistance
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Measures the camera distance to the closest point of the effect's custom shape instead of to the effect's node location, matching the same option on [[Cosmoteer.Simulation.MediaEffects.DynamicVolumeRules.UseCustomShapeForDistance]]. Beam sounds use this so the filter reflects the nearest point of the whole beam.
 
 ## MaxZoom
 `float` · optional · default `3.4028235e+38`
 
-<!-- TODO: needs documentation -->
+The camera zoom scale at which the filter reaches full strength, with the frequency arriving at [[Cosmoteer.Simulation.MediaEffects.DynamicFilterParams.ToFrequency]]. The zoom scale is 1 when fully zoomed in and grows as the player zooms out. With the float-max default, zoom never engages the filter.
 
 ## MinZoom
 `float` · optional · default `3.4028235e+38`
 
-<!-- TODO: needs documentation -->
+The camera zoom scale up to which the filter stays fully disengaged. Between here and [[Cosmoteer.Simulation.MediaEffects.DynamicFilterRules.MaxZoom]] the filter strength rises along the [[Cosmoteer.Simulation.MediaEffects.DynamicFilterRules.ZoomFalloff]] curve. Vanilla muffling filters use 1.
 
 ## ZoomFalloff
 `float` · optional · default `2`
 
-<!-- TODO: needs documentation -->
+Exponent shaping how the filter strength rises between [[Cosmoteer.Simulation.MediaEffects.DynamicFilterRules.MinZoom]] and [[Cosmoteer.Simulation.MediaEffects.DynamicFilterRules.MaxZoom]]. 1 is linear and higher values engage the filter more quickly as the player zooms out.
 
 ## Filter
 `DynamicFilterParams` · optional
 
-<!-- TODO: needs documentation -->
+The frequency filter to apply, including its type, frequency sweep, and resonance. Without it the whole DynamicFilter group has no effect. When several plays share one sound instance through concurrency stacking, the instance uses the weakest filter strength among them.

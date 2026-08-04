@@ -10,14 +10,14 @@
 ## Distance
 `float` · required
 
-<!-- TODO: needs documentation -->
+How far, in tiles, from the part's edge a cell can be and still count as inside the region. The distance is measured from the part rect chosen by [[Cosmoteer.Source.Ships.Parts.Regions.PartRelativeEdgeDistance.RectType]], and the falloff factor runs from 0 at the edge to 1 at this distance.
 
 ## RectType
 `enum PartRectType` · optional · one of: `Normal`, `Physical`
 
-<!-- TODO: needs documentation -->
+Which part footprint the edge distance is measured from. `Physical` uses the part's `PhysicalRect` when it declares one, `Normal` uses the full tile footprint.
 
 ## BlueprintMaterial
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The material used to fill each in-range cell in the build view. Unset means the region draws nothing in the blueprint.

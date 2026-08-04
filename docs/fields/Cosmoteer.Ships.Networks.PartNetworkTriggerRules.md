@@ -10,9 +10,9 @@
 ## TriggerSource
 `ComponentTriggerReferenceRules` · required
 
-<!-- TODO: needs documentation -->
+Reference to the component trigger this exposes on the part network, so the trigger's firing propagates to network trigger receivers.
 
 ## Categories
 `→ PartNetworkCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Network categories tagging this trigger, used by receiver NetworkFilters to decide whether to listen to it.

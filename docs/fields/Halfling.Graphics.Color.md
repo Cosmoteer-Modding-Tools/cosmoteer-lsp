@@ -10,74 +10,74 @@
 ## Rf
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The red channel as a 0..1 fraction. Alternative to [[Halfling.Graphics.Color.R]], which uses the 0..255 scale. In group form each of red, green and blue must be given via either its byte-scale or fractional field unless [[Halfling.Graphics.Color.H]], [[Halfling.Graphics.Color.S]] and [[Halfling.Graphics.Color.V]] are all present.
 
 ## Gf
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The green channel as a 0..1 fraction. Alternative to [[Halfling.Graphics.Color.G]], which uses the 0..255 scale.
 
 ## Bf
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The blue channel as a 0..1 fraction. Alternative to [[Halfling.Graphics.Color.B]], which uses the 0..255 scale.
 
 ## Af
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The alpha (opacity) channel as a 0..1 fraction. Alternative to [[Halfling.Graphics.Color.A]], which uses the 0..255 scale. When neither is given the color is fully opaque.
 
 ## 0
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The red channel on the 0..255 scale when the color is written in list form `[R, G, B]` or `[R, G, B, A]`. A color can also be written as a plain named value such as `White` or `Red`.
 
 ## 1
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The green channel on the 0..255 scale in the list form `[R, G, B]` or `[R, G, B, A]`.
 
 ## 2
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The blue channel on the 0..255 scale in the list form `[R, G, B]` or `[R, G, B, A]`.
 
 ## 3
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The alpha (opacity) channel on the 0..255 scale in the list form `[R, G, B, A]`. When the list has only three entries the color is fully opaque.
 
 ## H
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The hue in degrees, 0..360. When [[Halfling.Graphics.Color.H]], [[Halfling.Graphics.Color.S]] and [[Halfling.Graphics.Color.V]] are all present the red, green and blue channels are computed from them and any R/G/B fields are ignored. Opacity still comes from [[Halfling.Graphics.Color.A]] or [[Halfling.Graphics.Color.Af]].
 
 ## S
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The saturation as a 0..1 fraction of the HSV form. Only used when [[Halfling.Graphics.Color.H]], [[Halfling.Graphics.Color.S]] and [[Halfling.Graphics.Color.V]] are all present.
 
 ## V
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The brightness value as a 0..1 fraction of the HSV form. Only used when [[Halfling.Graphics.Color.H]], [[Halfling.Graphics.Color.S]] and [[Halfling.Graphics.Color.V]] are all present.
 
 ## R
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The red channel on the 0..255 scale. The value is divided by 255 on load, so fractions and values above 255 are accepted. [[Halfling.Graphics.Color.Rf]] is the equivalent 0..1 form.
 
 ## G
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The green channel on the 0..255 scale. The value is divided by 255 on load. [[Halfling.Graphics.Color.Gf]] is the equivalent 0..1 form.
 
 ## B
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The blue channel on the 0..255 scale. The value is divided by 255 on load. [[Halfling.Graphics.Color.Bf]] is the equivalent 0..1 form.
 
 ## A
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The alpha (opacity) channel on the 0..255 scale, where 0 is fully transparent and 255 fully opaque. Defaults to fully opaque when neither this nor [[Halfling.Graphics.Color.Af]] is given.

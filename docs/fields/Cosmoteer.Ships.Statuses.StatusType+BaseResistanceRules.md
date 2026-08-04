@@ -20,4 +20,4 @@ Whether to multiply the resistance value by the instance count of this status ty
 ## ModificationMode
 `enum SimpleValueModificationMode` · optional · default `Add` · one of: `Replace`, `Add`, `Subtract`, `Multiply`, `Divide`
 
-<!-- TODO: needs documentation -->
+How the resistance value from this rule is folded into the part's existing resistance. `Add` and `Subtract` shift it, `Multiply` and `Divide` scale it, and `Replace` discards the part's own value.

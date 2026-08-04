@@ -10,39 +10,39 @@
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon shown for Creative in the multiplayer game mode picker.
 
 ## LargeIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The larger icon shown for Creative on the single player new game screen.
 
 ## Gui
 `CreativeModeGuiRules` · required
 
-<!-- TODO: needs documentation -->
+The GUI rules for the creative mode specific tools and overlays.
 
 ## StartingMoney
 `int` · required
 
-<!-- TODO: needs documentation -->
+The money every player is given. Creative rewrites each player's balance to this figure on every network input tick, so spending never reduces it and the value acts as a permanent budget rather than a starting sum.
 
 ## MapSizes
 `MapSize[]` · optional
 
-<!-- TODO: needs documentation -->
+The selectable galaxy sizes offered on the setup screen. The first entry is the one shown before the host picks anything.
 
 ## PlanetsGenerator
 `SimulationGenerator` · required
 
-<!-- TODO: needs documentation -->
+The simulation generator that populates a newly entered system with planets. It only runs when the host enabled planet generation, and it also snaps the camera out to maximum zoom.
 
 ## NebulasGenerator
 `SimulationGenerator` · required
 
-<!-- TODO: needs documentation -->
+The simulation generator that populates a newly entered system with nebulas. It only runs when the host enabled nebula generation.
 
 ## FtlGatesGenerator
 `SimulationGenerator` · required
 
-<!-- TODO: needs documentation -->
+The simulation generator that populates a newly entered system with FTL gates. It only runs when the host enabled FTL gate generation.

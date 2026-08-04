@@ -10,29 +10,29 @@
 ## StateNoneSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The widget sprite drawn while the mouse is neither over the widget nor holding it. Its size also sets the widget's hit rectangle.
 
 ## StateOverSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The widget sprite drawn while the mouse hovers over it.
 
 ## StateDownSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The widget sprite drawn while the mouse button is held on the widget.
 
 ## PixelOffset
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Shifts the widget away from its anchor point, in pixels before the UI scale and the camera zoom are applied. The offset rotates with the widget and is scaled down in step with the sprite whenever `MaxWorldSize` or `MaxObjectRelativeSize` clamps it.
 
 ## MaxWorldSize
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Caps the widget's drawn size in world units, so the widget stops growing once the view is zoomed far enough out. Leave it at zero to disable the cap.
 
 ## MaxObjectRelativeSize
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+Caps the widget's drawn size at this fraction of the shorter side of the selected object's bounding rectangle, so the handles never swamp a small object. Leave it at zero to disable the cap.

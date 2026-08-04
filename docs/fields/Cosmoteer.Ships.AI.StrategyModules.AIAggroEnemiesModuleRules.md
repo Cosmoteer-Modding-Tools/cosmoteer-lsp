@@ -10,49 +10,49 @@
 ## TargetSwitchThresholdFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies the score of the ship's current target while candidates are compared, so a different enemy has to beat the current one by this factor before the AI switches. 1 means switch as soon as anything scores higher, vanilla combat AIs use 6.
 
 ## TargetDistanceFactorExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Exponent applied to the reciprocal of the edge to edge distance to a candidate before that distance factor is multiplied by the candidate's firepower rating. Values above 1 make the AI favour close enemies more strongly, vanilla combat AIs use 1.5.
 
 ## AlreadyTargetedByAllyFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplies the score of candidates that another ship of the same player is already attacking. Values below 1 spread a fleet's attention over several enemies, vanilla combat AIs use 0.7.
 
 ## TargetFirepowerCacheTime
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long, in seconds, a candidate ship's computed total firepower is reused before it is recalculated. Larger values cost less CPU but make the AI slower to notice that a target has lost its weapons.
 
 ## AcquireAggroWithinRadar
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Searches for targets out to the ship's radar blip radius instead of its sight radius. Enemies still have to be within radar of the ship's own player to be considered.
 
 ## ReleaseAggroWithinRadar
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Keeps an already acquired target in the running as long as it stays within radar radius, even after it drops out of sight. It also switches acquisition to radar radius from the moment the ship's physical value drops, that is as soon as it starts taking damage.
 
 ## RotateOnly
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Attacks by rotating in place, issuing a rotate only attack command with collision avoidance switched off. It also disables the origin leash checks driven by [[Cosmoteer.Ships.AI.AIParameters.TargetAcquireRangeFromOrigin]], as well as [[Cosmoteer.Ships.AI.StrategyModules.AIAggroEnemiesModuleRules.GotoLastKnownTargetLocation]], which is what turret style ships like defense platforms want.
 
 ## GotoLastKnownTargetLocation
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Sends the ship to the spot where its target was last seen after it loses track of it. Ignored when [[Cosmoteer.Ships.AI.StrategyModules.AIAggroEnemiesModuleRules.RotateOnly]] is set.
 
 ## AvoidableDoodadTags
 `→ SimObjectSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Ids of doodad spawners, such as `sun` or `station`, whose areas the AI treats as no-go zones. Enemies sitting inside such an area are never picked as targets and the chase after a lost target is called off. Leaving it unset disables doodad avoidance, nebulas flagged as AI-avoidable are still avoided either way.
 
 ## AvoidableDoodadBuffer
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Extra distance in world units added to the radius of every doodad matched by [[Cosmoteer.Ships.AI.StrategyModules.AIAggroEnemiesModuleRules.AvoidableDoodadTags]]. Has no effect unless that field is set.

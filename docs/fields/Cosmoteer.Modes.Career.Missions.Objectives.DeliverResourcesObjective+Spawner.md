@@ -10,24 +10,24 @@
 ## Amount
 `range<int>` · required
 
-<!-- TODO: needs documentation -->
+How many units of the resource must be delivered, rolled randomly from this range at spawn time.
 
 ## DeliveryLocationTag
 `SpawnedObjectSearch` · required
 
-<!-- TODO: needs documentation -->
+Search for the already-spawned ship or station the resources have to be handed to.
 
 ## SuggestedCollectionAreaTag
 `SpawnedObjectSearch` · optional
 
-<!-- TODO: needs documentation -->
+Search for a point-of-interest doodad suggesting where the player can go to collect the resource. It is only a hint for the map marker, the player may source the resource anywhere.
 
 ## ResourceType
 `→ ResourceRules` · optional
 
-<!-- TODO: needs documentation -->
+The single resource the player must deliver. Either this or `RandomResourceTypes` is required, and when both are present this one wins and the list is ignored.
 
 ## RandomResourceTypes
 `→ ResourceRules[]` · optional
 
-<!-- TODO: needs documentation -->
+A set of resources from which one is picked at random when the mission spawns. Ignored entirely if `ResourceType` is also given.

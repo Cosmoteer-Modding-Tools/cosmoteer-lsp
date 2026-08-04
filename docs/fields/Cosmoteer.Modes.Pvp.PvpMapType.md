@@ -10,14 +10,14 @@
 ## Generator
 `SimulationGenerator` · required
 
-<!-- TODO: needs documentation -->
+The simulation generator run when this entry is picked, used for both the asteroid density and the nebula type lists. Vanilla gives the None entries a generator with an empty spawner list.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for this entry's label in the drop list. Unlike the other PvP option types this is used as a plain key, not as a format string.
 
 ## IsDefault
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the entry preselected when the host opens the lobby. Exactly one entry in the list must set it, since the game takes the first match and throws when there is none.

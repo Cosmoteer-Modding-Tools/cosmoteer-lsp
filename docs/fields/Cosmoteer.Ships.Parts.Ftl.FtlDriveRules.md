@@ -10,44 +10,44 @@
 ## PowerStorage
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A resource storage component on the same part whose fill level determines the drive's jump readiness. The drive is ready to jump only when this storage is completely full, and its contents are dumped to zero whenever the drive is toggled off. When unset the drive is always ready while toggled on. The vanilla hyperdrives point this at their BatteryStorage.
 
 ## FuelStorage
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A resource storage component on the same part that holds the ship's FTL jump fuel. Jump costs are deducted across all drives' fuel storages in proportion to how much each holds. The vanilla hyperdrives point this at their HyperiumStorage.
 
 ## SpinDownDuration
 `float` · required
 
-<!-- TODO: needs documentation -->
+Seconds for the drive's reported value to drain to zero after the drive is toggled off, at a rate of one full readiness charge per this many seconds. The value only feeds value readers on the part such as glow effects and progress bars. Vanilla hyperdrives use 5.
 
 ## JumpEfficiency
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplier on the jump efficiency this drive contributes to each cell of the ship. Per cell, the contributions of all drives are summed and capped at 1, and cells below full efficiency raise the ship's jump fuel cost. The vanilla small hyperdrive uses `50%`.
 
 ## JumpEfficiencyDistanceRange
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The distance falloff of the drive's jump efficiency, in tiles from the drive component. Cells closer than the Min receive the full [[Cosmoteer.Ships.Parts.Ftl.FtlDriveRules.JumpEfficiency]], falling linearly to zero at the Max. The vanilla small hyperdrive uses `[5, 30]` and the large one `[20, 120]`.
 
 ## JumpOutMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played at the drive when its ship jumps out of the sector through an FTL gate. The vanilla hyperdrives play a lightning particle effect.
 
 ## JumpOutGateMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played in world space at the FTL gate's jump-effects source point, or at the gate ship's center if it defines none, when the ship jumps out through the gate.
 
 ## JumpInMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played at the drive when its ship arrives in a sector through an FTL gate. The vanilla hyperdrives delay these so the lightning lines up with the end of the ship-wide jump-in animation.
 
 ## JumpInGateMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects played in world space at the FTL gate's jump-effects source point, or at the gate ship's center if it defines none, when the ship arrives through the gate.

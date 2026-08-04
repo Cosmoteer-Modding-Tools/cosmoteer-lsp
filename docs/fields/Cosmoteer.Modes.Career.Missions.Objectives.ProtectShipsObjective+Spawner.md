@@ -10,59 +10,59 @@
 ## TargetsTag
 `MultiSpawnedObjectSearch` · required
 
-<!-- TODO: needs documentation -->
+Search for the already-spawned ships that must survive. Every matching object becomes a target, and a match count of zero means the objective is skipped.
 
 ## TargetCount
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+How many of the found ships must still be alive at the end, rolled randomly from this range at spawn time and clamped to the number of ships found. Without it, and without `TargetCountFraction`, every found ship must survive.
 
 ## TargetCountFraction
 `float` · optional
 
-<!-- TODO: needs documentation -->
+How many of the found ships must survive, as a 0..1 fraction of the number found, rounded up. Ignored when `TargetCount` is present.
 
 ## MissionInvalidIfZeroTargets
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether finding no matching ships aborts the entire mission. When false the objective is simply dropped and the rest of the mission still spawns.
 
 ## TargetAreaTag
 `SpawnedObjectSearch` · optional
 
-<!-- TODO: needs documentation -->
+Search for a point-of-interest doodad marking the rough area the protected ships are in. The mission log points the player here while no protected ship is visible on radar.
 
 ## TargetLandmarkTag
 `SpawnedObjectSearch` · optional
 
-<!-- TODO: needs documentation -->
+Search for a landmark ship used as the fallback location marker when no point of interest is set or explored.
 
 ## AutoDiscoverTargetArea
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the point of interest found by `TargetAreaTag` is revealed on the map as soon as the mission is accepted, rather than the player having to explore it.
 
 ## TierCombineMode
 `enum TierCombine` · optional · default `None` · one of: `Range`, `Max`, `ValueSum`, `None`
 
-<!-- TODO: needs documentation -->
+How the danger tiers of the protected ships are folded into one tier for the objective. It defaults to `None` so that friendly ships you escort do not inflate the mission's danger tier or its tier-scaled rewards.
 
 ## TierOffset
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Tiers added to (or with a negative value subtracted from) the combined tier. Has no effect while `TierCombineMode` is `None`.
 
 ## ListTargetsIndividually
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether each protected ship gets its own line in the mission log instead of one combined line with an x-of-y counter. A single target is always listed individually.
 
 ## DisplayTextDisabled
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it, presumably meant to suppress this objective's mission log line, which is what [[Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner.DisableDisplayLines]] on the shared objective spawner actually does.
 
 ## OverrideDisplayFormatKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key replacing the default `Objectives/ProtectShips` text on the combined line. It receives named arguments including `target_ship`, `target_count`, `target_perc` and `target_faction`. Ignored when the targets are listed individually.

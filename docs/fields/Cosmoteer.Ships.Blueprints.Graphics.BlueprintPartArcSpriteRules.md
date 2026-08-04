@@ -10,24 +10,24 @@
 ## Radius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Outer radius of the arc band in tiles, measured from the part's center. The [[#Sprite]] fills inward from this radius by the sprite's own height, so the band thickness equals the sprite height.
 
 ## Arc
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+Total angular width of the arc, centered on the part's facing direction. The band spans from minus half this angle to plus half.
 
 ## Sprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite drawn along the curved band. Its texture is stretched across the whole arc and its height sets the band's radial thickness.
 
 ## SpriteSegments
 `int` · required
 
-<!-- TODO: needs documentation -->
+Number of flat quad segments the arc is tessellated into. Higher values make the curve smoother at more vertex cost. The two end segments fade their outer edges to transparent.
 
 ## VisibilityToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+ID of a component whose blueprint toggle state gates whether the arc is drawn. When set, the arc only shows while that toggle is on. The component must support `IBlueprintComponentToggle`. When omitted the arc is always visible.

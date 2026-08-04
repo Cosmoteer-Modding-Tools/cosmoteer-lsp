@@ -10,24 +10,24 @@
 ## Basis
 `float` · required
 
-<!-- TODO: needs documentation -->
+The value that cells with no status instance are treated as holding, and the value that partly empty cells drift back toward. For heat this is 0, the ambient temperature.
 
 ## SpeedFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The fraction of the difference between two neighbouring occupied cells that moves across per tick, before the per-part factors are applied. The final factor is clamped to 0 to 1, and each of the four neighbours exchanges one fifth of the gap, so 1 means near instant equalization.
 
 ## MinDeltaThreshold
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The smallest per-tick transfer that is actually applied between two occupied cells. Anything smaller is dropped to zero, which keeps tiny residual values from spreading forever. It is not applied to transfers into empty cells.
 
 ## EmptyCellSpeedFactor
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The speed factor used when the neighbouring cell holds no part, and also for the dissipation of partly occupied cells back toward `Basis`. This is how a status bleeds off into space at the hull edge. Vanilla heat uses 0.004 against 0.01 for cell-to-cell conduction.
 
 ## PartSpeedFactors
 `map<→ PartRules, DiffusionSpeedFactors>` · optional
 
-<!-- TODO: needs documentation -->
+Per-part-type overrides of the diffusion speed, keyed by part id. Vanilla heat gives structure an `Occupied` factor of 25 so heat conducts through armor far faster than through machinery.

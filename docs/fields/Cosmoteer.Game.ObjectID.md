@@ -10,4 +10,4 @@
 ## _id
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The raw 32-bit unsigned number that identifies one object inside a running game simulation, written as the whole value of the `ObjectID` rather than as a named subfield. Values are generated randomly at runtime and stored in saved games, and 0 is never generated so it can serve as the "no object" marker.

@@ -10,19 +10,19 @@
 ## Parent
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+The id of the part under whose build-menu button this part is nested. Instead of getting its own toolbox button, the part appears in the stacked flyout of the parent's button, as the vanilla armor variants do under `cosmoteer.armor`. Ids that match no part are silently ignored. A bare value assigned to the whole entry is read as this field.
 
 ## SortOrder
 `int` · optional · default `0`
 
-<!-- TODO: needs documentation -->
+Orders this part among the parent's sub-parts in the flyout, lowest first.
 
 ## 0
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+The [[Cosmoteer.Ships.Parts.EditorParentPart.Parent]] id when the entry is written in list form, either `[parent_id]` or `[parent_id, sortOrder]`.
 
 ## 1
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The [[Cosmoteer.Ships.Parts.EditorParentPart.SortOrder]] when the entry is written in the two-element list form `[parent_id, sortOrder]`.

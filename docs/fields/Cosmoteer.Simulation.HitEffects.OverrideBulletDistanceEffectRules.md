@@ -10,14 +10,14 @@
 ## DistanceComponent
 `→ BulletComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The `DeathByDistanceTraveled` component on the bullet that delivered this hit, identified by its component ID. The effect rewrites that component's remaining travel distance. Nothing happens when there is no source bullet or the bullet has no component with this ID.
 
 ## Distance
 `number` · required
 
-<!-- TODO: needs documentation -->
+The distance, in tiles, combined with the bullet's current remaining travel distance according to [[Cosmoteer.Simulation.HitEffects.OverrideBulletDistanceEffectRules.Mode]].
 
 ## Mode
 `enum DistanceMode` · optional · one of: `Set`, `Min`, `Max`
 
-<!-- TODO: needs documentation -->
+How [[Cosmoteer.Simulation.HitEffects.OverrideBulletDistanceEffectRules.Distance]] is applied to the remaining travel distance. `Set`, the default, overwrites it, `Min` lowers it to at most Distance, and `Max` raises it to at least Distance.

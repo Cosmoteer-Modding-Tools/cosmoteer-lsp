@@ -10,9 +10,9 @@
 ## PerlinNoise
 `PerlinNoise2D` · optional
 
-<!-- TODO: needs documentation -->
+The perlin noise field sampled per pixel as a height field, from which the layer derives a normal map by comparing neighboring heights.
 
 ## EdgeEffects
 `PerlinNoiseEdgeEffects` · optional
 
-<!-- TODO: needs documentation -->
+Modifications applied to the sampled noise heights based on proximity to the texture edges, before normals are computed.

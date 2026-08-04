@@ -10,24 +10,24 @@
 ## Emitter
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The beam-emitting component on the same part whose current beam length this regulator measures. A `BeamEmitterProxy` also qualifies, which the vanilla tractor beam uses so all of its mode-specific regulators read the same emitter.
 
 ## BeamLengthRange
 `range<number>` · required
 
-<!-- TODO: needs documentation -->
+The span of beam lengths, in tiles, that is mapped onto [[Cosmoteer.Ships.Parts.Weapons.BeamRegulatorRules.OutputValueRange]]. The beam's current length is located within this span and the output interpolates accordingly, clamping at both ends. Min and Max are modifiable, so buffs can shift them.
 
 ## RelativeToInitHitLength
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Measures the beam length relative to the length at which the beam first hit its current target, so the output tracks how far the target has drifted since being caught. While the beam is not hitting anything the output is 0. The vanilla tractor beam's hold mode combines this with a symmetric `[-Range, Range]` length span to pull or push the target back toward its capture distance.
 
 ## OutputValueRange
 `range<number>` · required
 
-<!-- TODO: needs documentation -->
+The value span this component reports to other components, interpolated from Min to Max as the beam length moves across [[Cosmoteer.Ships.Parts.Weapons.BeamRegulatorRules.BeamLengthRange]]. A beam length of 0 always yields an output of 0. Min and Max are modifiable, and the vanilla tractor beam maps pull mode to `[.1, 1]` and push mode to `[-1, -.1]`.
 
 ## AutoClearTargetOf
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A weapon component on the same part whose confirmed explicit target is cleared automatically when the beam loses contact, meaning its initial-hit length drops back to zero. No vanilla part uses this.

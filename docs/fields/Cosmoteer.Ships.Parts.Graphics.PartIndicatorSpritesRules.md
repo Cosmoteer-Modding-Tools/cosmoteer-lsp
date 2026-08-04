@@ -10,4 +10,4 @@
 ## Indicators
 `IndicatorRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The list of indicator sprites this component can display, each tied to a toggle component that controls its visibility. Indicators are drawn in the ship's indicator overlay centered on the component's location and can hide one another via [[Cosmoteer.Ships.Parts.Graphics.PartIndicatorSpritesRules+IndicatorRules.HidesIndicators]]. Vanilla parts use them for warning icons such as missing crew or empty ammo.

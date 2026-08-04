@@ -10,9 +10,9 @@
 ## FriendliesPresentSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The badge drawn on a galaxy map node that holds friendly ships. It is skipped for the node the player is currently in, and its size is given in galaxy map world units before the camera scale is applied.
 
 ## FriendliesPresentSpriteOffset
 `Vector2` · required
 
-<!-- TODO: needs documentation -->
+Offset of the badge from the node's center, in galaxy map world units. It rotates with the camera and scales with the zoom, so the badge keeps its place beside the node.

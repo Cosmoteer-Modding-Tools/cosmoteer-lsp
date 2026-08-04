@@ -10,44 +10,44 @@
 ## Layer
 `→ ShipRenderLayerRules` · required
 
-<!-- TODO: needs documentation -->
+The render layer the sprite draws on, one of the layer ids declared in the ship type's RenderLayers, such as `"floors"`, `"doodads_high"`, or `"roofs"`.
 
 ## RandomUVRotation
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Rotates the sprite's texture by a random multiple of 90 degrees chosen deterministically from the part's grid cell, so identical parts placed side by side do not visibly tile.
 
 ## UseConstructionProgressAsDamage
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Feeds the part's construction progress (0 to 1) into the damage-level selection instead of the actual damage fraction, so [[Cosmoteer.Ships.Parts.Graphics.PartSpriteRules.DamageLevels]] plays as a build sequence. The vanilla structure parts use this on their `"structure_construction"` overlay sprite.
 
 ## ResetAnimationTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+References a trigger-providing component. Each time the trigger fires, the sprite's animation start time resets to the current time so the animation restarts from its first frame.
 
 ## GetColorFrom
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Names a component that provides a color, such as a `MultiColor`, `ValueColor`, or the built-in construction tracker. The color tints the sprite and follows the source whenever it changes, defaulting to white. Vanilla structure parts tint their construction overlay from `ConstructionTracker`.
 
 ## AtlasSprite
 `AtlasSprite` · optional
 
-<!-- TODO: needs documentation -->
+A single static sprite. Exactly one of this, [[Cosmoteer.Ships.Parts.Graphics.PartSpriteRules.RandomAtlasSprite]], [[Cosmoteer.Ships.Parts.Graphics.PartSpriteRules.DamageLevels]], or [[Cosmoteer.Ships.Parts.Graphics.PartSpriteRules.RandomDamageLevels]] must be defined or the component fails to load.
 
 ## RandomAtlasSprite
 `AtlasSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+A list of sprite variants from which one is picked deterministically from the part's grid cell, so identical parts show different variants. Exactly one of the four sprite fields must be defined.
 
 ## DamageLevels
 `AtlasSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+A sprite list ordered from undamaged to most damaged. The part's damage fraction scaled by the list length picks the sprite. Exactly one of the four sprite fields must be defined.
 
 ## RandomDamageLevels
 `AtlasSprite[][]` · optional
 
-<!-- TODO: needs documentation -->
+A list of damage-level lists. The part's grid cell deterministically picks one inner list, whose sprites then follow the damage fraction like [[Cosmoteer.Ships.Parts.Graphics.PartSpriteRules.DamageLevels]]. Exactly one of the four sprite fields must be defined.

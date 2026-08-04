@@ -10,14 +10,14 @@
 ## DestructionGoal
 `float` · required
 
-<!-- TODO: needs documentation -->
+The fraction of a team's starting fleet value that must be destroyed before that team counts as knocked out, from 0 to 1. It also marks the empty portion of the team strength bar, and a value of 0 turns the check off entirely so no team is ever eliminated by damage.
 
 ## NameFmtKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for this option's label in the lobby drop list. It is formatted with `DestructionGoal` already multiplied by 100, so the format string supplies the percent sign itself.
 
 ## IsDefault
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks this the option preselected when the lobby opens. Exactly one entry in `VictoryConditions` must set it or the lobby throws.

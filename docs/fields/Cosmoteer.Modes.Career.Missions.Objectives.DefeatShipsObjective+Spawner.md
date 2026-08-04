@@ -10,64 +10,64 @@
 ## TargetsTag
 `MultiSpawnedObjectSearch` · required
 
-<!-- TODO: needs documentation -->
+Search for the already-spawned ships that must be defeated. Every matching object becomes a target, and a match count of zero means the objective is skipped.
 
 ## TargetCount
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+How many of the found ships must actually be defeated, rolled randomly from this range at spawn time and clamped to the number of ships found. Without it, and without `TargetCountFraction`, all found ships must be defeated.
 
 ## TargetCountFraction
 `float` · optional
 
-<!-- TODO: needs documentation -->
+How many of the found ships must be defeated, as a 0..1 fraction of the number found, rounded up. Ignored when `TargetCount` is present.
 
 ## MissionInvalidIfZeroTargets
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether finding no matching ships aborts the entire mission. When false the objective is simply dropped and the rest of the mission still spawns.
 
 ## TargetAreaTag
 `SpawnedObjectSearch` · optional
 
-<!-- TODO: needs documentation -->
+Search for a point-of-interest doodad marking the rough area the targets are in. The mission log points the player here while no target ship is visible on radar.
 
 ## TargetLandmarkTag
 `SpawnedObjectSearch` · optional
 
-<!-- TODO: needs documentation -->
+Search for a landmark ship used as the fallback location marker when no point of interest is set or explored.
 
 ## AutoDiscoverTargetArea
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the point of interest found by `TargetAreaTag` is revealed on the map as soon as the mission is accepted, rather than the player having to explore it.
 
 ## TierCombineMode
 `enum TierCombine` · optional · one of: `Range`, `Max`, `ValueSum`, `None`
 
-<!-- TODO: needs documentation -->
+How the danger tiers of the individual target ships are folded into one tier for the objective. `None` makes the objective report no tier at all, which also removes it from the mission's tier range and from any tier-scaled reward tables.
 
 ## TierOffset
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Tiers added to (or with a negative value subtracted from) the combined tier. Applied after `TierCombineMode`, and ignored when that mode is `None`.
 
 ## ListTargetsIndividually
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether each target gets its own line in the mission log instead of one combined line with an x-of-y counter. A single target is always listed individually.
 
 ## OverrideDisplayFormatKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key replacing the default `Objectives/DefeatShips` text on the combined line. It receives named arguments including `target_ship`, `target_count`, `target_perc` and `target_faction`. Ignored when the targets are listed individually.
 
 ## AllowNpcKills
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether a target killed by someone other than a human player still counts toward the objective. With it off the player has to land the kill themselves.
 
 ## AllowSurrender
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether a target that surrenders counts as defeated. With it off the objective text becomes `Objectives/DestroyShips` and the game actively strips the surrender chance from the target ships' AI so they fight to the death.

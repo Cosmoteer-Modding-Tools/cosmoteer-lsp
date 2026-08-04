@@ -12,6 +12,12 @@ import { aliasRootIndex } from '../../../src/document/schema/alias-root';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 import { buildActionRootingForScan, resetActionRootingForScan } from '../../scan-rooting-helper';
+import schemaBundle from '../../../src/document/schema/cosmoteer.schema.json';
+import { SchemaBundle } from '../../../src/document/schema/schema.types';
+import { extendSchemaWithMods } from '../../../src/document/schema/schema';
+import { readAssembly } from '../../../src/features/mod-schema/dotnet-assembly';
+import { extractModSchema, gameSchemaView } from '../../../src/features/mod-schema/extract';
+import { discoverModAssemblies } from '../../../src/features/mod-schema/mod-schema';
 
 // False-positive guard over every installed workshop mod. Validates each mod's `.rules` with the forward
 // alias, reverse-include, and mod-action rooting indexes built over the merged `[Data, …mods]` tree in
@@ -130,9 +136,18 @@ describe.skipIf(!HAVE)('schema false-positive scan over installed workshop mods'
         // Mod-action rooting in production order: build after reverse-include, converge, refresh memos.
         // With this active, exactly the KNOWN_MOD_BUGS entries fire (verified 2026-07, 42 mods).
         await buildActionRootingForScan([DATA_DIR, ...modDirs], token);
+        // Code mods: a mod that ships a `.dll` declares its own serializable types and `Type=`
+        // discriminators, which the game loads like its own. The server merges that surface before
+        // anything validates, so the scan does too. Without it every such discriminator reads as an
+        // unknown one, which is a false positive on content the game accepts.
+        const assemblies = (await discoverModAssemblies(modDirs))
+            .map((stamp) => readAssembly(stamp.path, readFileSync(stamp.path)))
+            .filter((assembly): assembly is NonNullable<typeof assembly> => assembly !== undefined);
+        extendSchemaWithMods(extractModSchema(assemblies, gameSchemaView(schemaBundle as SchemaBundle)));
 
         const modFiles = modDirs.flatMap((d) => rulesFiles(d));
         const unexpected: string[] = [];
+        let migrationHints = 0;
         let reverseRooted = 0;
         try {
             for (const file of modFiles) {
@@ -141,12 +156,22 @@ describe.skipIf(!HAVE)('schema false-positive scan over installed workshop mods'
                 // Files the reverse seam roots that native rooting misses.
                 if (documentRootClass(doc) === undefined && ReverseIncludeIndex.instance.rootType(doc.uri) !== undefined) reverseRooted++;
                 for (const e of await validateSchema(doc, token)) {
+                    // Hint-severity deprecation findings (a pre-rename spelling the game still
+                    // accepts, a superseded field) are accurate on any mod written for an older game
+                    // version, and the corpus is full of those, so pinning each occurrence would be
+                    // endless churn. They are counted instead: the floor below proves the registry
+                    // machinery fires on the corpus, while warnings keep the strict FP contract.
+                    if (e.severity === 'hint' && e.data?.migration) {
+                        migrationHints++;
+                        continue;
+                    }
                     const sig = `${modSignature(file)} :: ${e.message}`;
                     if (!KNOWN_MOD_BUGS.has(sig)) unexpected.push(sig);
                 }
             }
         } finally {
             // The mod-populated indexes must not leak into a later test sharing this worker.
+            extendSchemaWithMods(undefined);
             resetActionRootingForScan();
             ReverseIncludeIndex.instance.reset();
             aliasRootIndex.invalidate();
@@ -154,6 +179,9 @@ describe.skipIf(!HAVE)('schema false-positive scan over installed workshop mods'
 
         // A path-resolution break would root nothing and so flag nothing. Require a floor to catch that.
         expect(reverseRooted).toBeGreaterThan(100);
+        // Old-version mods in the corpus carry pre-0.23 spellings, so the deprecation registry must
+        // fire here. Zero means its checks broke.
+        expect(migrationHints).toBeGreaterThan(0);
         expect(unexpected.slice(0, 40)).toEqual([]);
     }, 600_000);
 });

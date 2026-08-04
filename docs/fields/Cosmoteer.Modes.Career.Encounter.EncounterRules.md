@@ -10,49 +10,49 @@
 ## ID
 `→ EncounterRules` · required
 
-<!-- TODO: needs documentation -->
+The identifier for this encounter. It is what the game records when the encounter fires, so [[Cosmoteer.Modes.Career.Encounter.EncounterRules.MinOtherTriggersBeforeReTrigger]] can tell how long ago it last ran.
 
 ## RandomWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The relative weight of this encounter on the roulette wheel among all currently eligible encounters. 0 keeps it out of the draw.
 
 ## Conditions
 `SpawnConditions` · optional
 
-<!-- TODO: needs documentation -->
+Spawn conditions the sector must satisfy for this encounter to be eligible, using the same fields as a simulation spawner such as `MinParentFieldTier` and `RequiredFame`. They are evaluated at the trigger area's center.
 
 ## MinOtherTriggersBeforeReTrigger
 `float` · optional
 
-<!-- TODO: needs documentation -->
+How many other encounters must fire before this one becomes eligible again. It is counted against the total number of encounters triggered in the sector since this one last ran, so 0 allows it back immediately.
 
 ## RequiredReputation
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The minimum reputation the player must have with [[Cosmoteer.Modes.Career.Encounter.EncounterRules.RequiredReputationFaction]] for this encounter to be eligible. It is only tested when that faction is set, so on its own it does nothing.
 
 ## RequiredReputationFaction
 `→ FactionRules` · optional
 
-<!-- TODO: needs documentation -->
+The faction whose reputation is checked against [[Cosmoteer.Modes.Career.Encounter.EncounterRules.RequiredReputation]]. Leaving it unset skips the reputation check entirely.
 
 ## RandomSightRadiusRatio
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+A multiple of the triggering ship's sight radius, rolled between Min and Max, that contributes to how far away the encounter spawns. It is summed with the radar and flat-distance terms, and defaults to contributing nothing.
 
 ## RandomRadarRadiusRatio
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+A multiple of the triggering ship's radar radius, rolled between Min and Max, that contributes to how far away the encounter spawns. Vanilla's ambush uses 0.95 so the attackers appear right at the edge of radar range.
 
 ## RandomAddedDistanceFromPlayer
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+A flat distance in tiles, rolled between Min and Max, added on top of the sight and radar terms. The encounter is placed at the total distance from the triggering ship, along the direction from that ship toward the trigger area's center.
 
 ## EncounterGenerator
 `SimulationGenerator` · required
 
-<!-- TODO: needs documentation -->
+The simulation generator run at the computed spawn position to actually create the encounter, typically a ship spawner with an attached mission. Vanilla's ambush spawns a bounty fleet ordered to charge the player.

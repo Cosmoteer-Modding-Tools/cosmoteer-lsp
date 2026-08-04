@@ -10,4 +10,4 @@
 ## Mode
 `enum MultiResourceStorageMode` · optional · default `DistributeEvenly` · one of: `InOrder`, `InReverseOrder`, `PrioritizeMostEmptyCapacity`, `PrioritizeLeastEmptyCapacity`, `PrioritizeMostResources`, `PrioritizeLeastResources`, `DistributeEvenly`, `DistributeRandomly`, `DistributeProportionallyByAvailable`, `DistributeProportionallyByCapacity`
 
-<!-- TODO: needs documentation -->
+Strategy for spreading a pushed batch of resources across the subnetwork's sinks. Passed straight to the subnetwork's PushResources call, so it decides which target storages fill first when the input distributes into multiple destinations. See the MultiResourceStorageMode values for each ordering rule.

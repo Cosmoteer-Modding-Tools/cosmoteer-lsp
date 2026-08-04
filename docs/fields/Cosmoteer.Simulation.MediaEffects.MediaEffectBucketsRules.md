@@ -10,24 +10,24 @@
 ## LowerBuckets
 `→ MediaEffectBucketsRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Declares the named effect buckets that render below ships' floors but above their base structure layer, mapped to render buckets -1000 upward in list order so later entries draw on top of earlier ones. Holds at most 1000 names, and every bucket name must be unique across all five lists. The first bucket declared here is also the default bucket for `Particles` effects that specify none, which is `BulletLower1` in vanilla.
 
 ## InteriorSurfaceBuckets
 `→ MediaEffectBucketsRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Declares the named effect buckets that render above ships' floor layers but below their walls, doors, and crew, mapped to render buckets 1 upward in list order. Holds at most 97 names. Vanilla uses this band for interior effects such as fire, smoke, foam, and scorch marks.
 
 ## MiddleBuckets
 `→ MediaEffectBucketsRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Declares the named effect buckets that render above ships' walls and crew but below their weapons and roofs, mapped to render buckets 100 upward in list order. Holds at most 1000 names. Must contain the `default_bullet` bucket, the default render bucket for bullet sprites.
 
 ## SurfaceBuckets
 `→ MediaEffectBucketsRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Declares the named effect buckets that render above ships' roofs and roof turrets but below their fancy roof lights and crew in space, mapped to render buckets 2000 upward in list order. Holds at most 1000 names. Vanilla uses this band for on-hull effects such as thermal laser hits and scaffolding glows.
 
 ## UpperBuckets
 `→ MediaEffectBucketsRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Declares the named effect buckets that render above everything ship-related, including roof lights, space crew, and part indicators, mapped to render buckets 4000 upward in list order. Holds at most 1000 names. Vanilla puts muzzle flashes, beams, thruster plumes, and most explosion flashes here.

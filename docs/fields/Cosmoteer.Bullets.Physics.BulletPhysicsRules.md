@@ -10,24 +10,24 @@
 ## LinearDamping
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Viscous drag coefficient slowing the bullet toward its frame-of-reference velocity rather than toward a dead stop. At 0, the default, the bullet keeps its speed. The deployed vanilla mine uses `.5` together with [[Cosmoteer.Bullets.Physics.BulletPhysicsRules.FrameOfReferenceDuration]] `0` to brake to a halt in space.
 
 ## AngularDamping
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Viscous drag coefficient on the bullet's spin. At 0, the default, rotation is undamped.
 
 ## CollidesWithBullets
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets the bullet's physics body collide and bounce off the bodies of other bullets that also enable it. By default a bullet's body physically collides with nothing. Vanilla mines use this so they bump off each other.
 
 ## FrameOfReferenceDuration
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds over which the frame-of-reference velocity the bullet inherited at spawn, usually the firing ship's velocity, fades linearly to zero. Until it fades, [[Cosmoteer.Bullets.Physics.BulletPhysicsRules.LinearDamping]] and other frame-relative behavior measure against that velocity instead of the fixed grid. Defaults to infinity so the frame never fades, while the deployed vanilla mine sets `0` to drop it immediately.
 
 ## RandomExtraSpeed
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+Extra speed, in tiles per second, rolled uniformly between Min and Max and added to the bullet's base [[Cosmoteer.Bullets.BulletRules.Speed]] at spawn. Vanilla shrapnel uses ranges like `[-5, 5]` to vary fragment speeds.

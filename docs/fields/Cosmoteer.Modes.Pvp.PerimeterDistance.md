@@ -10,14 +10,14 @@
 ## Radius
 `float` · required
 
-<!-- TODO: needs documentation -->
+The starting radius of the perimeter of death in world units. Modes with a shrinking perimeter scale this down as the phase runs out.
 
 ## NameFmtKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for this entry's label in the perimeter drop list. It is formatted with one argument, `Radius` in world units.
 
 ## IsDefault
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the entry preselected when the host opens the lobby. Exactly one entry in the list must set it, since the game takes the first match and throws when there is none.

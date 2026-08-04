@@ -6,8 +6,3 @@
 >
 > These docs describe individual fields. For guides, worked examples and the bigger picture, see
 > the [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
-
-## Line
-`SplitCappedLine` · optional
-
-<!-- TODO: needs documentation -->

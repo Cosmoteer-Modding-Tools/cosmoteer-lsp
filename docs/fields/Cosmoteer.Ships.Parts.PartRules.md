@@ -285,7 +285,7 @@ The minimum values to multiply crew speed by within the part.
 ## FireDamageFactor
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The game stores the value but no code ever reads it, so it does not scale the damage fire deals to the part.
 
 ## IsCrewSalvageable
 `bool` · optional · default `true`
@@ -435,7 +435,7 @@ The blueprint-view counterpart of [[Cosmoteer.Ships.Parts.PartRules.InternalWall
 ## VirtualInternalCells
 `VirtualInternalCell[]` · optional
 
-Pairs of `ExternalCell`/`InternalCell` (in un-rotated cells relative to the part) declaring that the two cells are joined as interior, which suppresses the exterior hull wall between them. Vanilla wedge armor and structure use it so sloped parts merge visually with their diagonal neighbor. Not applied while the part is under construction.
+Pairs of `ExternalCell`/`InternalCell` (in un-rotated cells relative to the part) that make the wall renderers treat [[Cosmoteer.Ships.Parts.VirtualInternalCell.InternalCell]] as solid walled hull interior when evaluated from [[Cosmoteer.Ships.Parts.VirtualInternalCell.ExternalCell]], so exterior hull walls wrap correctly around a sloped part's diagonal face. Vanilla wedge armor and structure use it to merge visually with their diagonal neighbor. Ignored while the part is under construction.
 
 ## TypeCategories
 `→ PartCategory[]` · optional

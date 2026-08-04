@@ -10,74 +10,74 @@
 ## DebugName
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Name shown for this track in the in-game music debugger. When absent the track shows a generic default based on its kind (`FSM`, `Sequence`, `Layers`, `Silence`, or the source filename for a file track).
 
 ## Loop
 `int` · optional
 
-<!-- TODO: needs documentation -->
+How many additional times the track replays after its first pass through. `0` plays it once, `2` plays it three times total, and any negative value loops forever.
 
 ## TimeVolumes
 `[float, float][]` · optional
 
-<!-- TODO: needs documentation -->
+Volume envelope keyed on elapsed playback time. Each pair is `[seconds, volume]` where volume is a multiplier applied to the samples. The game interpolates linearly between points, holds the first point's volume before it and the last point's volume after it.
 
 ## ZoomVolumes
 `[float, float][]` · optional
 
-<!-- TODO: needs documentation -->
+Volume envelope keyed on camera zoom, letting a track fade in or out as the player zooms. Each pair is `[zoom, volume]`. Interpolation happens in log2 space of the zoom value, so the curve is even across zoom octaves. The zoom fed in is the game camera scale, or [[Cosmoteer.Music.MusicRules#MenuZoom|MenuZoom]] while in menus. See [[Cosmoteer.Music.MusicTrackRules#ZoomVolumeVelocityUp|ZoomVolumeVelocityUp]] for how fast it responds.
 
 ## ZoomVolumeVelocityUp
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Rate per second at which the track's zoom volume rises toward its target when the target increases. `1` reaches the target over one second. Set both this and [[Cosmoteer.Music.MusicTrackRules#ZoomVolumeVelocityDown|ZoomVolumeVelocityDown]] at once with the `ZoomVolumeVelocity` alias.
 
 ## ZoomVolumeVelocityDown
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Rate per second at which the track's zoom volume falls toward its target when the target decreases. `1` reaches the target over one second. The `ZoomVolumeVelocity` alias sets this and [[Cosmoteer.Music.MusicTrackRules#ZoomVolumeVelocityUp|ZoomVolumeVelocityUp]] together.
 
 ## DynamicCondition
 `code (python)` · optional
 
-<!-- TODO: needs documentation -->
+Python expression evaluated every buffer against the music parameters (game state such as zoom, battle, paused). When it returns false the track is silenced. Combined multiplicatively with [[Cosmoteer.Music.MusicTrackRules#DynamicVolume|DynamicVolume]]. On the [[Cosmoteer.Music.MusicRules#RootTrack|RootTrack]] it defaults to `True` when left unset.
 
 ## DynamicVolume
 `code (python)` · optional
 
-<!-- TODO: needs documentation -->
+Python expression returning a volume multiplier evaluated every buffer against the music parameters. Applied on top of [[Cosmoteer.Music.MusicTrackRules#DynamicCondition|DynamicCondition]]. On the [[Cosmoteer.Music.MusicRules#RootTrack|RootTrack]] it defaults to `1` when left unset. Its approach speed is governed by [[Cosmoteer.Music.MusicTrackRules#DynamicVolumeVelocityUp|DynamicVolumeVelocityUp]].
 
 ## DynamicVolumeVelocityUp
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Rate per second at which the dynamic volume rises toward its target when the target increases. `1` reaches the target over one second. The `DynamicVolumeVelocity` alias sets this and [[Cosmoteer.Music.MusicTrackRules#DynamicVolumeVelocityDown|DynamicVolumeVelocityDown]] together.
 
 ## DynamicVolumeVelocityDown
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Rate per second at which the dynamic volume falls toward its target when the target decreases. `1` reaches the target over one second. The `DynamicVolumeVelocity` alias also sets [[Cosmoteer.Music.MusicTrackRules#DynamicVolumeVelocityUp|DynamicVolumeVelocityUp]].
 
 ## FadeOutAfter
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds of playback after which the track begins fading out, gated by [[Cosmoteer.Music.MusicTrackRules#FadeOutCondition|FadeOutCondition]]. [[Cosmoteer.Music.MusicTrackRules#FadeOutDuration|FadeOutDuration]] must also be set or the game throws when the fade would start.
 
 ## FadeOutDuration
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Length in seconds of the fade to silence once a fade-out is triggered by [[Cosmoteer.Music.MusicTrackRules#FadeOutAfter|FadeOutAfter]] or [[Cosmoteer.Music.MusicTrackRules#FadeOutOnSimPop|FadeOutOnSimPop]]. Required whenever a fade can occur.
 
 ## SilenceAfterFadeOut
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds of silence appended after the fade completes before the track counts as finished. Defaults to zero.
 
 ## FadeOutCondition
 `code (python)` · optional
 
-<!-- TODO: needs documentation -->
+Python expression that gates the [[Cosmoteer.Music.MusicTrackRules#FadeOutAfter|FadeOutAfter]] fade. Once the elapsed time is reached the fade only starts if this returns true. With no condition the fade starts as soon as the time elapses.
 
 ## FadeOutOnSimPop
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true the track fades out whenever the active simulation root changes, for example when the player leaves a battle or simulation. Uses [[Cosmoteer.Music.MusicTrackRules#FadeOutDuration|FadeOutDuration]] for the fade length.

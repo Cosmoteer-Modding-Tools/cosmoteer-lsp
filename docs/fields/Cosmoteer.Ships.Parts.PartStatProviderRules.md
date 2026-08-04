@@ -10,9 +10,9 @@
 ## Stat
 `→ PartStatRules` · required
 
-<!-- TODO: needs documentation -->
+The part stat, from the game GUI's `PartStats` list, that this component reports a live value for. Ship design stat bars and widgets configured to collect from providers sum this value across all parts, counting each provider only while its `OperationalToggle` is on. A part may have at most one StatProvider per stat, and vanilla parts use it to report their overclock heat as `HeatGeneration`.
 
 ## ValueFrom
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The value component on the same part whose current value is reported for [[Cosmoteer.Ships.Parts.PartStatProviderRules.Stat]]. The vanilla small reactor points this at its `PeakHeatGenerationStatValue` value component.

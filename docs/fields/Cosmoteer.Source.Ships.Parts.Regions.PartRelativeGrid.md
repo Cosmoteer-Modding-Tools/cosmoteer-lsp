@@ -10,14 +10,14 @@
 ## GridDistance
 `int` · required
 
-<!-- TODO: needs documentation -->
+How many cells out from the part's physical footprint the region reaches, counted in whole grid steps. A cell touching the part is distance 1.
 
 ## AllowDiagonals
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether a diagonal step counts as one cell of distance rather than two. When false the distance is Manhattan (horizontal plus vertical steps), when true it is Chebyshev (the larger of the two), so the region becomes a square instead of a diamond.
 
 ## BlueprintMaterial
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+The material used to fill each in-range cell in the build view. Unset means the region draws nothing in the blueprint.

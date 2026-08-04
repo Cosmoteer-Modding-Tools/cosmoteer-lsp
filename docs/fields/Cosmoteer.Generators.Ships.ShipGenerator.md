@@ -15,4 +15,4 @@ A modifiable list of generator stages that are used to produce the random ships.
 ## ShipRulesID
 `→ ShipRules` · optional
 
-<!-- TODO: needs documentation -->
+Ship class whose part set this generator builds from. Resolved to the matching ship rules when the generator is loaded and written back out when it is saved.

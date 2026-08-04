@@ -10,14 +10,14 @@
 ## Category
 `→ PartCategory` · required
 
-<!-- TODO: needs documentation -->
+The part category whose display noun is defined here. When the UI needs a word for this category it looks up the matching entry for its [[SingularKey]] and [[PluralKey]], falling back to the raw category ID if none matches.
 
 ## SingularKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the singular noun of this [[Category]] (for example "reactor"). Returned by the game's singular-noun lookup for the category. Plural form is [[PluralKey]].
 
 ## PluralKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the plural noun of this [[Category]] (for example "reactors"). Returned by the game's plural-noun lookup for the category. Singular form is [[SingularKey]].

@@ -10,19 +10,19 @@
 ## ResourceType
 `→ ResourceRules` · required
 
-<!-- TODO: needs documentation -->
+The resource the player has to deliver for this kind of mission.
 
 ## RandomWeight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The relative chance of this entry being drawn among the sibling delivery types. Only the ratio between the weights matters.
 
 ## Quantity
 `range<int>` · required
 
-<!-- TODO: needs documentation -->
+The range of units the mission asks for, before rounding by [[Cosmoteer.Modes.Career.ResourceDeliveryMissionRules+DeliveryTypeRules.RoundQuantityToMultiple]]. Vanilla asks for 80 to 120 steel and 20 to 40 tristeel.
 
 ## RoundQuantityToMultiple
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The rolled quantity is rounded to the nearest multiple of this many units, so the mission asks for a round number.

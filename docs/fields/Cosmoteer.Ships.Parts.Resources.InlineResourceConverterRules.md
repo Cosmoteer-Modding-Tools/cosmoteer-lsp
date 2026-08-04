@@ -10,14 +10,14 @@
 ## FromStorage
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The storage component on the same part that backs this virtual storage. The converter holds no resources of its own. Its contents are computed by converting the backing storage's contents at the [[Cosmoteer.Ships.Parts.Resources.InlineResourceConverterRules.FromQuantity]] to [[Cosmoteer.Ships.Parts.Resources.InlineResourceConverterRules.ToQuantity]] exchange rate, and withdrawals pull from the backing storage on demand.
 
 ## FromQuantity
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Units removed from [[Cosmoteer.Ships.Parts.Resources.InlineResourceConverterRules.FromStorage]] per conversion batch. Together with [[Cosmoteer.Ships.Parts.Resources.InlineResourceConverterRules.ToQuantity]] it sets the exchange rate: every FromQuantity units in the backing storage appear as ToQuantity units in this storage.
 
 ## ToQuantity
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Units this storage yields per conversion batch. Withdrawals convert whole batches from [[Cosmoteer.Ships.Parts.Resources.InlineResourceConverterRules.FromStorage]], and any surplus beyond what was taken is kept as an overflow reserve of up to ToQuantity minus 1 units so no resources are lost. The vanilla ammo factory's SulfurSplitter turns 1 sulfur into 20 units this way.

@@ -10,29 +10,29 @@
 ## GridDistance
 `int` · required
 
-<!-- TODO: needs documentation -->
+The maximum distance, in tiles, between the nearest edges of this part's footprint and a receiving part's footprint for the buff to apply. Orthogonally adjacent parts are at distance 1. Vanilla factories use 1 so only directly adjacent parts get their `Factory` buff.
 
 ## AllowDiagonals
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Measures the distance as the larger of the horizontal and vertical gaps instead of their sum, so diagonally adjacent parts count as distance 1 and the buff range becomes a square instead of a diamond.
 
 ## BuffsSelf
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets the provider buff its own part in addition to other parts in range. Off by default.
 
 ## Falloff
 `float` · optional
 
-<!-- TODO: needs documentation -->
+An exponent that weakens the buff with distance. The buff amount is multiplied by `(1 - (distance - 1) / GridDistance)` raised to this power, so parts at distance 1 get full strength and farther parts progressively less. At 0, the default, all parts in range get full strength.
 
 ## Criterias
 `RelativePartCriteria[]` · optional
 
-<!-- TODO: needs documentation -->
+Filters that a part in range must additionally match to receive the buff. Each entry can require part IDs or categories, exclusions, and a specific rotation, flip, or position relative to the provider, and matching any single entry is enough. When absent, every part in range is buffed.
 
 ## Criteria
 `RelativePartCriteria` · optional
 
-<!-- TODO: needs documentation -->
+A single filter used instead of [[Cosmoteer.Ships.Parts.Buffs.PartGridBuffProviderRules.Criterias]] when one entry suffices. Only read when Criterias is absent.

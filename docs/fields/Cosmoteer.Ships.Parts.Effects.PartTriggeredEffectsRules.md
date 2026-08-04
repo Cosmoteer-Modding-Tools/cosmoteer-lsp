@@ -10,54 +10,54 @@
 ## Trigger
 `ComponentTriggerReferenceRules` · required
 
-<!-- TODO: needs documentation -->
+The trigger whose firing plays the effects. Written either as a bare component ID, which uses that component's default trigger, or as a group with [[Cosmoteer.Ships.Parts.Logic.ComponentTriggerReferenceRules.ID]] and [[Cosmoteer.Ships.Parts.Logic.ComponentTriggerReferenceRules.TriggerID]] to pick a named trigger. Every firing plays both the media and hit effects once.
 
 ## MediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+One-shot media effects (particles, sounds, lights) played at the component's location each time the trigger fires. Skipped while the ship is offscreen, the camera is zoomed out past [[Cosmoteer.Ships.Parts.Effects.PartTriggeredEffectsRules.MaxMediaEffectsZoom]], or the computed intensity falls below [[Cosmoteer.Ships.Parts.Effects.PartTriggeredEffectsRules.MinMediaEffectsIntensity]].
 
 ## HitEffects
 `MultiHitEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+Gameplay hit effects applied at the component's location each time the trigger fires, with the owning ship as both source and hit ship. Unlike the media effects, these run deterministically and are never skipped for visibility reasons.
 
 ## MediaEffectsFactor
 `number` · optional
 
-<!-- TODO: needs documentation -->
+A multiplier on the intensity of [[Cosmoteer.Ships.Parts.Effects.PartTriggeredEffectsRules.MediaEffects]]. Defaults to 1 and accepts the modifiable-value form, so it can be scaled by buffs and statuses. Multiplied with the value of the [[Cosmoteer.Ships.Parts.Effects.PartTriggeredEffectsRules.FactorMediaEffectsWith]] component, if any.
 
 ## HitEffectsFactor
 `number` · optional
 
-<!-- TODO: needs documentation -->
+A multiplier on the effect scale passed to [[Cosmoteer.Ships.Parts.Effects.PartTriggeredEffectsRules.HitEffects]]. Defaults to 1 and accepts the modifiable-value form, so it can be scaled by buffs and statuses. Multiplied with the value of the [[Cosmoteer.Ships.Parts.Effects.PartTriggeredEffectsRules.FactorHitEffectsWith]] component, if any.
 
 ## FactorMediaEffectsWith
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A component on the same part whose current value is multiplied into the media effect intensity, on top of [[Cosmoteer.Ships.Parts.Effects.PartTriggeredEffectsRules.MediaEffectsFactor]].
 
 ## MinMediaEffectsIntensity
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The intensity below which the media effects are skipped for this firing. Compared against [[Cosmoteer.Ships.Parts.Effects.PartTriggeredEffectsRules.MediaEffectsFactor]] times the [[Cosmoteer.Ships.Parts.Effects.PartTriggeredEffectsRules.FactorMediaEffectsWith]] value. Hit effects still run.
 
 ## MaxMediaEffectsZoom
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The most zoomed-out camera scale at which the media effects still play. Firings while the player is zoomed out beyond this value skip the media effects but still apply the hit effects. Vanilla thrusters use 4 for their thrust puffs.
 
 ## MediaEffectsRequireShipInView
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the media effects are skipped while the ship is outside the local player's view. Hit effects are unaffected. Set to false to play the media effects regardless of visibility.
 
 ## FactorHitEffectsWith
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A component on the same part whose current value is multiplied into the hit effect scale, on top of [[Cosmoteer.Ships.Parts.Effects.PartTriggeredEffectsRules.HitEffectsFactor]].
 
 ## AnchorMediaEffects
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Anchors the one-shot media effects to the component so they keep following its world position and rotation while playing, instead of staying where they were spawned. Anchored effects also have their intensity scaled by the ship renderer's dampening factor. Vanilla thrusters anchor their thrust puffs so they stay attached to a moving ship.

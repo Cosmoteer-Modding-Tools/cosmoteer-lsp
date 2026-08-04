@@ -10,4 +10,4 @@
 ## Exponent
 `float` · required
 
-<!-- TODO: needs documentation -->
+Power applied to the status value. BaseStatusValue plus the status's value is converted per ValueType, raised to this exponent, and the result is combined with the running value by ModificationMode.

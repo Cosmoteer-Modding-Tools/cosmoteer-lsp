@@ -10,9 +10,9 @@
 ## Center
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The center point of the circle, written either as a group with `X` and `Y` keys or as a list `[x, y]`. Units and coordinate space come from the field using the circle.
 
 ## Radius
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The distance from [[Halfling.Geometry.Circle.Center]] to the circle's edge, in the same units as the center coordinates.

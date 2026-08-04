@@ -10,4 +10,4 @@
 ## Layers
 `MusicTrackRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Sub-tracks mixed together and played simultaneously, their samples summed. Required. The track sizes its layer array from this collection with no null check, so a layers track without this key crashes on load. Combine with per-layer [[Cosmoteer.Music.MusicTrackRules#DynamicVolume|DynamicVolume]] or [[Cosmoteer.Music.MusicTrackRules#ZoomVolumes|ZoomVolumes]] to fade individual layers in and out over the same passage.

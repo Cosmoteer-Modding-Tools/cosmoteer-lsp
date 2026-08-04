@@ -10,19 +10,19 @@
 ## StatusFilter
 `StatusValueFilter` · optional
 
-<!-- TODO: needs documentation -->
+An extra condition on some other status at the same location. The modulator is skipped unless that status is present and its value falls in the filter's range. Vanilla fire uses it to burn itself out faster once the part is scorched.
 
 ## ModificationMode
 `enum SimpleValueModificationMode` · required · one of: `Replace`, `Add`, `Subtract`, `Multiply`, `Divide`
 
-<!-- TODO: needs documentation -->
+How the modulator's output is applied to the current status value. Resistance is honoured correctly only for `Add`, `Subtract` and `Replace`. With `Multiply` and `Divide` the whole result is scaled by one minus the resistance, so a fully resisting part drives the value to 0 instead of leaving it alone.
 
 ## ScaleByDeltaTime
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the modulator output is per second rather than per tick. For `Add` and `Subtract` the value is multiplied by the tick length, for `Multiply` and `Divide` the distance of the multiplier from 1 is scaled instead.
 
 ## OutputValueType
 `enum StatusValueType` · optional · one of: `Raw`, `Interpolated`
 
-<!-- TODO: needs documentation -->
+How the modulator's own output is read before it is applied. `Raw` uses it as a status value directly, `Interpolated` treats it as a 0 to 1 fraction of the status' `ValueClampRange`.

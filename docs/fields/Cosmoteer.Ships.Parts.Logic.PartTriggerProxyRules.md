@@ -10,4 +10,4 @@
 ## TriggerID
 `→ IComponentTriggerProvider` · optional
 
-<!-- TODO: needs documentation -->
+The ID of a named trigger within the proxied component. When unset, the component's default trigger is relayed.

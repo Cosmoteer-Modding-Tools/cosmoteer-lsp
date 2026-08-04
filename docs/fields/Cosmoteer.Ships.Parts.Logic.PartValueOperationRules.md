@@ -10,34 +10,34 @@
 ## Operator
 `enum ValueOperator` · required · one of: `Divide`, `Power`, `Modulo`, `Subtract`
 
-<!-- TODO: needs documentation -->
+The math operation applied to the two inputs. `Divide` outputs [[Cosmoteer.Ships.Parts.Logic.PartValueOperationRules.ValueOne]] divided by [[Cosmoteer.Ships.Parts.Logic.PartValueOperationRules.ValueTwo]], `Power` raises ValueOne to the power of ValueTwo, `Modulo` outputs the remainder of dividing ValueOne by ValueTwo, and `Subtract` outputs ValueOne minus ValueTwo.
 
 ## ValueOne
 `ComponentValueReferenceRules` · required
 
-<!-- TODO: needs documentation -->
+The value component providing the first input. Written either as a bare component ID or as a group with `ID` and an optional `ValueID` naming a specific sub-value of that component. The result is recomputed whenever either input changes.
 
 ## ValueTwo
 `ComponentValueReferenceRules` · required
 
-<!-- TODO: needs documentation -->
+The value component providing the second input, in the same form as [[Cosmoteer.Ships.Parts.Logic.PartValueOperationRules.ValueOne]]. The vanilla small thruster divides its thruster activation by a `BuffableValue` holding the maximum activation to get a normalized 0..1 activation.
 
 ## MinValue
 `float` · optional · default `-∞`
 
-<!-- TODO: needs documentation -->
+The lower bound the operation's result is clamped to.
 
 ## MaxValue
 `float` · optional · default `∞`
 
-<!-- TODO: needs documentation -->
+The upper bound the operation's result is clamped to.
 
 ## NaNFallbackValue
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The value substituted when the operation produces NaN, such as dividing zero by zero. Defaults to 0. The fallback is still clamped between [[Cosmoteer.Ships.Parts.Logic.PartValueOperationRules.MinValue]] and [[Cosmoteer.Ships.Parts.Logic.PartValueOperationRules.MaxValue]].
 
 ## IncludeInBlueprints
 `enum BlueprintInclusionMode` · optional · one of: `None`, `Normal`, `All`
 
-<!-- TODO: needs documentation -->
+Whether a blueprint version of this component is also created for ship blueprints. `None` creates none, `Normal` includes it in regular blueprint updates, and `All` additionally includes it in lightweight blueprint validity checks. `false` and `true` are accepted as aliases for `None` and `Normal`.

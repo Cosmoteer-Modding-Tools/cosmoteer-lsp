@@ -10,14 +10,14 @@
 ## ResourceStorage
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The resource storage component on the same part whose current amount selects which sprite from [[Cosmoteer.Ships.Parts.Graphics.BasePartValueSpritesRules.ValueLevels]] is shown. The sprite is refreshed whenever the stored amount or the storage's capacity changes, and by default the amount is normalized against that capacity.
 
 ## RangeLow
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The stored amount mapped to the start of the sprite scale, in resource units. Together with [[Cosmoteer.Ships.Parts.Graphics.PartResourceSpritesRules.RangeHigh]] this is a legacy alternative to [[Cosmoteer.Ships.Parts.Graphics.BasePartValueSpritesRules.Range]] and is only read when `Range` is not defined. When both are left at 0 the amount is normalized against the storage's capacity instead.
 
 ## RangeHigh
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The stored amount mapped to the end of the sprite scale, in resource units. See [[Cosmoteer.Ships.Parts.Graphics.PartResourceSpritesRules.RangeLow]]. The vanilla tractor beam stacks several `ResourceSprites` components with ranges like 0 to 6000 and 6000 to 12000 so each battery pile fills up in sequence.

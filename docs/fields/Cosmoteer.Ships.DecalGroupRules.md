@@ -8,21 +8,21 @@
 > the [Cosmoteer modding wiki](https://cosmoteer.wiki.gg/wiki/Modding).
 
 ## Folders
-`string[]` · optional
+`asset (folder)[]` · optional
 
-<!-- TODO: needs documentation -->
+Folders scanned for this group's decal `*.png` images, which are loaded into the shared roof decals atlas. A folder may contain a `whitelist.txt` listing the filenames to include, otherwise every PNG is taken. When the same decal name appears in multiple folders the folder later in the list wins.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the group's display name, shown as the tooltip on its button in the paint toolbox.
 
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Sprite used as the group's button image in the decal picker.
 
 ## IconTextKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for optional text drawn on the group's button, layered over the [[#Icon]].

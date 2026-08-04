@@ -10,44 +10,44 @@
 ## TargetsTag
 `MultiSpawnedObjectSearch` · required
 
-<!-- TODO: needs documentation -->
+Search for the already-spawned ships that the player must not surrender to. Every matching object becomes a target, and a match count of zero means the objective is skipped.
 
 ## TargetCount
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+How many of those ships the player is allowed to surrender to before the objective fails, rolled randomly from this range at spawn time and clamped to the number of ships found. The name is misleading, the value lands in the objective's allowed-surrender count, so leaving it out means surrendering to even one target fails the objective.
 
 ## TargetCountFraction
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The allowed surrender count as a 0..1 fraction of the number of ships found, rounded up. Ignored when `TargetCount` is present.
 
 ## MissionInvalidIfZeroTargets
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether finding no matching ships aborts the entire mission. When false the objective is simply dropped and the rest of the mission still spawns.
 
 ## TierCombineMode
 `enum TierCombine` · optional · default `None` · one of: `Range`, `Max`, `ValueSum`, `None`
 
-<!-- TODO: needs documentation -->
+How the danger tiers of the target ships are folded into one tier for the objective. It defaults to `None` so this objective contributes no danger tier of its own, since it usually rides along with a defeat objective that already sets one.
 
 ## TierOffset
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Tiers added to (or with a negative value subtracted from) the combined tier. Has no effect while `TierCombineMode` is `None`.
 
 ## ListTargetsIndividually
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether each target gets its own line in the mission log instead of one combined line. A single target is always listed individually.
 
 ## DisplayTextDisabled
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it, presumably meant to suppress this objective's mission log line, which is what [[Cosmoteer.Modes.Career.Missions.Objectives.ObjectiveSpawner.DisableDisplayLines]] on the shared objective spawner actually does.
 
 ## OverrideDisplayFormatKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key replacing the default text on the combined line. It receives named arguments including `target_ship`, `target_surrender_count`, `target_surrender_perc` and `target_faction`.

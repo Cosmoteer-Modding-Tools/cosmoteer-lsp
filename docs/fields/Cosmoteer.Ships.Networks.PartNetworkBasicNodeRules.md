@@ -10,9 +10,9 @@
 ## IncludeInPhysical
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the node exists as a real component on the built ship, backing `HasPhysicalComponent`. When true the node participates in the live part network as a routing hop. When false the node has no physical presence.
 
 ## IncludeInBlueprints
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the node exists in blueprint mode, backing `HasBlueprintComponent`, so routes can be drawn through it while the ship is still a blueprint. Independent of IncludeInPhysical.

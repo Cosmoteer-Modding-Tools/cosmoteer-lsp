@@ -10,69 +10,69 @@
 ## SurrenderAreaCheckRadius
 `int` · required
 
-<!-- TODO: needs documentation -->
+Radius in world units around the AI ship in which ships are gathered for a surrender check. Their combined firepower decides whether a surrender is offered and at what price, and the most valuable enemy ship inside it speaks for its team. Vanilla uses 1500, which the UI displays as 1.5 km.
 
 ## AISurrenderDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long the truce and the protection agreement last after an AI ship surrenders to the player. Vanilla uses `Infinity` so the truce only ends when the player breaks it.
 
 ## PlayerSurrenderDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long the truce lasts after the player surrenders to a factionless AI team. It also ends early if the player leaves the area, see [[Cosmoteer.Modes.Career.DialogueRules.PlayerSurrenderCancelDistance]]. Vanilla uses 1200, meaning 20 minutes.
 
 ## PlayerSurrenderCancelDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+Distance in world units the player's ship may move from the spot where it surrendered before the truce is cancelled. Vanilla uses 3000, which the UI displays as 3 km.
 
 ## AIHailDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long an AI ship stays listed as hailing the player in the comms toolbox before the hail expires. Vanilla uses 10 seconds.
 
 ## SurrenderValidCheckBufferMult
 `float` · required
 
-<!-- TODO: needs documentation -->
+Largest relative difference, as a 0..1 fraction, allowed between the surrender price shown in the dialogue and the price recomputed when the surrender is confirmed. Anything beyond it makes the game drop the surrender silently. Vanilla uses 5%.
 
 ## SurrenderPayoutRoundToMultiple
 `int` · required
 
-<!-- TODO: needs documentation -->
+The final surrender payout is rounded to the nearest multiple of this many credits. Vanilla uses 100.
 
 ## LastFireTimeToBeConsideredAttacking
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Meant to be the number of seconds since the player last fired a weapon for the player to still count as attacking, which would stop an AI from offering to surrender. The check adds this value to the current time instead of subtracting it, so with the vanilla value of 5, or any value at or above 0, it never triggers.
 
 ## SurrenderFirepowerWeightExponent
 `float` · required
 
-<!-- TODO: needs documentation -->
+Exponent applied to each side's total firepower in the strength score that decides whether a surrender is offered. Values below 1 flatten firepower differences. Vanilla uses 0.6.
 
 ## SurrenderShipCostWeightExponent
 `float` · required
 
-<!-- TODO: needs documentation -->
+Exponent applied to the ship's blueprint cost in the same strength score, which is then scaled by the ship's remaining value fraction. Vanilla uses 0.4.
 
 ## PlayerSurrenderBaseCost
 `int` · required
 
-<!-- TODO: needs documentation -->
+Flat credits added to the price the player pays to surrender, on top of the damage the player did to the AI's team. It is scaled by the current fame title's [[Cosmoteer.Modes.Career.FameTitleRules.FameLevelMultiplier]].
 
 ## PlayerWantedPayoffCost
 `int` · required
 
-<!-- TODO: needs documentation -->
+Extra credits added to the surrender price when the player is wanted by the AI ship's faction. It is scaled by the current fame title's [[Cosmoteer.Modes.Career.FameTitleRules.FameLevelMultiplier]] and the whole price is then multiplied by that faction's [[Cosmoteer.Modes.Career.ReputationTitleRules.WantedPayoffMultiple]].
 
 ## FameLostOnTruceBreak
 `int` · required
 
-<!-- TODO: needs documentation -->
+Base fame lost when the player attacks a ship that had surrendered to them. It is scaled by the current fame title's [[Cosmoteer.Modes.Career.FameTitleRules.FameLevelMultiplier]] and capped at the player's remaining fame.
 
 ## AIInvincibilityOnSurrenderDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long a surrendered AI ship is immune to damage, giving it a moment to disengage. Vanilla uses 2 seconds.

@@ -10,99 +10,99 @@
 ## Animation
 `AnimatedSprite` · required
 
-<!-- TODO: needs documentation -->
+The animated sprite drawn on the bullet, defining the frame atlas, frame count, and playback rate. Frames advance automatically while the bullet exists. When [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.NormalsTexture]] is set, every frame that declares no shader of its own gets the game's lit-sprite shader.
 
 ## NormalsTexture
 `asset (image)` · optional
 
-<!-- TODO: needs documentation -->
+A normal-map texture that makes the sprite lit by the simulation's dynamic lighting. Setting it binds the texture as the normals shader constant on every animation frame, switches frames without their own shader to the lit-sprite shader, and enables the extra [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.DiffuseShader]] and [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.NormalsShader]] render passes.
 
 ## NormalsShader
 `asset (shader)` · optional
 
-<!-- TODO: needs documentation -->
+The shader used for the extra render pass into the scene's normals target. This pass only runs when the sprite is lit via [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.NormalsTexture]]. Falls back to the game's standard sprite-normals shader when unset.
 
 ## DiffuseShader
 `asset (shader)` · optional
 
-<!-- TODO: needs documentation -->
+The shader used for an extra render pass into the scene's diffuse target. This pass only runs when the sprite is lit via [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.NormalsTexture]]. Nothing extra is drawn when unset.
 
 ## IsLight
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Renders the sprite into the simulation's light buffer instead of the regular scene, so it contributes to dynamic lighting rather than being lit itself. Vanilla shots use this for their additive glow sprites.
 
 ## Offset
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The sprite's position relative to the bullet's center, in tiles, in the bullet's own rotated frame. When the sprite is scaled by [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.LerpScaleFrom]] or [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.ReduceScaleWith]], the offset shrinks and grows with the scale.
 
 ## RotOffset
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+The sprite's rotation relative to the bullet's facing, in degrees.
 
 ## Spin
 `number (degrees)` · optional
 
-<!-- TODO: needs documentation -->
+Continuous rotation applied to the sprite every frame, in degrees per second. The spin turns only the sprite's own node, not the bullet itself.
 
 ## Z
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The Z height written into the sprite's vertices, used by the lighting shaders as the sprite's height above the 2D plane. It does not affect draw order, which comes from [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.RenderBucket]].
 
 ## RenderBucket
 `→ MediaEffectBucketsRules` · optional
 
-<!-- TODO: needs documentation -->
+The named effect bucket, defined in the game rules' `EffectBuckets` lists, that decides the render-order layer the sprite draws in. Defaults to `default_bullet`. Vanilla shots layer their sprites with buckets such as `BulletLower1` and `BulletUpper2`.
 
 ## ReduceScaleWith
 `→ BulletComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+ID of a sibling bullet component whose factor multiplies the sprite's scale every frame, raised to [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.ReduceScaleExponent]]. Factor sources include hit components (remaining penetration fraction), `DamagePool` (remaining damage fraction), and `Targetable` (remaining health fraction), all in 0..1. The vanilla railgun bullet shrinks with `ReduceScaleWith = Hit`.
 
 ## ReduceScaleExponent
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Exponent applied to the factor read from [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.ReduceScaleWith]] before it multiplies the sprite's scale. Values below 1 make the shrinking more gradual. The vanilla railgun bullet uses `0.5`.
 
 ## LerpScaleFrom
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The sprite's starting scale as X and Y multipliers, interpolated linearly to full size over [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.LerpTime]] after the bullet spawns.
 
 ## LerpTime
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+The duration, in seconds, of the grow-in interpolation from [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.LerpScaleFrom]] to full scale.
 
 ## LerpIntervalWith
 `→ BulletComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+ID of a sibling bullet component whose factor continuously re-maps the animation's frame interval within [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.IntervalLerp]], so the animation speeds up or slows down as that factor changes. The fractional progress through the current frame is preserved when the interval changes.
 
 ## IntervalLerp
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The range of per-frame intervals, in seconds, that the factor from [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.LerpIntervalWith]] is mapped onto. A factor of 0 yields the Min interval and a factor of 1 yields the Max.
 
 ## StartTime
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Time after the bullet spawns, in seconds, before the sprite starts rendering. Together with [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.EndTime]] this defines a visibility window, and the animation only plays while the sprite is visible. The vanilla deployed mine uses this to swap its sprites when it arms.
 
 ## EndTime
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Time after the bullet spawns, in seconds, at which the sprite stops rendering and the animation pauses. Defaults to forever. See [[Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules.StartTime]].
 
 ## AnimationOffset
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Initial frame time, in seconds, that the animation starts with when the bullet spawns, beginning playback partway into the animation instead of at the first frame.
 
 ## CaptureBackBuffer
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Captures the current back buffer right before the sprite draws and binds it as the captured-back-buffer shader constant, letting the sprite's shader distort or refract whatever is behind it.

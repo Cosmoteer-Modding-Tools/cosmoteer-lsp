@@ -10,29 +10,29 @@
 ## BulletCollisions
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+Filter deciding which targetable projectiles the volume reacts to, defaulting to those of enemies. Volume hits only ever interact with targetable projectiles (and beams via [[Cosmoteer.Bullets.Hits.BulletVolumeHitRules.BeamAttenuationDamagePool]]), never with ships or crew. Allowed hits trigger [[Cosmoteer.Bullets.Hits.BulletVolumeHitRules.HitBullet]].
 
 ## FactorEffectsWith
 `→ BulletComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The volume hit never connects the reference to its internal effect factor, which therefore stays at 1, unlike the working [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.FactorEffectsWith]] on simple and penetrating hits.
 
 ## BeamAttenuationDamagePool
 `→ BulletComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Name of a `DamagePool` component on the same projectile. When set, the volume also attenuates beam weapons that cross it. Each beam is weakened by up to the pool's remaining damage and the pool is drained by the amount absorbed, which is how the overclocked large flak field blocks beams.
 
 ## FactorEffectsByDistance
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the effect scale of [[Cosmoteer.Bullets.Hits.BulletVolumeHitRules.HitBullet]]'s hit effects is multiplied by the length, in tiles, of the hit projectile's path through the volume during the physics tick. Projectiles that clip the edge are then affected less than ones passing through the middle.
 
 ## FactorMediaIntensityByDistance
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the intensity of [[Cosmoteer.Bullets.Hits.BulletVolumeHitRules.HitBullet]]'s media effects is multiplied by the length, in tiles, of the hit projectile's path through the volume during the physics tick.
 
 ## HitBullet
 `HitRules` · optional
 
-<!-- TODO: needs documentation -->
+Effects applied to each projectile allowed by [[Cosmoteer.Bullets.Hits.BulletVolumeHitRules.BulletCollisions]] that passes through the volume. Media effects are swept along the chord of the target's path instead of playing as a one-shot. The collision itself destroys nothing, so any harm comes from the hit effects, typically pooled `Damage`.

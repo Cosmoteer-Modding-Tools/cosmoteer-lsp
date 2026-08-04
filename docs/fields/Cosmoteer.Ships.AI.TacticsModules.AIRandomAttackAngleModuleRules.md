@@ -10,14 +10,14 @@
 ## AttackAngleChangeInterval
 `range<Time>` · required
 
-<!-- TODO: needs documentation -->
+Random range, in seconds, between re-rolls of the world relative angle from which the ship approaches its target. Vanilla combat AIs re-roll every 5 to 10 seconds.
 
 ## AttackAngleChangeDelta
 `range<number (degrees)>` · optional
 
-<!-- TODO: needs documentation -->
+Random range of offsets added to the base approach angle at every re-roll. The base angle is the direction from the target to this ship, or the direction away from where allied attackers already sit when [[Cosmoteer.Ships.AI.TacticsModules.AIRandomAttackAngleModuleRules.CoordinateFlanking]] is on. The default spread is a full -180 to 180 degrees, vanilla combat AIs narrow it to -30 to 30 degrees.
 
 ## CoordinateFlanking
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Bases the approach angle on where the same player's other ships attacking the same target are already approaching from, and heads for the opposite side. This is what makes a fleet spread out around its target instead of bunching up.

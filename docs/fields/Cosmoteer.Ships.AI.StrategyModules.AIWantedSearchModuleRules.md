@@ -10,9 +10,9 @@
 ## AvoidableDoodadTags
 `→ SimObjectSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Ids of doodad spawners, such as `sun`, whose areas the ship will not fly to when it picks a random point inside the nearest wanted search area. A point that lands in one produces no move command that tick.
 
 ## AvoidableDoodadBuffer
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Extra distance in world units added to the radius of every doodad matched by [[Cosmoteer.Ships.AI.StrategyModules.AIWantedSearchModuleRules.AvoidableDoodadTags]]. Vanilla police use 100 around suns.

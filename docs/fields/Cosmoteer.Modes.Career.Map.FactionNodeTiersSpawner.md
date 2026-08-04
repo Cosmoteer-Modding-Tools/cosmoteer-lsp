@@ -10,4 +10,4 @@
 ## Factions
 `FactionTiersRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The per-faction tier rules, applied in list order. Each entry sweeps every map node once, so a node influenced by several factions ends up with the combination of all their contributions.

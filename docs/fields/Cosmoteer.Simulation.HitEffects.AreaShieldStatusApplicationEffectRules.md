@@ -10,32 +10,32 @@
 ## Radius
 `number` · required
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, around the hit point within which shield bubbles are affected. Any shield whose bubble comes within this distance receives the status on its emitting part, or on that part's tiles for tile-layer status types. Nothing happens when this or [[Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules.StatusChance]] is 0 or less.
 
 ## ExclusionRadius
 `number` · optional
 
-<!-- TODO: needs documentation -->
+An inner radius, in tiles, around the hit point. Shields whose bubble lies entirely inside it are skipped, and the falloff and arc-area calculations measure distance outward from this radius instead of from the hit point.
 
 ## ChanceFalloff
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The exponent shaping how [[Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules.StatusChance]] fades with distance, multiplying each arc segment's contribution by `(1 - distance/radius)^ChanceFalloff`. Only takes effect together with [[Cosmoteer.Simulation.HitEffects.AreaShieldStatusApplicationEffectRules.ScaleChanceByShieldArea]], and never for the directly hit shield. At 0, the default, there is no falloff.
 
 ## ValueFalloff
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The exponent shaping how [[Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules.StatusValue]] and [[Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules.MaxStatusValue]] fade with distance, multiplying each arc segment's contribution by `(1 - distance/radius)^ValueFalloff`. Only takes effect together with [[Cosmoteer.Simulation.HitEffects.AreaShieldStatusApplicationEffectRules.ScaleValueByShieldArea]] or [[Cosmoteer.Simulation.HitEffects.AreaShieldStatusApplicationEffectRules.ScaleMaxValueByShieldArea]], and never for the directly hit shield. At 0, the default, there is no falloff.
 
 ## ApplyFalloffToMaxStatusValue
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Has no effect. The game stores the value but never reads it. Distance falloff on the value cap is controlled by [[Cosmoteer.Simulation.HitEffects.AreaShieldStatusApplicationEffectRules.ValueFalloff]] together with its Scale flag instead.
 
 ## DurationFalloff
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The exponent shaping how [[Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules.StatusDuration]] and [[Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules.InitialStatusDuration]] fade with distance, multiplying each arc segment's contribution by `(1 - distance/radius)^DurationFalloff`. Only takes effect together with [[Cosmoteer.Simulation.HitEffects.AreaShieldStatusApplicationEffectRules.ScaleDurationByShieldArea]], and never for the directly hit shield. At 0, the default, there is no falloff.
 
 ## ScaleChanceByShieldArea
 `bool` · optional
@@ -50,7 +50,7 @@ Whether StatusValue will be scaled by the proportion of the shield's arc that is
 ## ScaleMaxValueByShieldArea
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether [[Cosmoteer.Simulation.HitEffects.BaseStatusApplicationEffectRules.MaxStatusValue]] will be scaled by the proportion of the shield's arc that is within the effect radius, with each arc segment weighted by [[Cosmoteer.Simulation.HitEffects.AreaShieldStatusApplicationEffectRules.ValueFalloff]].
 
 ## ScaleDurationByShieldArea
 `bool` · optional

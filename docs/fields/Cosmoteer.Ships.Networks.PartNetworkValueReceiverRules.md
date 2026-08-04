@@ -15,9 +15,9 @@ The combination mode for the retrieved values.
 ## IncludeInPhysical
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether the component exists on the built ship, backing `HasPhysicalComponent`. When false it has no physical presence and exists only in blueprint mode.
 
 ## IncludeInBlueprints
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the component's blueprint variant is created, backing `HasBlueprintComponent`, so it works while the ship is a blueprint.

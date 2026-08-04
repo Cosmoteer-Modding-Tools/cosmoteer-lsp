@@ -10,34 +10,34 @@
 ## ResourceStorages
 `→ PartComponentRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The storage components on the same part combined into this single logical pool. Their resources and capacities are summed, and adds and removes are spread across them per [[Cosmoteer.Ships.Parts.Resources.MultiResourceStorageRules.AddMode]] and [[Cosmoteer.Ships.Parts.Resources.MultiResourceStorageRules.RemoveMode]]. The list order is the order used by the `InOrder` and `InReverseOrder` modes.
 
 ## ViaBuffs
 `BuffMultiProxyRules` · optional
 
-<!-- TODO: needs documentation -->
+Additional storages pulled into the pool through the buff system, joining and leaving dynamically as buff connections to other parts form and break. Vanilla thrusters use this to merge the engine room's heat collection storage into their own heat input via the `EngineHeatCollection` buff.
 
 ## AddMode
 `enum MultiResourceStorageMode` · optional · one of: `InOrder`, `InReverseOrder`, `PrioritizeMostEmptyCapacity`, `PrioritizeLeastEmptyCapacity`, `PrioritizeMostResources`, `PrioritizeLeastResources`, `DistributeEvenly`, `DistributeRandomly`, `DistributeProportionallyByAvailable`, `DistributeProportionallyByCapacity`
 
-<!-- TODO: needs documentation -->
+How resources added to the pool are distributed among the member storages. `InOrder`, the default, fills each listed storage in turn, the `Prioritize` modes sort by emptiness or fill first, and the `Distribute` modes split evenly, randomly, or proportionally by remaining or total capacity. The vanilla rocket thruster nozzle uses `DistributeProportionallyByCapacity` across its chained battery storages.
 
 ## RemoveMode
 `enum MultiResourceStorageMode` · optional · default `InReverseOrder` · one of: `InOrder`, `InReverseOrder`, `PrioritizeMostEmptyCapacity`, `PrioritizeLeastEmptyCapacity`, `PrioritizeMostResources`, `PrioritizeLeastResources`, `DistributeEvenly`, `DistributeRandomly`, `DistributeProportionallyByAvailable`, `DistributeProportionallyByCapacity`
 
-<!-- TODO: needs documentation -->
+How resources removed from the pool are taken from the member storages, using the same algorithms as [[Cosmoteer.Ships.Parts.Resources.MultiResourceStorageRules.AddMode]] but draining instead of filling. Defaults to emptying the listed storages in reverse order.
 
 ## CycleStorageOnAdd
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Rotates the first storage in the list to the end after every add operation, so order-dependent modes alternate which storage they favor over time.
 
 ## CycleStorageOnRemove
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Rotates the first storage in the list to the end after every remove operation. The vanilla chaingun uses this with `RemoveMode = InOrder` so shots alternate between its left and right ammo boxes.
 
 ## LimitMaxResources
 `int` · optional · default `2147483647`
 
-<!-- TODO: needs documentation -->
+Caps both the combined resource count and the combined capacity that the pool reports, regardless of what the member storages sum to. The vanilla rocket thruster nozzle limits its combined battery pool to the local battery storage's capacity.

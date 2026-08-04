@@ -10,24 +10,24 @@
 ## IncrementTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+A trigger component on the same part that steps the mode up by 1 each time it fires. The vanilla cannon deck increments its `ShootCycle` from its turret's fire trigger so `ModeTrigger` components can alternate the two barrels.
 
 ## DecrementTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+A trigger component on the same part that steps the mode down by 1 each time it fires.
 
 ## ModeRange
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+The inclusive Min and Max mode numbers the cycle moves through. Stepping past an end wraps around to the other end unless [[Cosmoteer.Ships.Parts.Logic.PartModeCycleRules.Clamp]] is set. Defaults to `[0, 1]`.
 
 ## StartingMode
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The mode the component starts in when the part is first created. Defaults to the Min of [[Cosmoteer.Ships.Parts.Logic.PartModeCycleRules.ModeRange]]. The current mode persists in saves.
 
 ## Clamp
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Stops the cycle at the ends of [[Cosmoteer.Ships.Parts.Logic.PartModeCycleRules.ModeRange]] instead of wrapping around, so incrementing at Max and decrementing at Min do nothing.

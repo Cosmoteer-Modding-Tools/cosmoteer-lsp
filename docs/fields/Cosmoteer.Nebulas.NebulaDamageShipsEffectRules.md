@@ -10,19 +10,19 @@
 ## DamageChancePerPartPerTick
 `float` · required
 
-<!-- TODO: needs documentation -->
+The expected number of parts damaged per physics tick expressed per part on the ship, multiplied by the ship's nebula strength. A ship with 200 parts and a value of 0.001 loses health on about 0.2 parts per tick. Values of 0 or less disable the effect entirely.
 
 ## DamageFractionPerPartPerTick
 `float` · required
 
-<!-- TODO: needs documentation -->
+The fraction of a part's MaxHealth removed each time that part is picked for damage. It is also passed to `OnDamageMediaEffects` as the effect Intensity.
 
 ## MinHealthRemaining
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The health floor this effect will not damage a part below. Leave at 0 to let the nebula destroy parts outright.
 
 ## OnDamageMediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+The one-shot media effects played on each part that gets damaged. The effect Intensity is set to `DamageFractionPerPartPerTick`.

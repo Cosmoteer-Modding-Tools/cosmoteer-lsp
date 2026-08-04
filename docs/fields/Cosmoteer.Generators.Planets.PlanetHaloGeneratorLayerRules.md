@@ -10,14 +10,14 @@
 ## OuterThickness
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Width of the halo band outside the planet edge, sent to the shader divided by [[Scale]]. Default 0.1.
 
 ## InnerThickness
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Width of the halo band inside the planet edge, sent to the shader divided by [[Scale]]. Default 0.1.
 
 ## AnimateSpeed
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Speed at which the halo animates, sent directly to the shader. Default 1.

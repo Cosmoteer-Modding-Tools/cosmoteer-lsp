@@ -10,59 +10,59 @@
 ## Name
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Display label for the layer, shown in the planet generator editor. Falls back to the class name when blank and has no effect on rendering.
 
 ## Enabled
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When false the layer is skipped entirely and never created. For probabilistic skipping instead see [[Chance]].
 
 ## Seed
 `int` · optional
 
-<!-- TODO: needs documentation -->
+XORed into the seed passed to the layer so that two otherwise identical layers with different Seed values generate different content. Combined further with [[LayerParamsSeed]] for the layer's random parameters.
 
 ## Chance
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Probability from 0 to 1 that the layer is created at all. A value of 0 always skips it, the default of 1 always creates it, and values in between roll against the layer seed each time the planet is generated.
 
 ## Scale
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Size of the layer's quad relative to the planet rectangle, so values below the default 0.9 inset the layer and values above 1 overflow it. Ring, halo, shadow and penumbra widths are divided by this value.
 
 ## LayerParamsSeed
 `int` · optional
 
-<!-- TODO: needs documentation -->
+XORed with the layer seed to seed the layer's random parameters such as [[LayerSpin]], independent of the texture content seeded by [[Seed]].
 
 ## LayerSpin
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Range for the layer's own rotation speed, added on top of the planet's spin. A random value in the range is chosen and its direction is randomly flipped.
 
 ## DiffuseDarkness
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Strength of the terminator shading from 0 to 1 sent to the planet shader, higher values darkening the unlit side more. Negated when [[InvertDarkness]] is set. Default 0.96.
 
 ## DarknessExponent
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Exponent applied to the diffuse darkness falloff in the shader, shaping how sharply the lit side transitions into shadow.
 
 ## InvertDarkness
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Negates the [[DiffuseDarkness]] value sent to the shader, shading the near side instead of the far side. Suited to atmosphere or cloud layers.
 
 ## SpecularStrength
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Strength of the specular highlight from 0 to 1 sent to the shader. Default 0, meaning no highlight. Paired with [[SpecularShine]].
 
 ## SpecularShine
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Specular exponent sent to the shader, higher values giving a tighter highlight. Default 5.

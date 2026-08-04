@@ -10,34 +10,34 @@
 ## DefaultTriangleSize
 `float` · required
 
-<!-- TODO: needs documentation -->
+The side length in tiles of one cell of the equilateral-triangle grid the nebula map is stored on. Vanilla uses 2000. The value is scaled at runtime by the sim mode's nebula size factor.
 
 ## RegionSize
 `IntVector2` · required
 
-<!-- TODO: needs documentation -->
+The size in triangle cells, as [columns, rows], of one nebula render batch. Larger regions mean fewer draw calls but more geometry rebuilt whenever a single triangle changes.
 
 ## MaxPathfindIterations
 `int` · required
 
-<!-- TODO: needs documentation -->
+The cap on A-star nodes expanded per contiguous nebula group when routing a ship around nebulas. Raising it lets ships find their way around larger obstructions at the cost of more CPU per path request.
 
 ## MaxStasisPathfindsPerTick
 `int` · required
 
-<!-- TODO: needs documentation -->
+The number of nebula path searches stasis spawners may perform per tick across the whole simulation. Extra requests reuse the previous cached result until the next tick.
 
 ## MinToolTipZoom
 `float` · required
 
-<!-- TODO: needs documentation -->
+The minimum camera scale at which the nebula tooltip is shown under the mouse. This uses the same scale as `Camera/MinScale` and `Camera/MaxScale` in cosmoteer.rules, where larger numbers mean further zoomed out, so vanilla's 500 only shows the tooltip at strategic zoom levels.
 
 ## StasisIgnoredNebulaTypes
 `→ NebulaTypeRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The nebula types stasis spawners treat as passable when picking spawn locations and routes. Types listed here are ignored even if they set `DefaultAvoidDistance`.
 
 ## NebulaTypes
 `NebulaTypeRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Every nebula type in the game. Each entry is a full NebulaTypeRules definition, in vanilla pulled in from a separate file per type.

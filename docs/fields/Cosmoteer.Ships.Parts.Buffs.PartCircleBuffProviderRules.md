@@ -10,29 +10,29 @@
 ## BuffRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, of the circle within which the buff applies. Parts whose physical footprint intersects the circle receive the buff. No vanilla part uses a CircleBuffProvider.
 
 ## BuffCenter
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The center of the buff circle, defaulting to the center of the part's own footprint. The value is used as-is in ship coordinates and is not offset or rotated with the part, so leaving it unset is almost always what you want.
 
 ## BuffsSelf
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets the provider buff its own part in addition to other parts in range. Off by default.
 
 ## Falloff
 `float` · optional
 
-<!-- TODO: needs documentation -->
+An exponent that weakens the buff with distance from the circle's center, measured to the nearest edge of the receiver's footprint. The buff amount is multiplied by `(1 - distance / BuffRadius)` raised to this power. At 0, the default, all parts in the circle get full strength.
 
 ## Criterias
 `RelativePartCriteria[]` · optional
 
-<!-- TODO: needs documentation -->
+Filters that a part in the circle must additionally match to receive the buff. Each entry can require part IDs or categories, exclusions, and a specific rotation, flip, or position relative to the provider, and matching any single entry is enough. When absent, every part in the circle is buffed.
 
 ## Criteria
 `RelativePartCriteria` · optional
 
-<!-- TODO: needs documentation -->
+A single filter used instead of [[Cosmoteer.Ships.Parts.Buffs.PartCircleBuffProviderRules.Criterias]] when one entry suffices. Only read when Criterias is absent.

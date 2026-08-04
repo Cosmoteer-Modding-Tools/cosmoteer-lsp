@@ -10,4 +10,4 @@
 ## Names
 `string[]` · optional
 
-<!-- TODO: needs documentation -->
+Pool of names to draw from. One is chosen at random, retrying until it fits within the caller's length limit.

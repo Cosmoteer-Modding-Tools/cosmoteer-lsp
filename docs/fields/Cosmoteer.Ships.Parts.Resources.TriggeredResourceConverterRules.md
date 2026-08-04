@@ -10,64 +10,64 @@
 ## From
 `ResourceInfo[]` · optional
 
-<!-- TODO: needs documentation -->
+The resource inputs consumed on each triggered conversion. Every entry must pass its availability check when [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.Trigger]] fires, and all entries are drained together when the conversion completes. The vanilla diamond factory consumes carbon and battery power together this way.
 
 ## To
 `ResourceInfo[]` · optional
 
-<!-- TODO: needs documentation -->
+The resource outputs produced on each triggered conversion. Every entry must have enough free capacity when [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.Trigger]] fires. While a conversion is pending, the output amounts are registered as anticipated resources in their storages.
 
 ## Trigger
 `ComponentTriggerReferenceRules` · required
 
-<!-- TODO: needs documentation -->
+The trigger component that initiates a conversion. When it fires and all inputs and output capacity are available, the conversion completes [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.Delay]] seconds later and the converter then fires its own trigger for listening components. The vanilla diamond factory drives this from a repeating 1.3 second Timer.
 
 ## Delay
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds between [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.Trigger]] firing and the conversion completing. During the wait the converter's toggle is on and its reported component value ramps from 0 to 1. Buff-modifiable, defaults to 0.
 
 ## CheckResourceLimits
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Additionally requires ship-wide room for each output before converting. The ship's total of the output's resource type, counting stored, crew-carried, and anticipated deliveries, must stay within the ship's total capacity, further capped by any quantity the player has requested in resource management. The vanilla diamond factory uses this so it stops producing once the ship is full.
 
 ## OnlyUpdateToggleOnTrigger
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Keeps the converter's toggle on after a successful conversion instead of switching it off until the next trigger. The toggle then only updates when [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.Trigger]] fires or when a conversion fails. The vanilla diamond factory pairs this with a [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.Delay]] equal to its timer interval so the toggle reads as continuously on while converting.
 
 ## FromStorage
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Shorthand that appends a single input entry to [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.From]]. Names the storage component drained by the conversion, configured through [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.FromQuantity]] and [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.MinFromQuantityForConversion]].
 
 ## FromQuantity
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The number of resources removed from [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.FromStorage]] per conversion. Defaults to 1 and is only read when FromStorage is set.
 
 ## MinFromQuantityForConversion
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The minimum resources ready to use in [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.FromStorage]] for a conversion to run, defaulting to [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.FromQuantity]]. Setting it lower lets the conversion run partially supplied, consuming only what is available. Only read when FromStorage is set.
 
 ## ToStorage
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Shorthand that appends a single output entry to [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.To]]. Names the storage component filled by the conversion, configured through [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.ToQuantity]], [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.MinToQuantityForConversion]], and [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.CheckAnticipatedCapacity]]. The vanilla diamond factory uses it for its single diamond output.
 
 ## ToQuantity
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The number of resources added to [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.ToStorage]] per conversion, clamped to the storage's remaining capacity. Defaults to 1 and is only read when ToStorage is set.
 
 ## MinToQuantityForConversion
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The minimum free capacity [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.ToStorage]] must have for a conversion to run. Defaults to 1 and is only read when ToStorage is set.
 
 ## CheckAnticipatedCapacity
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Makes the capacity check for the [[Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules.ToStorage]] shorthand entry count anticipated resources, which include incoming deliveries, instead of only what is currently stored. Only read when ToStorage is set.

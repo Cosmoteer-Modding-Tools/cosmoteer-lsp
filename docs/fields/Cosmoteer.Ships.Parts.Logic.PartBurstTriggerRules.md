@@ -10,14 +10,14 @@
 ## Trigger
 `ComponentTriggerReferenceRules` · required
 
-<!-- TODO: needs documentation -->
+The source trigger that starts a burst each time it fires, written as a component name or as a group with `ID` and an optional `TriggerID` selecting a named trigger within the component. Firings while this component is non-operational are ignored.
 
 ## BurstCount
 `number` · required
 
-<!-- TODO: needs documentation -->
+The number of times this trigger fires per firing of the source trigger. The first shot fires immediately and the rest follow at [[Cosmoteer.Ships.Parts.Logic.PartBurstTriggerRules.BurstDelay]] intervals. At 0 or less nothing fires.
 
 ## BurstDelay
 `number` · required
 
-<!-- TODO: needs documentation -->
+Seconds between the individual firings of a burst. At 0 or less the entire burst fires instantly. Bursts still in progress are discarded when the component becomes non-operational.

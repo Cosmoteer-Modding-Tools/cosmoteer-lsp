@@ -10,24 +10,24 @@
 ## FleeStartRange
 `float` · optional · default `3.4028235e+38`
 
-<!-- TODO: needs documentation -->
+Distance in world units at which a significant enemy makes a ship that is not yet fleeing start to run. The effective range is capped by the ship's own radar radius, so a value larger than that has no further effect.
 
 ## FleeStopRange
 `float` · optional · default `3.4028235e+38`
 
-<!-- TODO: needs documentation -->
+The same trigger distance, but used while the ship is already fleeing, which gives the behaviour hysteresis. Set it larger than [[Cosmoteer.Ships.AI.StrategyModules.AIFleeFromEnemiesModuleRules.FleeStartRange]] to keep the ship running after it has broken contact. It is capped by the ship's radar radius as well.
 
 ## FleeDistance
 `float` · required
 
-<!-- TODO: needs documentation -->
+How far in world units each flee move command sends the ship away from its pursuers. The direction is the sum of the unit vectors pointing away from every enemy in range, and because that sum is not renormalized the actual travel distance grows with the number of pursuers.
 
 ## RecallCrew
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Cancels off-ship resource transfer and salvage jobs the moment fleeing starts, and holds back the flee move until every crew member is back aboard.
 
 ## FtlAfter
 `range<Time>` · optional
 
-<!-- TODO: needs documentation -->
+Random delay range, in seconds, measured from the start of the flee, after which the ship makes a local FTL jump to a reachable landmark rather than just flying away. The timer is cleared as soon as the ship stops fleeing, and leaving the field unset means the ship never jumps.

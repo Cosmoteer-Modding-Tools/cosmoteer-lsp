@@ -10,19 +10,19 @@
 ## MinStatusValue
 `float` · optional · default `-∞`
 
-<!-- TODO: needs documentation -->
+The lowest combined status value on the part that switches the toggle on, inclusive.
 
 ## MaxStatusValue
 `float` · optional · default `∞`
 
-<!-- TODO: needs documentation -->
+The highest combined status value on the part that switches the toggle on, inclusive.
 
 ## Invert
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Flips the toggle, so it is on while the value is outside the range and off while inside. A part with no instance of the status at all reports the inverted state too.
 
 ## StatusType
 `→ StatusType` · optional
 
-<!-- TODO: needs documentation -->
+The status whose value on this part drives the toggle. It must be a `Part` layer status, a tile layer status throws at runtime when the part is built.

@@ -10,9 +10,9 @@
 ## Trigger
 `ComponentTriggerReferenceRules` · required
 
-<!-- TODO: needs documentation -->
+The source trigger whose firings are re-emitted after [[Cosmoteer.Ships.Parts.Logic.PartDelayTriggerRules.Delay]]. Written as a component name, or as a group with `ID` and an optional `TriggerID` selecting a named trigger within the component.
 
 ## Delay
 `number` · required
 
-<!-- TODO: needs documentation -->
+Seconds between the source trigger firing and this trigger re-firing. Each source firing is delayed independently, pending firings are saved with the ship, and a firing is dropped if the component is not operational when its delay expires. At 0 or less it fires immediately instead. The vanilla overclock base part delays its overclock-enabled trigger by half a physics tick this way.

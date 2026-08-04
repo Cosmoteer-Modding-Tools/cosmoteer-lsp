@@ -10,19 +10,19 @@
 ## Type
 `enum ShipCommandType` · required · one of: `Follow`, `MoveToLocation`, `Attack`
 
-<!-- TODO: needs documentation -->
+What the spawned ship is ordered to do. `Follow` and `Attack` need the search to land on an actual ship and do nothing when it finds something else, while `MoveToLocation` only uses the found object's position.
 
 ## TargetsTag
 `SpawnedObjectSearch` · required
 
-<!-- TODO: needs documentation -->
+Which already-spawned object the order targets, written as a tag plus a search mode. Generation throws if nothing carrying the tag has been spawned yet.
 
 ## InitialSpeed
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The speed the ship is launched at, aimed straight at whatever `TargetsTag` found, in world units per second. Zero leaves the ship stationary, and vanilla uses 100 for ambushers charging the player.
 
 ## SuppressNoTagTargetFound
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The value is read from the rules, but the only code that consults it is an empty branch left over from a developer warning, fired when a `Follow` or `Attack` order resolves to something that is not a ship, that is compiled out of release builds.

@@ -10,69 +10,69 @@
 ## BaseValue
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The unmodified starting value, before any modifiers. When the whole modifiable value is written as a bare number rather than a group, that number becomes BaseValue with no modifiers. Modifiers are applied on top of it and the result is clamped to MinValue..MaxValue.
 
 ## Modifiers
 `ValueModifier[]` · optional
 
-<!-- TODO: needs documentation -->
+The list of modifiers applied to BaseValue, in order, each transforming the running value. If this list is present, the inline BuffType, StatusType, and EffectScaleExponent shortcuts below are ignored. If it is absent, those shortcuts are collected into an equivalent modifier list instead.
 
 ## MinValue
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Lower clamp on the final modified value, applied after all modifiers run. Defaults to the type's minimum. Also serves as the default lower bound for the inline Buff, Status, and EffectScale modifiers when their own min is unset.
 
 ## MaxValue
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Upper clamp on the final modified value, applied after all modifiers run. Defaults to the type's maximum. Also serves as the default upper bound for the inline Buff, Status, and EffectScale modifiers when their own max is unset.
 
 ## BuffType
 `→ BuffType` · optional
 
-<!-- TODO: needs documentation -->
+Inline shorthand for a single buff modifier. When set (and no explicit Modifiers list is given), a BuffModifier for this buff is added, letting the value respond to a ship buff without writing out a full Modifiers entry.
 
 ## BuffMode
 `enum ValueModificationMode` · optional · one of: `Replace`, `Add`, `Subtract`, `Multiply`, `Divide`, `Lerp`, `ReverseLerp`
 
-<!-- TODO: needs documentation -->
+How the inline BuffType modifier combines its buff amount with the running value. Defaults to `Replace`. Only read when BuffType is set.
 
 ## BuffMinValue
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Lower clamp applied by the inline BuffType modifier. Defaults to MinValue. Only read when BuffType is set.
 
 ## BuffMaxValue
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Upper clamp applied by the inline BuffType modifier. Defaults to MaxValue. Only read when BuffType is set.
 
 ## StatusType
 `→ StatusType` · optional
 
-<!-- TODO: needs documentation -->
+Inline shorthand for a single status modifier. When set (and no explicit Modifiers list is given), a StatusModifier for this status is added, letting the value respond to a ship status without writing out a full Modifiers entry.
 
 ## StatusMode
 `enum ValueModificationMode` · optional · one of: `Replace`, `Add`, `Subtract`, `Multiply`, `Divide`, `Lerp`, `ReverseLerp`
 
-<!-- TODO: needs documentation -->
+How the inline StatusType modifier combines its status amount with the running value. Defaults to `Replace`. Only read when StatusType is set.
 
 ## StatusMinValue
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Lower clamp applied by the inline StatusType modifier. Defaults to MinValue. Only read when StatusType is set.
 
 ## StatusMaxValue
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Upper clamp applied by the inline StatusType modifier. Defaults to MaxValue. Only read when StatusType is set.
 
 ## EffectScaleExponent
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Inline shorthand for an effect-scale modifier. When set (and no explicit Modifiers list is given), an EffectScaleModifier is added that raises the effect scale to this exponent and combines it into the value, so the number scales with a hit or media effect's intensity.
 
 ## EffectScaleMode
 `enum ValueModificationMode` · optional · one of: `Replace`, `Add`, `Subtract`, `Multiply`, `Divide`, `Lerp`, `ReverseLerp`
 
-<!-- TODO: needs documentation -->
+How the inline EffectScaleExponent modifier combines the scaled effect value with the running value. Defaults to `Multiply`. Only read when EffectScaleExponent is set.

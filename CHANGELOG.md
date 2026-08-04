@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.0 Beta
+
+### Added
+
+- Code mods are understood. A mod that ships a `.dll` declaring its own serializable types has those types, fields, enums and discriminators merged into the schema, so a modded component completes, hovers and validates like a built-in one. Assemblies in the open workspace, in your own `Mods` folder and in installed workshop mods all count, with no setup and no .NET install needed.
+- The code mod schema follows the mods on disk. Installing, updating or rebuilding a code mod while the editor is open re-reads it by itself, and `Cosmoteer: Rebuild Schema from Code Mod Assemblies` (command palette in VS Code, Tools menu in JetBrains) forces a rebuild.
+- Code mod support can be turned off. `cosmoteerLSPRules.codeMods.enabled` (Settings | Tools | Cosmoteer Rules | Code mods in JetBrains) stops assemblies being read at all, and `cosmoteerLSPRules.codeMods.autoRefresh` keeps the reading but stops the watching. Both take effect without a restart.
+- A code mod's own field documentation shows on hover. Build the mod with `<GenerateDocumentationFile>true</GenerateDocumentationFile>` and the `///` summaries on your `[Serialize]` members appear in hover and completion, rendered like the game's own field docs.
+- The `Open in decompiler` hover link opens a code mod's class from that mod's own assembly.
+- Hover on a code mod's own class links the mod's Steam Workshop page instead of the vanilla modding wiki. A game class written inside a modded group keeps its wiki link, and a mod you develop locally gets no link.
+- Whole-mod validation is on by default, scoped to what the game actually loads. The Problems panel describes the mod instead of the open tabs, covering the closure of the `mod.rules` actions plus the strings folder. Backups and templates stay out, a workspace with no manifest is covered in full, and results are cached on disk per file. `cosmoteerLSPRules.diagnostics.validateWholeWorkspace` turns it off, and `workspaceValidationScope` switches back to every file.
+- The first time whole-mod validation does noticeable work, a one-time notification explains where the extra Problems entries came from and offers to go back to open files only.
+- Field documentation now covers every field in the schema. Hover and completion tell you units, ranges, and the fields a value interacts with.
+- A `SCREAMING_CASE` constant that nothing reads now fades out, with a remove quick fix. A whole chain of constants that only feed each other and never reach a field fades too, so a computation the game loads and drops is visible at a glance. A constant is only judged when no other file in the project reads its name. Turn it off with `cosmoteerLSPRules.diagnostics.validateUnusedConstants`.
+- Twelve more fields the game accepts and then ignores carry the dead-field hint, among them `Z` on part and tile quad effects, `IsActivated` on an AI `ExitSector` strategy module, `DescriptionKey` on a Build and Battle tech, and the four texture-loading keys written on a sprite (`SampleMode`, `MipLevels`, `FixTransparentColors`, `PreMultiplyByAlpha`).
+- A file that is one object, such as a standalone media effect or a part override fragment, gets the dead-field hint on its top-level fields too.
+- The three music track collections the game crashes without now count as required: an FSM track's `IntroTracks`, a Sequence track's `Tracks`, and a Layers track's `Layers`.
+- Writing `Flammable` on a part hints that the game removed the field and points at the replacement, the `non_flammable` part category. `Flammable = false` gets a quick fix that appends `non_flammable` to the part's own `TypeCategories` list, so the fireproofing survives the migration.
+- One-command mod migration: `Cosmoteer: Migrate Mod to Current Game Version` (command palette in VS Code, Tools menu in JetBrains) upgrades every rules file of the workspace in one undoable edit and reports what it did, grouped by game version. Findings that need author judgment are listed instead of edited, and an optional second mode also strips fields the game never reads.
+- A version-split manifest (`mod_*.rules`) without `CompatibleGameVersions` warns that the game never selects it when the mod has other manifest files, with a quick fix that inserts the installed game's version. A mod whose only manifest is such a file stays silent.
+- The deprecation registry now spans the whole recorded changelog history, each entry carrying its game version. New hints cover fields deleted in 0.24.1 and 0.26.1 (`PenetrationRectType`, `ValueOutputSmoothing`, the two `SuppressWholeShipTargetOverlays*` weapon fields), pre-0.23.0 spellings the game still accepts (`CreatePartWhenDestroyed`, now `UnderlyingPart`, and the `SourceShip*` family, now `FriendlyShip*`), superseded fields with a mechanical rewrite (`ExplosiveDamageResistance = X` becomes `DamageResistances = { explosive = X }`), and the manifest's `ModifiesMultiplayer` flag, now `ModifiesGameplay`.
+
 ## 0.5.0 Beta
 
 ### Added

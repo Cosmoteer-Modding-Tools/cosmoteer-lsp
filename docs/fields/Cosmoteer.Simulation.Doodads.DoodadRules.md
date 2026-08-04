@@ -10,44 +10,44 @@
 ## ID
 `→ DoodadRules` · required
 
-<!-- TODO: needs documentation -->
+Unique identifier for this doodad type. Must be in the form `author_name.doodad_name` (it must contain a dot with text on both sides) or loading throws an error. Other doodads and spawners reference this ID.
 
 ## OtherIDs
 `→ DoodadRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Additional IDs that also resolve to this doodad type. Useful as aliases so that saves or spawners referencing an old ID still load this doodad.
 
 ## Icon
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite shown for this doodad in the creative-mode doodad toolbox button.
 
 ## DescriptionKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for this doodad's display name. Shown in the toolbox tooltip, as the POI mouseover label, and used as the spawned ship's name for ship-based doodads. See [[UndiscoveredDescriptionKey]] for the name shown before a POI is discovered.
 
 ## UndiscoveredDescriptionKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key used in place of [[DescriptionKey]] while a point of interest has not yet been discovered by the player.
 
 ## CategoryKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the collapsible category the doodad is grouped under in the creative-mode toolbox. Doodads sharing the same key share one category box.
 
 ## HideInCreativeMode
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, omits this doodad from the creative-mode doodad toolbox so players cannot place it manually.
 
 ## SpawnRadius
 `float` · optional
 
-<!-- TODO: needs documentation -->
+World-space radius reserved around this doodad when it is placed by a spawner or generator, keeping other objects from spawning on top of it.
 
 ## Tags
 `→ SimObjectSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Set of spawner tags attached to the spawned doodad. Other systems match against these tags, for example planet damage zones use them to decide which ships should avoid the area. Tags supplied by the spawning context are merged with these.

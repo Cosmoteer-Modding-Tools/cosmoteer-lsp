@@ -10,24 +10,24 @@
 ## Speed
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Clock scale multiplier this preset selects, where 1 is normal speed. The speed bar steps through the presets in ascending order of this value, and the current label is matched by comparing the confirmed clock scale to it.
 
 ## NameKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for the short name shown on the game-speed bar when this preset is active. Falls back to the numeric scale when unset or unmatched. See [[LongNameKey]] for the longer label.
 
 ## LongNameKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for the longer name used in the PvP setup game-speed drop list. Companion to the shorter [[NameKey]] shown on the speed bar.
 
 ## DecreaseToSound
 `ISoundEffect` · optional
 
-<!-- TODO: needs documentation -->
+Sound played when the clock scale drops to this preset (the new speed is lower than the confirmed one). Counterpart to [[IncreaseToSound]].
 
 ## IncreaseToSound
 `ISoundEffect` · optional
 
-<!-- TODO: needs documentation -->
+Sound played when the clock scale rises to this preset (the new speed is at or above the confirmed one). Counterpart to [[DecreaseToSound]].

@@ -10,89 +10,89 @@
 ## StatToggleButtons
 `map<→ StatToggleButtonRules, StatToggleButtonRules>` · optional
 
-<!-- TODO: needs documentation -->
+The pool of toggle buttons available in the build toolbox stats bar, keyed by ID. The various `...ToggleButtonID` fields and each widget's toggle reference resolve into this map. Buttons are created on demand the first time they are referenced.
 
 ## DefaultStatToggleButton
 `ImageListItem` · required
 
-<!-- TODO: needs documentation -->
+Template widget whose settings each [[Cosmoteer.Game.Gui.Build.Stats.StatToggleButtonRules|toggle button]] copies as its base style when built.
 
 ## DirectionChooserToggleButtonID
 `→ StatToggleButtonRules` · required
 
-<!-- TODO: needs documentation -->
+Toggle button that gates visibility of the ship flight-direction chooser.
 
 ## ValueStatToggleButtonID
 `→ StatToggleButtonRules` · required
 
-<!-- TODO: needs documentation -->
+Toggle button that gates visibility of the ship value (cost) stat label.
 
 ## MassStatToggleButtonID
 `→ StatToggleButtonRules` · required
 
-<!-- TODO: needs documentation -->
+Toggle button that gates visibility of the mass stat label. Disabled while editing blueprints.
 
 ## CenterOfMassToggleButtonID
 `→ StatToggleButtonRules` · required
 
-<!-- TODO: needs documentation -->
+Toggle button that turns the center-of-mass overlay on and off. Disabled while editing blueprints.
 
 ## CoordinatesStatToggleButtonID
 `→ StatToggleButtonRules` · required
 
-<!-- TODO: needs documentation -->
+Toggle button that gates visibility of the ship coordinates stat label.
 
 ## FtlStatToggleButtonID
 `→ StatToggleButtonRules` · required
 
-<!-- TODO: needs documentation -->
+Toggle button that gates visibility of the FTL efficiency stat bar.
 
 ## CommandPointsStatToggleButtonID
 `→ StatToggleButtonRules` · required
 
-<!-- TODO: needs documentation -->
+Toggle button that gates visibility of the command points stat bar.
 
 ## MaxToggleContainerWidth
 `float` · required
 
-<!-- TODO: needs documentation -->
+Maximum width in pixels of the container holding the toggle buttons, after which they wrap.
 
 ## DefaultStatLabel
 `Label` · required
 
-<!-- TODO: needs documentation -->
+Default value-text label style for the built-in stat bars, and the fallback value label supplied to child stat widgets that do not set their own.
 
 ## StatBarSegmentSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Default sprite tiled as the filled segments of stat bars, supplied to child StatBar widgets and the built-in FTL and command point bars.
 
 ## StatBarColorLerp
 `range<Color>` · required
 
-<!-- TODO: needs documentation -->
+Default color range that stat bars interpolate their fill across, from minimum to ideal. Supplied to child StatBar widgets that do not set their own.
 
 ## FtlStatSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the built-in FTL efficiency stat bar.
 
 ## CommandPointsSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon for the built-in command points stat bar.
 
 ## CommandPointsSufficientColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Fill color for the command points bar when command points are sufficient. Used as the high (max) end of that bar's color range.
 
 ## CommandPointsInsufficientColor
 `Color` · required
 
-<!-- TODO: needs documentation -->
+Fill color for the command points bar when command points are insufficient. Used as the low (min) end of that bar's color range.
 
 ## StatWidgets
 `ToggledShipStatWidgetRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Additional ship stat widgets shown in the stats bar, each optionally gated by a [[Cosmoteer.Game.Gui.Build.Stats.StatToggleButtonRules|toggle button]]. Built in reverse order.

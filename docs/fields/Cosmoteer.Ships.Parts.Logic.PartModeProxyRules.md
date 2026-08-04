@@ -10,4 +10,4 @@
 ## ModeWhenNotConnected
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The mode this proxy reports while it is not connected to a proxied mode component, defaulting to 0. Connecting or disconnecting raises a mode change whenever it alters the reported value.

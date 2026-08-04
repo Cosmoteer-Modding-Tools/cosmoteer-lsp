@@ -10,54 +10,54 @@
 ## IDPrefix
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Prepended, followed by a space, to the ship's [[ID]] (whether the ID is explicit or derived from the ship file name). Used to namespace groups of ships such as `Wreckage`.
 
 ## File
 `ShipFile` · required
 
-<!-- TODO: needs documentation -->
+Path to the `.ship` blueprint file for this built-in ship. The file must exist on disk or deserialization throws. Its ship name supplies the default [[ID]] when no explicit ID is given.
 
 ## Faction
 `→ FactionRules` · optional
 
-<!-- TODO: needs documentation -->
+Faction this ship belongs to. Spawners match ships by faction and assign the spawned ship the faction's military or civilian player index. See [[Cosmoteer.Factions.FactionRules|FactionRules]].
 
 ## Tier
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Nominal power tier of the ship, reported as its tier by objectives, stasis, and other systems. Also used for tier-range matching when spawning unless [[SpawnTier]] overrides it.
 
 ## SpawnTier
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Tier used only for matching this ship against a requested tier range when spawning, overriding [[Tier]] for that purpose. When unset, [[Tier]] is used. Lets a ship spawn in a different tier bracket than the tier it reports elsewhere.
 
 ## Difficulty
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Difficulty rating used to filter this ship against a requested difficulty range when spawning. A ship outside the requested range is skipped.
 
 ## Tags
 `→ BuiltinShipTag[]` · optional
 
-<!-- TODO: needs documentation -->
+Set of tags used to filter this ship when spawners request ships matching specific tags (for example police or wreckage). A spawn request with tags selects only ships carrying at least one of them.
 
 ## ID
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Unique identifier for the ship. When omitted it defaults to the ship file's name. Either way, [[IDPrefix]] is prepended when set. Must be unique across the built-in ship database. Read manually during deserialization rather than through the normal reflective path.
 
 ## OtherIDs
 `string[]` · optional
 
-<!-- TODO: needs documentation -->
+Additional identifiers that also resolve to this ship in the built-in ship database, letting old or alternate names keep working. Each must be unique across the database. Unlike [[ID]], no [[IDPrefix]] is applied to these.
 
 ## StasisIcon
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Path to a texture used as this ship's landmark icon when it appears frozen in stasis on the galaxy map. When set, the game builds normal, highlighted, and pressed dot sprites from it. [[FlightDirection]] sets which way the icon points, and only matters when this is present.
 
 ## FlightDirection
 `enum ShipFlightDirection` · optional · one of: `UpLeft`, `Up`, `UpRight`, `Right`, `DownRight`, `Down`, `DownLeft`, `Left`
 
-<!-- TODO: needs documentation -->
+Direction the ship's stasis landmark icon points on the galaxy map, defaulting to `Up`. Only read when [[Cosmoteer.Data.BuiltinShipRules.StasisIcon]] is set. It has no effect otherwise.

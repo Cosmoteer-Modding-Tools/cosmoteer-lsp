@@ -10,44 +10,44 @@
 ## ToggleID
 `→ PartToggleGuiRules` · required
 
-<!-- TODO: needs documentation -->
+Identifies this toggle. A part opts into the toggle by declaring a `PartUIToggle` component whose `ToggleID` matches, and the button then drives every matching toggle on the selected parts or ships. Vanilla ids include `"on_off"` and `"fire_mode"`.
 
 ## Style
 `enum PartToggleGuiStyle` · required · one of: `CycledButton`, `Switch`, `OffAlertSwitch`, `OnAlertSwitch`, `Popout`
 
-<!-- TODO: needs documentation -->
+Picks the widget built for this toggle. `CycledButton` is a single button that steps through the choices, `Switch` is an on/off switch, `OffAlertSwitch` and `OnAlertSwitch` are the same switch with the off or on state drawn in the alert color, and `Popout` opens a list of all choices.
 
 ## MultipleModesDisplayOrder
 `enum PartToggleDisplayOrder` · optional · one of: `First`, `Last`
 
-<!-- TODO: needs documentation -->
+Decides which choice the button displays when the selected parts are not all in the same mode. `First` shows the earliest choice in `Choices` that any selection uses, `Last` shows the latest.
 
 ## Choices
 `PartToggleChoice[]` · optional
 
-<!-- TODO: needs documentation -->
+The modes this toggle can be in, in the order they are cycled and listed. The button starts on the first entry, and a choice without an explicit `Mode` takes its list index as its mode number.
 
 ## NoChoicesToolTipKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for the tooltip shown when the toggle is greyed out because fewer than two choices are available to the selection, for example when a game mode has locked the other choices. Also accepted under the old name `DisabledToolTipKey`.
 
 ## NonOperationalToolTipKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for the tooltip shown when choices exist but none of the selected parts are operational enough to change mode, for example an unpowered or destroyed part.
 
 ## SortOrder
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Orders this button among all the trigger, targeter, toggle and color buttons on a part's command card. Lower values are placed first, and vanilla gives the on/off toggle -1 so it comes before everything else.
 
 ## ShowWithShipCommands
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Also shows this toggle on the ship command card, not just on the parts card for the selected parts. It also puts the choices' hotkeys in the general command input context instead of the parts control context.
 
 ## ShowInEditor
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Makes the toggle available in the ship designer, so the player can preset the mode while placing parts and on parts selected with the select tool.

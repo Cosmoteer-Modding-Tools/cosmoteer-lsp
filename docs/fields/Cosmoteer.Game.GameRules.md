@@ -10,29 +10,29 @@
 ## GameGui
 `GameGuiRules` · required
 
-<!-- TODO: needs documentation -->
+All in-game interface rules, including the build, paint, crew and resource toolboxes, the part triggers, toggles, colors, stats and targeters, the minimap and the brush list. It is part of the multiplayer rules hash, so clients whose GUI rules differ cannot play together.
 
 ## Backgrounds
 `BackgroundRules` · required
 
-<!-- TODO: needs documentation -->
+The starfield and nebula backdrops drawn behind the simulation.
 
 ## MapTransitionDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long the crossfade between the ship simulation and the galaxy map takes, in seconds. The progress is eased in and out, and an interrupted transition resumes from where it was instead of restarting. Vanilla uses 0.5.
 
 ## MapTransitionSimZoomFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+The absolute camera scale the simulation view zooms toward while the galaxy map fades in, so the ships appear to rush past the viewer. It is a target scale rather than a multiplier, and vanilla sets it to twice the camera's maximum scale.
 
 ## MapTransitionMapZoomFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+The absolute camera scale the galaxy map view starts from as it fades in, before settling to its real scale. Vanilla uses 0.01, which makes the map appear to rush toward the viewer from very far away.
 
 ## MaxFtlFuelPurchase
 `int` · required
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it. It was presumably meant to cap how much FTL fuel could be bought in one transaction.

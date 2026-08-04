@@ -12,6 +12,7 @@ import {
     isListNode,
     isMathExpressionNode,
     isValueNode,
+    ListNode,
     ValueNode,
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
@@ -25,7 +26,9 @@ import {
     resolveGroupClass,
 } from '../../document/schema/schema-context';
 import { classAncestry, discriminatorIsAmbiguous, fieldOf, fieldsOf, schema } from '../../document/schema/schema';
-import { ValidationError } from './validator';
+import { documentRootClass } from '../../document/schema/document-root';
+import { deprecatedField } from '../../document/schema/deprecations';
+import { ValidationError, ValidationErrorData } from './validator';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
 
@@ -71,6 +74,66 @@ const classFitsGroup = (group: GroupNode, cls: string): boolean => {
     return owned / names.length >= MIN_CLASS_FIT;
 };
 
+/** The words the game's BooleanSerializer reads as false (case-insensitively). */
+const FALSE_WORDS = new Set(['false', 'no', 'n']);
+
+/**
+ * Whether an assignment's value is boolean false (`false`/`no`/`n`, or the numeric literal `0`).
+ * Used to tell a `Flammable = false` (a fireproofing the Meltdown update turned into the
+ * `non_flammable` part category) from a `Flammable = true` (a stale restatement of the old default).
+ *
+ * @param value the assignment's right-hand node.
+ * @returns true when the value spells boolean false.
+ */
+const isFalseValue = (value: AbstractNode | null | undefined): boolean => {
+    if (!value || !isValueNode(value)) return false;
+    if (value.valueType.type === 'Boolean') return value.valueType.value === false;
+    if (value.valueType.type === 'String') return FALSE_WORDS.has(String(value.valueType.value).toLowerCase());
+    if (value.valueType.type === 'Number') return Number(value.valueType.value) === 0;
+    return false;
+};
+
+/**
+ * Whether the group assigns the named member beside `except` (as an assignment, group, or list), so
+ * a mechanical rename onto that name would create a duplicate member.
+ *
+ * @param group the group whose members are checked.
+ * @param name the member name to look for (compared case-insensitively).
+ * @param except the element making the query, excluded from the search.
+ * @returns true when another element already carries the name.
+ */
+const siblingNamed = (group: FieldContainer, name: string, except: AbstractNode): boolean => {
+    const wanted = name.toLowerCase();
+    return group.elements.some(
+        (sibling) =>
+            sibling !== except &&
+            ((isAssignmentNode(sibling) && sibling.left.name.toLowerCase() === wanted) ||
+                ((isGroupNode(sibling) || isListNode(sibling)) && sibling.identifier?.name.toLowerCase() === wanted))
+    );
+};
+
+/**
+ * The group's own `TypeCategories` list literal, in either spelling (`TypeCategories = […]` or the
+ * bare list form `TypeCategories […]`), when it has a closing bracket to append into. Only the
+ * doc-local list qualifies: writing a fresh `TypeCategories` assignment would override an inherited
+ * list, so a part without a local one is reported for manual review instead of auto-fixed.
+ *
+ * @param group the part group to search.
+ * @returns the local list node, or undefined when the group has none (or an unclosed one).
+ */
+const localTypeCategoriesList = (group: FieldContainer): ListNode | undefined => {
+    for (const element of group.elements) {
+        const list = isListNode(element)
+            ? element
+            : isAssignmentNode(element) && element.right && isListNode(element.right)
+              ? element.right
+              : undefined;
+        const name = isListNode(element) ? element.identifier?.name : isAssignmentNode(element) ? element.left.name : undefined;
+        if (list && name?.toLowerCase() === 'typecategories' && list.position.end > list.position.start) return list;
+    }
+    return undefined;
+};
+
 /**
  * Add every `/`-separated word of a reference path to `out`, lower-cased, with the `<file>` part
  * removed.
@@ -78,12 +141,83 @@ const classFitsGroup = (group: GroupNode, cls: string): boolean => {
  * @param text the reference path text.
  * @param out the set collecting the lower-cased segments.
  */
-const addSegments = (text: string, out: Set<string>): void => {
+export const addSegments = (text: string, out: Set<string>): void => {
     const withoutFile = text.replace(/<[^>]*>/g, ' ');
     for (const raw of withoutFile.split('/')) {
         const segment = raw.replace(/[&~^.:\s]/g, '');
         if (segment) out.add(segment.toLowerCase());
     }
+};
+
+/** References embedded in a quoted expression string, which the game evaluates like a bare one. */
+const EMBEDDED_REFERENCE = /&[^\s()"]+/g;
+
+/** A value that is a single identifier, the shape a schema id field uses to name a member. */
+const BARE_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
+
+/** The callbacks {@link walkReferenceReads} feeds, one per read shape it finds. */
+export interface ReferenceReadHooks {
+    /** A reference text: a Reference value, a `&…` embedded in a string, a bare `&…` member. */
+    reference: (text: string, owner: string | undefined) => void;
+    /** A string value that is a plain identifier, the shape a schema id field names a member with. */
+    bareName?: (text: string, owner: string | undefined) => void;
+    /** The owner a node's children attribute their reads to. Omitted, ownership never starts. */
+    declare?: (node: AbstractNode, owner: string | undefined, container: AbstractNode) => string | undefined;
+}
+
+/**
+ * Walks every reference-shaped read in a document and hands each to the hooks: reference values
+ * (including function arguments and math operands), inheritance lists, references embedded in quoted
+ * expression strings (`HEAT_PER_INTERVAL = ceil("(&A) / (&B)")`, re-evaluated by the game), bare
+ * `&…` members (which parse as IdentifierNodes), and plain identifier string values when asked. The
+ * one walk serves both the ignored-field and the unused-constant pass, so a new reference shape only
+ * has to be taught here.
+ *
+ * @param document the parsed document to walk.
+ * @param hooks the per-shape callbacks.
+ */
+export const walkReferenceReads = (document: AbstractNodeDocument, hooks: ReferenceReadHooks): void => {
+    const declare = hooks.declare ?? ((_node: AbstractNode, owner: string | undefined) => owner);
+    const visit = (node: AbstractNode | null | undefined, owner: string | undefined, container: AbstractNode): void => {
+        if (!node) return;
+        if (isValueNode(node)) {
+            if (node.valueType.type === 'Reference') {
+                hooks.reference(String(node.valueType.value), owner);
+            } else if (node.valueType.type === 'String') {
+                const text = String(node.valueType.value);
+                for (const embedded of text.match(EMBEDDED_REFERENCE) ?? []) hooks.reference(embedded, owner);
+                if (hooks.bareName && BARE_NAME.test(text.trim())) hooks.bareName(text.trim(), owner);
+            }
+            return;
+        }
+        // A bare `&…` member parses as an identifier rather than as a value.
+        if (isIdentifierNode(node)) {
+            if (node.name.startsWith('&')) hooks.reference(node.name, owner);
+            return;
+        }
+        if (isGroupNode(node) || isListNode(node)) {
+            const inner = declare(node, owner, container);
+            for (const inherited of node.inheritance ?? []) visit(inherited, inner, node);
+            for (const child of node.elements) visit(child, inner, node);
+            return;
+        }
+        if (isDocumentNode(node)) {
+            for (const child of node.elements) visit(child, owner, node);
+            return;
+        }
+        if (isAssignmentNode(node)) {
+            visit(node.right, declare(node, owner, container), container);
+            return;
+        }
+        if (isFunctionCallNode(node)) {
+            for (const argument of node.arguments) visit(argument, owner, container);
+            return;
+        }
+        if (isMathExpressionNode(node)) {
+            for (const element of node.elements) visit(element, owner, container);
+        }
+    };
+    visit(document, undefined, document);
 };
 
 /**
@@ -99,36 +233,7 @@ export const referencedSegments = (document: AbstractNodeDocument): Set<string> 
     const cached = segmentsCache.get(document);
     if (cached) return cached;
     const out = new Set<string>();
-    const visit = (node: AbstractNode | null | undefined): void => {
-        if (!node) return;
-        if (isValueNode(node)) {
-            if (node.valueType.type === 'Reference') {
-                addSegments(String(node.valueType.value), out);
-            } else if (node.valueType.type === 'String') {
-                // A quoted expression string is re-evaluated by the game (`HEAT_PER_INTERVAL =
-                // ceil("(&A) / (&B)")`), so references embedded in any string value count as reads.
-                for (const embedded of String(node.valueType.value).match(/&[^\s()"]+/g) ?? []) {
-                    addSegments(embedded, out);
-                }
-            }
-            return;
-        }
-        if (isIdentifierNode(node)) {
-            if (node.name.startsWith('&')) addSegments(node.name, out);
-            return;
-        }
-        if (isGroupNode(node) || isListNode(node) || isDocumentNode(node)) {
-            if (!isDocumentNode(node)) for (const inherited of node.inheritance ?? []) visit(inherited);
-            for (const child of node.elements) visit(child);
-        } else if (isAssignmentNode(node)) {
-            visit(node.right);
-        } else if (isFunctionCallNode(node)) {
-            for (const argument of node.arguments) visit(argument);
-        } else if (isMathExpressionNode(node)) {
-            for (const element of node.elements) visit(element);
-        }
-    };
-    visit(document);
+    walkReferenceReads(document, { reference: (text) => addSegments(text, out) });
     segmentsCache.set(document, out);
     return out;
 };
@@ -233,6 +338,12 @@ export const isIgnoredSchemaField = (node: ValueNode): boolean => {
 };
 
 /**
+ * A node whose `elements` hold named members: a group, or the document itself when the whole file is
+ * one object (a media effect, a part override fragment). Both carry fields the same way.
+ */
+type FieldContainer = { elements: AbstractNode[] };
+
+/**
  * The lower-cased names of every schema field flagged `dead` (declared by the game but never read
  * by its code, per schemagen's whole-assembly read scan), so the per-assignment check below can
  * bail on cheap name membership before resolving any group class or ancestry. Built once at module
@@ -260,11 +371,23 @@ for (const type of Object.values(schema.types)) {
  * @param document the containing document, for the reference-usage scan.
  * @returns the class FullName that declares the dead field, or undefined.
  */
-const deadDeclaredFieldClass = (group: GroupNode, name: string, document: AbstractNodeDocument): string | undefined => {
-    if (!deadFieldNames.has(name.toLowerCase())) return undefined;
+const deadDeclaredFieldClass = (group: GroupNode, name: string, document: AbstractNodeDocument): string | undefined =>
+    deadDeclaredIn(resolveGroupClass(group), name, document);
+
+/**
+ * The declaring ancestor of a dead member on an already-resolved class. Split out of
+ * {@link deadDeclaredFieldClass} so the document root, whose class comes from the rooting engine
+ * rather than from a group's slot, can reuse the same verdict.
+ *
+ * @param cls the class the container resolved to, or undefined when it did not resolve.
+ * @param name the member's written field name.
+ * @param document the containing document, for the reference-usage scan.
+ * @returns the class FullName that declares the dead field, or undefined.
+ */
+const deadDeclaredIn = (cls: string | undefined, name: string, document: AbstractNodeDocument): string | undefined => {
+    if (!cls || !deadFieldNames.has(name.toLowerCase())) return undefined;
     if (referencedSegments(document).has(name.toLowerCase())) return undefined;
-    const cls = resolveGroupClass(group);
-    if (!cls || !fieldOf(cls, name)?.dead) return undefined;
+    if (!fieldOf(cls, name)?.dead) return undefined;
     const lowered = name.toLowerCase();
     return classAncestry(cls).find((ancestor) =>
         schema.types[ancestor]?.fields.some((field) => field.dead && field.name.toLowerCase() === lowered)
@@ -288,6 +411,101 @@ export const validateIgnoredFields = async (
 ): Promise<ValidationError[]> => {
     if (isModRules(document.uri)) return [];
     const errors: ValidationError[] = [];
+    /**
+     * Emit the hint for one ignored member.
+     *
+     * @param node the container holding the member, for the sibling and category lookups.
+     * @param element the member's assignment.
+     * @param cls the class that declares the dead field, or owns the group the member is foreign to.
+     */
+    const report = (node: FieldContainer, element: AssignmentNode, cls: string): void => {
+        const name = element.left.name;
+        const classLabel = schema.types[cls]?.name ?? cls;
+        const declaredButDead = !!fieldOf(cls, name);
+        // A field the game deleted in an update (a mod written against an older Cosmoteer):
+        // say what replaced it instead of the bare never-reads hint, so the modder learns the
+        // migration and not just the removal. The registry records the declaring class, so a
+        // derived resolution walks its ancestry to find the entry.
+        let deprecation: ReturnType<typeof deprecatedField>;
+        for (const ancestor of classAncestry(cls)) deprecation ??= deprecatedField(ancestor, name);
+        const start = element.left.position.start;
+        const end = element.right?.position?.end ?? element.left.position.end;
+        const data: ValidationErrorData = {
+            remove: {
+                title: l10n.t("Remove '{0}'", name),
+                start,
+                end,
+            },
+        };
+        if (deprecation) {
+            data.migration = { version: deprecation.version };
+            if (deprecation.replacement && !siblingNamed(node, deprecation.replacement, element)) {
+                // A same-shaped successor took over the deleted field's job: renaming keeps
+                // the author's configured value alive, which a bare removal would drop.
+                data.migration.apply = 'rewrite';
+                data.rewrite = {
+                    title: l10n.t("Change to '{0}'", deprecation.replacement),
+                    edits: [
+                        {
+                            start: element.left.position.start,
+                            end: element.left.position.end,
+                            newText: deprecation.replacement,
+                        },
+                    ],
+                };
+            } else if (name.toLowerCase() === 'flammable') {
+                if (isFalseValue(element.right)) {
+                    // `Flammable = false` was a fireproofing, and since Meltdown that
+                    // intent is spelled as the `non_flammable` part category. Only a
+                    // doc-local `TypeCategories` list can be appended to safely (a fresh
+                    // assignment would override an inherited list), so without one the
+                    // finding stays manual.
+                    const categories = localTypeCategoriesList(node);
+                    if (categories) {
+                        data.migration.apply = 'rewrite';
+                        data.rewrite = {
+                            title: l10n.t("Replace with a 'non_flammable' TypeCategories entry"),
+                            edits: [
+                                { start, end, newText: '' },
+                                {
+                                    start: categories.position.end - 1,
+                                    end: categories.position.end - 1,
+                                    newText: categories.elements.length > 0 ? ', non_flammable' : 'non_flammable',
+                                },
+                            ],
+                        };
+                    }
+                } else {
+                    // `Flammable = true` restates the old default: removal is the migration.
+                    data.migration.apply = 'remove';
+                }
+            } else if (deprecation.removeOnMigrate || deprecation.replacement) {
+                // Removal is sanctioned: the field is officially unused, or its still-present
+                // successor already carries the configuration beside it.
+                data.migration.apply = 'remove';
+            }
+        }
+        errors.push({
+            message: deprecation
+                ? deprecation.version
+                    ? l10n.t("'{0}' was removed in game version {1} ({2}).", name, deprecation.version, deprecation.note)
+                    : l10n.t("'{0}' was removed in a newer game version ({1}).", name, deprecation.note)
+                : declaredButDead
+                ? l10n.t("'{0}' is declared by {1} but the game's code never reads it.", name, classLabel)
+                : l10n.t(
+                      "'{0}' is not a member of {1} and is never referenced in this file, so the game ignores it.",
+                      name,
+                      classLabel
+                  ),
+            node: element.left,
+            // Fade the value along with the key: the game reads neither, and the span then
+            // matches what the remove fix deletes.
+            range: { start, end },
+            severity: 'hint',
+            unnecessary: true,
+            data,
+        });
+    };
     const visit = (node: AbstractNode): void => {
         if (cancellationToken.isCancellationRequested) return;
         if (isGroupNode(node)) {
@@ -295,33 +513,7 @@ export const validateIgnoredFields = async (
                 if (!isAssignmentNode(element)) continue;
                 const name = element.left.name;
                 const cls = ignoredFieldClass(node, name, document) ?? deadDeclaredFieldClass(node, name, document);
-                if (!cls) continue;
-                const classLabel = schema.types[cls]?.name ?? cls;
-                const declaredButDead = !!fieldOf(cls, name);
-                const start = element.left.position.start;
-                const end = element.right?.position?.end ?? element.left.position.end;
-                errors.push({
-                    message: declaredButDead
-                        ? l10n.t("'{0}' is declared by {1} but the game's code never reads it.", name, classLabel)
-                        : l10n.t(
-                              "'{0}' is not a member of {1} and is never referenced in this file, so the game ignores it.",
-                              name,
-                              classLabel
-                          ),
-                    node: element.left,
-                    // Fade the value along with the key: the game reads neither, and the span then
-                    // matches what the remove fix deletes.
-                    range: { start, end },
-                    severity: 'hint',
-                    unnecessary: true,
-                    data: {
-                        remove: {
-                            title: l10n.t("Remove '{0}'", name),
-                            start,
-                            end,
-                        },
-                    },
-                });
+                if (cls) report(node, element, cls);
             }
         }
         const children: AbstractNode[] =
@@ -332,6 +524,18 @@ export const validateIgnoredFields = async (
                   : [];
         for (const child of children) if (child) visit(child);
     };
+    // A file that is one object writes its members at the top level (a whole-file media effect, a
+    // part override fragment), where there is no enclosing group to judge them against. Only the
+    // dead-declaration verdict runs here: it needs no class-fit heuristic, since the root class comes
+    // from the rooting engine rather than from a guessed slot. The not-a-member path stays
+    // group-only, where a mis-resolved container can still be detected.
+    const rootClass = documentRootClass(document);
+    for (const element of document.elements) {
+        if (cancellationToken.isCancellationRequested) break;
+        if (!isAssignmentNode(element)) continue;
+        const cls = deadDeclaredIn(rootClass, element.left.name, document);
+        if (cls) report(document, element, cls);
+    }
     for (const element of document.elements) visit(element);
     return errors;
 };

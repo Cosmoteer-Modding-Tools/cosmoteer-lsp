@@ -8,6 +8,21 @@ Cosmoteer Language server provides a lot of useful features, like:
 
 ### Added
 
+- Code mods are understood. A mod that ships a `.dll` declaring its own serializable types has those types, fields, enums and discriminators merged into the schema, so a modded component completes, hovers and validates like a built-in one. Assemblies in the open workspace, in your own `Mods` folder and in installed workshop mods all count, and the schema follows them as they are installed, updated or rebuilt.
+- A code mod's own `///` documentation shows on hover when the mod is built with `<GenerateDocumentationFile>true</GenerateDocumentationFile>`, hover on a modded class links the mod's Steam Workshop page, and `Open in decompiler` opens the class from that mod's own assembly.
+- Code mod support is configurable under Settings | Tools | Cosmoteer Rules | Code mods, and `Rebuild Schema from Code Mod Assemblies` in the Tools menu forces a rebuild.
+- Whole-mod validation is on by default, scoped to what the game actually loads. Backups and templates stay out, and results are cached on disk, so only the first open of a project pays for the scan.
+- Field documentation now covers every field in the schema, with units, ranges and the fields a value interacts with.
+- Twelve more fields the game accepts and then ignores carry the dead-field hint, and a file that is one object gets the hint on its top-level fields too.
+- The three music track collections the game crashes without now count as required.
+- `Migrate Mod to Current Game Version` in the Tools menu upgrades every rules file of the workspace in one undoable edit and reports what it did, grouped by game version. An optional second mode also strips fields the game never reads.
+- Deprecation hints now span the whole recorded changelog history, including `Flammable` and its `non_flammable` category replacement, deleted and renamed fields, and the manifest's `ModifiesMultiplayer` flag.
+- A version-split manifest (`mod_*.rules`) without `CompatibleGameVersions` warns that the game never selects it, with a quick fix that inserts the installed game's version.
+
+## 0.5.0 - 2026-07-18
+
+### Added
+
 - Field-name completion now works while typing a partial name, not only from an empty line.
 - Deeper schema intelligence: fragment files that reach the game through mod actions, convenience-global aliases, and same-file or cross-file inheritance now know their class, so completion, hover and validation work inside them. Typed `Components` maps, font, cursor, sound and shader groups, and map entry-list forms are modeled.
 - `mod.rules` action targets drive intelligence into the files they add: `Add`/`AddMany`/`AddBase`/`Overrides` fragments type from their target, inline action values complete and validate in the manifest, and `<./…>` targets resolve against the install root.

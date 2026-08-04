@@ -10,44 +10,44 @@
 ## ChoiceID
 `→ PartToggleChoice` · required
 
-<!-- TODO: needs documentation -->
+Identifies this choice. The game registers one rebindable hotkey per choice id, and the player's saved binding is stored under `PartToggles/<ChoiceID>` in the input settings, so renaming an id loses existing bindings.
 
 ## ButtonTextKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for the label drawn on the toggle button while this choice is displayed, and on this choice's row in a `Popout` style list. The label is rendered with XML formatting enabled. Note that the game blanks the button's label again whenever `ButtonToolTipKey` is absent, so a choice that wants a visible label should set both keys.
 
 ## ButtonToolTipKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key for the tooltip shown while this choice is displayed on the button, and on this choice's row in a `Popout` style list.
 
 ## ButtonSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+The image drawn on the toggle button while this choice is the displayed mode, and the icon on this choice's row in a `Popout` style list.
 
 ## DefaultHotkey
 `enum ViKey[]` · optional
 
-<!-- TODO: needs documentation -->
+The out of the box key combination that switches the toggle to this choice, written as the list of keys that must be held, for example `[PlatformCmdCtrl, Shift, D]`. Players can rebind it, and choices within the same toggle are allowed to share a binding without being reported as a conflict.
 
 ## AllowHotkeyRevert
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Makes pressing this choice's hotkey while the toggle is already in this mode send the affected parts back to whichever mode they were in before, instead of leaving them unchanged. Useful for a momentary mode such as an override that should snap back on a second press.
 
 ## CreateHotkey
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Registers a rebindable hotkey for this choice. Set it to false for a choice that should only be reachable by clicking, which also keeps it out of the key bindings list.
 
 ## Mode
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The mode number this choice corresponds to on the part's `PartUIToggle`, which is what the part's own rules match against. When omitted, the choice's index in `Choices` is used, so an explicit value is only needed when the part expects numbers that are not 0, 1, 2 and so on. Vanilla's fire mode toggle uses -1 for hold fire.
 
 ## SelectedSound
 `ISoundEffect` · optional
 
-<!-- TODO: needs documentation -->
+Plays when the player switches the toggle to this choice by cycling the button or by picking it from a popout list. It does not play for mode changes made in the ship designer.

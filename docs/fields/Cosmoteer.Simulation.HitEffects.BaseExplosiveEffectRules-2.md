@@ -10,34 +10,34 @@
 ## Radius
 `number` · required
 
-<!-- TODO: needs documentation -->
+The maximum radius of the blast, in tiles. The effect's total pool spreads outward from the epicenter, affecting the nearest objects first until the pool runs out or this radius is reached. Nothing happens when the radius is 0 or negative.
 
 ## Slices
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The number of angular wedges the total effect pool is split evenly into. An object can only drain points from the wedges its silhouette spans as seen from the epicenter, which localizes the effect by direction so a big object on one side cannot soak the whole blast. Defaults to roughly two wedges per tile of blast circumference, and `Slices = 1` puts everything into one shared pool that can go in any single direction, as the vanilla EMP missile and large flak burst do.
 
 ## Delay
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds waited before the blast is applied, defaulting to 0. While waiting, the blast point stays anchored to the hit ship, or keeps drifting at that ship's last velocity if the ship ceases to exist.
 
 ## ExpandDuration
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds over which the blast grows from [[Cosmoteer.Simulation.HitEffects.BaseExplosiveEffectRules`2.ExpandStartRadius]] to [[Cosmoteer.Simulation.HitEffects.BaseExplosiveEffectRules`2.Radius]]. At the default of 0 the full radius is applied instantly. When positive, the effect is re-applied at each radius step of [[Cosmoteer.Simulation.HitEffects.BaseExplosiveEffectRules`2.ExpandIncrement]] tiles, spaced evenly across this duration, stopping early once the pool is spent. The vanilla nuke expands over 0.8 seconds.
 
 ## ExpandIncrement
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The radius step, in tiles, between successive applications of an expanding blast, defaulting to 1. The span from [[Cosmoteer.Simulation.HitEffects.BaseExplosiveEffectRules`2.ExpandStartRadius]] to [[Cosmoteer.Simulation.HitEffects.BaseExplosiveEffectRules`2.Radius]] is divided into equal steps no larger than this. Only used when [[Cosmoteer.Simulation.HitEffects.BaseExplosiveEffectRules`2.ExpandDuration]] is positive.
 
 ## ExpandStartRadius
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The radius, in tiles, at which an expanding blast begins. The first application uses this radius and later applications grow toward [[Cosmoteer.Simulation.HitEffects.BaseExplosiveEffectRules`2.Radius]]. Only used when [[Cosmoteer.Simulation.HitEffects.BaseExplosiveEffectRules`2.ExpandDuration]] is positive. The vanilla nuke starts at 2 tiles.
 
 ## ExpandLoss
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The fraction of each wedge's starting point pool that is forfeited as an expanding blast grows. After each step, a wedge's remaining points are capped at `(1 - currentRadius / Radius * ExpandLoss)` of its starting amount, so at `100%` any points not spent near the center are gone by the time the blast reaches full radius. Only used when [[Cosmoteer.Simulation.HitEffects.BaseExplosiveEffectRules`2.ExpandDuration]] is positive. The vanilla nuke uses `100%`.

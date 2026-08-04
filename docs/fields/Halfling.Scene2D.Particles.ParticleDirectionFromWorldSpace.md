@@ -10,9 +10,9 @@
 ## DirectionIn
 `ParticleDataID` · optional
 
-<!-- TODO: needs documentation -->
+The Vector2 data channel holding a world-space direction vector. Defaults to the channel named `direction_world`. Only the first particle of each update batch is actually sampled, so the input is assumed to be the same for all particles.
 
 ## DirectionOut
 `ParticleDataID` · optional
 
-<!-- TODO: needs documentation -->
+The Vector2 data channel that receives the direction converted into the emitting scene node's local space, ignoring translation. Defaults to the channel named `direction_local`. The vanilla radiator's hit_sparks effect converts the `hit_normal` from a GetHitNormal initializer into local space this way.

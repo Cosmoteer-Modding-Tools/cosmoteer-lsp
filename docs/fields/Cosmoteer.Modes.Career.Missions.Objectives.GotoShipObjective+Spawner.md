@@ -10,24 +10,24 @@
 ## DestinationShipTag
 `SpawnedObjectSearch` · required
 
-<!-- TODO: needs documentation -->
+Search for the already-spawned ship the player must reach. The objective completes the moment that ship comes within sight range of a human player's team.
 
 ## DestinationShipAreaTag
 `SpawnedObjectSearch` · optional
 
-<!-- TODO: needs documentation -->
+Search for a point-of-interest doodad marking the rough area of the destination, used as the mission log's map marker until the ship itself is visible.
 
 ## GetTierFromTierField
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the objective takes its danger tier from the sector's tier field sampled at the destination ship's location. Without it the objective reports no tier.
 
 ## InvertGoTo
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Flips the objective into an escape objective, completing when every one of the player's significant ships is farther than `InvertGoToDistance` from the destination ship, or when that ship dies or leaves the system. Setting it without `InvertGoToDistance` is a fatal rules error.
 
 ## InvertGoToDistance
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The distance in world units the player's ships must put between themselves and the destination ship for an inverted objective to complete. Vanilla's ambush encounter uses 4500.

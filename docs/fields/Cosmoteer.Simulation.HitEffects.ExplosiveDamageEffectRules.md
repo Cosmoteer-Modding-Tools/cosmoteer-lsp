@@ -10,69 +10,69 @@
 ## TotalDamage
 `number` · required
 
-<!-- TODO: needs documentation -->
+The total pool of damage points the explosion distributes, shared by everything caught in the blast. Objects are damaged nearest to the epicenter first, each draining the angular wedges its silhouette covers (see [[Cosmoteer.Simulation.HitEffects.BaseExplosiveEffectRules`2.Slices]]) until the pool is exhausted or the blast radius is reached. Multiplied by the game mode's damage factor between the source and the hit ship, bullet, or crew.
 
 ## DamageType
 `→ DamageType` · optional
 
-<!-- TODO: needs documentation -->
+The damage type used for resistance checks and for the hits inflicted on parts, shields, and targetable bullets. Defaults to `Explosive`. An object that is fully resistant to this type still soaks the pool, draining its wedges without taking damage.
 
 ## SpawnUnderlying
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether parts destroyed by the explosion spawn their underlying part (normally structure) in their place. Set to false to make destroyed parts vanish outright. Has no effect when the triggering hit already forbids spawning underlying parts.
 
 ## StatusChancePerNDamage
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The chance that a part damaged by the explosion gains [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusType]], expressed per [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.NDamage]] points of damage actually dealt to it, defaulting to 0. For example `50%` with `NDamage = 1000` gives a part that takes 500 damage a 25% chance. Vanilla explosive resources such as sulfur use exactly that pairing to start fires.
 
 ## StatusValue
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The value the applied status starts with, interpreted according to [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusValueType]] and defaulting to 1. When [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusValueIsPerNDamage]] is true it is instead multiplied by the damage dealt divided by [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.NDamage]]. Only used when [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusType]] is set.
 
 ## StatusValueType
 `enum StatusValueType` · optional · one of: `Raw`, `Interpolated`
 
-<!-- TODO: needs documentation -->
+How [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusValue]] is interpreted. `Raw` passes the number straight through, while `Interpolated` treats it as a 0..1 fraction mapped across the status type's value clamp range.
 
 ## StatusValueIsPerNDamage
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Scales [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusValue]] by the damage actually dealt to the part divided by [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.NDamage]], instead of applying it as a flat value.
 
 ## StatusDuration
 `number` · optional
 
-<!-- TODO: needs documentation -->
+How long the applied status lasts, in seconds. The default of -1 (any non-positive duration) makes the status permanent until removed by other means. When [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusDurationIsPerNDamage]] is true the duration is instead multiplied by the damage dealt divided by [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.NDamage]].
 
 ## StatusDurationIsPerNDamage
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Scales [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusDuration]] by the damage actually dealt to the part divided by [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.NDamage]], instead of using it as a flat duration.
 
 ## ImpulsePerNDamage
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The physics impulse applied to a hit ship for each [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.NDamage]] points of damage dealt to one of its parts or shields, pushing it directly away from the blast center, defaulting to 0. The vanilla nuke uses 10 per 1000 damage.
 
 ## NDamage
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The damage quantum that all of the PerNDamage fields are expressed against. Raising it lets chances, status values, and impulse be stated per larger blocks of damage, for example `NDamage = 1000` turns [[Cosmoteer.Simulation.HitEffects.ExplosiveDamageEffectRules.StatusChancePerNDamage]] into a chance per 1000 points dealt.
 
 ## Filter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+Which kinds of objects the explosion can affect. Defaults to enemy ships (both operational and structural health), shields, crew, and nuggets, with bullets excluded. Parts excluded by the filter still block the blast and soak wedge points without taking damage, unless they have structural health. Vanilla self-damaging blasts such as reactor explosions add `Friendlies = true`.
 
 ## CrewKillChance
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The chance, as a 0..1 fraction defaulting to 1, that a crew member caught in the blast is harmed at all. Rolled once per crew member, and crew that fail the roll are skipped entirely. Vanilla explosive resources set it to `10%` so most nearby crew survive.
 
 ## StatusType
 `→ StatusType` · optional
 
-<!-- TODO: needs documentation -->
+The status (for example `cosmoteer.fire`) that parts damaged by the explosion can catch, applied at the tile or part layer according to the status type's own layer. All of the other Status fields are ignored while this is unset. Vanilla sulfur and explosive munition resources use it to ignite fires on the parts they damage.

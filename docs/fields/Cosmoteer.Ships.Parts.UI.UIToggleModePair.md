@@ -10,9 +10,9 @@
 ## ToggleID
 `→ PartToggleGuiRules` · optional
 
-<!-- TODO: needs documentation -->
+The UI toggle whose current mode is compared, named by the [[Cosmoteer.Ships.Parts.UI.PartUIToggleRules.ToggleID]] of a UIToggle on the same part. Used by `BlueprintSprite` components' `ShowOnlyInToggleMode` to draw a sprite only in one toggle mode, as the vanilla missile launcher does to show a different blueprint sprite per missile type.
 
 ## Mode
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The mode number that satisfies the pair. The owning blueprint sprite is drawn only while the referenced toggle's blueprint mode equals exactly this number.

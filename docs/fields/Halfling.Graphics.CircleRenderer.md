@@ -10,7 +10,7 @@
 ## Dashes
 `CircleDashInfo[]` · optional
 
-<!-- TODO: needs documentation -->
+The dash pattern drawn around the circle. Each entry occupies an angular slice proportional to its [[Halfling.Graphics.CircleDashInfo.SizeWeight]], and the whole pattern repeats [[Halfling.Graphics.CircleRenderer.DashRepeat]] plus one times around [[Halfling.Graphics.CircleRenderer.Arc]]. When absent the circle is one unbroken ring. The vanilla ship selection circle in `gui/game/sim_gui.rules` combines this with `DashRepeat` for its segmented look.
 
 ## Shader
 `asset (shader)` · optional
@@ -85,9 +85,9 @@ The number of times that the dashes will repeat. The default is 0.
 ## Source
 `Rect` · optional
 
-<!-- TODO: needs documentation -->
+The pixel rectangle `[x, y, width, height]` on [[Halfling.Graphics.CircleRenderer.Texture]] to sample, converted to UV coordinates on load. Only used when [[Halfling.Graphics.CircleRenderer.UVRect]] is not set and a texture is present. When both are absent the whole texture is used.
 
 ## OuterRadius
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The distance from the center of the circle to its outside edge, as an alternative way to size the ring. When given together with [[Halfling.Graphics.CircleRenderer.InnerRadius]] it determines [[Halfling.Graphics.CircleRenderer.Thickness]] as the difference of the two. When given with only Thickness it determines InnerRadius instead.

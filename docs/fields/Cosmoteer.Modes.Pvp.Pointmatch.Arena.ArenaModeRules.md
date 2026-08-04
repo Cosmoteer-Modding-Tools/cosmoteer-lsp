@@ -10,74 +10,74 @@
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The sprite identifying arena mode in the multiplayer game list and in the lobby's mode header.
 
 ## ValuePerPoint
 `float` · required
 
-<!-- TODO: needs documentation -->
+How many credits of ship value are worth one arena point. A ship enters the match carrying its total physical value divided by this, rounded up, and that pool is what attackers earn as they chew through it.
 
 ## RollingDamageTime
 `Time` · required
 
-<!-- TODO: needs documentation -->
+The window of recent damage remembered per attacker on each ship. When a ship finally dies, the leftover points are split between players in proportion to the damage they did inside this window, so a finishing blow alone does not take the whole kill.
 
 ## RespawnDelay
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long after a player loses all their ships before they respawn automatically.
 
 ## ManualRespawnCooldown
 `Time` · required
 
-<!-- TODO: needs documentation -->
+The minimum time after a player's last spawn before the manual respawn button becomes usable again.
 
 ## NotRespawningPenaltyFractionPerSecond
 `float` · required
 
-<!-- TODO: needs documentation -->
+The fraction of a player's current score drained per second while they sit dead and refuse to respawn. The drain only touches players with a positive score, so it cannot push anyone below zero on its own.
 
 ## NotRespawningPenaltyDelay
 `float` · required
 
-<!-- TODO: needs documentation -->
+The grace period on top of `RespawnDelay` before the score drain starts, in seconds. It is declared as a plain number rather than a `Time` unlike every other duration here, so time-style values are not accepted.
 
 ## RespawnSelfDestructDuration
 `Time` · required
 
-<!-- TODO: needs documentation -->
+How long an abandoned ship takes to self destruct once its owner despawns with no points left on that ship. Ships that still hold points are left floating as abandoned wrecks instead.
 
 ## MinRespawnDistanceFromCenter
 `float` · required
 
-<!-- TODO: needs documentation -->
+The radius from the map center at which the search for a respawn position starts, in world units. It grows by `RespawnCheckDistanceIncrement` each time a full circle of candidate angles is rejected.
 
 ## MinRespawnDistanceFromOthers
 `float` · required
 
-<!-- TODO: needs documentation -->
+The clearance kept from other living ships when placing a respawning fleet, in world units. The fleet's own bounding radius is added on top, so this is a gap between hulls rather than between centers.
 
 ## RespawnCheckAngleIncrement
 `number (degrees)` · required
 
-<!-- TODO: needs documentation -->
+The angular step between candidate respawn positions tested around the current search radius. Smaller values try more spots per ring at the cost of more work per respawn.
 
 ## RespawnCheckDistanceIncrement
 `float` · required
 
-<!-- TODO: needs documentation -->
+How far the respawn search radius grows in world units after every candidate angle at the current radius has been rejected.
 
 ## JunkDamageFractionPerTick
 `float` · required
 
-<!-- TODO: needs documentation -->
+The fraction of a part's max health destroyed each time decay damage hits a part of a derelict or abandoned ship. Ships whose rules set `ImmuneToEnvDamage` are skipped.
 
 ## JunkDamageChancePerTick
 `float` · required
 
-<!-- TODO: needs documentation -->
+The chance per physics tick that any one part of a derelict or abandoned ship is hit by decay damage. Vanilla sets both this and the fraction to 1 so abandoned hulls are shredded almost immediately.
 
 ## EnemyDefeatedSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays for the local player when they are credited with finishing off an enemy ship, alongside the enemy defeated banner.

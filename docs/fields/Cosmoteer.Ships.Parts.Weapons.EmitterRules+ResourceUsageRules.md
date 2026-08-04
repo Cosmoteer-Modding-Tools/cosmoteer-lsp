@@ -10,14 +10,14 @@
 ## ResourceStorage
 `→ PartComponentRules` · required
 
-<!-- TODO: needs documentation -->
+The resource storage component on the same part that this entry drains when the emitter fires.
 
 ## ResourcesUsed
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The amount drained from the storage per shot, scaled by [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.ResourceScaleFactor]] and rounded up. Defaults to 1. With [[Cosmoteer.Ships.Parts.Weapons.EmitterRules.UseResourcePerShotInBurst]] off it is only deducted once per burst, on the final shot.
 
 ## MinResourcesUsed
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The minimum amount that must be ready in the storage for the emitter to fire, checked instead of the scaled [[Cosmoteer.Ships.Parts.Weapons.EmitterRules+ResourceUsageRules.ResourcesUsed]] amount. The amount actually deducted is unchanged. Vanilla beam weapons set 1 so they can keep firing from a nearly empty battery.

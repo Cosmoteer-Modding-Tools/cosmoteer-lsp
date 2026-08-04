@@ -10,14 +10,14 @@
 ## Part
 `→ PartRules` · optional
 
-<!-- TODO: needs documentation -->
+Part type this entry can place. Defaults to the ship class's first part type when left unset.
 
 ## Score
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Amount each placement of this part subtracts from the stage's remaining score budget, so higher-scored parts are placed fewer times. A part is only eligible while its score fits the remaining budget. Editor slider runs 1 to 10.
 
 ## Weight
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Selection weight among the currently affordable parts, higher weights making this part more likely to be chosen for each placement. Editor slider runs 0 to 100.

@@ -10,54 +10,54 @@
 ## AtlasSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+A sprite whose texture is sliced into animation frames on a grid, as an alternative to listing [[Halfling.Graphics.AnimatedSprite.Frames]] individually. When present, [[Halfling.Graphics.AnimatedSprite.FrameCount]] and [[Halfling.Graphics.AnimatedSprite.FrameSize]] must also be given. The vanilla large cannon bullet slices a 4x4 atlas this way in `shots/bullet_large/bullet_large.rules`.
 
 ## FrameCount
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The number of frames cut from [[Halfling.Graphics.AnimatedSprite.AtlasSprite]]. Frames are taken left to right, top to bottom. Required when AtlasSprite is used, ignored otherwise.
 
 ## FrameSize
 `IntVector2` · optional
 
-<!-- TODO: needs documentation -->
+The pixel size `[width, height]` of each frame cut from [[Halfling.Graphics.AnimatedSprite.AtlasSprite]]. Required when AtlasSprite is used.
 
 ## FramePadding
 `IntVector2` · optional
 
-<!-- TODO: needs documentation -->
+The pixel gap `[x, y]` between adjacent frames in the atlas grid. Defaults to no gap.
 
 ## FramesOffset
 `IntVector2` · optional
 
-<!-- TODO: needs documentation -->
+The pixel offset of the top-left corner of the first frame within the atlas texture. Defaults to `[0, 0]`.
 
 ## FramesPerRow
 `int` · optional
 
-<!-- TODO: needs documentation -->
+How many frames sit in each row of the atlas grid before slicing wraps to the next row. When omitted all frames are taken from a single row.
 
 ## Frames
 `Sprite[]` · optional
 
-<!-- TODO: needs documentation -->
+The list of sprites played in sequence, one per frame. Required when [[Halfling.Graphics.AnimatedSprite.AtlasSprite]] is not used. At least one frame must be given.
 
 ## Duration
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The total time of one pass through all frames, in seconds. Takes precedence over [[Halfling.Graphics.AnimatedSprite.FramesPerSecond]] and [[Halfling.Graphics.AnimatedSprite.Interval]]. The per-frame interval becomes Duration divided by the frame count.
 
 ## FramesPerSecond
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The playback rate in frames per second. Used when [[Halfling.Graphics.AnimatedSprite.Duration]] is absent.
 
 ## Interval
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The time each frame is displayed, in seconds. Required when neither [[Halfling.Graphics.AnimatedSprite.Duration]] nor [[Halfling.Graphics.AnimatedSprite.FramesPerSecond]] is given.
 
 ## WrapMode
 `enum AnimationWrapMode` · optional · one of: `Loop`, `Clamp`, `PingPong`
 
-<!-- TODO: needs documentation -->
+What happens when the animation reaches its end. `Loop` restarts from the beginning, `Clamp` stops on the final frame, `PingPong` reverses direction at either end. Defaults to `Loop`.

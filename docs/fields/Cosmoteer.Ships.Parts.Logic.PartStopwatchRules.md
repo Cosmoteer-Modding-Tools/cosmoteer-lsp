@@ -10,29 +10,29 @@
 ## Max
 `float` · required
 
-<!-- TODO: needs documentation -->
+The maximum elapsed time, in seconds, that the stopwatch can accumulate. The elapsed time is clamped to this cap every update and holds there until reset. The elapsed time is also the value this component reports to other components.
 
 ## TimeScaleMultiplier
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Multiplier on how fast the stopwatch advances relative to real time. Each fixed update adds the update interval times this multiplier to the elapsed time. The stopwatch only counts while the part is operational.
 
 ## StartValue
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The elapsed time, in seconds, that the stopwatch begins at and returns to whenever it is reset.
 
 ## ResetOnOperational
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Resets the elapsed time to [[Cosmoteer.Ships.Parts.Logic.PartStopwatchRules.StartValue]] whenever the part becomes operational.
 
 ## ResetOnNotOperational
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Resets the elapsed time to [[Cosmoteer.Ships.Parts.Logic.PartStopwatchRules.StartValue]] whenever the part stops being operational. Without either reset option the elapsed time simply pauses while non-operational and persists in saves.
 
 ## ResetTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+A trigger component on the same part that resets the elapsed time to [[Cosmoteer.Ships.Parts.Logic.PartStopwatchRules.StartValue]] each time it fires.

@@ -10,19 +10,19 @@
 ## AttackRotationSwitchThresholdFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplies the estimated firepower of the rotation the ship is currently holding while the candidates are compared, so a different rotation has to beat the current one by this factor before the ship turns. Vanilla combat AIs use 1.25.
 
 ## AttackRotationsToCheck
 `int` · required
 
-<!-- TODO: needs documentation -->
+Number of candidate rotations evaluated, spread evenly around the full circle starting from the current attack rotation. Vanilla combat AIs use 8, which gives 45 degree steps.
 
 ## RotateOnly
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Picks only the best rotation and never touches the attack radius, which is what immobile ships such as defense platforms want. It also suppresses the saved attack radius from [[Cosmoteer.Ships.AI.TacticsModules.AIDefaultAttackRadiusAndRotationModuleRules.UseSavedAboveHealth]], while the saved rotation is still honoured.
 
 ## UseSavedAboveHealth
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Health fraction, meaning current physical value divided by blueprint cost, above which the ship uses the attack radius and rotation saved on its blueprint instead of recomputing them. Below the threshold, or when the field is left unset, the ship always recomputes. Vanilla combat AIs use 50%.

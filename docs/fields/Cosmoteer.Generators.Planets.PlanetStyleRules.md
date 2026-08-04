@@ -10,14 +10,14 @@
 ## HeightMaps
 `HeightMapGenerator[]` · optional
 
-<!-- TODO: needs documentation -->
+List of height map generators for the style, each generated at twice the planet's horizontal pixel size and keyed by its Name so layers can reference it. Only enabled generators run.
 
 ## Layers
 `PlanetLayerRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Ordered list of layers making up the style. Each enabled layer is drawn front-to-back, preceded by a reverse-order background pass. Entries are polymorphic, so a layer can be a texture, waves, halo or ring generator.
 
 ## Spin
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Range for the planet's rotation speed. A random value in the range is chosen, its direction randomly flipped, then scaled by the caller's spin factor. Default 0.0025 to 0.005.

@@ -10,59 +10,59 @@
 ## PartDestroyed
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Chance from 0 to 1 that a nugget of this resource drops when a part holding it is destroyed by damage, for non-player-owned ships. The actual drop chance is interpolated between this and [[PartSalvaged]] by how much of the part was salvaged rather than destroyed. [[PlayerPartDestroyed]] overrides it for the local player.
 
 ## PlayerPartDestroyed
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Overrides [[PartDestroyed]] when the destroyed part belongs to a player-owned ship. Falls back to [[PartDestroyed]] when left unset.
 
 ## PartSalvaged
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Drop chance from 0 to 1 for a fully salvaged part, for non-player ships. The effective chance is interpolated between [[PartDestroyed]] and this value by the salvage fraction, so a cleanly salvaged part uses this rate. [[PlayerPartSalvaged]] overrides it for the player.
 
 ## PlayerPartSalvaged
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Overrides [[PartSalvaged]] when the salvaged part belongs to a player-owned ship. Falls back to [[PartSalvaged]] when left unset.
 
 ## StorageDestroyed
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Chance from 0 to 1 that a nugget drops when a storage part holding this resource is destroyed, for non-player ships. Interpolated toward [[StorageSalvaged]] by salvage fraction. Also used as the fallback for [[CrewKilled]]. [[PlayerStorageDestroyed]] overrides it for the player.
 
 ## PlayerStorageDestroyed
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Overrides [[StorageDestroyed]] when the destroyed storage belongs to a player-owned ship. Falls back to [[StorageDestroyed]] when left unset.
 
 ## StorageSalvaged
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Drop chance from 0 to 1 for a fully salvaged storage part, for non-player ships. The effective chance is interpolated between [[StorageDestroyed]] and this value by salvage fraction. [[PlayerStorageSalvaged]] overrides it for the player.
 
 ## PlayerStorageSalvaged
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Overrides [[StorageSalvaged]] when the salvaged storage belongs to a player-owned ship. Falls back to [[StorageSalvaged]] when left unset.
 
 ## CrewKilled
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Chance from 0 to 1 that a nugget drops when a crew member carrying this resource is killed, for non-player ships. When unset, [[StorageDestroyed]] is used instead. [[PlayerCrewKilled]] overrides it for the player. Salvage fraction does not affect crew drops.
 
 ## PlayerCrewKilled
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Overrides [[CrewKilled]] when the killed crew belongs to a player-owned ship. Falls back through [[CrewKilled]], then [[PlayerStorageDestroyed]], then [[StorageDestroyed]] when left unset.
 
 ## PartRepairCost
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Fraction of a part's build cost, per unit of damage, charged in this resource to repair the part, for non-player ships. Repair cost is `ceil(buildCost * damageFraction * PartRepairCost)`, capped so it never exceeds the resources that would be recoverable by deconstructing. [[PlayerPartRepairCost]] overrides it for the player.
 
 ## PlayerPartRepairCost
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Overrides [[PartRepairCost]] when repairing a player-owned ship's part. Falls back to [[PartRepairCost]] when left unset.

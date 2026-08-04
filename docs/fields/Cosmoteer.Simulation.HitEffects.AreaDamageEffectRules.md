@@ -10,49 +10,49 @@
 ## Damage
 `number` · required
 
-<!-- TODO: needs documentation -->
+The damage dealt at the epicenter, in health points. Unlike the `ExplosiveDamage` effect there is no shared pool, every tile, bullet, and crew member in the circle is damaged independently, scaled down by [[Cosmoteer.Simulation.HitEffects.AreaDamageEffectRules.Falloff]] with distance and multiplied by the game mode's damage factor. Against shields it acts as damage per meter of shield arc inside the circle. The effect is skipped entirely when both this and [[Cosmoteer.Simulation.HitEffects.AreaDamageEffectRules.DamagePerTileHealth]] resolve to 0.
 
 ## DamagePerTileHealth
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Extra damage dealt to each affected tile equal to this fraction of the hit part's per-tile health (its max health divided by its footprint in tiles), defaulting to 0. Applied without falloff or damage-factor scaling, so `1` wipes out a part's tile-share of health outright. Only applies to ship parts, not shields, bullets, or crew.
 
 ## DamageType
 `→ DamageType` · optional
 
-<!-- TODO: needs documentation -->
+The damage type of the inflicted hits, checked against the resistances of the parts, shields, and targetable bullets that receive them. Defaults to the default damage type.
 
 ## SpawnUnderlying
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether parts destroyed by this damage spawn their underlying part (normally structure) in their place. Set to false to make destroyed parts vanish outright. Has no effect when the triggering hit already forbids spawning underlying parts.
 
 ## Radius
 `number` · required
 
-<!-- TODO: needs documentation -->
+The radius of the damaged circle, in tiles. Tiles whose centers fall inside the circle are damaged, processed nearest to the epicenter first. Nothing happens when it is 0 or negative.
 
 ## RectType
 `enum PartRectType` · optional · default `Physical` · one of: `Normal`, `Physical`
 
-<!-- TODO: needs documentation -->
+Which footprint is used to find the part occupying each damaged cell. `Physical` respects a part's `PhysicalRect` when it declares one, so cells outside that rect hit nothing there. `Normal` matches every cell of the part's full footprint. The vanilla overclocked large laser bolt uses `Normal`.
 
 ## Falloff
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The exponent shaping how damage drops from full at the epicenter to zero at the circle's edge, defaulting to 1. The linear distance fraction is raised to this power, so `1` is a straight linear falloff, `0` disables falloff so the full damage applies everywhere inside the circle, and larger values concentrate damage near the center. Does not apply to [[Cosmoteer.Simulation.HitEffects.AreaDamageEffectRules.DamagePerTileHealth]].
 
 ## Delay
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Seconds waited before the damage is applied, defaulting to 0. While waiting, the blast point stays anchored to the hit ship, or keeps drifting at that ship's last velocity if the ship ceases to exist. Vanilla railgun parts delay their death blast by 0.15 seconds so destruction visibly chains from segment to segment.
 
 ## Filter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+Which kinds of objects the blast can damage. Defaults to enemy ships (both operational and structural health), shields, crew, and nuggets, with bullets excluded. Vanilla railgun parts add `Friendlies = true` to their death blast so a destroyed segment damages the neighboring segments of its own ship.
 
 ## CrewKillChance
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The chance, as a 0..1 fraction defaulting to 1, that a crew member in the area is harmed at all. Rolled once per crew member, and crew that fail the roll are skipped entirely. Crew that pass take the normal falloff-scaled damage.

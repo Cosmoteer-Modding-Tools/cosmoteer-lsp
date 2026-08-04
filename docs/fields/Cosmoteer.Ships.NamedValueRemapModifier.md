@@ -10,14 +10,14 @@
 ## RemapFrom
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Input range of the named value that gets mapped. A value at RemapFrom.Min maps to RemapTo.Min and one at RemapFrom.Max maps to RemapTo.Max, linearly in between.
 
 ## RemapTo
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Output range the named value is mapped onto. The mapped result becomes the modifier value that ModificationMode then combines with the running value.
 
 ## Clamp
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+When true the named value is clamped to RemapFrom before mapping, so values outside the input range produce RemapTo.Min or RemapTo.Max rather than extrapolating past them. When false the mapping is unclamped.

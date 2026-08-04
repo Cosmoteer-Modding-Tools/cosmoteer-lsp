@@ -10,114 +10,114 @@
 ## Volume
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Volume multiplier for the sound, where 1 is full volume. The final volume also includes the intensity-driven [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.VolumeOverIntensity]] factor and any [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.DynamicVolume]] attenuation, and can be adjusted in decibels via [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.Db]]. Defaults to 1.
 
 ## Speed
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Playback speed multiplier, where 1 is normal speed. The final speed also includes the intensity-driven [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.SpeedOverIntensity]] factor and the random [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.SpeedVariation]] factor. Sounds fade to silent as their final speed approaches 0.
 
 ## SpeedVariation
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Random playback speed variation applied each time the sound starts. The speed is multiplied by a factor picked uniformly between 1 minus and 1 plus this value. The vanilla point defense shot uses 0.05 for subtle pitch variety.
 
 ## VolumeOverIntensity
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Volume multiplier range mapped over the effect's intensity. The intensity is first normalized to a 0 to 1 fraction via [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.IntensityBounds]] and then interpolated between this range's Min and Max. Defaults to `[0, 1]`, so volume scales directly with intensity. Set a single value such as 1 for intensity-independent volume, as many vanilla beam sounds do.
 
 ## SpeedOverIntensity
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Playback speed multiplier range mapped over the effect's intensity, normalized via [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.IntensityBounds]]. Defaults to a constant 1. The vanilla tractor beam uses `[1, 2]` so its hum pitches up with intensity.
 
 ## IntensityBounds
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The intensity values mapped onto the low and high ends of [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.VolumeOverIntensity]] and [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.SpeedOverIntensity]]. The absolute value of the effect's intensity is converted to a 0 to 1 fraction within these bounds, clamped at the ends. Defaults to `[0, 1]`.
 
 ## Start
 `range<Time>` · optional
 
-<!-- TODO: needs documentation -->
+The position within the sound file at which playback starts, in seconds. When Min and Max differ, a random position within the range is picked each time the sound plays.
 
 ## RampUpTime
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds over which the sound fades in from silent when it starts. With the default of 0 the sound starts at full volume.
 
 ## RampDownTime
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds over which a continuously playing sound fades out after being told to end. With the default of 0 the sound cuts off immediately. Not used when the stop is immediate or when [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.StopFinishesLoop]] takes effect instead.
 
 ## RampAffectsSpeedIntensity
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Applies the fade-in and fade-out ramp factor to the intensity used for the speed calculation as well, so the pitch from [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.SpeedOverIntensity]] ramps together with the volume. The vanilla tractor beam enables this.
 
 ## DynamicVolume
 `DynamicVolumeRules` · optional
 
-<!-- TODO: needs documentation -->
+Rules that continuously attenuate the sound's volume based on camera distance, camera zoom, and the roof opacity of the relevant ship. Vanilla part ambience uses this so machinery is only heard when zoomed in close, with interior sounds muted while the roof is shown.
 
 ## DynamicFilter
 `DynamicFilterRules` · optional
 
-<!-- TODO: needs documentation -->
+Rules that apply a frequency filter whose strength grows with camera distance and zoom. Vanilla uses a low-pass sweep from 7350 Hz down to 500 Hz to muffle sounds when viewed from afar.
 
 ## StopFinishesLoop
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets a looping sound finish its current loop iteration instead of stopping when the effect ends non-immediately. Ignored when [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.MaxConcurrent]] is greater than 0, because shared sound instances cannot alter their looping.
 
 ## MaxConcurrent
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Maximum number of real sound instances of this effect playing at once, counted per [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.ConcurrencyMode]]. One-shot plays beyond the limit are dropped. Looping plays beyond the limit merge into the quietest existing instance when [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.AllowStacking]] is enabled. The default of 0 disables concurrency limiting entirely.
 
 ## ConcurrencyMode
 `enum ConcurrencyMode` · optional · one of: `Global`, `PerShip`
 
-<!-- TODO: needs documentation -->
+Whether the [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.MaxConcurrent]] limit counts instances across the entire simulation (`Global`) or separately for each ship playing the effect (`PerShip`).
 
 ## MaxConcurrentVolume
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Upper bound on the combined output volume of a shared looping instance when multiple plays stack via [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.AllowStacking]]. The stacked plays' volumes are summed and then clamped to this value. When not specified it defaults to the base value of [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.Volume]] rather than to 1.
 
 ## ConcurrencyDuration
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+Seconds of playback after which a one-shot instance releases its [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.MaxConcurrent]] slot, letting new plays start before the sound has fully finished. When unset the slot is held until the instance stops.
 
 ## AllowStacking
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Whether looping plays over the [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.MaxConcurrent]] limit share existing sound instances, adding their volume up to [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.MaxConcurrentVolume]] instead of being dropped. When false, looping plays hold individual concurrency slots like one-shots and plays beyond the limit are rejected. Only relevant when MaxConcurrent is greater than 0.
 
 ## OnlyWhenInSight
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Silences the sound when its location is outside the local player's vision. Checked once when a one-shot starts, in which case the play is skipped entirely, and every frame for looping sounds.
 
 ## Filter
 `EffectFilter` · optional
 
-<!-- TODO: needs documentation -->
+Conditions on what the effect hit, such as ship allegiance, part categories, shields, bullets, or crew, that must pass for the sound to play. The filter is re-checked while the sound plays, muting it whenever the conditions stop holding.
 
 ## RandomSounds
 `asset (sound)[]` · optional
 
-<!-- TODO: needs documentation -->
+Sound files from which one is picked at random each time the effect plays. Takes precedence over [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.Sound]].
 
 ## Sound
 `asset (sound)` · optional
 
-<!-- TODO: needs documentation -->
+The sound file to play. Required unless [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.RandomSounds]] is provided instead.
 
 ## Db
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Volume adjustment in decibels, converted to a linear factor and multiplied into the base value of [[Cosmoteer.Simulation.MediaEffects.AudioEffectRules.Volume]]. Negative values quieten the sound and positive values amplify it. The vanilla point defense shot uses -6.

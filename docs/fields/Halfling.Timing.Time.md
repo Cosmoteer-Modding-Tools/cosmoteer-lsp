@@ -10,4 +10,4 @@
 ## _seconds
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The time span in seconds. A Time value is normally written directly as a plain number thanks to its empty serialization alias, so a `_seconds` key never actually appears in rules files. Values containing colons are also accepted as clock strings, where `1:30` means 1 minute 30 seconds and `1:00:00` means 1 hour.

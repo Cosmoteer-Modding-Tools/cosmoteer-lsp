@@ -10,19 +10,19 @@
 ## LightningChancePerTilePerTick
 `float` · required
 
-<!-- TODO: needs documentation -->
+The number of strike attempts per physics tick per tile of the ship's bounding rectangle, multiplied by the ship's nebula strength. Each attempt picks a random tile in that rectangle and does nothing if no part occupies it, so the actual strike rate works out to roughly one per ship part. Values of 0 or less disable the effect entirely.
 
 ## OriginDistanceFromShip
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+The random distance in tiles, measured outward from the ship's bounding radius, at which a bolt originates. The strike is cancelled if the chosen origin lies outside the nebula or if any ship overlaps a circle of radius `OriginDistanceFromShip` Min around it.
 
 ## HitEffects
 `MultiHitEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+The hit effects applied where the bolt's ray cast first connects, which may be a shield or a different ship than the one that attracted the strike.
 
 ## MediaEffects
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+The one-shot media effects played at the impact point, with SourceLocation set to the bolt origin so a beam can be drawn between the two.

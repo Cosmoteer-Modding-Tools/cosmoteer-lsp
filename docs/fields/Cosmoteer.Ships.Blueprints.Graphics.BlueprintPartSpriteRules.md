@@ -10,4 +10,4 @@
 ## ShowOnlyInToggleMode
 `UIToggleModePair` · optional
 
-<!-- TODO: needs documentation -->
+Restricts the sprite to a single build-mode toggle state. It pairs a toggle ID with a mode value, and the sprite draws only while that toggle sits in that mode. When omitted the sprite always draws.

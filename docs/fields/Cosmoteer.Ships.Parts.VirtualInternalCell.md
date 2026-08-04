@@ -10,9 +10,9 @@
 ## ExternalCell
 `IntVector2` · required
 
-<!-- TODO: needs documentation -->
+The cell, in un-rotated coordinates relative to the part's top-left and often outside its footprint, from whose viewpoint [[Cosmoteer.Ships.Parts.VirtualInternalCell.InternalCell]] is treated as enclosed hull interior. The pair feeds the external wall, blueprint wall, and destroyed-part wall renderers, letting hull walls wrap correctly around a sloped part's diagonal face. Cells are transformed with the part's placement, and pairs are ignored while the part is under construction.
 
 ## InternalCell
 `IntVector2` · required
 
-<!-- TODO: needs documentation -->
+The cell that counts as solid, fully walled interior when wall rendering is evaluated from [[Cosmoteer.Ships.Parts.VirtualInternalCell.ExternalCell]]. Vanilla wedge armor pairs the two cells flanking its slope, for example `{ExternalCell=[0, -1]; InternalCell=[1, 0]}` on `armor_wedge`.

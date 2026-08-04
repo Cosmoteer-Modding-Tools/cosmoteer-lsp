@@ -10,14 +10,14 @@
 ## TeamCount
 `int` · required
 
-<!-- TODO: needs documentation -->
+How many teams the match is split into. Zero means free for all, where every player becomes their own team and the scoreboard hides team grouping.
 
 ## NameFmtKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for this entry's label in the teams drop list. It is formatted with one argument, `TeamCount`.
 
 ## IsDefault
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the entry preselected when the host opens the lobby. Exactly one entry in the list must set it, since the game takes the first match and throws when there is none.

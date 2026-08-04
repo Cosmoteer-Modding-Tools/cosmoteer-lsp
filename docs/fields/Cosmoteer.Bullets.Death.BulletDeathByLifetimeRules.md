@@ -10,9 +10,9 @@
 ## Lifetime
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+How long the bullet lives, in seconds, rolled randomly between Min and Max when the bullet spawns. When unset, the lifetime is the bullet's [[Cosmoteer.Bullets.BulletRules.Range]] divided by its speed, so the bullet expires right at its nominal range.
 
 ## HasTarget
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Restricts when this death component is attached at all. True attaches it only to bullets fired with a target, false only to bullets fired without one, and leaving it unset attaches it always.

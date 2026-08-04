@@ -10,19 +10,19 @@
 ## MinBuffValue
 `float` · optional · default `-∞`
 
-<!-- TODO: needs documentation -->
+The lowest combined buff value, inclusive, at which the toggle turns on. A part that is not receiving the buff at all keeps the toggle off regardless of this bound.
 
 ## MaxBuffValue
 `float` · optional · default `∞`
 
-<!-- TODO: needs documentation -->
+The highest combined buff value, inclusive, at which the toggle turns on. Together with [[Cosmoteer.Ships.Parts.Buffs.PartBuffToggleRules.MinBuffValue]] this forms the window the part's current buff value must fall into.
 
 ## Invert
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Reverses the toggle so it is on while the part is not buffed or its buff value falls outside the window.
 
 ## BuffType
 `→ BuffType` · optional
 
-<!-- TODO: needs documentation -->
+The buff type watched on the owning part. The toggle is on while the part's combined value for this buff lies within [[Cosmoteer.Ships.Parts.Buffs.PartBuffToggleRules.MinBuffValue]] to [[Cosmoteer.Ships.Parts.Buffs.PartBuffToggleRules.MaxBuffValue]]. Vanilla thrusters watch the `EnginePowerDistribution` buff to switch off their own battery consumer while an engine room supplies them. Although marked optional, the value is always read and loading fails without it.

@@ -10,19 +10,19 @@
 ## DefaultPatrolRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radius in world units of the circle around the spawner's patrol origin inside which random stasis destinations are rolled. Overridden per ship by [[Cosmoteer.Ships.AI.AIParameters.PatrolRadius]], and paired with [[Cosmoteer.Ships.AI.AIParameters.MinPatrolRadius]] as an inner keep-out circle.
 
 ## DefaultStasisSpeed
 `float` · required
 
-<!-- TODO: needs documentation -->
+Speed in world units per second at which the stasis spawner drifts toward its patrol destination. Overridden per ship by [[Cosmoteer.Ships.AI.AIParameters.StasisSpeed]], except for the kick of velocity the ship is given when it leaves stasis, which always uses this value.
 
 ## AvoidableDoodadTags
 `→ SimObjectSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Ids of doodad spawners, such as `sun` or `station`, that the spawner will neither pick as a destination nor drift through. Leaving it unset disables doodad avoidance, nebulas flagged as AI-avoidable are still routed around either way.
 
 ## AvoidableDoodadBuffer
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Extra distance in world units added to the radius of every doodad matched by [[Cosmoteer.Ships.AI.StasisModules.AIStasisAreaPatrolModuleRules.AvoidableDoodadTags]]. Vanilla AIs use 100.

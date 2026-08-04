@@ -10,9 +10,9 @@
 ## Scale
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplier applied to the status value's distance from Basis. The scaled value `(statusValue - Basis) * Scale + Basis` is added to BaseStatusValue, converted per ValueType, and raised to the inherited Exponent before ModificationMode combines it with the running value.
 
 ## Basis
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Pivot point the status value is scaled toward or away from, rather than from zero. Defaults to 0.

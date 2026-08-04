@@ -10,37 +10,37 @@
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the stat's name, inserted into the default tooltip formats `BuildBox/StatBarTipFmt` or `BuildBox/StatBarTipIdealFmt`. Ignored when [[CustomTooltipTextKey]] is set.
 
 ## Icon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+Icon shown at the right end of the bar, 32px wide.
 
 ## NumberFormat
 `string` · optional
 
-<!-- TODO: needs documentation -->
+.NET numeric format string applied to the provided value text. Ignored when [[CustomValueTextKey]] is set. Without it the value is formatted with its default ToString.
 
 ## CustomValueTextKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key formatted with the provided, ideal, minimum, and capacity values to produce the bar's value text, replacing the plain number from [[NumberFormat]].
 
 ## CustomTooltipTextKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key formatted with the provided, ideal, minimum, and capacity values to produce the tooltip, replacing the default name-based format.
 
 ## CustomValueLabel
 `Label` · optional
 
-<!-- TODO: needs documentation -->
+Label style override for the value text. Falls back to the defaults provider's value label, then the standard widget label.
 
 ## RecommendedStat
 `→ PartStatRules` · optional
 
-<!-- TODO: needs documentation -->
+References the [[Cosmoteer.Game.PartStatRules|PartStatRules]] whose total marks the ideal/recommended value, drawn as the ideal line across the bar. Extra bar space past this line is governed by [[IdealExtraSpaceFactor]].
 
 ## AdditionalStatMarkers
 `StatBarMarkerRules[]` · optional
@@ -50,34 +50,34 @@ Additional values to display in the bar tooltip, and optionally as a Recommended
 ## ProvidedStat
 `→ PartStatRules` · optional
 
-<!-- TODO: needs documentation -->
+References the [[Cosmoteer.Game.PartStatRules|PartStatRules]] whose total is the value the bar actually fills to, shown as the numeric value text.
 
 ## AddCrewToProvidedStat
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Adds the ship's assigned crew count (including the pending crew delta) to the provided value and the total crew capacity to the bar's capacity, on top of [[ProvidedStat]]. Used for the crew stat bar.
 
 ## RoundUp
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Rounds the minimum and ideal totals up to whole numbers and truncates the provided value to an integer before display, so the bar shows only whole units.
 
 ## IdealExtraSpaceFactor
 `float` · optional · default `1.2`
 
-<!-- TODO: needs documentation -->
+Multiplier on the ideal value that sets how far the bar extends past the ideal line. The bar's full length is the larger of the provided value and ideal times this factor.
 
 ## BlocksPerValue
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Number of repeated segment blocks drawn per unit of stat value, controlling the UV repeat spacing of [[SegmentSprite]] and the past-ideal fade shader.
 
 ## SegmentSprite
 `Sprite` · optional
 
-<!-- TODO: needs documentation -->
+Sprite tiled horizontally as the filled segments of the bar. Falls back to the defaults provider's segment sprite. One or the other is required or the bar throws.
 
 ## ColorLerp
 `range<Color>` · optional
 
-<!-- TODO: needs documentation -->
+Color range the filled bar interpolates across in HSVA, from the minimum ratio to the ideal ratio. Falls back to the defaults provider's color lerp. One or the other is required or the bar throws.

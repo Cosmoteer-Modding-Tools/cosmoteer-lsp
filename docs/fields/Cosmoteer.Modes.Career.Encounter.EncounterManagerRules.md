@@ -10,24 +10,24 @@
 ## MinTimeBetweenEncounters
 `float` · required
 
-<!-- TODO: needs documentation -->
+The seconds that must have passed since the last encounter before entering a trigger area can fire another one. Vanilla waits 500 seconds.
 
 ## TimeBeforeForcedRegenerate
 `float` · required
 
-<!-- TODO: needs documentation -->
+The seconds after the last trigger placement before the whole trigger field is discarded and generated again, so trigger areas the player never walked into eventually move. Vanilla regenerates every 2000 seconds.
 
 ## TriggerRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it. A trigger area's radius comes from whatever spawner creates it, and vanilla only references this field from its own commented-out trigger spawner to space triggers apart.
 
 ## EncounterTriggersGenerator
 `SimulationGenerator` · required
 
-<!-- TODO: needs documentation -->
+The simulation generator that places the invisible trigger areas a player ship has to enter to set off an encounter. No spawner type in the shipped game actually creates encounter triggers and vanilla's own trigger spawner is commented out, so the trigger field stays empty and encounters never fire.
 
 ## PossibleEncounters
 `EncounterRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The pool of encounters a trigger can draw from, weighted by each entry's [[Cosmoteer.Modes.Career.Encounter.EncounterRules.RandomWeight]] and filtered by its conditions. Vanilla lists only the ambush encounter.

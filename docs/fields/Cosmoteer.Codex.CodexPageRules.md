@@ -10,54 +10,54 @@
 ## ID
 `string` · required
 
-<!-- TODO: needs documentation -->
+Unique identifier for this codex page. Used as the key under which the player's per-page state (shown, seen, hidden) is persisted in settings, so it must stay stable across versions to preserve progress.
 
 ## TitleKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the page's title, shown as the heading of its popup window and as the label of its entry in the codex list.
 
 ## TabNameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key naming the codex tab this page is grouped under. Pages sharing a resolved tab name are listed together on the same tab in the codex dialog.
 
 ## ShowCondition
 `code (python)` · optional
 
-<!-- TODO: needs documentation -->
+Python expression evaluated against the current game (with `game`, `stats`, and `sim` in scope) that, when true, permanently marks the page as shown so its button appears on the HUD and stays in the codex. Only evaluated while the page is not already shown.
 
 ## TempShowCondition
 `code (python)` · optional
 
-<!-- TODO: needs documentation -->
+Python expression evaluated each update that shows the page only while it returns true. Unlike [[Cosmoteer.Codex.CodexPageRules#ShowCondition|ShowCondition]] this does not persist, so the page's button disappears again once the condition goes false.
 
 ## OnSeen
 `code (python)` · optional
 
-<!-- TODO: needs documentation -->
+Python script run once the first time the player sees or dismisses the page. Runs a single time only (guarded by a persisted flag) and has a `SetSetting(name, value)` helper in scope for writing static game settings.
 
 ## AutoOpen
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true the page's popup window opens automatically the moment the page first becomes visible, rather than waiting for the player to click its HUD button.
 
 ## AutoPause
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true the game is paused (via a multiplayer-safe input) at the moment [[Cosmoteer.Codex.CodexPageRules#ShowCondition|ShowCondition]] first fires and the page becomes shown. Only takes effect through that permanent show path.
 
 ## IsTip
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the page as a tip, collecting it into the game's tips pool shown by the startup Tips dialog rather than treating it as a regular tutorial codex page.
 
 ## CenterScreen
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true the page's popup window is positioned in the center of the screen when it opens instead of near its originating HUD button.
 
 ## Entries
 `CodexPageEntryRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Ordered list of text and image blocks that make up the page's body, laid out top to bottom. See [[Cosmoteer.Codex.CodexPageEntryRules|CodexPageEntryRules]] for how each entry combines an image and text.

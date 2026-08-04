@@ -10,9 +10,9 @@
 ## VectorIn
 `ParticleDataID` · optional
 
-<!-- TODO: needs documentation -->
+The Vector2 data channel read as the input vector. Defaults to the channel named `vector_in`.
 
 ## VectorOut
 `ParticleDataID` · optional
 
-<!-- TODO: needs documentation -->
+The Vector2 data channel that receives the input rotated 90 degrees, computed as (-Y, X). Defaults to the channel named `perpendicular`. The vanilla radiator's hit_sparks effect uses this to offset sparks sideways along the hit surface.

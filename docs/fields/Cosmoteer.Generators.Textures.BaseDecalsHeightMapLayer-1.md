@@ -10,49 +10,49 @@
 ## Seed
 `int` · optional
 
-<!-- TODO: needs documentation -->
+A per-layer seed XORed with the generator's seed to produce this layer's random number stream. Changing it gives a different random arrangement of decals without affecting other layers.
 
 ## MinScale
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The minimum size of a decal, as a fraction of the heightmap's dimensions along each axis. Each decal picks a random scale between `MinScale` and `MaxScale`.
 
 ## MaxScale
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+The maximum size of a decal, as a fraction of the heightmap's dimensions along each axis. Each decal picks a random scale between `MinScale` and `MaxScale`.
 
 ## Count
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+The number of decals to place, chosen randomly between the range's min and max. If min is not less than max, exactly min decals are placed. Each placement can still fail if no valid location is found within `Tries` attempts.
 
 ## PerlinNoise
 `PerlinNoise2D` · optional
 
-<!-- TODO: needs documentation -->
+The perlin noise field sampled at each candidate decal location to bias where decals appear. The sampled value is passed through `EdgeEffects` and then the `Probabilities` ramp to get a placement probability.
 
 ## EdgeEffects
 `PerlinNoiseEdgeEffects` · optional
 
-<!-- TODO: needs documentation -->
+Modifications applied to the sampled `PerlinNoise` value based on proximity to the heightmap edges, before it is converted to a placement probability.
 
 ## Probabilities
 `ProbabilityPoint[]` · optional
 
-<!-- TODO: needs documentation -->
+A curve mapping perlin noise values to decal placement probabilities. Each point pairs a noise value (`Position`) with a probability, and values between points are interpolated linearly. Points are kept sorted by `Position`.
 
 ## WrapX
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, a decal that extends past the left or right edge wraps around to the opposite side of the heightmap instead of being clipped.
 
 ## WrapY
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, a decal that extends past the top or bottom edge wraps around to the opposite side of the heightmap instead of being clipped.
 
 ## Tries
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The maximum number of random locations tried when looking for a valid spot for each decal before that decal is skipped.

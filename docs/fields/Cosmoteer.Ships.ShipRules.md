@@ -225,7 +225,7 @@ Cap on pathfinding iterations when searching outward for nearby parts or cells, 
 ## SupplierSearchInterval
 `Time` · required
 
-<!-- TODO: needs documentation -->
+Has no effect. The game requires and stores the value but no code ever reads it, so it does not control any supplier search timing.
 
 ## SelfDestructForce
 `float` · required

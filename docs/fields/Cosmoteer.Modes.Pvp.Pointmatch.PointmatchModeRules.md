@@ -10,29 +10,29 @@
 ## MinGoalPoints
 `int` · required
 
-<!-- TODO: needs documentation -->
+The lowest score the host may set as the target to win, enforced by the goal points number box in the lobby.
 
 ## MaxGoalPoints
 `int` · required
 
-<!-- TODO: needs documentation -->
+The highest score the host may set as the target to win, enforced by the goal points number box in the lobby.
 
 ## DefaultGoalPoints
 `int` · required
 
-<!-- TODO: needs documentation -->
+The score the goal points box starts at when the lobby opens.
 
 ## ShipSpawnInvulnerabilityDuration
 `Time` · optional
 
-<!-- TODO: needs documentation -->
+How long a freshly respawned ship cannot be damaged. It is applied only on respawn, not to the fleet a player starts the match with.
 
 ## PointsTickUpSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+The looping sound played while the score readout counts upward. The duration of its first sound also decides how fast the readout counts, capped at half a second per change.
 
 ## PointsTickDownSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+The looping sound played while the score readout counts downward, with its first sound's duration setting the count speed the same way `PointsTickUpSound` does.

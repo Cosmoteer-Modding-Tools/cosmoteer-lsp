@@ -10,4 +10,4 @@
 ## ValueWhenNotConnected
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The value the proxy reports while it is not connected to a value component on another part. Defaults to 0.

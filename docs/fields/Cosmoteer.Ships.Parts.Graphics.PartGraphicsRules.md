@@ -10,99 +10,99 @@
 ## DoodadToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Names a toggle component on the same part whose on or off state chooses between [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.ToggleOnDoodad]] and [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.ToggleOffDoodad]]. The vanilla medium cannon points this at its LoadedAmmo storage so a shell doodad appears only while ammo is loaded.
 
 ## AnimationToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Names a toggle component that gates sprite animation. While the toggle is off, the animation speed is forced to 0 and all animated sprites of this component freeze. While on, the speed comes from [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.AnimationSpeedFactor]], or 1 when that is unset, as in the vanilla factories that animate only while their ResourceConverter is running.
 
 ## AnimationSpeedFactor
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Names a value component whose current value drives the playback speed multiplier of every animated sprite in this component. The raw value is remapped through [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.AnimationSpeedFactorRenormalize]], and results within 0.0001 of zero freeze the animation. The vanilla chaingun drives its barrel spin animation from its RampUpAccumulator this way.
 
 ## AnimationSpeedFactorRenormalize
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Remaps the raw [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.AnimationSpeedFactor]] value to the final speed multiplier. A raw value of 0 maps to the range's Min and 1 to its Max, without clamping, so the default `[0, 1]` leaves the value unchanged. Vanilla thrusters use `[0.75, 2.0]` so their exhaust animation never fully stops while running.
 
 ## ResetAnimationTrigger
 `ComponentTriggerReferenceRules` · optional
 
-<!-- TODO: needs documentation -->
+References a trigger-providing component. Each time the trigger fires, the animation start time of every sprite in this component resets to the current time so animations restart from their first frame. The vanilla medium cannon restarts its recoil animation this way with `ResetAnimationTrigger = BulletEmitter`.
 
 ## GetColorFrom
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Names a component that provides a color, such as a `MultiColor`, `ValueColor`, or the built-in construction tracker. The provided color tints every sprite of this component and follows the source whenever it changes. Defaults to white, meaning no tint.
 
 ## ShowToggledDoodadsWhenNotOperational
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Keeps [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.ToggleOnDoodad]] and [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.ToggleOffDoodad]] visible while the component is not operational. By default both toggled doodads are hidden whenever the component is non-operational. The vanilla deck cannon enables this so loaded shells stay visible on a disabled cannon.
 
 ## UseConstructionProgressAsDamage
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Feeds the part's construction progress (0 to 1) into the damage-level selection instead of the actual damage fraction, so each `DamageLevels` list plays as a build sequence from first to last sprite while the part is being constructed.
 
 ## Floor
 `DamageLevelSprites` · optional
 
-<!-- TODO: needs documentation -->
+An unconditional sprite set drawn whenever the part exists, regardless of operational state, with one sprite chosen by damage level. Conventionally holds the part's floor artwork on the `"floors"` layer.
 
 ## OperationalDoodad
 `DamageLevelSprites` · optional
 
-<!-- TODO: needs documentation -->
+A sprite set shown only while the component is operational, hidden otherwise. The vanilla engine room renders its animated machinery this way on the `"doodads_high"` layer, swapping to [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.NonOperationalDoodad]] when it loses power.
 
 ## NonOperationalDoodad
 `DamageLevelSprites` · optional
 
-<!-- TODO: needs documentation -->
+A sprite set shown only while the component is not operational, the counterpart of [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.OperationalDoodad]]. The vanilla engine room shows static powered-down machinery this way.
 
 ## ToggleOnDoodad
 `DamageLevelSprites` · optional
 
-<!-- TODO: needs documentation -->
+A sprite set shown while the [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.DoodadToggle]] component is toggled on. Also requires the component to be operational unless [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.ShowToggledDoodadsWhenNotOperational]] is set.
 
 ## ToggleOffDoodad
 `DamageLevelSprites` · optional
 
-<!-- TODO: needs documentation -->
+A sprite set shown while the [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.DoodadToggle]] component is toggled off. Also requires the component to be operational unless [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.ShowToggledDoodadsWhenNotOperational]] is set.
 
 ## OperationalLighting
 `DamageLevelSprites` · optional
 
-<!-- TODO: needs documentation -->
+A sprite set shown only while the component is operational, conventionally a glowing light overlay on an additive layer such as `"lights_add"`. The vanilla engine room flickers its interior lights this way.
 
 ## Walls
 `DamageLevelSprites` · optional
 
-<!-- TODO: needs documentation -->
+An unconditional sprite set drawn whenever the part exists, like [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.Floor]]. Conventionally holds the part's wall artwork on the `"walls"` layer.
 
 ## WallsStencil
 `DamageLevelSprites` · optional
 
-<!-- TODO: needs documentation -->
+A second unconditional sprite set alongside [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.Walls]] with its own layer, behaving identically at runtime. No vanilla part defines it.
 
 ## Roof
 `DamageLevelSprites` · optional
 
-<!-- TODO: needs documentation -->
+An unconditional sprite set conventionally holding the part's roof artwork on the `"roofs"` layer. Vanilla roof sprites usually also carry a `NormalsFile` for roof lighting.
 
 ## OperationalRoofDoodad
 `DamageLevelSprites` · optional
 
-<!-- TODO: needs documentation -->
+A sprite set shown only while the component is operational, the roof counterpart of [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.OperationalDoodad]]. The vanilla engine room animates its roof machinery this way on the `"roof_doodads"` layer.
 
 ## NonOperationalRoofDoodad
 `DamageLevelSprites` · optional
 
-<!-- TODO: needs documentation -->
+A sprite set shown only while the component is not operational, the roof counterpart of [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.NonOperationalDoodad]].
 
 ## OperationalRoofLighting
 `DamageLevelSprites` · optional
 
-<!-- TODO: needs documentation -->
+A sprite set shown only while the component is operational, conventionally a light blob on a roof lighting layer such as `"roof_lights_fancy"`, as on the vanilla engine room.

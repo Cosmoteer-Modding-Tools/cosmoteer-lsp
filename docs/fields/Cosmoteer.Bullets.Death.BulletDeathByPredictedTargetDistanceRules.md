@@ -10,4 +10,4 @@
 ## RandomOffset
 `range<number>` · optional
 
-<!-- TODO: needs documentation -->
+A random extra distance, in tiles, added to the predicted impact distance, rolled between Min and Max when the bullet activates. Defaults to 0. The component estimates how far the bullet must fly to reach the target's predicted intercept point and dies after traveling that far plus this offset, and if there is no target or no intercept can be computed it never triggers.

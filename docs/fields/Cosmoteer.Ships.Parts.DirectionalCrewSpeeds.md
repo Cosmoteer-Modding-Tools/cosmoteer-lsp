@@ -10,19 +10,19 @@
 ## Left
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on crew walking speed while traveling leftward through the part, in the part's un-rotated orientation. Directions rotate and flip with the part's placement. 0 makes the direction impassable, negative values are rejected, and the game requires that either all four directions are zero or all are non-zero. Assigning a single number to the whole field sets all four directions at once, as most vanilla parts do.
 
 ## Right
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on crew walking speed while traveling rightward through the part. See [[Cosmoteer.Ships.Parts.DirectionalCrewSpeeds.Left]] for the shared constraints.
 
 ## Up
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on crew walking speed while traveling upward through the part. See [[Cosmoteer.Ships.Parts.DirectionalCrewSpeeds.Left]] for the shared constraints.
 
 ## Down
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Multiplier on crew walking speed while traveling downward through the part. See [[Cosmoteer.Ships.Parts.DirectionalCrewSpeeds.Left]] for the shared constraints.

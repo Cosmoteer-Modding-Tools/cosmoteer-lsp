@@ -10,29 +10,29 @@
 ## TitleKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key of the bold title line of the part's secondary tooltip, the extra box a player can show beside the main build-menu tooltip. The vanilla small reactor titles its secondary tooltip with the `StatCategories/Overclocked` key.
 
 ## DescriptionKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key of the description text shown under the title. Unlike the stat fields, it is visible in both the description and stats views of the tooltip.
 
 ## Stats
 `map<→ PartStatRules, PartStatValues>` · optional
 
-<!-- TODO: needs documentation -->
+Stat values shown in the tooltip's stats view, keyed by stat IDs from the game GUI's `PartStats` list and rendered through each stat's format string in that list's order. Each value may be a single number or a list of numbers feeding the format placeholders. The vanilla small reactor lists its overclocked power and heat generation here.
 
 ## Features
 `→ PartFeature[]` · optional
 
-<!-- TODO: needs documentation -->
+Part feature IDs rendered as a Features block in the tooltip's stats view, each shown with its display string from the game GUI's `PartFeatures` map. IDs without an entry there fall back to the raw ID text.
 
 ## StatsByCategory
 `PartStatsCategory[]` · optional
 
-<!-- TODO: needs documentation -->
+Additional stat groups rendered after [[Cosmoteer.Ships.Parts.PartToolTipData.Stats]] and [[Cosmoteer.Ships.Parts.PartToolTipData.Features]], each under its own bold heading given by [[Cosmoteer.Ships.Parts.PartStatsCategory.NameKey]].
 
 ## StatsNotesKey
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Localization key of a note appended as the final line of the tooltip's stats view.

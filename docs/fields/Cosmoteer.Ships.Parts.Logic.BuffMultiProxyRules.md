@@ -10,19 +10,19 @@
 ## OutgoingBuffProviders
 `→ PartComponentRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Buff provider components on the same part that link this multi component to the parts they are currently buffing. Every part receiving a buff from one of the listed providers is searched for the [[Cosmoteer.Ships.Parts.Logic.BuffMultiProxyRules.ComponentIDs]] components, which join and leave the proxied list as the buff connections change. The vanilla engine room lists its power distribution provider so its combined storage proxies the battery storages of the thrusters it buffs.
 
 ## ComponentID
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A single component ID used instead of [[Cosmoteer.Ships.Parts.Logic.BuffMultiProxyRules.ComponentIDs]]. Takes precedence when both are given, and one of the two must be present or loading fails.
 
 ## ComponentIDs
 `→ PartComponentRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The component IDs looked up on every buff-linked part, with each component found added to the owning multi component's proxied list. Either this or [[Cosmoteer.Ships.Parts.Logic.BuffMultiProxyRules.ComponentID]] must be given. The engine room proxies `BatteryStorage` and `ExtendableBatteryStorage` so it can push power into any kind of thruster it buffs.
 
 ## IncomingBuffTypes
 `→ BuffType[]` · optional
 
-<!-- TODO: needs documentation -->
+Buff types that link parts in the incoming direction. Every part currently providing a buff of one of these types to this part is searched for the [[Cosmoteer.Ships.Parts.Logic.BuffMultiProxyRules.ComponentIDs]] components. Vanilla thrusters' combined heat input lists `EngineHeatCollection` so their heat flows into the collection storage of whichever overclocked engine room is buffing them.

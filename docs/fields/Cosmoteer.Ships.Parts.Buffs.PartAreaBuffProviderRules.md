@@ -10,19 +10,19 @@
 ## BuffArea
 `IntRect` · required
 
-<!-- TODO: needs documentation -->
+The buffed rectangle as `[x, y, width, height]` in part-local tile coordinates, rotated and flipped with the part into ship space. Parts whose physical footprint intersects it receive the buff. The vanilla chaingun magazine uses `[-1, 0, 1, 1]` to target just the single tile beside it.
 
 ## BuffsSelf
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets the provider buff its own part in addition to other parts in the area. Off by default.
 
 ## Criterias
 `RelativePartCriteria[]` · optional
 
-<!-- TODO: needs documentation -->
+Filters that a part in the area must additionally match to receive the buff. Each entry can require part IDs or categories, exclusions, and a specific rotation, flip, or position relative to the provider, and matching any single entry is enough. When absent, every part in the area is buffed.
 
 ## Criteria
 `RelativePartCriteria` · optional
 
-<!-- TODO: needs documentation -->
+A single filter used instead of [[Cosmoteer.Ships.Parts.Buffs.PartAreaBuffProviderRules.Criterias]] when one entry suffices. Only read when Criterias is absent.

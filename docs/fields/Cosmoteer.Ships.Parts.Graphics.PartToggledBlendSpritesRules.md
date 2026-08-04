@@ -10,24 +10,24 @@
 ## SituationToggles
 `→ PartComponentRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The ordered list of toggle components on the same part whose on/off states form the situation code that selects which sprite to render. Each toggle corresponds by index to one character of every [[Cosmoteer.Ships.Rendering.AmbiguousToggledBlendSprites.SituationCode]], and the length of those codes must equal the number of toggles here. The vanilla adaptive heat pipes use their four `Port_Up`/`Port_Right`/`Port_Down`/`Port_Left` toggles to pick hub, stub, straight, corner, or split sprites.
 
 ## Layer
 `→ ShipRenderLayerRules` · required
 
-<!-- TODO: needs documentation -->
+The ship render layer the selected sprite is drawn on, such as `structure` or `roofs`.
 
 ## GetColorFrom
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+A color component on the same part whose current color tints the rendered sprite. The tint is refreshed just before each draw, white when unset. The vanilla adaptive heat pipe tints its glow blend sprites with a `ValueColor` driven by thermal load.
 
 ## AmbiguousSprites
 `AmbiguousToggledBlendSprites[]` · optional
 
-<!-- TODO: needs documentation -->
+The sprite definitions keyed by situation code patterns, where each pattern character is `0`, `1`, or the wildcard `*` matching the same-index toggle in [[Cosmoteer.Ships.Parts.Graphics.PartToggledBlendSpritesRules.SituationToggles]]. Unless an entry sets `AllowRotation = false` it also covers all rotations of its code using UV-rotated copies of its sprites, and together the entries must cover every combination of toggle states. Each entry's `DamageLevelSprites` are indexed by the part's damage fraction.
 
 ## AllowUndefinedBlendSprites
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Accepted for this component but has no effect in the current game code. Unlike the plain blend sprite components, the toggled variant still throws an error at load when [[Cosmoteer.Ships.Parts.Graphics.PartToggledBlendSpritesRules.AmbiguousSprites]] does not cover every combination of toggle states.

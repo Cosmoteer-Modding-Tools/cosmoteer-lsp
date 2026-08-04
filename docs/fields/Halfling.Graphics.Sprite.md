@@ -25,4 +25,4 @@ The UV rect on Texture of the Sprite.
 ## Source
 `Rect` · optional
 
-<!-- TODO: needs documentation -->
+The pixel rectangle `[x, y, width, height]` on the sprite's texture to sample, converted to UV coordinates on load. Only used when [[Halfling.Graphics.Sprite.UVRect]] is not set and a texture is present. When both are absent the whole texture is used, and the default [[Halfling.Graphics.Sprite.Size]] is derived from the sampled region's pixel size.

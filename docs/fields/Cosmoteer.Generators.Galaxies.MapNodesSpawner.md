@@ -10,29 +10,29 @@
 ## Count
 `range<int>` · required
 
-<!-- TODO: needs documentation -->
+Range for the number of nodes to spawn. A random integer in the range is chosen at spawn time.
 
 ## Distance
 `range<float>` · required
 
-<!-- TODO: needs documentation -->
+Range for how far each new node is placed from an existing node. The minimum of the range also acts as the minimum spacing between nodes, so any candidate closer than that to an existing node is rejected.
 
 ## ConnectionRadius
 `float` · required
 
-<!-- TODO: needs documentation -->
+Radius around a new node within which it is connected to existing nodes, skipping any connection that would visually cross an existing one.
 
 ## PerlinNoise
 `PerlinNoise2D` · optional
 
-<!-- TODO: needs documentation -->
+Optional 2D noise field constraining where nodes may spawn. A candidate location is rejected unless its noise value falls inside [[NoiseRange]].
 
 ## NoiseRange
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Allowed range of [[PerlinNoise]] values for a valid node location. Default 0 to the maximum float. Has no effect unless PerlinNoise is set.
 
 ## NameGenerator
 `NameGenerator` · optional
 
-<!-- TODO: needs documentation -->
+Optional generator producing each node's name, capped at 30 characters. Nodes are left unnamed when absent.

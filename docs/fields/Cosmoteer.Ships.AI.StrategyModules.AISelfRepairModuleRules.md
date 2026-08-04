@@ -10,34 +10,34 @@
 ## RepairChecksPerTick
 `int` · required
 
-<!-- TODO: needs documentation -->
+Number of randomly drawn damaged or destroyed objects the ship tries to repair each AI tick. Higher values close the damage faster at more CPU cost, vanilla trade ships use 1 and stations use 10.
 
 ## RepairDamaged
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Includes damaged but still standing parts among the repair candidates.
 
 ## RebuildDestroyed
 `bool` · optional · default `true`
 
-<!-- TODO: needs documentation -->
+Includes destroyed parts and doors among the candidates, so they are rebuilt from scratch.
 
 ## AllowPartialRepair
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Lets the ship queue a repair on a damaged part it cannot fully pay for, as long as it holds at least some of one of the required resources. Only has an effect in the crew and resources construction mode.
 
 ## AllowPartialRebuild
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+The same allowance as [[Cosmoteer.Ships.AI.StrategyModules.AISelfRepairModuleRules.AllowPartialRepair]], but for rebuilding destroyed parts and doors.
 
 ## AvoidableDoodadTags
 `→ SimObjectSpawner[]` · optional
 
-<!-- TODO: needs documentation -->
+Ids of doodad spawners, such as `sun`, whose areas suppress repairing. While the ship sits inside one of these areas the module does nothing and hands control to the next strategy module.
 
 ## AvoidableDoodadBuffer
 `float` · optional
 
-<!-- TODO: needs documentation -->
+Extra distance in world units added to the radius of every doodad matched by [[Cosmoteer.Ships.AI.StrategyModules.AISelfRepairModuleRules.AvoidableDoodadTags]]. Vanilla trade ships use 100 around suns.

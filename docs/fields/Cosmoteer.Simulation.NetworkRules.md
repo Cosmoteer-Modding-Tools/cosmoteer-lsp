@@ -10,19 +10,19 @@
 ## InputTicksPerSecond
 `float` · required
 
-<!-- TODO: needs documentation -->
+Rate of lockstep input ticks per second for multiplayer simulation. The interval between ticks is its reciprocal, and it converts input delays measured in seconds to a tick count.
 
 ## MinInputTickDelay
 `int` · required
 
-<!-- TODO: needs documentation -->
+Smallest number of input ticks that player commands are buffered ahead of execution. Used as the starting delay and as the lower clamp on the latency-derived delay.
 
 ## MaxInputTickDelay
 `int` · required
 
-<!-- TODO: needs documentation -->
+Largest input tick delay allowed. Upper clamp on the latency-derived delay so a bad connection cannot push command lag arbitrarily high.
 
 ## InputTickDelayLatencyFactor
 `float` · required
 
-<!-- TODO: needs documentation -->
+Multiplier applied to measured network latency when the host computes how much input delay to use. The scaled latency is converted to ticks via InputTicksPerSecond and clamped to MinInputTickDelay..MaxInputTickDelay.

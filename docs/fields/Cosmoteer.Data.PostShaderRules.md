@@ -10,9 +10,9 @@
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+Localization key for the label shown for this post-processing shader option in the graphics settings dropdown.
 
 ## Material
 `Material` · optional
 
-<!-- TODO: needs documentation -->
+Full-screen post-processing material applied to the rendered frame when this shader option is selected. The material receives the back buffer as its texture plus the mouse location. When null, the frame is drawn unmodified, making this the "off" option.

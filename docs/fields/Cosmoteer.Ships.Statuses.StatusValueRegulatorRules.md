@@ -10,7 +10,7 @@
 ## Trigger
 `ComponentTriggerReferenceRules` · required
 
-<!-- TODO: needs documentation -->
+The component trigger that runs one regulation pass. Nothing happens until it fires, so the trigger's timer or toggle sets the regulator's rate. Vanilla's heat exchanger drives it from a timer component.
 
 ## Region
 `IPartRelativeRegion` · required
@@ -20,17 +20,17 @@ The region that the regulator affects.
 ## RegionHighlightID
 `→ PartHighlightGuiRules` · optional
 
-<!-- TODO: needs documentation -->
+The part highlight preset used to shade `Region` in the build view. `Falloff` shapes the highlight intensity the same way it shapes the actual effect.
 
 ## Falloff
 `float` · optional
 
-<!-- TODO: needs documentation -->
+The exponent on the distance factor across `Region`, which weakens `ValueDelta` toward the region's outer edge. 0 disables falloff and treats every cell in the region equally.
 
 ## PickingMode
 `enum StatusPickingMode` · optional · one of: `First`, `Last`, `MinValue`, `MaxValue`, `Random`
 
-<!-- TODO: needs documentation -->
+The order in which the statuses at one location are worked through when several are stacked there. `MinValue`, `MaxValue` and `Random` visit every candidate, `First` and `Last` walk the list from one end. `Last` stops one entry short and never touches the first status in the list, so on a location holding a single status it does nothing at all.
 
 ## TargetValue
 `number` · required
@@ -85,19 +85,19 @@ Whether the regular requires free space in the ValueTargetStorage in order to fu
 ## AllowedChangeDirections
 `enum ValueChangeDirection` · optional · default `Any` · one of: `Negative`, `Positive`, `Any`
 
-<!-- TODO: needs documentation -->
+Restricts the regulator to only raising or only lowering status values. `Positive` blocks decreases, `Negative` blocks increases, and `Any` allows both.
 
 ## MediaEffectsOnIncrease
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+The one-shot media effects played at each affected cell whose status value went up. Their Intensity is the magnitude of the change.
 
 ## MediaEffectsOnDecrease
 `MultiMediaEffectRules` · optional
 
-<!-- TODO: needs documentation -->
+The one-shot media effects played at each affected cell whose status value went down. Vanilla's heat exchanger uses this for its absorption particles and sound.
 
 ## StatusType
 `→ StatusType` · optional
 
-<!-- TODO: needs documentation -->
+The status this regulator reads and writes. Both `Tile` and `Part` layer statuses are supported, and the regulator does nothing if the ship has no handler for the type.

@@ -10,199 +10,199 @@
 ## PaintShipToolIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the paint mode button in the ship's mode bar, the toggle that switches the designer into paint mode.
 
 ## LayerOnIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon shown on the visibility toggle of a decal layer row in the layers list while that layer is visible. Paired with `LayerOffIcon`, which replaces it when the layer is hidden.
 
 ## LayerOffIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon shown on the visibility toggle of a decal layer row while that layer is hidden. Paired with `LayerOnIcon`.
 
 ## LayerDragLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The insertion line drawn across the layers list while the player drags a decal layer to reorder it. It is drawn in white at the top edge of the row the layer would drop into.
 
 ## MirrorLine
 `MirrorLineRules` · required
 
-<!-- TODO: needs documentation -->
+Styles the draggable centerline overlays that show and adjust the paint mirror axes on the ship. The same rules type is used by the build, crew and resource toolboxes.
 
 ## RemoveDecalSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the eraser tool button in the paint toolbox, the tool that deletes decals under the cursor.
 
 ## GrabDecalSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the grab tool button in the paint toolbox, the tool that picks a decal up off the ship and lets the player move it.
 
 ## SelectDecalsSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the select tool button in the paint toolbox, the tool that box-selects decals for copy, cut, paste, delete and invert.
 
 ## MirrorOffSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the paint mirror toggle while mirroring is off. It is swapped for `MirrorOnSprite` when the player enables mirroring.
 
 ## MirrorOnSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the paint mirror toggle while mirroring is on. See `MirrorOffSprite` for the off state.
 
 ## RemoveDecalNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+The white frame drawn around each decal that the eraser tool is about to delete, drawn in ship space over the decal's tile rectangle.
 
 ## RemoveDecalXLine
 `CappedLine` · required
 
-<!-- TODO: needs documentation -->
+The two diagonal strokes that form the X drawn across a decal marked for deletion. Its width is scaled by the square root of the camera zoom so it stays readable at any zoom level.
 
 ## RemoveDecalXLineRectDeflate
 `float` · required
 
-<!-- TODO: needs documentation -->
+Shrinks the decal rectangle by this many world units on every side before the deletion X is drawn across it, so the strokes sit inside the frame rather than on its corners.
 
 ## GrabDecalNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+The white frame drawn around the decal under the cursor that the grab tool would pick up, and around each of its mirrored counterparts.
 
 ## GrabDecalCursor
 `Cursor` · required
 
-<!-- TODO: needs documentation -->
+The mouse cursor while the grab tool is active, and also while the select tool hovers an already-selected decal that a drag would move.
 
 ## RemoveDecalCursor
 `Cursor` · required
 
-<!-- TODO: needs documentation -->
+The mouse cursor while the eraser tool is active in paint mode.
 
 ## SelectDecalsCursor
 `Cursor` · required
 
-<!-- TODO: needs documentation -->
+The mouse cursor while the select tool is active and not hovering a selected decal. See `GrabDecalCursor` for the hovering case.
 
 ## SelectedDecalNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+The frame drawn around every decal currently selected with the select tool. Mirrored partners of a selected decal use `SelectedMirroredDecalNineSlice` instead.
 
 ## SelectedMirroredDecalNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+The frame drawn around decals that are not selected themselves but mirror a selected decal, so the player can see what mirroring will also affect.
 
 ## TentativeSelectedDecalNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+The frame drawn around decals that the in-progress selection rectangle would select once the mouse button is released.
 
 ## TentativeSelectedMirroredDecalNineSlice
 `NineSlice` · required
 
-<!-- TODO: needs documentation -->
+The frame drawn around the mirrored partners of decals that the in-progress selection rectangle would select.
 
 ## DecalSelectionOutlineSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The border of the drag-selection rectangle in paint mode. Each of the four edges is drawn as a line segment taking its color from the sprite's vertex color and its texture coordinates from the matching edge of the sprite's UV rectangle.
 
 ## DecalSelectionFillSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The translucent fill inside the drag-selection rectangle in paint mode, drawn as a single quad beneath `DecalSelectionOutlineSprite`.
 
 ## RotateLeftSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the rotate counterclockwise button in the context bar that appears while placing or grabbing a decal.
 
 ## RotateRightSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the rotate clockwise button in the context bar that appears while placing or grabbing a decal.
 
 ## FlipHorizontalSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the flip horizontally button in the context bar that appears while placing or grabbing a decal.
 
 ## FlipVerticalSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the flip vertically button in the context bar that appears while placing or grabbing a decal.
 
 ## InvertSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the invert button, which inverts the decal being placed and also appears in the select tool's context bar to invert the selected decals.
 
 ## TrashcanSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the delete button that appears while a decal is held by the grab tool, discarding the held decal instead of placing it.
 
 ## CopyDecalsSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the copy button in the select tool's context bar.
 
 ## CutDecalsSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the cut button in the select tool's context bar.
 
 ## PasteDecalsSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the paste button in the select tool's context bar.
 
 ## DeleteDecalsSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the delete button in the select tool's context bar, which removes all selected decals.
 
 ## CancelPasteDecalsSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The icon on the cancel button shown while the select tool is in paste mode, abandoning the pending paste.
 
 ## PaintSchemeIcon
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The thumbnail sprite used for each saved paint scheme entry in the load paint scheme dialog. The game feeds each scheme's base color, base texture and decal colors into the sprite's shader constants so every entry previews its own scheme.
 
 ## FavoriteDecalsGroups
 `DecalGroupRules[]` · optional
 
-<!-- TODO: needs documentation -->
+The favorites tabs in the decal picker, one entry per group. Each entry becomes its own tab and its `NameKey` labels the group in the right-click menu that adds or removes a decal from favorites. Vanilla defines three groups.
 
 ## FavoriteSprite
 `Sprite` · required
 
-<!-- TODO: needs documentation -->
+The small badge drawn in the corner of a decal button in the picker when that decal has been marked as a favorite.
 
 ## PaintSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays whenever paint is applied, including placing decals, changing the roof base color, loading a paint scheme and clearing all decals. While painting decals, playback is rate-limited to one sound per 0.05 seconds.
 
 ## SetBasePaintSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when the player picks a new roof base texture or starts dragging the base texture's alpha slider. See `PaintSound` for decal painting.
 
 ## DeleteDecalSound
 `ISoundEffect` · required
 
-<!-- TODO: needs documentation -->
+Plays when a paint edit only removes decals and adds none, and when the held decal is discarded with the trashcan button.

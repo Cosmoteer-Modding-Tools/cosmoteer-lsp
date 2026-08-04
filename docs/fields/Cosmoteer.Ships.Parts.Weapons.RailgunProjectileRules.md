@@ -10,34 +10,34 @@
 ## XStartOffset
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The X offset, in tiles from the component's rules location, of the point where the moving projectile marker starts when the component becomes operational. Defaults to 0.
 
 ## YStartOffset
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The Y offset, in tiles from the component's rules location, of the projectile marker's start point. The vanilla railgun launcher uses a base of 3 multiplied by its Railgun buff, so the run gets longer as more accelerators are chained behind it.
 
 ## XEndOffset
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The X offset, in tiles from the component's rules location, of the point where the projectile marker's run ends. Defaults to 0.
 
 ## YEndOffset
 `number` · optional
 
-<!-- TODO: needs documentation -->
+The Y offset, in tiles from the component's rules location, of the projectile marker's end point. On reaching it the component fires its trigger, which the vanilla railgun launcher uses to emit the actual bullet. The vanilla launcher uses -4, placing the end at its muzzle.
 
 ## SpeedStart
 `number` · required
 
-<!-- TODO: needs documentation -->
+The marker's speed, in tiles per second, at the start of its run. Speed is interpolated linearly toward [[Cosmoteer.Ships.Parts.Weapons.RailgunProjectileRules.SpeedEnd]] by the fraction of distance covered, and that fraction is also reported as the component's value to other components.
 
 ## SpeedEnd
 `number` · required
 
-<!-- TODO: needs documentation -->
+The marker's speed, in tiles per second, at the end of its run. The vanilla railgun launcher sets this to its bullet's speed so the emitted bullet continues seamlessly.
 
 ## Interpolate
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Smooths the component's rendered location between fixed simulation steps, so visuals chained to it move without stutter. Vanilla warns to use this only for interpolating graphics, since hooking game logic to an interpolated component causes multiplayer desyncs. The vanilla launcher's recoil logic runs on a separate non-interpolated copy of the component.

@@ -10,24 +10,24 @@
 ## Name
 `string` · optional
 
-<!-- TODO: needs documentation -->
+Display name given to the spawned crew member. When omitted the game generates a random name for the crew soul.
 
 ## BodyTypeIndex
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it. The spawned crew's body type is derived from a random seed rather than this index.
 
 ## SkinColorIndex
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it. The spawned crew's skin color is derived from a random seed rather than this index.
 
 ## HairColorIndex
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Has no effect. The game reads this value from the rules but never uses it. The spawned crew's hair color is derived from a random seed rather than this index.
 
 ## Allegiance
 `int` · optional
 
-<!-- TODO: needs documentation -->
+Player index that owns the spawned crew member. Defaults to `-1` (neutral) when omitted.

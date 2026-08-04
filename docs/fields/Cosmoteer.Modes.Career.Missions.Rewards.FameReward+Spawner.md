@@ -10,39 +10,39 @@
 ## Fame
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+Base fame awarded, rolled randomly from this range when the mission spawns. Tier bonuses are added on top before rounding, and the payout is further scaled by the game's economic difficulty setting.
 
 ## MaxFame
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+The player fame level this reward cannot push the player past, rolled randomly from this range. A player already at or above it receives nothing, which is how vanilla stops low-tier missions from carrying a player to high fame.
 
 ## FamePerLowTier
 `map<int, range<int>>` · optional
 
-<!-- TODO: needs documentation -->
+Fame added according to the lowest danger tier among the mission's objectives, rolled randomly from the range in the matching row. A tier with no row simply adds nothing.
 
 ## FamePerHighTier
 `map<int, range<int>>` · optional
 
-<!-- TODO: needs documentation -->
+Fame added according to the highest danger tier among the mission's objectives, rolled randomly from the range in the matching row. A tier with no row simply adds nothing.
 
 ## FamePerTierMultiplier
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Scales the combined `FamePerLowTier` and `FamePerHighTier` bonus, rolled randomly from this range. It does not touch the flat `Fame` amount, and it is skipped entirely when the tier bonus came out as zero.
 
 ## MaxFamePerLowTier
 `map<int, range<int>>` · optional
 
-<!-- TODO: needs documentation -->
+A fame ceiling chosen by the lowest danger tier among the mission's objectives. It only ever lowers the cap, the smaller of it and `MaxFame` wins.
 
 ## MaxFamePerHighTier
 `map<int, range<int>>` · optional
 
-<!-- TODO: needs documentation -->
+A fame ceiling chosen by the highest danger tier among the mission's objectives. It only ever lowers the cap, the smallest of it, `MaxFamePerLowTier` and `MaxFame` wins.
 
 ## RoundToMultiple
 `int` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+Rounds the final fame award to the nearest multiple of this value. It applies to the award only, not to the `MaxFame` ceiling.

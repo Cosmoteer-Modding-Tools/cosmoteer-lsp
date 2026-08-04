@@ -10,44 +10,44 @@
 ## Layer
 `→ ShipRenderLayerRules` · required
 
-<!-- TODO: needs documentation -->
+The render layer the sprite draws on, one of the layer ids declared in the ship type's RenderLayers. The layer's `Inflate` setting is also applied to the quad.
 
 ## Range
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+The value window mapped onto [[Cosmoteer.Ships.Parts.Graphics.BasePartValueSpritesRules.ValueLevels]]. The watched value is normalized as `(value - Min) / (Max - Min)` before choosing a sprite. When unset, the value is instead divided by the component's natural maximum, which is the storage capacity for `ResourceSprites` and 1 for `ValueSprites`.
 
 ## Modulus
 `float` · optional
 
-<!-- TODO: needs documentation -->
+When nonzero, the watched value and its fallback maximum wrap modulo this number before normalization, letting the sprite sequence cycle repeatedly as the value keeps growing.
 
 ## Round
 `enum RoundMode` · optional · one of: `Up`, `Down`, `Nearest`
 
-<!-- TODO: needs documentation -->
+How the normalized value scaled by the sprite count is rounded to a sprite index. Defaults to `Up`, so any value above a threshold already shows the next sprite.
 
 ## AnimationToggle
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Names a toggle component that gates sprite animation. While the toggle is off, the animation speed is forced to 0 and the sprite freezes. While on, the speed comes from [[Cosmoteer.Ships.Parts.Graphics.BasePartValueSpritesRules.AnimationSpeedFactor]], or 1 when that is unset.
 
 ## AnimationSpeedFactor
 `→ PartComponentRules` · optional
 
-<!-- TODO: needs documentation -->
+Names a value component whose current value drives the sprite's animation speed multiplier. The raw value is remapped through [[Cosmoteer.Ships.Parts.Graphics.BasePartValueSpritesRules.AnimationSpeedFactorRenormalize]], and results within 0.0001 of zero freeze the animation.
 
 ## AnimationSpeedFactorRenormalize
 `range<float>` · optional
 
-<!-- TODO: needs documentation -->
+Remaps the raw [[Cosmoteer.Ships.Parts.Graphics.BasePartValueSpritesRules.AnimationSpeedFactor]] value to the final speed multiplier. A raw value of 0 maps to the range's Min and 1 to its Max, without clamping, so the default `[0, 1]` leaves the value unchanged.
 
 ## ValueLevels
 `AtlasSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+The sprite list ordered from lowest to highest value. The normalized value picks an index according to [[Cosmoteer.Ships.Parts.Graphics.BasePartValueSpritesRules.Round]] and [[Cosmoteer.Ships.Parts.Graphics.BasePartValueSpritesRules.HasZeroValueSprite]], values beyond the top clamp to the last sprite, and an index below the first sprite renders nothing. Also accepted under the alias `ResourceLevels`, which vanilla ammo and battery displays use.
 
 ## HasZeroValueSprite
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Marks the first entry of [[Cosmoteer.Ships.Parts.Graphics.BasePartValueSpritesRules.ValueLevels]] as a dedicated sprite for a value of exactly zero. Without it, a zero value renders no sprite at all. Also accepted under the alias `HasZeroResourceSprite`, which the vanilla deck cannon and flak cannon use to show an empty ammo rack.

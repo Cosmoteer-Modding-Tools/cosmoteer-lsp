@@ -10,14 +10,14 @@
 ## AbsorbsResourceDrain
 `number` · required
 
-<!-- TODO: needs documentation -->
+The number of drain points this sink can soak before it saturates. The sink joins `ExplosiveResourceDrain` distribution like a storage of [[Cosmoteer.Ships.Parts.Resources.ExplosiveResourceDrainSinkRules.ResourceType]], absorbing drain that would otherwise empty real storages, and only participates while the component is operational. Supports value modifiers. Vanilla armor absorbs 1000 battery drain per tile, which its stats page surfaces as EMP resistance.
 
 ## RecoveryRate
 `number` · optional
 
-<!-- TODO: needs documentation -->
+Drain-absorption points regained per second after soaking a drain, up to the [[Cosmoteer.Ships.Parts.Resources.ExplosiveResourceDrainSinkRules.AbsorbsResourceDrain]] cap. Defaults to infinite, which restores the full capacity almost immediately. Vanilla armor recovers 10 percent of its capacity per second. Supports value modifiers.
 
 ## ResourceType
 `→ ResourceRules` · required
 
-<!-- TODO: needs documentation -->
+The resource whose drain this sink absorbs. Only `ExplosiveResourceDrain` hit effects draining this type consider the sink. Vanilla armor uses `battery` to soak EMP-style battery drain.

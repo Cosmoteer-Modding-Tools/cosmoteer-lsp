@@ -63,6 +63,7 @@ import { ValidationForAssignment } from './features/diagnostics/validator.assign
 import { validateRedundantSeparators } from './features/diagnostics/validator.separator';
 import { validateIgnoredFields } from './features/diagnostics/validator.ignored-field';
 import { validateDefaultValuedFields } from './features/diagnostics/validator.default-value';
+import { validateUnusedConstants } from './features/diagnostics/validator.unused-constant';
 import { ValidationForMath } from './features/diagnostics/validator.math';
 import { ValidationForDocumentDuplicates, ValidationForGroupDuplicates } from './features/diagnostics/validator.duplicate-key';
 import { validateInheritanceCycles } from './features/diagnostics/validator.inheritance-cycle';
@@ -80,6 +81,7 @@ import { generateModOverview } from './mod/mod-overview';
 import { clearModRootCache, findModRoot } from './mod/mod-root';
 import { join } from 'path';
 import { validateModActions } from './features/diagnostics/validator.mod-action';
+import { validateManifestVersion } from './features/diagnostics/validator.manifest-version';
 import { invalidateModContext } from './mod/mod-context';
 import { modRulesOffsetCompletions } from './features/completion/autocompletion.mod-rules';
 import { inheritanceTargetCompletions } from './features/completion/autocompletion.inheritance-target';
@@ -130,6 +132,12 @@ import {
 import { clearNavigationMemo, invalidateNavigationMemoForFile } from './features/navigation/full.navigation-strategy';
 import { perfCount, perfReset, perfSampleMemory, perfSnapshot } from './utils/perf-counters';
 import { startScanCpuProfile, stopScanCpuProfile } from './utils/cpu-profile';
+import { removalRange } from './utils/removal-range';
+import { collectFileMigration, MIGRATE_WORKSPACE_COMMAND, MigrationSummary } from './features/migration/migrate-workspace';
+import { BUILD_MOD_SCHEMA_COMMAND, buildModSchema, ModSchemaSummary } from './features/mod-schema/mod-schema';
+import { watchDirectories, watchModAssemblies } from './features/mod-schema/watch';
+import { extendSchemaWithMods, modSchemaSignature } from './document/schema/schema';
+import { localModDirs, workshopContentDir } from './workspace/workshop-dir';
 import { filePathToUri } from './features/navigation/navigation-strategy';
 import { normalizeUri } from './features/navigation/reference-location';
 import { computeSignatureHelp } from './features/signature/signature-help.service';
@@ -284,8 +292,10 @@ connection.onInitialize(async (params: InitializeParams) => {
             },
             // The "Open in decompiler" hover link executes on the server (it spawns the user's
             // ILSpy/dotPeek locally), so VS Code and the JetBrains plugin share one implementation.
+            // The workspace migration also runs server-side for the same reason: one implementation
+            // computes the WorkspaceEdit, both clients only trigger it and show the summary.
             executeCommandProvider: {
-                commands: [OPEN_IN_DECOMPILER_COMMAND],
+                commands: [OPEN_IN_DECOMPILER_COMMAND, MIGRATE_WORKSPACE_COMMAND, BUILD_MOD_SCHEMA_COMMAND],
             },
             semanticTokensProvider: {
                 legend: semanticTokensLegend,
@@ -357,6 +367,15 @@ connection.onInitialized(async (_params) => {
                     });
         }
     }
+    // Merge the schema surface of any code mod before anything validates. A code mod's `.dll`
+    // declares types and `Type=` discriminators the shipped schema has never seen, and its `.rules`
+    // files name them, so validating before this lands reports them as unknown. The cached
+    // extraction makes the common case a file read, and the walk that decides whether the cache
+    // still applies is a fraction of a second over the whole installed workshop tree.
+    await timedStartupPhase('startup.modSchemaMs', () => loadModSchema()).catch((e) => {
+        if (globalSettings.trace.server === 'messages') console.error(e);
+    });
+
     // The game-tree scan (or the decision that there is none) is settled. Index builds that were
     // waiting on it may now resolve the folder set, with the Data root included when it exists.
     resolveWorkspaceInitialized();
@@ -372,8 +391,15 @@ connection.onInitialized(async (_params) => {
         // Asset files are watched too: their existence is memoized (asset.navigation-strategy),
         // and without a watcher event a created or deleted sprite/sound/shader would never drop
         // its memo entry, pinning a stale "asset not found" (or a stale hit) indefinitely.
+        // A code mod's assembly (and the XML doc file beside it) is watched too: rebuilding a mod
+        // the user has open changes the types the schema must know about, and until they are
+        // re-extracted every `Type=` the new build added reads as an unknown discriminator.
         connection.client.register(DidChangeWatchedFilesNotification.type, {
-            watchers: [{ globPattern: '**/*.{rules,txt}' }, { globPattern: '**/*.{png,mp3,wav,ogg,shader}' }],
+            watchers: [
+                { globPattern: '**/*.{rules,txt}' },
+                { globPattern: '**/*.{png,mp3,wav,ogg,shader}' },
+                { globPattern: '**/*.{dll,xml}' },
+            ],
         });
         // With the watcher in place, the mention index no longer needs its per-query stat sweep
         // over the whole tree. Disk changes arrive as dirty marks instead.
@@ -462,8 +488,10 @@ connection.onDidChangeConfiguration(async (change) => {
         documentSettings.clear();
     }
     const wasWholeWorkspace = wholeWorkspaceEnabled();
-    const previousScope = globalSettings.diagnostics?.workspaceValidationScope ?? 'allFiles';
+    const previousScope = workspaceValidationScope();
     const previousCosmoteerPath = globalSettings.cosmoteerPath;
+    const wasCodeModsEnabled = codeModsEnabled();
+    const wasCodeModAutoRefresh = codeModAutoRefreshEnabled();
 
     const workspaceFolders = await getWorkspaceFoldersCached();
     // With the pull model (the client advertises `workspace/configuration`), the change
@@ -517,11 +545,38 @@ connection.onDidChangeConfiguration(async (change) => {
     }
     connection.languages.diagnostics.refresh();
 
+    // React to the code-mod switches. Turning the feature off has to unmerge what is already in the
+    // schema (the types stay live otherwise), turning it on has to run the merge the startup load
+    // skipped, and the auto-refresh switch only decides whether the watch is armed.
+    if (codeModsEnabled() !== wasCodeModsEnabled) {
+        if (codeModsEnabled()) {
+            await loadModSchema().catch((e) => {
+                if (globalSettings.trace.server === 'messages') console.error(e);
+            });
+        } else {
+            closeModAssemblyWatch?.();
+            closeModAssemblyWatch = undefined;
+            extendSchemaWithMods(undefined);
+        }
+        applyModSchemaChange();
+    } else if (codeModAutoRefreshEnabled() !== wasCodeModAutoRefresh) {
+        if (codeModAutoRefreshEnabled()) {
+            // Arming needs the assembly list, and a mod may well have changed while the watch was
+            // off, so this goes through the normal build.
+            await loadModSchema().catch((e) => {
+                if (globalSettings.trace.server === 'messages') console.error(e);
+            });
+        } else {
+            closeModAssemblyWatch?.();
+            closeModAssemblyWatch = undefined;
+        }
+    }
+
     // React to the whole-workspace diagnostics toggle (and to a Cosmoteer-path or scope change while
     // it's on, since those change how every reference resolves / which files are covered). A scope
     // change clears first, so diagnostics published for now-out-of-scope files don't linger.
     const nowWholeWorkspace = wholeWorkspaceEnabled();
-    const nowScope = globalSettings.diagnostics?.workspaceValidationScope ?? 'allFiles';
+    const nowScope = workspaceValidationScope();
     const scopeChanged = nowScope !== previousScope;
     if (nowWholeWorkspace && (!wasWholeWorkspace || cosmoteerPathChanged || scopeChanged)) {
         if (scopeChanged && wasWholeWorkspace) await clearWorkspaceDiagnostics();
@@ -1071,6 +1126,15 @@ async function validateTextDocument(
             );
             validationErrors = validationErrors.concat(defaultValueErrors);
         }
+        // Separate pass: SCREAMING_CASE constants no reference reads, chains of them included. Needs
+        // the project's mention index to prove the name is spelled nowhere else, so it runs with the
+        // same folder set the cross-file checks use.
+        if (settings.diagnostics?.validateUnusedConstants) {
+            const unusedConstantErrors = await timedPass('scan.vUnusedConstantMs', async () =>
+                validateUnusedConstants(parserResult.value, await searchFolderUris(), cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(unusedConstantErrors);
+        }
         if (isModRules(textDocument.uri)) {
             // Separate pass: validate the manifest's action verbs/targets against the
             // effective game tree (the AstType-keyed Validator allows only one pass per type).
@@ -1079,6 +1143,12 @@ async function validateTextDocument(
                 cancelToken
             ).catch(() => []);
             validationErrors = validationErrors.concat(modActionErrors);
+            // Separate pass: a version-split `mod_*.rules` without `CompatibleGameVersions` is
+            // never selected by the game when the mod has other manifest files.
+            const manifestVersionErrors = await validateManifestVersion(parserResult.value, cancelToken).catch(
+                () => []
+            );
+            validationErrors = validationErrors.concat(manifestVersionErrors);
         } else if (gameIndexAvailable() && isActionFragmentDocument(parserResult.value)) {
             // An included action fragment (launcher.rules, register.rules) holds a literal `Actions`
             // list that a manifest concatenates via `Actions: &<file>/Actions`. Validate its actions
@@ -1147,7 +1217,11 @@ const workspaceDiagnosticUris = new Set<string>();
 let workspaceValidationSource: CancellationTokenSource | undefined;
 
 /** Whether the whole-workspace diagnostics feature is currently enabled. */
-const wholeWorkspaceEnabled = (): boolean => globalSettings.diagnostics?.validateWholeWorkspace ?? false;
+const wholeWorkspaceEnabled = (): boolean => globalSettings.diagnostics?.validateWholeWorkspace ?? true;
+
+/** Which files the whole-workspace pass covers, defaulting to the files the game can load. */
+const workspaceValidationScope = (): 'allFiles' | 'modRulesReachable' =>
+    globalSettings.diagnostics?.workspaceValidationScope ?? 'modRulesReachable';
 
 /** Bumped whenever the on-disk `.rules` state or the folder set changes, staling the scope cache. */
 let validationScopeEpoch = 0;
@@ -1206,7 +1280,7 @@ async function isUnreferencedTxt(file: string, token: CancellationToken): Promis
  * @returns the allowed reachability keys, or undefined when unrestricted.
  */
 async function validationScopeKeys(token: CancellationToken): Promise<Set<string> | undefined> {
-    if (globalSettings.diagnostics?.workspaceValidationScope !== 'modRulesReachable') return undefined;
+    if (workspaceValidationScope() !== 'modRulesReachable') return undefined;
     if (validationScopeCache?.epoch === validationScopeEpoch) return validationScopeCache.keys;
     const epoch = validationScopeEpoch;
     const folders = await getWorkspaceFoldersCached();
@@ -1340,7 +1414,8 @@ const scanRevisionSum = (): number =>
     ActionRootingIndex.instance.revision +
     SchemaIdIndex.instance.revision +
     TemplateBaseIndex.instance.revision +
-    LocalizationKeyIndex.instance.revision;
+    LocalizationKeyIndex.instance.revision +
+    MentionIndex.instance.revision;
 
 /**
  * Validate a single `.rules` file from disk and publish its diagnostics. Skips files open in the
@@ -1504,6 +1579,7 @@ async function runWorkspaceValidation(): Promise<void> {
             connection.console.info(
                 `Workspace validation: ${files.length} files in ${Date.now() - startedMs}ms (${fresh} validated, rest cached or open)`
             );
+            announceWorkspaceValidation(files.length, fresh, Date.now() - startedMs);
             // Persist the results computed under the pass's final shared state, so the next
             // session's scan can restore them instead of re-validating an unchanged project.
             // Only worth rewriting when this pass validated anything fresh.
@@ -1528,6 +1604,42 @@ async function runWorkspaceValidation(): Promise<void> {
         progress.done();
         if (workspaceValidationSource === source) workspaceValidationSource = undefined;
     }
+}
+
+/**
+ * How many files a pass has to cover before the client is told about it. Below this a whole-mod
+ * scan is over before the user notices and costs nothing worth a notification; the point of the
+ * notice is the project where it is a real amount of work.
+ */
+const WORKSPACE_VALIDATION_NOTICE_MIN_FILES = 250;
+
+/** Only the first qualifying pass of a session announces itself. */
+let workspaceValidationAnnounced = false;
+
+/**
+ * Tell the client that a whole-mod validation ran, so it can inform the user once that this is
+ * on by default and point at the switch. Whether the user has already been told is the client's
+ * business (it owns the persistent state), so this is sent once per session and ignored after.
+ *
+ * A pass that validated nothing fresh (everything served from the on-disk scan cache) is not worth
+ * announcing: nobody waited for it.
+ *
+ * @param files how many files the pass covered.
+ * @param fresh how many of them were actually re-validated rather than served from the cache.
+ * @param elapsedMs how long the pass took.
+ */
+function announceWorkspaceValidation(files: number, fresh: number, elapsedMs: number): void {
+    if (workspaceValidationAnnounced) return;
+    if (files < WORKSPACE_VALIDATION_NOTICE_MIN_FILES || fresh === 0) return;
+    workspaceValidationAnnounced = true;
+    void connection
+        .sendNotification('cosmoteer/workspaceValidated', {
+            files,
+            fresh,
+            elapsedMs,
+            scope: workspaceValidationScope(),
+        })
+        .catch(() => undefined);
 }
 
 /** Clear all whole-workspace diagnostics we published (except files still open in the editor). */
@@ -2090,6 +2202,12 @@ connection.onDidChangeWatchedFiles(async (params) => {
     const openNorms = wholeWorkspaceEnabled() ? openDocumentNorms() : undefined;
     const rulesChanges = params.changes.filter((change) => isRulesFileName(basenameOf(change.uri)));
     const assetChanges = params.changes.filter((change) => !isRulesFileName(basenameOf(change.uri)));
+    // A code mod being developed in the workspace: its assembly (or the XML doc file beside it) was
+    // just rebuilt, so the types and prose merged into the schema are one build behind. The
+    // re-extraction runs in the background, since nothing in this handler depends on it.
+    if (codeModAutoRefreshEnabled() && params.changes.some((change) => /\.(dll|xml)$/i.test(basenameOf(change.uri)))) {
+        void refreshModSchema();
+    }
     // Asset (sprite/sound/shader) changes only affect the fs-derived caches: dropping the path
     // entry also fires the invalidation listeners that clear the asset and navigation memos, so
     // a created or deleted asset stops being answered from a stale memo. They must not dirty the
@@ -2269,33 +2387,8 @@ connection.onRenameRequest(async (params, cancellationToken) => {
     }
 });
 
-/**
- * The deletion range for a remove quick fix: the byte-offset span widened to whole lines when the
- * span (plus surrounding whitespace and a trailing `,`/`;`) is all its lines contain, so removing a
- * field takes its line with it instead of leaving a blank one. When other content shares a line, the
- * exact span (plus a trailing separator) is deleted instead.
- *
- * @param doc the open text document the diagnostic belongs to.
- * @param start the span's inclusive start byte offset.
- * @param end the span's exclusive end byte offset.
- * @returns the range to replace with the empty string.
- */
-const removalRange = (doc: TextDocument, start: number, end: number): Range => {
-    const text = doc.getText();
-    let s = start;
-    let e = end;
-    // Swallow a trailing separator and the spaces around it, so `X = 1, Y = 2` minus X leaves `Y = 2`.
-    while (e < text.length && (text[e] === ' ' || text[e] === '\t')) e++;
-    if (text[e] === ',' || text[e] === ';') e++;
-    while (s > 0 && (text[s - 1] === ' ' || text[s - 1] === '\t')) s--;
-    const atLineStart = s === 0 || text[s - 1] === '\n';
-    const restOfLine = text.slice(e, text.indexOf('\n', e) === -1 ? text.length : text.indexOf('\n', e));
-    if (atLineStart && /^\s*$/.test(restOfLine)) {
-        const nextLine = text.indexOf('\n', e);
-        e = nextLine === -1 ? text.length : nextLine + 1;
-    }
-    return { start: doc.positionAt(s), end: doc.positionAt(e) };
-};
+// removalRange moved to utils/removal-range.ts so the workspace migration shares the exact
+// whole-line widening the code-action fixes use.
 
 // Code actions: surface the quick fixes carried on diagnostics' `data`, the "did you mean …"
 // replacements (a typo'd reference name, asset filename, or localization key) as one-click edits of
@@ -2330,6 +2423,29 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
                 },
             });
         }
+        // A rewrite (multi-edit migration, e.g. `Flammable = false` → TypeCategories entry) is
+        // offered before the plain removal and preferred over it: it preserves the author's intent
+        // where the removal would drop it.
+        if (data?.rewrite) {
+            const doc = documents.get(params.textDocument.uri);
+            if (doc) {
+                const edits = data.rewrite.edits.map((edit) =>
+                    edit.newText === ''
+                        ? { range: removalRange(doc, edit.start, edit.end), newText: '' }
+                        : {
+                              range: { start: doc.positionAt(edit.start), end: doc.positionAt(edit.end) },
+                              newText: edit.newText,
+                          }
+                );
+                actions.push({
+                    title: data.rewrite.title,
+                    kind: CodeActionKind.QuickFix,
+                    diagnostics: [diagnostic],
+                    isPreferred: true,
+                    edit: { changes: { [params.textDocument.uri]: edits } },
+                });
+            }
+        }
         if (data?.remove) {
             const doc = documents.get(params.textDocument.uri);
             if (doc) {
@@ -2338,7 +2454,7 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
                     title: data.remove.title,
                     kind: CodeActionKind.QuickFix,
                     diagnostics: [diagnostic],
-                    isPreferred: true,
+                    isPreferred: !data.rewrite,
                     edit: { changes: { [params.textDocument.uri]: [{ range, newText: '' }] } },
                 });
             }
@@ -2391,14 +2507,285 @@ connection.onHover(async (params, cancellationToken) => {
     }
 });
 
-// The "Open in decompiler" hover link (see decompiler-link.ts). Both clients route it here as a
-// plain workspace/executeCommand, and the server finds and spawns the user's decompiler locally.
+// The "Open in decompiler" hover link (see decompiler-link.ts) and the workspace migration. Both
+// clients route them here as plain workspace/executeCommand: the decompiler command spawns the
+// user's decompiler locally, the migration computes and applies a WorkspaceEdit and answers with a
+// summary the client displays.
 connection.onExecuteCommand(async (params) => {
-    if (params.command !== OPEN_IN_DECOMPILER_COMMAND) return;
-    await openInDecompiler((params.arguments?.[0] ?? {}) as OpenInDecompilerArgs, connection).catch((e) => {
-        if (globalSettings.trace.server === 'messages') console.error(e);
-    });
+    if (params.command === OPEN_IN_DECOMPILER_COMMAND) {
+        await openInDecompiler((params.arguments?.[0] ?? {}) as OpenInDecompilerArgs, connection).catch((e) => {
+            if (globalSettings.trace.server === 'messages') console.error(e);
+        });
+        return;
+    }
+    if (params.command === MIGRATE_WORKSPACE_COMMAND) {
+        return await migrateWorkspace((params.arguments?.[0] ?? {}) as { removeDeadFields?: boolean }).catch((e) => {
+            if (globalSettings.trace.server === 'messages') console.error(e);
+            return null;
+        });
+    }
+    if (params.command === BUILD_MOD_SCHEMA_COMMAND) {
+        return await rebuildModSchema().catch((e) => {
+            if (globalSettings.trace.server === 'messages') console.error(e);
+            return null;
+        });
+    }
 });
+
+/**
+ * The folders a code mod's assemblies can live in: every open workspace folder, plus the installed
+ * workshop tree, whose mods supply types the edited files legitimately name even when the user is
+ * not editing those mods.
+ *
+ * @returns the search roots, empty when there is nothing to search.
+ */
+async function modAssemblyRoots(): Promise<string[]> {
+    const folders = await getWorkspaceFoldersCached();
+    const roots = (folders ?? []).map((folder) => uriToFsPath(folder.uri));
+    const workshop = workshopContentDir();
+    if (workshop) roots.push(workshop);
+    // Mods the user installed by hand live outside the workshop tree, and their types are named by
+    // the files being edited just the same.
+    roots.push(...localModDirs());
+    return roots;
+}
+
+/**
+ * Load the code-mod schema at startup, reusing the cached extraction whenever the assemblies on
+ * disk are unchanged.
+ *
+ * @returns once the extension is merged, or immediately when there is nothing to search.
+ */
+async function loadModSchema(): Promise<void> {
+    // Off means: no assembly walk, no assembly read, nothing merged.
+    if (!codeModsEnabled()) {
+        extendSchemaWithMods(undefined);
+        return;
+    }
+    const roots = await modAssemblyRoots();
+    if (roots.length === 0) return;
+    const summary = await buildModSchema(roots, CosmoteerWorkspaceService.instance.dataRootPath ?? '');
+    armModAssemblyWatch(summary.assemblyPaths, roots);
+}
+
+/** Whether a code mod's assemblies are read into the schema at all (`codeMods.enabled`). */
+const codeModsEnabled = (): boolean => globalSettings.codeMods?.enabled ?? true;
+
+/** Whether those assemblies are watched, so a mod change is picked up without the command. */
+const codeModAutoRefreshEnabled = (): boolean => codeModsEnabled() && (globalSettings.codeMods?.autoRefresh ?? true);
+
+/** Closes the watch armed for the previous build, so re-arming never leaks handles. */
+let closeModAssemblyWatch: (() => void) | undefined;
+/** True while a watcher-driven refresh is running, so a burst mid-rebuild coalesces into one rerun. */
+let modSchemaRefreshRunning = false;
+/** True when a change arrived while a refresh was running and has to be answered afterwards. */
+let modSchemaRefreshQueued = false;
+
+/**
+ * Watch the assemblies the current extraction came from, so a mod installed, updated or rebuilt
+ * after startup is merged without the user running the command.
+ *
+ * The client watches the workspace folders (the `.dll`/`.xml` glob registered above), which is where
+ * a mod being developed lives. The installed workshop tree is outside every workspace folder, so it
+ * is watched here.
+ *
+ * @param assemblyPaths the assemblies the build discovered, from its summary.
+ * @param roots the search roots, watched so an installed or uninstalled mod is noticed as well.
+ */
+function armModAssemblyWatch(assemblyPaths: readonly string[], roots: readonly string[]): void {
+    closeModAssemblyWatch?.();
+    closeModAssemblyWatch = undefined;
+    if (!codeModAutoRefreshEnabled()) return;
+    closeModAssemblyWatch = watchModAssemblies(watchDirectories(assemblyPaths, roots), () => {
+        void refreshModSchema();
+    });
+}
+
+/**
+ * Re-extract after a watched assembly or doc file changed, and re-run everything that depends on the
+ * schema. Unlike the command this trusts the cache: the stamps of the changed file no longer match,
+ * so the affected build misses it anyway, while an event that changed nothing relevant stays a cheap
+ * cache hit.
+ *
+ * @returns once the new extraction is merged and the clients have been asked to re-pull.
+ */
+async function refreshModSchema(): Promise<void> {
+    if (!codeModAutoRefreshEnabled()) return;
+    if (modSchemaRefreshRunning) {
+        modSchemaRefreshQueued = true;
+        return;
+    }
+    modSchemaRefreshRunning = true;
+    try {
+        const roots = await modAssemblyRoots();
+        if (roots.length === 0) return;
+        const before = modSchemaSignature();
+        const summary = await buildModSchema(roots, CosmoteerWorkspaceService.instance.dataRootPath ?? '');
+        armModAssemblyWatch(summary.assemblyPaths, roots);
+        // A watcher fires for plenty that does not change the schema surface (a mod's `.deps.json`
+        // rewritten beside its assembly, a touch that moved no bytes). Only tell the clients to
+        // throw away their results when the merged surface actually moved.
+        if (modSchemaSignature() === before) return;
+        applyModSchemaChange();
+        connection.console.info(
+            `Code mod schema updated from disk: ${summary.types} types, ${summary.discriminators} discriminators, ` +
+                `${summary.documented} documented fields from ${summary.assemblies} assemblies.`
+        );
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages') console.error(e);
+    } finally {
+        modSchemaRefreshRunning = false;
+        if (modSchemaRefreshQueued) {
+            modSchemaRefreshQueued = false;
+            void refreshModSchema();
+        }
+    }
+}
+
+/**
+ * Drop everything computed against the previous schema. The schema decides what every validator,
+ * completion and hover answers, and the version-keyed caches would keep serving results computed
+ * against the old one, since no document version moved.
+ */
+function applyModSchemaChange(): void {
+    diagnosticsCache.clear();
+    inlayHintCache.clear();
+    invalidateSchemaContextCache();
+    invalidateComponentIdCache();
+    invalidateLooseDeclarationCache();
+    bumpWorkspaceScanEpoch();
+    if (hasPullDiagnosticsCapability) connection.languages.diagnostics.refresh();
+    else for (const document of documents.all()) schedulePushValidation(document);
+}
+
+/**
+ * Re-extract every code mod's schema surface and re-run the diagnostics that depend on it. Unlike
+ * the startup load this ignores the cache, so a mod the user just rebuilt is picked up even when
+ * its assembly kept its timestamp.
+ *
+ * @returns the summary for the invoking client to display, or null without workspace folders.
+ */
+async function rebuildModSchema(): Promise<ModSchemaSummary | null> {
+    // The command respects the switch: rebuilding into a schema the user asked to keep mod-free
+    // would quietly re-enable the feature they turned off.
+    if (!codeModsEnabled()) {
+        return { assemblies: 0, types: 0, discriminators: 0, fromCache: false, unreadable: [], documented: 0, assemblyPaths: [], disabled: true };
+    }
+    const roots = await modAssemblyRoots();
+    if (roots.length === 0) return null;
+    const progress = await connection.window.createWorkDoneProgress();
+    progress.begin('Building code mod schema', 0, '', false);
+    try {
+        const summary = await buildModSchema(
+            roots,
+            CosmoteerWorkspaceService.instance.dataRootPath ?? '',
+            { force: true }
+        );
+        armModAssemblyWatch(summary.assemblyPaths, roots);
+        applyModSchemaChange();
+        return summary;
+    } finally {
+        progress.done();
+    }
+}
+
+/**
+ * The one-command workspace migration: walk every rules file the workspace scan would validate, run
+ * the deprecation-aware validators on each, and apply every migration-sanctioned fix (old-version
+ * renames, deletions, and rewrites like `Flammable = false` → a `non_flammable` TypeCategories
+ * entry) as one WorkspaceEdit, so the whole migration lands as an atomic, undoable edit in the
+ * client. Findings that need author judgment are returned in the summary instead of edited, grouped
+ * report-side by the game version that made each change.
+ *
+ * @param options `removeDeadFields` also strips every ignored/dead-field finding (fields the game
+ * never reads) on top of the migrations. Off unless the user opted in.
+ * @returns the summary for the invoking client to display, or null without workspace folders.
+ */
+async function migrateWorkspace(options: { removeDeadFields?: boolean }): Promise<MigrationSummary | null> {
+    const folders = await getWorkspaceFoldersCached();
+    const folderUris = (folders ?? []).map((folder) => folder.uri);
+    if (folderUris.length === 0) return null;
+    const token = CancellationToken.None;
+    const progress = await connection.window.createWorkDoneProgress();
+    progress.begin('Migrating workspace', 0, '', false);
+    // Trust the fs caches for the duration of the pass, like the diagnostic scan does: the walk
+    // re-checks the same directories and base files constantly, and nothing edits files mid-pass
+    // (the WorkspaceEdit applies only at the end).
+    beginFsTrustWindow();
+    try {
+        const files: string[] = [];
+        for (const folder of folderUris) {
+            for await (const file of collectRulesFiles(uriToFsPath(folder))) files.push(file);
+        }
+        // Same scope the diagnostics scan uses: only files the game can actually load.
+        const scopeKeys = await validationScopeKeys(token);
+        const scoped = scopeKeys ? files.filter((file) => scopeKeys.has(reachabilityKey(file))) : files;
+        await ensureFragmentRooting(token).catch(() => undefined);
+        // An open editor buffer wins over the disk content, and its (possibly differently-encoded)
+        // uri is the one the WorkspaceEdit must target, or the client would open a second buffer.
+        const openByNorm = new Map<string, TextDocument>();
+        for (const open of documents.all()) openByNorm.set(normalizeUri(open.uri), open);
+        const summary: MigrationSummary = {
+            files: 0,
+            fixes: 0,
+            byVersion: {},
+            manual: [],
+            deadFieldsRemoved: 0,
+            unparsable: 0,
+        };
+        const changes: { [uri: string]: TextEdit[] } = {};
+        let done = 0;
+        for (const file of scoped) {
+            done++;
+            const canonicalUri = filePathToUri(file);
+            let doc = openByNorm.get(normalizeUri(canonicalUri));
+            if (!doc) {
+                // A `.txt` nothing references is not rules content the game would load, so it is
+                // skipped like the diagnostics scan skips it.
+                if (await isUnreferencedTxt(file, token)) continue;
+                let text: string;
+                try {
+                    text = await readFile(file, { encoding: 'utf-8' });
+                } catch {
+                    continue;
+                }
+                doc = TextDocument.create(canonicalUri, 'rules', 0, text);
+            }
+            const parserResult = parser(lexer(doc.getText()), doc.uri);
+            // A file the parser could not fully read is never edited mechanically: an edit computed
+            // against a desynced AST could land in the wrong place.
+            if (parserResult.parserErrors.length > 0) {
+                summary.unparsable++;
+                continue;
+            }
+            const fileResult = await collectFileMigration(
+                parserResult.value,
+                doc,
+                options.removeDeadFields === true,
+                token
+            ).catch(() => undefined);
+            progress.report(Math.round((done / scoped.length) * 100), `${done}/${scoped.length}`);
+            if (!fileResult) continue;
+            summary.manual.push(...fileResult.manual);
+            for (const [version, count] of Object.entries(fileResult.byVersion)) {
+                summary.byVersion[version] = (summary.byVersion[version] ?? 0) + count;
+                summary.fixes += count;
+            }
+            summary.deadFieldsRemoved += fileResult.deadFieldsRemoved;
+            if (fileResult.edits.length > 0) {
+                changes[doc.uri] = fileResult.edits;
+                summary.files++;
+            }
+        }
+        if (summary.files > 0) {
+            await connection.workspace.applyEdit({ changes });
+        }
+        return summary;
+    } finally {
+        endFsTrustWindow();
+        progress.done();
+    }
+}
 
 // Live shader preview: build the payload (translated GLSL, constants, texture, blend mode) for the
 // material at a position, consumed by the client's WebGL preview webview.

@@ -10,39 +10,39 @@
 ## ID
 `→ SectorTypeRules` · required
 
-<!-- TODO: needs documentation -->
+The identifier this sector type is referenced by, for example from a `RandomSectorTypes` spawner entry or from a spawner's `OnlySectorTypes` and `ExcludeSectorTypes` conditions. Vanilla ships `basic`, `binary`, `electron`, `high_density_nebula` and `supernova`.
 
 ## NameKey
 `string` · required
 
-<!-- TODO: needs documentation -->
+The localization key for the sector type's display name, shown as the star system type in the galaxy map node tooltip. Vanilla uses keys like `SectorTypes/Supernova`.
 
 ## SpawnFlags
 `→ SpawnFlag[]` · optional
 
-<!-- TODO: needs documentation -->
+Spawn flags added to the flag set handed to every spawner in a star system of this type, so generator entries can gate themselves with `RequireSpawnFlags` and `ProhibitSpawnFlags`. The career mode also adds `disable_nebulas` on top of these when the player turned nebulas off.
 
 ## SystemGenerator
 `SimulationGenerator` · required
 
-<!-- TODO: needs documentation -->
+The simulation generator that builds the contents of a star system of this type, run once when the sector is first entered.
 
 ## TradeRoutes
 `TradeRoutesRules` · required
 
-<!-- TODO: needs documentation -->
+The trade route rules that drive the AI trade ships and station stockpiles in a star system of this type.
 
 ## ResourceDeliveryMissions
 `ResourceDeliveryMissionRules` · required
 
-<!-- TODO: needs documentation -->
+The resource delivery mission rules for stations in a star system of this type, controlling how many missions each station offers at once and how long they last.
 
 ## BackgroundStyles
 `→ BackgroundStyleRules[]` · optional
 
-<!-- TODO: needs documentation -->
+Candidate background styles for a star system of this type, one picked at random per system. When unset, the game falls back to the global `DefaultInGameStyles`.
 
 ## EncounterRules
 `EncounterManagerRules` · required
 
-<!-- TODO: needs documentation -->
+The encounter rules used while the player is in a star system of this type, driving which random encounters can trigger and how often.

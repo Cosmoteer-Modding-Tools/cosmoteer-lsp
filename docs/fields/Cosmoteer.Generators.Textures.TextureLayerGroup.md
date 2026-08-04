@@ -10,14 +10,14 @@
 ## ImportClippingMask
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+When true, the group starts with a copy of the incoming clipping mask so its sub-layers can read it. When false, the group's internal clipping mask starts empty.
 
 ## BaseColor
 `IntColor` · optional
 
-<!-- TODO: needs documentation -->
+The color the group's internal texture is cleared to before its sub-layers are applied. Defaults to black.
 
 ## SubLayers
 `TextureLayer[]` · optional
 
-<!-- TODO: needs documentation -->
+The texture layers rendered into the group's own texture, in order, before the combined result is blended onto the layer below. Disabled sub-layers are skipped.

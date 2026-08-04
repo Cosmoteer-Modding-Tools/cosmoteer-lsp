@@ -10,4 +10,4 @@
 ## DefaultToggle
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+The initial on or off state of this debug toggle. The state can afterwards be flipped by hand in the part debugger.

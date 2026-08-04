@@ -10,29 +10,29 @@
 ## DamageLevels
 `AtlasSprite[]` · optional
 
-<!-- TODO: needs documentation -->
+The sprite list ordered from undamaged to most damaged. The part's damage fraction (or construction progress with [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules.UseConstructionProgressAsDamage]]) is remapped through [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules+DamageLevelSprites.MinDamageFraction]] and [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules+DamageLevelSprites.MaxDamageFraction]] and then scaled by the list length to pick a sprite. Vanilla parts typically supply three variants, pristine plus 33% and 66% damage.
 
 ## Layer
 `→ ShipRenderLayerRules` · required
 
-<!-- TODO: needs documentation -->
+The render layer the sprite draws on, one of the layer ids declared in the ship type's RenderLayers, such as `"floors"`, `"walls"`, `"roofs"`, or `"doodads_high"`. The layer's `Inflate` setting is also applied to the quad.
 
 ## Offset
 `Vector2` · optional
 
-<!-- TODO: needs documentation -->
+A ship-space offset in tiles added to the component's location when placing the sprite. The sprite still rotates around the unoffset location, and the X offset is mirrored when the part is flipped.
 
 ## RandomUVRotation
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Rotates the sprite's texture by a random multiple of 90 degrees chosen deterministically from the part's grid cell, so identical parts placed side by side do not visibly tile. All sprite sets of the same Graphics component share the same rotation. The vanilla corridor uses this on its floor.
 
 ## MinDamageFraction
 `float` · optional · default `0`
 
-<!-- TODO: needs documentation -->
+The damage fraction at which this sprite set starts advancing through its [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules+DamageLevelSprites.DamageLevels]]. Together with [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules+DamageLevelSprites.MaxDamageFraction]] it defines the 0..1 damage window that is remapped onto the full sprite list.
 
 ## MaxDamageFraction
 `float` · optional · default `1`
 
-<!-- TODO: needs documentation -->
+The damage fraction at which the sprite set ends. Damage beyond this value hides the sprite entirely, and the window between [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules+DamageLevelSprites.MinDamageFraction]] and this value is remapped onto the full [[Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules+DamageLevelSprites.DamageLevels]] list.

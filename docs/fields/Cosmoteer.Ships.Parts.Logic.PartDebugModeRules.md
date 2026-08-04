@@ -10,4 +10,4 @@
 ## DefaultMode
 `int` · optional
 
-<!-- TODO: needs documentation -->
+The initial integer mode of this debug mode component. The mode can afterwards be edited by hand in the part debugger.

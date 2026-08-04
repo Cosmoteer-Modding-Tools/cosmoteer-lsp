@@ -15,9 +15,9 @@ The region that will be included in the calculations.
 ## Falloff
 `float` · optional
 
-<!-- TODO: needs documentation -->
+An exponent that weakens tile scores with distance from the part. Each tile's score is multiplied by one minus its distance fraction across [[Cosmoteer.Ships.Parts.Logic.PartTileScoreValueRules.Region]], raised to this power, so tiles near the region's edge contribute less. At 0, the default, every tile counts at full score.
 
 ## IncludeSelf
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Counts the tiles covered by the owning part itself. By default those tiles are skipped, with the part's footprint judged by [[Cosmoteer.Ships.Parts.Logic.BaseTileScoreValueRules.PartRectType]]. The component's reported value is the sum of all counted tile scores.

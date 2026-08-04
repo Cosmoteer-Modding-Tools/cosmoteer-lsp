@@ -10,4 +10,4 @@
 ## RepairType
 `enum SoftRepairType` · required · one of: `Simultaneous`, `Blocking`
 
-<!-- TODO: needs documentation -->
+How crew repair work is applied to this soft repair. `Blocking` repairs consume the crew's repair work budget first and halt health repair and all `Simultaneous` repairs until finished, which is how vanilla fire must be extinguished before a part heals. `Simultaneous` repairs receive the full work budget alongside normal health repair without consuming any of it, as the vanilla scorched, heat, and shield overload statuses do.

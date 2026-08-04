@@ -10,29 +10,29 @@
 ## POITags
 `MultiSpawnedObjectSearch[]` · optional
 
-<!-- TODO: needs documentation -->
+Searches for the already-spawned point-of-interest doodads that must be discovered. Every match of every search is added as a target.
 
 ## LandmarkTags
 `MultiSpawnedObjectSearch[]` · optional
 
-<!-- TODO: needs documentation -->
+Searches for the already-spawned landmark ships that must be discovered, counted together with the doodads found by `POITags`.
 
 ## DiscoverCount
 `range<int>` · optional
 
-<!-- TODO: needs documentation -->
+How many of the found points of interest and landmarks must be discovered, rolled randomly from this range at spawn time and clamped to the number found. Without it, and without `DiscoverCountFraction`, all of them are required.
 
 ## DiscoverCountFraction
 `float` · optional
 
-<!-- TODO: needs documentation -->
+How many must be discovered, as a 0..1 fraction of the number found, rounded up. Ignored when `DiscoverCount` is present.
 
 ## ShowRealNames
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the mission log names each target instead of showing a single anonymous `Objectives/DiscoverUnknown` line with a counter. Targets sharing a name are grouped onto one line.
 
 ## GetTierFromTierField
 `bool` · optional
 
-<!-- TODO: needs documentation -->
+Whether the objective takes its danger tier from the sector's tier field sampled at each target's location, spanning the lowest and highest sampled tier. Without it the objective reports no tier.
