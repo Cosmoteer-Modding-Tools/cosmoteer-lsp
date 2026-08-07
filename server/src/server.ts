@@ -35,7 +35,7 @@ import {
 
 import { readFile, stat } from 'fs/promises';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { lexer } from './core/lexer/lexer';
+import { BlockCommentSpan, lexer } from './core/lexer/lexer';
 import { parser } from './core/parser/parser';
 import { AbstractNodeDocument } from './core/ast/ast';
 import { ParserResultRegistrar } from './registrar/parser-result-registrar';
@@ -60,7 +60,17 @@ import { ValidationForFunctionCall } from './features/diagnostics/validator.func
 import * as l10n from '@vscode/l10n';
 import { CosmoteerWorkspaceService } from './workspace/cosmoteer-workspace.service';
 import { ValidationForAssignment } from './features/diagnostics/validator.assignment';
-import { validateRedundantSeparators } from './features/diagnostics/validator.separator';
+import {
+    validateMissingSeparators,
+    validateRedundantSeparators,
+    validateUnbracketedValueList,
+} from './features/diagnostics/validator.separator';
+import {
+    validateOrphanCommentTerminators,
+    validateUnclosedComments,
+    validateUnterminatedComments,
+} from './features/diagnostics/validator.comment';
+import { validateAnonymousBlocks } from './features/diagnostics/validator.anonymous-block';
 import { validateIgnoredFields } from './features/diagnostics/validator.ignored-field';
 import { validateDefaultValuedFields } from './features/diagnostics/validator.default-value';
 import { validateUnusedConstants } from './features/diagnostics/validator.unused-constant';
@@ -635,8 +645,15 @@ const pushValidationTimers: Map<string, ReturnType<typeof setTimeout>> = new Map
  * the validation that follows (push or pull) reuses the parse instead of lexing and parsing the
  * same text a second time. Entries live only as long as the document is open.
  */
-const openParseCache: Map<string, { version: number; tokens: ReturnType<typeof lexer>; parserResult: ReturnType<typeof parser> }> =
-    new Map();
+const openParseCache: Map<
+    string,
+    {
+        version: number;
+        tokens: ReturnType<typeof lexer>;
+        blockComments: BlockCommentSpan[];
+        parserResult: ReturnType<typeof parser>;
+    }
+> = new Map();
 
 /**
  * The in-flight or settled diagnostics of each open document, keyed by uri and valid for one
@@ -666,9 +683,10 @@ function registerOpenDocument(document: TextDocument): void {
     if (isShaderDocument(document.uri)) return;
     const cached = openParseCache.get(document.uri);
     if (cached && cached.version === document.version) return;
-    const tokens = lexer(document.getText());
+    const blockComments: BlockCommentSpan[] = [];
+    const tokens = lexer(document.getText(), blockComments);
     const parserResult = parser(tokens, document.uri);
-    openParseCache.set(document.uri, { version: document.version, tokens, parserResult });
+    openParseCache.set(document.uri, { version: document.version, tokens, blockComments, parserResult });
     ParserResultRegistrar.instance.setResult(document.uri, parserResult.value);
     // The edit changes what references touching this file resolve to, and the disk watcher never
     // sees open-buffer edits, so drop the navigation memo entries whose resolution read this file.
@@ -960,6 +978,7 @@ async function validateTextDocument(
     // resolution inside a fragment work. This is a no-op once built and when there is no game root.
     await ensureFragmentRooting(cancelToken);
     let tokens: ReturnType<typeof lexer>;
+    let blockComments: BlockCommentSpan[];
     let parserResult: ReturnType<typeof parser>;
     if (persist) {
         // The open-document flow: reuse the parse {@link registerOpenDocument} already did for
@@ -968,11 +987,13 @@ async function validateTextDocument(
         const cached = openParseCache.get(textDocument.uri);
         if (!cached) return [];
         tokens = cached.tokens;
+        blockComments = cached.blockComments;
         parserResult = cached.parserResult;
     } else {
         perfCount('scan.parse');
         const parseStarted = Date.now();
-        tokens = lexer(textDocument.getText());
+        blockComments = [];
+        tokens = lexer(textDocument.getText(), blockComments);
         if (cancelToken.isCancellationRequested) return [];
         parserResult = parser(tokens, textDocument.uri);
         perfCount('scan.parseMs', Date.now() - parseStarted);
@@ -1050,6 +1071,10 @@ async function validateTextDocument(
             validateInheritanceCycles(parserResult.value, cancelToken).catch(() => [])
         );
         validationErrors = validationErrors.concat(inheritanceCycleErrors);
+        // Separate pass: `{`/`[` blocks that open with no name in front of them outside a list, which
+        // the game refuses to load. Needs the sibling view of a whole scope, like the duplicate pass.
+        const anonymousBlockErrors = await validateAnonymousBlocks(parserResult.value, cancelToken).catch(() => []);
+        validationErrors = validationErrors.concat(anonymousBlockErrors);
         // Separate pass: schema-driven checks (currently invalid enum values), like the duplicate /
         // inheritance-cycle passes above. Self-gates to non-mod `.rules` files.
         const schemaErrors = await timedPass('scan.vSchemaMs', () =>
@@ -1111,6 +1136,26 @@ async function validateTextDocument(
         if (settings.diagnostics?.validateRedundantSeparators) {
             validationErrors = validationErrors.concat(validateRedundantSeparators(tokens));
         }
+        // Separate pass: a second member started on a line the member before it already owns, a second
+        // reference hung on a field by a `,`, and a `*/` that closes no comment. All three are hard
+        // load failures the parser cannot see, since the first two fold into a value and the third
+        // lexes as an operator pair. Ungated, like the parser errors they belong with.
+        validationErrors = validationErrors.concat(validateMissingSeparators(tokens));
+        validationErrors = validationErrors.concat(validateUnbracketedValueList(tokens));
+        validationErrors = validationErrors.concat(validateOrphanCommentTerminators(tokens));
+        // Separate pass: block comments the game's scanner never closes (an even run of `*` before the
+        // closing `/`), which swallow every rule between them and the next `*/`. Comments produce no
+        // tokens, so it reads the spans the lexer collected alongside them.
+        if (settings.diagnostics?.validateUnclosedComments) {
+            validationErrors = validationErrors.concat(
+                validateUnclosedComments(textDocument.getText(), blockComments)
+            );
+        }
+        // Separate pass: a `/*` that no `*/` ever ends, which takes the rest of the file down with it.
+        // Ungated: the file does not load at all, so it is a hard error rather than a lint.
+        validationErrors = validationErrors.concat(
+            validateUnterminatedComments(textDocument.getText(), blockComments)
+        );
         // Separate pass: fields the game provably ignores (not a member of the resolved schema class
         // and never referenced in the file). Hint severity with a remove quick fix.
         if (settings.diagnostics?.validateIgnoredFields) {

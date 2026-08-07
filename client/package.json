@@ -4,7 +4,7 @@
     "author": "TrustNoOneElse",
     "license": "MIT",
     "publisher": "vscode",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
@@ -14,7 +14,7 @@
     },
     "dependencies": {
         "@vscode/l10n": "^0.0.18",
-        "vscode-languageclient": "^10.0.1"
+        "vscode-languageclient": "^10.1.0"
     },
     "devDependencies": {
         "@types/node": "^24",

@@ -40,7 +40,7 @@ import { ALL_MATH_FUNCTION_NAMES } from '../../semantics/math-function-registry'
 import { evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
 import * as l10n from '@vscode/l10n';
 
-// The engine numeric scalar types whose ObjectText deserializer is confirmed pure-numeric: a literal
+// The engine numeric scalar types whose ObjectText deserializer is pure-numeric: a literal
 // number (`90`, `90d`, `-1.5`), a reference, or a math expression, never a named constant. Bare CLR
 // `int`/`float` primitives are deliberately excluded: some carry a custom name-accepting deserializer
 // (e.g. `Allegiance = Neutral` is typed `int`), so validating those would produce false positives.
@@ -58,7 +58,7 @@ const NUMERIC_SCALAR_TYPES = new Set([
 // Excludes `(`, `)`, operators and number-ish tokens, so expression fragments never reach the flag.
 const BARE_WORD = /^[A-Za-z_][\w.]*$/;
 
-// Every word the game's BooleanSerializer parses (case-insensitively), verified in HalflingCore.dll.
+// Every word the game's BooleanSerializer parses (case-insensitively).
 const BOOLEAN_WORDS = new Set(['true', 'yes', 'y', 'false', 'no', 'n']);
 
 // Bare words that are valid inside a Cosmoteer math expression even unparenthesized, so they must
@@ -130,7 +130,7 @@ const requiresWholeNumber = (valueType: ValueType): boolean =>
  *     `Enum.Parse` is case-sensitive, so a case-only mismatch gets a dedicated warning with a
  *     casing quick-fix); booleans accept the game's full `true/yes/y`/`false/no/n` word set,
  *   - an invalid `Type=` **discriminator** against the registry inferred for the group,
- *   - a bare **non-numeric word** in a confirmed numeric-scalar field,
+ *   - a bare **non-numeric word** in a numeric-scalar field,
  *   - a value in an **integer-only** field (scalar or a `Range<int>` endpoint) that resolves
  *     (through references and math) to a fraction,
  *   - **math in a textual field** (string/enum/bool/reference), where the game reads the
@@ -276,9 +276,9 @@ export const validateSchema = async (
             if (field.valueType.kind === 'enum') {
                 const members = enumDef(field.valueType.ref)?.members ?? [];
                 if (members.length > 0 && !members.includes(written)) {
-                    // The game parses enum values with the case-SENSITIVE `Enum.Parse(type, text)`
-                    // (verified in HalflingCore's EnumSerializer), so a member matched only after
-                    // case-folding still fails to load in game and deserves its own message.
+                    // The game parses enum values with the case-sensitive `Enum.Parse(type, text)`,
+                    // so a member matched only after case-folding still fails to load in game and
+                    // deserves its own message.
                     const folded = members.find((m) => m.toLowerCase() === written.toLowerCase());
                     if (folded) {
                         errors.push({
@@ -507,19 +507,17 @@ export const validateSchema = async (
     };
 
     // Whether an AST list element maps one-to-one onto a game list element. The game only ends a
-    // list element at `,`, `;`, a line break or `]`, while the parser splits a math run like
-    // `[.25 +4/64, 0]` into more nodes than the game reads, so any math/call/parenthesized element
-    // makes every index in the list unreliable. Plain value nodes are safe: the lexer merges a
-    // separator-less run (`[1 2 3]`) into one string node, so multiple value nodes prove real
-    // separators. Vanilla ships many math-in-vector lists (`Location = [-11/64, -.15]`), which is
-    // exactly the shape this predicate exempts.
+    // list element at `,`, `;`, a line break or `]`, and the parser now folds a math run into one
+    // node for the same reason, so a computed element counts once just like a plain one. A bare
+    // operator node is the only shape left that does not stand for an element of its own, and its
+    // presence means the run did not fold, which makes every later index unreliable.
     const isAtomicListElement = (element: AbstractNode): boolean =>
         isGroupNode(element) ||
         isListNode(element) ||
         isAssignmentNode(element) ||
-        (isValueNode(element) &&
-            !element.parenthesized &&
-            (element.valueType.type === 'Number' || element.valueType.type === 'String'));
+        isMathExpressionNode(element) ||
+        isFunctionCallNode(element) ||
+        (isValueNode(element) && (element.valueType.type === 'Number' || element.valueType.type === 'String'));
 
     // A named member inside a group-typed field's list form (`Offset [Scale2In = offset]`): the
     // game reads list-form members positionally through the class's digit fields or by the class's

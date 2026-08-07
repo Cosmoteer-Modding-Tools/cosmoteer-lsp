@@ -54,8 +54,8 @@ describe('mXparser operators: ^ (power), % (percentage), ! (factorial)', () => {
     it('evaluates postfix factorial with the right precedence', async () => {
         expect(await eval_('Fact')).toBe(120); // 5!
         expect(await eval_('FactSub')).toBe(117); // 5! - 3, the `-` after `!` is binary, not a sign
-        // Verified against the shipped mXparser DLL: calculate() folds the power level before the
-        // factorial, so `2 ^ 3!` is `(2 ^ 3)!` = 40320, not `2 ^ (3!)` = 64.
+        // calculate() folds the power level before the factorial, so `2 ^ 3!` is `(2 ^ 3)!` = 40320,
+        // not `2 ^ (3!)` = 64.
         expect(await eval_('PowFact')).toBe(40320);
         expect(await eval_('ParenFact')).toBe(120); // (2 + 3)! = 5!
         expect(await eval_('FactInFunc')).toBe(4); // ceil(4! / 7) = ceil(24/7)

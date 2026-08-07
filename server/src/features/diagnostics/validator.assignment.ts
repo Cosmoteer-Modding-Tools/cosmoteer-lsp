@@ -22,7 +22,7 @@ export const ValidationForAssignment: Validation<AssignmentNode> = {
                 return {
                     message: l10n.t('Reference should not be quoted'),
                     node: node.right,
-                    additionalInfo: l10n.t('Remove the quotes — a "&" reference is written without quotation marks'),
+                    additionalInfo: l10n.t('Remove the quotes. A "&" reference is written without quotation marks'),
                 };
             } else if (
                 node.right.valueType.value.startsWith('<') ||

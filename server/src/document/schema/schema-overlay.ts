@@ -192,7 +192,7 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
         },
     ],
     // A bullet's `Components` map, the same custom-read shape over the bullet component registry
-    // (verified in BulletRules.cs, which reads the `Components` group into BulletComponentRules).
+    // (`BulletRules.cs` reads the `Components` group into `BulletComponentRules`).
     'Cosmoteer.Bullets.BulletRules': [
         {
             name: 'Components',
@@ -215,10 +215,10 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
     'Cosmoteer.Ships.Parts.Buffs.PartGridBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
     // The thruster part reads these force/fuel values off the part rules, none as a generic
     // `*FromPath<T>` call. `Flammable` is the opposite case: the Meltdown fire rework deleted it from
-    // the game entirely (zero occurrences in the current decompile, fire immunity moved to the
-    // `non_flammable` part category), but vanilla and pre-Meltdown mods still write it. Keeping the
-    // member lets those files parse and hover, and the `dead` flag routes it into the ignored-field
-    // hint, upgraded with the category migration note (see `deprecatedField` in deprecations.ts).
+    // the game entirely (fire immunity moved to the `non_flammable` part category), but vanilla and
+    // pre-Meltdown mods still write it. Keeping the member lets those files parse and hover, and the
+    // `dead` flag routes it into the ignored-field hint, upgraded with the category migration note
+    // (see `deprecatedField` in deprecations.ts).
     // `Components` is the part's custom-read component map: typing it makes every component resolve
     // through the slot, so a partial fragment whose only component has no (or a broken) `Type=` still
     // knows its registry without a valid sibling to infer from.
@@ -345,7 +345,7 @@ const OVERLAY_ENUMS: Record<string, SchemaEnum> = {
 };
 
 /**
- * Members proven dead by hand that schemagen's IL scan cannot flag on its own.
+ * Dead members that schemagen's IL scan cannot flag on its own.
  *
  * The scan has three blind spots. Two are deliberate over-approximations of the IL read scan: it
  * suppresses a verdict whenever any method body loads a string literal equal to the member name (its
@@ -406,7 +406,7 @@ const OVERLAY_DEAD_FIELDS: Record<string, string[]> = {
  * A few collections break that leniency because their own constructor or their runtime consumer
  * dereferences the array unconditionally, so an absent key is a null-reference crash, not an empty
  * list. Those cannot be told apart from a lenient collection by any attribute, only by reading the
- * consumer, so the hand-verified verdicts live here.
+ * consumer, so the verdicts live here.
  *
  * Each entry needs a decompiled trace showing the game dereferences the member without a null guard.
  * The field keeps its `absentThrows` (schemagen already emits it, since the member has no

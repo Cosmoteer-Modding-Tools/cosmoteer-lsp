@@ -11,7 +11,7 @@ const token = CancellationToken.None;
 const parse = (src: string, uri = 'file:///t.rules') => parser(lexer(src), uri).value;
 
 // The game resolves node names through a case-insensitive dictionary (OTGroupNode keys its
-// children with InvariantCultureIgnoreCase, verified in HalflingCore.dll), so `maxhealth = 100`
+// children with InvariantCultureIgnoreCase), so `maxhealth = 100`
 // selects the `MaxHealth` field in game and the schema layer must recognize it the same way.
 describe('schema field lookup ignores case like the game', () => {
     it('fieldOf matches a field name in any casing', () => {

@@ -5,9 +5,9 @@ import { SchemaBundle } from '../../../src/document/schema/schema.types';
 
 // Pins the complete set of `dead`-flagged fields in the SHIPPED schema: members the game declares
 // but whose value schemagen's whole-assembly read scan proved no game code ever reads (see
-// tools/schemagen/SchemaGen.DeadFields.cs). Every pair below was audit-verified against the fully
-// decompiled game on 2026-07-12: the member name occurs only at its declaration, or every other
-// occurrence belongs to a different same-named member. A schema regeneration after a game update
+// tools/schemagen/SchemaGen.DeadFields.cs). For every pair below the member name occurs only at its
+// declaration, or every other occurrence belongs to a different same-named member. A schema
+// regeneration after a game update
 // that changes this set fails here, so the new set gets reviewed instead of shipping silently.
 const schema = bundle as unknown as SchemaBundle;
 

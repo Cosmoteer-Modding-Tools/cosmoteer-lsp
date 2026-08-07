@@ -126,7 +126,7 @@ export const generateModOverview = async (manifestUri: string, token: Cancellati
     }
     lines.push('');
     if (broken > 0) {
-        lines.push(l10n.t('⚠ {0} action(s) have a target that resolves to nothing — they silently do nothing in game.', broken));
+        lines.push(l10n.t('⚠ {0} action(s) have a target that resolves to nothing, so they silently do nothing in game.', broken));
         lines.push('');
     }
 

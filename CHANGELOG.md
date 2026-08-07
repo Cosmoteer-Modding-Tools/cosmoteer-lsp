@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.1 Beta
+
+### Added
+
+- Seven shapes the game refuses to load are now reported instead of parsing as if they were fine: free text where a member name belongs, a number naming a member, a `{` or `[` block with no name in front of it outside a list, an inheritance with no body, a `/*` that no `*/` ever ends, a second `*/` and a second reference hung on a field by a `,`. Each of these makes the game drop the whole file at load time, so a mod could be shipped broken while the editor showed nothing.
+- A block comment the game does not close is now a warning, with a fix that makes it close. The game closes a block comment only when the run of `*` before the closing `/` is odd, so a banner like `/****** Section ******/` silently swallows everything up to the next `*/` when the mod loads. A file full of such banners can lose every component it defines while still looking correct in the editor. Turn it off with `cosmoteerLSPRules.diagnostics.validateUnclosedComments`.
+- A member written on a line whose value already runs to the line end is now a warning saying the value before it swallows it. The game accepts that shape and folds the member into the value, so it loses the member rather than failing to load. A member joined on with a `\` line continuation is left alone, since that is written on purpose.
+
+### Fixed
+
+- Computed values inside a list are read as one element each, the way the game reads them. `[255*.45, 255*.45, 255*.45]` was seen as nine elements instead of three, which threw off every position in the list: the index a `…/1` reference points at, the endpoint count of a range, positional fields, and the outline. Lists of computed values also get their entries back in the outline.
+- A list element that starts with a minus and continues with more arithmetic is one element again. `Location = [-0.14+0.03, -0.38-0.015]` was read as three entries instead of two, which moved every position after it.
+- A stray `)` in an unquoted value stays part of that value, the way the game reads it, instead of becoming a member of its own. A full-width `（` is an ordinary value character, so a name like `金小惑星（S)` kept only half its text.
+- A quoted value containing an unescaped `"` stays one value. `Description = "… the "C" symbol …"` used to end the text at the inner quote and read the rest as new fields, which invented members the game never sees and, in localization files, keys that do not exist. Punctuation inside such a value is kept as well, so a `Mod - Expansion` dash between two quoted stretches no longer breaks the text apart.
+- Opening a file the whole-mod pass already reported no longer lists its problems twice for a moment. In VS Code the Problems panel now holds one entry per problem no matter which pass produced it.
+- A value written on the line below its `=` now belongs to the field above it, the way the game reads it. `DamageResistances =` with its `{ … }` block underneath, `RandomSounds =` above its list, and a field whose reference sits on the next line all used to parse as an empty field followed by a nameless block, which cost everything inside it completion, hover and validation. Two cases stay empty on purpose, an `=` directly above a closing brace and an `=` above the start of another field. The game answers both with a parse error.
+
+### Changed
+
+- The dead-field hint now also reads a field written as a bare list, the shape the game's own files use for effect collections. A `MediaEffects [ … ]` or `HitEffects [ … ]` block that ended up one level too high, on the component instead of on its hit or death slot, is faded out with a remove quick fix instead of loading silently and doing nothing. A bare group keeps its exemption, since an unknown group name can still be an id other files refer to.
+
 ## 0.6.0 Beta
 
 ### Added

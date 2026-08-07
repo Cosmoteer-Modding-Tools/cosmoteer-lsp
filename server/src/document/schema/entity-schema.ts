@@ -164,7 +164,7 @@ export const BUILTIN_SHIP_CLASS = 'Cosmoteer.Data.BuiltinShipRules';
 const SHIP_FILE_EXTENSION = '.ship.png';
 
 /**
- * The characters `TextUtils.SanitizeShipName` keeps (decompile verified): letters, digits, spaces,
+ * The characters `TextUtils.SanitizeShipName` keeps: letters, digits, spaces,
  * punctuation and symbols. Everything else (control and format characters, combining marks) is
  * dropped from the name the game derives from a ship filename.
  */
@@ -189,7 +189,7 @@ const shipNameFromFile = (file: string): string | undefined => {
 /**
  * The id a `Ships [ … ]` element declares. Unlike every other entity, a built-in ship rarely writes
  * its id: the game composes it as `IDPrefix + " " + (ID ?? name-of-the-File)` (`BuiltinShipRules`'s
- * constructor, decompile verified), and no vanilla `builtin_ships/*.rules` writes an `ID` member at
+ * constructor), and no vanilla `builtin_ships/*.rules` writes an `ID` member at
  * all. Harvesting only the written `ID`s would leave the class with no declarations, which reads as
  * "no coverage" and silently switches off every `ID<BuiltinShipRules>` check.
  *
@@ -477,8 +477,8 @@ export const DAMAGE_TYPE_CLASS = 'Cosmoteer.DamageType';
 export const PART_STAT_CLASS = 'Cosmoteer.Game.PartStatRules';
 
 /**
- * Lower-cased names of the map fields whose keys write part stats into existence (`Stats`, decompile
- * verified: the build GUI reads whichever stat ids the parts provide). Derived from the schema as
+ * Lower-cased names of the map fields whose keys write part stats into existence (`Stats`: the
+ * build GUI reads whichever stat ids the parts provide). Derived from the schema as
  * every `map<reference PartStatRules, V>` field name.
  */
 const STAT_PROVIDER_FIELDS: ReadonlySet<string> = (() => {
@@ -657,8 +657,8 @@ function* selfKeyedMapDeclarationsOf(node: AbstractNode, target: string): Genera
 }
 
 /** The alias ids an entity element declares beside its identity. The engine's `GetAllIDs()` registers
- *  the `ID` and every `OtherIDs` entry into the same lookup dictionary (decompile verified on parts,
- *  doors and ships alike), so each alias resolves references exactly like the primary id, e.g. the
+ *  the `ID` and every `OtherIDs` entry into the same lookup dictionary (on parts, doors and ships
+ *  alike), so each alias resolves references exactly like the primary id, e.g. the
  *  rock parts' `cosmoteer.rubble` aliases the asteroid doodads reference. */
 function* otherIdAliasesOf(element: AbstractNode, elementClass: string): Generator<EntityDeclaration> {
     // A whole-file-rooted instance (a door file aliased in by a ship) writes its `OtherIDs` at the

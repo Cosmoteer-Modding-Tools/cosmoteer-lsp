@@ -151,7 +151,7 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
             if (cancellationToken.isCancellationRequested) break;
             // The members an action merges into its target node, by name. `Overrides` merges the
             // members of its `Overrides` source. `Add` with a `Name` merges the single member
-            // `Name = ToAdd` (the game keys it under `Name`, verified from ModAddAction). Other verbs
+            // `Name = ToAdd` (the game keys it under `Name`). Other verbs
             // inject no named member: `AddMany` appends list elements, `AddBase` extends the
             // inheritance list (handled by the AddBase index), and `Replace`/`Remove` add nothing.
             let members: [string, AbstractNode][];

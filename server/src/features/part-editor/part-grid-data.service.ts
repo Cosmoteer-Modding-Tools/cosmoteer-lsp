@@ -906,7 +906,7 @@ const scalarPairPointLayer = async (
     };
 };
 
-/** The scalar prohibit sugar fields with the rects they generate, per the decompiled expansion. */
+/** The scalar prohibit sugar fields with the rects they generate, per the game's expansion. */
 const prohibitSugarRects = (
     size: { width: number; height: number },
     values: Partial<Record<'ProhibitLeft' | 'ProhibitRight' | 'ProhibitAbove' | 'ProhibitBelow', number>>

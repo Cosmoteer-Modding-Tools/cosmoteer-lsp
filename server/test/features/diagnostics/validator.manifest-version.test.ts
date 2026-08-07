@@ -9,7 +9,7 @@ import { parser } from '../../../src/core/parser/parser';
 import { validateManifestVersion } from '../../../src/features/diagnostics/validator.manifest-version';
 
 // A `mod_*.rules` without `CompatibleGameVersions` gets no selection priority in the game's
-// manifest scan (GetModInfoPath, verified in Cosmoteer.dll), so beside another manifest it is
+// manifest scan (GetModInfoPath), so beside another manifest it is
 // silently dead. The check reads the real filesystem for sibling manifests, so each case builds a
 // throwaway mod folder on disk.
 const token = CancellationToken.None;

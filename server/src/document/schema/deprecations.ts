@@ -21,10 +21,10 @@
  *   - {@link OBSOLETE_FIELDS}: fields that still work but were superseded by a richer field.
  * To add an enum-value rename later, add a `DEPRECATED_ENUM_VALUES` map and a matching lookup.
  *
- * Every entry is verified against the current game DLL through the extracted schema: a deleted
- * field's name is absent, a renamed alias carries both spellings on one schema field, an obsolete
- * field exists alongside its successor. Sources: the official changelogs (cosmoteer.wiki.gg
- * transcriptions of the Steam posts) cross-checked against the schema extraction.
+ * The entries come from the official changelogs (cosmoteer.wiki.gg transcriptions of the Steam
+ * posts), cross-checked against the extracted schema: a deleted field's name is absent, a renamed
+ * alias carries both spellings on one schema field, an obsolete field exists alongside its
+ * successor.
  */
 
 /** A renamed symbol: the spelling to use now, and a short note on why it changed. */
@@ -43,8 +43,7 @@ const AMMO_TO_RESOURCE = 'ammo was generalized into the resource system';
 /**
  * Deprecated `Type=` discriminator values, by their old spelling. Cosmoteer folded the dedicated ammo
  * system into the generic resource system, renaming the whole `Ammo*` component / hit-effect family to
- * `Resource*` (ammo is just a resource now). Verified against the DLL: the old `Ammo*` names are absent
- * while every `Resource*` counterpart is present. The rename predates the recorded changelogs, so the
+ * `Resource*` (ammo is just a resource now). The rename predates the recorded changelogs, so the
  * entries carry no version.
  */
 const DEPRECATED_DISCRIMINATORS: Readonly<Record<string, Deprecation>> = {
@@ -89,8 +88,7 @@ export interface FieldDeprecation {
 
 /**
  * Deprecated (deleted) fields by lower-cased field name. Each name no longer occurs anywhere in the
- * game's code (verified against the fully decompiled current Cosmoteer.dll / the extracted schema).
- * Where vanilla still writes a deleted field (stale leftovers the game ignores), the schema keeps the
+ * game's code. Where vanilla still writes a deleted field (stale leftovers the game ignores), the schema keeps the
  * member flagged `dead` in the overlay, which keeps old mods parsing and hovering, and the entry here
  * upgrades the dead-field hint with the migration.
  */
@@ -160,8 +158,7 @@ const SOURCE_TO_FRIENDLY = 'the behavior now also covers all friendly ships, not
 /**
  * Renamed fields the game still accepts under the old spelling, by lower-cased old name. The schema
  * carries both spellings as aliases of one field, so the old name deserializes fine and no other
- * check ever flags it. This registry is the only source that says "prefer the modern name". Verified
- * against the extracted schema: each old spelling is a serialization alias of its replacement.
+ * check ever flags it. This registry is the only source that says "prefer the modern name".
  */
 const RENAMED_FIELD_ALIASES: Readonly<Record<string, FieldRename>> = {
     // ---- 0.23.0 ----
@@ -244,7 +241,6 @@ export interface ObsoleteField {
  * Obsolete-but-working fields by lower-cased field name. Both the old and the new field exist as
  * separate members in the current DLL (the game keeps reading the old one for backwards
  * compatibility), so unlike {@link RENAMED_FIELD_ALIASES} these are not aliases of one field.
- * Verified against the extracted schema: each class carries both members.
  */
 const OBSOLETE_FIELDS: Readonly<Record<string, ObsoleteField>> = {
     // ---- 0.24.0 ----

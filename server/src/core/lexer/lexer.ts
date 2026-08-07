@@ -65,7 +65,30 @@ const TIME_LITERAL_PREFIX = /^\d+(:\d+)*$/;
 /** Scientific-notation mantissa+`e`, evaluated only when a `+`/`-` follows a value. */
 const EXPONENT_PREFIX = /^[\d.]+[eE]$/;
 
-export const lexer = (input: string): Token[] => {
+/**
+ * The span of one `/* … *\/` block comment the lexer skipped. Comments produce no tokens, so a check
+ * that needs to look at them (the closing-run check in validator.comment) gets them through the
+ * optional out-parameter of {@link lexer} instead of re-scanning the text, which would have to redo
+ * the string and line-comment handling to know which `/*` is really a comment.
+ */
+export interface BlockCommentSpan {
+    /** Offset of the comment's opening `/`. */
+    start: number;
+    /** Offset one past the comment's closing `/`, or the end of the input when it never closed. */
+    end: number;
+    /** False when the comment ran to the end of the file without a closing `*\/`. */
+    closed: boolean;
+}
+
+/**
+ * Turns rules source into the token stream the parser consumes.
+ *
+ * @param input the document text.
+ * @param blockComments when given, every block comment the lexer skips is appended to it in source
+ * order. Omitted, comment spans are not collected.
+ * @returns the tokens, comments and whitespace excluded.
+ */
+export const lexer = (input: string, blockComments?: BlockCommentSpan[]): Token[] => {
     let current = 0;
     let lineNumber = 0;
     let lineOffset = 0;
@@ -109,12 +132,14 @@ export const lexer = (input: string): Token[] => {
             current++;
             // The newline that ends a `//` comment is part of the insignificant run and follows the
             // same rule: it terminates the value unless an earlier `\` in the run suppressed it
-            // (`"a"\ <newline> //comment <newline> "b"` is one continued string, game-verified).
+            // (`"a"\ <newline> //comment <newline> "b"` is one continued string).
             markNewline();
             continue;
         }
 
         if (isStartOfMultiLineComment(char, input, current)) {
+            const commentStart = current;
+            let closed = true;
             current += 2;
             while (input[current] !== '*' || input[current + 1] !== '/') {
                 if (input[current] === '\n') {
@@ -124,11 +149,13 @@ export const lexer = (input: string): Token[] => {
                 current++;
                 lineOffset++;
                 if (current >= input.length) {
+                    closed = false;
                     break;
                 }
             }
             current += 2;
             lineOffset += 2;
+            blockComments?.push({ start: commentStart, end: Math.min(current, input.length), closed });
             continue;
         }
 

@@ -94,6 +94,7 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
             row { checkBox("Validate localization keys").bindSelected(state::validateLocalizationKeys) }
             row { checkBox("Hint at redundant separators").bindSelected(state::validateRedundantSeparators) }
             row { checkBox("Hint at fields the game ignores").bindSelected(state::validateIgnoredFields) }
+            row { checkBox("Warn about comments the game does not close").bindSelected(state::validateUnclosedComments) }
             row { checkBox("Fade fields written at their default").bindSelected(state::validateDefaultValues) }
             row { checkBox("Fade constants nothing reads").bindSelected(state::validateUnusedConstants) }
         }

@@ -8,6 +8,22 @@ Cosmoteer Language server provides a lot of useful features, like:
 
 ### Added
 
+- Seven shapes the game refuses to load are now reported instead of parsing as if they were fine, among them free text where a member name belongs, a number naming a member, a nameless `{` or `[` block outside a list, an inheritance with no body and a `/*` that no `*/` ever ends. Each of these makes the game drop the whole file at load time, so a mod could be shipped broken while the editor showed nothing.
+- A block comment the game does not close is now a warning, with a fix that makes it close. The game closes a block comment only when the run of `*` before the closing `/` is odd, so a banner like `/****** Section ******/` silently swallows everything up to the next `*/` when the mod loads.
+- A member written on a line whose value already runs to the line end is now a warning saying the value before it swallows it. The game accepts that shape and folds the member into the value, so it loses the member rather than failing to load.
+
+### Changed
+
+- The dead-field hint now also reads a field written as a bare list, the shape the game's own files use for effect collections. A `MediaEffects [ … ]` block that ended up on the component instead of on its hit or death slot is faded out with a remove quick fix instead of loading silently and doing nothing.
+
+### Fixed
+
+- Values are read the way the game reads them in five shapes that used to shift list positions or invent members: computed values inside a list count as one element each, a list element starting with a minus and continuing with arithmetic stays one element, a stray `)` and an unescaped `"` stay part of their value, and a value written on the line below its `=` belongs to the field above it.
+
+## 0.6.0 - 2026-08-04
+
+### Added
+
 - Code mods are understood. A mod that ships a `.dll` declaring its own serializable types has those types, fields, enums and discriminators merged into the schema, so a modded component completes, hovers and validates like a built-in one. Assemblies in the open workspace, in your own `Mods` folder and in installed workshop mods all count, and the schema follows them as they are installed, updated or rebuilt.
 - A code mod's own `///` documentation shows on hover when the mod is built with `<GenerateDocumentationFile>true</GenerateDocumentationFile>`, hover on a modded class links the mod's Steam Workshop page, and `Open in decompiler` opens the class from that mod's own assembly.
 - Code mod support is configurable under Settings | Tools | Cosmoteer Rules | Code mods, and `Rebuild Schema from Code Mod Assemblies` in the Tools menu forces a rebuild.

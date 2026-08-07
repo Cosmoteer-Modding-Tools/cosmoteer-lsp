@@ -62,9 +62,8 @@ export const ValidationForIdentifier: Validation<IdentifierNode> = {
  * Flags a list element name written on the same line as its `{`/`[` body (`Foo { X = 1 }`
  * inside a list). The game never names list children, and a listed value does not even stop at
  * `{`: it reads the WHOLE line as one text element, so neither the name nor the body exists in
- * game (verified against Halfling.ObjectText). Fires only when the very next sibling is an
- * anonymous container opening on the same line. Offers removing the name, which turns the line
- * into a legal anonymous element.
+ * game. Fires only when the very next sibling is an anonymous container opening on the same line.
+ * Offers removing the name, which turns the line into a legal anonymous element.
  *
  * @param node the plain name element (a String value or an identifier, depending on how the parser classified it).
  * @param name the name's text, for the message and quick fix.

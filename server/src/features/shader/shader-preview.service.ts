@@ -205,8 +205,8 @@ export const DEFAULT_ENTRY_DEFINES: readonly string[] = [
 ];
 
 /**
- * The engine's named blend modes, decompiled from `Halfling.Graphics.TargetBlendMode`, in constructor
- * order `srcRgb, dstRgb, rgbOp, srcAlpha, dstAlpha, alphaOp`. `AlphaBlend` is the material default.
+ * The engine's named blend modes from `Halfling.Graphics.TargetBlendMode`, in constructor order
+ * `srcRgb, dstRgb, rgbOp, srcAlpha, dstAlpha, alphaOp`. `AlphaBlend` is the material default.
  * Note the alpha channel of the default accumulates coverage (`InverseDestAlpha, One`) rather than the
  * usual straight-alpha pair.
  */

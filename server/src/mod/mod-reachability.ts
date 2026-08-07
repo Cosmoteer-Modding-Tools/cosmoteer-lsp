@@ -255,8 +255,8 @@ export const computeModReachability = async (
     }
     // A root cosmoteer.rules is deliberately NOT seeded. It is a common convenience-globals
     // convention, but the game only ever opens its own Data/cosmoteer.rules and applies the
-    // manifest actions to that file (verified against Cosmoteer.Data.Assets), so the mod's local
-    // copy is loaded exactly when something reachable actually references it and not otherwise.
+    // manifest actions to that file, so the mod's local copy is loaded exactly when something
+    // reachable actually references it and not otherwise.
     // The editor still parses it for navigation (mod-context overlays its globals), which is
     // independent of this closure.
 

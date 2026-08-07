@@ -79,13 +79,15 @@ export class DocumentSymbolService {
             const nameRange = posToRange((element.identifier ?? element).position);
             return this.containerSymbol(name, nameRange, element, element);
         }
-        if (isValueNode(element)) {
+        // A math run folded into one node is a positional element like any other, so it is outlined
+        // by its index. Without this a list of computed values shows no children at all.
+        if (isValueNode(element) || isMathExpressionNode(element)) {
             return {
                 name: `[${index}]`,
                 detail: this.detailOf(element),
                 kind: this.kindOfValue(element),
-                range: posToRange(element.position),
-                selectionRange: posToRange(element.position),
+                range: isMathExpressionNode(element) ? enclosingRange(element) : posToRange(element.position),
+                selectionRange: isMathExpressionNode(element) ? enclosingRange(element) : posToRange(element.position),
             };
         }
         return null;

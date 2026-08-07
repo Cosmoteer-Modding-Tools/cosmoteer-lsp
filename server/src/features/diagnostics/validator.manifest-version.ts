@@ -47,7 +47,7 @@ const topLevelMemberName = (node: AbstractNode): string | undefined =>
 /**
  * Validate a version-split manifest's selectability: a `mod_*.rules` without a top-level
  * `CompatibleGameVersions` gets no selection priority at all in the game's `GetModInfoPath`
- * (verified in Cosmoteer.dll, 0.30.0d and later), so when the mod has any other manifest file the
+ * (0.30.0d and later), so when the mod has any other manifest file the
  * game silently never selects it. `UseThisFileIfNoVersionMatch` does not rescue it either: the
  * game only consults that flag on files that do carry `CompatibleGameVersions`. A mod whose only
  * manifest is the file is used unconditionally and stays silent, as does the plain `mod.rules`

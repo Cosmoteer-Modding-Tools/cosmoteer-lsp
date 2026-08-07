@@ -4,8 +4,8 @@ import { parser } from '../../../src/core/parser/parser';
 import { GroupNode, IdentifierNode, isGroupNode, isListNode, ListNode } from '../../../src/core/ast/ast';
 
 // Inside a list the game never attaches a following `{`/`[`/`:` to a bare `&…` reference
-// element (verified against Halfling.ObjectText: the reference stays its own
-// OTListedReferenceNode and the `{`/`:` opens a separate anonymous element). Our parser used
+// element: the reference stays its own OTListedReferenceNode and the `{`/`:` opens a separate
+// anonymous element. Our parser used
 // to glue them into one named/inherited group, which both desynced the structure and hid the
 // bare reference from validation. The parser classifies a bare reference as an IdentifierNode
 // only when the preceding sibling is not a value (e.g. right after a `}`), so every case here

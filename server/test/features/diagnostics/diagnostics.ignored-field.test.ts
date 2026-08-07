@@ -45,6 +45,30 @@ describe('ignored-field diagnostics', () => {
         expect(errors[0].data?.remove?.title).toBe("Remove 'Filename'");
     });
 
+    it('hints a bare named list, the shape vanilla spells effect collections with', async () => {
+        // `MediaEffects [ … ]` written one level too high is the canonical misplacement, and it never
+        // reaches an `=`. Judging assignments only made the whole shape invisible.
+        const text = valueCurve('Filename\n            [\n                SmoothFalloffRamp.png\n            ]');
+        const errors = await validateIgnoredFields(parse(text), token);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain("'Filename' is not a member of");
+        // The faded span and the remove fix cover the list, not just its name.
+        expect(text.slice(errors[0].data!.remove!.start, errors[0].data!.remove!.end)).toContain(']');
+    });
+
+    it('stays silent on a declared member written as a bare list', async () => {
+        // The fixture's own `Points [ 1, 0.5 ]` is declared, so the shape alone must never flag.
+        const doc = parse(valueCurve('MinValue = 9'));
+        expect(await validateIgnoredFields(doc, token)).toHaveLength(0);
+    });
+
+    it('stays silent on a bare named group, which can be an id-referenced declaration', async () => {
+        // Component/toggle ids are read by name from plain string fields elsewhere, which no
+        // reference scan in this file can see, so an unknown-named subgroup is never judged.
+        const doc = parse(valueCurve('Filename\n            {\n                X = 1\n            }'));
+        expect(await validateIgnoredFields(doc, token)).toHaveLength(0);
+    });
+
     it('stays silent when a reference in the file reads the field (constant idiom)', async () => {
         const doc = parse(valueCurve('CUSTOM_MAX = 60', 'MinValue = (&CUSTOM_MAX) / 2'));
         expect(await validateIgnoredFields(doc, token)).toHaveLength(0);

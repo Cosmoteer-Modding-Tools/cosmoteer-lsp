@@ -156,13 +156,13 @@ const segmentArguments = (parts: AbstractNode[]): AbstractNode[][] => {
 export const functionArgumentCount = (node: FunctionCallNode): number => segmentArguments(node.arguments).length;
 
 /**
- * Evaluate a flat `[operand, op, operand, …]` sequence in the exact order the decompiled mXparser
- * 4.4.2 `Expression.calculate()` folds operators: tetration `^^`, power `^` (right-associative),
+ * Evaluate a flat `[operand, op, operand, …]` sequence in the exact order mXparser 4.4.2
+ * `Expression.calculate()` folds operators: tetration `^^`, power `^` (right-associative),
  * postfix `!`, modulo `#`, `* /`, `+ -`, the binary relations (each spelling group in its fixed
  * order), the boolean families (AND, then OR/XOR, then implications) and the bitwise operators
- * loosest of all. Semantics of each operator mirror the decompiled `MathFunctions` /
- * `BinaryRelations` / `BooleanAlgebra` implementations, including the epsilon relations and the
- * three-valued boolean logic, so hints show what the game really computes.
+ * loosest of all. Semantics of each operator mirror the `MathFunctions` / `BinaryRelations` /
+ * `BooleanAlgebra` implementations, including the epsilon relations and the three-valued boolean
+ * logic, so hints show what the game really computes.
  */
 const evaluateSequence = async (parts: AbstractNode[], context: EvalContext): Promise<number | null> => {
     // Mixed stream of operand values and operator spellings, folded in place phase by phase.
@@ -259,9 +259,8 @@ const COMPARISON_EPSILON = 1e-14;
 const ulpFloat = new Float64Array(1);
 const ulpBits = new BigUint64Array(ulpFloat.buffer);
 /**
- * MathFunctions.ulp on the magnitude: the distance from |x| to the next representable double
- * (verified against the shipped DLL: `(-4) == (-5)` is 0, so a negative operand does NOT widen
- * the tolerance).
+ * MathFunctions.ulp on the magnitude: the distance from |x| to the next representable double. A
+ * negative operand does not widen the tolerance, so `(-4) == (-5)` is 0.
  */
 const ulp = (x: number): number => {
     if (Number.isNaN(x)) return NaN;
@@ -359,7 +358,7 @@ const bitwise = (op: string, a: number, b: number): number => {
 };
 
 /**
- * The decompiled MathFunctions.tetration for finite arguments: n < 0 or an (almost) zero base with
+ * MathFunctions.tetration for finite arguments: n < 0 or an (almost) zero base with
  * (almost) zero height is NaN, height floors to an integer, then `a` is power-iterated. The
  * infinite-height branch (Lambert W convergence) never shows up in .rules math and returns NaN.
  */
