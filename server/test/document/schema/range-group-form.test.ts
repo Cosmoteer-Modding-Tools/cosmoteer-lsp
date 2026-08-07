@@ -9,7 +9,7 @@ import { Completion } from '../../../src/features/completion/autocompletion.serv
 
 // The engine's Range<T> reads four written forms: a scalar, a 1/2-element list, a group with
 // `Value` or `Min`/`Max` keys (each the element type), and otherwise the whole group AS the element
-// (verified in HalflingCore Range.ReadContentFrom). A bullet's `Speed { BaseValue = … }` is the
+// (`Range.ReadContentFrom`). A bullet's `Speed { BaseValue = … }` is the
 // element-as-group form of a range<Modifiable>, and a background's `TwinkleAddColor { Min Max }` is
 // the range-keys form. Both used to resolve to nothing, going completely dark.
 const token = CancellationToken.None;

@@ -4,7 +4,7 @@
     "description": "A complete language server for Cosmoteer rules",
     "author": "Cosmoteer Modding Tools",
     "license": "MIT",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
@@ -262,6 +262,12 @@
                     "default": true,
                     "description": "Hint at a field the game ignores: its group's schema class does not declare the field and no reference in the file reads it, so the value is never loaded. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
                 },
+                "cosmoteerLSPRules.diagnostics.validateUnclosedComments": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Warn about a block comment the game does not close. The game closes a block comment only when the run of '*' before the closing '/' is odd, so a banner such as '/****** Section ******/' swallows everything up to the next '*/' when the mod loads. Offers a fix that drops one '*'."
+                },
                 "cosmoteerLSPRules.diagnostics.validateDefaultValues": {
                     "scope": "resource",
                     "type": "boolean",
@@ -370,9 +376,7 @@
         "l10n": "npx @vscode/l10n-dev export --outDir ./l10n .\\server"
     },
     "overrides": {
-        "minimatch": "^10.2.5",
-        "brace-expansion": "^5.0.8",
-        "diff": "^8.0.3",
+        "diff": "^8.0.4",
         "serialize-javascript": "^7.0.7"
     },
     "devDependencies": {

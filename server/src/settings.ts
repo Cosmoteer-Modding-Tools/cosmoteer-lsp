@@ -60,6 +60,11 @@ export interface CosmoteerSettings {
         // needed between entries on the same line). Hint severity keeps it out of the Problems
         // panel. Vanilla itself ships hundreds of such separators.
         validateRedundantSeparators: boolean;
+        // When true (the default), warn about a block comment the game leaves open: its ObjectText
+        // scanner closes a comment only when the run of `*` before the closing `/` is odd, so a
+        // banner such as `/**** X ****/` runs on to the next `*/` and swallows everything in
+        // between. Warning severity, since the file silently loses content when the mod loads.
+        validateUnclosedComments: boolean;
         // When true (the default), hint at a field the game provably ignores: its group resolves to
         // a schema class that does not declare the name, and no reference in the file reads it (so
         // the constant idiom `X = foo.png` + `&X` stays untouched). Comes with a remove quick fix.
@@ -148,6 +153,7 @@ export const defaultSettings: CosmoteerSettings = {
         validateShaderCode: true,
         validateLocalizationKeys: true,
         validateRedundantSeparators: true,
+        validateUnclosedComments: true,
         validateIgnoredFields: true,
         validateDefaultValues: true,
         validateUnusedConstants: true,

@@ -15,6 +15,13 @@ import {
     ValidationForGroupDuplicates,
 } from '../src/features/diagnostics/validator.duplicate-key';
 import { validateInheritanceCycles } from '../src/features/diagnostics/validator.inheritance-cycle';
+import { validateAnonymousBlocks } from '../src/features/diagnostics/validator.anonymous-block';
+import { validateMissingSeparators, validateUnbracketedValueList } from '../src/features/diagnostics/validator.separator';
+import {
+    validateOrphanCommentTerminators,
+    validateUnterminatedComments,
+} from '../src/features/diagnostics/validator.comment';
+import { BlockCommentSpan } from '../src/core/lexer/lexer';
 import { validateSchema } from '../src/features/diagnostics/validator.schema';
 import { ReverseIncludeIndex } from '../src/features/navigation/reverse-include.index';
 import { aliasRootIndex } from '../src/document/schema/alias-root';
@@ -31,7 +38,8 @@ import { buildActionRootingForScan, resetActionRootingForScan } from './scan-roo
 // Manual full-pipeline scan of a local mod for false-positive triage, self-skipped unless both
 // MOD_SCAN_DIR and MOD_SCAN_OUT are set (so it never runs in CI). Mirrors the default-on part of
 // server.ts validateTextDocument: parser errors + Validator (value/functioncall/assignment/math/
-// group-duplicates) + document duplicates + inheritance cycles + schema pass + required fields +
+// group-duplicates) + document duplicates + inheritance cycles + anonymous blocks + missing
+// separators + stray and unterminated block comments + schema pass + required fields +
 // mod.rules actions, with mod-action rooting built in production order so action-wired fragments
 // validate against their target slot types, exactly like a live workspace.
 // Writes every finding with file/line/severity/message to the MOD_SCAN_OUT json for offline grouping.
@@ -148,8 +156,11 @@ describe.skipIf(!HAVE)('full validation scan over a local mod', () => {
                 }
                 const uri = pathToFileURL(file).href;
                 let parserResult;
+                const blockComments: BlockCommentSpan[] = [];
+                let tokens;
                 try {
-                    parserResult = parser(lexer(text), uri);
+                    tokens = lexer(text, blockComments);
+                    parserResult = parser(tokens, uri);
                 } catch (e) {
                     findings.push({ file: rel, line: 0, severity: 'crash', kind: 'parser-crash', message: String(e) });
                     continue;
@@ -177,6 +188,13 @@ describe.skipIf(!HAVE)('full validation scan over a local mod', () => {
                     validationErrors = validationErrors.concat(
                         await validateInheritanceCycles(parserResult.value, token).catch(() => [])
                     );
+                    validationErrors = validationErrors.concat(
+                        await validateAnonymousBlocks(parserResult.value, token).catch(() => [])
+                    );
+                    validationErrors = validationErrors.concat(validateMissingSeparators(tokens));
+                    validationErrors = validationErrors.concat(validateUnbracketedValueList(tokens));
+                    validationErrors = validationErrors.concat(validateOrphanCommentTerminators(tokens));
+                    validationErrors = validationErrors.concat(validateUnterminatedComments(text, blockComments));
                     validationErrors = validationErrors.concat(await validateSchema(parserResult.value, token).catch(() => []));
                     validationErrors = validationErrors.concat(
                         await validateRequiredFields(parserResult.value, token, workspaceBaseNames).catch(() => [])

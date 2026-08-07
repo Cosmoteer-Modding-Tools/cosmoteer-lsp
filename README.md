@@ -61,6 +61,7 @@ All settings live under the `cosmoteerLSPRules.` prefix.
 | `diagnostics.validateLocalizationKeys` | on | Flag a localization key that no language strings file declares |
 | `diagnostics.validateRedundantSeparators` | on | Hint at a `,`/`;` separator a line break already makes redundant (shown as an editor hint, not in the Problems panel) |
 | `diagnostics.validateIgnoredFields` | on | Hint at a field the game never reads, with a remove quick fix (shown as an editor hint, not in the Problems panel) |
+| `diagnostics.validateUnclosedComments` | on | Warn about a block comment the game never closes, because the run of `*` before its closing `/` is even, with a quick fix that closes it |
 | `diagnostics.validateDefaultValues` | on | Fade a field written at the game's own default, with a remove quick fix. Only inside groups that do not inherit, since an explicit default can override a base's value |
 | `diagnostics.validateUnusedConstants` | on | Fade a `SCREAMING_CASE` constant nothing reads, and a chain of constants that only read each other, with a remove quick fix. Only judged when no other file in the project spells the name |
 | `codeMods.enabled` | on | Read the types, fields and `Type=` values a mod's `.dll` declares and merge them into the schema, so modded components complete, hover and validate like built-in ones. Covers the workspace, the installed workshop mods and your own `Mods` folder. Off scans nothing and uses the shipped schema alone |
@@ -115,6 +116,8 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 **Diagnostics**
 
 -   Syntax errors, unresolved references and assets, math expressions, duplicate keys, inheritance cycles
+-   Shapes the game refuses to load at all, which the editor otherwise reads as valid: free text where a member name belongs, a number naming a member, a `{`/`[` block with no name in front of it outside a list, an inheritance with no body, a `/*` no `*/` ever ends, a stray `*/`, a member started on a line the value before it already owns, and a second reference hung on a field by a `,`
+-   Block comments the game never closes, because it only ends one when the run of `*` before the closing `/` is odd. A banner like `/****** Section ******/` swallows everything up to the next `*/` when the mod loads, so a file can lose every part it defines while looking correct in the editor. A quick fix drops one `*`
 -   Values the game silently never reads: bare valueless fields, unknown members inside a group-typed field's list form, extra list elements and value shapes the field cannot read
 -   Missing separators: two fields on one line with no `,`/`;` between them (the game silently reads them as one value) and a run of numbers read as a single list element, each with a quick fix. Conversely, a separator a line break already makes redundant is shown as a subtle hint with a remove quick fix
 -   Component references, cross-file GUI ids, localization keys, shader constants and shader code, each toggleable in the settings

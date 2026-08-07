@@ -12,6 +12,7 @@ import {
     isListNode,
     isMathExpressionNode,
     isValueNode,
+    IdentifierNode,
     ListNode,
     ValueNode,
 } from '../../core/ast/ast';
@@ -344,6 +345,32 @@ export const isIgnoredSchemaField = (node: ValueNode): boolean => {
 type FieldContainer = { elements: AbstractNode[] };
 
 /**
+ * A member shape this pass is willing to judge, either an assignment (`Name = …`) or a bare named
+ * list (`Name [ … ]`, the spelling the game's own files use for `MediaEffects` and `HitEffects`).
+ * A bare named group is deliberately absent, for the reason given on {@link validateIgnoredFields}.
+ */
+type NamedMember = AssignmentNode | ListNode;
+
+/**
+ * The identifier a judgeable member is named by, or undefined for an anonymous list element.
+ *
+ * @param element the member to name.
+ * @returns the member's identifier node.
+ */
+const memberIdentifier = (element: NamedMember): IdentifierNode | undefined =>
+    isAssignmentNode(element) ? element.left : element.identifier;
+
+/**
+ * The judgeable member an element is, or undefined when its shape is not judged (an anonymous
+ * element, a bare group, a nested container without a name).
+ *
+ * @param element the container element to classify.
+ * @returns the element as a {@link NamedMember} when it carries a name, undefined otherwise.
+ */
+const namedMember = (element: AbstractNode): NamedMember | undefined =>
+    isAssignmentNode(element) || (isListNode(element) && !!element.identifier) ? (element as NamedMember) : undefined;
+
+/**
  * The lower-cased names of every schema field flagged `dead` (declared by the game but never read
  * by its code, per schemagen's whole-assembly read scan), so the per-assignment check below can
  * bail on cheap name membership before resolving any group class or ancestry. Built once at module
@@ -395,11 +422,16 @@ const deadDeclaredIn = (cls: string | undefined, name: string, document: Abstrac
 };
 
 /**
- * Whole-document pass flagging fields the game ignores: a named assignment inside a schema-resolved
+ * Whole-document pass flagging fields the game ignores: a named member inside a schema-resolved
  * group whose class does not declare the name and that no reference in the file reads. Emitted as a
- * hint (the field is dead weight, not an error) with a remove quick fix. Only assignments are
- * flagged: an identified subgroup with an unknown name can still be an id-referenced declaration
- * (component/toggle ids are read by name from plain string fields), which a reference scan cannot see.
+ * hint (the field is dead weight, not an error) with a remove quick fix. Judged shapes are the
+ * assignment (`Name = …`) and the bare named list (`Name [ … ]`). The list is judged because it is
+ * how the game's own files spell every effect collection, making it the shape a misplaced member
+ * most often takes, such as a `MediaEffects [ … ]` block that landed on the enclosing component
+ * instead of on its `OnDeath`. A bare named group stays exempt, since an identified subgroup with an
+ * unknown name can still be an id-referenced declaration (component and toggle ids are read by name
+ * from plain string fields), which a reference scan cannot see. A list is never that, because every
+ * id mechanism names a group.
  *
  * @param document the parsed document to validate.
  * @param cancellationToken cancels the walk.
@@ -415,11 +447,19 @@ export const validateIgnoredFields = async (
      * Emit the hint for one ignored member.
      *
      * @param node the container holding the member, for the sibling and category lookups.
-     * @param element the member's assignment.
+     * @param element the member's assignment or bare named list.
      * @param cls the class that declares the dead field, or owns the group the member is foreign to.
      */
-    const report = (node: FieldContainer, element: AssignmentNode, cls: string): void => {
-        const name = element.left.name;
+    const report = (node: FieldContainer, element: NamedMember, cls: string): void => {
+        const identifier = memberIdentifier(element);
+        if (!identifier) return;
+        // The hint fades, and the remove fix deletes, the name together with its value, which for a
+        // bare list is the list node itself. An unclosed container's `position.end` can precede the
+        // name's own end, since the parser reports a degenerate range there, so the value only
+        // extends the span when it really lies after the name.
+        const value = isAssignmentNode(element) ? element.right : element;
+        const valueEnd = value?.position?.end;
+        const name = identifier.name;
         const classLabel = schema.types[cls]?.name ?? cls;
         const declaredButDead = !!fieldOf(cls, name);
         // A field the game deleted in an update (a mod written against an older Cosmoteer):
@@ -428,8 +468,8 @@ export const validateIgnoredFields = async (
         // derived resolution walks its ancestry to find the entry.
         let deprecation: ReturnType<typeof deprecatedField>;
         for (const ancestor of classAncestry(cls)) deprecation ??= deprecatedField(ancestor, name);
-        const start = element.left.position.start;
-        const end = element.right?.position?.end ?? element.left.position.end;
+        const start = identifier.position.start;
+        const end = valueEnd !== undefined && valueEnd > identifier.position.end ? valueEnd : identifier.position.end;
         const data: ValidationErrorData = {
             remove: {
                 title: l10n.t("Remove '{0}'", name),
@@ -447,14 +487,14 @@ export const validateIgnoredFields = async (
                     title: l10n.t("Change to '{0}'", deprecation.replacement),
                     edits: [
                         {
-                            start: element.left.position.start,
-                            end: element.left.position.end,
+                            start: identifier.position.start,
+                            end: identifier.position.end,
                             newText: deprecation.replacement,
                         },
                     ],
                 };
             } else if (name.toLowerCase() === 'flammable') {
-                if (isFalseValue(element.right)) {
+                if (isFalseValue(value)) {
                     // `Flammable = false` was a fireproofing, and since Meltdown that
                     // intent is spelled as the `non_flammable` part category. Only a
                     // doc-local `TypeCategories` list can be appended to safely (a fresh
@@ -497,7 +537,7 @@ export const validateIgnoredFields = async (
                       name,
                       classLabel
                   ),
-            node: element.left,
+            node: identifier,
             // Fade the value along with the key: the game reads neither, and the span then
             // matches what the remove fix deletes.
             range: { start, end },
@@ -510,10 +550,11 @@ export const validateIgnoredFields = async (
         if (cancellationToken.isCancellationRequested) return;
         if (isGroupNode(node)) {
             for (const element of node.elements) {
-                if (!isAssignmentNode(element)) continue;
-                const name = element.left.name;
+                const member = namedMember(element);
+                if (!member) continue;
+                const name = memberIdentifier(member)!.name;
                 const cls = ignoredFieldClass(node, name, document) ?? deadDeclaredFieldClass(node, name, document);
-                if (cls) report(node, element, cls);
+                if (cls) report(node, member, cls);
             }
         }
         const children: AbstractNode[] =
@@ -532,9 +573,10 @@ export const validateIgnoredFields = async (
     const rootClass = documentRootClass(document);
     for (const element of document.elements) {
         if (cancellationToken.isCancellationRequested) break;
-        if (!isAssignmentNode(element)) continue;
-        const cls = deadDeclaredIn(rootClass, element.left.name, document);
-        if (cls) report(document, element, cls);
+        const member = namedMember(element);
+        if (!member) continue;
+        const cls = deadDeclaredIn(rootClass, memberIdentifier(member)!.name, document);
+        if (cls) report(document, member, cls);
     }
     for (const element of document.elements) visit(element);
     return errors;

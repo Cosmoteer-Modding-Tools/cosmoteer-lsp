@@ -37,6 +37,7 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateLocalizationKeys: Boolean = true
         var validateRedundantSeparators: Boolean = true
         var validateIgnoredFields: Boolean = true
+        var validateUnclosedComments: Boolean = true
         var validateDefaultValues: Boolean = true
         var validateUnusedConstants: Boolean = true
         var codeModsEnabled: Boolean = true
@@ -91,6 +92,7 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateLocalizationKeys" to state.validateLocalizationKeys,
             "validateRedundantSeparators" to state.validateRedundantSeparators,
             "validateIgnoredFields" to state.validateIgnoredFields,
+            "validateUnclosedComments" to state.validateUnclosedComments,
             "validateDefaultValues" to state.validateDefaultValues,
             "validateUnusedConstants" to state.validateUnusedConstants,
         ),

@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { validateRedundantSeparators } from '../../../src/features/diagnostics/validator.separator';
+import {
+    validateMissingSeparators,
+    validateRedundantSeparators,
+    validateUnbracketedValueList,
+} from '../../../src/features/diagnostics/validator.separator';
 import { checkMissingFieldSeparator } from '../../../src/features/diagnostics/validator.assignment';
 import { checkListElementSeparators } from '../../../src/features/diagnostics/validator.value';
 import {
@@ -107,6 +111,99 @@ describe('missing list element separators (numeric run in one element)', () => {
 
     it('accepts elements on separate lines', async () => {
         expect(await listFindings('L = [\n\t1\n\t2\n]')).toHaveLength(0);
+    });
+});
+
+// The game ends a flat field value at the line break, so a second member on that line is folded into
+// the value and the whole file fails to load. A `{ … }` or `[ … ]` value ends at its own closer, which
+// is why a member may follow one of those on the same line.
+describe('a member the line before it swallows', () => {
+    const findings = (src: string) => validateMissingSeparators(lexer(src));
+
+    it('flags a member behind a quoted value (small_laser_graphics.rules)', () => {
+        const result = findings('{ File = "a.png"     Size = [&x, &y] }');
+        expect(result).toHaveLength(1);
+        expect(result[0].message).toBe('The value before this swallows it');
+        // The game accepts this shape and folds the member into the value before it, so this is a
+        // warning about losing the member, not a load failure.
+        expect(result[0].severity).toBe('warning');
+    });
+
+    it('anchors the finding to the swallowed name', () => {
+        const src = '{ File = "a.png"     Size = [1, 2] }';
+        const [finding] = findings(src);
+        expect(src.slice(finding.node.position.start, finding.node.position.end)).toBe('Size');
+    });
+
+    it('flags each swallowed member of a longer run', () => {
+        expect(findings('{ A = "x" B = "y" C = "z" }')).toHaveLength(2);
+    });
+
+    it('accepts members separated by a semicolon or a comma', () => {
+        expect(findings('{ A = "x"; B = "y", C = "z" }')).toHaveLength(0);
+    });
+
+    it('accepts members on their own lines', () => {
+        expect(findings('{\n\tA = "x"\n\tB = "y"\n}')).toHaveLength(0);
+    });
+
+    it('accepts a member behind a list value, which ends at its own closer', () => {
+        expect(findings('{ Location = [0, 0] Direction = Left }')).toHaveLength(0);
+    });
+
+    it('accepts a member behind a group value', () => {
+        expect(findings('{ Inner = { A = 1 } Direction = Left }')).toHaveLength(0);
+    });
+
+    it('accepts the members inside a value that opens a block', () => {
+        expect(findings('X = { A = 1 B = 2 }')).toHaveLength(0);
+    });
+
+    it('accepts the mXparser relations, whose second half is an "="', () => {
+        expect(findings('A = (&X) <= 3\nB = (&X) >= 3\nC = (&X) == 3\nD = (&X) != 3')).toHaveLength(0);
+    });
+
+    it('accepts a value that reaches the end of the file', () => {
+        expect(findings('A = "x"')).toHaveLength(0);
+    });
+});
+
+// A field carries one value, so the `,` after it ends the member and a reference behind that `,` is a
+// member of its own, which the game refuses. The `,` of a list, of a call and of an inheritance list
+// all take another value after them.
+describe('a second reference hung on a field by a comma', () => {
+    const findings = (src: string) => validateUnbracketedValueList(lexer(src));
+
+    it('flags a comma separated reference pair (cosmoteer.rules)', () => {
+        const result = findings('SW_PARTICLES = &<SW_effects/mod-particles.rules>, &<common_effects/mod-particles.rules>\n');
+        expect(result).toHaveLength(1);
+        expect(result[0].message).toBe('The game cannot read a standalone reference here');
+    });
+
+    it('anchors the finding to the second reference', () => {
+        const src = 'X = &<a.rules>, &<b.rules>\n';
+        const [finding] = findings(src);
+        expect(src.slice(finding.node.position.start, finding.node.position.end)).toBe('&<b.rules>');
+    });
+
+    it('flags the pair inside a group', () => {
+        expect(findings('G\n{\n\tX = &<a.rules>, &<b.rules>\n}\n')).toHaveLength(1);
+    });
+
+    it('accepts references collected in a list', () => {
+        expect(findings('X = [&<a.rules>, &<b.rules>]\n')).toHaveLength(0);
+    });
+
+    it('accepts references in an inheritance list', () => {
+        expect(findings('Components : ^/0/Components, &<doodads.rules>\n{\n\tA = 1\n}\n')).toHaveLength(0);
+    });
+
+    it('accepts references as function arguments', () => {
+        expect(findings('X = min(&<a.rules>/A, &<b.rules>/B)\n')).toHaveLength(0);
+    });
+
+    it('accepts a plain field terminated by a comma', () => {
+        expect(findings('A = 1, B = &<b.rules>\n')).toHaveLength(0);
     });
 });
 

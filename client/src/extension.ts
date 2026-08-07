@@ -20,6 +20,7 @@ import {
     ServerOptions,
     TransportKind,
 } from 'vscode-languageclient/node';
+import { SharedDiagnosticCollectionProvider } from './diagnostic-collection';
 import { ShaderPreviewCodeLensProvider } from './shader-preview/codelens';
 import { ShaderPreviewPanel } from './shader-preview/preview-panel';
 import { PartGridCodeLensProvider } from './part-editor/codelens';
@@ -72,6 +73,10 @@ export async function activate(context: ExtensionContext) {
             fileEvents: workspace.createFileSystemWatcher('**/.clientrc'),
         },
         progressOnInitialization: true,
+        // The server answers open files through the pull model and pushes the whole-mod pass for the
+        // rest, so both models write to the Problems panel. One collection for both keeps a file
+        // that moves between them from being listed twice.
+        diagnosticCollectionProvider: new SharedDiagnosticCollectionProvider(),
         middleware: {
             // Server hovers can end with an "Open in decompiler" command link (opt-in via
             // `decompiler.showInHover`). VS Code only executes command links from trusted

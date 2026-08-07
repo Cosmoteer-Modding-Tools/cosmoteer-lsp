@@ -62,6 +62,22 @@ const TOKEN_DISPLAY: Partial<Record<TOKEN_TYPES, string>> = {
 const tokenDisplayText = (token: Token): string => token.value ?? TOKEN_DISPLAY[token.type] ?? token.type;
 
 /**
+ * The tokens the game accepts directly after a member name: an assignment, an inheritance colon, a
+ * `{`/`[` body, or one of the terminators that end the member. A line break ends the member too and
+ * leaves a void node behind, which is why it is handled separately from this set.
+ */
+const NAME_FOLLOWERS: ReadonlySet<TOKEN_TYPES> = new Set([
+    TOKEN_TYPES.EQUALS,
+    TOKEN_TYPES.COLON,
+    TOKEN_TYPES.LEFT_BRACE,
+    TOKEN_TYPES.LEFT_BRACKET,
+    TOKEN_TYPES.SEMICOLON,
+    TOKEN_TYPES.COMMA,
+    TOKEN_TYPES.RIGHT_BRACE,
+    TOKEN_TYPES.RIGHT_BRACKET,
+]);
+
+/**
  * True when an identifier read in `parent` is a list element. The game never names list
  * children: an identifier there is its own element (a text value, or a reference node for
  * `&…`), and a following `{`/`[`/`:` opens a separate anonymous element. The parser must
@@ -90,6 +106,66 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
     // lexes as one String value. Used so a leading sign (`-40%`) folds into that value instead of
     // leaking the sign as a lone Expression and desyncing the parse.
     const NUMBER_WITH_UNIT = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?[%dr]$/;
+    // An arithmetic run the lexer glued into one token because `-` and `.` are value characters
+    // (`0.38-0.015`). Only digits, dots and operators, so a word or a reference never matches.
+    const GLUED_ARITHMETIC = /^[\d.]+(?:[-+*/][\d.]+)+$/;
+    /**
+     * Whether the token continues the previous line through a `\`, which suppresses the newline. The
+     * lexer only marks an unsuppressed newline, so a continued token looks like it shares the line
+     * with what came before it. A continued run is part of a value the game reads as one string, and
+     * the words in it are never member names.
+     *
+     * @param token the token to judge.
+     * @param previous the token before it, or undefined at the start of the file.
+     * @returns true when a suppressed newline separates the two.
+     */
+    const continuesPreviousLine = (token: Token, previous: Token | undefined): boolean =>
+        !!previous && token.lineNumber > previous.lineNumber && !token.precededByNewline;
+    
+    /**
+     * Reports a member name the game refuses to read in group or document position. ObjectText reads
+     * the name and then requires `=`, `:`, `{`, `[`, a terminator or a line break, and it never lets a
+     * number name a member. Both spellings make the game throw and drop the whole file. Our
+     * unquoted-value charset holds spaces so that a value keeps its words together, which means a
+     * whole sentence of prose arrives here as one name token, and the whitespace test is what
+     * catches it.
+     *
+     * @param token the name token.
+     * @param next the token following the name, undefined at the end of the file.
+     */
+    const reportInvalidMemberName = (token: Token, next: Token | undefined, previous: Token | undefined): void => {
+        // A `\` continuation glues the next line onto this value, so nothing in the run is a name.
+        if (continuesPreviousLine(token, previous)) return;
+        const name = typeof token.value === 'string' ? token.value : '';
+        if (IS_NUMBER.test(name)) {
+            errors.push({
+                message: l10n.t('A number cannot name a member'),
+                token,
+                additionalInfo: [
+                    {
+                        message: l10n.t(
+                            'The game reads a number as a list element or as a path segment, never as the name of a group member. It fails to load the whole file on this.'
+                        ),
+                    },
+                ],
+            } as ParserError);
+            return;
+        }
+        if (!/\s/.test(name) && (!next || next.precededByNewline || NAME_FOLLOWERS.has(next.type))) {
+            return;
+        }
+        errors.push({
+            message: l10n.t('A member name must be followed by "=", ":", "{", "[" or the end of the line'),
+            token,
+            additionalInfo: [
+                {
+                    message: l10n.t(
+                        'The game stops at anything else and fails to load the whole file. Free text such as a note or a description has to go into a "//" comment or a quoted value.'
+                    ),
+                },
+            ],
+        } as ParserError);
+    };
     const walk = (
         _lastNode?: AbstractNode,
         parent?: GroupNode | ListNode | AbstractNodeDocument
@@ -195,7 +271,11 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             }
             let lastNode: AbstractNode | undefined = node;
             while (tokens[current] && tokens[current].type !== TOKEN_TYPES.RIGHT_BRACKET) {
-                const nextNode = walk(lastNode, node);
+                // A list element ends only at `,`, `;`, a line break or `]`, so an operator run
+                // belongs to the element it follows: the game reads `[255*.45, 255*.45]` as two
+                // elements. Folding the run into one node here is what keeps every index in the list
+                // the index the game sees, which positional fields and `…/1` references depend on.
+                const nextNode = continueMathExpression(walk(lastNode, node), node);
                 if (nextNode === null) {
                     break;
                 }
@@ -262,9 +342,38 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             // trailing segments leak as sibling values: junk nodes in localization files, and in
             // the heat_management tutorial a continued string even stole the following `Entries`
             // list's identifier. Stop at an unsuppressed newline, which genuinely ends the value.
-            while (tokens[current]?.type === TOKEN_TYPES.STRING && !tokens[current]?.precededByNewline) {
-                value += tokens[current]?.value as string;
-                current++;
+            // An unescaped quote inside a quoted value splits it into segments with bare words
+            // between them, which is how `"… the "C" symbol …"` and vanilla's `"… the "military free
+            // market", though …"` lex. The game reads the whole run as one value, so those bare
+            // words belong to the string. Without absorbing them they leak as sibling members and
+            // invent nodes the game never sees, including bogus localization keys. Only a run of
+            // bare words that leads back into another segment on the same line is taken, which keeps
+            // a genuine trailing word, a reference and an operator out of the string. The run has to
+            // start on a word, but punctuation the lexer reads as an operator may sit inside it, since
+            // prose is full of `Mod - Expansion` dashes and they carry no meaning inside a quoted value.
+            for (;;) {
+                const next = tokens[current];
+                if (!next || next.precededByNewline) break;
+                if (next.type === TOKEN_TYPES.STRING) {
+                    value += next.value as string;
+                    current++;
+                    continue;
+                }
+                if (next.type !== TOKEN_TYPES.VALUE) break;
+                let lookahead = current;
+                while (
+                    (tokens[lookahead]?.type === TOKEN_TYPES.VALUE ||
+                        tokens[lookahead]?.type === TOKEN_TYPES.EXPRESSION) &&
+                    !tokens[lookahead]?.precededByNewline
+                ) {
+                    lookahead++;
+                }
+                const rejoins = tokens[lookahead]?.type === TOKEN_TYPES.STRING && !tokens[lookahead]?.precededByNewline;
+                if (!rejoins) break;
+                while (current <= lookahead) {
+                    value += tokens[current]?.value as string;
+                    current++;
+                }
             }
             // The quoted-string span must include the surrounding quotes (and any adjacent
             // concatenated segments), so derive the end from the last consumed token's absolute
@@ -397,7 +506,9 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 // field's identifier and desync the parse.
                 !tokens[current]?.precededByNewline &&
                 (token.value === '-' || token.value === '+') &&
-                (NUMBER_WITH_UNIT.test(tokenValue) || /^[A-Za-z_][\w.]*$/.test(tokenValue)) &&
+                (NUMBER_WITH_UNIT.test(tokenValue) ||
+                    /^[A-Za-z_][\w.]*$/.test(tokenValue) ||
+                    GLUED_ARITHMETIC.test(tokenValue)) &&
                 !lastCompletesValue
             ) {
                 const numberToken = tokens[current];
@@ -826,15 +937,25 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     } as ParserError);
                     return null;
                 }
-                // The OT grammar terminates a value at the unsuppressed newline or the member
-                // terminators, so `Type = ` with nothing before the line break is an EMPTY field.
-                // Consuming the next token as the value instead would eat the enclosing group's
-                // closing brace (or the next member) and desync the whole container, which is
-                // exactly the live-editing state right after a completion snippet scaffolds the
-                // field or the user deletes a value.
+                // A newline after `=` does not end the value. The game skips ahead to the next
+                // significant token, so `DamageResistances =` with its `{ … }` body on the following
+                // line is that field's group, `RandomSounds =` with its `[ … ]` underneath is that
+                // field's list, and `OnDeath =` above a reference binds the reference.
+                // Two cases deliberately stay empty instead. Both are inputs the game answers with a
+                // parse error that cascades to the end of the file, so staying graceful beats
+                // reproducing it. A member terminator or EOF (`X =` right before `}`) is one of them,
+                // because consuming it would eat the enclosing group's closer and desync the whole
+                // container, which is exactly the live-editing state right after a completion snippet
+                // scaffolds the field or the user deletes a value. The head of a new member on a
+                // later line (`X =` above `Y = 1`) is the other, since the game folds that whole
+                // member into the value, which no shipped file relies on and no live edit ever means.
                 const next = tokens[current];
+                const following = tokens[current + 1];
+                const nextStartsNewMember =
+                    !!next.precededByNewline &&
+                    (following?.type === TOKEN_TYPES.EQUALS || following?.type === TOKEN_TYPES.COLON);
                 const valueIsEmpty =
-                    next.precededByNewline ||
+                    nextStartsNewMember ||
                     next.type === TOKEN_TYPES.RIGHT_BRACE ||
                     next.type === TOKEN_TYPES.RIGHT_BRACKET ||
                     next.type === TOKEN_TYPES.SEMICOLON ||
@@ -903,8 +1024,8 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 } as IdentifierNode;
                 // The game accepts a bare `&…` reference only as a list element or a field
                 // value. In group or document position it throws `Unexpected "&"` and the whole
-                // file fails to load (verified against Halfling.ObjectText), so report it as a
-                // parse error while keeping the node for navigation.
+                // file fails to load, so report it as a parse error while keeping the node for
+                // navigation.
                 if (typeof token.value === 'string' && token.value.startsWith('&') && parent?.type !== 'List') {
                     errors.push({
                         message: l10n.t('The game cannot read a standalone reference here'),
@@ -917,6 +1038,10 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                             },
                         ],
                     } as ParserError);
+                } else if (parent?.type !== 'List') {
+                    // A list element is not a member, so it carries none of the naming rules: a
+                    // number and a run of words are both ordinary element values there.
+                    reportInvalidMemberName(token, tokens[current], tokens[current - 2]);
                 }
                 if (
                     tokens[current]?.type === TOKEN_TYPES.LEFT_BRACE ||
@@ -924,9 +1049,9 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     tokens[current]?.type === TOKEN_TYPES.COLON
                 ) {
                     // Inside a list the game never attaches a following `{`/`[`/`:` to an
-                    // identifier element (verified against Halfling.ObjectText: the identifier
-                    // stays its own element and the `{`/`:` opens a separate anonymous element),
-                    // so keep it standalone instead of making it a head.
+                    // identifier element: the identifier stays its own element and the `{`/`:`
+                    // opens a separate anonymous element, so keep it standalone instead of making
+                    // it a head.
                     if (isListElementIdentifier(parent)) {
                         return node;
                     }
@@ -1044,6 +1169,22 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     v.parent = right;
                     return v;
                 });
+            } else {
+                // An inheritance describes what a body starts from, so the game demands that body
+                // right after it and throws when it is missing. Without the body there is nothing to
+                // hang the collected references on either, so they are dropped and the member
+                // disappears from our tree.
+                errors.push({
+                    message: l10n.t('Expected a "{" or "[" body after the inheritance'),
+                    token,
+                    additionalInfo: [
+                        {
+                            message: l10n.t(
+                                'An inheritance names what the body starts from, so the game expects the body that follows it. It fails to load the whole file when there is none.'
+                            ),
+                        },
+                    ],
+                } as ParserError);
             }
             return right;
         }
@@ -1057,8 +1198,22 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             // A `)` reaching here is unmatched. Every paren-group/function-call loop consumes its
             // own closing `)` before calling `walk`, so this is a stray paren. The real OT parser
             // (OTFieldNode) reads such a token as part of the value string, e.g. `RightBracket = )`
-            // or `AsteroidGold_S = 金小惑星（S)` in cosmoteer `strings/*.rules`. Emit it as a literal
-            // value rather than a spurious "Not expected paren" that desyncs the rest of the file.
+            // or `AsteroidGold_S = 金小惑星（S)` in cosmoteer `strings/*.rules`. When the field it
+            // belongs to is still on the same line, append it there so the member keeps the one
+            // value the game gives it. A full-width `（` is an ordinary value character, so only the
+            // closing half reaches the parser and the value would otherwise lose it and gain a
+            // sibling the game never sees.
+            const previous = _lastNode?.type === 'Assignment' ? (_lastNode as AssignmentNode).right : undefined;
+            if (previous && isValueNode(previous) && previous.position.line === token.lineNumber && !previous.quoted) {
+                previous.valueType = {
+                    ...previous.valueType,
+                    value: `${previous.valueType.value})`,
+                } as ValueNodeTypes;
+                previous.position.characterEnd = token.lineOffset + 1;
+                previous.position.end = token.end ?? previous.position.end;
+                current++;
+                return walk(_lastNode, parent);
+            }
             current++;
             return {
                 type: 'Value',

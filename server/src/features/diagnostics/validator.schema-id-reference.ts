@@ -87,8 +87,8 @@ const isSelfKeyedDeclaration = (reference: IdReference): boolean =>
 
 /**
  * The component registries whose ids are container-local: the engine names each component after its
- * node name inside the owner's `Components { … }` map (`PartRules` and `BulletRules` both do this,
- * decompile verified), and a reference resolves against the owner's own components rather than a global pool.
+ * node name inside the owner's `Components { … }` map (`PartRules` and `BulletRules` both do this),
+ * and a reference resolves against the owner's own components rather than a global pool.
  * Judging them here would be worse than not judging them: two bullets each defining `DamagePool` means
  * one bullet's copy would excuse a reference in another bullet that has none, so the check could never
  * catch the bug it exists for. The part-local sibling validator owns these instead.
@@ -131,7 +131,7 @@ export const isValidatedIdReference = (reference: IdReference): boolean =>
  * Ids the base game's own files reference without declaring, exempted mechanically instead of via a
  * hand-kept list, so a game update needs no code change here. Vanilla ships a few stale references
  * (`graveyard_platform`, `station_captor_defense` tags, the laser bolts' dead `shrapnel` resistance,
- * all decompile-verified harmless leftovers): when an unknown id is also referenced by a shipped
+ * all harmless leftovers): when an unknown id is also referenced by a shipped
  * game file for the same target class, the game itself carries that reference, so it is vanilla's
  * leftover rather than the modder's typo. The vanilla scan pins the exact exempted set through
  * {@link gameTreeExemptions}, so a harvest regression that would widen it fails the scan instead of

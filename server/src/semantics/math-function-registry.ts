@@ -191,7 +191,7 @@ const CURATED: Record<string, MathFunctionSpec> = {
         ...variadic('Average of the given values.', (xs) => xs.reduce((s, x) => s + x, 0) / xs.length),
         source: 'extra',
     },
-    // Cosmoteer-registered functions (decompiled `IMathFunction` implementations in Cosmoteer.dll).
+    // Cosmoteer-registered functions (the `IMathFunction` implementations in Cosmoteer.dll).
     // As of the 2026-06 build the only one is `db2vol` (`DecibelsToVolumeMathFunction`); it takes a
     // quoted string argument, so it is never argument-type checked or evaluated.
     db2vol: {

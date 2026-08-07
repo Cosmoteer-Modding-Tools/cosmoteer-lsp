@@ -16,8 +16,8 @@ import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-in
 // (dev-editor Type-switch residue on particle updaters, a handful of stale keys on components). So
 // the contract is not zero findings but zero FALSE POSITIVES, pinned two ways:
 //   1. every class the schemagen-derived `purelyReflective` + concrete gate once mis-flagged before
-//      its guards were complete stays absent. Each entry below was decompile-verified to read the
-//      flagged field, so a regression that re-flags it is a false positive. These stand in for the
+//      its guards were complete stays absent. Each class below does read the field it was flagged
+//      on, so a regression that re-flags it is a false positive. These stand in for the
 //      failure modes the gate defends against: an abstract/interface base whose concrete type reads
 //      the field (ISoundEffect, PartComponentRules), a valueForm wrapper whose members are read from
 //      the same node (BrushRules seen as BlockTileBrush), a GenericSerialReader custom read path
@@ -51,8 +51,8 @@ const rulesFilesUnder = (root: string): string[] => {
     return out;
 };
 
-// Classes proven by decompilation to read the field the validator once flagged on them. Any finding
-// on one of these is a regression into a false positive.
+// Classes that do read the field the validator once flagged on them. Any finding on one of these is
+// a regression into a false positive.
 const FALSE_POSITIVE_CLASSES = [
     'ISoundEffect',
     'PartComponentRules',
@@ -64,8 +64,30 @@ const FALSE_POSITIVE_CLASSES = [
     'GalaxySpawner',
 ];
 
+/**
+ * The written shape of the member a finding landed on, read back from the source: what follows the
+ * reported name decides it. The pass judged assignments only until the bare named list was added, so
+ * `bare-list` is the shape whose findings are new surface.
+ *
+ * @param text the file's source.
+ * @param start the finding's start offset, which is the member's name.
+ * @returns the shape label.
+ */
+const shapeAt = (text: string, start: number): string => {
+    const afterName = text.slice(start).replace(/^[^\s=[{]+/, '');
+    const trimmed = afterName.replace(/^(\s|\/\/[^\n]*)+/, '');
+    if (trimmed.startsWith('=')) return 'assignment';
+    if (trimmed.startsWith('[')) return 'bare-list';
+    if (trimmed.startsWith('{')) return 'bare-group';
+    return 'other';
+};
+
+/** The class name out of a not-a-member message, for pairing a finding with its file. */
+const flaggedClass = (message: string): string => message.match(/is not a member of (\w+) /)?.[1] ?? '';
+
 describe.skipIf(!HAVE_DATA)('ignored-field validator over vanilla Data', () => {
     let findings: string[] = [];
+    let shaped: { file: string; shape: string; cls: string; message: string }[] = [];
 
     beforeAll(async () => {
         globalSettings.cosmoteerPath = DATA_DIR;
@@ -101,15 +123,25 @@ describe.skipIf(!HAVE_DATA)('ignored-field validator over vanilla Data', () => {
         await ReverseIncludeIndex.instance.ensureBuilt([DATA_DIR], token);
 
         findings = [];
+        shaped = [];
         for (const file of rulesFilesUnder(DATA_DIR)) {
+            let text: string;
             let doc;
             try {
+                text = readFileSync(file, 'utf8');
                 doc = parseFile(file);
             } catch {
                 continue;
             }
+            const rel = relative(DATA_DIR, file);
             for (const error of await validateIgnoredFields(doc, token)) {
-                findings.push(`${relative(DATA_DIR, file)}: ${error.message}`);
+                findings.push(`${rel}: ${error.message}`);
+                shaped.push({
+                    file: rel,
+                    shape: shapeAt(text, error.range?.start ?? 0),
+                    cls: flaggedClass(error.message),
+                    message: error.message,
+                });
             }
         }
     }, 600_000);
@@ -128,6 +160,28 @@ describe.skipIf(!HAVE_DATA)('ignored-field validator over vanilla Data', () => {
         // `ToggleButtonID` must stay known through the delegation companion.
         const offenders = findings.filter((f) => f.includes("'ToggleButtonID'"));
         expect(offenders).toEqual([]);
+    });
+
+    it('never flags a bare named group', () => {
+        // An identified subgroup with an unknown name can still be an id-referenced declaration
+        // (component/toggle ids are read by name from plain string fields), invisible to a reference
+        // scan. Only the assignment and the bare named list are judged.
+        expect(shaped.filter((f) => f.shape === 'bare-group')).toEqual([]);
+    });
+
+    it('flags a bare named list only in groups whose assignments it already flags', () => {
+        // The bare list (`MediaEffects [ … ]`) is the shape vanilla spells every effect collection
+        // with, and the one a misplaced member most often takes. Vanilla loads in-game, so a
+        // bare-list finding is trustworthy only where the same file's same class already produced
+        // assignment findings: the verdict is then the pre-existing one completed across shapes, not
+        // a new class of judgement the assignment path never had to survive.
+        const assignmentPairs = new Set(
+            shaped.filter((f) => f.shape === 'assignment').map((f) => `${f.file}|${f.cls}`)
+        );
+        const unpaired = shaped
+            .filter((f) => f.shape === 'bare-list' && !assignmentPairs.has(`${f.file}|${f.cls}`))
+            .map((f) => `${f.file}: ${f.message}`);
+        expect(unpaired).toEqual([]);
     });
 
     it('still detects the particle-updater dead fields', () => {

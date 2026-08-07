@@ -21,9 +21,8 @@ internal sealed partial class SchemaGen
     //      on the target type), or per field via `[Serialize(OverrideDeserializer = …)]` (emitted on
     //      that field, a Widget Anchor's `TopLeft`). The word is looked up by name, so only strings
     //      are legal.
-    // Verified against the decompiled engine (2026-07): every scalar-capable engine type follows one
-    // of these patterns, and the Vector2 family, Material and Sprite (which throw on a scalar) match
-    // none.
+    // Every scalar-capable engine type follows one of these patterns, and the Vector2 family,
+    // Material and Sprite (which throw on a scalar) match none.
     static bool BodyMentionsFieldNode(MethodDefinition? m) =>
         m?.HasBody == true && m.Body.Instructions.Any(i =>
             (i.Operand is TypeReference tr && tr.FullName == "Halfling.ObjectText.OTFieldNode")

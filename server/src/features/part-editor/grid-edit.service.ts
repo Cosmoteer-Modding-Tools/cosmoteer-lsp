@@ -968,7 +968,7 @@ const expandAdjacencyFlags = (names: readonly string[]): Set<string> => {
     return expanded;
 };
 
-/** The game defaults of the part-root flags fields, from the decompiled field initializers. */
+/** The game defaults of the part-root flags fields, from their field initializers. */
 const FLAG_FIELD_DEFAULTS: Readonly<Record<string, readonly string[]>> = {
     AllowedContiguity: ['Sides'],
 };

@@ -53,12 +53,12 @@ const matchesDefault = (value: ValueNode, field: SchemaField): boolean => {
  *    absent-value only when the game constructs the class that way and fills it reflectively, which
  *    is what `purelyReflective` guarantees, so it is gated on the class.
  *
- * Both arms are decompile-verified. Every class the vanilla and workshop scans flag through the
- * `initializer` arm has a compiler-generated parameterless constructor whose field initializers are
- * the absent-value, while the classes that arm rejects include real traps (`MusicFileTrackRules`
- * deserializes through a `GenericSerialReader`). The `attribute` arm unlocks exactly three
- * non-`purelyReflective` classes (`TargetBlendMode`, `StatusFactors`, `GeneratorStage`), and each
- * one's custom reader was read and does reach `ReflectiveRead`, so the attribute really is applied.
+ * Every class the vanilla and workshop scans flag through the `initializer` arm has a
+ * compiler-generated parameterless constructor whose field initializers are the absent-value, while
+ * the classes that arm rejects include real traps (`MusicFileTrackRules` deserializes through a
+ * `GenericSerialReader`). The `attribute` arm unlocks exactly three non-`purelyReflective` classes
+ * (`TargetBlendMode`, `StatusFactors`, `GeneratorStage`), and each one's custom reader reaches
+ * `ReflectiveRead`, so the attribute really is applied.
  * `TargetBlendMode` is the reason this distinction exists: a preset-valued struct (not
  * `purelyReflective`, since it has its own `ReadContentFrom`) whose group form starts from
  * `default(TargetBlendMode)` and then delegates straight to `ReflectiveRead`.

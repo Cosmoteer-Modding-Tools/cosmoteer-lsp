@@ -138,7 +138,7 @@ describe.skipIf(!HAVE_DATA)('default-value validator over vanilla Data', () => {
     });
 
     it('never flags a field whose default is only a constructor initializer on a non-reflective class', () => {
-        // The canonical traps, each decompile-verified: MusicFileTrackRules' only constructor takes a
+        // The canonical traps: MusicFileTrackRules' only constructor takes a
         // GenericSerialReader, and BuffType/DynamicVolumeRules likewise deserialize outside the plain
         // reflective path. Their defaults come from the `initializer` source, which is only an
         // absent-value on a purelyReflective class, so they must stay unflagged. (TargetBlendMode is
