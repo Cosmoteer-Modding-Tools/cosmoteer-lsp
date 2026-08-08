@@ -81,6 +81,19 @@ export interface CosmoteerSettings {
         // other file in the project spells the name, so a constant read from another file (or by a
         // mod that ships a `.dll`) is left alone. Hint severity keeps it out of the Problems panel.
         validateUnusedConstants: boolean;
+        // When true (the default), hint at a group whose fields several other files of the same mod
+        // write word for word, which could live in one shared base file all of them inherit, the way
+        // the game's own data and the larger mods are written. Carries the "extract shared base"
+        // refactoring, so turning it off removes both the hint and the offer. Only fields that mean
+        // the same thing from a base file are counted, and only the files of the mod being edited are
+        // ever rewritten. Hint severity keeps it out of the Problems panel.
+        validateDuplicateFields: boolean;
+        // When true (the default), fade a field whose value the group already inherits, so writing it
+        // leaves the game exactly where deleting it would. Carries a remove quick fix. Only judged
+        // when the whole inheritance chain could be read and neither copy carries a reference that
+        // means something different from where it is written. Hint severity keeps it out of the
+        // Problems panel.
+        validateRedundantOverrides: boolean;
     };
     codeMods: {
         // When true (the default), a mod that ships a `.dll` has its own serializable types, fields
@@ -104,12 +117,12 @@ export interface CosmoteerSettings {
         // following the reference by hand.
         showBaseValue: boolean;
     };
-    rename: {
-        // When true, a rename may also edit files inside the Cosmoteer game `Data` install. Off by
-        // default to protect the read-only vanilla files. Only a developer working on the game data
-        // itself should turn this on.
-        allowEditingVanillaFiles: boolean;
-    };
+    // When true, a refactoring may also read and rewrite files inside the Cosmoteer game `Data`
+    // install: renames reach into it, and the shared-base extraction treats it as a project of its
+    // own, which it cannot do otherwise because the game tree carries no mod manifest. Off by default
+    // to protect the read-only vanilla files. Only a developer working on the game data itself should
+    // turn it on. Installed workshop mods belong to somebody else and stay off limits either way.
+    allowEditingVanillaFiles: boolean;
     decompiler: {
         // When true, a schema hover ends with an "Open <Class> in decompiler" link that opens the
         // owning C# class in the user's .NET decompiler (ILSpy or dotPeek). Off by default: it is
@@ -157,6 +170,8 @@ export const defaultSettings: CosmoteerSettings = {
         validateIgnoredFields: true,
         validateDefaultValues: true,
         validateUnusedConstants: true,
+        validateDuplicateFields: true,
+        validateRedundantOverrides: true,
     },
     codeMods: {
         enabled: true,
@@ -165,9 +180,7 @@ export const defaultSettings: CosmoteerSettings = {
     inlayHints: {
         showBaseValue: true,
     },
-    rename: {
-        allowEditingVanillaFiles: false,
-    },
+    allowEditingVanillaFiles: false,
     decompiler: {
         showInHover: false,
         executablePath: '',

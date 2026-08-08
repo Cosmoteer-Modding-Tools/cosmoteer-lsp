@@ -97,6 +97,24 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
             row { checkBox("Warn about comments the game does not close").bindSelected(state::validateUnclosedComments) }
             row { checkBox("Fade fields written at their default").bindSelected(state::validateDefaultValues) }
             row { checkBox("Fade constants nothing reads").bindSelected(state::validateUnusedConstants) }
+            row {
+                checkBox("Hint at fields several files write the same way")
+                    .bindSelected(state::validateDuplicateFields)
+                    .comment(
+                        "Marks a group whose fields other files of the mod repeat word for word, and carries " +
+                        "the 'extract shared base' refactoring that moves them into one base file all of them " +
+                        "inherit. Off removes the hint and the offer, while " +
+                        "Tools | Cosmoteer: Extract Shared Base Files still works."
+                    )
+            }
+            row {
+                checkBox("Fade fields whose value the base already supplies")
+                    .bindSelected(state::validateRedundantOverrides)
+                    .comment(
+                        "Marks a field written with exactly the value the group inherits, so deleting it " +
+                        "leaves the game where it is. Carries a remove fix."
+                    )
+            }
         }
         group("Code mods") {
             row {
@@ -125,7 +143,16 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                     .bindSelected(state::inlayShowBaseValue)
                     .comment("A reference to a group with a BaseValue member renders '/BaseValue = 160d' inline.")
             }
-            row { checkBox("Allow rename to edit vanilla files").bindSelected(state::allowEditingVanillaFiles) }
+            row {
+                checkBox("Allow refactorings to edit vanilla files")
+                    .bindSelected(state::allowEditingVanillaFiles)
+                    .comment(
+                        "Lets rename reach into the game's Data folder, and lets the shared-base " +
+                        "extraction treat it as a project of its own, which it cannot do otherwise " +
+                        "because the game tree carries no mod manifest. Installed workshop mods stay " +
+                        "off limits either way."
+                    )
+            }
             row { checkBox("Enable formatting").bindSelected(state::formattingEnabled) }
             row {
                 checkBox("Semantic highlighting from the language server")

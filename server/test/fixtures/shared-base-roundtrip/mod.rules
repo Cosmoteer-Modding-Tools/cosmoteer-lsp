@@ -1,0 +1,2 @@
+ID = test.sharedbase.roundtrip
+Name = "Shared base round trip fixture"

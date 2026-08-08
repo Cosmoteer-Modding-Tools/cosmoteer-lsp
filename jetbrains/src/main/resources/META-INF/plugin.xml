@@ -96,6 +96,22 @@
                 icon="/icons/rules.png">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
+        <action id="cosmoteer.extractSharedBaseFiles"
+                class="cosmoteer.actions.ExtractSharedBaseAction"
+                text="Cosmoteer: Extract Shared Base Files"
+                description="Move fields several files write word for word into one base file all of them inherit"
+                icon="/icons/rules.png">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <!-- The id is the command the server writes into its "extract shared base file" refactoring,
+             and has to stay exactly that: LSP4IJ looks an action up by the command id when the server
+             does not claim the command, which is how the offer in the editor runs in the IDE and can
+             show the rewrite as a diff first. Not in a menu, it is reached through the code action. -->
+        <action id="cosmoteer.extractSharedBaseFromAction"
+                class="cosmoteer.actions.ExtractSharedBaseCommandAction"
+                text="Cosmoteer: Extract Shared Base File Here"
+                description="Move the repeated fields of the group at the caret into a shared base file"
+                icon="/icons/rules.png"/>
         <action id="cosmoteer.buildModSchema"
                 class="cosmoteer.actions.BuildModSchemaAction"
                 text="Cosmoteer: Rebuild Schema from Code Mod Assemblies"

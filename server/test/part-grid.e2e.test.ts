@@ -28,7 +28,7 @@ const settings = {
     trace: { server: 'off' },
     ignorePaths: [],
     diagnostics: { validateWholeWorkspace: false },
-    rename: { allowEditingVanillaFiles: false },
+    allowEditingVanillaFiles: false,
     formatting: { enabled: true, formatOnSave: false },
 };
 

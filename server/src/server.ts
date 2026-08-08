@@ -41,6 +41,15 @@ import { AbstractNodeDocument } from './core/ast/ast';
 import { ParserResultRegistrar } from './registrar/parser-result-registrar';
 import { findNodeAtPosition } from './utils/ast.utils';
 import { extractValueCodeAction } from './features/refactor/extract-value';
+import { extractSharedBaseCodeActions } from './features/refactor/shared-base/extract-shared-base.codeaction';
+import { clearSharedBaseScanCache } from './features/refactor/shared-base/mod-scan';
+import {
+    EXTRACT_SHARED_BASE_COMMAND,
+    extractSharedBase,
+    ExtractSharedBaseArgs,
+    SharedBaseFailure,
+    SharedBaseHost,
+} from './features/refactor/shared-base/shared-base.command';
 import { AutoCompletionService, Completion } from './features/completion/autocompletion.service';
 import { DefinitionService } from './features/navigation/definition.service';
 import { computeDocumentLinks, resolveDocumentLink } from './features/navigation/document-links';
@@ -74,6 +83,8 @@ import { validateAnonymousBlocks } from './features/diagnostics/validator.anonym
 import { validateIgnoredFields } from './features/diagnostics/validator.ignored-field';
 import { validateDefaultValuedFields } from './features/diagnostics/validator.default-value';
 import { validateUnusedConstants } from './features/diagnostics/validator.unused-constant';
+import { validateDuplicateFields } from './features/diagnostics/validator.duplicate-fields';
+import { validateRedundantOverrides } from './features/diagnostics/validator.redundant-override';
 import { ValidationForMath } from './features/diagnostics/validator.math';
 import { ValidationForDocumentDuplicates, ValidationForGroupDuplicates } from './features/diagnostics/validator.duplicate-key';
 import { validateInheritanceCycles } from './features/diagnostics/validator.inheritance-cycle';
@@ -305,7 +316,12 @@ connection.onInitialize(async (params: InitializeParams) => {
             // The workspace migration also runs server-side for the same reason: one implementation
             // computes the WorkspaceEdit, both clients only trigger it and show the summary.
             executeCommandProvider: {
-                commands: [OPEN_IN_DECOMPILER_COMMAND, MIGRATE_WORKSPACE_COMMAND, BUILD_MOD_SCHEMA_COMMAND],
+                commands: [
+                    OPEN_IN_DECOMPILER_COMMAND,
+                    MIGRATE_WORKSPACE_COMMAND,
+                    BUILD_MOD_SCHEMA_COMMAND,
+                    EXTRACT_SHARED_BASE_COMMAND,
+                ],
             },
             semanticTokensProvider: {
                 legend: semanticTokensLegend,
@@ -546,6 +562,9 @@ connection.onDidChangeConfiguration(async (change) => {
     inlayHintCache.clear();
     invalidateComponentIdCache();
     invalidateLooseDeclarationCache();
+    // The shared-base memo holds a mod-wide set filtered by the validation scope, so a scope change
+    // would otherwise keep serving a set built under the other filter until a file changes on disk.
+    clearSharedBaseScanCache();
     const scanSettingsKey = scanSettingsKeyOf();
     if (lastScanSettingsKey === undefined) {
         lastScanSettingsKey = scanSettingsKey;
@@ -1180,6 +1199,29 @@ async function validateTextDocument(
             );
             validationErrors = validationErrors.concat(unusedConstantErrors);
         }
+        // Separate pass: field sets several files of the mod repeat verbatim, which could live in one
+        // shared base file instead. Compares the file against the files it would share that base with,
+        // so it runs with the same folder set the other cross-file checks use.
+        if (settings.diagnostics?.validateDuplicateFields) {
+            const duplicateFieldErrors = await timedPass('scan.vDuplicateFieldsMs', async () =>
+                validateDuplicateFields(
+                    parserResult.value,
+                    textDocument.getText(),
+                    await searchFolderUris(),
+                    cancelToken,
+                    await reachableFileFilter(cancelToken)
+                ).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(duplicateFieldErrors);
+        }
+        // Separate pass: the inverse question, a field whose value the group already inherits. Reads
+        // the base files the document points at rather than the mod around it.
+        if (settings.diagnostics?.validateRedundantOverrides) {
+            const redundantOverrideErrors = await timedPass('scan.vRedundantOverrideMs', async () =>
+                validateRedundantOverrides(parserResult.value, textDocument.getText(), cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(redundantOverrideErrors);
+        }
         if (isModRules(textDocument.uri)) {
             // Separate pass: validate the manifest's action verbs/targets against the
             // effective game tree (the AstType-keyed Validator allows only one pass per type).
@@ -1324,6 +1366,19 @@ async function isUnreferencedTxt(file: string, token: CancellationToken): Promis
  * @param token cancels the closure walk. A cancelled (possibly partial) walk is not cached.
  * @returns the allowed reachability keys, or undefined when unrestricted.
  */
+/**
+ * A predicate telling whether a file is one the game actually loads, for a feature that must not act
+ * on backups, templates and other dead content. Undefined when the workspace has no manifest to scope
+ * by, or when the user asked for every file, which both mean "no restriction".
+ *
+ * @param token cancels the reachability computation.
+ * @returns the predicate, or undefined when nothing is out of scope.
+ */
+async function reachableFileFilter(token: CancellationToken): Promise<((fsPath: string) => boolean) | undefined> {
+    const keys = await validationScopeKeys(token).catch(() => undefined);
+    return keys ? (fsPath: string) => keys.has(reachabilityKey(fsPath)) : undefined;
+}
+
 async function validationScopeKeys(token: CancellationToken): Promise<Set<string> | undefined> {
     if (workspaceValidationScope() !== 'modRulesReachable') return undefined;
     if (validationScopeCache?.epoch === validationScopeEpoch) return validationScopeCache.keys;
@@ -1386,9 +1441,11 @@ const bumpWorkspaceScanEpoch = (): void => {
 
 /**
  * The scan-relevant settings serialization. Only settings that change what a file's validation
- * produces participate: the whole-workspace toggle and scope select which files are scanned, not
- * what a file yields, and flipping the toggle is exactly the repeat-scan case the caches exist
- * for. The l10n bundle path rides along because persisted diagnostics carry localized messages.
+ * produces participate: the whole-workspace toggle selects which files are scanned, not what a file
+ * yields, and flipping it is exactly the repeat-scan case the caches exist for. The scope does
+ * participate, because the duplicate-field pass compares a file against the other files the game
+ * loads, so narrowing or widening the scope changes what that file itself reports. The l10n bundle
+ * path rides along because persisted diagnostics carry localized messages.
  *
  * @returns the serialized key.
  */
@@ -1398,7 +1455,6 @@ const scanSettingsKeyOf = (): string =>
         diagnostics: {
             ...globalSettings.diagnostics,
             validateWholeWorkspace: undefined,
-            workspaceValidationScope: undefined,
         },
         l10nBundle: process.env['EXTENSION_BUNDLE_PATH'] ?? '',
     });
@@ -2424,7 +2480,7 @@ connection.onRenameRequest(async (params, cancellationToken) => {
         // Safety: rename searches the whole game tree but must never write to the read-only vanilla
         // install. Strip any edits under the Data root so we only touch the open mod. A developer
         // working on the game data can opt into editing vanilla via the setting.
-        if (!edit || globalSettings.rename?.allowEditingVanillaFiles) return edit;
+        if (!edit || globalSettings.allowEditingVanillaFiles) return edit;
         return dropEditsUnderRoot(edit, CosmoteerWorkspaceService.instance.dataRootPath);
     } catch (e) {
         if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
@@ -2448,9 +2504,24 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
     if (wantsRefactor) {
         const parserResult = ensureParserResult(params.textDocument.uri);
         const text = documents.get(params.textDocument.uri)?.getText();
+        const document = documents.get(params.textDocument.uri);
         if (parserResult && text !== undefined) {
             const extract = extractValueCodeAction(parserResult, text, params.range.start, params.textDocument.uri);
             if (extract) actions.push(extract);
+        }
+        // The shared-base extraction creates a file and rewrites every file that will inherit it, so
+        // it is offered as a command rather than an edit (see extract-shared-base.codeaction.ts).
+        if (parserResult && text !== undefined && document && globalSettings.diagnostics?.validateDuplicateFields) {
+            actions.push(
+                ...(await extractSharedBaseCodeActions(
+                    parserResult,
+                    text,
+                    document.offsetAt(params.range.start),
+                    await searchFolderUris(),
+                    cancellationToken,
+                    await reachableFileFilter(cancellationToken)
+                ).catch(() => []))
+            );
         }
     }
     for (const diagnostic of params.context.diagnostics) {
@@ -2575,7 +2646,91 @@ connection.onExecuteCommand(async (params) => {
             return null;
         });
     }
+    if (params.command === EXTRACT_SHARED_BASE_COMMAND) {
+        const args = (params.arguments?.[0] ?? {}) as ExtractSharedBaseArgs;
+        const progress = args.plan ? undefined : await connection.window.createWorkDoneProgress();
+        progress?.begin('Looking for shared bases', 0, '', false);
+        // Trust the fs caches for the pass, like the diagnostic scan and the migration do: the sweep
+        // re-reads the same directories constantly, and nothing edits files until the end.
+        beginFsTrustWindow();
+        try {
+            const inScope = await reachableFileFilter(CancellationToken.None);
+            const host = sharedBaseHost(progress, inScope);
+            return await extractSharedBase(args, host, CancellationToken.None).catch((e) => {
+                if (globalSettings.trace.server === 'messages') console.error(e);
+                return null;
+            });
+        } finally {
+            endFsTrustWindow();
+            progress?.done();
+        }
+    }
 });
+
+/**
+ * Why an extraction invoked from the lightbulb did nothing, in one sentence the user can act on.
+ *
+ * @param failure the reason the command reported.
+ * @returns the message to show.
+ */
+function sharedBaseFailureMessage(failure: SharedBaseFailure): string {
+    switch (failure) {
+        case 'planStale':
+            return l10n.t('Those files no longer write the same fields, so nothing was changed.');
+        case 'baseFileExists':
+            return l10n.t('A file of that name is already there, so nothing was changed.');
+        case 'notEditable':
+            return l10n.t('The base file could not be written, so nothing was changed.');
+        case 'editRejected':
+            return l10n.t('The editor turned down the rewrite, so nothing was changed.');
+    }
+}
+
+/**
+ * The server facilities the shared-base extraction runs against: the workspace folders it sweeps,
+ * the open buffers whose unsaved text wins over disk, the client's edit channel, and the index
+ * refresh a written file needs before it is validated again.
+ *
+ * @param progress the sweep's progress reporter, absent when a plan is being applied.
+ * @returns the host for {@link extractSharedBase}.
+ */
+function sharedBaseHost(
+    progress: { report(percentage: number, message?: string): void } | undefined,
+    inScope: ((fsPath: string) => boolean) | undefined
+): SharedBaseHost {
+    return {
+        inScope,
+        folderPaths: async () => ((await getWorkspaceFoldersCached()) ?? []).map((folder) => uriToFsPath(folder.uri)),
+        openDocuments: () => documents.all(),
+        applyEdit: async (changes) => (await connection.workspace.applyEdit({ changes })).applied,
+        report: (percentage, message) => progress?.report(percentage, message),
+        filesChanged: (paths) => {
+            // The watcher reports the new file eventually. Doing it here as well keeps the base file
+            // from being validated as unreachable, and its consumers as inheriting nothing, in the
+            // window before that arrives.
+            for (const path of paths) {
+                invalidateFsPath(path);
+                MentionIndex.instance.markDirty(path);
+                const uri = filePathToUri(path);
+                WorkspaceSymbolService.instance.markDirty(uri);
+                SchemaIdIndex.instance.markDirty(uri);
+                TemplateBaseIndex.instance.markDirty(uri);
+                LocalizationKeyIndex.instance.markDirty(uri);
+                ReverseIncludeIndex.instance.markDirty(uri);
+                AddBaseIndex.instance.markDirty(uri);
+                MemberInjectionIndex.instance.markDirty(uri);
+                ActionRootingIndex.instance.markDirty(uri);
+            }
+            invalidateSchemaContextCache();
+            // A brand-new base file is outside the manifest's reachability closure until it is redone.
+            validationScopeEpoch++;
+            diagnosticsCache.clear();
+            inlayHintCache.clear();
+            bumpWorkspaceScanEpoch();
+            clearSharedBaseScanCache();
+        },
+    };
+}
 
 /**
  * The folders a code mod's assemblies can live in: every open workspace folder, plus the installed

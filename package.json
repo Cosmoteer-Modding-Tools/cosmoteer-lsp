@@ -57,6 +57,11 @@
                 "command": "cosmoteer.buildModSchemaFromMods",
                 "title": "Cosmoteer: Rebuild Schema from Code Mod Assemblies",
                 "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.extractSharedBaseFiles",
+                "title": "Cosmoteer: Extract Shared Base Files",
+                "category": "Cosmoteer"
             }
         ],
         "menus": {
@@ -280,6 +285,24 @@
                     "default": true,
                     "description": "Fade a SCREAMING_CASE constant that nothing reads, and a chain of constants that only read each other without ever reaching a field. Only judged when no other file in the project spells the name. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
                 },
+                "cosmoteerLSPRules.diagnostics.validateDuplicateFields": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Hint at a group whose fields several other files of the same mod write word for word, which could live in one shared base file all of them inherit, the way the game's own data is written. The hint carries the extract-a-shared-base fix, so turning it off removes both. The 'Cosmoteer: Extract Shared Base Files' command keeps working either way. Costs one read of the mod's other files, kept until they change. Only files of the mod being edited are ever rewritten, never the game's own Data folder. Shown as an editor hint, not in the Problems panel."
+                },
+                "cosmoteerLSPRules.diagnostics.validateRedundantOverrides": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Fade a field whose value the group already inherits from its base, so writing it leaves the game exactly where deleting it would. Offers a remove quick fix. Only judged when the whole inheritance chain could be read and neither copy carries a reference that would mean something else from where it is written. Shown as an editor hint, not in the Problems panel."
+                },
+                "cosmoteerLSPRules.allowEditingVanillaFiles": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Let refactorings read and rewrite the Cosmoteer game Data install. Rename reaches into it, and the shared-base extraction treats it as a project of its own, which it cannot do otherwise because the game tree carries no mod manifest: with this on, the game's own duplicated fields are hinted at and 'Cosmoteer: Extract Shared Base Files' will create base files inside the install and rewrite the files that inherit them. Only turn it on if you are working on the game data itself. Installed workshop mods stay off limits either way."
+                },
                 "cosmoteerLSPRules.codeMods.enabled": {
                     "scope": "resource",
                     "type": "boolean",
@@ -297,12 +320,6 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Show the referenced group's BaseValue as an inline hint. A reference like 'Arc = &~/Part/Components/ArcShield/Arc' whose target group has a BaseValue member renders '/BaseValue = 160d' after the reference."
-                },
-                "cosmoteerLSPRules.rename.allowEditingVanillaFiles": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Allow Rename to edit files inside the Cosmoteer game Data install. When off, a rename only edits files in your workspace."
                 },
                 "cosmoteerLSPRules.associateShaderFiles": {
                     "scope": "window",

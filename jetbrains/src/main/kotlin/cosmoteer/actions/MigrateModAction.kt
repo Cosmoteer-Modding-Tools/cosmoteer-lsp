@@ -14,6 +14,7 @@ import com.intellij.testFramework.LightVirtualFile
 import com.redhat.devtools.lsp4ij.LanguageServerManager
 import cosmoteer.preview.ShaderPreviewService
 import org.eclipse.lsp4j.ExecuteCommandParams
+import cosmoteer.lsp.commandResultOf
 
 /**
  * One-command workspace migration: asks the language server to upgrade every rules file of the
@@ -62,7 +63,7 @@ class MigrateModAction : AnAction() {
      * @param result the raw `workspace/executeCommand` result (a Gson tree or null).
      */
     private fun showSummary(project: Project, result: Any?) {
-        val summary = result as? JsonObject
+        val summary = commandResultOf(result)
         ApplicationManager.getApplication().invokeLater {
             if (project.isDisposed) return@invokeLater
             val group = NotificationGroupManager.getInstance().getNotificationGroup("Cosmoteer Language Server")

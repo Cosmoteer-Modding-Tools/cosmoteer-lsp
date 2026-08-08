@@ -1,0 +1,10 @@
+Part : <../base_part.rules>/Part
+{
+	NameKey = "Parts/ArmorB"
+	ID = test.armor_b
+	Size = [1, 2]
+	MaxHealth = 8000
+	Density = 3
+	IsRotateable = false
+	CrewSpeedFactor = 0
+}

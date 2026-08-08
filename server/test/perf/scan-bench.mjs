@@ -58,8 +58,10 @@ const settings = {
         validateRedundantSeparators: true,
         validateIgnoredFields: true,
         validateUnusedConstants: true,
+        validateDuplicateFields: true,
+        validateRedundantOverrides: true,
     },
-    rename: { allowEditingVanillaFiles: false },
+    allowEditingVanillaFiles: false,
     formatting: { enabled: true, formatOnSave: false },
 };
 
@@ -183,6 +185,8 @@ const reportPass = (label, elapsedMs, stats) => {
         'scan.vCrossFileMs',
         'scan.vLocalizationMs',
         'scan.vUnusedConstantMs',
+        'scan.vDuplicateFieldsMs',
+        'scan.vRedundantOverrideMs',
         'navigate',
         'navigate.memoHit',
         'fs.stat',

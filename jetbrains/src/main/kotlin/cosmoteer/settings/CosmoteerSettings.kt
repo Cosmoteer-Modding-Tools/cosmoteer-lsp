@@ -40,6 +40,8 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateUnclosedComments: Boolean = true
         var validateDefaultValues: Boolean = true
         var validateUnusedConstants: Boolean = true
+        var validateDuplicateFields: Boolean = true
+        var validateRedundantOverrides: Boolean = true
         var codeModsEnabled: Boolean = true
         var codeModsAutoRefresh: Boolean = true
         var inlayShowBaseValue: Boolean = true
@@ -95,13 +97,15 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateUnclosedComments" to state.validateUnclosedComments,
             "validateDefaultValues" to state.validateDefaultValues,
             "validateUnusedConstants" to state.validateUnusedConstants,
+            "validateDuplicateFields" to state.validateDuplicateFields,
+            "validateRedundantOverrides" to state.validateRedundantOverrides,
         ),
         "codeMods" to mapOf(
             "enabled" to state.codeModsEnabled,
             "autoRefresh" to state.codeModsAutoRefresh,
         ),
         "inlayHints" to mapOf("showBaseValue" to state.inlayShowBaseValue),
-        "rename" to mapOf("allowEditingVanillaFiles" to state.allowEditingVanillaFiles),
+        "allowEditingVanillaFiles" to state.allowEditingVanillaFiles,
         "decompiler" to mapOf(
             "showInHover" to state.decompilerShowInHover,
             "executablePath" to state.decompilerExecutablePath,

@@ -1,0 +1,9 @@
+Part : <../base_part.rules>/Part
+{
+	NameKey = "Parts/HullA"
+	ID = test.hull_a
+	MaxHealth = 1000
+	Density = 2.5
+	IsRotateable = true
+	ConstructionWork = 8
+}

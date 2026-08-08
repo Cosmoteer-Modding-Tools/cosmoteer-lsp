@@ -67,7 +67,9 @@ All settings live under the `cosmoteerLSPRules.` prefix.
 | `codeMods.enabled` | on | Read the types, fields and `Type=` values a mod's `.dll` declares and merge them into the schema, so modded components complete, hover and validate like built-in ones. Covers the workspace, the installed workshop mods and your own `Mods` folder. Off scans nothing and uses the shipped schema alone |
 | `codeMods.autoRefresh` | on | Pick up a code mod installed, updated or rebuilt while the editor is open, by watching the assemblies the schema was built from. Off leaves that to `Cosmoteer: Rebuild Schema from Code Mod Assemblies` |
 | `inlayHints.showBaseValue` | on | Show the referenced group's `BaseValue` inline: a reference to a group with a `BaseValue` member renders `/BaseValue = 160d` |
-| `rename.allowEditingVanillaFiles` | off | Allow Rename to edit files inside the game `Data` install |
+| `diagnostics.validateDuplicateFields` | on | Hint at a group whose fields several other files of the mod write word for word, carrying the "extract shared base file" refactoring that moves them into one base file all of them inherit |
+| `diagnostics.validateRedundantOverrides` | on | Fade a field written with exactly the value its group already inherits, with a remove quick fix. The chain is followed into the game's own `Data` |
+| `allowEditingVanillaFiles` | off | Let refactorings read and rewrite the game `Data` install. Rename reaches into it, and the shared-base extraction treats it as a project of its own, which it cannot do otherwise because the game tree carries no mod manifest. Installed workshop mods stay off limits either way |
 | `decompiler.showInHover` | off | Power user: end schema hovers with an "Open in decompiler" link that opens the owning C# class from the game's assemblies |
 | `decompiler.executablePath` | `""` | Path to your ILSpy or dotPeek executable (auto-detected when empty, searching the PATH and the usual install locations) |
 | `decompiler.tool` | `auto` | Command-line style for the decompiler (`auto` infers ILSpy or dotPeek from the executable name) |
@@ -111,7 +113,9 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 
 -   Go to definition, find all references and rename across the mod and the game `Data` tree, including cross-file entities (factions, GUI ids, techs, buffs, resources, components, particle data channels)
 -   "Extract value to shared root field": a code action on a number repeated across several assignments that hoists it into a root field and replaces every occurrence with a reference, following the single-source-of-truth practice from the game's own style guide
--   Rename never writes to the vanilla game files
+-   "Extract shared base file": a group whose fields several other files of the mod write word for word is marked, and the fix writes a new `base_*.rules` beside them holding those fields, rewrites every one of them to inherit it and deletes their own copies, the way the game's own data and the larger mods are built. It finds both files that already share a base and copied files that share no base at all, and `Cosmoteer: Extract Shared Base Files` (also in the JetBrains Tools menu) searches the whole mod at once. A field only moves when it means exactly the same thing from the new file, and the base a file already inherits is carried over so nothing is lost from its chain. When those files are the only things inheriting their base, the fields go into that base file instead of into a new one in front of it. The whole rewrite is shown as a diff before any of it happens
+-   "Remove a field the base already supplies": a field written with exactly the value its group inherits is faded out with a remove fix. The chain is followed into the game's own `Data`, so a value copied line for line from a vanilla base is found, and a path is compared as the file it names rather than as the text it is spelled with
+-   Refactorings never write to the vanilla game files. `cosmoteerLSPRules.allowEditingVanillaFiles` is the one switch that lifts that, for somebody working on the game data itself: it also makes the `Data` tree visible to the shared-base extraction, which cannot see it otherwise because it carries no mod manifest. Installed workshop mods belong to somebody else and stay off limits either way
 
 **Diagnostics**
 
