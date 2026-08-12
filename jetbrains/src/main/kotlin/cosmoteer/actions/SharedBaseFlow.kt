@@ -185,11 +185,13 @@ object SharedBaseFlow {
      *
      * @param project the project to open the file in.
      * @param diff the unified diff to show.
+     * @param fileName the temp file's name, so two features previewing at once do not overwrite
+     *        each other's diff.
      */
-    fun openDiff(project: Project, diff: String) {
+    fun openDiff(project: Project, diff: String, fileName: String = "cosmoteer-shared-base.diff") {
         if (diff.isEmpty()) return
         try {
-            val target = Path.of(System.getProperty("java.io.tmpdir"), "cosmoteer-shared-base.diff")
+            val target = Path.of(System.getProperty("java.io.tmpdir"), fileName)
             Files.writeString(target, diff)
             val file = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(target) ?: return
             FileEditorManager.getInstance(project).openFile(file, false)

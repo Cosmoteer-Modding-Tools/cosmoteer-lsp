@@ -1,0 +1,7 @@
+// Stands in for the game's own root rules file: the ship registry and nothing else.
+Ships
+[
+	&<ships/terran/terran.rules>/Terran
+	&<ships/inherited/inherited.rules>/Inherited
+	{ ID = inline.ship }
+]

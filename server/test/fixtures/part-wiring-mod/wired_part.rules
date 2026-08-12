@@ -1,0 +1,12 @@
+// A part the manifest registers into a ship's Parts list, carrying a positive case for every row:
+// an id with an alias, an editor group the fixture game tree declares, and localization keys the
+// fixture strings files translate.
+Part
+{
+	ID = test.wired
+	OtherIDs = [test.wired_alias]
+	NameKey = "Parts/WiredName"
+	DescriptionKey = "Parts/WiredDesc"
+	EditorGroup = "TestStructure"
+	Size = [1, 1]
+}

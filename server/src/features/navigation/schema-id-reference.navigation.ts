@@ -34,7 +34,7 @@ const ownerClassOf = (container: AbstractNode): string | undefined =>
  */
 export const schemaReferenceFieldOf = (
     node: AbstractNode
-): { targetClass: string; value: string; fieldName?: string } | undefined => {
+): { targetClass: string; value: string; fieldName?: string; ownerClass?: string } | undefined => {
     if (!isValueNode(node) || node.valueType.type !== 'String') return undefined;
     const container = node.parent;
     if (!container) return undefined;
@@ -49,7 +49,7 @@ export const schemaReferenceFieldOf = (
         const field = cls && fieldName ? fieldOf(cls, fieldName) : undefined;
         const vt = field?.valueType;
         if (vt && (vt.kind === 'list' || vt.kind === 'range' || vt.kind === 'interpolated') && vt.element.kind === 'reference') {
-            return { targetClass: vt.element.target, value, fieldName };
+            return { targetClass: vt.element.target, value, fieldName, ownerClass: cls };
         }
         // A scalar-form group element (`EditorParentParts = ["cosmoteer.armor"]`): a bare entry of a
         // `list<group>` field reads as the element class's scalar payload.
@@ -85,7 +85,8 @@ export const schemaReferenceFieldOf = (
     const fieldName = assignmentFieldNameOf(container, node);
     const cls = fieldName ? ownerClassOf(container) : undefined;
     const field = cls && fieldName ? fieldOf(cls, fieldName) : undefined;
-    if (field?.valueType.kind === 'reference') return { targetClass: field.valueType.target, value, fieldName };
+    if (field?.valueType.kind === 'reference')
+        return { targetClass: field.valueType.target, value, fieldName, ownerClass: cls };
     // A scalar written for a scalar-form group field (`FireTrigger = Turret`, `Search = some_tag`):
     // the engine reads it into the class's scalar payload, so the value is that payload's reference.
     if (field?.valueType.kind === 'group') {
@@ -130,6 +131,25 @@ const assignmentFieldNameOf = (container: AbstractNode, child: AbstractNode): st
         if (isAssignmentNode(element) && element.right === child) return element.left.name;
     }
     return undefined;
+};
+
+/**
+ * The class owning a named container and the field name it is written under, covering both the
+ * `Field [ … ]` and `Field = [ … ]` spellings. An element position inside a list carries no `Key = `
+ * on its line, so the identity-key predicate reads the field name from the container instead.
+ *
+ * @param container the named group or list whose declaring field is wanted.
+ * @returns the owner class FullName and the field name, either undefined when unresolvable.
+ */
+export const declaringFieldOf = (
+    container: AbstractNode
+): { ownerClass: string | undefined; fieldName: string | undefined } => {
+    const owner = container.parent;
+    const own = isGroupNode(container) || isListNode(container) ? container.identifier?.name : undefined;
+    return {
+        ownerClass: owner ? ownerClassOf(owner) : undefined,
+        fieldName: own ?? (owner ? assignmentFieldNameOf(owner, container) : undefined),
+    };
 };
 
 /** True if `cls` is `target` or extends it (walking the schema's `extends` chain). */

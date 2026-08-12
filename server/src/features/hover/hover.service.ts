@@ -14,22 +14,26 @@ import { findReferenceTargetAtPosition } from '../navigation/reference-index';
 import { resolveSchemaSiblingReference } from '../navigation/schema-reference.navigation';
 import { resolvePartComponentDeclaration } from '../diagnostics/validator.schema-sibling';
 import { resolveSchemaIdReference } from '../navigation/schema-id-reference.navigation';
-import { evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
+import { evaluateNumericValueTraced } from '../../semantics/value-evaluator';
+import { formatWithUnit, unitForValue } from '../../semantics/value-units';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { schemaDiscriminatorHover, schemaFieldHover } from './schema-hover';
 import { resolveClassThroughInheritance } from '../completion/inheritance-resolution';
 import { decompilerHoverLink } from './decompiler-link';
 import { shaderConstantHover } from '../shader/shader-hover';
 import { localizationKeyHover } from './localization-key-hover';
+import { substitutionTraceMarkdown } from './substitution-trace';
 
 /**
  * Hover (`textDocument/hover`) showing what a node resolves to. The single biggest
  * pain in `.rules` is that you can't see a value's effective result without tracing references
  * and inheritance by hand. Over a value (or the key whose value it is) this shows its
  * computed number, if it evaluates (math, or a reference chain ending in a number), and,
- * for a reference, what it points at (the target's literal value or group).
+ * for a reference, what it points at (the target's literal value or group). Under the number it
+ * also lists what each reference the evaluation substituted stood for and where that number was
+ * read from, the step the game's own evaluator performs before it does the arithmetic.
  *
- * Reuses the shared {@link evaluateNumericValue} (which already follows inheritance), so an
+ * Reuses the shared {@link evaluateNumericValueTraced} (which already follows inheritance), so an
  * inherited / overridden field hovers as its effective value.
  */
 export class HoverService {
@@ -54,8 +58,18 @@ export class HoverService {
 
         const lines: string[] = [];
 
-        const numeric = await evaluateNumericValue(node, cancellationToken).catch(() => null);
-        if (numeric !== null) lines.push(`**= ${formatNumber(numeric)}**`);
+        const traced = await evaluateNumericValueTraced(node, cancellationToken).catch(() => ({
+            value: null,
+            substitutions: [],
+            omitted: 0,
+        }));
+        if (traced.value !== null) {
+            const unit = await unitForValue([node], cancellationToken).catch(() => undefined);
+            lines.push(`**= ${formatWithUnit(traced.value, unit)}**`);
+            // Pushed right after the number, so the references it substituted read as its working.
+            const trace = substitutionTraceMarkdown(document.uri, traced);
+            if (trace) lines.push(trace);
+        }
 
         // For a reference, also surface what it points at (useful when the target isn't numeric).
         if (isReferenceValue(node)) {

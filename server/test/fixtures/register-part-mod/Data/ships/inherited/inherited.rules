@@ -1,0 +1,5 @@
+// A ship whose Parts list only comes from its base, which the registration refuses to rewrite.
+Inherited : <../terran/terran.rules>/Terran
+{
+	ID = cosmoteer.inherited
+}

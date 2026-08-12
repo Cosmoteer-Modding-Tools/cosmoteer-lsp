@@ -53,6 +53,13 @@ import {
     readVectorEvaluated,
 } from './vector-forms';
 import { fieldOf } from '../../document/schema/schema';
+import {
+    ADJACENCY_FLAGS_ENUM,
+    CELL_SET_FIELDS,
+    MAP_FIELDS,
+    PART_RULES_CLASS,
+    RECT_FIELDS,
+} from './part-fields';
 
 /**
  * Builds the {@link PartGridData} payload the grid editor webview renders: the part's effective
@@ -61,49 +68,8 @@ import { fieldOf } from '../../document/schema/schema';
  * through inheritance resolution, so a part that overrides nothing still shows its base's geometry.
  */
 
-const PART_RULES_CLASS = 'Cosmoteer.Ships.Parts.PartRules';
 const CREW_RULES_CLASS = 'Cosmoteer.Ships.Parts.Crew.PartCrewRules';
 const GRAPHICS_RULES_CLASS = 'Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules';
-const ADJACENCY_FLAGS_ENUM = 'Cosmoteer.Ships.Parts.AdjacencyFlags';
-const TRAVEL_DIRECTION_ENUM = 'Cosmoteer.Ships.Crew.TravelDirection';
-
-/**
- * The part-root cell-set fields, one `cellSet` layer each. Door locations name the outside cells a
- * door may connect to (the game's `AllowsDoorAt` identifies the outside cell of a door against
- * them), blocked travel cells sit inside the part rect.
- */
-const CELL_SET_FIELDS: ReadonlyArray<{ readonly field: string; readonly domain: 'inside' | 'outside' | 'any' }> = [
-    { field: 'AllowedDoorLocations', domain: 'outside' },
-    { field: 'BlockedTravelCells', domain: 'inside' },
-];
-
-/** The part-root map fields, one `cellToValues` layer each. */
-const MAP_FIELDS: ReadonlyArray<{
-    readonly field: string;
-    readonly valueModel: 'flags' | 'enumList';
-    readonly enumRef: string;
-    /** The whole-part scalar field the map overrides per cell, shown as a ghost fallback. */
-    readonly fallbackField: string | null;
-}> = [
-    { field: 'BlockedTravelCellDirections', valueModel: 'enumList', enumRef: TRAVEL_DIRECTION_ENUM, fallbackField: null },
-    { field: 'ExternalWallsByCell', valueModel: 'flags', enumRef: ADJACENCY_FLAGS_ENUM, fallbackField: 'ExternalWalls' },
-    { field: 'InternalWallsByCell', valueModel: 'flags', enumRef: ADJACENCY_FLAGS_ENUM, fallbackField: 'InternalWalls' },
-    {
-        field: 'BlueprintExternalWallsByCell',
-        valueModel: 'flags',
-        enumRef: ADJACENCY_FLAGS_ENUM,
-        fallbackField: 'BlueprintExternalWalls',
-    },
-    {
-        field: 'BlueprintInternalWallsByCell',
-        valueModel: 'flags',
-        enumRef: ADJACENCY_FLAGS_ENUM,
-        fallbackField: 'BlueprintInternalWalls',
-    },
-];
-
-/** The part-root rect fields, one `rect` layer each. */
-const RECT_FIELDS = ['PhysicalRect', 'SaveRect'] as const;
 
 const navigation = new FullNavigationStrategy();
 

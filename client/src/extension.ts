@@ -33,12 +33,19 @@ import {
     showModOverview,
 } from './mod-overview/mod-overview';
 import {
-    SHARED_BASE_DIFF_SCHEME,
-    SharedBaseDiffProvider,
-    showSharedBaseDiff,
-    showSharedBasePatch,
-    SharedBasePreviewFile,
-} from './shared-base/preview';
+    PART_WIRING_SCHEME,
+    PartWiringCodeLensProvider,
+    PartWiringContentProvider,
+    showPartWiring,
+} from './part-wiring/part-wiring';
+import { SCHEMA_DOC_SCHEME, SchemaDocContentProvider, showSchemaSearch } from './schema-search/schema-search';
+import {
+    DIFF_PREVIEW_SCHEME,
+    DiffPreviewProvider,
+    showDiffPreview,
+    showPatchPreview,
+    DiffPreviewFile,
+} from './preview/diff-preview';
 import { ApplyCleanup, openDocumentPaths, saveAndTidy, setPreviewScheme } from './shared-base/apply-cleanup';
 
 let client: LanguageClient;
@@ -155,6 +162,31 @@ export async function activate(context: ExtensionContext) {
         })
     );
 
+    // Part wiring: a CodeLens above each root `Part` group and a command that render what the part
+    // still needs before the game can build it (the lens passes the part's line, the palette uses
+    // the cursor).
+    const partWiringProvider = new PartWiringContentProvider();
+    context.subscriptions.push(
+        workspace.registerTextDocumentContentProvider(PART_WIRING_SCHEME, partWiringProvider),
+        languages.registerCodeLensProvider({ scheme: 'file', language: 'rules' }, new PartWiringCodeLensProvider()),
+        commands.registerCommand('cosmoteer.showPartWiring', async (uri?: Uri, position?: Position) => {
+            await showPartWiring(client, partWiringProvider, uri, position);
+        })
+    );
+
+    // Schema search: one command that searches every schema type, field, enum member and Type=
+    // registry plus the field documentation, opens a hit's documentation as a markdown preview, and
+    // can write a found field straight into the group the cursor is in. The palette id deliberately
+    // differs from the server's executeCommand id `cosmoteer.insertSchemaField`, because the language
+    // client auto-registers that one as a plain no-feedback forwarder.
+    const schemaDocProvider = new SchemaDocContentProvider();
+    context.subscriptions.push(
+        workspace.registerTextDocumentContentProvider(SCHEMA_DOC_SCHEME, schemaDocProvider),
+        commands.registerCommand('cosmoteer.searchSchema', async () => {
+            await showSchemaSearch(client, schemaDocProvider);
+        })
+    );
+
     // Workspace migration: one command that upgrades every rules file to the current game version
     // (deprecation-registry renames, deletions, and rewrites). The server computes and applies the
     // WorkspaceEdit, so this wrapper only asks about the optional dead-field cleanup and renders
@@ -165,14 +197,22 @@ export async function activate(context: ExtensionContext) {
             const choice = await window.showQuickPick(
                 [
                     {
+                        label: l10n.t('Preview the migration'),
+                        description: l10n.t('Show every change as a diff without writing anything'),
+                        removeDeadFields: false,
+                        dryRun: true,
+                    },
+                    {
                         label: l10n.t('Apply migrations'),
                         description: l10n.t('Rename, rewrite, or remove fields changed by game updates'),
                         removeDeadFields: false,
+                        dryRun: false,
                     },
                     {
                         label: l10n.t('Apply migrations and remove dead fields'),
                         description: l10n.t('Additionally remove fields the game never reads'),
                         removeDeadFields: true,
+                        dryRun: false,
                     },
                 ],
                 { placeHolder: l10n.t('Migrate every rules file of this workspace to the current game version') }
@@ -180,10 +220,14 @@ export async function activate(context: ExtensionContext) {
             if (!choice) return;
             const summary = (await client.sendRequest(ExecuteCommandRequest.type, {
                 command: 'cosmoteer.migrateWorkspace',
-                arguments: [{ removeDeadFields: choice.removeDeadFields }],
+                arguments: [{ removeDeadFields: choice.removeDeadFields, dryRun: choice.dryRun }],
             })) as MigrationSummary | null;
             if (!summary) {
                 window.showInformationMessage(l10n.t('Cosmoteer migration: no workspace folder is open.'));
+                return;
+            }
+            if (summary.preview) {
+                await showMigrationPreview(summary, diffPreviewProvider);
                 return;
             }
             await showMigrationSummary(summary);
@@ -236,10 +280,10 @@ export async function activate(context: ExtensionContext) {
     // and applies the multi-file edit, so this wrapper only offers the plans and renders the returned
     // summary. A distinct command id from the server's executeCommand id, for the same reason as the
     // migration above.
-    const sharedBaseDiffProvider = new SharedBaseDiffProvider();
-    setPreviewScheme(SHARED_BASE_DIFF_SCHEME);
+    const diffPreviewProvider = new DiffPreviewProvider();
+    setPreviewScheme(DIFF_PREVIEW_SCHEME);
     context.subscriptions.push(
-        workspace.registerTextDocumentContentProvider(SHARED_BASE_DIFF_SCHEME, sharedBaseDiffProvider),
+        workspace.registerTextDocumentContentProvider(DIFF_PREVIEW_SCHEME, diffPreviewProvider),
         commands.registerCommand('cosmoteer.extractSharedBaseFiles', async () => {
             const scan = (await client.sendRequest(ExecuteCommandRequest.type, {
                 command: 'cosmoteer.extractSharedBase',
@@ -259,12 +303,83 @@ export async function activate(context: ExtensionContext) {
                 return;
             }
             const plan = await pickSharedBasePlan(scan.plans);
-            if (plan) await previewAndApplySharedBase(plan, sharedBaseDiffProvider);
+            if (plan) await previewAndApplySharedBase(plan, diffPreviewProvider);
         }),
         // The command the server's lightbulb refactoring carries. The server does not declare it, so
         // the editor runs this rather than forwarding it, and the rewrite gets a real diff.
         commands.registerCommand(EXTRACT_SHARED_BASE_LOCAL_COMMAND, async (plan?: SharedBasePlan) => {
-            if (plan) await previewAndApplySharedBase(plan, sharedBaseDiffProvider);
+            if (plan) await previewAndApplySharedBase(plan, diffPreviewProvider);
+        }),
+        // The command the server's localization-key extraction carries. The server does not declare
+        // it, so the editor runs this and the author names the key before anything is written.
+        commands.registerCommand(EXTRACT_LOCALIZATION_KEY_LOCAL_COMMAND, async (args?: ExtractLocalizationKeyArgs) => {
+            if (!args) return;
+            const key = await window.showInputBox({
+                title: l10n.t('Extract text into a localization key'),
+                prompt: l10n.t('The key path every language file will declare, one name per group.'),
+                value: args.key,
+                valueSelection: [args.key.lastIndexOf('/') + 1, args.key.length],
+                validateInput: (value) =>
+                    LOCALIZATION_KEY_PATH.test(value.trim())
+                        ? undefined
+                        : l10n.t('A key path is one or more names joined by "/".'),
+            });
+            if (!key) return;
+            const openBefore = openDocumentPaths();
+            const result = (await client.sendRequest(ExecuteCommandRequest.type, {
+                command: 'cosmoteer.extractLocalizationKey',
+                arguments: [{ ...args, key: key.trim() }],
+            })) as ExtractLocalizationKeyResult | null;
+            if (!result) {
+                window.showWarningMessage(l10n.t('The text could not be extracted.'));
+                return;
+            }
+            if (result.failure) {
+                window.showWarningMessage(extractLocalizationKeyFailureMessage(result.failure));
+                return;
+            }
+            await saveAndTidy(result.changedFiles, openBefore);
+            window.showInformationMessage(
+                l10n.t('Added "{0}" to {1} language files.', result.key, result.changedFiles.length)
+            );
+        }),
+        // The command the server's part-registration refactoring carries. The server does not claim
+        // it, so the editor runs this and the author picks the ship class before anything is written.
+        commands.registerCommand(REGISTER_PART_IN_SHIP_LOCAL_COMMAND, async (args?: RegisterPartArgs) => {
+            if (!args) return;
+            const scan = (await client.sendRequest(ExecuteCommandRequest.type, {
+                command: 'cosmoteer.registerPartInShip',
+                arguments: [args],
+            })) as RegisterPartScanResult | null;
+            if (!scan || scan.failure) {
+                window.showWarningMessage(
+                    scan?.failure
+                        ? registerPartFailureMessage(scan.failure)
+                        : l10n.t('Cosmoteer: the ship classes could not be read, so nothing was changed.')
+                );
+                return;
+            }
+            const ship = await pickShipCandidate(scan.candidates);
+            if (!ship) return;
+            // Captured before the edit, so the tidy-up can tell the tabs the user had from the one the
+            // registration opened on its own.
+            const openBefore = openDocumentPaths();
+            const result = (await client.sendRequest(ExecuteCommandRequest.type, {
+                command: 'cosmoteer.registerPartInShip',
+                arguments: [{ ...args, ship: ship.key }],
+            })) as RegisterPartApplyResult | null;
+            if (!result) {
+                window.showWarningMessage(
+                    l10n.t('Cosmoteer: the part could not be registered, so nothing was changed.')
+                );
+                return;
+            }
+            if (result.failure) {
+                window.showWarningMessage(registerPartFailureMessage(result.failure, result.manifests));
+                return;
+            }
+            const cleanup = await saveAndTidy(result.changedFiles, openBefore);
+            await showRegisterPartSummary(result, cleanup);
         })
     );
 
@@ -349,6 +464,53 @@ const OPEN_IN_DECOMPILER_COMMAND = 'cosmoteer.openInDecompiler';
  */
 const EXTRACT_SHARED_BASE_LOCAL_COMMAND = 'cosmoteer.extractSharedBaseFromAction';
 
+/**
+ * The command the server's "extract text into a localization key" refactoring carries. The server
+ * does not claim it, so the editor runs this instead and the author gets to name the key first.
+ */
+const EXTRACT_LOCALIZATION_KEY_LOCAL_COMMAND = 'cosmoteer.extractLocalizationKeyFromAction';
+
+/**
+ * The command the server's "register this part in a ship class" refactoring carries. The server does
+ * not claim it, so the editor runs this instead and the author picks the ship class first.
+ */
+const REGISTER_PART_IN_SHIP_LOCAL_COMMAND = 'cosmoteer.registerPartInShipFromAction';
+
+/** Mirror of the server's extraction arguments (see server features/refactor/extract-localization-key.ts). */
+interface ExtractLocalizationKeyArgs {
+    uri: string;
+    offset: number;
+    literal: string;
+    key: string;
+}
+
+/** Mirror of the server's extraction result. */
+interface ExtractLocalizationKeyResult {
+    key: string;
+    changedFiles: string[];
+    failure?: 'stale' | 'noStringsFiles' | 'editRejected';
+}
+
+/** A key path as a strings file declares one, which is what the input box accepts. */
+const LOCALIZATION_KEY_PATH = /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)*$/;
+
+/**
+ * Why an extraction invoked from the lightbulb did nothing, in one sentence the user can act on.
+ *
+ * @param failure the reason the command reported.
+ * @returns the message to show.
+ */
+function extractLocalizationKeyFailureMessage(failure: NonNullable<ExtractLocalizationKeyResult['failure']>): string {
+    switch (failure) {
+        case 'stale':
+            return l10n.t('That text has changed since the offer was made, so nothing was changed.');
+        case 'noStringsFiles':
+            return l10n.t('This mod has no language strings file to put the text in, so nothing was changed.');
+        case 'editRejected':
+            return l10n.t('The editor turned down the edit, so nothing was changed.');
+    }
+}
+
 /** Mirror of the server's migration summary (see server features/migration/migrate-workspace.ts). */
 interface MigrationSummary {
     files: number;
@@ -357,6 +519,46 @@ interface MigrationSummary {
     manual: Array<{ uri: string; line: number; message: string }>;
     deadFieldsRemoved: number;
     unparsable: number;
+    /** Present only for a dry run, which changes nothing and answers with what it would have done. */
+    preview?: {
+        diff: string;
+        changed: Array<{ fsPath: string; after: string }>;
+        omitted: number;
+        diffTruncated: boolean;
+    };
+}
+
+/**
+ * Show what a migration would do without doing it: the editor's own side-by-side diff over the files
+ * it would rewrite, and a message saying what the view leaves out. A whole-mod migration can cover
+ * more files than one message can carry, so the server caps what it sends and the counts here come
+ * from the full run rather than from the capped view.
+ *
+ * @param summary the dry run's summary, whose `preview` carries the changes.
+ * @param provider the content provider the rewritten contents are served from.
+ * @returns once the diff is open and the message shown.
+ */
+async function showMigrationPreview(summary: MigrationSummary, provider: DiffPreviewProvider): Promise<void> {
+    const preview = summary.preview;
+    if (!preview) return;
+    if (summary.files === 0) {
+        window.showInformationMessage(l10n.t('Cosmoteer migration: everything is already up to date.'));
+        return;
+    }
+    const title = l10n.t('Migration preview');
+    const changed: DiffPreviewFile[] = preview.changed.map((file) => ({ ...file, created: false }));
+    if (changed.length > 0) await showDiffPreview(provider, 'migration', changed, title);
+    else await showPatchPreview(provider, 'migration', preview.diff);
+
+    const parts = [l10n.t('{0} fixes in {1} files', summary.fixes, summary.files)];
+    if (summary.manual.length > 0) parts.push(l10n.t('{0} findings need manual review', summary.manual.length));
+    if (preview.omitted > 0) parts.push(l10n.t('{0} more files are not shown', preview.omitted));
+    if (preview.diffTruncated) parts.push(l10n.t('the diff stops short of the last files'));
+    const choice = await window.showInformationMessage(
+        l10n.t('Cosmoteer migration preview: {0}. Nothing was changed.', parts.join(', ')),
+        l10n.t('Apply migrations')
+    );
+    if (choice) await commands.executeCommand('cosmoteer.migrateMod');
 }
 
 /**
@@ -459,7 +661,7 @@ interface SharedBasePreviewResult {
     kind: 'preview';
     diff: string;
     /** The changed files with their rewritten contents, capped by the server. */
-    changed: SharedBasePreviewFile[];
+    changed: DiffPreviewFile[];
     /** How many changed files did not fit in {@link SharedBasePreviewResult.changed}. */
     omitted: number;
     baseFsPath: string;
@@ -472,6 +674,181 @@ interface SharedBasePreviewResult {
 
 /** Why an extraction did not happen, as the server words it. */
 type SharedBaseFailure = 'planStale' | 'baseFileExists' | 'notEditable' | 'editRejected';
+
+/** Mirror of the server's registration arguments (see server features/refactor/register-part/register-part.command.ts). */
+interface RegisterPartArgs {
+    uri: string;
+    offset: number;
+    ship?: string;
+}
+
+/** Mirror of one ship class the part could be registered in (same module). */
+interface ShipCandidate {
+    /** The identity the pick is sent back by. */
+    key: string;
+    groupName: string;
+    id?: string;
+    fsPath: string;
+    target: 'workspace' | 'vanilla';
+    via: 'shipFile' | 'modAction';
+    alreadyRegistered: boolean;
+    blocked?: 'partsInherited' | 'noPartsList' | 'notEditable' | 'noModRoot' | 'unreadable';
+}
+
+/** Mirror of the server's candidate report (same module). */
+interface RegisterPartScanResult {
+    kind: 'scan';
+    partId?: string;
+    partGroupName: string;
+    candidates: ShipCandidate[];
+    failure?: RegisterPartFailure;
+}
+
+/** Mirror of the server's registration answer (same module). */
+interface RegisterPartApplyResult {
+    kind: 'apply';
+    shipFsPath: string;
+    via: 'shipFile' | 'modAction';
+    /** Every file the edit changed, so they can be saved and tidied away. */
+    changedFiles: string[];
+    reference: string;
+    warning?: 'noPartId';
+    failure?: RegisterPartFailure;
+    /** The manifest names to choose between, only set for `ambiguousManifest`. */
+    manifests?: string[];
+}
+
+/** Why a registration did nothing, as the server words it. */
+type RegisterPartFailure =
+    | 'stale'
+    | 'noShipClasses'
+    | 'unknownShip'
+    | 'alreadyRegistered'
+    | 'partsInherited'
+    | 'noPartsList'
+    | 'noModRoot'
+    | 'ambiguousManifest'
+    | 'notEditable'
+    | 'editRejected';
+
+/**
+ * What registering into a ship would do, shown under its entry in the picker.
+ *
+ * @param candidate the ship the server reported.
+ * @returns the one-line detail.
+ */
+function shipCandidateDetail(candidate: ShipCandidate): string {
+    if (candidate.alreadyRegistered) return l10n.t('Already listed in this ship');
+    if (candidate.via === 'modAction') {
+        return l10n.t("Patched in from this mod's manifest, so the game files stay untouched");
+    }
+    return l10n.t("Appended to this ship's own Parts list");
+}
+
+/**
+ * Offer the ship classes the part can go into and let the user pick one.
+ *
+ * @param candidates the ship classes the server reported, in registry order.
+ * @returns the picked ship, or undefined when none can take the part or the user backed out.
+ */
+async function pickShipCandidate(candidates: ShipCandidate[]): Promise<ShipCandidate | undefined> {
+    const open = candidates.filter((candidate) => !candidate.blocked);
+    if (open.length === 0) {
+        window.showInformationMessage(
+            l10n.t(
+                'Cosmoteer: no ship class can take this part. Either none is loaded, or every one of them gets its Parts list from a base file, which this refactoring will not rewrite.'
+            )
+        );
+        return undefined;
+    }
+    const picked = await window.showQuickPick(
+        open.map((candidate) => ({
+            label: candidate.id ?? candidate.groupName,
+            description: workspace.asRelativePath(candidate.fsPath),
+            detail: shipCandidateDetail(candidate),
+            candidate,
+        })),
+        { placeHolder: l10n.t('Pick the ship class this part belongs to'), matchOnDescription: true }
+    );
+    return picked?.candidate;
+}
+
+/**
+ * Say what the registration did, with the file it changed behind a button.
+ *
+ * @param result the server's registration summary.
+ * @param cleanup what the tidy-up did.
+ */
+async function showRegisterPartSummary(result: RegisterPartApplyResult, cleanup?: ApplyCleanup): Promise<void> {
+    if (cleanup?.unsaved.length) {
+        window.showWarningMessage(
+            l10n.t(
+                'Cosmoteer: {0} files could not be saved and are still open with their changes. Save them yourself or undo.',
+                cleanup.unsaved.length
+            )
+        );
+    }
+    const changed = result.changedFiles[0] ?? result.shipFsPath;
+    const note =
+        result.warning === 'noPartId'
+            ? ` ${l10n.t('This part declares no ID yet, and the game will refuse to load it until it does.')}`
+            : '';
+    const message =
+        result.via === 'modAction'
+            ? l10n.t(
+                  'Cosmoteer: added the part to {0} through an action in {1}.',
+                  path.basename(result.shipFsPath),
+                  workspace.asRelativePath(changed)
+              )
+            : l10n.t('Cosmoteer: added the part to {0}.', workspace.asRelativePath(changed));
+    const open = l10n.t('Open File');
+    const picked = await window.showInformationMessage(message + note, open);
+    if (picked !== open) return;
+    const doc = await workspace.openTextDocument(Uri.file(changed));
+    await window.showTextDocument(doc, { preview: true });
+}
+
+/**
+ * Say why a registration did not happen, one message per reason the server reports, each naming what
+ * the user can do about it.
+ *
+ * @param failure the server's reason.
+ * @param manifests the manifest names to choose between, only for `ambiguousManifest`.
+ * @returns the message to show.
+ */
+function registerPartFailureMessage(failure: RegisterPartFailure, manifests?: string[]): string {
+    switch (failure) {
+        case 'stale':
+            return l10n.t('Cosmoteer: the part has moved since the offer was made, so nothing was changed.');
+        case 'noShipClasses':
+            return l10n.t(
+                "Cosmoteer: no ship class was found. Set the Cosmoteer game path so the game's own ships are read."
+            );
+        case 'unknownShip':
+            return l10n.t('Cosmoteer: that ship class is no longer registered, so nothing was changed.');
+        case 'alreadyRegistered':
+            return l10n.t('Cosmoteer: that ship already lists this part, so nothing was changed.');
+        case 'partsInherited':
+            return l10n.t(
+                'Cosmoteer: that ship gets its Parts list from a base file, which this refactoring will not rewrite.'
+            );
+        case 'noPartsList':
+            return l10n.t('Cosmoteer: that ship declares no Parts list to add to, so nothing was changed.');
+        case 'noModRoot':
+            return l10n.t(
+                "Cosmoteer: this part is in no mod, so there is no manifest to patch the game's ship from. Put it in a mod, or turn on cosmoteerLSPRules.allowEditingVanillaFiles."
+            );
+        case 'ambiguousManifest':
+            return l10n.t(
+                'Cosmoteer: this mod has several manifests and none of them is mod.rules, so which one gets the part is yours to decide. Candidates: {0}.',
+                (manifests ?? []).join(', ')
+            );
+        case 'notEditable':
+            return l10n.t('Cosmoteer: the file could not be edited, so nothing was changed.');
+        case 'editRejected':
+            return l10n.t('Cosmoteer: the editor turned down the edit, so nothing was changed.');
+    }
+}
 
 /**
  * Offer the sweep's extractions and let the user pick one to look at.
@@ -508,7 +885,7 @@ async function pickSharedBasePlan(plans: SharedBasePlan[]): Promise<SharedBasePl
  * @param provider the content provider the rewritten files are served from.
  * @returns once the extraction happened or the user backed out.
  */
-async function previewAndApplySharedBase(plan: SharedBasePlan, provider: SharedBaseDiffProvider): Promise<void> {
+async function previewAndApplySharedBase(plan: SharedBasePlan, provider: DiffPreviewProvider): Promise<void> {
     // Captured before the preview, not after: the diff opens the real file on its left-hand side, so
     // by the time it is on screen those files count as open and the tidy-up would leave them behind.
     const openBefore = openDocumentPaths();
@@ -525,8 +902,8 @@ async function previewAndApplySharedBase(plan: SharedBasePlan, provider: SharedB
         return;
     }
     const title = l10n.t('Shared base: {0}', path.basename(preview.baseFsPath));
-    if (preview.changed.length > 0) await showSharedBaseDiff(provider, plan.id, preview.changed, title);
-    else await showSharedBasePatch(provider, plan.id, preview.diff);
+    if (preview.changed.length > 0) await showDiffPreview(provider, plan.id, preview.changed, title);
+    else await showPatchPreview(provider, plan.id, preview.diff);
 
     if (!(await confirmSharedBaseRewrite(preview))) return;
     const result = await window.withProgress(

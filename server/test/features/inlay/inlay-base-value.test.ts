@@ -33,7 +33,7 @@ describe('inlay hints for referenced BaseValue groups', () => {
             '\n'
         );
         // The `160d` literal keeps its own radians hint; the reference gets the new BaseValue one.
-        expect(labels(await hintsFor(src))).toEqual(['= 2.792527', '/BaseValue = 160d']);
+        expect(labels(await hintsFor(src))).toEqual(['= 2.792527 rad (160°)', '/BaseValue = 160d']);
     });
 
     it('shows a plain numeric BaseValue as written', async () => {
@@ -50,7 +50,7 @@ describe('inlay hints for referenced BaseValue groups', () => {
 
     it('finds a BaseValue supplied by an inherited base group', async () => {
         const src = ['BaseArc', '{', '\tBaseValue = 90d', '}', 'Arc : BaseArc', '{', '}', 'Ref = &Arc'].join('\n');
-        expect(labels(await hintsFor(src))).toEqual(['= 1.570796', '/BaseValue = 90d']);
+        expect(labels(await hintsFor(src))).toEqual(['= 1.570796 rad (90°)', '/BaseValue = 90d']);
     });
 
     it('does not annotate a reference to a group without a BaseValue', async () => {

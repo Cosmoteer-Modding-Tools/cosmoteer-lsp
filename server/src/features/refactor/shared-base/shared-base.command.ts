@@ -5,6 +5,7 @@ import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { parseText } from '../../../utils/ast.utils';
 import { unifiedDiff } from '../../../utils/unified-diff';
+import { workspaceRelativePath } from '../../../utils/relative-path';
 import { foldPathCase } from '../../../workspace/fs-cache';
 import { filePathToUri } from '../../navigation/navigation-strategy';
 import { normalizeUri } from '../../navigation/reference-location';
@@ -610,13 +611,13 @@ export const previewSharedBase = async (
     // The base file leads, since it is the thing being created or added to and the rest of the
     // rewrite only makes sense once it has been read.
     if (prepared.newBaseText !== undefined) {
-        sections.push(unifiedDiff('', prepared.newBaseText, labelOf(prepared.baseFsPath, folders)));
+        sections.push(unifiedDiff('', prepared.newBaseText, workspaceRelativePath(prepared.baseFsPath, folders)));
         changed.push({ fsPath: prepared.baseFsPath, after: prepared.newBaseText, created: true });
     }
     for (const file of prepared.touched) {
         const before = file.document.getText();
         const after = applyEditsToText(file.document, file.edits);
-        sections.push(unifiedDiff(before, after, labelOf(file.fsPath, folders)));
+        sections.push(unifiedDiff(before, after, workspaceRelativePath(file.fsPath, folders)));
         if (changed.length < MAX_PREVIEW_FILES) changed.push({ fsPath: file.fsPath, after, created: false });
     }
     return {
@@ -651,16 +652,6 @@ const applyEditsToText = (doc: TextDocument, edits: readonly TextEdit[]): string
     let text = doc.getText();
     for (const span of spans) text = text.slice(0, span.start) + span.newText + text.slice(span.end);
     return text;
-};
-
-/** A file's path relative to the workspace folder holding it, for the diff header. */
-const labelOf = (fsPath: string, folders: readonly string[]): string => {
-    const normalized = fsPath.replace(/\\/g, '/');
-    for (const folder of folders) {
-        const prefix = `${folder.replace(/\\/g, '/').replace(/\/+$/, '')}/`;
-        if (foldPathCase(normalized).startsWith(foldPathCase(prefix))) return normalized.slice(prefix.length);
-    }
-    return normalized;
 };
 
 /**

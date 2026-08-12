@@ -1,20 +1,22 @@
 import { EventEmitter, TextDocumentContentProvider, Uri, ViewColumn, commands, l10n, languages, window, workspace } from 'vscode';
 
 /** The virtual-document scheme the rewritten file contents are served under. */
-export const SHARED_BASE_DIFF_SCHEME = 'cosmoteer-shared-base';
+export const DIFF_PREVIEW_SCHEME = 'cosmoteer-diff-preview';
 
-/** One file an extraction would change, as the server describes it. */
-export interface SharedBasePreviewFile {
+/** One file a pending rewrite would change, as the server describes it. */
+export interface DiffPreviewFile {
     fsPath: string;
     after: string;
+    /** True for a file that does not exist yet, which is diffed against nothing and reads as all-added. */
     created: boolean;
 }
 
 /**
- * Serves the rewritten contents of the files an extraction would change, so the editor can put them
- * side by side against what is on disk without anything being written first.
+ * Serves the rewritten contents of the files a pending rewrite would change, so the editor can put
+ * them side by side against what is on disk without anything being written first. Shared by the
+ * shared-base extraction and the migration dry run, which both answer with rewritten file contents.
  */
-export class SharedBaseDiffProvider implements TextDocumentContentProvider {
+export class DiffPreviewProvider implements TextDocumentContentProvider {
     private readonly contentByUri = new Map<string, string>();
     private readonly changeEmitter = new EventEmitter<Uri>();
     public readonly onDidChange = this.changeEmitter.event;
@@ -37,15 +39,15 @@ export class SharedBaseDiffProvider implements TextDocumentContentProvider {
  * The uri a rewritten file is served under. It keeps the original file's name and extension so the
  * diff is syntax-highlighted as rules, and carries the plan id so two previews never collide.
  */
-const rewrittenUri = (planId: string, file: SharedBasePreviewFile): Uri =>
+const rewrittenUri = (planId: string, file: DiffPreviewFile): Uri =>
     Uri.from({
-        scheme: SHARED_BASE_DIFF_SCHEME,
+        scheme: DIFF_PREVIEW_SCHEME,
         path: `/${planId}/${file.fsPath.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')}`,
         query: 'after',
     });
 
 /**
- * Show what an extraction would do, as the editor's own side-by-side diff over every file it
+ * Show what a pending rewrite would do, as the editor's own side-by-side diff over every file it
  * changes rather than as a patch to read.
  *
  * The multi-file diff editor is the right shape for this: one entry per file, each opening on the
@@ -54,19 +56,19 @@ const rewrittenUri = (planId: string, file: SharedBasePreviewFile): Uri =>
  * which every version has.
  *
  * @param provider the content provider the rewritten contents are served from.
- * @param planId the plan's id, which the uris are keyed by.
- * @param changed the files the extraction would change, base file first.
+ * @param planId the preview's id, which the uris are keyed by, so two previews never collide.
+ * @param changed the files the rewrite would change, any file it creates first.
  * @param title the label the diff editor is given.
  * @returns once the diff is open.
  */
-export async function showSharedBaseDiff(
-    provider: SharedBaseDiffProvider,
+export async function showDiffPreview(
+    provider: DiffPreviewProvider,
     planId: string,
-    changed: readonly SharedBasePreviewFile[],
+    changed: readonly DiffPreviewFile[],
     title: string
 ): Promise<void> {
     if (changed.length === 0) return;
-    const empty = Uri.from({ scheme: SHARED_BASE_DIFF_SCHEME, path: `/${planId}/new-file`, query: 'empty' });
+    const empty = Uri.from({ scheme: DIFF_PREVIEW_SCHEME, path: `/${planId}/new-file`, query: 'empty' });
     provider.set(empty, '');
 
     const resources: Array<[Uri, Uri, Uri]> = [];
@@ -96,12 +98,12 @@ export async function showSharedBaseDiff(
  * @param diff the unified diff to show.
  * @returns once the tab is open.
  */
-export async function showSharedBasePatch(
-    provider: SharedBaseDiffProvider,
+export async function showPatchPreview(
+    provider: DiffPreviewProvider,
     planId: string,
     diff: string
 ): Promise<void> {
-    const uri = Uri.from({ scheme: SHARED_BASE_DIFF_SCHEME, path: `/${planId}/preview.diff`, query: 'patch' });
+    const uri = Uri.from({ scheme: DIFF_PREVIEW_SCHEME, path: `/${planId}/preview.diff`, query: 'patch' });
     provider.set(uri, diff);
     const document = await workspace.openTextDocument(uri);
     await languages.setTextDocumentLanguage(document, 'diff');

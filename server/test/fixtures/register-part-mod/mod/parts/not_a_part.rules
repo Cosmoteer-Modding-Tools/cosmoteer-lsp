@@ -1,0 +1,5 @@
+// No group the part lookup can anchor, so an offer made against this file is stale.
+NotAPart
+{
+	Size = [1, 1]
+}

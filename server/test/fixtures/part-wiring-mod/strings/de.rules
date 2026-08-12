@@ -1,0 +1,7 @@
+__Name = "Deutsch"
+
+Parts
+{
+	WiredName = "Verdrahtetes Bauteil"
+	WiredDesc = "Ein Bauteil, das das Fixture-Manifest registriert."
+}

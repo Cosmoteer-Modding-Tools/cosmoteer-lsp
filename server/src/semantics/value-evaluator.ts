@@ -17,10 +17,57 @@ import { CONSTANTS, mathFunction } from './math-function-registry';
 
 const navigation = new FullNavigationStrategy();
 
+/**
+ * One `&reference` the evaluation replaced with a number. This is the substitution step the game's
+ * own ExpressionEvaluator performs before mXparser ever sees the expression, and the only part of
+ * the computation the source text does not already show.
+ */
+export interface Substitution {
+    /** The reference exactly as written, such as `&~/COST`. */
+    path: string;
+    /** The number the reference stood for. */
+    value: number;
+    /** The document the number was read from. An open buffer carries a `file://` uri, a file read
+     *  from disk carries its OS path, since that is what its parse is keyed by. */
+    uri: string;
+    /** The zero-based line inside that document. */
+    line: number;
+    /** Nesting level, 0 for a reference written in the evaluated node itself. */
+    depth: number;
+}
+
+/** A computed number together with the references its evaluation substituted. */
+export interface TracedValue {
+    value: number | null;
+    substitutions: Substitution[];
+    /** How many references the caps below kept out of the list. */
+    omitted: number;
+}
+
+// A part typically chains through a base and that base's own base, so a handful of levels covers
+// what is worth reading. A reference deeper than this, or later than the entry cap, still
+// evaluates exactly as before and is only not recorded.
+const MAX_TRACE_DEPTH = 3;
+const MAX_TRACE_ENTRIES = 12;
+
+/** The collector a traced evaluation hands down through its {@link EvalContext}. */
+interface TraceSink {
+    entries: Substitution[];
+    /** Identities of the substitutions already recorded, so a reference an expression uses twice is
+     *  listed once. */
+    seen: Set<string>;
+    /** Nesting level of the descent currently running. */
+    depth: number;
+    omitted: number;
+}
+
 interface EvalContext {
     token: CancellationToken;
     /** Reference value nodes already dereferenced on this path. Breaks `A = &B` / `B = &A` cycles. */
     visited: Set<AbstractNode>;
+    /** Substitution collector, undefined on the untraced path. Every entry point writes the slot
+     *  explicitly, even as undefined, so both paths hand the evaluation the same object shape. */
+    trace?: TraceSink;
 }
 
 /**
@@ -35,7 +82,31 @@ export const evaluateNumericValue = async (
     node: AbstractNode,
     token: CancellationToken
 ): Promise<number | null> => {
-    return evaluate(node, { token, visited: new Set() });
+    // The explicit `trace: undefined` is deliberate: this runs on the whole-workspace diagnostics
+    // pass, and giving it a different object shape than the traced entry point would make every
+    // context read inside the evaluation polymorphic.
+    return evaluate(node, { token, visited: new Set(), trace: undefined });
+};
+
+/**
+ * Compute the same number {@link evaluateNumericValue} does, and record every `&reference` the
+ * evaluation replaced with a number along the way. The arithmetic is untouched, the substitutions
+ * are collected on a side channel, so the traced and untraced results are the same code producing
+ * the same number. A value that does not evaluate carries no substitutions at all, so nothing
+ * partial is ever shown.
+ *
+ * @param node the node to evaluate.
+ * @param token cancellation token of the surrounding request.
+ * @returns the computed number (null when it does not evaluate) with the substitutions it took.
+ */
+export const evaluateNumericValueTraced = async (
+    node: AbstractNode,
+    token: CancellationToken
+): Promise<TracedValue> => {
+    const trace: TraceSink = { entries: [], seen: new Set(), depth: 0, omitted: 0 };
+    const value = await evaluate(node, { token, visited: new Set(), trace });
+    if (value === null) return { value: null, substitutions: [], omitted: 0 };
+    return { value, substitutions: trace.entries, omitted: trace.omitted };
 };
 
 /**
@@ -47,7 +118,8 @@ export const evaluateExpressionGroup = async (
     parts: AbstractNode[],
     token: CancellationToken
 ): Promise<number | null> => {
-    return evaluateSequence(parts, { token, visited: new Set() });
+    // Same explicit `trace: undefined` as above, for the same shape reason.
+    return evaluateSequence(parts, { token, visited: new Set(), trace: undefined });
 };
 
 /**
@@ -111,15 +183,82 @@ const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<num
     // twice in one expression) still evaluates instead of collapsing to null.
     if (context.visited.has(node)) return null;
     context.visited.add(node);
+    const sink = context.trace;
+    const slot = sink ? reserveSubstitution(sink, String(node.valueType.value)) : -1;
+    if (sink) sink.depth++;
     try {
         const target = await navigation
             .navigate(String(node.valueType.value), node, getStartOfAstNode(node).uri, context.token)
             .catch(() => null);
-        if (!target || isFile(target as FileWithPath)) return null;
-        return await evaluate(target as AbstractNode, context);
+        // Same verdict as before the trace existed: an unresolved path and a whole-file target both
+        // leave nothing numeric to evaluate, so the value is null.
+        const resolved = !target || isFile(target as FileWithPath) ? null : (target as AbstractNode);
+        const value = resolved ? await evaluate(resolved, context) : null;
+        if (sink && slot >= 0) settleSubstitution(sink, slot, value, resolved);
+        return value;
     } finally {
         context.visited.delete(node);
+        if (sink) sink.depth--;
     }
+};
+
+/**
+ * Reserve the slot a reference's substitution will occupy, before its target is evaluated.
+ * Reserving up front is what puts a nested substitution after the reference that pulled it in
+ * rather than before it, since the descent finishes before the parent's own number is known.
+ *
+ * @param sink the collector of the running traced evaluation.
+ * @param path the reference exactly as written.
+ * @returns the reserved index, or -1 when a cap keeps this reference out of the trace.
+ */
+const reserveSubstitution = (sink: TraceSink, path: string): number => {
+    if (sink.depth >= MAX_TRACE_DEPTH || sink.entries.length >= MAX_TRACE_ENTRIES) {
+        sink.omitted++;
+        return -1;
+    }
+    sink.entries.push({ path, value: NaN, uri: '', line: 0, depth: sink.depth });
+    return sink.entries.length - 1;
+};
+
+/**
+ * Fill a reserved slot in once its reference resolved, or drop it again.
+ *
+ * Everything a descent records sits contiguously after its own slot, so cutting the list back to
+ * the slot removes the reference and its whole subtree in one step. That is what a reference which
+ * did not evaluate gets, and what one already listed word for word gets. A duplicate is not
+ * counted as omitted, since it hides nothing that is not on screen already.
+ *
+ * @param sink the collector of the running traced evaluation.
+ * @param slot the index {@link reserveSubstitution} handed out.
+ * @param value the number the reference stood for, or null when it did not evaluate.
+ * @param target the node the reference resolved to, or null when it did not resolve.
+ * @returns nothing, the sink is updated in place.
+ */
+const settleSubstitution = (
+    sink: TraceSink,
+    slot: number,
+    value: number | null,
+    target: AbstractNode | null
+): void => {
+    const entry = sink.entries[slot];
+    if (value === null || !target) {
+        sink.entries.length = slot;
+        return;
+    }
+    const uri = getStartOfAstNode(target).uri;
+    // A math operand the parser recovered as an assignment carries no position, and the node type
+    // declares one, so the absent case has to be checked rather than trusted.
+    const line = target.position ? target.position.line : 0;
+    // Encoded rather than concatenated, since a written reference path may carry any separator.
+    const key = JSON.stringify([entry.depth, entry.path, uri, line]);
+    if (sink.seen.has(key)) {
+        sink.entries.length = slot;
+        return;
+    }
+    sink.seen.add(key);
+    entry.value = value;
+    entry.uri = uri;
+    entry.line = line;
 };
 
 /**

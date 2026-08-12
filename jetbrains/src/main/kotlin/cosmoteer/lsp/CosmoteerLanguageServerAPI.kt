@@ -30,6 +30,42 @@ class PartGridEditResult(
     var edit: WorkspaceEdit? = null,
 )
 
+/** Parameters of the `cosmoteer/schemaSearch` request. */
+class SchemaSearchParams(
+    /** The raw query, whitespace-separated terms that are ANDed. */
+    var query: String = "",
+    /** Sent only on the first request of a picker session, so no keystroke waits on the index. */
+    var textDocument: TextDocumentIdentifier? = null,
+    var position: Position? = null,
+    var limit: Int? = null,
+)
+
+/** Parameters of the `cosmoteer/schemaSearchDetail` request. */
+class SchemaSearchDetailParams(var id: String = "")
+
+/** One hit of the `cosmoteer/schemaSearch` answer (mirror of the server's SchemaSearchHit). */
+class SchemaSearchHit(
+    var id: String = "",
+    var kind: String = "",
+    var label: String = "",
+    var owner: String = "",
+    var detail: String = "",
+    var prose: String? = null,
+    var insertable: Boolean = false,
+    var dead: Boolean = false,
+    var deprecated: Boolean = false,
+    var modContributed: Boolean = false,
+)
+
+/** Result of the `cosmoteer/schemaSearch` request (mirror of the server's SchemaSearchResult). */
+class SchemaSearchResult(
+    var hits: List<SchemaSearchHit> = emptyList(),
+    var total: Int = 0,
+    var truncated: Boolean = false,
+    var contextClass: String? = null,
+    var contextClassName: String? = null,
+)
+
 /**
  * The Cosmoteer server's protocol surface: standard LSP plus the custom requests the VS Code
  * client also uses (live shader preview payload, the mod-overview markdown report, and the part
@@ -73,4 +109,34 @@ interface CosmoteerLanguageServerAPI : LanguageServer {
      */
     @JsonRequest("cosmoteer/partGridEdit")
     fun partGridEdit(params: PartGridEditParams): CompletableFuture<PartGridEditResult?>
+
+    /**
+     * Renders what the part at a position still needs before the game can build it as a markdown
+     * report: whether a ship pulls the file in, whether the build palette can show it, which techs
+     * and modes offer it, and whether its localization keys exist.
+     *
+     * @param params the document and a position inside the part group.
+     * @returns the markdown, or null when no part encloses the position.
+     */
+    @JsonRequest("cosmoteer/partWiring")
+    fun partWiring(params: TextDocumentPositionParams): CompletableFuture<String?>
+
+    /**
+     * Ranks every schema type, field, enum member and registry, plus the field documentation,
+     * against a query.
+     *
+     * @param params the query, and on the first request of a session the caret to resolve.
+     * @returns the ranked hits, or null when the search could not run.
+     */
+    @JsonRequest("cosmoteer/schemaSearch")
+    fun schemaSearch(params: SchemaSearchParams): CompletableFuture<SchemaSearchResult?>
+
+    /**
+     * Renders one search hit's documentation as markdown.
+     *
+     * @param params the hit's entry id.
+     * @returns the markdown page, or null when the schema no longer declares the entry.
+     */
+    @JsonRequest("cosmoteer/schemaSearchDetail")
+    fun schemaSearchDetail(params: SchemaSearchDetailParams): CompletableFuture<String?>
 }

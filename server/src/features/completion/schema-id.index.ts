@@ -2,7 +2,7 @@ import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isAssignmentNode, isValueNode } from '../../core/ast/ast';
 import { documentRootClass } from '../../document/schema/document-root';
 import { typeDef } from '../../document/schema/schema';
-import { BUILTIN_IDS, entityDeclarationsOf } from '../../document/schema/entity-schema';
+import { BUILTIN_IDS, entityDeclarationsOf, isIdDeclarationField } from '../../document/schema/entity-schema';
 import { markerUsagesOf } from '../../document/schema/category-usage';
 import { normalizeUri } from '../navigation/reference-location';
 import { WatchedDocumentIndex } from '../navigation/watched-document-index';
@@ -166,7 +166,10 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         cancellationToken: CancellationToken
     ): Promise<Completion[]> {
         const ref = schemaReferenceFieldOf(node);
-        return ref ? this.idCompletionsForClass(ref.targetClass, folderPaths, cancellationToken) : [];
+        // An `ID = ` slot (or an `OtherIDs` alias entry) declares an id instead of naming one, so
+        // every id the project already has is exactly the set the user must not pick here.
+        if (!ref || isIdDeclarationField(ref.ownerClass, ref.fieldName, ref.targetClass)) return [];
+        return this.idCompletionsForClass(ref.targetClass, folderPaths, cancellationToken);
     }
 
     /** Completions for every project id whose declaring file's root class is `targetClass` (or a subclass). */

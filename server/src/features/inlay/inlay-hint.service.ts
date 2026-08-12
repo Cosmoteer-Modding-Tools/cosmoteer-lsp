@@ -15,9 +15,9 @@ import {
 import {
     evaluateExpressionGroup,
     evaluateNumericValue,
-    formatNumber,
     resolveReferencedBaseValue,
 } from '../../semantics/value-evaluator';
+import { formatWithUnit, unitForValue } from '../../semantics/value-units';
 import { globalSettings } from '../../settings';
 
 /**
@@ -70,8 +70,8 @@ export class InlayHintService {
                     // Math/function results and plain reference assignments (`COST = &<file>/COST`)
                     // both annotate with the number they resolve to. A cross-file or inherited
                     // value is otherwise invisible without tracing it by hand. A bare percentage
-                    // literal (`Chance = 50%`) is annotated with its decimal value (`= 0.5`), the
-                    // form the game's math actually uses, which the source doesn't show.
+                    // literal (`Chance = 50%`) is annotated with its decimal value (`= 0.5 (50%)`),
+                    // the form the game's math actually uses, which the source doesn't show.
                     await this.emitHint([right], range, cancellationToken, hints);
                 } else if (isListNode(right)) {
                     await this.collectList(right.elements, range, cancellationToken, hints);
@@ -160,9 +160,10 @@ export class InlayHintService {
             }
             return;
         }
+        const unit = await unitForValue(group, cancellationToken).catch(() => undefined);
         hints.push({
             position: end,
-            label: `= ${formatNumber(value)}`,
+            label: `= ${formatWithUnit(value, unit)}`,
             kind: InlayHintKind.Type,
             paddingLeft: true,
         });
@@ -194,7 +195,12 @@ export class InlayHintService {
             label = String(member.valueType.value);
         } else {
             const value = await evaluateNumericValue(member, cancellationToken);
-            if (value !== null) label = formatNumber(value);
+            if (value !== null) {
+                // The unit comes from the referencing field's own slot, not from the `BaseValue`
+                // member, whose declaring class is the generic ModifiableValue and names none.
+                const unit = await unitForValue([reference], cancellationToken).catch(() => undefined);
+                label = formatWithUnit(value, unit);
+            }
         }
         if (!label) return;
         hints.push({
@@ -211,15 +217,15 @@ const isReferenceValueNode = (node: AbstractNode): node is ValueNode =>
     isValueNode(node) && node.valueType.type === 'Reference';
 
 /**
- * An unquoted percentage or degrees literal (`50%`, `-3.5 %`, `90d`). The lexer keeps the suffix
+ * An unquoted percentage or angle literal (`50%`, `-3.5 %`, `90d`, `2r`). The lexer keeps the suffix
  * inside the value token, so these are plain `String`-typed values rather than `Number`s. The
  * evaluator converts them the way the game does before mXparser sees them (`÷100` for percent,
- * degrees to radians), which is what the inlay hint surfaces. A radians literal (`2r`) converts to
- * its own digits, so it gets no hint. Mirrors the suffix rules in {@link evaluateNumericValue}'s
- * `evaluateValue`.
+ * degrees to radians), which is what the inlay hint surfaces. A radians literal keeps its own digits
+ * and is annotated for the degrees they are. Mirrors the suffix rules in
+ * {@link evaluateNumericValue}'s `evaluateValue`.
  */
 const isSuffixedNumberLiteral = (node: AbstractNode): node is ValueNode =>
-    isValueNode(node) && !node.quoted && /^-?\d*\.?\d+\s*[%d]$/.test(String(node.valueType.value));
+    isValueNode(node) && !node.quoted && /^-?\d*\.?\d+\s*[%dr]$/.test(String(node.valueType.value));
 
 /** The position just after the last character of an expression segment (where its ` = N` hint sits). */
 const endPositionOf = (nodes: AbstractNode[]): Position => {

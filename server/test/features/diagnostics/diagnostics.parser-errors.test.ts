@@ -21,7 +21,10 @@ describe('parser error diagnostics', () => {
         ['assignment with no value', 'X =\n', 'Expected value after equals'],
         ['inheritance colon with no value', 'X :\n', 'Expected value after colon'],
         ['empty parentheses', 'X = ()\n', 'Expected value after left paren'],
-        ['non-reference after inheritance value', 'A : 1\nB = 2\n', 'Expected reference value after reference value but found Assignment'],
+        // A call cannot name a base, and it is not a member head either, so the inheritance list does
+        // walk it and report it. `A : 1\nB = 2` no longer reaches here: `B =` opens a member, which
+        // ends the list before it is collected.
+        ['non-reference after inheritance value', 'A : &B ( 1 )\n{\n}\n', 'Expected reference value after reference value but found FunctionCall'],
         ['unknown token', 'X = @\n', 'Unknown token type'],
         // The real OT parser throws `Unexpected "=" at position …` here too (OTGroupNode.Parse),
         // so this is reported as invalid input rather than a possible parser bug.

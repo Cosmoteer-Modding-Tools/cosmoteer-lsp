@@ -1,0 +1,5 @@
+Part : <./Data/ships/terran/base_part_terran.rules>/Part
+{
+	ID = test.unique.block
+	Size = [1, 1]
+}

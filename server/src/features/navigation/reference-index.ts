@@ -13,9 +13,16 @@ import {
 } from '../../core/ast/ast';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { DefinitionService, isReferenceValue } from './definition.service';
-import { definitionLocationOf, definitionNameOf, locationKey, referenceSiteLocation } from './reference-location';
+import { definitionLocationOf, definitionNameOf, locationKey, normalizeUri, referenceSiteLocation } from './reference-location';
 import { resolveSchemaSiblingReference, stringValueNodesOf } from './schema-reference.navigation';
-import { idReferenceSites, idSymbolAt, idSymbolAtMapKey } from './schema-id-symbol';
+import {
+    FileReferenceAnchor,
+    fileReferenceName,
+    fileReferenceSites,
+    idReferenceSites,
+    idSymbolAt,
+    idSymbolAtMapKey,
+} from './schema-id-symbol';
 import { particleChannelAt, channelOccurrences } from './particle-channel';
 import { documentsMentioning } from './workspace-files';
 
@@ -30,6 +37,10 @@ import { documentsMentioning } from './workspace-files';
  * candidate reference with the same {@link DefinitionService} go-to-def uses and keeping the
  * ones that resolve to the same {@link locationKey}. Bounded by the name's frequency, needs
  * no prebuilt index, and is always fresh (reads current buffers/disk per query).
+ *
+ * A cross-file id is searched under two spellings rather than one, since the corpus writes the same
+ * relation both ways (see {@link idMentionSweeps}), and a file writing only the file-reference
+ * spelling never mentions the id at all.
  *
  * Kept as a singleton named `ReferenceIndex` for call-site/test stability.
  */
@@ -75,13 +86,27 @@ export class ReferenceIndex {
             // `ID = battery` is itself an `ID<Self>` reference, so the declaration's own ID line is a
             // site. Exclude it from usages (it's re-added only when includeDeclaration).
             const declKey = locationKey(idSymbol.location);
+            const anchor: FileReferenceAnchor = {
+                declarationKey: declKey,
+                fileName: fileReferenceName(idSymbol.location.uri),
+            };
             const idSites: Location[] = [];
+            const push = (site: AbstractNode): void => {
+                const location = referenceSiteLocation(site);
+                if (locationKey(location) !== declKey) idSites.push(location);
+            };
+            const walked = new Set<string>();
             progress?.begin('Searching references', 0, '', false);
             try {
-                for await (const doc of documentsMentioning(folderPaths, idSymbol.id, cancellationToken)) {
-                    for (const site of idReferenceSites(doc, idSymbol)) {
-                        const location = referenceSiteLocation(site);
-                        if (locationKey(location) !== declKey) idSites.push(location);
+                // Every candidate document is walked once and asked for both spellings, so a file
+                // that writes the id and a file reference to it is neither parsed nor scanned twice.
+                for (const mention of idMentionSweeps(idSymbol.id, anchor.fileName)) {
+                    for await (const doc of documentsMentioning(folderPaths, mention, cancellationToken)) {
+                        const key = normalizeUri(doc.uri);
+                        if (walked.has(key)) continue;
+                        walked.add(key);
+                        for (const site of idReferenceSites(doc, idSymbol)) push(site);
+                        for await (const site of fileReferenceSites(doc, anchor, cancellationToken)) push(site);
                     }
                 }
             } finally {
@@ -167,11 +192,33 @@ export class ReferenceIndex {
 }
 
 /**
+ * The texts to sweep the project for when searching a cross-file id: the id itself, which finds the
+ * bare-id spelling, and the declaring file's name, which finds the file-reference spelling
+ * (`PartsUnlocked = [&<./Data/ships/terran/cannon_med/cannon_med.rules>/Part/ID]`). The second sweep
+ * is what makes the search complete, because a file writing only that spelling need never mention the
+ * id anywhere. When one text contains the other, sweeping the contained one alone already yields
+ * every document the other would, so only that sweep runs.
+ *
+ * @param id the cross-file id being searched.
+ * @param fileName the declaring file's name, or '' when there is none.
+ * @returns the texts to run {@link documentsMentioning} for, in sweep order.
+ */
+const idMentionSweeps = (id: string, fileName: string): string[] => {
+    if (!fileName || fileName === id) return [id];
+    if (id.includes(fileName)) return [fileName];
+    if (fileName.includes(id)) return [id];
+    return [id, fileName];
+};
+
+/**
  * A key for the scope an OT relative reference resolves against: its nearest enclosing group or
  * list (or the document root). Two references with the same text under the same container resolve
- * to the same target, so this keys the per-document resolution memo in {@link ReferenceIndex.findReferences}.
+ * to the same target, so this keys the per-document resolution memo of every reference search.
+ *
+ * @param node the reference node whose resolution scope is wanted.
+ * @returns the enclosing container's start offset, or 'root' at document level.
  */
-const enclosingContainerKey = (node: AbstractNode): string => {
+export const enclosingContainerKey = (node: AbstractNode): string => {
     let current: AbstractNode | undefined = node.parent;
     while (current && !(isGroupNode(current) || isListNode(current))) current = current.parent;
     return current?.position ? String(current.position.start) : 'root';

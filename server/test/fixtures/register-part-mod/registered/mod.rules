@@ -1,0 +1,12 @@
+ID = test.alreadyregistered
+Name = "Already Registered Fixture"
+Version = 1.0.0
+
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<ships/terran/terran.rules>/Terran/Parts"
+		ManyToAdd [ &<parts/listed_part.rules>/Part ]
+	}
+]

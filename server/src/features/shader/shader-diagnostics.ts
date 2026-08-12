@@ -8,7 +8,7 @@ import { HLSL_INTRINSIC_NAMES, ENGINE_UNIFORMS, TEXTURE_METHODS } from './shader
 import { HLSL_TYPES, HLSL_KEYWORDS, lineStarts, positionOf } from '../semantic/shader-semantic-tokens';
 
 /**
- * Conservative, opt-in diagnostics for a `.shader` file itself (not the `_`-constants a `.rules`
+ * Conservative diagnostics for a `.shader` file itself, on by default (not the `_`-constants a `.rules`
  * material sets, which {@link file://./../diagnostics/validator.shader-constants.ts} handles). It is a
  * lexical check, not an HLSL type-checker, and is built to stay false-positive-free:
  *

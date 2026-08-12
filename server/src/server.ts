@@ -41,6 +41,25 @@ import { AbstractNodeDocument } from './core/ast/ast';
 import { ParserResultRegistrar } from './registrar/parser-result-registrar';
 import { findNodeAtPosition } from './utils/ast.utils';
 import { extractValueCodeAction } from './features/refactor/extract-value';
+import {
+    EXTRACT_LOCALIZATION_KEY_COMMAND,
+    ExtractLocalizationKeyArgs,
+    ExtractLocalizationKeyResult,
+    buildExtractLocalizationKeyEdit,
+    extractLocalizationKeyCodeAction,
+} from './features/refactor/extract-localization-key';
+import {
+    INSERT_SCHEMA_FIELD_COMMAND,
+    InsertSchemaFieldArgs,
+    InsertSchemaFieldResult,
+    buildInsertSchemaFieldEdit,
+} from './features/schema-search/schema-search.insert';
+import {
+    SchemaSearchParams,
+    resolveSchemaSearchContext,
+    schemaSearchDetail,
+    searchSchema,
+} from './features/schema-search/schema-search';
 import { extractSharedBaseCodeActions } from './features/refactor/shared-base/extract-shared-base.codeaction';
 import { clearSharedBaseScanCache } from './features/refactor/shared-base/mod-scan';
 import {
@@ -50,10 +69,25 @@ import {
     SharedBaseFailure,
     SharedBaseHost,
 } from './features/refactor/shared-base/shared-base.command';
+import { registerPartInShipCodeAction } from './features/refactor/register-part/register-part.codeaction';
+import {
+    REGISTER_PART_IN_SHIP_COMMAND,
+    RegisterPartArgs,
+    RegisterPartHost,
+    registerPartInShip,
+} from './features/refactor/register-part/register-part.command';
 import { AutoCompletionService, Completion } from './features/completion/autocompletion.service';
+import { valueRunAtCursor, wholeValueRange, withReplaceRange } from './features/completion/completion-range';
 import { DefinitionService } from './features/navigation/definition.service';
 import { computeDocumentLinks, resolveDocumentLink } from './features/navigation/document-links';
 import { DocumentSymbolService } from './features/navigation/document-symbol.service';
+import { computeFoldingRanges } from './features/structure/folding-range.service';
+import { computeSelectionRanges } from './features/structure/selection-range.service';
+import {
+    prepareTypeHierarchy,
+    subtypesOf,
+    supertypesOf,
+} from './features/structure/type-hierarchy.service';
 import { ReferenceIndex } from './features/navigation/reference-index';
 import { WorkspaceSymbolService } from './features/navigation/workspace-symbol.service';
 import { SchemaIdIndex } from './features/completion/schema-id.index';
@@ -103,6 +137,9 @@ import { clearModRootCache, findModRoot } from './mod/mod-root';
 import { join } from 'path';
 import { validateModActions } from './features/diagnostics/validator.mod-action';
 import { validateManifestVersion } from './features/diagnostics/validator.manifest-version';
+import { validateModManifest } from './features/diagnostics/validator.mod-manifest';
+import { validatePartGeometry } from './features/diagnostics/validator.part-geometry';
+import { validateDuplicateModIds } from './features/diagnostics/validator.duplicate-id';
 import { invalidateModContext } from './mod/mod-context';
 import { modRulesOffsetCompletions } from './features/completion/autocompletion.mod-rules';
 import { inheritanceTargetCompletions } from './features/completion/autocompletion.inheritance-target';
@@ -110,6 +147,7 @@ import { mathFunctionCompletionsAtLinePrefix } from './features/completion/autoc
 import {
     crossFileReferenceTargetAtOffset,
     isBareFieldNameIdentifier,
+    isIdDeclarationPositionAt,
     isLocalizationKeyFieldAtOffset,
     schemaFieldNameCompletions,
     schemaValueCompletionsAtOffset,
@@ -123,12 +161,14 @@ import { invalidateLooseDeclarationCache } from './features/diagnostics/validato
 import { validateCrossFileIdReferences } from './features/diagnostics/validator.schema-id-reference';
 import { validateLocalizationKeys } from './features/diagnostics/validator.localization-key';
 import { buildInsertLocalizationKeyEdit } from './features/diagnostics/localization-key-insert';
+import { requiredFieldInsertText } from './features/diagnostics/required-field-insert';
 import { mapKeyTargetOf, schemaReferenceFieldOf } from './features/navigation/schema-id-reference.navigation';
 import { componentIdCompletionsForTarget } from './features/completion/autocompletion.component-id';
 import { buildShaderPreview } from './features/shader/shader-preview.service';
 import { buildPartGridData } from './features/part-editor/part-grid-data.service';
 import { buildPartGridEdit } from './features/part-editor/grid-edit.service';
 import { PartGridEditParams } from './features/part-editor/part-grid.types';
+import { generatePartWiringReport } from './features/part-editor/part-wiring.service';
 import { collectIncludeText } from './features/shader/shader-index';
 import { validateShaderConstants } from './features/diagnostics/validator.shader-constants';
 import { particleChannelCompletionsAtOffset } from './features/navigation/particle-channel';
@@ -154,7 +194,13 @@ import { clearNavigationMemo, invalidateNavigationMemoForFile } from './features
 import { perfCount, perfReset, perfSampleMemory, perfSnapshot } from './utils/perf-counters';
 import { startScanCpuProfile, stopScanCpuProfile } from './utils/cpu-profile';
 import { removalRange } from './utils/removal-range';
-import { collectFileMigration, MIGRATE_WORKSPACE_COMMAND, MigrationSummary } from './features/migration/migrate-workspace';
+import { workspaceRelativePath } from './utils/relative-path';
+import {
+    collectFileMigration,
+    createMigrationPreview,
+    MIGRATE_WORKSPACE_COMMAND,
+    MigrationSummary,
+} from './features/migration/migrate-workspace';
 import { BUILD_MOD_SCHEMA_COMMAND, buildModSchema, ModSchemaSummary } from './features/mod-schema/mod-schema';
 import { watchDirectories, watchModAssemblies } from './features/mod-schema/watch';
 import { extendSchemaWithMods, modSchemaSignature } from './document/schema/schema';
@@ -284,7 +330,7 @@ connection.onInitialize(async (params: InitializeParams) => {
                 // keys, assets, references) the moment a quote opens. '#' pops `.shader` preprocessor
                 // directives. ':' pops inheritance-base completion after `Child :`. The rest are
                 // `.rules` reference sigils.
-                triggerCharacters: ['<', '&', '/', '^', '~', '..', '=', '.', '"', '#', ':'],
+                triggerCharacters: ['<', '&', '/', '^', '~', '=', '.', '"', '#', ':'],
             },
             diagnosticProvider: {
                 interFileDependencies: true,
@@ -295,6 +341,11 @@ connection.onInitialize(async (params: InitializeParams) => {
                 resolveProvider: true,
             },
             documentSymbolProvider: true,
+            foldingRangeProvider: true,
+            selectionRangeProvider: true,
+            // The inheritance graph of a `Foo : Bar` container, one level per request. Declared as a
+            // plain boolean: both clients register the feature from the capability alone.
+            typeHierarchyProvider: true,
             referencesProvider: true,
             workspaceSymbolProvider: true,
             renameProvider: {
@@ -321,6 +372,9 @@ connection.onInitialize(async (params: InitializeParams) => {
                     MIGRATE_WORKSPACE_COMMAND,
                     BUILD_MOD_SCHEMA_COMMAND,
                     EXTRACT_SHARED_BASE_COMMAND,
+                    EXTRACT_LOCALIZATION_KEY_COMMAND,
+                    REGISTER_PART_IN_SHIP_COMMAND,
+                    INSERT_SCHEMA_FIELD_COMMAND,
                 ],
             },
             semanticTokensProvider: {
@@ -498,7 +552,7 @@ connection.onInitialized(async (_params) => {
         .catch(() => undefined)
         .finally(() => endStatSweepWindow());
 
-    // Opt-in: validate every file in the workspace, not just the open ones.
+    // On by default: validate every file in the workspace, not just the open ones.
     await runWorkspaceValidation();
 });
 
@@ -673,6 +727,27 @@ const openParseCache: Map<
         parserResult: ReturnType<typeof parser>;
     }
 > = new Map();
+
+/**
+ * The lexer output for an open document, reusing {@link openParseCache} while it is current and
+ * lexing the live buffer otherwise. Folding reads the comment spans and the token extents, neither
+ * of which the AST carries, and the cache is still empty for a file that was open before the server
+ * started. Lexing here is pure and touches nothing else.
+ *
+ * @param document the open document to lex.
+ * @returns the tokens and the block-comment spans of that document's current text.
+ */
+function ensureLexResult(document: TextDocument): {
+    tokens: ReturnType<typeof lexer>;
+    blockComments: BlockCommentSpan[];
+} {
+    const cached = openParseCache.get(document.uri);
+    if (cached && cached.version === document.version) {
+        return { tokens: cached.tokens, blockComments: cached.blockComments };
+    }
+    const blockComments: BlockCommentSpan[] = [];
+    return { tokens: lexer(document.getText(), blockComments), blockComments };
+}
 
 /**
  * The in-flight or settled diagnostics of each open document, keyed by uri and valid for one
@@ -977,7 +1052,7 @@ async function validateTextDocument(
 ): Promise<Diagnostic[]> {
     // `.shader` files reach the server (for semantic tokens / hover / include navigation) but are HLSL,
     // not OT, so never run the `.rules` lexer/parser/validators on them, which would flag every line as a
-    // rules syntax error. Their only diagnostics are the opt-in lexical shader checks.
+    // rules syntax error. Their only diagnostics are the lexical shader checks, which are on by default.
     if (isShaderDocument(textDocument.uri)) {
         const shaderSettings = persist ? await getDocumentSettings(textDocument.uri) : globalSettings;
         if (!shaderSettings.diagnostics.validateShaderCode) return [];
@@ -1119,8 +1194,10 @@ async function validateTextDocument(
             validationErrors = validationErrors.concat(idRefErrors);
         }
         // Separate pass: groups missing a schema-required field, checked through the inheritance chain.
-        // Opt-in (default off): engine-injected required fields and bases in the unindexed vanilla
-        // install mean a single-project check cannot be fully false-positive-free.
+        // On by default. Optional-field detection (constructor defaults, nullable types, collections)
+        // closed the false positives, and the pass skips any group whose chain does not fully resolve,
+        // so an unindexed vanilla base cannot produce a finding. The engine-injected fields that have
+        // no static trace are named in the validator's `RUNTIME_REQUIRED_ALLOWLIST`.
         if (settings.diagnostics?.validateRequiredFields) {
             const requiredFieldErrors = await timedPass('scan.vRequiredMs', async () => {
                 // The project-wide set of inheritance-base names lets the check skip cross-file
@@ -1134,8 +1211,8 @@ async function validateTextDocument(
             validationErrors = validationErrors.concat(requiredFieldErrors);
         }
         // Separate pass: inline `_`-prefixed shader constants a material sets, checked against the
-        // uniforms its `.shader` declares. Opt-in (default off): the game ships a few dead constant keys
-        // its shaders do not read, so a default-on check would warn on vanilla data.
+        // uniforms its `.shader` declares. On by default. The game itself ships a few constant keys its
+        // shaders never read, so those are suppressed by name in the validator's `VANILLA_DEAD_KEYS`.
         if (settings.diagnostics?.validateShaderConstants) {
             const shaderConstantErrors = await validateShaderConstants(parserResult.value, cancelToken).catch(() => []);
             validationErrors = validationErrors.concat(shaderConstantErrors);
@@ -1222,6 +1299,24 @@ async function validateTextDocument(
             );
             validationErrors = validationErrors.concat(redundantOverrideErrors);
         }
+        // Separate pass: part-grid values the part's own size puts out of the game's reach (a door
+        // location off the perimeter ring, a blocked cell or a per-cell map key outside the part),
+        // plus a `PhysicalRect` leaving the part, which the game throws on while reading it.
+        if (settings.diagnostics?.validatePartGeometry) {
+            const partGeometryErrors = await timedPass('scan.vPartGeometryMs', async () =>
+                validatePartGeometry(parserResult.value, cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(partGeometryErrors);
+        }
+        // Separate pass: an id two files of this mod both register for one game collection, which
+        // the game resolves by keeping one entry and dropping the rest. Needs the game index, like
+        // the sibling cross-file checks, because the registration gate reads the rooting indexes.
+        if (settings.diagnostics?.validateDuplicateIds && gameIndexAvailable()) {
+            const duplicateIdErrors = await timedPass('scan.vDuplicateIdMs', async () =>
+                validateDuplicateModIds(parserResult.value, await searchFolderPaths(), cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(duplicateIdErrors);
+        }
         if (isModRules(textDocument.uri)) {
             // Separate pass: validate the manifest's action verbs/targets against the
             // effective game tree (the AstType-keyed Validator allows only one pass per type).
@@ -1236,6 +1331,13 @@ async function validateTextDocument(
                 () => []
             );
             validationErrors = validationErrors.concat(manifestVersionErrors);
+            // Separate pass: the manifest own metadata against what `Cosmoteer.Mods.ModInfo`
+            // reads (a missing or malformed `ID`/`Name`, a field name that is a near miss of a
+            // real one, a declared folder or logo that is not on disk).
+            if (settings.diagnostics?.validateModManifest) {
+                const modManifestErrors = await validateModManifest(parserResult.value, cancelToken).catch(() => []);
+                validationErrors = validationErrors.concat(modManifestErrors);
+            }
         } else if (gameIndexAvailable() && isActionFragmentDocument(parserResult.value)) {
             // An included action fragment (launcher.rules, register.rules) holds a literal `Actions`
             // list that a manifest concatenates via `Actions: &<file>/Actions`. Validate its actions
@@ -1285,12 +1387,13 @@ async function validateTextDocument(
     return diagnostics;
 }
 
-// ── Whole-workspace diagnostics (opt-in) ────────────────────────────────────────────────────
-// By default the server only validates the file open in the editor (see `documents.onDidChange-
-// Content`). When `cosmoteerLSPRules.diagnostics.validateWholeWorkspace` is enabled, we also walk
-// every `.rules` file in the open workspace folder(s) and publish diagnostics for them, so problems
-// surface in the Problems panel without opening each file. It is off by default because parsing the
-// whole project keeps every file's AST in memory and costs CPU up front.
+// ── Whole-workspace diagnostics ─────────────────────────────────────────────────────────────
+// On by default. Besides the file open in the editor (see `documents.onDidChangeContent`), the
+// server walks every `.rules` file the configured scope covers in the open workspace folder(s) and
+// publishes diagnostics for them, so problems surface in the Problems panel without opening each
+// file. Results are cached on disk per file, so only the first open of a project pays for the walk.
+// Turn `cosmoteerLSPRules.diagnostics.validateWholeWorkspace` off on a low-memory machine: the pass
+// holds every scanned file's AST while it runs.
 
 /** How many workspace files to validate concurrently, bounded so a big mod can't exhaust memory.
  *  Each in-flight validation holds an AST plus its cross-file resolution working set, so keep this
@@ -1812,6 +1915,31 @@ const deferCompletionDocumentation = (items: CompletionItem[]): void => {
     }
 };
 
+/** The label of a completion, whichever of the two forms it takes. */
+const labelOf = (completion: Completion): string => (typeof completion === 'string' ? completion : completion.label);
+
+/**
+ * Narrows an over-cap list to the completions the typed prefix can still match. The prefix keeps its
+ * `/` and `.`, because a localization key is one slash-joined value and a cross-file id one dotted
+ * value, and narrowing those on just the last segment leaves the list over-cap. A reference instead
+ * completes one path segment at a time and its labels are leaf segments (`a.rules>`, `parts/`), which
+ * a slash-joined prefix can never occur in, so the whole-prefix filter would narrow such a list to
+ * nothing and serve an empty response. Retry on the segment being typed there.
+ *
+ * @param completions the over-cap completions.
+ * @param wordPrefix the value text immediately left of the cursor.
+ * @returns the completions the prefix still matches.
+ */
+const narrowedToPrefix = (completions: Completion[], wordPrefix: string): Completion[] => {
+    if (!wordPrefix) return completions;
+    const matching = (prefix: string): Completion[] =>
+        completions.filter((completion) => labelOf(completion).toLowerCase().includes(prefix));
+    const matched = matching(wordPrefix.toLowerCase());
+    if (matched.length > 0 || !wordPrefix.includes('/')) return matched;
+    const segment = wordPrefix.slice(wordPrefix.lastIndexOf('/') + 1).toLowerCase();
+    return segment ? matching(segment) : completions;
+};
+
 /**
  * Packs raw completions into the LSP response list. Lists over {@link COMPLETION_ITEM_CAP} are
  * narrowed to the word prefix at the cursor and truncated, and flagged `isIncomplete` so the
@@ -1828,13 +1956,7 @@ const finishCompletionList = (completions: Completion[], wordPrefix: string): Co
     // client re-request on the next keystroke, so a transient empty heals itself.
     let isIncomplete = completions.length === 0;
     if (completions.length > COMPLETION_ITEM_CAP) {
-        const prefix = wordPrefix.toLowerCase();
-        const filtered = prefix
-            ? completions.filter((completion) =>
-                  (typeof completion === 'string' ? completion : completion.label).toLowerCase().includes(prefix)
-              )
-            : completions;
-        completions = filtered.slice(0, COMPLETION_ITEM_CAP);
+        completions = narrowedToPrefix(completions, wordPrefix).slice(0, COMPLETION_ITEM_CAP);
         // The served set depends on the typed prefix, so the client must re-request as it changes.
         isIncomplete = true;
     }
@@ -1871,6 +1993,21 @@ connection.onCompletion(
             ).catch(() => '');
             return shaderCompletions(text, offset, includeText);
         }
+        // The line left of the cursor drives both the whole-value replace range and the over-cap
+        // narrowing, so it is read once here instead of per branch. Reading it before the awaits also
+        // pairs it with the position and AST snapshot the completions are computed from.
+        const openDocument = documents.get(textDocumentPosition.textDocument.uri);
+        const linePrefix = openDocument
+            ? openDocument.getText({
+                  start: { line: textDocumentPosition.position.line, character: 0 },
+                  end: textDocumentPosition.position,
+              })
+            : '';
+        const wordPrefix = valueRunAtCursor(linePrefix);
+        // The range a completion replaces when its label is the whole value: a localization key, a
+        // cross-file id, a component id. Never handed to the reference completer, whose labels are
+        // single path segments.
+        const valueRange = wholeValueRange(textDocumentPosition.position, wordPrefix);
         const parserResult = ensureParserResult(textDocumentPosition.textDocument.uri);
         let completions: Completion[] = [];
         try {
@@ -1885,10 +2022,6 @@ connection.onCompletion(
                 const document = documents.get(textDocumentPosition.textDocument.uri);
                 if (!document) return [];
                 const offset = document.offsetAt(textDocumentPosition.position);
-                const linePrefix = document.getText({
-                    start: { line: textDocumentPosition.position.line, character: 0 },
-                    end: textDocumentPosition.position,
-                });
                 // Inside an unclosed function call (`Damage = ceil(sq`) the AST has no leaf and
                 // the line is no `Key = ` value position either, so check the call context first
                 // and offer the math-function names there instead of field names.
@@ -1903,23 +2036,31 @@ connection.onCompletion(
                 }
                 if (valueCompletions.length > 0) return valueCompletions;
                 // A value position with no sync values: maybe a cross-file `ID<X>` field. Offer the
-                // project's ids of the target class (e.g. `ResourceType = ` → resource ids).
-                const target = crossFileReferenceTargetAtOffset(parserResult, offset, linePrefix);
+                // project's ids of the target class (e.g. `ResourceType = ` → resource ids). An
+                // `ID = ` slot is the other way round: it declares an id, so the project's ids are
+                // the set that is already taken and must not be offered.
+                const target = isIdDeclarationPositionAt(parserResult, offset, linePrefix)
+                    ? undefined
+                    : crossFileReferenceTargetAtOffset(parserResult, offset, linePrefix);
                 if (target) {
-                    return (
+                    return withReplaceRange(
                         (await componentIdCompletionsForTarget(target, parserResult, cancellationToken).catch(
                             () => undefined
                         )) ??
-                        (await SchemaIdIndex.instance
-                            .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
-                            .catch(() => []))
+                            (await SchemaIdIndex.instance
+                                .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
+                                .catch(() => [])),
+                        valueRange
                     );
                 }
                 if (isLocalizationKeyFieldAtOffset(parserResult, offset, linePrefix)) {
                     // A `KeyString` field (`NameKey = `) → the project's strings keys.
-                    return LocalizationKeyIndex.instance
-                        .allKeyCompletions(await searchFolderUris(), cancellationToken)
-                        .catch(() => []);
+                    return withReplaceRange(
+                        await LocalizationKeyIndex.instance
+                            .allKeyCompletions(await searchFolderUris(), cancellationToken)
+                            .catch(() => []),
+                        valueRange
+                    );
                 }
                 return [];
             };
@@ -1938,25 +2079,35 @@ connection.onCompletion(
                 if (completions.length === 0) {
                     const ref = schemaReferenceFieldOf(node);
                     if (ref) {
-                        completions =
-                            (await componentIdCompletionsForTarget(ref.targetClass, parserResult, cancellationToken).catch(
-                                () => undefined
-                            )) ?? [];
+                        completions = withReplaceRange(
+                            (await componentIdCompletionsForTarget(
+                                ref.targetClass,
+                                parserResult,
+                                cancellationToken
+                            ).catch(() => undefined)) ?? [],
+                            valueRange
+                        );
                     }
                 }
                 // Cross-file `ID<X>` value completion (e.g. `ResourceType = ` → project resource ids).
                 // Only when nothing else matched, and gated internally to reference fields.
                 if (completions.length === 0) {
-                    completions = await SchemaIdIndex.instance
-                        .idCompletions(node, await searchFolderUris(), cancellationToken)
-                        .catch(() => []);
+                    completions = withReplaceRange(
+                        await SchemaIdIndex.instance
+                            .idCompletions(node, await searchFolderUris(), cancellationToken)
+                            .catch(() => []),
+                        valueRange
+                    );
                 }
                 // Localization-key value completion (a `KeyString` field, e.g. `NameKey = "…"`) → every
                 // key declared in the project's strings files. Gated internally to `KeyString` fields.
                 if (completions.length === 0) {
-                    completions = await LocalizationKeyIndex.instance
-                        .keyCompletionsForNode(node, await searchFolderUris(), cancellationToken)
-                        .catch(() => []);
+                    completions = withReplaceRange(
+                        await LocalizationKeyIndex.instance
+                            .keyCompletionsForNode(node, await searchFolderUris(), cancellationToken)
+                            .catch(() => []),
+                        valueRange
+                    );
                 }
                 // A partially typed field name on its own line (`Ig`) parses as a bare Identifier
                 // member, which no node completer serves, so typing a field name went dark the
@@ -1994,10 +2145,6 @@ connection.onCompletion(
                 const document = documents.get(textDocumentPosition.textDocument.uri);
                 if (document) {
                     const offset = document.offsetAt(textDocumentPosition.position);
-                    const linePrefix = document.getText({
-                        start: { line: textDocumentPosition.position.line, character: 0 },
-                        end: textDocumentPosition.position,
-                    });
                     // An inheritance-target header position (`Child : <cursor>`, or a lone `^` after
                     // it): the parser produces no reference value node there, so offer the sibling
                     // names, `^/N/` caret paths and reference-path prefixes directly. In a Components
@@ -2018,14 +2165,18 @@ connection.onCompletion(
                             (enclosingGroup ? mapKeyTargetOf(enclosingGroup) : undefined) ??
                             (enclosingList ? listElementReferenceTarget(enclosingList, offset) : undefined) ??
                             crossFileReferenceTargetAtOffset(parserResult, offset, linePrefix);
-                        if (target) {
-                            completions =
+                        // An empty `OtherIDs [ … ]` resolves the cursor to the list rather than a
+                        // value node, so the declaration check runs here too.
+                        if (target && !isIdDeclarationPositionAt(parserResult, offset, linePrefix)) {
+                            completions = withReplaceRange(
                                 (await componentIdCompletionsForTarget(target, parserResult, cancellationToken).catch(
                                     () => undefined
                                 )) ??
-                                (await SchemaIdIndex.instance
-                                    .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
-                                    .catch(() => []));
+                                    (await SchemaIdIndex.instance
+                                        .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
+                                        .catch(() => [])),
+                                valueRange
+                            );
                         }
                     }
                     }
@@ -2034,16 +2185,6 @@ connection.onCompletion(
         } catch (e) {
             if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
         }
-        const document = documents.get(textDocumentPosition.textDocument.uri);
-        const linePrefix = document
-            ? document.getText({
-                  start: { line: textDocumentPosition.position.line, character: 0 },
-                  end: textDocumentPosition.position,
-              })
-            : '';
-        // `/` stays in the prefix: localization keys and reference paths are slash-segmented, and
-        // narrowing an over-cap list on just the last segment leaves it over-cap.
-        const wordPrefix = /[A-Za-z0-9_./-]*$/.exec(linePrefix)?.[0] ?? '';
         return finishCompletionList(completions, wordPrefix);
     }
 );
@@ -2141,6 +2282,87 @@ connection.onDocumentSymbol((params, cancellationToken) => {
     }
 });
 
+// Folding: one region per `{ … }` / `[ … ]` body, plus the comment runs. Structural, no resolution.
+connection.onFoldingRanges((params, cancellationToken) => {
+    // `.shader` files are HLSL, with no rules AST to fold. Answering `null` rather than an empty
+    // list leaves the editor's own indentation folding in place instead of replacing it with nothing.
+    if (isShaderDocument(params.textDocument.uri)) return null;
+    const document = documents.get(params.textDocument.uri);
+    const parserResult = ensureParserResult(params.textDocument.uri);
+    if (!document || !parserResult) return null;
+    try {
+        if (cancellationToken.isCancellationRequested) return null;
+        const { tokens, blockComments } = ensureLexResult(document);
+        return computeFoldingRanges(document, parserResult, tokens, blockComments);
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        return null;
+    }
+});
+
+// Expand selection: the AST chain from the innermost node covering each caret out to the whole file.
+connection.onSelectionRanges((params, cancellationToken) => {
+    if (isShaderDocument(params.textDocument.uri)) return null;
+    const document = documents.get(params.textDocument.uri);
+    const parserResult = ensureParserResult(params.textDocument.uri);
+    if (!document || !parserResult) return null;
+    try {
+        if (cancellationToken.isCancellationRequested) return null;
+        return computeSelectionRanges(document, parserResult, params.positions);
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        return null;
+    }
+});
+
+// Type hierarchy: the inheritance graph of a `Foo : Bar` container. Up are the bases it writes plus
+// what a mod's `AddBase` appends, down is every container in the project naming it as a base. Only
+// the direct level per request, which is what keeps a chain like `Part` (177 vanilla files name it)
+// out of a single answer.
+connection.languages.typeHierarchy.onPrepare(async (params, cancellationToken) => {
+    // `.shader` files are HLSL and carry no Object Text container to build a hierarchy from.
+    if (isShaderDocument(params.textDocument.uri)) return null;
+    const parserResult = ensureParserResult(params.textDocument.uri);
+    if (!parserResult) return null;
+    try {
+        if (cancellationToken.isCancellationRequested) return null;
+        return prepareTypeHierarchy(parserResult, params.position, await searchFolderPaths());
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        return null;
+    }
+});
+
+connection.languages.typeHierarchy.onSupertypes(async (params, cancellationToken) => {
+    try {
+        // Builds the indexes the resolution reads: the alias roots a `<…>` base resolves through and
+        // the AddBase index holding the bases a mod appends.
+        await ensureFragmentRooting(cancellationToken);
+        return await supertypesOf(params.item, await searchFolderPaths(), cancellationToken);
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        return null;
+    }
+});
+
+connection.languages.typeHierarchy.onSubtypes(async (params, cancellationToken) => {
+    try {
+        await ensureFragmentRooting(cancellationToken);
+        const items = await subtypesOf(
+            params.item,
+            await searchFolderPaths(),
+            cancellationToken,
+            await connection.window.createWorkDoneProgress()
+        );
+        // The scan's own budget answers with a partial list when it runs long, which is the point.
+        // A cancellation from the client is not that: the user moved on, so answer nothing.
+        return cancellationToken.isCancellationRequested ? null : items;
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        return null;
+    }
+});
+
 // The cross-file existence validators (ids, localization keys) judge a reference against everything
 // the game can see at load time, most of which is the vanilla install. Until the game `Data` root is
 // initialized, that coverage is missing and an unknown-id verdict could be wrong, so those passes
@@ -2160,6 +2382,11 @@ async function searchFolderUris(): Promise<string[]> {
     const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
     if (dataRoot) uris.push(dataRoot);
     return uris;
+}
+
+/** The same folders as {@link searchFolderUris}, as on-disk paths, for a path shown to the user. */
+async function searchFolderPaths(): Promise<string[]> {
+    return (await searchFolderUris()).map(uriToFsPath);
 }
 
 /**
@@ -2416,6 +2643,9 @@ connection.onDidChangeWatchedFiles(async (params) => {
 // Find-all-references: the reverse of go-to-definition. Resolves the symbol under the
 // cursor, then searches the project (name-pre-filtered) for references resolving to it.
 connection.onReferences(async (params, cancellationToken) => {
+    // `.shader` files are HLSL. Parsing one with the Object Text parser yields a nonsense AST, so
+    // the reference scan would walk it for nothing.
+    if (isShaderDocument(params.textDocument.uri)) return null;
     const parserResult = ensureParserResult(params.textDocument.uri);
     if (!parserResult) return null;
     try {
@@ -2456,6 +2686,8 @@ connection.onWorkspaceSymbol(async (params, cancellationToken) => {
 // Rename: validate the symbol under the cursor, then rewrite its declaration and every
 // reference segment that resolves to it across the project.
 connection.onPrepareRename(async (params) => {
+    // Renaming inside a `.shader` is an HLSL rename, which the Object Text rename service cannot do.
+    if (isShaderDocument(params.textDocument.uri)) return null;
     const parserResult = ensureParserResult(params.textDocument.uri);
     if (!parserResult) return null;
     try {
@@ -2467,6 +2699,8 @@ connection.onPrepareRename(async (params) => {
 });
 
 connection.onRenameRequest(async (params, cancellationToken) => {
+    // Same as prepareRename: a `.shader` carries no Object Text symbol to rewrite.
+    if (isShaderDocument(params.textDocument.uri)) return null;
     const parserResult = ensureParserResult(params.textDocument.uri);
     if (!parserResult) return null;
     try {
@@ -2499,8 +2733,13 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
     const actions: CodeAction[] = [];
     // Extract-to-shared-field refactoring, offered on repeated literal values independent of any
     // diagnostic (skipped when the client asked only for kinds that exclude refactorings).
+    // The refactorings below read an Object Text AST, so they are never offered on a `.shader`, whose
+    // parse is nonsense. The diagnostic-driven fixes further down stay, they read the diagnostic's
+    // own data rather than the tree.
     const wantsRefactor =
-        !params.context.only || params.context.only.some((kind) => CodeActionKind.RefactorExtract.startsWith(kind));
+        !isShaderDocument(params.textDocument.uri) &&
+        (!params.context.only ||
+            params.context.only.some((kind) => CodeActionKind.RefactorExtract.startsWith(kind)));
     if (wantsRefactor) {
         const parserResult = ensureParserResult(params.textDocument.uri);
         const text = documents.get(params.textDocument.uri)?.getText();
@@ -2508,6 +2747,17 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
         if (parserResult && text !== undefined) {
             const extract = extractValueCodeAction(parserResult, text, params.range.start, params.textDocument.uri);
             if (extract) actions.push(extract);
+            // Display text written where a localization key belongs: offer to move it into the mod's
+            // language files. Not tied to a diagnostic, the literal itself is not an error.
+            const extractKey = await extractLocalizationKeyCodeAction(
+                parserResult,
+                text,
+                params.range.start,
+                params.textDocument.uri,
+                await searchFolderUris(),
+                cancellationToken
+            ).catch(() => undefined);
+            if (extractKey) actions.push(extractKey);
         }
         // The shared-base extraction creates a file and rewrites every file that will inherit it, so
         // it is offered as a command rather than an edit (see extract-shared-base.codeaction.ts).
@@ -2522,6 +2772,17 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
                     await reachableFileFilter(cancellationToken)
                 ).catch(() => []))
             );
+        }
+        // The registration writes into a ship file or into the mod's manifest, neither of which is
+        // the file the cursor is in, so it is offered as a command rather than an edit. Not gated on
+        // any diagnostics setting, unlike the shared-base offer above: it carries no hint of its own.
+        if (parserResult && document) {
+            const register = registerPartInShipCodeAction(
+                parserResult,
+                document.offsetAt(params.range.start),
+                params.textDocument.uri
+            );
+            if (register) actions.push(register);
         }
     }
     for (const diagnostic of params.context.diagnostics) {
@@ -2589,6 +2850,41 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
                 });
             }
         }
+        // A group missing a schema-required field: write the field in, at the end of the group and
+        // with the indentation its other members use. The edit is literal text, so each scaffolded
+        // field gets a starting value to replace rather than an empty one, which the game reads as a
+        // parse error the moment it stands in front of the closing brace. Never preferred: the value
+        // is the fix's, not the author's, so it must not be applied without being looked at.
+        if (data?.insertRequiredFields) {
+            const insert = data.insertRequiredFields;
+            const doc = documents.get(params.textDocument.uri);
+            const field = insert.fields.at(insert.fieldIndex);
+            if (doc && field) {
+                const text = doc.getText();
+                const position = doc.positionAt(insert.offset);
+                const range = { start: position, end: position };
+                const one = requiredFieldInsertText(text, insert, [field]);
+                if (one !== null) {
+                    actions.push({
+                        title: l10n.t("Insert the missing required field '{0}'", field.name),
+                        kind: CodeActionKind.QuickFix,
+                        diagnostics: [diagnostic],
+                        edit: { changes: { [params.textDocument.uri]: [{ range, newText: one }] } },
+                    });
+                }
+                // One fix for the whole group, so a component short several fields is scaffolded in
+                // one go rather than one lightbulb at a time.
+                const all = insert.fields.length > 1 ? requiredFieldInsertText(text, insert, insert.fields) : null;
+                if (all !== null) {
+                    actions.push({
+                        title: l10n.t('Insert the {0} missing required fields', insert.fields.length),
+                        kind: CodeActionKind.QuickFix,
+                        diagnostics: [diagnostic],
+                        edit: { changes: { [params.textDocument.uri]: [{ range, newText: all }] } },
+                    });
+                }
+            }
+        }
     }
     return actions;
 });
@@ -2635,7 +2931,9 @@ connection.onExecuteCommand(async (params) => {
         return;
     }
     if (params.command === MIGRATE_WORKSPACE_COMMAND) {
-        return await migrateWorkspace((params.arguments?.[0] ?? {}) as { removeDeadFields?: boolean }).catch((e) => {
+        return await migrateWorkspace(
+            (params.arguments?.[0] ?? {}) as { removeDeadFields?: boolean; dryRun?: boolean }
+        ).catch((e) => {
             if (globalSettings.trace.server === 'messages') console.error(e);
             return null;
         });
@@ -2645,6 +2943,34 @@ connection.onExecuteCommand(async (params) => {
             if (globalSettings.trace.server === 'messages') console.error(e);
             return null;
         });
+    }
+    if (params.command === EXTRACT_LOCALIZATION_KEY_COMMAND) {
+        const args = (params.arguments?.[0] ?? {}) as ExtractLocalizationKeyArgs;
+        const source = documents.get(args.uri);
+        if (!source) return { key: args.key, changedFiles: [], failure: 'stale' } as ExtractLocalizationKeyResult;
+        const plan = await buildExtractLocalizationKeyEdit(
+            args,
+            source,
+            CancellationToken.None,
+            openBufferReadOverride()
+        ).catch((e) => {
+            if (globalSettings.trace.server === 'messages') console.error(e);
+            return null;
+        });
+        if (!plan) return null;
+        if (!plan.edit) return { key: plan.key, changedFiles: [], failure: plan.failure };
+        const applied = (await connection.workspace.applyEdit({ changes: plan.edit.changes })).applied;
+        if (!applied) return { key: plan.key, changedFiles: [], failure: 'editRejected' };
+        // The strings files now declare a key nothing has indexed yet. The watcher reports them once
+        // the client writes them out, this only keeps the window before that from validating the
+        // freshly pointed-at key as missing.
+        for (const path of plan.changedFiles) {
+            invalidateFsPath(path);
+            LocalizationKeyIndex.instance.markDirty(filePathToUri(path));
+        }
+        diagnosticsCache.clear();
+        bumpWorkspaceScanEpoch();
+        return { key: plan.key, changedFiles: plan.changedFiles } as ExtractLocalizationKeyResult;
     }
     if (params.command === EXTRACT_SHARED_BASE_COMMAND) {
         const args = (params.arguments?.[0] ?? {}) as ExtractSharedBaseArgs;
@@ -2664,6 +2990,45 @@ connection.onExecuteCommand(async (params) => {
             endFsTrustWindow();
             progress?.done();
         }
+    }
+    if (params.command === REGISTER_PART_IN_SHIP_COMMAND) {
+        const args = (params.arguments?.[0] ?? {}) as RegisterPartArgs;
+        // The ship walk resolves references, which needs the fragment-rooting indexes built. The code
+        // action that offered this never waits for them, so this is where they are ensured.
+        await ensureFragmentRooting(CancellationToken.None);
+        // Trust the fs caches for the pass, like the shared-base extraction does: the ship and
+        // manifest reads hit the same directories repeatedly, and nothing is written until the end.
+        beginFsTrustWindow();
+        try {
+            return await registerPartInShip(args, registerPartHost(), CancellationToken.None).catch((e) => {
+                if (globalSettings.trace.server === 'messages') console.error(e);
+                return null;
+            });
+        } finally {
+            endFsTrustWindow();
+        }
+    }
+    if (params.command === INSERT_SCHEMA_FIELD_COMMAND) {
+        const args = (params.arguments?.[0] ?? {}) as InsertSchemaFieldArgs;
+        const document = documents.get(args.uri);
+        const parserResult = ensureParserResult(args.uri);
+        if (!document || !parserResult) return { inserted: false, failure: 'stale' } as InsertSchemaFieldResult;
+        // The caret's class is resolved through inheritance, which needs a rooted fragment index.
+        await ensureFragmentRooting(CancellationToken.None);
+        const plan = await buildInsertSchemaFieldEdit(args, document, parserResult, CancellationToken.None).catch(
+            (e) => {
+                if (globalSettings.trace.server === 'messages') console.error(e);
+                return null;
+            }
+        );
+        if (!plan) return null;
+        if ('failure' in plan) return { inserted: false, failure: plan.failure } as InsertSchemaFieldResult;
+        const applied = (await connection.workspace.applyEdit({ changes: { [args.uri]: [plan.edit] } })).applied;
+        return {
+            inserted: applied,
+            field: plan.field,
+            failure: applied ? undefined : 'editRejected',
+        } as InsertSchemaFieldResult;
     }
 });
 
@@ -2728,6 +3093,30 @@ function sharedBaseHost(
             inlayHintCache.clear();
             bumpWorkspaceScanEpoch();
             clearSharedBaseScanCache();
+        },
+    };
+}
+
+/**
+ * The server facilities the part registration runs against. Everything but the game registry is the
+ * shared-base host's own, so the index refresh a written file needs stays defined in one place.
+ *
+ * @returns the host for {@link registerPartInShip}.
+ */
+function registerPartHost(): RegisterPartHost {
+    const shared = sharedBaseHost(undefined, undefined);
+    return {
+        folderPaths: shared.folderPaths,
+        openDocuments: shared.openDocuments,
+        applyEdit: shared.applyEdit,
+        gameRoot: () => CosmoteerWorkspaceService.instance.getCosmoteerRules(),
+        dataRoot: () => CosmoteerWorkspaceService.instance.dataRootPath,
+        filesChanged: (paths) => {
+            shared.filesChanged(paths);
+            // A written manifest changes the mod's reachability closure and its ModContext, which is
+            // memoized per mod root and otherwise only dropped when a manifest is created or deleted,
+            // so the freshly registered part would keep being reported as unreachable.
+            if (paths.some((path) => isManifestBasename(basenameOf(path)))) invalidateModContext();
         },
     };
 }
@@ -2898,16 +3287,22 @@ async function rebuildModSchema(): Promise<ModSchemaSummary | null> {
  * report-side by the game version that made each change.
  *
  * @param options `removeDeadFields` also strips every ignored/dead-field finding (fields the game
- * never reads) on top of the migrations. Off unless the user opted in.
+ * never reads) on top of the migrations. Off unless the user opted in. `dryRun` works the whole
+ * migration out and answers with it as a diff, without changing anything.
  * @returns the summary for the invoking client to display, or null without workspace folders.
  */
-async function migrateWorkspace(options: { removeDeadFields?: boolean }): Promise<MigrationSummary | null> {
+async function migrateWorkspace(options: {
+    removeDeadFields?: boolean;
+    dryRun?: boolean;
+}): Promise<MigrationSummary | null> {
     const folders = await getWorkspaceFoldersCached();
     const folderUris = (folders ?? []).map((folder) => folder.uri);
     if (folderUris.length === 0) return null;
     const token = CancellationToken.None;
+    const folderPaths = folderUris.map(uriToFsPath);
+    const preview = options.dryRun === true ? createMigrationPreview() : undefined;
     const progress = await connection.window.createWorkDoneProgress();
-    progress.begin('Migrating workspace', 0, '', false);
+    progress.begin(preview ? 'Previewing migration' : 'Migrating workspace', 0, '', false);
     // Trust the fs caches for the duration of the pass, like the diagnostic scan does: the walk
     // re-checks the same directories and base files constantly, and nothing edits files mid-pass
     // (the WorkspaceEdit applies only at the end).
@@ -2972,10 +3367,27 @@ async function migrateWorkspace(options: { removeDeadFields?: boolean }): Promis
                 summary.fixes += count;
             }
             summary.deadFieldsRemoved += fileResult.deadFieldsRemoved;
-            if (fileResult.edits.length > 0) {
+            if (fileResult.edits.length === 0) continue;
+            summary.files++;
+            if (!preview) {
                 changes[doc.uri] = fileResult.edits;
-                summary.files++;
+                continue;
             }
+            // A dry run answers with the text the edits produce rather than with the edits, so the
+            // client can put it side by side against what is on disk. An edit set that does not
+            // apply cleanly is counted as not shown instead of being rendered wrong.
+            let after: string;
+            try {
+                after = TextDocument.applyEdits(doc, fileResult.edits);
+            } catch {
+                preview.omit();
+                continue;
+            }
+            preview.add(file, workspaceRelativePath(file, folderPaths), doc.getText(), after);
+        }
+        if (preview) {
+            summary.preview = preview.result();
+            return summary;
         }
         if (summary.files > 0) {
             await connection.workspace.applyEdit({ changes });
@@ -3074,6 +3486,70 @@ connection.onRequest('cosmoteer/modOverview', async (params: { textDocument: { u
     }
 });
 
+// Part wiring: render the "what does this part still need" markdown report for the part at a
+// position, the four rows of registration on a ship, build palette placement, game mode offerings
+// and language files. On demand only, it must never join validation or the workspace scan.
+connection.onRequest('cosmoteer/partWiring', async (params: TextDocumentPositionParams, cancellationToken) => {
+    const parserResult = ensureParserResult(params.textDocument.uri);
+    const document = documents.get(params.textDocument.uri);
+    if (!parserResult || !document) return null;
+    try {
+        // Every row resolves references, schema classes or action-rooted fragments, so the rooting
+        // indexes have to be current before any probe runs.
+        await ensureFragmentRooting(cancellationToken);
+        return (
+            (await generatePartWiringReport(
+                parserResult,
+                document.offsetAt(params.position),
+                await searchFolderUris(),
+                cancellationToken
+            )) ?? null
+        );
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        return null;
+    }
+});
+
+// Schema search: rank every schema type, field, enum member and Type= registry, plus the field
+// documentation, against a query. Pure in-memory work over the schema, so it never waits on the
+// workspace. Only the optional caret (sent once, when the picker opens) needs the fragment index,
+// which is why the position does not ride along on every keystroke.
+connection.onRequest('cosmoteer/schemaSearch', async (params: SchemaSearchParams, cancellationToken) => {
+    try {
+        let contextClass: string | undefined;
+        const target = params.textDocument;
+        if (target && params.position) {
+            const parserResult = ensureParserResult(target.uri);
+            const document = documents.get(target.uri);
+            if (parserResult && document) {
+                await ensureFragmentRooting(cancellationToken);
+                contextClass = await resolveSchemaSearchContext(
+                    parserResult,
+                    document.offsetAt(params.position),
+                    cancellationToken
+                );
+            }
+        }
+        return searchSchema(params, contextClass);
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        return null;
+    }
+});
+
+// The documentation page of one search hit, fetched only for the hit the user opened: shipping it
+// with every result would cost hundreds of kilobytes per keystroke, which is the same split
+// completion already makes between its list and its resolve.
+connection.onRequest('cosmoteer/schemaSearchDetail', (params: { id: string }) => {
+    try {
+        return schemaSearchDetail(params.id) ?? null;
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages') console.error(e);
+        return null;
+    }
+});
+
 // Performance introspection for the scan bench (server/test/perf/scan-bench.mjs): the hot-path
 // counters, the peak heap sampled during workspace scans, and the current memory usage. The
 // optional reset lets the bench isolate a warm pass from the cold one that preceded it.
@@ -3085,6 +3561,8 @@ connection.onRequest('cosmoteer/perfStats', (params: { reset?: boolean } | null)
 
 // Document colours: render an inline swatch for `{ Rf Gf Bf Af }` / `{ R G B A }` colour groups.
 connection.onDocumentColor((params) => {
+    // Colour swatches come from schema-typed `.rules` colour groups, which a `.shader` has none of.
+    if (isShaderDocument(params.textDocument.uri)) return [];
     const parserResult = ensureParserResult(params.textDocument.uri);
     if (!parserResult) return [];
     try {
@@ -3124,6 +3602,9 @@ const FULL_DOCUMENT_RANGE = {
 
 connection.languages.inlayHint.on(async (params, cancellationToken) => {
     const uri = params.textDocument.uri;
+    // Inlay hints evaluate Object Text expressions. A `.shader` has none, and parsing it as one is
+    // wasted work on a nonsense AST.
+    if (isShaderDocument(uri)) return null;
     const parserResult = ensureParserResult(uri);
     if (!parserResult) return null;
     try {

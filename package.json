@@ -62,6 +62,16 @@
                 "command": "cosmoteer.extractSharedBaseFiles",
                 "title": "Cosmoteer: Extract Shared Base Files",
                 "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.showPartWiring",
+                "title": "Cosmoteer: Show Part Wiring",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.searchSchema",
+                "title": "Cosmoteer: Search Schema and Field Docs",
+                "category": "Cosmoteer"
             }
         ],
         "menus": {
@@ -77,6 +87,10 @@
                 {
                     "command": "cosmoteer.editPartGrid",
                     "when": "editorLangId == rules"
+                },
+                {
+                    "command": "cosmoteer.showPartWiring",
+                    "when": "editorLangId == rules"
                 }
             ],
             "editor/context": [
@@ -89,6 +103,11 @@
                     "command": "cosmoteer.editPartGrid",
                     "when": "editorLangId == rules",
                     "group": "navigation@10"
+                },
+                {
+                    "command": "cosmoteer.showPartWiring",
+                    "when": "editorLangId == rules",
+                    "group": "navigation@11"
                 }
             ]
         },
@@ -197,7 +216,7 @@
                         "type": "string"
                     },
                     "default": [],
-                    "description": "Paths to ignore when validating references. Example: [\"SW_\"]"
+                    "description": "Reference paths to exclude from validation. A reference whose written path contains one of these strings is not checked. Example: [\"SW_\"]"
                 },
                 "cosmoteerLSPRules.diagnostics.validateWholeWorkspace": {
                     "scope": "resource",
@@ -297,6 +316,24 @@
                     "default": true,
                     "description": "Fade a field whose value the group already inherits from its base, so writing it leaves the game exactly where deleting it would. Offers a remove quick fix. Only judged when the whole inheritance chain could be read and neither copy carries a reference that would mean something else from where it is written. Shown as an editor hint, not in the Problems panel."
                 },
+                "cosmoteerLSPRules.diagnostics.validateModManifest": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Check a mod.rules manifest against the metadata the game reads from it: a missing or malformed ID or Name, without which the mod never loads, a field name that is a near miss of a real one, and a declared StringsFolder, Logo or ship-library folder that is not on disk. Field names are matched ignoring case, the way the game binds them. A name the game does not know but that is nothing like a real field is left alone, since mods keep their own keys in the manifest for loaders that ship a .dll."
+                },
+                "cosmoteerLSPRules.diagnostics.validatePartGeometry": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Fade a part-grid value the part own size puts out of the game reach: a door location that is not a cell beside the part, and a blocked-travel cell or per-cell map key outside it, all of which the game never reads. A PhysicalRect that leaves the part is reported as an error instead, because the game throws while reading such a part and does not load the file. Only values written on a part that declares its own ID are judged, and Size is read through the inheritance chain. Shown as an editor hint, except the PhysicalRect error."
+                },
+                "cosmoteerLSPRules.diagnostics.validateDuplicateIds": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Flag an id two files of the same mod both register for one game collection, which the game resolves by keeping a single entry and dropping the rest, so half the content silently never appears. Only a declaration the mod actually wires in through a manifest action or a game-root alias counts, so an inheritance template carrying a leftover ID is left alone, as is a mod that ships alternative manifests. Built-in ships and techs are out of scope, because a name that could mean either collection cannot decide a collision."
+                },
                 "cosmoteerLSPRules.allowEditingVanillaFiles": {
                     "scope": "resource",
                     "type": "boolean",
@@ -320,6 +357,12 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Show the referenced group's BaseValue as an inline hint. A reference like 'Arc = &~/Part/Components/ArcShield/Arc' whose target group has a BaseValue member renders '/BaseValue = 160d' after the reference."
+                },
+                "cosmoteerLSPRules.hover.showSubstitutions": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "List the references a computed hover value substituted, with the file and line each number was read from. A value like '(&A) / (&B)' shows what &A and &B stood for, and a reference whose target is itself computed nests one level under it."
                 },
                 "cosmoteerLSPRules.associateShaderFiles": {
                     "scope": "window",
@@ -390,7 +433,7 @@
         "docs:scaffold": "node tools/docsgen/docsgen.mjs scaffold",
         "docs:compile": "node tools/docsgen/docsgen.mjs compile",
         "docs:lint": "node tools/docsgen/docsgen.mjs lint",
-        "l10n": "npx @vscode/l10n-dev export --outDir ./l10n .\\server"
+        "l10n": "npx @vscode/l10n-dev export --outDir ./l10n .\\server .\\client"
     },
     "overrides": {
         "diff": "^8.0.4",

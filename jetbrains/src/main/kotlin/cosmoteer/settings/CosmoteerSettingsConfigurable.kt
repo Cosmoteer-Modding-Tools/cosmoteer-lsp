@@ -61,7 +61,7 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                         { state.ignorePaths.joinToString(";") },
                         { state.ignorePaths = it.split(';').map(String::trim).filter(String::isNotEmpty).toMutableList() }
                     )
-                    .comment("Semicolon-separated folders the validators skip.")
+                    .comment("Semicolon-separated fragments. A reference whose written path contains one is not checked.")
             }
         }
         group("Diagnostics") {
@@ -115,6 +115,33 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                         "leaves the game where it is. Carries a remove fix."
                     )
             }
+            row {
+                checkBox("Check the mod.rules manifest")
+                    .bindSelected(state::validateModManifest)
+                    .comment(
+                        "Reports a missing or malformed ID or Name, without which the mod never loads, " +
+                        "a field name that is a near miss of a real one, and a declared strings folder, " +
+                        "logo or ship library folder that is not on disk."
+                    )
+            }
+            row {
+                checkBox("Flag an id two files of the mod both register")
+                    .bindSelected(state::validateDuplicateIds)
+                    .comment(
+                        "The game keeps one entry and drops the rest. Only declarations the mod " +
+                        "really wires in count, so an inheritance template with a leftover ID is " +
+                        "left alone."
+                    )
+            }
+            row {
+                checkBox("Check part grid geometry")
+                    .bindSelected(state::validatePartGeometry)
+                    .comment(
+                        "Fades a door location that is not a cell beside the part, and a blocked cell " +
+                        "or per-cell map key outside it, none of which the game reads. A PhysicalRect " +
+                        "leaving the part is an error, since the game refuses to load such a part."
+                    )
+            }
         }
         group("Code mods") {
             row {
@@ -142,6 +169,14 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                 checkBox("Show the referenced group's BaseValue as an inlay hint")
                     .bindSelected(state::inlayShowBaseValue)
                     .comment("A reference to a group with a BaseValue member renders '/BaseValue = 160d' inline.")
+            }
+            row {
+                checkBox("Show what a computed value's references stood for")
+                    .bindSelected(state::hoverShowSubstitutions)
+                    .comment(
+                        "A hover over a computed value lists each reference it substituted, the number " +
+                        "it stood for, and the file and line that number was read from."
+                    )
             }
             row {
                 checkBox("Allow refactorings to edit vanilla files")

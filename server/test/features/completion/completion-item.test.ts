@@ -38,6 +38,30 @@ describe('toCompletionItem', () => {
         const withoutSnippets = toCompletionItem(suggestion, false);
         expect(withoutSnippets.command).toBeUndefined();
     });
+
+    it('turns a range into a text edit over the typed value', () => {
+        const range = { start: { line: 3, character: 12 }, end: { line: 3, character: 22 } };
+        const item = toCompletionItem({ label: 'Parts/CannonMed', range }, true);
+        expect(item.textEdit).toEqual({ range, newText: 'Parts/CannonMed' });
+        // The edit supersedes insertText, and leaving both would let a client apply the wrong one.
+        expect(item.insertText).toBeUndefined();
+    });
+
+    it('keeps the snippet format when a ranged completion carries one', () => {
+        const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } };
+        const item = toCompletionItem({ label: 'X', insertText: 'X = $1', isSnippet: true, range }, true);
+        expect(item.insertTextFormat).toBe(InsertTextFormat.Snippet);
+        expect(item.textEdit).toEqual({ range, newText: 'X = $1' });
+    });
+
+    it('maps filterText and preselect, and sets neither without them', () => {
+        const item = toCompletionItem({ label: 'A', filterText: 'a-alt', preselect: true }, true);
+        expect(item.filterText).toBe('a-alt');
+        expect(item.preselect).toBe(true);
+        const plain = toCompletionItem({ label: 'A' }, true);
+        expect(plain.filterText).toBeUndefined();
+        expect(plain.preselect).toBeUndefined();
+    });
 });
 
 describe('snippetToPlainText', () => {

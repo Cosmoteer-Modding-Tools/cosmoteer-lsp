@@ -1,0 +1,6 @@
+// A vanilla part the Terran ship does not list, so the vanilla-editing route has something to add.
+Part
+{
+	ID = cosmoteer.reactor
+	Size = [2, 2]
+}

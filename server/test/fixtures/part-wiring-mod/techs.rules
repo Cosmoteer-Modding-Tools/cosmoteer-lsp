@@ -1,0 +1,24 @@
+// Career techs the manifest adds to the game's tech list. The first names the part by its primary
+// id, the second by its `OtherIDs` alias, and the third by pointing at the part file the way
+// vanilla's own tech tree does, so the wiring report's mode row is exercised on all three.
+Techs
+[
+	{
+		ID = test.tech_wired
+		NameKey = "Parts/WiredName"
+		Cost = 1000
+		PartsUnlocked = [test.wired]
+	}
+	{
+		ID = test.tech_alias
+		NameKey = "Parts/WiredName"
+		Cost = 2000
+		PartsUnlocked = [test.wired_alias]
+	}
+	{
+		ID = test.tech_fileref
+		NameKey = "Parts/WiredName"
+		Cost = 3000
+		PartsUnlocked = [&<wired_part.rules>/Part/ID]
+	}
+]

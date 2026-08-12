@@ -1,0 +1,6 @@
+AbsShip
+{
+	ID = test.absship
+
+	Parts [ ]
+}

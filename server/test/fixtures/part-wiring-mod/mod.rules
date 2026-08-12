@@ -1,0 +1,24 @@
+ID = Test.PartWiringMod
+Name = "Part wiring fixture"
+Version = 1.0
+StringsFolder = "strings"
+
+// Registers one part file into a real ship Parts list and adds one career tech, so the wiring
+// report has ground truth for both the registration row and the mode row. orphan_part.rules and
+// parented_part.rules are deliberately wired in by nothing.
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<ships/partship.rules>/PartShip/Parts"
+		ManyToAdd
+		[
+			&<wired_part.rules>/Part
+		]
+	}
+	{
+		Action = AddMany
+		AddTo = "<modes/career/career.rules>/Techs"
+		ManyToAdd = &<techs.rules>/Techs
+	}
+]

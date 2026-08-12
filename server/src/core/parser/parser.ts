@@ -31,13 +31,6 @@ const MX_ASSEMBLED_OPERATOR_SET: ReadonlySet<string> = new Set(MX_ASSEMBLED_OPER
 const MX_ASSEMBLED_OPERATOR_PREFIXES: ReadonlySet<string> = new Set(
     MX_ASSEMBLED_OPERATORS.flatMap((op) => Array.from({ length: op.length }, (_, i) => op.slice(0, i + 1)))
 );
-/**
- * TODO add Parser per Group to beatufy the code below lol
- */
-abstract class Parser {
-    abstract parse(): void;
-}
-
 /** The source spelling of punctuation tokens, for error messages. */
 const TOKEN_DISPLAY: Partial<Record<TOKEN_TYPES, string>> = {
     [TOKEN_TYPES.LEFT_BRACE]: '{',
@@ -166,6 +159,27 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             ],
         } as ParserError);
     };
+    /**
+     * Whether the token an inheritance list is about to collect opens a new member instead of naming
+     * another base.
+     *
+     * Only a `{` or a `[` ends an inheritance list in the game. A newline is insignificant filler
+     * inside it (`Ships :` in builtin_ships/builtins.rules names eight bases, one per line, with no
+     * commas), while `}`, `]`, `=` and everything else are absorbed into the reference text until
+     * `Validator.ValidatePath` throws and the whole file is dropped. An inheritance whose body never
+     * comes is therefore a file the game refuses to load, and the only question left is how much of it
+     * stays readable here. A member head is the one shape that can be recognised without guessing: the
+     * game reaches it only on input it has already refused, so stopping there costs no conformance,
+     * and it is what keeps an unfinished head, the shape every group has while it is being typed, from
+     * swallowing the rest of the file.
+     *
+     * @param at the index of the token in question.
+     * @returns true when the token opens a new member.
+     */
+    const startsNewMember = (at: number): boolean =>
+        tokens[at]?.type === TOKEN_TYPES.VALUE &&
+        (tokens[at + 1]?.type === TOKEN_TYPES.EQUALS || tokens[at + 1]?.type === TOKEN_TYPES.COLON);
+
     const walk = (
         _lastNode?: AbstractNode,
         parent?: GroupNode | ListNode | AbstractNodeDocument
@@ -206,8 +220,15 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
 
             let lastNode: AbstractNode = node;
             while (tokens[current]?.type !== TOKEN_TYPES.RIGHT_BRACE) {
+                const before = current;
                 const nextNode = walk(lastNode, node);
                 if (!nextNode) {
+                    // A member that read its tokens and still built nothing, an inheritance whose body
+                    // never came being the one that happens while typing. The group has to keep
+                    // reading, or one unfinished member costs every member after it. Guarded on the
+                    // cursor having moved, so a walk that declines without consuming still ends the
+                    // body instead of spinning.
+                    if (current > before && tokens[current]) continue;
                     break;
                 }
                 lastNode = nextNode;
@@ -1083,7 +1104,8 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 (tokens[current].type === TOKEN_TYPES.VALUE ||
                     (tokens[current].type === TOKEN_TYPES.EXPRESSION &&
                         tokens[current + 1]?.type === TOKEN_TYPES.VALUE) ||
-                    (tokens[current].type === TOKEN_TYPES.EXPRESSION && tokens[current].value === '/'))
+                    (tokens[current].type === TOKEN_TYPES.EXPRESSION && tokens[current].value === '/')) &&
+                !startsNewMember(current)
             ) {
                 const nextNode = walk(lastNode ?? undefined, parent);
                 lastNode = nextNode;
@@ -1132,12 +1154,14 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                             ),
                             token: tokens[current - 1],
                         } as ParserError);
+                        break;
                     }
                 } else {
                     errors.push({
                         message: l10n.t('Expected reference value after reference value but found {0}', nextNode.type),
                         token: tokens[current - 1],
                     } as ParserError);
+                    break;
                 }
                 if (tokens[current] === undefined) {
                     break;

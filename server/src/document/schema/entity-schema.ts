@@ -30,7 +30,7 @@ import {
     isValueNode,
     ValueNode,
 } from '../../core/ast/ast';
-import { fieldOf, fieldsOf, schema } from './schema';
+import { classAncestry, fieldOf, fieldsOf, schema } from './schema';
 import { ValueType } from './schema.types';
 import { aliasRootIndex } from './alias-root';
 import { listSlotType } from './schema-context';
@@ -469,6 +469,28 @@ export const isEntityClass = (cls: string): boolean => {
         if (candidates.some((entity) => entity.elementClass === cls)) return true;
     }
     return false;
+};
+
+/**
+ * Whether `fieldName` on `ownerClass` declares that object's own id rather than referencing another
+ * object's. A declaration is the class's identity key (`ID`, or the self-referential `ToggleID` kind
+ * the GUI entities carry) or its `OtherIDs` legacy aliases, and only when the written value names an
+ * instance of the very class the field sits on. `ComponentTriggerReferenceRules.ID` is spelled `ID`
+ * too but names a component, so the class check is what keeps it a reference.
+ *
+ * @param ownerClass the class of the object the field is written on, when resolvable.
+ * @param fieldName the field being assigned.
+ * @param targetClass the class the written value references.
+ * @returns true when the slot declares an id.
+ */
+export const isIdDeclarationField = (
+    ownerClass: string | undefined,
+    fieldName: string | undefined,
+    targetClass: string
+): boolean => {
+    if (!ownerClass || !fieldName || !classAncestry(ownerClass).includes(targetClass)) return false;
+    const lower = fieldName.toLowerCase();
+    return lower === identityKeyOf(ownerClass)?.toLowerCase() || lower === 'otherids';
 };
 
 export const PART_RULES_CLASS = 'Cosmoteer.Ships.Parts.PartRules';

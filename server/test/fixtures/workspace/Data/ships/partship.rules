@@ -1,0 +1,13 @@
+// A ship whose Parts list (list<PartRules>) is the target the duplicate-id fixture mod registers
+// its part files into, so ActionRootingIndex has a real slot to root them through. It carries
+// several ShipRules fields on purpose: a root group under ships/ only anchors as a ship when a
+// majority of its members belong to the class, and a group with fewer than three says too little.
+PartShip
+{
+	ID = test.partship
+	NameKey = "Ships/PartShip"
+	ShipScale = 1
+	Parts
+	[
+	]
+}

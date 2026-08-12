@@ -1,0 +1,9 @@
+// The same shape as wired_part.rules but wired in by nothing: no action names it, no editor group
+// places it, no parent part stacks it, and its NameKey exists in no strings file. Every row's
+// negative case.
+Part
+{
+	ID = test.orphan
+	NameKey = "Parts/OrphanNameThatIsNotDeclared"
+	Size = [1, 1]
+}

@@ -1,4 +1,7 @@
-export const MAX_NUMBER_OF_PROBLEMS = 10;
+// Must match the `cosmoteerLSPRules.maxNumberOfProblems` default in package.json and the JetBrains
+// default in CosmoteerSettings.kt. A client that does not answer `workspace/configuration` falls back
+// to this number, so a lower value here silently truncates the Problems panel with no explanation.
+export const MAX_NUMBER_OF_PROBLEMS = 100;
 
 // The settings contributed by the extension (see package.json `cosmoteerLSPRules.*`).
 export interface CosmoteerSettings {
@@ -94,6 +97,27 @@ export interface CosmoteerSettings {
         // means something different from where it is written. Hint severity keeps it out of the
         // Problems panel.
         validateRedundantOverrides: boolean;
+        // When true (the default), check a `mod.rules` manifest against the metadata the game reads
+        // from it: a missing or malformed `ID`/`Name`, which stops the mod loading at all, a field
+        // name that is a near miss of a real one, and a declared `StringsFolder`, `Logo` or
+        // ship-library folder that is not on disk. Field names are matched ignoring case, the way
+        // the game binds them. A name the game does not know but that is nothing like a real field
+        // is left alone, since mods keep their own keys in the manifest for loaders that ship a
+        // `.dll`.
+        validateModManifest: boolean;
+        // When true (the default), fade a part-grid value the part own size puts out of the game
+        // reach: a door location that is not a cell beside the part, a blocked-travel cell or a
+        // per-cell map key outside it. A PhysicalRect that leaves the part is an error instead,
+        // since the game throws while reading such a part. Only values written on a part that
+        // declares its own ID are judged, and Size is read through the inheritance chain.
+        validatePartGeometry: boolean;
+        // When true (the default), flag an id two files of one mod both register for the same game
+        // collection, which the game resolves by keeping one entry and dropping the rest. Only a
+        // declaration the mod actually wires in through a manifest action or a game-root alias
+        // counts, so an inheritance template carrying a leftover ID is left alone, as is a mod that
+        // ships alternative manifests. Built-in ships and techs are out of scope, since a name that
+        // could mean either collection cannot decide a collision.
+        validateDuplicateIds: boolean;
     };
     codeMods: {
         // When true (the default), a mod that ships a `.dll` has its own serializable types, fields
@@ -116,6 +140,13 @@ export interface CosmoteerSettings {
         // reference effectively supplies at runtime, and it is otherwise invisible without
         // following the reference by hand.
         showBaseValue: boolean;
+    };
+    hover: {
+        // When true (the default), a hover over a computed value lists every reference the
+        // evaluation replaced with a number, the number it stood for, and the file and line that
+        // number was read from. The computed number is otherwise the only thing on screen, so
+        // checking where it came from means following every reference by hand.
+        showSubstitutions: boolean;
     };
     // When true, a refactoring may also read and rewrite files inside the Cosmoteer game `Data`
     // install: renames reach into it, and the shared-base extraction treats it as a project of its
@@ -172,6 +203,9 @@ export const defaultSettings: CosmoteerSettings = {
         validateUnusedConstants: true,
         validateDuplicateFields: true,
         validateRedundantOverrides: true,
+        validateModManifest: true,
+        validatePartGeometry: true,
+        validateDuplicateIds: true,
     },
     codeMods: {
         enabled: true,
@@ -179,6 +213,9 @@ export const defaultSettings: CosmoteerSettings = {
     },
     inlayHints: {
         showBaseValue: true,
+    },
+    hover: {
+        showSubstitutions: true,
     },
     allowEditingVanillaFiles: false,
     decompiler: {

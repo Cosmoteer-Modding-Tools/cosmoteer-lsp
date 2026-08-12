@@ -32,14 +32,20 @@ import { childNamed, enumNameOf, readMapEntries, readRect, readVector, readVecto
  */
 
 /** A localized refusal from an edit builder. */
-interface EditError {
+export interface EditError {
     readonly error: string;
 }
 
 /** An edit outcome: LSP text edits, or a localized refusal. */
-type EditOutcome = TextEdit[] | EditError;
+export type EditOutcome = TextEdit[] | EditError;
 
-const isError = (outcome: EditOutcome): outcome is EditError => 'error' in outcome;
+/**
+ * Whether an edit builder refused instead of producing edits.
+ *
+ * @param outcome the builder's answer.
+ * @returns true when it is a refusal carrying a message.
+ */
+export const isError = (outcome: EditOutcome): outcome is EditError => 'error' in outcome;
 
 /** Converts a byte offset into an LSP position within `text`. */
 const offsetToPosition = (text: string, offset: number): { line: number; character: number } => {
@@ -137,8 +143,17 @@ const localMember = (container: GroupNode, name: string): LocalMember | null => 
 /**
  * Appends one element to an existing list, matching its layout: inline `, X` for a single-line
  * list, a new line replicating the previous element's indentation for a block list.
+ *
+ * Shared with the "register this part in a ship class" refactoring, whose append into a ship's
+ * `Parts [ … ]` is exactly this edit and has to keep the file's own layout the same way.
+ *
+ * @param text the file's source text the edit is measured against.
+ * @param list the container the element is appended to.
+ * @param elementText the element as it should be written.
+ * @returns the single insertion edit, or a refusal when the container's brackets are not where the
+ *          recorded span says, so an edit could land outside them.
  */
-const appendElementEdit = (text: string, list: ListNode | GroupNode, elementText: string): EditOutcome => {
+export const appendElementEdit = (text: string, list: ListNode | GroupNode, elementText: string): EditOutcome => {
     const open = openerOffset(text, list);
     const close = closerOffset(text, list);
     if (open < 0 || close < 0 || close < open) return { error: l10n.t('The list could not be edited safely.') };

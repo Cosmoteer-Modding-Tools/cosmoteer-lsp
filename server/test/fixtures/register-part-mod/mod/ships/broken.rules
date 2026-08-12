@@ -1,0 +1,6 @@
+// The Parts list is never closed, so no append can be placed inside its brackets.
+Broken
+{
+	ID = test.broken
+	Parts
+	[

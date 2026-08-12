@@ -10,9 +10,9 @@ so nothing needs to be installed up front.
 
 ## Features
 
-Everything the server offers arrives through LSP4IJ: diagnostics (including the opt-in
-cross-file/component/required-field/shader/localization validators), completion with snippets,
-hover, go-to-definition, find usages, document/workspace symbols, rename, formatting, quick
+Everything the server offers arrives through LSP4IJ: diagnostics (including the cross-file,
+component, required-field, shader and localization validators, all on by default), completion with
+snippets, hover, go-to-definition, find usages, document/workspace symbols, rename, formatting, quick
 fixes, signature help, inlay hints, color swatches, and document links. Editor highlighting
 comes from the bundled TextMate grammars for `.rules` and `.shader`. LSP semantic tokens can be
 layered on top through a setting (off by default, the asynchronous overlay repaint reads as
@@ -31,6 +31,14 @@ Client-side features are reimplemented natively:
   or Tools | Cosmoteer: Preview Shader. It live-updates while you edit the material or its shader.
 - **Mod overview**: gutter icon on a `mod.rules`/`mod_*.rules` manifest (or the context menu)
   opens the generated markdown report.
+- **Part grid editor**: a tool window that edits a part's grid fields, opened from the gutter icon
+  on a `Part` group or Tools | Cosmoteer: Edit Part Grid.
+- **Migrate mod**: Tools | Cosmoteer: Migrate Mod rewrites a mod for a newer game version.
+- **Extract shared base files**: Tools | Cosmoteer: Extract Shared Base Files factors the repeated
+  fields of a mod into base files, with a side-by-side diff before anything is written. The same
+  refactoring is offered on the duplicate-field hint itself.
+- **Build mod schema**: Tools | Cosmoteer: Build Mod Schema reads a code mod's `.dll` types so its
+  own rules classes validate.
 - **Settings**: Settings | Tools | Cosmoteer Rules mirrors every `cosmoteerLSPRules.*` option.
   Applying pushes the changes to running servers without a restart.
 
