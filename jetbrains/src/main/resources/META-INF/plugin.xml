@@ -143,6 +143,20 @@
                 icon="/icons/rules.png">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
+        <action id="cosmoteer.runInGame"
+                class="cosmoteer.actions.RunInCosmoteerAction"
+                text="Cosmoteer: Run this Mod in Cosmoteer"
+                description="Link the mod into the game's mods folder, enable it, and start the game in developer mode"
+                icon="/icons/rules.png">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="cosmoteer.importGameLog"
+                class="cosmoteer.actions.ImportGameLogAction"
+                text="Cosmoteer: Import Problems from the Game Log"
+                description="Read what the game itself refused to load the last time it ran this mod"
+                icon="/icons/rules.png">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
         <action id="cosmoteer.searchSchema"
                 class="cosmoteer.actions.SearchSchemaAction"
                 text="Cosmoteer: Search Schema and Field Docs"

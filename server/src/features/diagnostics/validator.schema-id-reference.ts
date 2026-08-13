@@ -28,7 +28,16 @@ import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
 import { parseText } from '../../utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { workshopContentDir } from '../../workspace/workshop-dir';
+import { workshopModOf } from '../mod-schema/workshop-link';
+import { findModRoot } from '../../mod/mod-root';
+import {
+    dependencyTokenOf,
+    declaredDependenciesOf,
+    identityOfMod,
+    isDeclaredDependency,
+} from '../../mod/mod-dependencies';
 import { closestMatch } from '../../utils/did-you-mean';
+import { globalSettings } from '../../settings';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 
@@ -174,36 +183,41 @@ const gameTreeVerdicts = new Map<string, boolean>();
  *  the set stays exactly the known stale leftovers (the regression tripwire lives in the test). */
 export const gameTreeExemptions = new Set<string>();
 
-/** Per-session verdicts of the installed-mods consult, so each unknown id costs one scan. */
-const installedModVerdicts = new Map<string, boolean>();
+/**
+ * Per-session verdicts of the installed-mods consult, so each unknown id costs one scan. The value
+ * is the root folder of the mod that vouched for the id, which the undeclared-dependency finding
+ * names, or null when no installed mod declares it.
+ */
+const installedModVerdicts = new Map<string, string | null>();
 const INSTALLED_MOD_VERDICTS_CAP = 512;
 
 /**
- * Whether any installed workshop mod declares the id, the dependency escape hatch of the
- * cross-file id validation. Scans the workshop tree lazily through the mention pre-filter, so only
- * files whose text contains the id are parsed, and memoizes the verdict per class and id.
+ * Which installed workshop mod declares the id, the dependency escape hatch of the cross-file id
+ * validation. Scans the workshop tree lazily through the mention pre-filter, so only files whose
+ * text contains the id are parsed, and memoizes the verdict per class and id.
  *
  * @param targetClass the reference target class the id must be declared for.
  * @param id the unknown id.
  * @param cancellationToken cancels the workshop scan.
- * @returns true when some installed mod declares the id for that class (or a subclass).
+ * @returns the declaring mod's root folder, or null when no installed mod declares it.
  */
 const declaredInInstalledMods = async (
     targetClass: string,
     id: string,
     cancellationToken: CancellationToken
-): Promise<boolean> => {
+): Promise<string | null> => {
     const key = `${targetClass}:${id}`;
     const cached = installedModVerdicts.get(key);
     if (cached !== undefined) return cached;
     const workshop = workshopContentDir();
-    if (!workshop) return false;
+    if (!workshop) return null;
     const workshopPrefix = normalizeUri(pathToFileURL(workshop).href);
-    let declared = false;
+    let declaringRoot: string | null = null;
     for await (const document of documentsMentioning([pathToFileURL(workshop).href], id, cancellationToken)) {
         // Only installed-mod files may vouch (the mention walk also yields the already-registered
         // workspace documents, whose declarations the index and the loose probe already count).
         if (!normalizeUri(document.uri).startsWith(workshopPrefix)) continue;
+        let declared = false;
         for (const declaration of entityDeclarationsOf(document)) {
             if (declaration.id === id && isSameOrSubclass(declaration.elementClass, targetClass)) {
                 declared = true;
@@ -215,11 +229,14 @@ const declaredInInstalledMods = async (
         // loose probe grants the open workspace. Marker classes stay exact: their harvest is
         // complete, so the shape match could only shadow a real finding.
         if (!declared && !MARKER_CLASSES.has(targetClass) && looseDeclarationIn(document, id)) declared = true;
-        if (declared) break;
+        if (declared) {
+            declaringRoot = workshopModOf(uriToFsPath(document.uri))?.root ?? findModRoot(document.uri) ?? null;
+            break;
+        }
     }
     if (installedModVerdicts.size >= INSTALLED_MOD_VERDICTS_CAP) installedModVerdicts.clear();
-    installedModVerdicts.set(key, declared);
-    return declared;
+    installedModVerdicts.set(key, declaringRoot);
+    return declaringRoot;
 };
 
 /** Per-session verdicts of the label-field derivation, one game-tree scan per field and class. */
@@ -516,12 +533,76 @@ export const validateCrossFileIdReferences = async (
 
     const errors: ValidationError[] = [];
     const idsByClass = new Map<string, Set<string>>();
+    const declaringMods = new Map<string, string>();
+    // One entry per mod that rescued an id here, anchored on the first reference it rescued: a file
+    // can carry over a hundred references into the same dependency and one finding says it.
+    const rescuedBy = new Map<string, IdReference>();
     for (const reference of references) {
         if (cancellationToken.isCancellationRequested) return errors;
-        const verdict = await judgeIdReference(reference, folderPaths, idsByClass, cancellationToken);
+        const verdict = await judgeIdReference(reference, folderPaths, idsByClass, cancellationToken, declaringMods);
+        if (verdict === 'dependency-declared') {
+            const root = declaringMods.get(`${reference.targetClass}:${reference.value}`);
+            if (root && !rescuedBy.has(root)) rescuedBy.set(root, reference);
+            continue;
+        }
         if (verdict !== 'unresolved') continue;
 
         errors.push(unresolvedIdError(reference, idsByClass.get(reference.targetClass) ?? new Set<string>()));
+    }
+    errors.push(...(await undeclaredDependencyErrors(document, rescuedBy, cancellationToken)));
+    return errors;
+};
+
+/** Path comparison for mod roots: separators and case fold, since Windows answers both spellings. */
+const samePath = (a: string, b: string): boolean =>
+    a.replace(/\\/g, '/').toLowerCase().replace(/\/$/, '') === b.replace(/\\/g, '/').toLowerCase().replace(/\/$/, '');
+
+/**
+ * The findings for ids this file only resolves because an installed mod declares them, while the
+ * manifest does not say the mod is needed. That resolution happens silently, so the file validates
+ * clean on the author's machine and names nothing for anybody who does not have the other mod.
+ *
+ * Structurally incomplete, and the message says so: an id that the dependency and this mod both
+ * declare resolves in the workspace and never reaches the installed-mod consult at all, so this can
+ * never be a full dependency audit.
+ *
+ * @param document the document being validated.
+ * @param rescuedBy the rescuing mod roots with the first reference each rescued.
+ * @param cancellationToken cancels the manifest reads.
+ * @returns one finding per undeclared mod, empty when the check is off or everything is declared.
+ */
+export const undeclaredDependencyErrors = async (
+    document: AbstractNodeDocument,
+    rescuedBy: ReadonlyMap<string, IdReference>,
+    cancellationToken: CancellationToken
+): Promise<ValidationError[]> => {
+    if (rescuedBy.size === 0) return [];
+    if (globalSettings.diagnostics?.validateUndeclaredDependencies === false) return [];
+    const ownRoot = findModRoot(document.uri);
+    if (!ownRoot) return [];
+    const declared = await declaredDependenciesOf(ownRoot).catch(() => new Set<string>());
+    const errors: ValidationError[] = [];
+    for (const [root, reference] of rescuedBy) {
+        if (cancellationToken.isCancellationRequested) return errors;
+        // A mod edited in place inside the workshop tree vouches for its own ids, which is not a
+        // dependency on anything.
+        if (samePath(root, ownRoot)) continue;
+        const identity = await identityOfMod(root).catch(() => null);
+        if (!identity || isDeclaredDependency(declared, identity)) continue;
+        const token = dependencyTokenOf(identity);
+        const name = identity.name ?? identity.manifestId ?? token ?? root;
+        errors.push({
+            message: l10n.t(
+                "'{0}' is only installed on this machine. This file uses ids that mod declares, and the manifest does not list it under Dependencies, so those ids name nothing for anybody who does not have it.",
+                name
+            ),
+            node: reference.node,
+            severity: 'information',
+            additionalInfo: l10n.t(
+                'Only an id this mod does not declare itself can be traced to another mod this way, so this is not a full list of what the mod needs.'
+            ),
+            ...(token ? { data: { addModDependency: { token, name } } } : {}),
+        });
     }
     return errors;
 };
@@ -602,13 +683,17 @@ export type IdReferenceJudgment =
  * @param folderPaths the project folders the id index is built from.
  * @param idsByClass per-call memo of the declared-id sets, filled on demand.
  * @param cancellationToken cancellation for the index build and consults.
+ * @param declaringMods filled, for a `dependency-declared` verdict, with the root folder of the mod
+ *  that vouched for the id, keyed `class:id`. The verdict itself stays a plain string, since the
+ *  class-coverage audit indexes its counters on the raw union.
  * @returns the judgment for this reference.
  */
 export const judgeIdReference = async (
     reference: IdReference,
     folderPaths: string[],
     idsByClass: Map<string, Set<string>>,
-    cancellationToken: CancellationToken
+    cancellationToken: CancellationToken,
+    declaringMods?: Map<string, string>
 ): Promise<IdReferenceJudgment> => {
     let ids = idsByClass.get(reference.targetClass);
     if (!ids) {
@@ -644,7 +729,9 @@ export const judgeIdReference = async (
     // The id may come from a dependency mod outside the workspace (a part of a base pack, a tag
     // another mod's sysgen declares): consult the installed workshop mods before flagging
     // (lazy, one scan per unique unknown id per session).
-    if (await declaredInInstalledMods(reference.targetClass, reference.value, cancellationToken)) {
+    const declaringRoot = await declaredInInstalledMods(reference.targetClass, reference.value, cancellationToken);
+    if (declaringRoot) {
+        declaringMods?.set(`${reference.targetClass}:${reference.value}`, declaringRoot);
         return 'dependency-declared';
     }
     return 'unresolved';

@@ -45,10 +45,12 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateModManifest: Boolean = true
         var validatePartGeometry: Boolean = true
         var validateDuplicateIds: Boolean = true
+        var validateUndeclaredDependencies: Boolean = true
         var codeModsEnabled: Boolean = true
         var codeModsAutoRefresh: Boolean = true
         var inlayShowBaseValue: Boolean = true
         var hoverShowSubstitutions: Boolean = true
+        var hoverShowModifiers: Boolean = true
         var allowEditingVanillaFiles: Boolean = false
         var formattingEnabled: Boolean = true
         var decompilerShowInHover: Boolean = false
@@ -106,13 +108,17 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateModManifest" to state.validateModManifest,
             "validatePartGeometry" to state.validatePartGeometry,
             "validateDuplicateIds" to state.validateDuplicateIds,
+            "validateUndeclaredDependencies" to state.validateUndeclaredDependencies,
         ),
         "codeMods" to mapOf(
             "enabled" to state.codeModsEnabled,
             "autoRefresh" to state.codeModsAutoRefresh,
         ),
         "inlayHints" to mapOf("showBaseValue" to state.inlayShowBaseValue),
-        "hover" to mapOf("showSubstitutions" to state.hoverShowSubstitutions),
+        "hover" to mapOf(
+            "showSubstitutions" to state.hoverShowSubstitutions,
+            "showModifiers" to state.hoverShowModifiers,
+        ),
         "allowEditingVanillaFiles" to state.allowEditingVanillaFiles,
         "decompiler" to mapOf(
             "showInHover" to state.decompilerShowInHover,

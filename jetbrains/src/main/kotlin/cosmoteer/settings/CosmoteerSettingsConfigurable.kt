@@ -134,6 +134,15 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                     )
             }
             row {
+                checkBox("Report a dependency the manifest does not declare")
+                    .bindSelected(state::validateUndeclaredDependencies)
+                    .comment(
+                        "An id that only resolves because another mod is installed here reads as " +
+                        "correct on this machine and names nothing for anybody else. The fix writes " +
+                        "the mod into the manifest's Dependencies."
+                    )
+            }
+            row {
                 checkBox("Check part grid geometry")
                     .bindSelected(state::validatePartGeometry)
                     .comment(
@@ -176,6 +185,14 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                     .comment(
                         "A hover over a computed value lists each reference it substituted, the number " +
                         "it stood for, and the file and line that number was read from."
+                    )
+            }
+            row {
+                checkBox("Show what a modifiable value's modifiers do to it")
+                    .bindSelected(state::hoverShowModifiers)
+                    .comment(
+                        "A hover over a modifiable value lists each modifier, what drives it, the clamp " +
+                        "it puts on the result, and which part supplies the buff."
                     )
             }
             row {

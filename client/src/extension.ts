@@ -12,6 +12,9 @@ import {
     MarkdownString,
     ConfigurationTarget,
     ProgressLocation,
+    Diagnostic,
+    DiagnosticSeverity,
+    Range,
 } from 'vscode';
 
 import {
@@ -234,6 +237,131 @@ export async function activate(context: ExtensionContext) {
         })
     );
 
+    // What the game itself said the last time it loaded this mod. Its own collection, never the
+    // language server's: these findings are a recording of a past run, so nothing an edit does can
+    // make them true again, and they have to be retractable on their own. Cleared when a file they
+    // name is saved, since that is the moment the recording stops describing it.
+    const gameLogDiagnostics = languages.createDiagnosticCollection('cosmoteer-game-log');
+    context.subscriptions.push(gameLogDiagnostics);
+    context.subscriptions.push(
+        workspace.onDidSaveTextDocument((document) => {
+            if (gameLogDiagnostics.get(document.uri)?.length) gameLogDiagnostics.delete(document.uri);
+        })
+    );
+    context.subscriptions.push(
+        commands.registerCommand('cosmoteer.importGameLog', async () => {
+            const uri = window.activeTextEditor?.document.uri.toString() ?? workspace.workspaceFolders?.[0]?.uri.toString();
+            if (!uri) {
+                window.showInformationMessage(l10n.t('Cosmoteer: open a file of the mod first.'));
+                return;
+            }
+            const result = (await client.sendRequest(ExecuteCommandRequest.type, {
+                command: 'cosmoteer.readGameLog',
+                arguments: [{ uri }],
+            })) as ImportGameLogResult | null;
+            if (!result) {
+                window.showErrorMessage(l10n.t('The game log could not be read.'));
+                return;
+            }
+            gameLogDiagnostics.clear();
+            if (result.kind === 'no-mod') {
+                window.showInformationMessage(l10n.t('This file is not inside a mod: no mod.rules was found above it.'));
+                return;
+            }
+            if (result.kind === 'no-logs') {
+                window.showInformationMessage(l10n.t('Cosmoteer has written no logs yet. Run the game once, then try again.'));
+                return;
+            }
+            if (result.kind === 'nothing-for-this-mod') {
+                window.showInformationMessage(
+                    l10n.t('No game log mentions this mod. The game reports a mod only while it loads it.')
+                );
+                return;
+            }
+            const byUri = new Map<string, Diagnostic[]>();
+            for (const entry of result.diagnostics) {
+                const range = new Range(
+                    entry.diagnostic.range.start.line,
+                    entry.diagnostic.range.start.character,
+                    entry.diagnostic.range.end.line,
+                    entry.diagnostic.range.end.character
+                );
+                const diagnostic = new Diagnostic(
+                    range,
+                    entry.diagnostic.message,
+                    // The protocol counts severities from one, the editor from zero.
+                    (entry.diagnostic.severity ?? 1) - 1 as DiagnosticSeverity
+                );
+                diagnostic.source = 'cosmoteer-game-log';
+                const existing = byUri.get(entry.uri);
+                if (existing) existing.push(diagnostic);
+                else byUri.set(entry.uri, [diagnostic]);
+            }
+            for (const [uriText, diagnostics] of byUri) gameLogDiagnostics.set(Uri.parse(uriText), diagnostics);
+            const parts = [
+                l10n.t('{0} findings from the run of {1}', String(result.diagnostics.length), result.log?.time ?? '?'),
+            ];
+            // A log outlives the files it describes, so anything that no longer fits is counted
+            // rather than moved to a line that happens to exist.
+            if (result.stale > 0) {
+                parts.push(l10n.t('{0} no longer fit the files and were left out', String(result.stale)));
+            }
+            window.showInformationMessage(`${parts.join(', ')}.`);
+        })
+    );
+
+    // Run the mod: the server links the workspace into the folder the game loads mods from, switches
+    // it on in the game's own settings and starts the game in developer mode. Everything that can go
+    // wrong comes back as a named reason rather than a thrown error, since the flow writes into the
+    // user's game settings and each refusal needs its own sentence. A distinct command id from the
+    // server's executeCommand id, for the same reason as the migration above.
+    context.subscriptions.push(
+        commands.registerCommand('cosmoteer.runInGame', async () => {
+            const uri = window.activeTextEditor?.document.uri.toString() ?? workspace.workspaceFolders?.[0]?.uri.toString();
+            if (!uri) {
+                window.showInformationMessage(l10n.t('Cosmoteer: open a file of the mod first.'));
+                return;
+            }
+            const run = async (userDataFolder?: string): Promise<RunGameResult | null> =>
+                (await client.sendRequest(ExecuteCommandRequest.type, {
+                    command: 'cosmoteer.runInCosmoteer',
+                    arguments: [{ uri, userDataFolder }],
+                })) as RunGameResult | null;
+
+            let result = await run();
+            if (result?.kind === 'choose-user-data') {
+                // Which folder the game uses depends on the Steam account it is signed into, which
+                // the server cannot read, so the user picks.
+                const chosen = await window.showQuickPick(result.candidates.slice(), {
+                    placeHolder: l10n.t('Which Cosmoteer user folder does the game use?'),
+                });
+                if (!chosen) return;
+                result = await run(chosen);
+            }
+            if (!result) {
+                window.showErrorMessage(l10n.t('Cosmoteer could not be started.'));
+                return;
+            }
+            if (result.kind === 'refused') {
+                window.showErrorMessage(runGameRefusalMessage(result.reason, result.detail));
+                return;
+            }
+            if (result.kind !== 'started') return;
+            window.showInformationMessage(
+                result.linked
+                    ? l10n.t('Starting Cosmoteer. The mod is linked into your Mods folder as {0}.', result.modFolder)
+                    : l10n.t('Starting Cosmoteer with the mod enabled.')
+            );
+            if (!result.compatible) {
+                window.showWarningMessage(
+                    l10n.t(
+                        "The mod's CompatibleGameVersions does not name the installed game version, so the game will turn it off again while loading."
+                    )
+                );
+            }
+        })
+    );
+
     // Code mod schema: a command that re-reads every mod assembly and merges the types it declares
     // into the schema, so a mod's own `Type=` discriminators and fields resolve. The server loads
     // the cached result at startup on its own, so this is for picking up a mod that was just built
@@ -437,6 +565,70 @@ async function showWorkspaceValidationNotice(
         await commands.executeCommand('workbench.action.openSettings2', {
             query: 'cosmoteerLSPRules.diagnostics.validateWholeWorkspace',
         });
+    }
+}
+
+/** Mirror of the server's game-log import result (see server features/game-log/import-game-log.command.ts). */
+interface ImportGameLogResult {
+    kind: 'imported' | 'no-mod' | 'no-logs' | 'nothing-for-this-mod';
+    log?: { path: string; time: string; gameVersion?: string };
+    diagnostics: Array<{
+        uri: string;
+        diagnostic: {
+            range: { start: { line: number; character: number }; end: { line: number; character: number } };
+            severity?: number;
+            message: string;
+        };
+    }>;
+    stale: number;
+}
+
+/** Mirror of the server's run-in-game result (see server features/run-game/run-game.command.ts). */
+type RunGameResult =
+    | { kind: 'started'; modFolder: string; linked: boolean; enabled: boolean; backup?: string; compatible: boolean }
+    | { kind: 'choose-user-data'; candidates: string[] }
+    | { kind: 'refused'; reason: string; detail?: string };
+
+/**
+ * The sentence for each reason the run refused. Every one of them is a state the flow will not
+ * guess its way through, since it writes into the user's own game settings and mods folder.
+ *
+ * @param reason the reason the server answered with.
+ * @param detail the path or message it named, when it named one.
+ * @returns the message to show.
+ */
+function runGameRefusalMessage(reason: string, detail?: string): string {
+    switch (reason) {
+        case 'unsupported-platform':
+            return l10n.t('Cosmoteer ships no macOS build, so it cannot be started from here.');
+        case 'no-install':
+            return l10n.t('No Cosmoteer install was found. Set "cosmoteerLSPRules.cosmoteerPath" to its Data folder.');
+        case 'no-executable':
+            return l10n.t('The Cosmoteer executable is missing at {0}.', detail ?? '');
+        case 'no-mod':
+            return l10n.t('This file is not inside a mod: no mod.rules was found above it.');
+        case 'no-user-data':
+            return l10n.t('Cosmoteer has no user folder yet. Start the game once, then try again.');
+        case 'no-settings-file':
+            return l10n.t('Cosmoteer has never written its settings file at {0}, so there is nothing to enable the mod in.', detail ?? '');
+        case 'game-running':
+            return l10n.t('Cosmoteer is running. It rewrites its settings when it exits, so close it first.');
+        case 'link-name-taken':
+            return l10n.t('{0} already exists and is not a link to this mod. Rename one of them first.', detail ?? '');
+        case 'link-failed':
+            return l10n.t('The mod could not be linked into your Mods folder: {0}', detail ?? '');
+        case 'settings-unparseable':
+            return l10n.t("Cosmoteer's settings file could not be read, so it was left untouched.");
+        case 'settings-no-game-settings':
+        case 'settings-no-enabled-mods':
+            return l10n.t("Cosmoteer's settings file has no enabled-mods list, so it was left untouched.");
+        case 'settings-not-equivalent':
+        case 'settings-bad-entry':
+            return l10n.t('The change to the settings file did not come out as expected, so nothing was written.');
+        case 'settings-write-failed':
+            return l10n.t('The settings file could not be written: {0}', detail ?? '');
+        default:
+            return l10n.t('Cosmoteer could not be started.');
     }
 }
 

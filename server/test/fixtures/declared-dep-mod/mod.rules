@@ -1,0 +1,14 @@
+// The same shape as the undeclared fixture, except the manifest says what it needs.
+ID = "Test.DeclaredDep"
+Name = "Declared Dependency Fixture"
+Version = 1.0
+Dependencies = ["Test.DependencyMod"]
+
+Actions
+[
+	{ Action = Add
+	  AddTo = <cosmoteer.rules>
+	  Name = DECLARED_USES
+	  ToAdd = &<uses.rules>
+	  CreateIfNotExisting = true }
+]

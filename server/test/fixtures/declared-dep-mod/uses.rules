@@ -1,0 +1,9 @@
+// The same reference as the undeclared fixture, with the dependency written into the manifest.
+Part
+{
+	ID = test.declared_user
+	Resources
+	[
+		[test.dependency_resource, 20]
+	]
+}

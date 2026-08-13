@@ -1,0 +1,13 @@
+// A mod that uses another mod's ids and never says it needs it.
+ID = "Test.UndeclaredDep"
+Name = "Undeclared Dependency Fixture"
+Version = 1.0
+
+Actions
+[
+	{ Action = Add
+	  AddTo = <cosmoteer.rules>
+	  Name = UNDECLARED_USES
+	  ToAdd = &<uses.rules>
+	  CreateIfNotExisting = true }
+]

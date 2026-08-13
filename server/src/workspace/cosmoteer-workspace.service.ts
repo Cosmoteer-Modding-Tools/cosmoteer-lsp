@@ -8,8 +8,7 @@ import { isRulesFileName } from '../document/document-kind';
 import * as l10n from '@vscode/l10n';
 import * as path from 'path';
 import { globalSettings } from '../settings';
-import Registry from 'winreg';
-import { defaultSteamInstallPaths, findCosmoteerDataPath } from './steam-library';
+import { findCosmoteerDataPath, steamInstallPaths } from './steam-library';
 
 /**
  * Normalize a user-supplied game path to its `Data` root: a path ending in `Data`, `Cosmoteer`, or
@@ -181,16 +180,7 @@ export class CosmoteerWorkspaceService {
      * @returns the candidate Steam client dirs, empty when none could be resolved.
      */
     private async getSteamInstallPaths(): Promise<string[]> {
-        if (process.platform !== 'win32') return defaultSteamInstallPaths();
-        const reg = new Registry({
-            hive: Registry.HKLM,
-            key: '\\SOFTWARE\\WOW6432Node\\Valve\\Steam',
-        });
-        return new Promise<string[]>((resolve) => {
-            reg.get('InstallPath', (err, item) => {
-                resolve(err ? [] : [item.value]);
-            });
-        });
+        return steamInstallPaths();
     }
 
     public async initialize(cosmoteerWorkspacePath: string, workDoneProgress: WorkDoneProgressReporter) {

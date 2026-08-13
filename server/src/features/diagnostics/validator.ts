@@ -142,6 +142,13 @@ export type ValidationErrorData = {
         fieldIndex: number;
     };
     /**
+     * A mod whose ids this file uses without the manifest declaring it as a dependency. Carries only
+     * how the mod is named (its published file id or manifest id) and its display name. Finding the
+     * manifest and building the edit happens lazily in the code-action handler, since it writes to a
+     * different file than the one the diagnostic sits in, which a `rewrite` cannot express.
+     */
+    addModDependency?: { token: string; name: string };
+    /**
      * A quick fix spanning several byte-offset edits in the same file, for migrations a single
      * replacement cannot express (e.g. `Flammable = false` deletes its line and appends
      * `non_flammable` to the sibling `TypeCategories` list). Spans must not overlap. An edit whose

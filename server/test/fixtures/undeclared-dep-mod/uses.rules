@@ -1,0 +1,9 @@
+// Names a resource this mod does not declare: it only resolves because the other mod is installed.
+Part
+{
+	ID = test.undeclared_user
+	Resources
+	[
+		[test.dependency_resource, 20]
+	]
+}

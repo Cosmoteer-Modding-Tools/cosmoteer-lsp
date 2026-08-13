@@ -1,0 +1,260 @@
+import { copyFile, lstat, readlink, realpath, rename, stat, symlink, writeFile } from 'fs/promises';
+import { basename, dirname, join, resolve } from 'path';
+import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
+import { foldPathCase } from '../../workspace/fs-cache';
+import { localModDirs, workshopContentDir } from '../../workspace/workshop-dir';
+import { readFile } from 'fs/promises';
+import { currentGameVersionsLiteral } from '../diagnostics/validator.manifest-version';
+import { manifestPathsIn } from '../../mod/mod-dependencies';
+import { enableModInSettings } from './game-settings-file';
+import { findSteamExecutable, gameLiveness, launchGame } from './game-process';
+
+/**
+ * Running the open mod in the game: link it into the folder the game loads mods from, switch it on
+ * in the game's own settings, and start the game with developer mode on.
+ *
+ * The two ground truths this is built on, both read out of the game's assemblies rather than
+ * guessed. First, `EnabledMods` is a filter over the folders the game already discovered, not a
+ * list of places to look, so a workspace anywhere else has to be linked into the user's `Mods`
+ * folder before switching it on does anything. Second, the game rewrites the whole settings file
+ * when it exits, so nothing may be written while it runs.
+ *
+ * Every unknown is a refusal rather than a guess: this writes into the user's game settings and
+ * their mods folder, and a wrong guess there is not something the editor can undo for them.
+ */
+
+/** The command the clients invoke. */
+export const RUN_IN_COSMOTEER_COMMAND = 'cosmoteer.runInCosmoteer';
+
+/** Why the command did nothing. Each one is reported to the user as its own sentence. */
+export type RunGameRefusal =
+    | 'unsupported-platform'
+    | 'no-install'
+    | 'no-executable'
+    | 'no-mod'
+    | 'no-user-data'
+    | 'no-settings-file'
+    | 'game-running'
+    | 'link-name-taken'
+    | 'link-failed'
+    | 'settings-unparseable'
+    | 'settings-no-game-settings'
+    | 'settings-no-enabled-mods'
+    | 'settings-not-equivalent'
+    | 'settings-bad-entry'
+    | 'settings-write-failed';
+
+/** What the command did, or the single reason it refused to do it. */
+export type RunGameResult =
+    | {
+          readonly kind: 'started';
+          /** The mod folder as the game sees it, which is the link when one was made. */
+          readonly modFolder: string;
+          /** Whether a link had to be created, so the client can say where it went. */
+          readonly linked: boolean;
+          /** Whether the settings file had to be changed, or the mod was already enabled. */
+          readonly enabled: boolean;
+          /** Where the settings file was backed up, when it was written. */
+          readonly backup?: string;
+          /**
+           * False when the mod's manifest does not name the installed game version. The game turns
+           * such a mod straight back off while loading, so it never appears and nothing says why.
+           */
+          readonly compatible: boolean;
+      }
+    | { readonly kind: 'choose-user-data'; readonly candidates: readonly string[] }
+    | { readonly kind: 'refused'; readonly reason: RunGameRefusal; readonly detail?: string };
+
+/** What the command needs from the server, kept behind an interface so it can be driven in tests. */
+export interface RunGameHost {
+    /** The mod root of the file the command was invoked on. */
+    modRoot(): string | null;
+    /** Reports a launch failure that happens after the command has already answered. */
+    reportError(message: string): void;
+}
+
+/** Arguments the clients pass. */
+export interface RunGameArgs {
+    /** The document the command was invoked from, used to find the mod. */
+    readonly uri?: string;
+    /** The user data folder to use, when the client has already asked which one. */
+    readonly userDataFolder?: string;
+}
+
+/** Whether `child` is the same folder as `parent` or sits under it, case-folded like the game's compare. */
+const isUnder = (child: string, parent: string): boolean => {
+    const a = foldPathCase(resolve(child));
+    const b = foldPathCase(resolve(parent));
+    return a === b || a.startsWith(b.endsWith('/') || b.endsWith('\\') ? b : `${b}/`) || a.startsWith(`${b}\\`);
+};
+
+/**
+ * Whether the game already discovers this folder, in which case nothing is linked.
+ *
+ * The game enumerates the direct children of three roots only: its own `Standard Mods`, the user's
+ * `Mods` folder, and the subscribed workshop items. A mod living anywhere else is invisible to it
+ * however the settings name it, and a mod living inside one of them must not be linked a second
+ * time, since the same mod id loaded twice is a load error.
+ *
+ * @param modRoot the mod folder in question.
+ * @param installRoot the game install root.
+ * @param modsDirs the user's mods folders.
+ * @returns true when the game already finds it where it is.
+ */
+export const gameAlreadyDiscovers = (modRoot: string, installRoot: string, modsDirs: readonly string[]): boolean => {
+    const workshop = workshopContentDir();
+    const roots = [...modsDirs, join(installRoot, 'Standard Mods'), ...(workshop ? [workshop] : [])];
+    // Only a direct child of one of those roots is enumerated, so a file deeper inside a mod does
+    // not count and neither does the root itself.
+    return roots.some((root) => isUnder(modRoot, root) && foldPathCase(resolve(modRoot)) !== foldPathCase(resolve(root)));
+};
+
+/** Whether an existing path is a link that already points at the mod. */
+const linkPointsAt = async (linkPath: string, modRoot: string): Promise<boolean> => {
+    const target = await readlink(linkPath).catch(() => null);
+    if (target === null) return false;
+    const resolved = await realpath(linkPath).catch(() => resolve(dirname(linkPath), target));
+    return foldPathCase(resolved) === foldPathCase(await realpath(modRoot).catch(() => resolve(modRoot)));
+};
+
+/**
+ * Makes the mod discoverable by the game, by linking it into the user's mods folder.
+ *
+ * A junction is used on Windows, which needs no elevation and no developer mode, and which the
+ * game's own directory walk follows. An existing folder of the same name is never replaced: it is
+ * somebody's content, and the failure to link is recoverable while deleting it is not.
+ *
+ * @param modRoot the mod to link.
+ * @param modsDir the user's mods folder.
+ * @returns the linked path, or the reason it could not be linked.
+ */
+const linkMod = async (
+    modRoot: string,
+    modsDir: string
+): Promise<{ readonly path: string } | { readonly refusal: RunGameRefusal; readonly detail?: string }> => {
+    const linkPath = join(modsDir, basename(modRoot));
+    const existing = await lstat(linkPath).catch(() => null);
+    if (existing) {
+        if (existing.isSymbolicLink() && (await linkPointsAt(linkPath, modRoot))) return { path: linkPath };
+        return { refusal: 'link-name-taken', detail: linkPath };
+    }
+    try {
+        await symlink(modRoot, linkPath, 'junction');
+    } catch (error) {
+        return { refusal: 'link-failed', detail: (error as Error).message };
+    }
+    return { path: linkPath };
+};
+
+/**
+ * Whether the mod's manifest names the installed game version. With the game's own
+ * `AutoDisableMods` on, a mod it considers incompatible is removed from the enabled set while the
+ * game loads, so it silently never appears however carefully it was enabled here.
+ *
+ * @param modRoot the mod to check.
+ * @returns false only when a manifest declares versions and none of them is the installed one, so
+ *  an unreadable manifest or a game whose version could not be harvested never raises a false alarm.
+ */
+const namesInstalledGameVersion = async (modRoot: string): Promise<boolean> => {
+    const literal = await currentGameVersionsLiteral().catch(() => undefined);
+    const current = literal?.match(/"([^"]+)"/)?.[1];
+    if (!current) return true;
+    let declaredAnywhere = false;
+    for (const path of manifestPathsIn(modRoot)) {
+        const text = await readFile(path, 'utf8').catch(() => null);
+        const written = text?.match(/CompatibleGameVersions\s*=\s*\[([^\]\n]*)\]/i)?.[1];
+        if (written === undefined) continue;
+        declaredAnywhere = true;
+        if (written.includes(`"${current}"`) || written.split(',').some((entry) => entry.trim() === current)) return true;
+    }
+    return !declaredAnywhere;
+};
+
+/** Maps a settings-file refusal onto the command's own reason set. */
+const settingsRefusal = (reason: string): RunGameRefusal => {
+    switch (reason) {
+        case 'unparseable':
+            return 'settings-unparseable';
+        case 'no-game-settings':
+            return 'settings-no-game-settings';
+        case 'no-enabled-mods':
+            return 'settings-no-enabled-mods';
+        case 'bad-entry':
+            return 'settings-bad-entry';
+        default:
+            return 'settings-not-equivalent';
+    }
+};
+
+/**
+ * Links the open mod into the game, switches it on, and launches the game in developer mode.
+ *
+ * @param args the invoking document, and the chosen user data folder when there was a choice.
+ * @param host the server facilities the command needs.
+ * @returns what it did, a choice the client has to put to the user, or the reason it refused.
+ */
+export const runInCosmoteer = async (args: RunGameArgs, host: RunGameHost): Promise<RunGameResult> => {
+    // The game ships a Windows executable only. Linux runs it through Proton, which Steam applies;
+    // there is no macOS build at all.
+    if (process.platform === 'darwin') return { kind: 'refused', reason: 'unsupported-platform' };
+
+    const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+    if (!dataRoot) return { kind: 'refused', reason: 'no-install' };
+    const installRoot = dirname(dataRoot);
+    const executable = join(installRoot, 'Bin', 'Cosmoteer.exe');
+    if (!(await stat(executable).then((entry) => entry.isFile()).catch(() => false))) {
+        return { kind: 'refused', reason: 'no-executable', detail: executable };
+    }
+
+    const modRoot = host.modRoot();
+    if (!modRoot) return { kind: 'refused', reason: 'no-mod' };
+
+    const modsDirs = localModDirs();
+    if (modsDirs.length === 0) return { kind: 'refused', reason: 'no-user-data' };
+    // Which folder the game uses is decided by the Steam account it is signed into, which is not
+    // readable from here, so more than one is a question for the user rather than a guess.
+    const chosen = args.userDataFolder ?? (modsDirs.length === 1 ? modsDirs[0] : undefined);
+    if (!chosen) return { kind: 'choose-user-data', candidates: modsDirs };
+
+    const settingsDir = dirname(chosen);
+    const settingsPath = join(settingsDir, 'settings.rules');
+    const settingsText = await readFile(settingsPath, 'utf8').catch(() => null);
+    // A settings file the game has never written is not one to invent: it holds every setting the
+    // user has, and a stub would silently reset all of them.
+    if (settingsText === null) return { kind: 'refused', reason: 'no-settings-file', detail: settingsPath };
+
+    // Anything written while the game runs is destroyed when it exits, and a probe that cannot tell
+    // counts as running.
+    if ((await gameLiveness(installRoot)) !== 'not-running') return { kind: 'refused', reason: 'game-running' };
+
+    let modFolder = modRoot;
+    let linked = false;
+    if (!gameAlreadyDiscovers(modRoot, installRoot, modsDirs)) {
+        const link = await linkMod(modRoot, join(chosen));
+        if ('refusal' in link) return { kind: 'refused', reason: link.refusal, detail: link.detail };
+        modFolder = link.path;
+        linked = true;
+    }
+
+    const result = enableModInSettings(settingsText, settingsPath, installRoot, settingsDir, modFolder);
+    if (result.kind === 'refused') return { kind: 'refused', reason: settingsRefusal(result.reason) };
+
+    let backup: string | undefined;
+    if (result.kind === 'enabled') {
+        backup = `${settingsPath}.bak`;
+        try {
+            await copyFile(settingsPath, backup);
+            // Written beside the file and moved into place, so a failure midway cannot leave the
+            // user with half a settings file.
+            const temporary = `${settingsPath}.tmp`;
+            await writeFile(temporary, result.text, 'utf8');
+            await rename(temporary, settingsPath);
+        } catch (error) {
+            return { kind: 'refused', reason: 'settings-write-failed', detail: (error as Error).message };
+        }
+    }
+
+    const compatible = await namesInstalledGameVersion(modRoot);
+    launchGame(installRoot, await findSteamExecutable(installRoot), host.reportError);
+    return { kind: 'started', modFolder, linked, enabled: result.kind === 'enabled', backup, compatible };
+};

@@ -10,7 +10,8 @@ import {
 import { findEnclosingGroup, resolveGroupClass } from '../../document/schema/schema-context';
 import { classAncestry, enumDef } from '../../document/schema/schema';
 import { getStartOfAstNode } from '../../utils/ast.utils';
-import { findMemberThroughInheritance, ResolveReferenceFn } from '../../semantics/inheritance-resolver';
+import { findMemberThroughInheritance } from '../../semantics/inheritance-resolver';
+import { EffectiveMember, effectiveMember, resolveReference } from '../../semantics/effective-member';
 import { evaluateNumericValue } from '../../semantics/value-evaluator';
 import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
 import { resolveAssetPath } from '../navigation/asset-resolver';
@@ -72,35 +73,6 @@ const CREW_RULES_CLASS = 'Cosmoteer.Ships.Parts.Crew.PartCrewRules';
 const GRAPHICS_RULES_CLASS = 'Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules';
 
 const navigation = new FullNavigationStrategy();
-
-/** Adapts the shared navigation strategy to the inheritance resolver's reference-resolution shape. */
-const resolveReference: ResolveReferenceFn = (path, startNode, currentLocation, token, inheritanceVisited) =>
-    navigation.navigate(path, startNode, currentLocation, token, new Set(), inheritanceVisited) as ReturnType<ResolveReferenceFn>;
-
-/** A member read that remembers whether it was found locally or through inheritance. */
-interface EffectiveMember {
-    readonly node: AbstractNode;
-    readonly inherited: boolean;
-}
-
-/**
- * Reads a member of a group, preferring the local declaration and falling back to the group's
- * inheritance chain.
- * @param group the group to read from.
- * @param name the member name.
- * @param token cancels reference resolution.
- * @returns the member's value node with its inheritance flag, or null when absent everywhere.
- */
-const effectiveMember = async (
-    group: GroupNode,
-    name: string,
-    token: CancellationToken
-): Promise<EffectiveMember | null> => {
-    const local = childNamed(group, name);
-    if (local) return { node: local, inherited: false };
-    const inherited = await findMemberThroughInheritance(group, name, resolveReference, token).catch(() => null);
-    return inherited ? { node: inherited, inherited: true } : null;
-};
 
 /**
  * The provenance of a read node: its owning file and an anchor range. Container nodes carry a

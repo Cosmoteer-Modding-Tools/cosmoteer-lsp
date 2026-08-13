@@ -4,7 +4,7 @@
     "description": "A complete language server for Cosmoteer rules",
     "author": "Cosmoteer Modding Tools",
     "license": "MIT",
-    "version": "0.6.1",
+    "version": "0.7.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
@@ -71,6 +71,16 @@
             {
                 "command": "cosmoteer.searchSchema",
                 "title": "Cosmoteer: Search Schema and Field Docs",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.runInGame",
+                "title": "Cosmoteer: Run this Mod in Cosmoteer",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.importGameLog",
+                "title": "Cosmoteer: Import Problems from the Game Log",
                 "category": "Cosmoteer"
             }
         ],
@@ -334,6 +344,12 @@
                     "default": true,
                     "description": "Flag an id two files of the same mod both register for one game collection, which the game resolves by keeping a single entry and dropping the rest, so half the content silently never appears. Only a declaration the mod actually wires in through a manifest action or a game-root alias counts, so an inheritance template carrying a leftover ID is left alone, as is a mod that ships alternative manifests. Built-in ships and techs are out of scope, because a name that could mean either collection cannot decide a collision."
                 },
+                "cosmoteerLSPRules.diagnostics.validateUndeclaredDependencies": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Report an id this project only resolves because another mod is installed on this machine, while the manifest does not list that mod under Dependencies. The editor consults installed mods before reporting an unknown id, so a mod that needs another one looks correct here and breaks for everybody who does not have it. One finding per file and per mod, with a fix that writes the dependency into the manifest."
+                },
                 "cosmoteerLSPRules.allowEditingVanillaFiles": {
                     "scope": "resource",
                     "type": "boolean",
@@ -363,6 +379,12 @@
                     "type": "boolean",
                     "default": true,
                     "description": "List the references a computed hover value substituted, with the file and line each number was read from. A value like '(&A) / (&B)' shows what &A and &B stood for, and a reference whose target is itself computed nests one level under it."
+                },
+                "cosmoteerLSPRules.hover.showModifiers": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "List what a modifiable value's modifiers do to its base number: what drives each one, the mode it combines with, the clamp it puts on the result, and which part supplies the buff. A modifier driven by a runtime buff shows the interval it is clamped to rather than a number the file cannot prove."
                 },
                 "cosmoteerLSPRules.associateShaderFiles": {
                     "scope": "window",

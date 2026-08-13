@@ -118,6 +118,12 @@ export interface CosmoteerSettings {
         // ships alternative manifests. Built-in ships and techs are out of scope, since a name that
         // could mean either collection cannot decide a collision.
         validateDuplicateIds: boolean;
+        // When true (the default), report an id this project only resolves because an installed mod
+        // declares it, while the manifest does not list that mod under Dependencies. The rescue is
+        // silent, so the file reads as correct on the author's machine and names nothing for
+        // everybody else. One finding per file and per mod, and never a full dependency audit: an id
+        // both mods declare resolves in the project and never reaches the installed-mod consult.
+        validateUndeclaredDependencies: boolean;
     };
     codeMods: {
         // When true (the default), a mod that ships a `.dll` has its own serializable types, fields
@@ -147,6 +153,12 @@ export interface CosmoteerSettings {
         // number was read from. The computed number is otherwise the only thing on screen, so
         // checking where it came from means following every reference by hand.
         showSubstitutions: boolean;
+        // When true (the default), a hover over a modifiable value lists the modifiers folded onto
+        // its base number, what drives each one, the clamp it puts on the result, and which part
+        // supplies the buff. The file shows one base number, and the component supplying the buff
+        // usually lives in another part entirely, so neither was answerable without reading the
+        // whole project by hand.
+        showModifiers: boolean;
     };
     // When true, a refactoring may also read and rewrite files inside the Cosmoteer game `Data`
     // install: renames reach into it, and the shared-base extraction treats it as a project of its
@@ -206,6 +218,7 @@ export const defaultSettings: CosmoteerSettings = {
         validateModManifest: true,
         validatePartGeometry: true,
         validateDuplicateIds: true,
+        validateUndeclaredDependencies: true,
     },
     codeMods: {
         enabled: true,
@@ -216,6 +229,7 @@ export const defaultSettings: CosmoteerSettings = {
     },
     hover: {
         showSubstitutions: true,
+        showModifiers: true,
     },
     allowEditingVanillaFiles: false,
     decompiler: {

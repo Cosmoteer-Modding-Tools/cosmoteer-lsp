@@ -134,6 +134,14 @@ import { MemberInjectionIndex } from './mod/member-injection.index';
 import { computeModReachability, reachabilityKey } from './mod/mod-reachability';
 import { generateModOverview } from './mod/mod-overview';
 import { clearModRootCache, findModRoot } from './mod/mod-root';
+import { addDependencyEdit } from './mod/mod-dependencies';
+import {
+    RUN_IN_COSMOTEER_COMMAND,
+    RunGameArgs,
+    RunGameHost,
+    runInCosmoteer,
+} from './features/run-game/run-game.command';
+import { GameLogHost, IMPORT_GAME_LOG_COMMAND, importGameLog } from './features/game-log/import-game-log.command';
 import { join } from 'path';
 import { validateModActions } from './features/diagnostics/validator.mod-action';
 import { validateManifestVersion } from './features/diagnostics/validator.manifest-version';
@@ -375,6 +383,8 @@ connection.onInitialize(async (params: InitializeParams) => {
                     EXTRACT_LOCALIZATION_KEY_COMMAND,
                     REGISTER_PART_IN_SHIP_COMMAND,
                     INSERT_SCHEMA_FIELD_COMMAND,
+                    RUN_IN_COSMOTEER_COMMAND,
+                    IMPORT_GAME_LOG_COMMAND,
                 ],
             },
             semanticTokensProvider: {
@@ -2850,6 +2860,22 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
                 });
             }
         }
+        // A mod this file leans on without saying so: write it into the manifest's Dependencies, so
+        // the mod states what it needs instead of only working where that mod happens to be
+        // installed. The edit lands in the manifest, not in the file the diagnostic sits in.
+        if (data?.addModDependency) {
+            const { token, name } = data.addModDependency;
+            const modRoot = findModRoot(params.textDocument.uri);
+            const insert = modRoot ? await addDependencyEdit(modRoot, token).catch(() => null) : null;
+            if (insert) {
+                actions.push({
+                    title: l10n.t("Add '{0}' to the manifest's Dependencies", name),
+                    kind: CodeActionKind.QuickFix,
+                    diagnostics: [diagnostic],
+                    edit: { changes: { [insert.uri]: [insert.edit] } },
+                });
+            }
+        }
         // A group missing a schema-required field: write the field in, at the end of the group and
         // with the indentation its other members use. The edit is literal text, so each scaffolded
         // field gets a starting value to replace rather than an empty one, which the game reads as a
@@ -3007,6 +3033,30 @@ connection.onExecuteCommand(async (params) => {
         } finally {
             endFsTrustWindow();
         }
+    }
+    // What the game itself said the last time it loaded this mod. Read on the server because it
+    // walks the user's save folder and re-reads the named files to place each finding, and because
+    // both clients then publish the same findings in their own way.
+    if (params.command === IMPORT_GAME_LOG_COMMAND) {
+        const args = (params.arguments?.[0] ?? {}) as { uri?: string };
+        const host: GameLogHost = { openText: (uri) => documents.get(uri)?.getText() };
+        return await importGameLog(args, host, CancellationToken.None).catch((e) => {
+            if (globalSettings.trace.server === 'messages') console.error(e);
+            return null;
+        });
+    }
+    // Linking the mod into the game, enabling it and starting the game all happen on the server, so
+    // both clients share one implementation of a flow that writes into the user's game settings.
+    if (params.command === RUN_IN_COSMOTEER_COMMAND) {
+        const args = (params.arguments?.[0] ?? {}) as RunGameArgs;
+        const host: RunGameHost = {
+            modRoot: () => (args.uri ? findModRoot(args.uri) : null),
+            reportError: (message) => void connection.window.showErrorMessage(message),
+        };
+        return await runInCosmoteer(args, host).catch((e) => {
+            if (globalSettings.trace.server === 'messages') console.error(e);
+            return null;
+        });
     }
     if (params.command === INSERT_SCHEMA_FIELD_COMMAND) {
         const args = (params.arguments?.[0] ?? {}) as InsertSchemaFieldArgs;

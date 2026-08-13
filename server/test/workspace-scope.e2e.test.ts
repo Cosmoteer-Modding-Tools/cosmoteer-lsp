@@ -38,6 +38,7 @@ const settings = {
         validateShaderCode: true,
         validateLocalizationKeys: true,
         validateRedundantSeparators: true,
+        validateUndeclaredDependencies: true,
     },
     allowEditingVanillaFiles: false,
     formatting: { enabled: true, formatOnSave: false },

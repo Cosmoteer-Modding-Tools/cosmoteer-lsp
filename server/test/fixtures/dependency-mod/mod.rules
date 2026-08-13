@@ -1,0 +1,13 @@
+// Stands in for a mod installed on the author's machine that another fixture mod leans on.
+ID = "Test.DependencyMod"
+Name = "Dependency Fixture"
+Version = 1.0
+
+Actions
+[
+	{ Action = Add
+	  AddTo = <cosmoteer.rules>
+	  Name = DEPENDENCY_RESOURCES
+	  ToAdd = &<resources.rules>
+	  CreateIfNotExisting = true }
+]
