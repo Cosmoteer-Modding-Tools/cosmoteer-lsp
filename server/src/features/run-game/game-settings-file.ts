@@ -67,7 +67,7 @@ const lineIndentAt = (text: string, offset: number): string => {
 /**
  * Whether the edited text lexes into the original token stream with only the expected tokens added,
  * one contiguous run holding the new entry. The formatter refuses to write anything whose tokens
- * moved; this refuses to write anything whose tokens moved by more than the entry it meant to add.
+ * moved. This refuses to write anything whose tokens moved by more than the entry it meant to add.
  *
  * @param before the original tokens.
  * @param after the tokens of the edited text.
@@ -189,4 +189,32 @@ export const enableModInSettings = (
         return { kind: 'refused', reason: 'not-equivalent' };
     }
     return { kind: 'enabled', text: edited, entry };
+};
+
+/**
+ * The mod folders `EnabledMods` currently names, resolved the way the game reads each entry.
+ *
+ * The game keeps this list as a filter over the folders it discovered, so an entry naming a folder
+ * that no longer exists is simply dropped while loading. Nothing is dropped here, since the caller
+ * decides what an unreadable folder means.
+ *
+ * @param text the current contents of `settings.rules`.
+ * @param settingsPath the absolute path of that file.
+ * @param installRoot the game install root, for reading `./`-prefixed entries.
+ * @param settingsDir the directory the settings file lives in.
+ * @returns the absolute folder each written entry names, empty when the file has no readable list.
+ */
+export const enabledModFolders = (
+    text: string,
+    settingsPath: string,
+    installRoot: string,
+    settingsDir: string
+): string[] => {
+    const member = enabledModsMember(text, settingsPath);
+    if (typeof member === 'string' || !isListNode(member)) return [];
+    return member.elements
+        .filter(isValueNode)
+        .map((element) => String(element.valueType.value).replace(/^"|"$/g, '').trim())
+        .filter((written) => written.length > 0)
+        .map((written) => resolveSettingsEntry(settingsDir, installRoot, written));
 };

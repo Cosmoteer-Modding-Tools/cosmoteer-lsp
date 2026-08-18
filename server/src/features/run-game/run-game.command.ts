@@ -6,18 +6,21 @@ import { localModDirs, workshopContentDir } from '../../workspace/workshop-dir';
 import { readFile } from 'fs/promises';
 import { currentGameVersionsLiteral } from '../diagnostics/validator.manifest-version';
 import { manifestPathsIn } from '../../mod/mod-dependencies';
-import { enableModInSettings } from './game-settings-file';
+import { enableModInSettings, enabledModFolders } from './game-settings-file';
 import { findSteamExecutable, gameLiveness, launchGame } from './game-process';
+import { loadedModKeyOf, sameLoadedMod } from './mod-identity';
 
 /**
  * Running the open mod in the game: link it into the folder the game loads mods from, switch it on
  * in the game's own settings, and start the game with developer mode on.
  *
- * The two ground truths this is built on, both read out of the game's assemblies rather than
+ * The three ground truths this is built on, all read out of the game's assemblies rather than
  * guessed. First, `EnabledMods` is a filter over the folders the game already discovered, not a
  * list of places to look, so a workspace anywhere else has to be linked into the user's `Mods`
  * folder before switching it on does anything. Second, the game rewrites the whole settings file
- * when it exits, so nothing may be written while it runs.
+ * when it exits, so nothing may be written while it runs. Third, the loader files every enabled mod
+ * under its id and version, so a second enabled copy of the same mod throws before any rules are
+ * read (see {@link loadedModKeyOf}).
  *
  * Every unknown is a refusal rather than a guess: this writes into the user's game settings and
  * their mods folder, and a wrong guess there is not something the editor can undo for them.
@@ -35,6 +38,7 @@ export type RunGameRefusal =
     | 'no-user-data'
     | 'no-settings-file'
     | 'game-running'
+    | 'duplicate-mod-enabled'
     | 'link-name-taken'
     | 'link-failed'
     | 'settings-unparseable'
@@ -107,6 +111,34 @@ export const gameAlreadyDiscovers = (modRoot: string, installRoot: string, modsD
     // Only a direct child of one of those roots is enumerated, so a file deeper inside a mod does
     // not count and neither does the root itself.
     return roots.some((root) => isUnder(modRoot, root) && foldPathCase(resolve(modRoot)) !== foldPathCase(resolve(root)));
+};
+
+/** The folder a path really names, following links, or the path itself when it cannot be resolved. */
+const realFolder = async (path: string): Promise<string> => realpath(path).catch(() => resolve(path));
+
+/**
+ * Another enabled mod folder the game would load under the same key as this mod.
+ *
+ * The loader keys every enabled mod by its id and version, so a mod the user has both subscribed to
+ * and checked out locally is not two mods to it: the second one throws
+ * `An item with the same key has already been added` while pre-load mods are applied, and the game
+ * dies on the loading screen with nothing said about which mod did it. A folder that resolves to
+ * the same place as this mod is skipped, which is what the link from a previous run is.
+ *
+ * @param modRoot the mod about to be enabled.
+ * @param enabled the folders `EnabledMods` already names.
+ * @returns the conflicting folder, or null when this mod's key is unreadable or nothing collides.
+ */
+export const duplicateEnabledMod = async (modRoot: string, enabled: readonly string[]): Promise<string | null> => {
+    const key = await loadedModKeyOf(modRoot);
+    if (!key) return null;
+    const ours = foldPathCase(await realFolder(modRoot));
+    for (const folder of enabled) {
+        if (foldPathCase(await realFolder(folder)) === ours) continue;
+        const other = await loadedModKeyOf(folder);
+        if (other && sameLoadedMod(other, key)) return folder;
+    }
+    return null;
 };
 
 /** Whether an existing path is a link that already points at the mod. */
@@ -194,7 +226,7 @@ const settingsRefusal = (reason: string): RunGameRefusal => {
  * @returns what it did, a choice the client has to put to the user, or the reason it refused.
  */
 export const runInCosmoteer = async (args: RunGameArgs, host: RunGameHost): Promise<RunGameResult> => {
-    // The game ships a Windows executable only. Linux runs it through Proton, which Steam applies;
+    // The game ships a Windows executable only. Linux runs it through Proton, which Steam applies, and
     // there is no macOS build at all.
     if (process.platform === 'darwin') return { kind: 'refused', reason: 'unsupported-platform' };
 
@@ -226,6 +258,13 @@ export const runInCosmoteer = async (args: RunGameArgs, host: RunGameHost): Prom
     // Anything written while the game runs is destroyed when it exits, and a probe that cannot tell
     // counts as running.
     if ((await gameLiveness(installRoot)) !== 'not-running') return { kind: 'refused', reason: 'game-running' };
+
+    // Enabling a mod the user already has enabled from somewhere else does not load it twice, it
+    // stops the game from loading at all, so the second copy has to be found before anything is
+    // linked or written.
+    const enabled = enabledModFolders(settingsText, settingsPath, installRoot, settingsDir);
+    const duplicate = await duplicateEnabledMod(modRoot, enabled);
+    if (duplicate) return { kind: 'refused', reason: 'duplicate-mod-enabled', detail: duplicate };
 
     let modFolder = modRoot;
     let linked = false;

@@ -1,5 +1,7 @@
 import {
     AbstractNode,
+    GroupNode,
+    ListNode,
     isListNode,
     isAssignmentNode,
     isDocumentNode,
@@ -54,6 +56,41 @@ export const registerMemberExtensionSource = (source: MemberExtensionSource | un
 };
 
 /**
+ * Lists the members a mod's nested `Overrides` action merges into a node. {@link MemberExtensionSource}
+ * answers one name at a time, which is all a reference path needs. A walker that enumerates a
+ * container's effective members has to ask what those names are.
+ */
+export type MemberEnumerationSource = (node: AbstractNode) => string[];
+
+let memberEnumerationSource: MemberEnumerationSource | undefined;
+
+/**
+ * Registers the source of injected member names. Same registration inversion as
+ * {@link registerMemberExtensionSource}.
+ *
+ * @param source the enumeration source, or undefined to clear it (tests).
+ */
+export const registerMemberEnumerationSource = (source: MemberEnumerationSource | undefined): void => {
+    memberEnumerationSource = source;
+};
+
+/**
+ * The members a mod injects into a node, and the node each one resolves to.
+ *
+ * @param node the container to ask about.
+ * @returns one entry per injected member, empty when no mod touches this node.
+ */
+export const injectedMembersOf = (node: AbstractNode): Array<{ name: string; value: AbstractNode }> => {
+    const names = memberEnumerationSource?.(node) ?? [];
+    const injected: Array<{ name: string; value: AbstractNode }> = [];
+    for (const name of names) {
+        const value = memberExtensionSource?.(node, name);
+        if (value) injected.push({ name, value });
+    }
+    return injected;
+};
+
+/**
  * Canonical single-step navigation within the in-memory AST.
  *
  * Given a node and one path segment, return the node that segment points to,
@@ -62,9 +99,9 @@ export const registerMemberExtensionSource = (source: MemberExtensionSource | un
  * the navigation strategy (go-to / validation) and the autocompletion strategy.
  *
  * Supported segments: a number selects a list element (or inheritance entry when
- * `isInheritance`); `..` selects the node's parent; `^` selects the node's grandparent
- * (parent of parent); `~` selects the document root the node belongs to; `:` selects the
- * most-derived inheritor (statically approximated as the node itself); any other
+ * `isInheritance`), `..` selects the node's parent, `^` selects the node's grandparent
+ * (parent of parent), `~` selects the document root the node belongs to, `:` selects the
+ * most-derived inheritor (statically approximated as the node itself), and any other
  * segment selects a named child (assignment value, or identified group/list).
  */
 export const stepIntoNode = (
@@ -111,7 +148,7 @@ export const stepIntoNode = (
         // (default) member. The reference validator does not flag `:` paths, since the member may
         // legitimately exist only in an inheritor.
         if (isGroupNode(node) || isListNode(node) || isDocumentNode(node)) return node;
-        // A value node has no members of its own; resolve against its owning group so
+        // A value node has no members of its own, so it resolves against its owning group and
         // `Sum = (&:/v_A)`-style refs land on the group the value lives in.
         return node.parent;
     } else if (segment === '~') {
@@ -146,6 +183,56 @@ interface MemberIndex {
 const memberIndexCache: WeakMap<AbstractNode, MemberIndex> = new WeakMap();
 
 /**
+ * Every base of a node in the order the game reads them: its own written inheritance entries first,
+ * then the bases a mod's `AddBase` actions append (the game's `ModAddBaseAction` calls
+ * `InheritanceList.Add`). `stepIntoNode` resolves `^/N` through exactly this sequence, so a walker
+ * that enumerates bases sees the same list a reference path indexes into.
+ *
+ * @param node the group or list whose bases to list.
+ * @returns the base entries, written ones first.
+ */
+export const inheritanceEntriesOf = (node: GroupNode | ListNode): AbstractNode[] => {
+    const entries: AbstractNode[] = [...(node.inheritance ?? [])];
+    if (!inheritanceExtensionSource) return entries;
+    for (let extra = 0; ; extra++) {
+        const appended = inheritanceExtensionSource(node, extra);
+        if (!appended) return entries;
+        entries.push(appended);
+    }
+};
+
+/**
+ * The name a container element is keyed by, or undefined when the element is anonymous (a list
+ * element, a comment, a bare value). This is the single naming authority: the member index below and
+ * the effective-member enumerator both read it, so a name that resolves through a reference path is
+ * exactly a name the enumerator reports.
+ *
+ * @param element an element of a group or document.
+ * @returns the member name as written, or undefined when the element names nothing.
+ */
+export const memberNameOf = (element: AbstractNode): string | undefined =>
+    isAssignmentNode(element)
+        ? element.left.name
+        : (isGroupNode(element) || isListNode(element)) && element.identifier
+          ? element.identifier.name
+          : // A bare `word` line in a group parses to a lone IdentifierNode: a named void field
+            // (vanilla: `v_Faction // VIRTUAL; must be inherited`). The game keys children by name
+            // regardless of value, so match it too.
+            isIdentifierNode(element)
+            ? element.name
+            : undefined;
+
+/**
+ * The node a named member resolves to: an assignment's right-hand side, or the element itself for a
+ * group, list or void field.
+ *
+ * @param element an element of a group or document.
+ * @returns the member's value node, null for an assignment with no value yet.
+ */
+export const memberValueOf = (element: AbstractNode): AbstractNode | null =>
+    isAssignmentNode(element) ? element.right : element;
+
+/**
  * The member lookup tables of a group/document, built on first use. The first element declaring a
  * name wins in each table, matching the original in-order scan.
  *
@@ -157,18 +244,9 @@ const memberIndexOf = (node: AbstractNode & { elements: AbstractNode[] }): Membe
     if (cached) return cached;
     const index: MemberIndex = { exact: new Map(), lower: new Map() };
     for (const element of node.elements) {
-        const name = isAssignmentNode(element)
-            ? element.left.name
-            : (isGroupNode(element) || isListNode(element)) && element.identifier
-              ? element.identifier.name
-              : // A bare `word` line in a group parses to a lone IdentifierNode: a named
-                // void field (vanilla: `v_Faction // VIRTUAL; must be inherited`). The
-                // game keys children by name regardless of value, so match it too.
-                isIdentifierNode(element)
-                ? element.name
-                : undefined;
+        const name = memberNameOf(element);
         if (name === undefined) continue;
-        const target = isAssignmentNode(element) ? element.right : element;
+        const target = memberValueOf(element);
         if (!index.exact.has(name)) index.exact.set(name, target);
         const lower = name.toLowerCase();
         // First non-null wins, like the original in-order scan: a null target (an in-progress

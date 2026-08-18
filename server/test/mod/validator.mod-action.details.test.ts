@@ -48,6 +48,15 @@ describe('mod action diagnostics: explanatory detail lines', () => {
         );
     });
 
+    it('says an Index-carrying AddBase is not followed', async () => {
+        const errors = await validate(
+            action('AddBase', '\t\tAddBaseTo = "<a.rules>/A"\n\t\tBaseToAdd = &<b.rules>/B\n\t\tIndex = 0')
+        );
+        const note = errors.find((e) => e.message === 'This AddBase inserts at an index, which the editor does not follow');
+        expect(note?.severity).toBe('information');
+        expect(note?.additionalInfo).toContain('resolved against the written inheritance only');
+    });
+
     it('explains where the target was looked for', async () => {
         const errors = await validate(action('Replace', '\t\tReplace = "<a.rules>/A/Nope"\n\t\tWith = 1'));
         expect(detailFor(errors, 'Action target not found')).toBe(

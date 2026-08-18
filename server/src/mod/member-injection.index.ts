@@ -1,14 +1,12 @@
-import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isDocumentNode, isGroupNode, isValueNode } from '../core/ast/ast';
 import { getStartOfAstNode, namedMembersOf, parseFilePath } from '../utils/ast.utils';
 import { isModRules } from '../document/document-kind';
-import { registerMemberExtensionSource } from '../semantics/reference-resolver';
+import { registerMemberEnumerationSource, registerMemberExtensionSource } from '../semantics/reference-resolver';
 import { WatchedDocumentIndex } from '../features/navigation/watched-document-index';
 import { normalizeUri } from '../features/navigation/reference-location';
-import { modFolderPaths, uriToFsPath } from '../features/navigation/workspace-files';
+import { modFolderPaths } from '../features/navigation/workspace-files';
 import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
-import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
 import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { isActionFragmentDocument, parseModActions } from './action-parser';
 import { resolveActionTarget } from './action-target-resolver';
@@ -49,6 +47,7 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
     private constructor() {
         super();
         registerMemberExtensionSource((node, member) => this.injectedMember(node, member));
+        registerMemberEnumerationSource((node) => this.injectedMemberNames(node));
     }
 
     public static get instance(): MemberInjectionIndex {
@@ -140,7 +139,10 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
      * @param cancellationToken cancels the action walk.
      * @returns true when this source's contribution differs from the one it replaced.
      */
-    protected async indexDocument(document: AbstractNodeDocument, cancellationToken: CancellationToken): Promise<boolean> {
+    protected async indexDocument(
+        document: AbstractNodeDocument,
+        cancellationToken: CancellationToken
+    ): Promise<boolean> {
         const source = normalizeUri(document.uri);
         const previous = this.bySource.get(source) ?? [];
         this.removeSource(source);
@@ -167,7 +169,8 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
             if (!target) continue;
             const resolved = await resolveActionTarget(target, cancellationToken).catch(() => null);
             // Whole-file targets are owned by mod-context, so only a node target is indexed here.
-            if (!resolved || isFile(resolved as unknown as FileTree) || isDocumentNode(resolved as AbstractNode)) continue;
+            if (!resolved || isFile(resolved as unknown as FileTree) || isDocumentNode(resolved as AbstractNode))
+                continue;
             const key = MemberInjectionIndex.nodeKey(resolved as AbstractNode);
             const bucket = this.byNode.get(key) ?? this.byNode.set(key, []).get(key)!;
             for (const [name, node] of members) bucket.push({ source, name, node });

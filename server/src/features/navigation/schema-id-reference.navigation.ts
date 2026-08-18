@@ -14,7 +14,7 @@ import {
 import { listSlotType, resolveGroupClass } from '../../document/schema/schema-context';
 import { documentRootClass } from '../../document/schema/document-root';
 import { fieldOf, scalarReferenceTargetOf, typeDef } from '../../document/schema/schema';
-import { entityDeclarationsOf, REFERENCE_MAP_KEY_FIELDS } from '../../document/schema/entity-schema';
+import { entityDeclarationsOf, REFERENCE_MAP_KEY_FIELDS, sameId } from '../../document/schema/entity-schema';
 import { definitionLocationOf } from './reference-location';
 import { documentsMentioning } from './workspace-files';
 
@@ -284,11 +284,11 @@ export const resolveIdReferenceTarget = async (
         const rootClass = documentRootClass(document);
         if (rootClass && isSameOrSubclass(rootClass, targetClass)) {
             const idNode = topLevelIdNode(document);
-            if (idNode && String(idNode.valueType.value) === value) return definitionLocationOf(idNode);
+            if (idNode && sameId(String(idNode.valueType.value), value)) return definitionLocationOf(idNode);
         }
         // Aggregate entity: a `Factions [ { ID } ]` / `PartToggles [ { ToggleID } ]` / buff member.
         for (const decl of entityDeclarationsOf(document)) {
-            if (decl.id === value && isSameOrSubclass(decl.elementClass, targetClass)) {
+            if (sameId(decl.id, value) && isSameOrSubclass(decl.elementClass, targetClass)) {
                 return definitionLocationOf(decl.node);
             }
         }

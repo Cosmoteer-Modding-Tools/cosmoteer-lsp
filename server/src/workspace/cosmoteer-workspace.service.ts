@@ -207,6 +207,15 @@ export class CosmoteerWorkspaceService {
             if (this._fileWorkspaceTree.children && this._fileWorkspaceTree.children.length > 0) {
                 this.isInitalized = true;
                 this._connection.languages.diagnostics.refresh();
+            } else {
+                // The path reads but holds nothing, which leaves every game-data check off. Saying so
+                // here is the only notice the user gets: the path is set, so nothing else complains.
+                this._connection.window.showWarningMessage(
+                    l10n.t(
+                        'The Cosmoteer path {0} holds no files, so every check that reads the game data stays off. Point the setting at the installed game.',
+                        cosmoteerWorkspacePath
+                    )
+                );
             }
         } catch {
             this._connection?.window?.showWarningMessage(

@@ -37,9 +37,25 @@ export const isManifestBasename = (basename: string): boolean => MOD_MANIFEST_BA
  * reachability), so the set can be widened in one spot.
  */
 export const isRulesFileName = (basename: string): boolean => {
+    if (isDocumentationFileName(basename)) return false;
     const lower = basename.toLowerCase();
     return lower.endsWith('.rules') || lower.endsWith('.txt');
 };
+
+/** A file whose name says it is prose for the reader, whatever extension it carries. */
+const DOCUMENTATION_BASENAME = /^(readme|changelog)(\.[^.]*)?$/i;
+
+/**
+ * True if a filename is a mod's readme or changelog. Modders write those next to the rules and
+ * sometimes give them the `.rules` extension so the folder stays uniform, which makes prose arrive
+ * at the parser and fills the panel with errors about a file nothing loads. The game never loads
+ * them either: a strings folder only accepts a file whose first two lines are `__Name`/`__DebugOnly`
+ * (`Cosmoteer.Localization.Strings`), and every other loader reaches a file by an explicit path.
+ *
+ * @param basename the bare filename.
+ * @returns true for `readme`/`changelog` in any casing, with or without an extension.
+ */
+export const isDocumentationFileName = (basename: string): boolean => DOCUMENTATION_BASENAME.test(basename);
 
 /**
  * True if a segment of a `<…>` reference path ends its file part (`foo.rules>`, `bar.txt>`). The

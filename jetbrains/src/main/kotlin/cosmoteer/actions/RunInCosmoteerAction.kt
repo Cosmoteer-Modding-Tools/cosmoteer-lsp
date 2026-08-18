@@ -92,14 +92,17 @@ class RunInCosmoteerAction : AnAction() {
             when (answer.get("kind")?.asString) {
                 "choose-user-data" -> {
                     val candidates = answer.getAsJsonArray("candidates").map { it.asString }.toTypedArray()
-                    val chosen = Messages.showChooseDialog(
+                    // The dialog answers with the index of the picked entry, and with -1 when the
+                    // user closed it without picking one.
+                    val picked = Messages.showChooseDialog(
                         project,
                         "Which Cosmoteer user folder does the game use?",
                         "Run in Cosmoteer",
                         null,
                         candidates,
                         candidates.firstOrNull() ?: ""
-                    ) ?: return@invokeLater
+                    )
+                    val chosen = candidates.getOrNull(picked) ?: return@invokeLater
                     execute(project, uri, chosen).thenAccept { next -> handle(project, uri, next) }
                 }
                 "refused" -> {
@@ -147,6 +150,9 @@ class RunInCosmoteerAction : AnAction() {
         "no-settings-file" ->
             "Cosmoteer has never written its settings file at ${detail ?: ""}, so there is nothing to enable the mod in."
         "game-running" -> "Cosmoteer is running. It rewrites its settings when it exits, so close it first."
+        "duplicate-mod-enabled" ->
+            "Another copy of this mod is already enabled at ${detail ?: ""}. Cosmoteer loads no mod id twice and " +
+                "stops with an error, so turn that copy off in its mod list or unsubscribe it first."
         "link-name-taken" -> "${detail ?: ""} already exists and is not a link to this mod. Rename one of them first."
         "link-failed" -> "The mod could not be linked into your Mods folder: ${detail ?: ""}"
         "settings-unparseable" -> "Cosmoteer's settings file could not be read, so it was left untouched."

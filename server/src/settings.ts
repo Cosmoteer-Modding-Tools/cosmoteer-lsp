@@ -124,6 +124,13 @@ export interface CosmoteerSettings {
         // everybody else. One finding per file and per mod, and never a full dependency audit: an id
         // both mods declare resolves in the project and never reaches the installed-mod consult.
         validateUndeclaredDependencies: boolean;
+        // When true (the default), report a buff modifier, buff clamp or buff toggle naming a buff
+        // its own part never receives. The game registers a part with a buff manager once per entry
+        // of its ReceivableBuffs and never otherwise, so a buff outside that set has no value on the
+        // part at any point, and supplying it from the same part does not help. The set is folded
+        // through the whole inheritance chain, and nothing is judged when any hop of that chain
+        // cannot be read.
+        validateUnreceivableBuffs: boolean;
     };
     codeMods: {
         // When true (the default), a mod that ships a `.dll` has its own serializable types, fields
@@ -135,7 +142,7 @@ export interface CosmoteerSettings {
         // When true (the default), the assemblies the merge came from are watched, so a mod
         // installed, updated or rebuilt while the editor is open is picked up on its own. Turning it
         // off keeps the startup merge but makes `Cosmoteer: Rebuild Schema from Code Mod Assemblies`
-        // the only way to pick up a change. Costs nothing while idle; each change re-walks the mod
+        // the only way to pick up a change. Costs nothing while idle. Each change re-walks the mod
         // folders.
         autoRefresh: boolean;
     };
@@ -219,6 +226,7 @@ export const defaultSettings: CosmoteerSettings = {
         validatePartGeometry: true,
         validateDuplicateIds: true,
         validateUndeclaredDependencies: true,
+        validateUnreceivableBuffs: true,
     },
     codeMods: {
         enabled: true,
@@ -251,6 +259,45 @@ export let globalSettings: CosmoteerSettings = defaultSettings;
  *
  * @param settings the new settings to publish as the global configuration.
  */
-export const setGlobalSettings = (settings: CosmoteerSettings): void => {
-    globalSettings = settings;
+export const setGlobalSettings = (settings: unknown): void => {
+    globalSettings = mergeSettings(settings);
 };
+
+/**
+ * Fill a client's configuration answer up with the defaults it left out.
+ *
+ * A client sends only the keys it knows about, so a setting the client has never heard of arrives
+ * as `undefined` and would read as "off" everywhere the server tests it for truth. Every key the
+ * answer does carry wins, including an explicit `false`.
+ *
+ * @param settings the client's answer, or undefined/null when the client answered nothing.
+ * @returns a complete settings object.
+ */
+export const mergeSettings = (settings: unknown): CosmoteerSettings =>
+    mergeInto(defaultSettings, settings) as CosmoteerSettings;
+
+/**
+ * Merge one configuration level, recursing into nested groups and replacing anything else.
+ *
+ * @param fallback the default value for this level.
+ * @param provided the value the client sent for this level, if any.
+ * @returns the merged value.
+ */
+const mergeInto = (fallback: unknown, provided: unknown): unknown => {
+    if (provided === undefined || provided === null) return fallback;
+    if (!isPlainGroup(fallback) || !isPlainGroup(provided)) return provided;
+    const merged: { [key: string]: unknown } = { ...fallback };
+    for (const key of Object.keys(provided)) {
+        merged[key] = mergeInto(fallback[key], provided[key]);
+    }
+    return merged;
+};
+
+/**
+ * Tell a nested settings group apart from a leaf value, so arrays and scalars are replaced whole.
+ *
+ * @param value the value to judge.
+ * @returns true when the value is a plain object that carries further settings.
+ */
+const isPlainGroup = (value: unknown): value is { [key: string]: unknown } =>
+    typeof value === 'object' && value !== null && !Array.isArray(value);

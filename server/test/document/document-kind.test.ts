@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { getDocumentKind, isModRules, isShaderDocument } from '../../src/document/document-kind';
+import {
+    getDocumentKind,
+    isDocumentationFileName,
+    isModRules,
+    isRulesFileName,
+    isShaderDocument,
+} from '../../src/document/document-kind';
 
 describe('getDocumentKind', () => {
     it('classifies a mod.rules manifest as mod-rules', () => {
@@ -27,6 +33,22 @@ describe('getDocumentKind', () => {
         expect(getDocumentKind('file:///c%3A/mods/mod.rules/buffs.rules')).toBe('rules');
         expect(getDocumentKind('file:///c%3A/mods/StarWars/somemod.rules')).toBe('rules');
         expect(getDocumentKind('file:///c%3A/mods/StarWars/mod.rules.bak')).toBe('rules');
+    });
+});
+
+describe('isDocumentationFileName', () => {
+    it('recognizes a readme or changelog in any casing and with any extension', () => {
+        for (const name of ['README.rules', 'readme.txt', 'Readme', 'CHANGELOG.rules', 'Changelog.txt']) {
+            expect(isDocumentationFileName(name)).toBe(true);
+            expect(isRulesFileName(name)).toBe(false);
+        }
+    });
+
+    it('leaves a data file whose name merely starts with one of the words alone', () => {
+        for (const name of ['readme_parts.rules', 'changelog_data.rules', 'parts.rules']) {
+            expect(isDocumentationFileName(name)).toBe(false);
+        }
+        expect(isRulesFileName('readme_parts.rules')).toBe(true);
     });
 });
 

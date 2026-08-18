@@ -36,7 +36,7 @@ export const manifestPathsIn = (modRoot: string): string[] =>
         .map((name) => join(modRoot, name));
 
 /** A top-level scalar member's text, unquoted. Names match ignoring case, the way the game binds them. */
-const scalarMember = (document: AbstractNodeDocument, name: string): string | undefined => {
+export const scalarMember = (document: AbstractNodeDocument, name: string): string | undefined => {
     for (const element of document.elements) {
         if (!isAssignmentNode(element) || element.left.name.toLowerCase() !== name.toLowerCase()) continue;
         if (element.right && isValueNode(element.right)) {
@@ -47,7 +47,7 @@ const scalarMember = (document: AbstractNodeDocument, name: string): string | un
 };
 
 /** A top-level list member, in either the `X = [ … ]` or the `X [ … ]` spelling. */
-const listMember = (document: AbstractNodeDocument, name: string): AbstractNode | undefined => {
+export const listMember = (document: AbstractNodeDocument, name: string): AbstractNode | undefined => {
     for (const element of document.elements) {
         if (isListNode(element) && element.identifier?.name.toLowerCase() === name.toLowerCase()) return element;
         if (isAssignmentNode(element) && element.left.name.toLowerCase() === name.toLowerCase()) {
@@ -58,7 +58,7 @@ const listMember = (document: AbstractNodeDocument, name: string): AbstractNode 
 };
 
 /** The written entries of a list member, unquoted. */
-const listEntries = (document: AbstractNodeDocument, name: string): string[] => {
+export const listEntries = (document: AbstractNodeDocument, name: string): string[] => {
     const list = listMember(document, name);
     if (!list || !isListNode(list)) return [];
     return list.elements
@@ -68,7 +68,7 @@ const listEntries = (document: AbstractNodeDocument, name: string): string[] => 
 };
 
 /** Parses one manifest, or null when it cannot be read. */
-const readManifest = async (path: string): Promise<AbstractNodeDocument | null> => {
+export const readManifest = async (path: string): Promise<AbstractNodeDocument | null> => {
     try {
         return parseText(await readFile(path, 'utf8'), path);
     } catch {

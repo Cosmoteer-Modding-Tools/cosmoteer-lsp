@@ -46,6 +46,7 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validatePartGeometry: Boolean = true
         var validateDuplicateIds: Boolean = true
         var validateUndeclaredDependencies: Boolean = true
+        var validateUnreceivableBuffs: Boolean = true
         var codeModsEnabled: Boolean = true
         var codeModsAutoRefresh: Boolean = true
         var inlayShowBaseValue: Boolean = true
@@ -109,6 +110,7 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validatePartGeometry" to state.validatePartGeometry,
             "validateDuplicateIds" to state.validateDuplicateIds,
             "validateUndeclaredDependencies" to state.validateUndeclaredDependencies,
+            "validateUnreceivableBuffs" to state.validateUnreceivableBuffs,
         ),
         "codeMods" to mapOf(
             "enabled" to state.codeModsEnabled,

@@ -122,6 +122,17 @@ interface CosmoteerLanguageServerAPI : LanguageServer {
     fun partWiring(params: TextDocumentPositionParams): CompletableFuture<String?>
 
     /**
+     * Renders the member set the game really deserializes for the group at a position: its whole
+     * inheritance chain folded into one table, with each row's origin and whatever the fold could
+     * not read.
+     *
+     * @param params the document and a position inside the group.
+     * @returns the markdown, or null when no readable group encloses the position.
+     */
+    @JsonRequest("cosmoteer/effectiveGroup")
+    fun effectiveGroup(params: TextDocumentPositionParams): CompletableFuture<String?>
+
+    /**
      * Ranks every schema type, field, enum member and registry, plus the field documentation,
      * against a query.
      *

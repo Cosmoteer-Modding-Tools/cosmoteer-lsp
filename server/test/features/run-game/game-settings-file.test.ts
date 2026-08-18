@@ -1,6 +1,8 @@
+import { resolve } from 'path';
 import { describe, expect, it } from 'vitest';
 import {
     enableModInSettings,
+    enabledModFolders,
     resolveSettingsEntry,
     settingsEntryFor,
 } from '../../../src/features/run-game/game-settings-file';
@@ -113,5 +115,25 @@ describe('enabling a mod in settings.rules', () => {
         expect(result.kind).toBe('enabled');
         if (result.kind !== 'enabled') return;
         expect(result.text).toContain('"D:/dev/MyMod"');
+    });
+});
+
+// Which mods are already on decides whether running this one crashes the game, so every written
+// spelling of an entry has to come back as the folder the game would enumerate.
+describe('reading the enabled mod folders', () => {
+    const folders = (list: string) => enabledModFolders(settings(list), SETTINGS_PATH, INSTALL_ROOT, SETTINGS_DIR);
+
+    it('resolves each written spelling the way the game reads it', () => {
+        const list = ['\tEnabledMods', '\t[', '\t\t"Mods/One"', '\t\t"D:/dev/Two"', '\t\t"./Standard Mods/Three"', '\t]'];
+        expect(folders(list.join('\n'))).toEqual([
+            resolve(SETTINGS_DIR, 'Mods/One'),
+            resolve('D:/dev/Two'),
+            resolve(INSTALL_ROOT, 'Standard Mods/Three'),
+        ]);
+    });
+
+    it('reads an empty list, and a file with no list at all, as nothing enabled', () => {
+        expect(folders('\tEnabledMods\n\t[\n\t]')).toEqual([]);
+        expect(folders('\tAutoDisable = false')).toEqual([]);
     });
 });

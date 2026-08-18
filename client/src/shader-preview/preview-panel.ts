@@ -1,4 +1,4 @@
-import { Disposable, ExtensionContext, Position, Uri, ViewColumn, WebviewPanel, commands, window, workspace } from 'vscode';
+import { Disposable, ExtensionContext, Position, Uri, ViewColumn, WebviewPanel, commands, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { imageDataUri, nonceString } from '../webview-util';
 
@@ -76,7 +76,7 @@ export class ShaderPreviewPanel {
         private readonly context: ExtensionContext,
         private readonly client: LanguageClient
     ) {
-        this.panel = window.createWebviewPanel('cosmoteerShaderPreview', 'Shader Preview', ViewColumn.Beside, {
+        this.panel = window.createWebviewPanel('cosmoteerShaderPreview', l10n.t('Shader Preview'), ViewColumn.Beside, {
             enableScripts: true,
             retainContextWhenHidden: true,
             // Only the bundled webview assets need to load as resources. The sprite texture can live

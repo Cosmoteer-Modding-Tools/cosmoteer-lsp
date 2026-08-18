@@ -41,6 +41,11 @@ import {
     PartWiringContentProvider,
     showPartWiring,
 } from './part-wiring/part-wiring';
+import {
+    EFFECTIVE_GROUP_SCHEME,
+    EffectiveGroupContentProvider,
+    showEffectiveGroup,
+} from './effective-group/effective-group';
 import { SCHEMA_DOC_SCHEME, SchemaDocContentProvider, showSchemaSearch } from './schema-search/schema-search';
 import {
     DIFF_PREVIEW_SCHEME,
@@ -174,6 +179,17 @@ export async function activate(context: ExtensionContext) {
         languages.registerCodeLensProvider({ scheme: 'file', language: 'rules' }, new PartWiringCodeLensProvider()),
         commands.registerCommand('cosmoteer.showPartWiring', async (uri?: Uri, position?: Position) => {
             await showPartWiring(client, partWiringProvider, uri, position);
+        })
+    );
+
+    // Effective group: one command rendering the member set the game really deserializes for the
+    // group under the cursor, with every row's origin in the inheritance chain. No CodeLens: it
+    // applies to any group, so a lens per group would bury the file.
+    const effectiveGroupProvider = new EffectiveGroupContentProvider();
+    context.subscriptions.push(
+        workspace.registerTextDocumentContentProvider(EFFECTIVE_GROUP_SCHEME, effectiveGroupProvider),
+        commands.registerCommand('cosmoteer.showEffectiveGroup', async (uri?: Uri, position?: Position) => {
+            await showEffectiveGroup(client, effectiveGroupProvider, uri, position);
         })
     );
 
@@ -530,7 +546,7 @@ const WORKSPACE_VALIDATION_NOTICE_KEY = 'cosmoteer.workspaceValidationNoticeShow
  * it off without going looking for the setting.
  *
  * The server only reports a pass that actually did work, so a project where this is instant never
- * produces the notice at all — and the flag stays unset, so the first genuinely large project the
+ * produces the notice at all, and the flag stays unset, so the first genuinely large project the
  * user opens is still the one that tells them.
  *
  * @param context the extension context, whose global state remembers that the notice was shown.
@@ -613,6 +629,11 @@ function runGameRefusalMessage(reason: string, detail?: string): string {
             return l10n.t('Cosmoteer has never written its settings file at {0}, so there is nothing to enable the mod in.', detail ?? '');
         case 'game-running':
             return l10n.t('Cosmoteer is running. It rewrites its settings when it exits, so close it first.');
+        case 'duplicate-mod-enabled':
+            return l10n.t(
+                'Another copy of this mod is already enabled at {0}. Cosmoteer loads no mod id twice and stops with an error, so turn that copy off in its mod list or unsubscribe it first.',
+                detail ?? ''
+            );
         case 'link-name-taken':
             return l10n.t('{0} already exists and is not a link to this mod. Rename one of them first.', detail ?? '');
         case 'link-failed':

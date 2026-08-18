@@ -143,6 +143,15 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                     )
             }
             row {
+                checkBox("Report a buff the part can never receive")
+                    .bindSelected(state::validateUnreceivableBuffs)
+                    .comment(
+                        "A buff modifier, clamp or toggle naming a buff outside the part's own " +
+                        "ReceivableBuffs never moves, since the game hands a part a buff only " +
+                        "while that part is registered as a receiver of it."
+                    )
+            }
+            row {
                 checkBox("Check part grid geometry")
                     .bindSelected(state::validatePartGeometry)
                     .comment(

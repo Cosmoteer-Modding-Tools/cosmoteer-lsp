@@ -170,4 +170,102 @@ describe('hover modifier trace', () => {
         const text = await hoverGroup(part('BaseValue = 10'), 'ThrusterForce');
         expect(text).not.toContain('**Modifiers**');
     });
+
+    it('lists the inherited modifiers, in the order they really run', async () => {
+        // The base's list is prepended to the deriver's, so `Engine` runs before `Overclock`.
+        const source = [
+            'BasePart',
+            '{',
+            '\tThrusterForce',
+            '\t{',
+            '\t\tBaseValue = 5',
+            '\t\tModifiers',
+            '\t\t[',
+            '\t\t\t{',
+            '\t\t\t\tType = Buff',
+            '\t\t\t\tBuffType = Engine',
+            '\t\t\t\tModificationMode = Multiply',
+            '\t\t\t}',
+            '\t\t]',
+            '\t}',
+            '}',
+            'Part : &BasePart',
+            '{',
+            '\tID = test.thruster',
+            '\tThrusterForce : ^/0/ThrusterForce',
+            '\t{',
+            '\t\tModifiers : ^/0/Modifiers',
+            '\t\t[',
+            '\t\t\t{',
+            '\t\t\t\tType = Buff',
+            '\t\t\t\tBuffType = Overclock',
+            '\t\t\t\tModificationMode = Add',
+            '\t\t\t}',
+            '\t\t]',
+            '\t}',
+            '}',
+            '',
+        ].join('\n');
+        const doc = parser(lexer(source), 'file:///inline.rules').value;
+        // The deriving part's own ThrusterForce is the second group of that name.
+        let hovered = '';
+        for (const node of walkAst(doc)) {
+            if (!isGroupNode(node) || node.identifier?.name !== 'ThrusterForce') continue;
+            const p = node.identifier.position;
+            const hover = await HoverService.instance.getHover(doc, Position.create(p.line, p.characterStart + 1), token);
+            hovered = (hover?.contents as { value: string } | undefined)?.value ?? '';
+        }
+        expect(hovered).toContain('2 modifiers');
+        expect(hovered).toContain('`Engine`');
+        expect(hovered).toContain('`Overclock`');
+        expect(hovered).toContain('inherited');
+        // The fold succeeded, so the fallback disclaimer must be gone.
+        expect(hovered).not.toContain('could not be read');
+    });
+
+    it('reports the interval the written clamps put on the result', async () => {
+        const text = await hoverGroup(
+            part(
+                'BaseValue = 10',
+                'MinValue = 2',
+                'MaxValue = 8',
+                'Modifiers',
+                '[',
+                ...modifier('Type = Buff', 'BuffType = Overclock', 'ModificationMode = Multiply'),
+                ']'
+            ),
+            'ThrusterForce'
+        );
+        expect(text).toContain('the game runs on 2 … 8');
+    });
+
+    it('says outright when nothing written bounds the result', async () => {
+        const text = await hoverGroup(
+            part(
+                'BaseValue = 10',
+                'Modifiers',
+                '[',
+                ...modifier('Type = Buff', 'BuffType = Overclock', 'ModificationMode = Multiply'),
+                ']'
+            ),
+            'ThrusterForce'
+        );
+        // A buff amount is a runtime quantity with no written bound, so multiplying by it leaves the
+        // result unbounded, and claiming 10 would be a fabrication.
+        expect(text).toContain('nothing written here bounds the result');
+    });
+
+    it('lets a later clamp narrow the envelope back down', async () => {
+        const text = await hoverGroup(
+            part(
+                'BaseValue = 10',
+                'Modifiers',
+                '[',
+                ...modifier('Type = Buff', 'BuffType = Overclock', 'ModificationMode = Multiply', 'MinValue = 1', 'MaxValue = 3'),
+                ']'
+            ),
+            'ThrusterForce'
+        );
+        expect(text).toContain('the game runs on 1 … 3');
+    });
 });

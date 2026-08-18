@@ -119,6 +119,20 @@ export const validateModActions = async (
             }
         }
 
+        // An `AddBase` that names an `Index` inserts mid-list instead of appending, which re-slots
+        // every base behind it. The editor does not follow that, so it says so rather than leaving
+        // the `^/N` references into this target unexplainedly unknown.
+        if (action.type === 'AddBase' && action.presentFields.has('index')) {
+            errors.push({
+                message: l10n.t('This AddBase inserts at an index, which the editor does not follow'),
+                node: action.verbNode ?? action.group,
+                severity: 'information',
+                additionalInfo: l10n.t(
+                    'The game inserts the base at that position and moves every base behind it one slot on. References that step into this target with "^/N" are resolved against the written inheritance only, so one of them may be reported as unknown even though the game resolves it.'
+                ),
+            });
+        }
+
         // The source value must take the AST shape the verb allows (e.g. Overrides needs a `{}`,
         // AddMany needs a `[]`). A missing source is already reported by the required-field check.
         if (schema.sourceShape) {

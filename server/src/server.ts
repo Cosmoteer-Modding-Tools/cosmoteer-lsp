@@ -13,6 +13,7 @@ import {
     TextDocumentPositionParams,
     TextDocumentSyncKind,
     InitializeResult,
+    PositionEncodingKind,
     DocumentDiagnosticReportKind,
     type DocumentDiagnosticReport,
     CancellationToken,
@@ -124,8 +125,14 @@ import { ValidationForDocumentDuplicates, ValidationForGroupDuplicates } from '.
 import { validateInheritanceCycles } from './features/diagnostics/validator.inheritance-cycle';
 import { CancellationError } from './utils/cancellation';
 import { WorkspaceTokenManager } from './workspace/token-manager';
-import { CosmoteerSettings, defaultSettings, globalSettings, setGlobalSettings } from './settings';
-import { basenameOf, isManifestBasename, isModRules, isRulesFileName } from './document/document-kind';
+import { CosmoteerSettings, globalSettings, mergeSettings, setGlobalSettings } from './settings';
+import {
+    basenameOf,
+    isDocumentationFileName,
+    isManifestBasename,
+    isModRules,
+    isRulesFileName,
+} from './document/document-kind';
 import { ModRulesRegistrar } from './mod/mod-rules.registrar';
 import { isActionFragmentDocument, parseModActions } from './mod/action-parser';
 import { ActionRootingIndex } from './mod/action-rooting.index';
@@ -147,6 +154,8 @@ import { validateModActions } from './features/diagnostics/validator.mod-action'
 import { validateManifestVersion } from './features/diagnostics/validator.manifest-version';
 import { validateModManifest } from './features/diagnostics/validator.mod-manifest';
 import { validatePartGeometry } from './features/diagnostics/validator.part-geometry';
+import { validateUnreceivableBuffs } from './features/diagnostics/validator.unreceivable-buff';
+import { generateEffectiveGroupReport } from './features/effective-group/effective-group.report';
 import { validateDuplicateModIds } from './features/diagnostics/validator.duplicate-id';
 import { invalidateModContext } from './mod/mod-context';
 import { modRulesOffsetCompletions } from './features/completion/autocompletion.mod-rules';
@@ -165,6 +174,7 @@ import { validateSchema } from './features/diagnostics/validator.schema';
 import { validateRequiredFields } from './features/diagnostics/validator.required-fields';
 import { TemplateBaseIndex } from './features/diagnostics/template-base.index';
 import { invalidateComponentIdCache, validateSchemaSiblingReferences } from './features/diagnostics/validator.schema-sibling';
+import { invalidateEffectiveChainCache } from './semantics/effective-group';
 import { invalidateLooseDeclarationCache } from './features/diagnostics/validator.schema-id-reference';
 import { validateCrossFileIdReferences } from './features/diagnostics/validator.schema-id-reference';
 import { validateLocalizationKeys } from './features/diagnostics/validator.localization-key';
@@ -324,6 +334,10 @@ connection.onInitialize(async (params: InitializeParams) => {
     hasCompletionDocResolveCapability = !!capabilities.textDocument?.completion?.completionItem?.resolveSupport?.properties?.includes('documentation');
     const result: InitializeResult = {
         capabilities: {
+            // Every position the server hands out is a UTF-16 offset (`TextDocument.positionAt` and
+            // plain JS string indices throughout). That is also the protocol's default, so this only
+            // states it out loud for a client that reads the field.
+            positionEncoding: PositionEncodingKind.UTF16,
             textDocumentSync: {
                 openClose: true,
                 // Clients send range-scoped deltas instead of the whole text per keystroke. The
@@ -417,11 +431,13 @@ connection.onInitialized(async (_params) => {
     const workspaceFolders = await getWorkspaceFoldersCached();
 
     if (workspaceFolders) {
-        const settings = (await connection.workspace.getConfiguration({
-            scopeUri: workspaceFolders[0].uri,
-            section: 'cosmoteerLSPRules',
-        })) as CosmoteerSettings;
-        setGlobalSettings(settings ?? defaultSettings);
+        setGlobalSettings(
+            await connection.workspace.getConfiguration({
+                scopeUri: workspaceFolders[0].uri,
+                section: 'cosmoteerLSPRules',
+            })
+        );
+        const settings = globalSettings;
         if (settings?.cosmoteerPath) {
             const gameTreeStarted = Date.now();
             await CosmoteerWorkspaceService.instance.initialize(
@@ -438,10 +454,10 @@ connection.onInitialized(async (_params) => {
                 connection.window
                     .showErrorMessage(
                         l10n.t(
-                            'Cosmoteer path not set, please set it in the extensions settings for Cosmoteer Rules Configuration. If you dont see this setting, than please restart vscode. This is required for the language server to work correctly.'
+                            'The Cosmoteer path is not set, so every check that reads the game data is off: component references, cross-file ids, localization keys, duplicate ids, unreceivable buffs and included action fragments. Set the path in the Cosmoteer Rules settings. If the setting is not shown yet, restart the editor.'
                         ),
                         {
-                            title: 'Open Settings',
+                            title: l10n.t('Open Settings'),
                             command: 'workbench.action.openSettings',
                         }
                     )
@@ -536,6 +552,7 @@ connection.onInitialized(async (_params) => {
     diagnosticsCache.clear();
     inlayHintCache.clear();
     invalidateComponentIdCache();
+    invalidateEffectiveChainCache();
     invalidateLooseDeclarationCache();
     if (hasPullDiagnosticsCapability) {
         connection.languages.diagnostics.refresh();
@@ -589,17 +606,20 @@ connection.onDidChangeConfiguration(async (change) => {
     // settings here. Only fall back to the pushed payload when the client uses the push model.
     // (Without this, toggling a setting like `diagnostics.validateWholeWorkspace` did nothing,
     // because `globalSettings` was never refreshed.)
-    let settings: CosmoteerSettings | undefined;
+    let answer: unknown;
     if (hasConfigurationCapability) {
-        settings =
-            ((await connection.workspace.getConfiguration({
-                scopeUri: workspaceFolders?.[0]?.uri,
-                section: 'cosmoteerLSPRules',
-            })) as CosmoteerSettings) ?? defaultSettings;
+        answer = await connection.workspace.getConfiguration({
+            scopeUri: workspaceFolders?.[0]?.uri,
+            section: 'cosmoteerLSPRules',
+        });
     } else if (change.settings?.cosmoteerLSPRules) {
-        settings = change.settings.cosmoteerLSPRules as CosmoteerSettings;
+        answer = change.settings.cosmoteerLSPRules;
     }
-    if (settings) setGlobalSettings(settings);
+    let settings: CosmoteerSettings | undefined;
+    if (answer !== undefined && answer !== null) {
+        setGlobalSettings(answer);
+        settings = globalSettings;
+    }
 
     const cosmoteerPathChanged = !!settings?.cosmoteerPath && settings.cosmoteerPath !== previousCosmoteerPath;
     if (cosmoteerPathChanged && workspaceFolders) {
@@ -625,6 +645,7 @@ connection.onDidChangeConfiguration(async (change) => {
     diagnosticsCache.clear();
     inlayHintCache.clear();
     invalidateComponentIdCache();
+    invalidateEffectiveChainCache();
     invalidateLooseDeclarationCache();
     // The shared-base memo holds a mod-wide set filtered by the validation scope, so a scope change
     // would otherwise keep serving a set built under the other filter until a file changes on disk.
@@ -685,10 +706,14 @@ function getDocumentSettings(resource: string): Thenable<CosmoteerSettings> {
     }
     let result = documentSettings.get(resource);
     if (!result) {
-        result = connection.workspace.getConfiguration({
-            scopeUri: resource,
-            section: 'cosmoteerLSPRules',
-        });
+        // The answer carries only the keys the client knows about, so it is merged over the
+        // defaults: an omitted key must read as its default, not as `undefined`.
+        result = connection.workspace
+            .getConfiguration({
+                scopeUri: resource,
+                section: 'cosmoteerLSPRules',
+            })
+            .then((answer) => mergeSettings(answer));
         documentSettings.set(resource, result);
     }
     return result;
@@ -810,6 +835,7 @@ function registerOpenDocument(document: TextDocument): void {
         if (uri !== document.uri) inlayHintCache.delete(uri);
     }
     invalidateComponentIdCache();
+    invalidateEffectiveChainCache();
     invalidateLooseDeclarationCache();
     // An edit changes which symbols this file contributes. Re-index it lazily at the next
     // workspace-symbol query. (find-all-references is stateless, it re-reads per query.)
@@ -934,7 +960,7 @@ documents.onDidClose(async (e) => {
         // its problems stick forever: the scan gate below never publishes the file, so no later pass
         // is left to retract what the open flow pushed.
         const outOfScope = scopeKeys && !scopeKeys.has(reachabilityKey(path));
-        if (outOfScope || (await isUnreferencedTxt(path, CancellationToken.None))) {
+        if (outOfScope || (await isOutsideRulesPanel(path, CancellationToken.None))) {
             // The file is outside what the panel persists. It validated while it was open
             // (open files always validate), but its problems leave the panel with the tab instead
             // of persisting the way scanned files' problems do.
@@ -1073,6 +1099,10 @@ async function validateTextDocument(
             openBufferReadOverride()
         ).catch(() => []);
     }
+    // A readme or a changelog is prose whatever extension it carries, and the game loads neither, so
+    // it gets no diagnostics even when it is open in the editor. Parsing one as rules only produces
+    // findings about sentences.
+    if (isDocumentationFileName(basenameOf(textDocument.uri))) return [];
     // The bulk pass uses the global settings rather than per-file config: a `workspace/configuration`
     // round-trip per file (cached in an unbounded map) would mean thousands of requests + retained
     // entries. Open files keep per-document settings (folder-specific overrides matter there).
@@ -1327,6 +1357,15 @@ async function validateTextDocument(
             );
             validationErrors = validationErrors.concat(duplicateIdErrors);
         }
+        // Separate pass: a buff modifier, clamp or toggle naming a buff its own part never receives.
+        // Needs the game index: the part's receivable set is folded through an inheritance chain that
+        // almost always runs into a vanilla base, and an unread chain makes the pass answer nothing.
+        if (settings.diagnostics?.validateUnreceivableBuffs && gameIndexAvailable()) {
+            const buffErrors = await timedPass('scan.vUnreceivableBuffMs', async () =>
+                validateUnreceivableBuffs(parserResult.value, cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(buffErrors);
+        }
         if (isModRules(textDocument.uri)) {
             // Separate pass: validate the manifest's action verbs/targets against the
             // effective game tree (the AstType-keyed Validator allows only one pass per type).
@@ -1468,6 +1507,20 @@ async function isUnreferencedTxt(file: string, token: CancellationToken): Promis
     const keys = await referencedTxtKeys(token);
     if (!keys) return false;
     return !keys.has(foldPathCase(file));
+}
+
+/**
+ * Whether a walked file is none of the panel's business: a readme or changelog a modder gave a rules
+ * extension, or a `.txt` nothing references. Both are prose the game never loads, and the walk drops
+ * the former already, so this is what retracts anything published for one before the gate applied.
+ *
+ * @param file the on-disk path of the file.
+ * @param token cancels the reference scan the `.txt` gate may run.
+ * @returns true when the file's problems must not enter (or stay in) the panel.
+ */
+async function isOutsideRulesPanel(file: string, token: CancellationToken): Promise<boolean> {
+    if (isDocumentationFileName(basenameOf(file))) return true;
+    return isUnreferencedTxt(file, token);
 }
 
 /**
@@ -1645,10 +1698,10 @@ const scanRevisionSum = (): number =>
 async function validateWorkspaceFile(file: string, openNorms: Set<string>, token: CancellationToken): Promise<void> {
     const uri = filePathToUri(file);
     if (openNorms.has(normalizeUri(uri))) return;
-    // A `.txt` nothing references is not rules content the game would ever load, so it never enters
-    // the panel. Anything it published before the gate could answer (or under an older reference set)
-    // is cleared instead of left to stick.
-    if (await isUnreferencedTxt(file, token)) {
+    // A readme, a changelog, or a `.txt` nothing references is not rules content the game would ever
+    // load, so it never enters the panel. Anything it published before the gate could answer (or
+    // under an older reference set) is cleared instead of left to stick.
+    if (await isOutsideRulesPanel(file, token)) {
         if (workspaceDiagnosticUris.has(uri)) {
             workspaceDiagnosticUris.delete(uri);
             await connection.sendDiagnostics({ uri, diagnostics: [] });
@@ -1822,7 +1875,7 @@ async function runWorkspaceValidation(): Promise<void> {
 
 /**
  * How many files a pass has to cover before the client is told about it. Below this a whole-mod
- * scan is over before the user notices and costs nothing worth a notification; the point of the
+ * scan is over before the user notices and costs nothing worth a notification. The point of the
  * notice is the project where it is a real amount of work.
  */
 const WORKSPACE_VALIDATION_NOTICE_MIN_FILES = 250;
@@ -2614,6 +2667,7 @@ connection.onDidChangeWatchedFiles(async (params) => {
         diagnosticsCache.clear();
         inlayHintCache.clear();
         invalidateComponentIdCache();
+    invalidateEffectiveChainCache();
         invalidateLooseDeclarationCache();
         bumpWorkspaceScanEpoch();
         if (hasPullDiagnosticsCapability) connection.languages.diagnostics.refresh();
@@ -3291,6 +3345,7 @@ function applyModSchemaChange(): void {
     inlayHintCache.clear();
     invalidateSchemaContextCache();
     invalidateComponentIdCache();
+    invalidateEffectiveChainCache();
     invalidateLooseDeclarationCache();
     bumpWorkspaceScanEpoch();
     if (hasPullDiagnosticsCapability) connection.languages.diagnostics.refresh();
@@ -3385,9 +3440,9 @@ async function migrateWorkspace(options: {
             const canonicalUri = filePathToUri(file);
             let doc = openByNorm.get(normalizeUri(canonicalUri));
             if (!doc) {
-                // A `.txt` nothing references is not rules content the game would load, so it is
-                // skipped like the diagnostics scan skips it.
-                if (await isUnreferencedTxt(file, token)) continue;
+                // Prose the game never loads (a readme, a `.txt` nothing references) is skipped like
+                // the diagnostics scan skips it.
+                if (await isOutsideRulesPanel(file, token)) continue;
                 let text: string;
                 try {
                     text = await readFile(file, { encoding: 'utf-8' });
@@ -3561,6 +3616,27 @@ connection.onRequest('cosmoteer/partWiring', async (params: TextDocumentPosition
     }
 });
 
+// Effective group: render the "what the game actually loads here" report for the container at a
+// position, its whole inheritance chain folded into one member set with the provenance of each row.
+// On demand only, since the fold crosses files.
+connection.onRequest('cosmoteer/effectiveGroup', async (params: TextDocumentPositionParams, cancellationToken) => {
+    const parserResult = ensureParserResult(params.textDocument.uri);
+    const document = documents.get(params.textDocument.uri);
+    if (!parserResult || !document) return null;
+    try {
+        // Bases reach into action-wired fragments and mod-injected members, so the rooting indexes
+        // have to be current or the fold would report a chain the game does not have.
+        await ensureFragmentRooting(cancellationToken);
+        return (
+            (await generateEffectiveGroupReport(parserResult, document.offsetAt(params.position), cancellationToken)) ??
+            null
+        );
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        return null;
+    }
+});
+
 // Schema search: rank every schema type, field, enum member and Type= registry, plus the field
 // documentation, against a query. Pure in-memory work over the schema, so it never waits on the
 // workspace. Only the optional caret (sent once, when the picker opens) needs the fragment index,
@@ -3625,6 +3701,9 @@ connection.onDocumentColor((params) => {
 
 // Colour picker: rewrite the chosen colour's component values in place (braces/layout untouched).
 connection.onColorPresentation((params) => {
+    // A shader is never lexed as ObjectText: `ensureParserResult` caches whatever it parses, so an
+    // unguarded call here would leave a nonsense tree behind for that uri.
+    if (isShaderDocument(params.textDocument.uri)) return [];
     const parserResult = ensureParserResult(params.textDocument.uri);
     const document = documents.get(params.textDocument.uri);
     if (!parserResult || !document) return [];
@@ -3698,8 +3777,8 @@ connection.languages.inlayHint.on(async (params, cancellationToken) => {
 });
 
 // Semantic tokens: colour the parsed document by meaning the TextMate grammar can't infer (a `&…`
-// reference vs a bareword enum vs a math function). The grammar stays the synchronous base layer;
-// this is the overlay. Drives both VS Code and the native IntelliJ LSP highlighter.
+// reference vs a bareword enum vs a math function). The grammar stays the synchronous base layer.
+// This is the overlay. Drives both VS Code and the native IntelliJ LSP highlighter.
 // The token walk is pure CPU over the cached AST, so its result is cached per document version and
 // repeated requests for unchanged text answer from memory. Each result carries a `resultId` so a
 // delta-capable client can request just the changed slice of the array after an edit instead of

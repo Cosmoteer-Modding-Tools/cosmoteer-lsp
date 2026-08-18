@@ -69,6 +69,11 @@
                 "category": "Cosmoteer"
             },
             {
+                "command": "cosmoteer.showEffectiveGroup",
+                "title": "Cosmoteer: Show What The Game Loads Here",
+                "category": "Cosmoteer"
+            },
+            {
                 "command": "cosmoteer.searchSchema",
                 "title": "Cosmoteer: Search Schema and Field Docs",
                 "category": "Cosmoteer"
@@ -100,6 +105,10 @@
                 },
                 {
                     "command": "cosmoteer.showPartWiring",
+                    "when": "editorLangId == rules"
+                },
+                {
+                    "command": "cosmoteer.showEffectiveGroup",
                     "when": "editorLangId == rules"
                 }
             ],
@@ -200,6 +209,8 @@
                     "scope": "resource",
                     "type": "number",
                     "default": 100,
+                    "minimum": 1,
+                    "maximum": 100000,
                     "description": "Controls the maximum number of problems produced by the server."
                 },
                 "cosmoteerLSPRules.trace.server": {
@@ -349,6 +360,12 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Report an id this project only resolves because another mod is installed on this machine, while the manifest does not list that mod under Dependencies. The editor consults installed mods before reporting an unknown id, so a mod that needs another one looks correct here and breaks for everybody who does not have it. One finding per file and per mod, with a fix that writes the dependency into the manifest."
+                },
+                "cosmoteerLSPRules.diagnostics.validateUnreceivableBuffs": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Report a buff modifier, buff clamp or buff toggle naming a buff its own part never receives, so the value it drives can never move. The game hands a part a buff only while that part is registered as a receiver of it, which happens once per entry of its ReceivableBuffs and never otherwise, so providing the buff from the same part does not help either. The set is folded through the whole inheritance chain, and nothing is judged when any hop of that chain cannot be read. Shown as an editor hint."
                 },
                 "cosmoteerLSPRules.allowEditingVanillaFiles": {
                     "scope": "resource",

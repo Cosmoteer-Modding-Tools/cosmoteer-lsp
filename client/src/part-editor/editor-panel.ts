@@ -1,4 +1,4 @@
-import { Disposable, ExtensionContext, Position, Uri, ViewColumn, WebviewPanel, commands, window, workspace } from 'vscode';
+import { Disposable, ExtensionContext, Position, Uri, ViewColumn, WebviewPanel, commands, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { WorkspaceEdit as LspWorkspaceEdit } from 'vscode-languageclient';
 import { imageDataUri, nonceString } from '../webview-util';
@@ -53,7 +53,7 @@ export class PartGridEditorPanel {
         private readonly context: ExtensionContext,
         private readonly client: LanguageClient
     ) {
-        this.panel = window.createWebviewPanel('cosmoteerPartGridEditor', 'Part Grid Editor', ViewColumn.Beside, {
+        this.panel = window.createWebviewPanel('cosmoteerPartGridEditor', l10n.t('Part Grid Editor'), ViewColumn.Beside, {
             enableScripts: true,
             retainContextWhenHidden: true,
             // Only the bundled webview assets need to load as resources. The part sprites can live

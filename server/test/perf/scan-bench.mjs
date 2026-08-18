@@ -60,6 +60,16 @@ const settings = {
         validateUnusedConstants: true,
         validateDuplicateFields: true,
         validateRedundantOverrides: true,
+        validateUnclosedComments: true,
+        validateDefaultValues: true,
+        validateModManifest: true,
+        validatePartGeometry: true,
+        validateDuplicateIds: true,
+        validateUndeclaredDependencies: true,
+        // Any pass left out here silently does not run, since the server takes this reply verbatim.
+        // Keep it in step with `defaultSettings.diagnostics` in server/src/settings.ts or the bench
+        // reports a session lighter than the one users get.
+        validateUnreceivableBuffs: process.env.SCAN_NO_BUFF_CHECK !== '1',
     },
     allowEditingVanillaFiles: false,
     formatting: { enabled: true, formatOnSave: false },
@@ -187,6 +197,9 @@ const reportPass = (label, elapsedMs, stats) => {
         'scan.vUnusedConstantMs',
         'scan.vDuplicateFieldsMs',
         'scan.vRedundantOverrideMs',
+        'scan.vPartGeometryMs',
+        'scan.vDuplicateIdMs',
+        'scan.vUnreceivableBuffMs',
         'navigate',
         'navigate.memoHit',
         'fs.stat',

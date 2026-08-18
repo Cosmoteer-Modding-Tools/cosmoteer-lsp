@@ -15,7 +15,13 @@ import {
 } from '../../core/ast/ast';
 import { isModRules, isRulesFileName } from '../../document/document-kind';
 import { registryOf, typeDef } from '../../document/schema/schema';
-import { BUILTIN_SHIP_CLASS, entityDeclarationsOf, SELF_KEYED_MAP_FIELDS } from '../../document/schema/entity-schema';
+import {
+    BUILTIN_SHIP_CLASS,
+    entityDeclarationsOf,
+    hasId,
+    sameId,
+    SELF_KEYED_MAP_FIELDS,
+} from '../../document/schema/entity-schema';
 import { MARKER_CLASSES } from '../../document/schema/category-usage';
 import { SchemaIdIndex } from '../completion/schema-id.index';
 import { isSameOrSubclass, schemaReferenceFieldOf, mapKeyReferencesOf } from '../navigation/schema-id-reference.navigation';
@@ -111,13 +117,13 @@ export const isValidatedIdClass = (cls: string): boolean => {
 };
 
 /**
- * Whether one reference is judged. Every `ID<X>` class is judged; no class is allowlisted or excluded
+ * Whether one reference is judged. Every `ID<X>` class is judged. No class is allowlisted or excluded
  * by name. The layers that make that safe are each mechanical:
  *  - a class whose declarations the harvest cannot see at all has no ids to judge against (the
  *    no-coverage skip in {@link judgeIdReference}),
  *  - part-component targets are part-local (nesting, inherited bases, includes), the sibling
  *    validator's domain, derived here from the schema's registry,
- *  - a self-keyed map KEY declares rather than references, so an unknown key is a new instance
+ *  - a self-keyed map key declares rather than references, so an unknown key is a new instance
  *    ({@link isSelfKeyedDeclaration}, derived from the schema's map shapes). The class itself stays
  *    judged: a value written for it elsewhere is an ordinary reference into the pool its keys fill,
  *  - label fields that borrow the id type without the engine ever resolving them derive from the
@@ -163,7 +169,7 @@ const referencedInGameTree = async (
         // workspace documents, and an open file referencing its own typo twice must still flag).
         if (!normalizeUri(document.uri).startsWith(dataRootPrefix)) continue;
         for (const reference of idReferencesOf(document)) {
-            if (reference.targetClass === targetClass && reference.value === id) {
+            if (reference.targetClass === targetClass && sameId(reference.value, id)) {
                 referenced = true;
                 break;
             }
@@ -219,7 +225,7 @@ const declaredInInstalledMods = async (
         if (!normalizeUri(document.uri).startsWith(workshopPrefix)) continue;
         let declared = false;
         for (const declaration of entityDeclarationsOf(document)) {
-            if (declaration.id === id && isSameOrSubclass(declaration.elementClass, targetClass)) {
+            if (sameId(declaration.id, id) && isSameOrSubclass(declaration.elementClass, targetClass)) {
                 declared = true;
                 break;
             }
@@ -287,7 +293,7 @@ const isVanillaLabelField = async (
             if (reference.fieldName?.toLowerCase() !== field || reference.targetClass !== targetClass) continue;
             if (reference.value.trim() === '') continue;
             sawUsage = true;
-            if (ids.has(reference.value)) {
+            if (hasId(ids, reference.value)) {
                 sawResolving = true;
                 break;
             }
@@ -319,7 +325,7 @@ export const invalidateLooseDeclarationCache = (): void => {
  * bucket). This is what makes the whole-file-root and manifest-collection classes safe to judge
  * without hand-kept exclusions: their declarations may sit where the rooted harvest cannot classify
  * them, but the shapes themselves are still recognizable. Class-blind on purpose, since the
- * unclassifiable location is exactly why the class is unknown; the cost of a rare cross-class
+ * unclassifiable location is exactly why the class is unknown. The cost of a rare cross-class
  * collision is a suppressed warning, never a false one.
  *
  * @param id the unknown id.
@@ -373,7 +379,8 @@ const declaredInUnwalkedInclude = async (id: string, cancellationToken: Cancella
         // case-sensitive filesystem `uriToFsPath` would point at a file that does not exist.
         const path = ReverseIncludeIndex.instance.realPathFor(uri) ?? uriToFsPath(uri);
         const text = await readFile(path, 'utf8').catch(() => undefined);
-        if (text === undefined || !text.includes(id)) continue;
+        // Folded, like every other id comparison: the engine's ids are case-insensitive.
+        if (text === undefined || !text.toLowerCase().includes(id.toLowerCase())) continue;
         const document = parseText(text, uri);
         if (looseDeclarationIn(document, id) || writesMapEntryKey(document, id)) return true;
     }
@@ -402,7 +409,7 @@ const writesMapEntryKey = (document: AbstractNodeDocument, id: string): boolean 
             isAssignmentNode(node) &&
             node.left.name.toLowerCase() === 'key' &&
             isValueNode(node.right) &&
-            String(node.right.valueType.value) === id
+            sameId(String(node.right.valueType.value), id)
         ) {
             found = true;
             return;
@@ -431,20 +438,20 @@ const looseDeclarationIn = (document: AbstractNodeDocument, id: string): boolean
     const visit = (node: AbstractNode): void => {
         if (found) return;
         if (isAssignmentNode(node) && isValueNode(node.right)) {
-            if (node.left.name.toLowerCase() === 'id' && String(node.right.valueType.value) === id) {
+            if (node.left.name.toLowerCase() === 'id' && sameId(String(node.right.valueType.value), id)) {
                 found = true;
                 return;
             }
-            if (node.left.name === id && node.right.valueType.type === 'Reference') {
+            if (sameId(node.left.name, id) && node.right.valueType.type === 'Reference') {
                 found = true;
                 return;
             }
-            if (String(node.right.valueType.value) === id && declaresSelfKeyedEntry(node)) {
+            if (sameId(String(node.right.valueType.value), id) && declaresSelfKeyedEntry(node)) {
                 found = true;
                 return;
             }
         }
-        if ((isGroupNode(node) || isListNode(node)) && node.identifier?.name === id) {
+        if ((isGroupNode(node) || isListNode(node)) && node.identifier && sameId(node.identifier.name, id)) {
             found = true;
             return;
         }
@@ -474,7 +481,7 @@ const isSelfKeyedMapType = (type: ValueType | undefined): boolean =>
  * beside the named member (`RenderLayers { asteroid_lights_add { … } }`).
  *
  * The loose probe needs this because a mod adds its layers from a `mod.rules` action payload, where
- * the list carries the ACTION's field name rather than the map's:
+ * the list carries the action's field name rather than the map's:
  *
  *     { Action = AddMany; AddTo = "<ships/terran/terran.rules>/Terran/RenderLayers"
  *       ManyToAdd [ { Key = "asteroid_lights_add" Value { … } } ] }
@@ -706,7 +713,7 @@ export const judgeIdReference = async (
     if (ids.size === 0 || !SchemaIdIndex.instance.hasFileDeclarationsFor(reference.targetClass)) {
         return 'no-coverage';
     }
-    if (ids.has(reference.value)) return 'resolved';
+    if (hasId(ids, reference.value)) return 'resolved';
     // A label field never resolves by design (checked before the per-id consults, since one field
     // verdict covers every value written in it).
     if (reference.fieldName && (await isVanillaLabelField(reference.fieldName, reference.targetClass, cancellationToken))) {

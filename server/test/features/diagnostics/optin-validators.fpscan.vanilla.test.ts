@@ -14,6 +14,7 @@ import { validateSchemaSiblingReferences } from '../../../src/features/diagnosti
 import { validateCrossFileIdReferences } from '../../../src/features/diagnostics/validator.schema-id-reference';
 import { validateLocalizationKeys } from '../../../src/features/diagnostics/validator.localization-key';
 import { validateShaderDocument } from '../../../src/features/shader/shader-diagnostics';
+import { validateUnreceivableBuffs } from '../../../src/features/diagnostics/validator.unreceivable-buff';
 
 // False-positive scan of the default-on cross-file/shader validators over the whole vanilla install.
 // Everything the game ships loads fine in-game, so every finding here is a false positive by
@@ -47,7 +48,7 @@ const report = (name: string, findings: string[]): void => {
     if (OUT_DIR) writeFileSync(join(OUT_DIR, `fpscan-${name}.txt`), findings.join('\n'), 'utf8');
 };
 
-describe.skipIf(!HAVE_DATA)('opt-in validators over vanilla Data', () => {
+describe.skipIf(!HAVE_DATA)('default-on validators over vanilla Data', () => {
     beforeAll(async () => {
         globalSettings.cosmoteerPath = DATA_DIR;
         const noop: WorkDoneProgressReporter = { begin: () => undefined, report: () => undefined, done: () => undefined };
@@ -126,17 +127,15 @@ describe.skipIf(!HAVE_DATA)('opt-in validators over vanilla Data', () => {
         // `trade` and `unique` are builtin-ship tags that vanilla also references through
         // spawner-typed search fields, a cross-class tag reuse the harvests cannot unify, so those
         // references self-exempt like the genuine leftovers.
-        // `distress` and `indicators` are the two leftovers the self-keyed value references surfaced.
-        // Vanilla's `encounter_distress.rules` names `Metatype = Distress`, and no metatype by that
-        // name exists (the file's own comment calls the encounter broken); four vanilla parts draw on
-        // `Layer = "indicators"`, and no ship file declares a render layer by that name.
+        // `distress` and `indicators` left this set when id resolution started folding case the way
+        // the engine does: `Metatype = Distress` names the encounter whose `ID = "distress"`, and
+        // `Layer = "indicators"` names the ships' `Indicators` render layer. Both were only ever
+        // exempt because the comparison was case-sensitive.
         const { gameTreeExemptions, labelFieldExemptions } = await import(
             '../../../src/features/diagnostics/validator.schema-id-reference'
         );
         expect([...gameTreeExemptions].sort()).toEqual([
-            'distress',
             'graveyard_platform',
-            'indicators',
             'shrapnel',
             'station_captor_defense',
             'trade',
@@ -174,6 +173,35 @@ describe.skipIf(!HAVE_DATA)('opt-in validators over vanilla Data', () => {
         }
         report('localization-keys', findings);
         expect(findings.slice(0, 30)).toEqual([]);
+    }, 600_000);
+
+    it('unreceivable buffs: only the one known vanilla bug', async () => {
+        const findings: string[] = [];
+        let scanned = 0;
+        for (const file of filesUnder(DATA_DIR, '.rules')) {
+            let doc;
+            try {
+                doc = parseFile(file);
+            } catch {
+                continue;
+            }
+            for (const error of await validateUnreceivableBuffs(doc, token)) {
+                findings.push(`${relative(DATA_DIR, file)}:${error.node.position.line + 1}: ${error.message}`);
+            }
+            if (++scanned % 200 === 0) ParserResultRegistrar.instance.clear();
+        }
+        report('unreceivable-buffs', findings);
+        expect(scanned).toBeGreaterThan(900);
+        // Not a zero contract but a pinned one: this finding is real. `railgun_loader` inherits the
+        // plain medium-part base while every other overclockable part inherits the `_overclock` one,
+        // so it declares an Overclock self-buff provider and an Overclock toggle while its
+        // ReceivableBuffs never carries Overclock, leaving the toggle latched on for the part's whole
+        // life. A second entry appearing here is a regression to investigate, not a new vanilla bug.
+        expect(findings).toEqual([
+            'ships\\terran\\railgun_loader\\railgun_loader.rules:116: ' +
+                "This part never receives 'Overclock', so this toggle stays on for good. A part receives only " +
+                'the buffs its ReceivableBuffs lists, and a toggle whose buff never arrives latches to its Invert setting.',
+        ]);
     }, 600_000);
 
     it('shader code: zero findings across vanilla shaders', async () => {
