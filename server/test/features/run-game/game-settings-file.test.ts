@@ -7,10 +7,19 @@ import {
     settingsEntryFor,
 } from '../../../src/features/run-game/game-settings-file';
 
-const SETTINGS_DIR = 'C:/Users/x/Saved Games/Cosmoteer/76561198104661155';
+// Absolute paths are platform-shaped, since `path` only reads a drive letter as absolute on
+// Windows and would otherwise resolve these fixtures against the test process' own directory.
+const WINDOWS = process.platform === 'win32';
+const SETTINGS_DIR = WINDOWS
+    ? 'C:/Users/x/Saved Games/Cosmoteer/76561198104661155'
+    : '/home/x/.local/share/Cosmoteer/76561198104661155';
 const SETTINGS_PATH = `${SETTINGS_DIR}/settings.rules`;
-const INSTALL_ROOT = 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer';
+const INSTALL_ROOT = WINDOWS
+    ? 'C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer'
+    : '/home/x/.steam/steam/steamapps/common/Cosmoteer';
 const MOD = `${SETTINGS_DIR}/Mods/My Weapons Pack`;
+/** A folder outside the settings folder, on another drive where the platform has drives. */
+const ELSEWHERE = WINDOWS ? 'D:/dev' : '/mnt/dev';
 
 /** The shape the game writes: a GameSettings group with the list among many other members. */
 const settings = (enabledMods: string): string =>
@@ -38,12 +47,12 @@ describe('enabling a mod in settings.rules', () => {
     });
 
     it('writes an absolute path when the mod is not under the settings folder', () => {
-        expect(settingsEntryFor(SETTINGS_DIR, 'D:/dev/MyMod')).toBe('D:/dev/MyMod');
+        expect(settingsEntryFor(SETTINGS_DIR, `${ELSEWHERE}/MyMod`)).toBe(`${ELSEWHERE}/MyMod`);
     });
 
     it('reads an entry the way the game does', () => {
         expect(resolveSettingsEntry(SETTINGS_DIR, INSTALL_ROOT, 'Mods/My Weapons Pack')).toBe(
-            MOD.replace(/\//g, process.platform === 'win32' ? '\\' : '/')
+            MOD.replace(/\//g, WINDOWS ? '\\' : '/')
         );
         // Only a `./` path is read against the game's working directory.
         expect(resolveSettingsEntry(SETTINGS_DIR, INSTALL_ROOT, './Standard Mods/example_mod')).toContain('Cosmoteer');
@@ -92,7 +101,7 @@ describe('enabling a mod in settings.rules', () => {
         expect(enable(absoluteForm).kind).toBe('already-enabled');
         // Case-folded, since the game compares paths ignoring case on Windows.
         const casedForm = settings('\tEnabledMods\n\t[\n\t\t"mods/my weapons pack"\n\t]');
-        expect(enable(casedForm).kind).toBe(process.platform === 'win32' ? 'already-enabled' : 'enabled');
+        expect(enable(casedForm).kind).toBe(WINDOWS ? 'already-enabled' : 'enabled');
     });
 
     it('keeps the file line endings', () => {
@@ -111,10 +120,10 @@ describe('enabling a mod in settings.rules', () => {
 
     it('never writes a backslash or a trailing separator', () => {
         const text = settings('\tEnabledMods\n\t[\n\t]');
-        const result = enable(text, 'D:\\dev\\MyMod\\');
+        const result = enable(text, `${ELSEWHERE.replace(/\//g, '\\')}\\MyMod\\`);
         expect(result.kind).toBe('enabled');
         if (result.kind !== 'enabled') return;
-        expect(result.text).toContain('"D:/dev/MyMod"');
+        expect(result.text).toContain(`"${ELSEWHERE}/MyMod"`);
     });
 });
 
@@ -124,10 +133,17 @@ describe('reading the enabled mod folders', () => {
     const folders = (list: string) => enabledModFolders(settings(list), SETTINGS_PATH, INSTALL_ROOT, SETTINGS_DIR);
 
     it('resolves each written spelling the way the game reads it', () => {
-        const list = ['\tEnabledMods', '\t[', '\t\t"Mods/One"', '\t\t"D:/dev/Two"', '\t\t"./Standard Mods/Three"', '\t]'];
+        const list = [
+            '\tEnabledMods',
+            '\t[',
+            '\t\t"Mods/One"',
+            `\t\t"${ELSEWHERE}/Two"`,
+            '\t\t"./Standard Mods/Three"',
+            '\t]',
+        ];
         expect(folders(list.join('\n'))).toEqual([
             resolve(SETTINGS_DIR, 'Mods/One'),
-            resolve('D:/dev/Two'),
+            resolve(`${ELSEWHERE}/Two`),
             resolve(INSTALL_ROOT, 'Standard Mods/Three'),
         ]);
     });
