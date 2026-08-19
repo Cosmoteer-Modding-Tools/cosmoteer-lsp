@@ -17,6 +17,9 @@ import { validateCrossFileIdReferences } from '../../../src/features/diagnostics
 import { validateLocalizationKeys } from '../../../src/features/diagnostics/validator.localization-key';
 import { validateDefaultValuedFields } from '../../../src/features/diagnostics/validator.default-value';
 import { validateShaderDocument } from '../../../src/features/shader/shader-diagnostics';
+import { validateUnreceivableBuffs } from '../../../src/features/diagnostics/validator.unreceivable-buff';
+import { validatePartGeometry } from '../../../src/features/diagnostics/validator.part-geometry';
+import { validateDuplicateModIds } from '../../../src/features/diagnostics/validator.duplicate-id';
 import { buildActionRootingForScan, resetActionRootingForScan } from '../../scan-rooting-helper';
 
 // Triage scan of the default-on cross-file/shader/default-value validators over every installed workshop mod, one
@@ -96,15 +99,29 @@ describe.skipIf(!HAVE)('default-on validators over installed workshop mods', () 
                     const rel = file.replace(/\\/g, '/').split('/799600/')[1] ?? file;
                     let doc;
                     try { doc = parseReal(file); } catch { continue; }
+                    // One cross-file pass, read twice: the undeclared-dependency findings are emitted
+                    // by it rather than by a pass of their own, and running it again would double the
+                    // most expensive check in the sweep.
+                    const crossFile = await validateCrossFileIdReferences(doc, folders, token).catch(() => []);
                     const errors = [
                         ...(await validateSchemaSiblingReferences(doc, token).catch(() => [])).map((e) => `component :: ${e.message}`),
-                        ...(await validateCrossFileIdReferences(doc, folders, token).catch(() => [])).map((e) => `crossfile :: ${e.message}`),
+                        ...crossFile.filter((e) => !e.data?.addModDependency).map((e) => `crossfile :: ${e.message}`),
                         ...(await validateLocalizationKeys(doc, folders, token).catch(() => [])).map(
                             (e) => `lockey :: ${e.additionalInfo ?? e.message}`
                         ),
                         ...(await validateDefaultValuedFields(doc, token).catch(() => [])).map(
                             (e) => `default :: ${e.message}`
                         ),
+                        ...(await validateUnreceivableBuffs(doc, token).catch(() => [])).map(
+                            (e) => `buff :: ${e.node.position.line + 1} :: ${e.message}`
+                        ),
+                        ...(await validatePartGeometry(doc, token).catch(() => [])).map(
+                            (e) => `geometry :: ${e.node.position.line + 1} :: ${e.message}`
+                        ),
+                        ...(await validateDuplicateModIds(doc, folders, token).catch(() => [])).map(
+                            (e) => `duplicate-id :: ${e.message}`
+                        ),
+                        ...crossFile.filter((e) => e.data?.addModDependency).map((e) => `undeclared-dep :: ${e.message}`),
                     ];
                     for (const error of errors) findings.push(`${rel} :: ${error}`);
                 }

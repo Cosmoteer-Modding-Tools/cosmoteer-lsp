@@ -15,7 +15,9 @@ export const snippetToPlainText = (snippet: string): string =>
 /**
  * Convert a {@link Completion} into an LSP {@link CompletionItem}. Plain-string completions keep the
  * legacy `Reference` kind. Snippet completions emit `InsertTextFormat.Snippet` only when the client
- * supports it. Otherwise, their insert text is flattened to plain text so they still work.
+ * supports it. Otherwise, their insert text is flattened to plain text so they still work. A
+ * suggestion carrying a range becomes a text edit over exactly that range, so the client replaces
+ * the text the completer measured instead of the word its own word pattern finds.
  */
 export const toCompletionItem = (completion: Completion, snippetSupported: boolean): CompletionItem => {
     if (typeof completion === 'string') {
@@ -26,6 +28,8 @@ export const toCompletionItem = (completion: Completion, snippetSupported: boole
     if (completion.detail) item.detail = completion.detail;
     if (completion.documentation) item.documentation = { kind: MarkupKind.Markdown, value: completion.documentation };
     if (completion.sortText) item.sortText = completion.sortText;
+    if (completion.filterText) item.filterText = completion.filterText;
+    if (completion.preselect) item.preselect = true;
 
     if (completion.insertText !== undefined) {
         if (completion.isSnippet && snippetSupported) {
@@ -42,6 +46,12 @@ export const toCompletionItem = (completion: Completion, snippetSupported: boole
         } else {
             item.insertText = completion.isSnippet ? snippetToPlainText(completion.insertText) : completion.insertText;
         }
+    }
+    // The range is applied last so the edit carries whatever insert text the snippet handling above
+    // settled on, and the now-redundant `insertText` is dropped because a text edit supersedes it.
+    if (completion.range) {
+        item.textEdit = { range: completion.range, newText: item.insertText ?? completion.label };
+        delete item.insertText;
     }
     return item;
 };

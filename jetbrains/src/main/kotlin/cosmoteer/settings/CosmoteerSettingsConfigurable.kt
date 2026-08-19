@@ -61,7 +61,7 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                         { state.ignorePaths.joinToString(";") },
                         { state.ignorePaths = it.split(';').map(String::trim).filter(String::isNotEmpty).toMutableList() }
                     )
-                    .comment("Semicolon-separated folders the validators skip.")
+                    .comment("Semicolon-separated fragments. A reference whose written path contains one is not checked.")
             }
         }
         group("Diagnostics") {
@@ -97,6 +97,69 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
             row { checkBox("Warn about comments the game does not close").bindSelected(state::validateUnclosedComments) }
             row { checkBox("Fade fields written at their default").bindSelected(state::validateDefaultValues) }
             row { checkBox("Fade constants nothing reads").bindSelected(state::validateUnusedConstants) }
+            row {
+                checkBox("Hint at fields several files write the same way")
+                    .bindSelected(state::validateDuplicateFields)
+                    .comment(
+                        "Marks a group whose fields other files of the mod repeat word for word, and carries " +
+                        "the 'extract shared base' refactoring that moves them into one base file all of them " +
+                        "inherit. Off removes the hint and the offer, while " +
+                        "Tools | Cosmoteer: Extract Shared Base Files still works."
+                    )
+            }
+            row {
+                checkBox("Fade fields whose value the base already supplies")
+                    .bindSelected(state::validateRedundantOverrides)
+                    .comment(
+                        "Marks a field written with exactly the value the group inherits, so deleting it " +
+                        "leaves the game where it is. Carries a remove fix."
+                    )
+            }
+            row {
+                checkBox("Check the mod.rules manifest")
+                    .bindSelected(state::validateModManifest)
+                    .comment(
+                        "Reports a missing or malformed ID or Name, without which the mod never loads, " +
+                        "a field name that is a near miss of a real one, and a declared strings folder, " +
+                        "logo or ship library folder that is not on disk."
+                    )
+            }
+            row {
+                checkBox("Flag an id two files of the mod both register")
+                    .bindSelected(state::validateDuplicateIds)
+                    .comment(
+                        "The game keeps one entry and drops the rest. Only declarations the mod " +
+                        "really wires in count, so an inheritance template with a leftover ID is " +
+                        "left alone."
+                    )
+            }
+            row {
+                checkBox("Report a dependency the manifest does not declare")
+                    .bindSelected(state::validateUndeclaredDependencies)
+                    .comment(
+                        "An id that only resolves because another mod is installed here reads as " +
+                        "correct on this machine and names nothing for anybody else. The fix writes " +
+                        "the mod into the manifest's Dependencies."
+                    )
+            }
+            row {
+                checkBox("Report a buff the part can never receive")
+                    .bindSelected(state::validateUnreceivableBuffs)
+                    .comment(
+                        "A buff modifier, clamp or toggle naming a buff outside the part's own " +
+                        "ReceivableBuffs never moves, since the game hands a part a buff only " +
+                        "while that part is registered as a receiver of it."
+                    )
+            }
+            row {
+                checkBox("Check part grid geometry")
+                    .bindSelected(state::validatePartGeometry)
+                    .comment(
+                        "Fades a door location that is not a cell beside the part, and a blocked cell " +
+                        "or per-cell map key outside it, none of which the game reads. A PhysicalRect " +
+                        "leaving the part is an error, since the game refuses to load such a part."
+                    )
+            }
         }
         group("Code mods") {
             row {
@@ -125,7 +188,32 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                     .bindSelected(state::inlayShowBaseValue)
                     .comment("A reference to a group with a BaseValue member renders '/BaseValue = 160d' inline.")
             }
-            row { checkBox("Allow rename to edit vanilla files").bindSelected(state::allowEditingVanillaFiles) }
+            row {
+                checkBox("Show what a computed value's references stood for")
+                    .bindSelected(state::hoverShowSubstitutions)
+                    .comment(
+                        "A hover over a computed value lists each reference it substituted, the number " +
+                        "it stood for, and the file and line that number was read from."
+                    )
+            }
+            row {
+                checkBox("Show what a modifiable value's modifiers do to it")
+                    .bindSelected(state::hoverShowModifiers)
+                    .comment(
+                        "A hover over a modifiable value lists each modifier, what drives it, the clamp " +
+                        "it puts on the result, and which part supplies the buff."
+                    )
+            }
+            row {
+                checkBox("Allow refactorings to edit vanilla files")
+                    .bindSelected(state::allowEditingVanillaFiles)
+                    .comment(
+                        "Lets rename reach into the game's Data folder, and lets the shared-base " +
+                        "extraction treat it as a project of its own, which it cannot do otherwise " +
+                        "because the game tree carries no mod manifest. Installed workshop mods stay " +
+                        "off limits either way."
+                    )
+            }
             row { checkBox("Enable formatting").bindSelected(state::formattingEnabled) }
             row {
                 checkBox("Semantic highlighting from the language server")

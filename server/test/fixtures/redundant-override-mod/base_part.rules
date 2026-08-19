@@ -1,0 +1,15 @@
+SPEED = 0
+Part
+{
+	Density = 3
+	IsRotateable = false
+	Size = [1, 1]
+	CrewSpeedFactor = "&~/SPEED"
+	JobsIcon
+	{
+		Texture
+		{
+			File = "sprites/hull.png"
+		}
+	}
+}

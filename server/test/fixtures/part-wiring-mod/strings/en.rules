@@ -1,0 +1,7 @@
+__Name = "English"
+
+Parts
+{
+	WiredName = "Wired part"
+	WiredDesc = "A part the fixture manifest registers."
+}

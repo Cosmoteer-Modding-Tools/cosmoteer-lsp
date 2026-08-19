@@ -15,7 +15,13 @@ import {
 } from '../../core/ast/ast';
 import { isModRules, isRulesFileName } from '../../document/document-kind';
 import { registryOf, typeDef } from '../../document/schema/schema';
-import { BUILTIN_SHIP_CLASS, entityDeclarationsOf, SELF_KEYED_MAP_FIELDS } from '../../document/schema/entity-schema';
+import {
+    BUILTIN_SHIP_CLASS,
+    entityDeclarationsOf,
+    hasId,
+    sameId,
+    SELF_KEYED_MAP_FIELDS,
+} from '../../document/schema/entity-schema';
 import { MARKER_CLASSES } from '../../document/schema/category-usage';
 import { SchemaIdIndex } from '../completion/schema-id.index';
 import { isSameOrSubclass, schemaReferenceFieldOf, mapKeyReferencesOf } from '../navigation/schema-id-reference.navigation';
@@ -28,7 +34,16 @@ import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
 import { parseText } from '../../utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { workshopContentDir } from '../../workspace/workshop-dir';
+import { workshopModOf } from '../mod-schema/workshop-link';
+import { findModRoot } from '../../mod/mod-root';
+import {
+    dependencyTokenOf,
+    declaredDependenciesOf,
+    identityOfMod,
+    isDeclaredDependency,
+} from '../../mod/mod-dependencies';
 import { closestMatch } from '../../utils/did-you-mean';
+import { globalSettings } from '../../settings';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 
@@ -102,13 +117,13 @@ export const isValidatedIdClass = (cls: string): boolean => {
 };
 
 /**
- * Whether one reference is judged. Every `ID<X>` class is judged; no class is allowlisted or excluded
+ * Whether one reference is judged. Every `ID<X>` class is judged. No class is allowlisted or excluded
  * by name. The layers that make that safe are each mechanical:
  *  - a class whose declarations the harvest cannot see at all has no ids to judge against (the
  *    no-coverage skip in {@link judgeIdReference}),
  *  - part-component targets are part-local (nesting, inherited bases, includes), the sibling
  *    validator's domain, derived here from the schema's registry,
- *  - a self-keyed map KEY declares rather than references, so an unknown key is a new instance
+ *  - a self-keyed map key declares rather than references, so an unknown key is a new instance
  *    ({@link isSelfKeyedDeclaration}, derived from the schema's map shapes). The class itself stays
  *    judged: a value written for it elsewhere is an ordinary reference into the pool its keys fill,
  *  - label fields that borrow the id type without the engine ever resolving them derive from the
@@ -154,7 +169,7 @@ const referencedInGameTree = async (
         // workspace documents, and an open file referencing its own typo twice must still flag).
         if (!normalizeUri(document.uri).startsWith(dataRootPrefix)) continue;
         for (const reference of idReferencesOf(document)) {
-            if (reference.targetClass === targetClass && reference.value === id) {
+            if (reference.targetClass === targetClass && sameId(reference.value, id)) {
                 referenced = true;
                 break;
             }
@@ -174,38 +189,43 @@ const gameTreeVerdicts = new Map<string, boolean>();
  *  the set stays exactly the known stale leftovers (the regression tripwire lives in the test). */
 export const gameTreeExemptions = new Set<string>();
 
-/** Per-session verdicts of the installed-mods consult, so each unknown id costs one scan. */
-const installedModVerdicts = new Map<string, boolean>();
+/**
+ * Per-session verdicts of the installed-mods consult, so each unknown id costs one scan. The value
+ * is the root folder of the mod that vouched for the id, which the undeclared-dependency finding
+ * names, or null when no installed mod declares it.
+ */
+const installedModVerdicts = new Map<string, string | null>();
 const INSTALLED_MOD_VERDICTS_CAP = 512;
 
 /**
- * Whether any installed workshop mod declares the id, the dependency escape hatch of the
- * cross-file id validation. Scans the workshop tree lazily through the mention pre-filter, so only
- * files whose text contains the id are parsed, and memoizes the verdict per class and id.
+ * Which installed workshop mod declares the id, the dependency escape hatch of the cross-file id
+ * validation. Scans the workshop tree lazily through the mention pre-filter, so only files whose
+ * text contains the id are parsed, and memoizes the verdict per class and id.
  *
  * @param targetClass the reference target class the id must be declared for.
  * @param id the unknown id.
  * @param cancellationToken cancels the workshop scan.
- * @returns true when some installed mod declares the id for that class (or a subclass).
+ * @returns the declaring mod's root folder, or null when no installed mod declares it.
  */
 const declaredInInstalledMods = async (
     targetClass: string,
     id: string,
     cancellationToken: CancellationToken
-): Promise<boolean> => {
+): Promise<string | null> => {
     const key = `${targetClass}:${id}`;
     const cached = installedModVerdicts.get(key);
     if (cached !== undefined) return cached;
     const workshop = workshopContentDir();
-    if (!workshop) return false;
+    if (!workshop) return null;
     const workshopPrefix = normalizeUri(pathToFileURL(workshop).href);
-    let declared = false;
+    let declaringRoot: string | null = null;
     for await (const document of documentsMentioning([pathToFileURL(workshop).href], id, cancellationToken)) {
         // Only installed-mod files may vouch (the mention walk also yields the already-registered
         // workspace documents, whose declarations the index and the loose probe already count).
         if (!normalizeUri(document.uri).startsWith(workshopPrefix)) continue;
+        let declared = false;
         for (const declaration of entityDeclarationsOf(document)) {
-            if (declaration.id === id && isSameOrSubclass(declaration.elementClass, targetClass)) {
+            if (sameId(declaration.id, id) && isSameOrSubclass(declaration.elementClass, targetClass)) {
                 declared = true;
                 break;
             }
@@ -215,11 +235,14 @@ const declaredInInstalledMods = async (
         // loose probe grants the open workspace. Marker classes stay exact: their harvest is
         // complete, so the shape match could only shadow a real finding.
         if (!declared && !MARKER_CLASSES.has(targetClass) && looseDeclarationIn(document, id)) declared = true;
-        if (declared) break;
+        if (declared) {
+            declaringRoot = workshopModOf(uriToFsPath(document.uri))?.root ?? findModRoot(document.uri) ?? null;
+            break;
+        }
     }
     if (installedModVerdicts.size >= INSTALLED_MOD_VERDICTS_CAP) installedModVerdicts.clear();
-    installedModVerdicts.set(key, declared);
-    return declared;
+    installedModVerdicts.set(key, declaringRoot);
+    return declaringRoot;
 };
 
 /** Per-session verdicts of the label-field derivation, one game-tree scan per field and class. */
@@ -270,7 +293,7 @@ const isVanillaLabelField = async (
             if (reference.fieldName?.toLowerCase() !== field || reference.targetClass !== targetClass) continue;
             if (reference.value.trim() === '') continue;
             sawUsage = true;
-            if (ids.has(reference.value)) {
+            if (hasId(ids, reference.value)) {
                 sawResolving = true;
                 break;
             }
@@ -302,7 +325,7 @@ export const invalidateLooseDeclarationCache = (): void => {
  * bucket). This is what makes the whole-file-root and manifest-collection classes safe to judge
  * without hand-kept exclusions: their declarations may sit where the rooted harvest cannot classify
  * them, but the shapes themselves are still recognizable. Class-blind on purpose, since the
- * unclassifiable location is exactly why the class is unknown; the cost of a rare cross-class
+ * unclassifiable location is exactly why the class is unknown. The cost of a rare cross-class
  * collision is a suppressed warning, never a false one.
  *
  * @param id the unknown id.
@@ -356,7 +379,8 @@ const declaredInUnwalkedInclude = async (id: string, cancellationToken: Cancella
         // case-sensitive filesystem `uriToFsPath` would point at a file that does not exist.
         const path = ReverseIncludeIndex.instance.realPathFor(uri) ?? uriToFsPath(uri);
         const text = await readFile(path, 'utf8').catch(() => undefined);
-        if (text === undefined || !text.includes(id)) continue;
+        // Folded, like every other id comparison: the engine's ids are case-insensitive.
+        if (text === undefined || !text.toLowerCase().includes(id.toLowerCase())) continue;
         const document = parseText(text, uri);
         if (looseDeclarationIn(document, id) || writesMapEntryKey(document, id)) return true;
     }
@@ -385,7 +409,7 @@ const writesMapEntryKey = (document: AbstractNodeDocument, id: string): boolean 
             isAssignmentNode(node) &&
             node.left.name.toLowerCase() === 'key' &&
             isValueNode(node.right) &&
-            String(node.right.valueType.value) === id
+            sameId(String(node.right.valueType.value), id)
         ) {
             found = true;
             return;
@@ -414,20 +438,20 @@ const looseDeclarationIn = (document: AbstractNodeDocument, id: string): boolean
     const visit = (node: AbstractNode): void => {
         if (found) return;
         if (isAssignmentNode(node) && isValueNode(node.right)) {
-            if (node.left.name.toLowerCase() === 'id' && String(node.right.valueType.value) === id) {
+            if (node.left.name.toLowerCase() === 'id' && sameId(String(node.right.valueType.value), id)) {
                 found = true;
                 return;
             }
-            if (node.left.name === id && node.right.valueType.type === 'Reference') {
+            if (sameId(node.left.name, id) && node.right.valueType.type === 'Reference') {
                 found = true;
                 return;
             }
-            if (String(node.right.valueType.value) === id && declaresSelfKeyedEntry(node)) {
+            if (sameId(String(node.right.valueType.value), id) && declaresSelfKeyedEntry(node)) {
                 found = true;
                 return;
             }
         }
-        if ((isGroupNode(node) || isListNode(node)) && node.identifier?.name === id) {
+        if ((isGroupNode(node) || isListNode(node)) && node.identifier && sameId(node.identifier.name, id)) {
             found = true;
             return;
         }
@@ -457,7 +481,7 @@ const isSelfKeyedMapType = (type: ValueType | undefined): boolean =>
  * beside the named member (`RenderLayers { asteroid_lights_add { … } }`).
  *
  * The loose probe needs this because a mod adds its layers from a `mod.rules` action payload, where
- * the list carries the ACTION's field name rather than the map's:
+ * the list carries the action's field name rather than the map's:
  *
  *     { Action = AddMany; AddTo = "<ships/terran/terran.rules>/Terran/RenderLayers"
  *       ManyToAdd [ { Key = "asteroid_lights_add" Value { … } } ] }
@@ -516,12 +540,76 @@ export const validateCrossFileIdReferences = async (
 
     const errors: ValidationError[] = [];
     const idsByClass = new Map<string, Set<string>>();
+    const declaringMods = new Map<string, string>();
+    // One entry per mod that rescued an id here, anchored on the first reference it rescued: a file
+    // can carry over a hundred references into the same dependency and one finding says it.
+    const rescuedBy = new Map<string, IdReference>();
     for (const reference of references) {
         if (cancellationToken.isCancellationRequested) return errors;
-        const verdict = await judgeIdReference(reference, folderPaths, idsByClass, cancellationToken);
+        const verdict = await judgeIdReference(reference, folderPaths, idsByClass, cancellationToken, declaringMods);
+        if (verdict === 'dependency-declared') {
+            const root = declaringMods.get(`${reference.targetClass}:${reference.value}`);
+            if (root && !rescuedBy.has(root)) rescuedBy.set(root, reference);
+            continue;
+        }
         if (verdict !== 'unresolved') continue;
 
         errors.push(unresolvedIdError(reference, idsByClass.get(reference.targetClass) ?? new Set<string>()));
+    }
+    errors.push(...(await undeclaredDependencyErrors(document, rescuedBy, cancellationToken)));
+    return errors;
+};
+
+/** Path comparison for mod roots: separators and case fold, since Windows answers both spellings. */
+const samePath = (a: string, b: string): boolean =>
+    a.replace(/\\/g, '/').toLowerCase().replace(/\/$/, '') === b.replace(/\\/g, '/').toLowerCase().replace(/\/$/, '');
+
+/**
+ * The findings for ids this file only resolves because an installed mod declares them, while the
+ * manifest does not say the mod is needed. That resolution happens silently, so the file validates
+ * clean on the author's machine and names nothing for anybody who does not have the other mod.
+ *
+ * Structurally incomplete, and the message says so: an id that the dependency and this mod both
+ * declare resolves in the workspace and never reaches the installed-mod consult at all, so this can
+ * never be a full dependency audit.
+ *
+ * @param document the document being validated.
+ * @param rescuedBy the rescuing mod roots with the first reference each rescued.
+ * @param cancellationToken cancels the manifest reads.
+ * @returns one finding per undeclared mod, empty when the check is off or everything is declared.
+ */
+export const undeclaredDependencyErrors = async (
+    document: AbstractNodeDocument,
+    rescuedBy: ReadonlyMap<string, IdReference>,
+    cancellationToken: CancellationToken
+): Promise<ValidationError[]> => {
+    if (rescuedBy.size === 0) return [];
+    if (globalSettings.diagnostics?.validateUndeclaredDependencies === false) return [];
+    const ownRoot = findModRoot(document.uri);
+    if (!ownRoot) return [];
+    const declared = await declaredDependenciesOf(ownRoot).catch(() => new Set<string>());
+    const errors: ValidationError[] = [];
+    for (const [root, reference] of rescuedBy) {
+        if (cancellationToken.isCancellationRequested) return errors;
+        // A mod edited in place inside the workshop tree vouches for its own ids, which is not a
+        // dependency on anything.
+        if (samePath(root, ownRoot)) continue;
+        const identity = await identityOfMod(root).catch(() => null);
+        if (!identity || isDeclaredDependency(declared, identity)) continue;
+        const token = dependencyTokenOf(identity);
+        const name = identity.name ?? identity.manifestId ?? token ?? root;
+        errors.push({
+            message: l10n.t(
+                "'{0}' is only installed on this machine. This file uses ids that mod declares, and the manifest does not list it under Dependencies, so those ids name nothing for anybody who does not have it.",
+                name
+            ),
+            node: reference.node,
+            severity: 'information',
+            additionalInfo: l10n.t(
+                'Only an id this mod does not declare itself can be traced to another mod this way, so this is not a full list of what the mod needs.'
+            ),
+            ...(token ? { data: { addModDependency: { token, name } } } : {}),
+        });
     }
     return errors;
 };
@@ -602,13 +690,17 @@ export type IdReferenceJudgment =
  * @param folderPaths the project folders the id index is built from.
  * @param idsByClass per-call memo of the declared-id sets, filled on demand.
  * @param cancellationToken cancellation for the index build and consults.
+ * @param declaringMods filled, for a `dependency-declared` verdict, with the root folder of the mod
+ *  that vouched for the id, keyed `class:id`. The verdict itself stays a plain string, since the
+ *  class-coverage audit indexes its counters on the raw union.
  * @returns the judgment for this reference.
  */
 export const judgeIdReference = async (
     reference: IdReference,
     folderPaths: string[],
     idsByClass: Map<string, Set<string>>,
-    cancellationToken: CancellationToken
+    cancellationToken: CancellationToken,
+    declaringMods?: Map<string, string>
 ): Promise<IdReferenceJudgment> => {
     let ids = idsByClass.get(reference.targetClass);
     if (!ids) {
@@ -621,7 +713,7 @@ export const judgeIdReference = async (
     if (ids.size === 0 || !SchemaIdIndex.instance.hasFileDeclarationsFor(reference.targetClass)) {
         return 'no-coverage';
     }
-    if (ids.has(reference.value)) return 'resolved';
+    if (hasId(ids, reference.value)) return 'resolved';
     // A label field never resolves by design (checked before the per-id consults, since one field
     // verdict covers every value written in it).
     if (reference.fieldName && (await isVanillaLabelField(reference.fieldName, reference.targetClass, cancellationToken))) {
@@ -644,7 +736,9 @@ export const judgeIdReference = async (
     // The id may come from a dependency mod outside the workspace (a part of a base pack, a tag
     // another mod's sysgen declares): consult the installed workshop mods before flagging
     // (lazy, one scan per unique unknown id per session).
-    if (await declaredInInstalledMods(reference.targetClass, reference.value, cancellationToken)) {
+    const declaringRoot = await declaredInInstalledMods(reference.targetClass, reference.value, cancellationToken);
+    if (declaringRoot) {
+        declaringMods?.set(`${reference.targetClass}:${reference.value}`, declaringRoot);
         return 'dependency-declared';
     }
     return 'unresolved';

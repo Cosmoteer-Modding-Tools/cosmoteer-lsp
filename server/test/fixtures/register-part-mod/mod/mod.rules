@@ -1,0 +1,16 @@
+ID = test.registerpart
+Name = "Register Part Fixture"
+Version = 1.0.0
+
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<cosmoteer.rules>/Ships"
+		ManyToAdd
+		[
+			&<ships/modship.rules>/ModShip
+			&<ships/broken.rules>/Broken
+		]
+	}
+]

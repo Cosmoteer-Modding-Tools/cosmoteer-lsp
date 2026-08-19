@@ -1,0 +1,5 @@
+Part
+{
+	ID = test.new_part
+	Size = [2, 1]
+}

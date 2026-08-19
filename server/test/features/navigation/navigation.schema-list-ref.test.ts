@@ -28,6 +28,9 @@ describe('schemaReferenceFieldOf: list-element references', () => {
             targetClass: 'Cosmoteer.Factions.FactionRules',
             value: 'fringe',
             fieldName: 'AllowedFactions',
+            // The owning class is what tells a reference apart from an id declaration, so the id
+            // completion can stay silent where the slot declares an id rather than naming one.
+            ownerClass: 'Cosmoteer.Modes.Career.Map.StartingNodePickerSpawner',
         });
     });
 

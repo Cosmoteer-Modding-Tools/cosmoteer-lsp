@@ -11,6 +11,7 @@ import com.intellij.openapi.project.Project
 import com.redhat.devtools.lsp4ij.LanguageServerManager
 import cosmoteer.preview.ShaderPreviewService
 import org.eclipse.lsp4j.ExecuteCommandParams
+import cosmoteer.lsp.commandResultOf
 
 /**
  * Rebuilds the schema contributed by code mods: asks the language server to re-read every mod
@@ -45,7 +46,7 @@ class BuildModSchemaAction : AnAction() {
      * @param result the raw `workspace/executeCommand` result (a Gson tree or null).
      */
     private fun showSummary(project: Project, result: Any?) {
-        val summary = result as? JsonObject
+        val summary = commandResultOf(result)
         ApplicationManager.getApplication().invokeLater {
             if (project.isDisposed) return@invokeLater
             val group = NotificationGroupManager.getInstance().getNotificationGroup("Cosmoteer Language Server")

@@ -1,0 +1,6 @@
+// The resource the dependent fixture mods name without declaring it themselves.
+DependencyResource
+{
+	ID = test.dependency_resource
+	NameKey = "Resources/DependencyResource"
+}

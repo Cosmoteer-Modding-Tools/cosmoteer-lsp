@@ -1,6 +1,7 @@
 import { readFile, stat } from 'fs/promises';
 import { homedir } from 'os';
 import * as path from 'path';
+import Registry from 'winreg';
 
 /**
  * The Steam client install locations to probe on platforms without a registry. Covers the
@@ -28,6 +29,23 @@ export const defaultSteamInstallPaths = (
         return [path.join(home, 'Library', 'Application Support', 'Steam')];
     }
     return [];
+};
+
+/**
+ * The Steam client install dir candidates for the current platform: the registry's `InstallPath` on
+ * Windows, and the conventional locations elsewhere. Shared by the game detection and by the
+ * run-in-game command, which needs the Steam executable rather than the library the game sits in.
+ *
+ * @returns the candidate Steam client dirs, empty when none could be resolved.
+ */
+export const steamInstallPaths = async (): Promise<string[]> => {
+    if (process.platform !== 'win32') return defaultSteamInstallPaths();
+    const registry = new Registry({ hive: Registry.HKLM, key: '\\SOFTWARE\\WOW6432Node\\Valve\\Steam' });
+    return new Promise<string[]>((resolve) => {
+        registry.get('InstallPath', (error, item) => {
+            resolve(error ? [] : [item.value]);
+        });
+    });
 };
 
 /**

@@ -8,8 +8,7 @@ import { isRulesFileName } from '../document/document-kind';
 import * as l10n from '@vscode/l10n';
 import * as path from 'path';
 import { globalSettings } from '../settings';
-import Registry from 'winreg';
-import { defaultSteamInstallPaths, findCosmoteerDataPath } from './steam-library';
+import { findCosmoteerDataPath, steamInstallPaths } from './steam-library';
 
 /**
  * Normalize a user-supplied game path to its `Data` root: a path ending in `Data`, `Cosmoteer`, or
@@ -181,16 +180,7 @@ export class CosmoteerWorkspaceService {
      * @returns the candidate Steam client dirs, empty when none could be resolved.
      */
     private async getSteamInstallPaths(): Promise<string[]> {
-        if (process.platform !== 'win32') return defaultSteamInstallPaths();
-        const reg = new Registry({
-            hive: Registry.HKLM,
-            key: '\\SOFTWARE\\WOW6432Node\\Valve\\Steam',
-        });
-        return new Promise<string[]>((resolve) => {
-            reg.get('InstallPath', (err, item) => {
-                resolve(err ? [] : [item.value]);
-            });
-        });
+        return steamInstallPaths();
     }
 
     public async initialize(cosmoteerWorkspacePath: string, workDoneProgress: WorkDoneProgressReporter) {
@@ -217,6 +207,15 @@ export class CosmoteerWorkspaceService {
             if (this._fileWorkspaceTree.children && this._fileWorkspaceTree.children.length > 0) {
                 this.isInitalized = true;
                 this._connection.languages.diagnostics.refresh();
+            } else {
+                // The path reads but holds nothing, which leaves every game-data check off. Saying so
+                // here is the only notice the user gets: the path is set, so nothing else complains.
+                this._connection.window.showWarningMessage(
+                    l10n.t(
+                        'The Cosmoteer path {0} holds no files, so every check that reads the game data stays off. Point the setting at the installed game.',
+                        cosmoteerWorkspacePath
+                    )
+                );
             }
         } catch {
             this._connection?.window?.showWarningMessage(

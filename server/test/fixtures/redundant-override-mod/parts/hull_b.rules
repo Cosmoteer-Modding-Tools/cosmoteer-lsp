@@ -1,0 +1,11 @@
+Part : <../base_part.rules>/Part
+{
+	ID = test.hull_b
+	JobsIcon
+	{
+		Texture
+		{
+			File = "hull.png"
+		}
+	}
+}

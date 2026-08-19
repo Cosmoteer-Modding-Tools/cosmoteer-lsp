@@ -1,0 +1,10 @@
+Part
+{
+	NameKey = "Parts/ThrusterA"
+	ID = test.thruster_a
+	Size = [1, 1]
+	MaxHealth = 2000
+	Density = 1.5
+	IsRotateable = true
+	IsCrewSalvageable = false
+}

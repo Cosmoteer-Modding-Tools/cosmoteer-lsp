@@ -9,8 +9,15 @@ import { filePathToUri } from '../navigation/navigation-strategy';
 import { findModRoot } from '../../mod/mod-root';
 import { resolveStringsFolders, isUnderFolder } from '../../mod/strings-folder';
 
-/** The mod's own language strings files (absolute paths): every `.rules` under its strings folders. */
-const modStringsFiles = async (documentUri: string, cancellationToken: CancellationToken): Promise<string[]> => {
+/**
+ * The mod's own language strings files (absolute paths): every `.rules` under its strings folders.
+ * The base game's folders are filtered out, so nothing here can ever write into the read-only install.
+ *
+ * @param documentUri a file of the mod whose strings files are wanted.
+ * @param cancellationToken cancellation for the folder resolution.
+ * @returns the absolute file paths, empty when the file is not in a mod or the mod ships no language file.
+ */
+export const modStringsFiles = async (documentUri: string, cancellationToken: CancellationToken): Promise<string[]> => {
     const modRoot = findModRoot(documentUri);
     if (!modRoot) return [];
     // The folders declared/conventional for the editing mod (exclude the base game's).
@@ -58,11 +65,11 @@ const hasMember = (container: { elements: AbstractNode[] }, name: string): boole
 
 const tabs = (n: number): string => '\t'.repeat(n);
 
-/** Nested-group text creating `groups` (outer→inner) around a `leaf = ""`, indented from `indent`. */
-const buildNested = (groups: string[], leaf: string, indent: number): string => {
-    if (groups.length === 0) return `${tabs(indent)}${leaf} = ""`;
+/** Nested-group text creating `groups` (outer→inner) around a `leaf = value`, indented from `indent`. */
+const buildNested = (groups: string[], leaf: string, indent: number, value: string): string => {
+    if (groups.length === 0) return `${tabs(indent)}${leaf} = ${value}`;
     const [head, ...rest] = groups;
-    return `${tabs(indent)}${head}\n${tabs(indent)}{\n${buildNested(rest, leaf, indent + 1)}\n${tabs(indent)}}`;
+    return `${tabs(indent)}${head}\n${tabs(indent)}{\n${buildNested(rest, leaf, indent + 1, value)}\n${tabs(indent)}}`;
 };
 
 /** Convert a byte offset into an LSP {line, character} position within `text`. */
@@ -81,10 +88,21 @@ const offsetToPosition = (text: string, offset: number): { line: number; charact
 /**
  * The single {@link TextEdit} that inserts the key path `key` into the already-parsed strings file
  * `document` (with source `text`): it walks to the deepest existing group along the path, then adds
- * the missing group chain plus a `Leaf = ""` placeholder. Returns null when the file already declares
+ * the missing group chain plus a `Leaf = value` member. Returns null when the file already declares
  * the key (nothing to add) or its structure can't be edited safely.
+ *
+ * @param document the parsed strings file.
+ * @param text that file's source, which the insertion point is measured in.
+ * @param key the key path to declare (`Parts/Foo`).
+ * @param value the value text to write, quotes included. Defaults to the empty placeholder.
+ * @returns the single edit, or null when there is nothing to insert.
  */
-export const insertEditForFile = (document: AbstractNodeDocument, text: string, key: string): TextEdit | null => {
+export const insertEditForFile = (
+    document: AbstractNodeDocument,
+    text: string,
+    key: string,
+    value: string = '""'
+): TextEdit | null => {
     const segments = key.split('/').filter((s) => s.length > 0);
     if (segments.length === 0) return null;
     const leaf = segments[segments.length - 1];
@@ -106,7 +124,7 @@ export const insertEditForFile = (document: AbstractNodeDocument, text: string, 
         // Insert on its own line just before the group's closing `}` (its position ends right after it).
         const brace = container.position.end - 1;
         if (text[brace] !== '}') return null;
-        const content = `${buildNested(remaining, leaf, childIndentOf(container))}\n`;
+        const content = `${buildNested(remaining, leaf, childIndentOf(container), value)}\n`;
         const pos = offsetToPosition(text, brace);
         return { range: { start: pos, end: pos }, newText: content };
     }
@@ -114,7 +132,7 @@ export const insertEditForFile = (document: AbstractNodeDocument, text: string, 
     const offset = text.length;
     const lead = text.length > 0 && !text.endsWith('\n') ? '\n' : '';
     const pos = offsetToPosition(text, offset);
-    return { range: { start: pos, end: pos }, newText: `${lead}${buildNested(remaining, leaf, 0)}\n` };
+    return { range: { start: pos, end: pos }, newText: `${lead}${buildNested(remaining, leaf, 0, value)}\n` };
 };
 
 /**
@@ -125,22 +143,27 @@ export const insertEditForFile = (document: AbstractNodeDocument, text: string, 
  * @param documentUri the file the diagnostic fired in (used to locate the owning mod).
  * @param key the missing localization key path (`Parts/Foo`).
  * @param cancellationToken cancellation for the folder resolution.
+ * @param value the value text each file gets, quotes included. Defaults to the empty placeholder.
+ * @param readOverride the unsaved text of an open file, so an edit is measured against the buffer the
+ *        client will apply it to rather than against stale bytes on disk.
  * @returns the cross-file edit, or null when there is nowhere to insert.
  */
 export const buildInsertLocalizationKeyEdit = async (
     documentUri: string,
     key: string,
-    cancellationToken: CancellationToken
+    cancellationToken: CancellationToken,
+    value: string = '""',
+    readOverride?: (absPath: string) => string | undefined
 ): Promise<WorkspaceEdit | null> => {
     const files = await modStringsFiles(documentUri, cancellationToken);
     if (files.length === 0) return null;
 
     const changes: Record<string, TextEdit[]> = {};
     for (const file of files) {
-        const text = await readFile(file, 'utf-8').catch(() => null);
-        if (text === null) continue;
+        const text = readOverride?.(file) ?? (await readFile(file, 'utf-8').catch(() => undefined));
+        if (text === undefined) continue;
         const document = parseText(text, file);
-        const edit = insertEditForFile(document, text, key);
+        const edit = insertEditForFile(document, text, key, value);
         if (edit) changes[filePathToUri(file)] = [edit];
     }
     return Object.keys(changes).length > 0 ? { changes } : null;

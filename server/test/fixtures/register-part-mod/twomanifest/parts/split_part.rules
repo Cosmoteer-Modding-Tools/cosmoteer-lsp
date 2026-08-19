@@ -1,0 +1,5 @@
+Part
+{
+	ID = test.split_part
+	Size = [1, 1]
+}

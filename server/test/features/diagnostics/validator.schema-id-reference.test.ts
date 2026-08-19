@@ -23,9 +23,9 @@ import { aliasRootIndex } from '../../../src/document/schema/alias-root';
 import { parseFilePath } from '../../../src/utils/ast.utils';
 import { globalSettings } from '../../../src/settings';
 
-// End-to-end test of the opt-in cross-file id-reference validator. A temp folder holds the
+// End-to-end test of the cross-file id-reference validator. A temp folder holds the
 // authoritative `PartToggles` declaration list (the same field-name harvest the real index
-// uses); each part document is parsed in memory and validated against that folder. The index
+// uses). Each part document is parsed in memory and validated against that folder. The index
 // singleton is reset before every test so it rebuilds from the folder passed in. Parsed documents
 // register like open buffers do in production, since the loose declaration probe reads them
 // registrar-first. A second temp folder plays the game data root, giving the label-field
@@ -123,7 +123,7 @@ describe('validateCrossFileIdReferences', () => {
                 // The big-content-mod shape: the mod's own copy of the whole collection is merged over
                 // the game's, so every top-level member it names is a member of the merged result.
                 '\t{\n\t\tAction = Overrides\n\t\tOverrideIn = "<buffs.rules>"\n\t\tOverrides = &<my_buffs.rules>\n\t}\n' +
-                // The same merge, but into a keyed MEMBER of a game file rather than a whole file.
+                // The same merge, but into a keyed member of a game file rather than a whole file.
                 '\t{\n\t\tAction = Overrides\n\t\tOverrideIn = "<cosmoteer.rules>/ShipAIs"\n\t\tOverrides\n\t\t{\n\t\t\tmerged_ai\n\t\t\t{\n\t\t\t\tUpdateInterval = 1\n\t\t\t}\n\t\t}\n\t}\n' +
                 ']\n'
         );
@@ -187,7 +187,7 @@ describe('validateCrossFileIdReferences', () => {
     });
 
     it('flags a part-id reference nothing declares, with a did-you-mean fix', async () => {
-        // The workspace declares `test.armor` (and the alias `old.armor`); a typo resolves nowhere,
+        // The workspace declares `test.armor` (and the alias `old.armor`). A typo resolves nowhere,
         // and without a Steam install in this harness the dependency-mod consult stays silent too.
         const errors = await validateCrossFileIdReferences(
             parse('Part\n{\n\tEditorParentParts = ["test.armr"]\n}'),
@@ -204,6 +204,17 @@ describe('validateCrossFileIdReferences', () => {
             const doc = parse(`Part\n{\n\tEditorParentParts = ["${id}"]\n}`);
             expect(await validateCrossFileIdReferences(doc, [workspaceUri], token)).toHaveLength(0);
         }
+    });
+
+    it('resolves a reference whose casing differs from the declaration', async () => {
+        // `Cosmoteer.Data.ID<T>` interns names case-insensitively and compares the interned index,
+        // so `Test.Armor` and `test.armor` are one id to the game.
+        for (const id of ['Test.Armor', 'TEST.ARMOR', 'OLD.Armor']) {
+            const doc = parse(`Part\n{\n\tEditorParentParts = ["${id}"]\n}`);
+            expect(await validateCrossFileIdReferences(doc, [workspaceUri], token)).toHaveLength(0);
+        }
+        const toggle = await validateCrossFileIdReferences(partWithToggle('On_Off'), [workspaceUri], token);
+        expect(toggle).toHaveLength(0);
     });
 
     // A trade ship references a built-in ship by an id nothing writes: the game composes it from the
@@ -228,7 +239,7 @@ describe('validateCrossFileIdReferences', () => {
         expect(await judgeShipId('Courier')).toBe('resolved');
     });
 
-    // The bare "no such ship" message sends the author hunting for a missing file; the prefix is far
+    // The bare "no such ship" message sends the author hunting for a missing file. The prefix is far
     // outside the did-you-mean band, so without this the diagnostic names no cause and offers no fix.
     it('explains the IDPrefix composition and offers the prefixed id as the fix', () => {
         const node = parse('X = "Starstone"');
@@ -323,7 +334,7 @@ describe('validateCrossFileIdReferences', () => {
             });
         });
 
-        // The same seam for the two manifest shapes that name a NEW member of a keyed collection: an
+        // The same seam for the two manifest shapes that name a new member of a keyed collection: an
         // `Add` with a `Name`, and an override that creates a member that does not exist yet (whose
         // target therefore does not resolve at all). A workshop mod's buff declared this way drew 486
         // "No BuffType named …" false positives before the action's target was read as a declaration.

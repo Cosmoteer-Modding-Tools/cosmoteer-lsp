@@ -72,3 +72,6 @@ TEST-results.xml
 # schemagen build intermediate: XML prose seed for the docs scaffolder. Regenerated from the game
 # DLLs on a Cosmoteer update; the committed source of truth for field docs is docs/fields/*.md.
 field-docs.seed.json
+
+# Local planning notes from a repository audit. Working document, not part of the shipped docs.
+docs/ROADMAP.local.md

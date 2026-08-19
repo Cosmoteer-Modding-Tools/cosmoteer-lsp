@@ -1,0 +1,5 @@
+// A part that declares no ID anywhere, which is reported but never refused.
+Part
+{
+	Size = [1, 1]
+}

@@ -1,0 +1,10 @@
+Terran
+{
+	ID = cosmoteer.terran
+	OtherIDs = [Terran, PlayerShips]
+
+	Parts
+	[
+		&<corridor/corridor.rules>/Part
+	]
+}

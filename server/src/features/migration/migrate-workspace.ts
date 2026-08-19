@@ -7,6 +7,7 @@ import { ValidationError } from '../diagnostics/validator';
 import { validateSchema } from '../diagnostics/validator.schema';
 import { validateIgnoredFields } from '../diagnostics/validator.ignored-field';
 import { removalRange } from '../../utils/removal-range';
+import { unifiedDiff } from '../../utils/unified-diff';
 
 /**
  * The `workspace/executeCommand` id of the one-command workspace migration. Both clients invoke it
@@ -44,7 +45,102 @@ export interface MigrationSummary {
     deadFieldsRemoved: number;
     /** Files skipped because they did not parse cleanly (never edited mechanically). */
     unparsable: number;
+    /** What a dry run would have changed. Absent when the migration was applied. */
+    preview?: MigrationPreview;
 }
+
+/**
+ * How many rewritten files a dry run carries in full. A migration can cover every file of a mod, and
+ * the unified diff already accounts for all of them, so the side-by-side view opens on the first of
+ * these and the message stays a size a client can read.
+ */
+export const MAX_PREVIEW_FILES = 40;
+
+/** The largest total size of those rewritten contents, so a few very large files cannot blow it. */
+export const MAX_PREVIEW_CONTENT_BYTES = 2_000_000;
+
+/** The largest unified diff a dry run sends. Past it the diff stops and the payload says so. */
+export const MAX_PREVIEW_DIFF_BYTES = 1_000_000;
+
+/** One file a dry run would change, with the text it would end up holding. */
+export interface MigrationPreviewFile {
+    fsPath: string;
+    /** The file's contents after the migration, for a side-by-side view against what is on disk. */
+    after: string;
+}
+
+/** What a dry run would change, in the formats an editor can render. */
+export interface MigrationPreview {
+    /** Every changed file as one unified diff, for a client without a diff view. */
+    diff: string;
+    /** The changed files with their rewritten contents, capped by {@link MAX_PREVIEW_FILES}. */
+    changed: MigrationPreviewFile[];
+    /** How many changed files are not carried in {@link MigrationPreview.changed}. */
+    omitted: number;
+    /** True when the diff reached {@link MAX_PREVIEW_DIFF_BYTES} and stops short of the last files. */
+    diffTruncated: boolean;
+}
+
+/** Gathers a dry run's changed files, dropping whatever does not fit in one message. */
+export interface MigrationPreviewCollector {
+    /**
+     * Records one changed file.
+     *
+     * @param fsPath the file's on-disk path.
+     * @param label the path shown in the diff header, relative to the workspace folder.
+     * @param before the file's current text.
+     * @param after the text the migration would leave in it.
+     */
+    add(fsPath: string, label: string, before: string, after: string): void;
+    /** Records a changed file the preview cannot show, so the counts stay truthful. */
+    omit(): void;
+    /** The payload for the client. */
+    result(): MigrationPreview;
+}
+
+/**
+ * Collect what a dry run would change, under a fixed size budget.
+ *
+ * The rewritten contents of every file of a large mod do not belong in one LSP message, so the first
+ * {@link MAX_PREVIEW_FILES} files are carried in full for the editor's own side-by-side diff, and the
+ * unified diff covers the rest until it reaches {@link MAX_PREVIEW_DIFF_BYTES}. What was left out is
+ * counted, so the client says what the view does not show rather than implying it is the whole change.
+ *
+ * @returns the collector.
+ */
+export const createMigrationPreview = (): MigrationPreviewCollector => {
+    const sections: string[] = [];
+    const changed: MigrationPreviewFile[] = [];
+    let contentBytes = 0;
+    let diffBytes = 0;
+    let omitted = 0;
+    let diffTruncated = false;
+    return {
+        add: (fsPath, label, before, after) => {
+            if (changed.length < MAX_PREVIEW_FILES && contentBytes + after.length <= MAX_PREVIEW_CONTENT_BYTES) {
+                changed.push({ fsPath, after });
+                contentBytes += after.length;
+            } else {
+                omitted++;
+            }
+            const section = unifiedDiff(before, after, label);
+            if (section.length === 0) return;
+            // The sections are joined with a newline each, so that separator is part of what the
+            // message costs and has to count against the budget for the cap to be a real bound.
+            const cost = section.length + (sections.length > 0 ? 1 : 0);
+            if (diffBytes + cost > MAX_PREVIEW_DIFF_BYTES) {
+                diffTruncated = true;
+                return;
+            }
+            sections.push(section);
+            diffBytes += cost;
+        },
+        omit: () => {
+            omitted++;
+        },
+        result: () => ({ diff: sections.join('\n'), changed, omitted, diffTruncated }),
+    };
+};
 
 /** The per-file slice of a migration: the edits to apply plus the report bookkeeping. */
 export interface FileMigrationResult {

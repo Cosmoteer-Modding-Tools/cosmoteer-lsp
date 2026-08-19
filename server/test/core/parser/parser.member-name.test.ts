@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isGroupNode } from '../../../src/core/ast/ast';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 
@@ -123,5 +124,49 @@ describe('an inheritance with no body', () => {
 
     it('accepts several inherited references before the body', () => {
         expect(findings('Components : ^/0/Components, &<doodads.rules> { A = 1 }\n')).toHaveLength(0);
+    });
+});
+
+// Only a `{` or a `[` ends an inheritance list in the game, so a head whose body never comes collects
+// references until path validation throws and the file is dropped. That is the shape a group has for
+// as long as it takes to type its opening brace, and it used to take the rest of the file with it.
+describe('a body-less inheritance head stops at the next member', () => {
+    const names = (src: string) =>
+        parse(src).value.elements.map((e) => {
+            const named = e as { identifier?: { name: string } };
+            return named.identifier?.name ?? e.type;
+        });
+
+    it('keeps the members written after it at the top level', () => {
+        expect(names('ID = x\nActions : &<f.rules>/Actions\nName = "y"\n')).toHaveLength(2);
+    });
+
+    it('keeps the members written after it inside a group', () => {
+        const group = parse('G\n{\n\tChild : Base\n\tX = 1\n\tY = 2\n}\nAfter = 3\n').value.elements[0];
+        expect(isGroupNode(group) && group.elements).toHaveLength(2);
+    });
+
+    it('keeps the file readable past the group holding it', () => {
+        expect(names('G\n{\n\tChild : Base\n\tX = 1\n}\nAfter = 3\n')).toEqual(['G', 'Assignment']);
+    });
+
+    it('still reports the missing body exactly once', () => {
+        expect(errorsMatching('ID = x\nActions : Base\nName = "y"\n', BODY_MESSAGE)).toHaveLength(1);
+    });
+
+    it('leaves the next member alone when it is an inheritance head of its own', () => {
+        expect(names('Actions : Base\nOther : Base2\n{\n}\n')).toEqual(['Other']);
+    });
+
+    // The corpus shapes the stop must not break: the game reads a newline inside an inheritance list
+    // as insignificant filler, and `builtin_ships/builtins.rules` names eight bases one per line.
+    it('still collects bases written one per line', () => {
+        expect(names('Ships :\n&<a.rules>/A\n&<b.rules>/B\n[\n]\nNext = 5\n')).toEqual(['Ships', 'Assignment']);
+    });
+
+    it('still collects a base written on the line after the head', () => {
+        const src = 'Components : ^/0/Components\n<dock_base.rules>/Part/Components\n{\n\tA = 1\n}\nNext = 4\n';
+        expect(errorsMatching(src, BODY_MESSAGE)).toHaveLength(0);
+        expect(names(src)).toEqual(['Components', 'Assignment']);
     });
 });

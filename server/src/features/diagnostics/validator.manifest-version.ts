@@ -18,7 +18,7 @@ import * as l10n from '@vscode/l10n';
  * manifests are unreadable, in which case the diagnostic carries no fix.
  */
 let cachedVersionsLiteral: Promise<string | undefined> | undefined;
-const currentGameVersionsLiteral = (): Promise<string | undefined> => {
+export const currentGameVersionsLiteral = (): Promise<string | undefined> => {
     cachedVersionsLiteral ??= (async () => {
         const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
         if (!dataRoot) return undefined;

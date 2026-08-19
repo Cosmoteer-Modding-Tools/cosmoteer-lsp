@@ -39,7 +39,7 @@ const settings = {
         validateLocalizationKeys: true,
         validateRedundantSeparators: true,
     },
-    rename: { allowEditingVanillaFiles: false },
+    allowEditingVanillaFiles: false,
     formatting: { enabled: true, formatOnSave: false },
 };
 

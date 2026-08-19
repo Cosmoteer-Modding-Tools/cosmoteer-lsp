@@ -23,16 +23,16 @@ describe('inlay hints for percentage literals', () => {
         await initWorkspace();
     });
 
-    it('annotates a standalone percentage with its decimal value', async () => {
-        expect(labels(await hintsFor('Chance = 50%'))).toEqual(['= 0.5']);
+    it('annotates a standalone percentage with its decimal value and its percent', async () => {
+        expect(labels(await hintsFor('Chance = 50%'))).toEqual(['= 0.5 (50%)']);
     });
 
     it('handles a fractional / spaced percentage', async () => {
-        expect(labels(await hintsFor('Rate = 12.5 %'))).toEqual(['= 0.125']);
+        expect(labels(await hintsFor('Rate = 12.5 %'))).toEqual(['= 0.125 (12.5%)']);
     });
 
     it('annotates each percentage entry in a list', async () => {
-        expect(labels(await hintsFor('Rates = [50%, 25%]'))).toEqual(['= 0.5', '= 0.25']);
+        expect(labels(await hintsFor('Rates = [50%, 25%]'))).toEqual(['= 0.5 (50%)', '= 0.25 (25%)']);
     });
 
     it('does not annotate a plain number', async () => {

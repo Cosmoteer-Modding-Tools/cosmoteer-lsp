@@ -40,9 +40,18 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateUnclosedComments: Boolean = true
         var validateDefaultValues: Boolean = true
         var validateUnusedConstants: Boolean = true
+        var validateDuplicateFields: Boolean = true
+        var validateRedundantOverrides: Boolean = true
+        var validateModManifest: Boolean = true
+        var validatePartGeometry: Boolean = true
+        var validateDuplicateIds: Boolean = true
+        var validateUndeclaredDependencies: Boolean = true
+        var validateUnreceivableBuffs: Boolean = true
         var codeModsEnabled: Boolean = true
         var codeModsAutoRefresh: Boolean = true
         var inlayShowBaseValue: Boolean = true
+        var hoverShowSubstitutions: Boolean = true
+        var hoverShowModifiers: Boolean = true
         var allowEditingVanillaFiles: Boolean = false
         var formattingEnabled: Boolean = true
         var decompilerShowInHover: Boolean = false
@@ -95,13 +104,24 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateUnclosedComments" to state.validateUnclosedComments,
             "validateDefaultValues" to state.validateDefaultValues,
             "validateUnusedConstants" to state.validateUnusedConstants,
+            "validateDuplicateFields" to state.validateDuplicateFields,
+            "validateRedundantOverrides" to state.validateRedundantOverrides,
+            "validateModManifest" to state.validateModManifest,
+            "validatePartGeometry" to state.validatePartGeometry,
+            "validateDuplicateIds" to state.validateDuplicateIds,
+            "validateUndeclaredDependencies" to state.validateUndeclaredDependencies,
+            "validateUnreceivableBuffs" to state.validateUnreceivableBuffs,
         ),
         "codeMods" to mapOf(
             "enabled" to state.codeModsEnabled,
             "autoRefresh" to state.codeModsAutoRefresh,
         ),
         "inlayHints" to mapOf("showBaseValue" to state.inlayShowBaseValue),
-        "rename" to mapOf("allowEditingVanillaFiles" to state.allowEditingVanillaFiles),
+        "hover" to mapOf(
+            "showSubstitutions" to state.hoverShowSubstitutions,
+            "showModifiers" to state.hoverShowModifiers,
+        ),
+        "allowEditingVanillaFiles" to state.allowEditingVanillaFiles,
         "decompiler" to mapOf(
             "showInHover" to state.decompilerShowInHover,
             "executablePath" to state.decompilerExecutablePath,

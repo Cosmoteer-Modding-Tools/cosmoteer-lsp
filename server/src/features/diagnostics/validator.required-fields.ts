@@ -23,6 +23,7 @@ import { SchemaField } from '../../document/schema/schema.types';
 import { DefinitionService } from '../navigation/definition.service';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { ValidationError } from './validator';
+import { requiredFieldInsert } from './required-field-insert';
 import { inheritanceBaseLeafName } from '../../utils/reference.utils';
 import * as l10n from '@vscode/l10n';
 
@@ -138,13 +139,22 @@ export const validateRequiredFields = async (
         for (const name of ancestry.names) present.add(name.toLowerCase());
 
         const runtimeProvided = RUNTIME_REQUIRED_ALLOWLIST[cls];
-        for (const field of required) {
-            if (isSatisfied(field, present) || runtimeProvided?.has(field.name)) continue;
-            errors.push({
+        const missing = required.filter((field) => !isSatisfied(field, present) && !runtimeProvided?.has(field.name));
+        if (missing.length === 0) continue;
+        // Where the quick fix writes the fields, computed here because the finding is anchored on the
+        // group's name, which is not a place anything can be written. Undefined when the group cannot
+        // be edited safely or when no missing field has a value the fix may invent, and then the
+        // findings are reported without a fix.
+        const insert = requiredFieldInsert(group, missing);
+        for (const field of missing) {
+            const error: ValidationError = {
                 message: l10n.t("Missing required field '{0}' on {1}.", field.name, shortName(cls)),
                 node: group.identifier ?? group,
                 severity: 'warning',
-            });
+            };
+            const fieldIndex = insert ? insert.fields.findIndex((entry) => entry.name === field.name) : -1;
+            if (insert && fieldIndex >= 0) error.data = { insertRequiredFields: { ...insert, fieldIndex } };
+            errors.push(error);
         }
     }
     return errors;

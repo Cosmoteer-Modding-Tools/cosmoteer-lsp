@@ -11,6 +11,7 @@ import { namedMembersOf } from '../../utils/ast.utils';
 import {
     findEnclosingContainer,
     findEnclosingGroup,
+    findEnclosingList,
     groupClassCandidates,
     listElementType,
     listSlotType,
@@ -35,7 +36,8 @@ import { Completion } from './autocompletion.service';
 import { completeFieldValue, discriminatorCompletions } from './autocompletion.schema';
 import { componentIdCompletions } from './autocompletion.component-id';
 import { componentNameCompletions } from './autocompletion.component-name';
-import { mapEntryKeyTargetOf } from '../navigation/schema-id-reference.navigation';
+import { declaringFieldOf, mapEntryKeyTargetOf } from '../navigation/schema-id-reference.navigation';
+import { isIdDeclarationField } from '../../document/schema/entity-schema';
 import { resolveClassThroughInheritance } from './inheritance-resolution';
 import { shaderConstantCompletions, shaderConstantGroupClass } from './autocompletion.shader-constants';
 
@@ -44,8 +46,11 @@ import { shaderConstantCompletions, shaderConstantGroupClass } from './autocompl
  * lands ready to type the value: `Name = $0` for a scalar, a `{ … }` block for a group (with `Type = `
  * primed for a polymorphic one), `[ … ]` for a list. `$0` is the final cursor stop. Subsequent lines'
  * indentation is normalized to the insertion point by `InsertTextMode.adjustIndentation`.
+ *
+ * The required-field quick fix reuses it with a literal value in place of the tab stop, so a field
+ * scaffolded from the lightbulb reads the same as one accepted from the popup.
  */
-const fieldSnippet = (name: string, valueType: ValueType, stop = '$0'): string => {
+export const fieldSnippet = (name: string, valueType: ValueType, stop = '$0'): string => {
     switch (valueType.kind) {
         case 'group':
         case 'map':
@@ -375,6 +380,50 @@ export const crossFileReferenceTargetAtOffset = (
         if (container && isGroupNode(container)) return mapEntryKeyTargetOf(container);
     }
     return undefined;
+};
+
+/** The reference target a value type names, directly or through its list element. */
+const referenceTargetOf = (valueType: ValueType | undefined): string | undefined => {
+    if (valueType?.kind === 'reference') return valueType.target;
+    if (
+        (valueType?.kind === 'list' || valueType?.kind === 'range' || valueType?.kind === 'interpolated') &&
+        valueType.element.kind === 'reference'
+    ) {
+        return valueType.element.target;
+    }
+    return undefined;
+};
+
+/**
+ * Whether the id position at `offset` declares an id instead of naming one: the enclosing object's
+ * own identity key (`Part { ID = <cursor> }`, a `Factions [ { ID = <cursor> } ]` element) or one of
+ * its `OtherIDs` legacy aliases, written either as a `Key = ` value or as an element of that field's
+ * list. Every id the project declares is already taken at such a slot, so the cross-file id popup
+ * would offer exactly the set the user must not pick.
+ *
+ * @param document the parsed document the cursor is in.
+ * @param offset the cursor byte offset.
+ * @param linePrefix the text from the line start to the cursor, used to read the field name.
+ * @returns true when the position declares an id.
+ */
+export const isIdDeclarationPositionAt = (
+    document: AbstractNodeDocument,
+    offset: number,
+    linePrefix: string
+): boolean => {
+    const fieldName = fieldNameAtValuePosition(linePrefix);
+    if (fieldName) {
+        const ownerClass = memberScopeClassAt(document, offset);
+        const target = referenceTargetOf(ownerClass ? fieldOf(ownerClass, fieldName)?.valueType : undefined);
+        return !!target && isIdDeclarationField(ownerClass, fieldName, target);
+    }
+    // An element position inside the field's own list (`OtherIDs [ <cursor> ]`), whose line carries
+    // no `Key = ` to read the name from.
+    const list = findEnclosingList(document, offset);
+    if (!list) return false;
+    const { ownerClass, fieldName: listField } = declaringFieldOf(list);
+    const target = referenceTargetOf(ownerClass && listField ? fieldOf(ownerClass, listField)?.valueType : undefined);
+    return !!target && isIdDeclarationField(ownerClass, listField, target);
 };
 
 /**

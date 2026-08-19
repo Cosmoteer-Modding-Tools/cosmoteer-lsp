@@ -89,6 +89,22 @@
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
+        <action id="cosmoteer.showPartWiring"
+                class="cosmoteer.actions.ShowPartWiringAction"
+                text="Cosmoteer: Show Part Wiring"
+                description="Report what the part at the caret still needs before the game can build it"
+                icon="/icons/rules.png">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="cosmoteer.showEffectiveGroup"
+                class="cosmoteer.actions.ShowEffectiveGroupAction"
+                text="Cosmoteer: Show What The Game Loads Here"
+                description="Fold the inheritance chain of the group at the caret into the member set the game really reads"
+                icon="/icons/rules.png">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
         <action id="cosmoteer.migrateMod"
                 class="cosmoteer.actions.MigrateModAction"
                 text="Cosmoteer: Migrate Mod to Current Game Version"
@@ -96,12 +112,66 @@
                 icon="/icons/rules.png">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
+        <action id="cosmoteer.extractSharedBaseFiles"
+                class="cosmoteer.actions.ExtractSharedBaseAction"
+                text="Cosmoteer: Extract Shared Base Files"
+                description="Move fields several files write word for word into one base file all of them inherit"
+                icon="/icons/rules.png">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <!-- The id is the command the server writes into its "extract shared base file" refactoring,
+             and has to stay exactly that: LSP4IJ looks an action up by the command id when the server
+             does not claim the command, which is how the offer in the editor runs in the IDE and can
+             show the rewrite as a diff first. Not in a menu, it is reached through the code action. -->
+        <action id="cosmoteer.extractSharedBaseFromAction"
+                class="cosmoteer.actions.ExtractSharedBaseCommandAction"
+                text="Cosmoteer: Extract Shared Base File Here"
+                description="Move the repeated fields of the group at the caret into a shared base file"
+                icon="/icons/rules.png"/>
+        <!-- Same arrangement as the entry above: the id is the command the server writes into its
+             "extract text into a localization key" refactoring, and the server leaves that command
+             unclaimed so this runs here and can ask for the key path. Not in a menu. -->
+        <action id="cosmoteer.extractLocalizationKeyFromAction"
+                class="cosmoteer.actions.ExtractLocalizationKeyCommandAction"
+                text="Cosmoteer: Extract Text Into A Localization Key"
+                description="Move the text at the caret into the mod's language files and point the field at it"
+                icon="/icons/rules.png"/>
+        <!-- Same arrangement as the two entries above: the id is the command the server writes into
+             its "register this part in a ship class" refactoring, and the server leaves that command
+             unclaimed so this runs here and can ask which ship class. Not in a menu. -->
+        <action id="cosmoteer.registerPartInShipFromAction"
+                class="cosmoteer.actions.RegisterPartInShipCommandAction"
+                text="Cosmoteer: Register This Part In A Ship Class"
+                description="Add the part at the caret to a ship class's Parts list, or to the mod manifest when the ship is the game's own"
+                icon="/icons/rules.png"/>
         <action id="cosmoteer.buildModSchema"
                 class="cosmoteer.actions.BuildModSchemaAction"
                 text="Cosmoteer: Rebuild Schema from Code Mod Assemblies"
                 description="Re-read every code mod assembly so its own types and Type= discriminators resolve"
                 icon="/icons/rules.png">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="cosmoteer.runInGame"
+                class="cosmoteer.actions.RunInCosmoteerAction"
+                text="Cosmoteer: Run this Mod in Cosmoteer"
+                description="Link the mod into the game's mods folder, enable it, and start the game in developer mode"
+                icon="/icons/rules.png">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="cosmoteer.importGameLog"
+                class="cosmoteer.actions.ImportGameLogAction"
+                text="Cosmoteer: Import Problems from the Game Log"
+                description="Read what the game itself refused to load the last time it ran this mod"
+                icon="/icons/rules.png">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="cosmoteer.searchSchema"
+                class="cosmoteer.actions.SearchSchemaAction"
+                text="Cosmoteer: Search Schema and Field Docs"
+                description="Search every schema type, field, and field description by name or by wording"
+                icon="/icons/rules.png">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>
     </actions>
 </idea-plugin>

@@ -10,3 +10,10 @@ EconDifficultyLevels
 		StartingMoney = 150000
 	}
 ]
+
+// The career tech list, empty like a fresh game tree. A mod's `AddMany` into
+// `<modes/career/career.rules>/Techs` needs the slot to exist to resolve, which is how a mod
+// really adds techs that unlock its parts.
+Techs
+[
+]

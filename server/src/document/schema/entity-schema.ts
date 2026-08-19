@@ -30,7 +30,7 @@ import {
     isValueNode,
     ValueNode,
 } from '../../core/ast/ast';
-import { fieldOf, fieldsOf, schema } from './schema';
+import { classAncestry, fieldOf, fieldsOf, schema } from './schema';
 import { ValueType } from './schema.types';
 import { aliasRootIndex } from './alias-root';
 import { listSlotType } from './schema-context';
@@ -331,7 +331,7 @@ function* aliasRootedIdOf(container: AbstractNode, cls: string): Generator<Entit
 
 /**
  * Every cross-file entity declared in `document`:
- *  - list-element entities (`Factions [ { ID } ]`, `PartToggles [ { ToggleID } ]`, …): by field name;
+ *  - list-element entities (`Factions [ { ID } ]`, `PartToggles [ { ToggleID } ]`, …): by field name.
  *  - group-name-keyed entities of a `map<reference X, V>` collection the document is (a whole-file map
  *    alias like `Buffs = &<buffs.rules>`) or holds as a top-level member (a member alias like
  *    `PartFeatures = &<part_features.rules>/PartFeatures`), discovered via {@link aliasRootIndex}, so
@@ -440,7 +440,7 @@ export function* entityDeclarationsOf(document: AbstractNodeDocument): Generator
         if ((isGroupNode(element) || isListNode(element)) && element.identifier) {
             // The member's type comes from the alias that named it, else from the field of the class
             // the whole file roots as. Without the second source, a collection inside a whole-file
-            // aliased fragment (`planets.rules`'s `Styles { alien = … }`, whose keys ARE the ids) is
+            // aliased fragment (`planets.rules`'s `Styles { alien = … }`, whose keys are the ids) is
             // invisible: we know the file's class but never look its member up on it.
             const memberType =
                 aliasRootIndex.memberType(document.uri, element.identifier.name) ??
@@ -453,7 +453,7 @@ export function* entityDeclarationsOf(document: AbstractNodeDocument): Generator
             if (memberType?.kind === 'group' && isGroupNode(element)) {
                 yield* aliasRootedIdOf(element, memberType.ref);
             }
-            // A member aliased as a list of instances under a DIFFERENT name than the schema field
+            // A member aliased as a list of instances under a different name than the schema field
             // (`MissionCategories = &<mission_categories.rules>/Categories`) still declares them.
             const elementClass = memberType?.kind === 'list' && memberType.element.kind === 'group' ? memberType.element.ref : undefined;
             if (elementClass && isListNode(element)) {
@@ -469,6 +469,62 @@ export const isEntityClass = (cls: string): boolean => {
         if (candidates.some((entity) => entity.elementClass === cls)) return true;
     }
     return false;
+};
+
+/**
+ * Whether `fieldName` on `ownerClass` declares that object's own id rather than referencing another
+ * object's. A declaration is the class's identity key (`ID`, or the self-referential `ToggleID` kind
+ * the GUI entities carry) or its `OtherIDs` legacy aliases, and only when the written value names an
+ * instance of the very class the field sits on. `ComponentTriggerReferenceRules.ID` is spelled `ID`
+ * too but names a component, so the class check is what keeps it a reference.
+ *
+ * @param ownerClass the class of the object the field is written on, when resolvable.
+ * @param fieldName the field being assigned.
+ * @param targetClass the class the written value references.
+ * @returns true when the slot declares an id.
+ */
+export const isIdDeclarationField = (
+    ownerClass: string | undefined,
+    fieldName: string | undefined,
+    targetClass: string
+): boolean => {
+    if (!ownerClass || !fieldName || !classAncestry(ownerClass).includes(targetClass)) return false;
+    const lower = fieldName.toLowerCase();
+    return lower === identityKeyOf(ownerClass)?.toLowerCase() || lower === 'otherids';
+};
+
+/**
+ * Whether two `ID<X>` values name the same instance. The engine interns every id name in a
+ * `Dictionary<string, int>(StringComparer.InvariantCultureIgnoreCase)` and compares the interned
+ * index (`Cosmoteer.Data.ID<T>`), so `SW.armor_1x2_Wedge_L` and `SW.armor_1x2_wedge_L` are one id
+ * to the game. Everything that resolves an id must fold case, or a working reference reads as a typo.
+ *
+ * @param a one written id.
+ * @param b the other written id.
+ * @returns true when the game would treat them as the same id.
+ */
+export const sameId = (a: string, b: string): boolean => a.toLowerCase() === b.toLowerCase();
+
+/** Folded id sets, memoized per set so a repeated membership test folds each id only once. The
+ *  declared-id sets are built fresh per query and never mutated afterwards, so identity is key enough. */
+const foldedIdSets = new WeakMap<ReadonlySet<string>, Set<string>>();
+
+/**
+ * Whether a set of declared ids holds one, comparing the way the engine does ({@link sameId}).
+ *
+ * @param ids the declared ids to look in. Must not be mutated after the first call for it.
+ * @param id the written id to look for.
+ * @returns true when some declared id equals it apart from case.
+ */
+export const hasId = (ids: ReadonlySet<string>, id: string): boolean => {
+    if (ids.has(id)) return true;
+    let folded = foldedIdSets.get(ids);
+    if (!folded) {
+        folded = new Set<string>();
+        for (const declared of ids) folded.add(declared.toLowerCase());
+        foldedIdSets.set(ids, folded);
+    }
+    return folded.has(id.toLowerCase());
 };
 
 export const PART_RULES_CLASS = 'Cosmoteer.Ships.Parts.PartRules';
@@ -561,7 +617,7 @@ export const SELF_KEYED_MAP_FIELDS: ReadonlyMap<string, string> = (() => {
  *
  * Qualifying is narrow on purpose: the class must carry no identity key of its own, and every one of its fields
  * must be a `list<reference self>`. A class that has an `ID` declares through it, which makes its own
- * self-referential lists consumers instead (`TechRules.Prerequisites` and `UpgradedFrom` name OTHER
+ * self-referential lists consumers instead (`TechRules.Prerequisites` and `UpgradedFrom` name other
  * techs, `PartRules.FlipWhenLoadingIDs` names other parts). Harvesting those as declarations would
  * let every typo declare itself and silently excuse the very references we mean to check.
  */
@@ -581,22 +637,22 @@ export const REGISTRY_LIST_FIELDS: ReadonlyMap<string, string> = (() => {
 })();
 
 /**
- * Lower-cased field name → the class a free-form LABEL field declares (`TargetCategory = laser` on a
+ * Lower-cased field name → the class a free-form label field declares (`TargetCategory = laser` on a
  * bullet's targetable component, `Signal = pump_amplification` on a network overlay). The label is the
  * instance: writing it is what brings the category into existence, and other files reference it in
  * consumer lists (`OnlyBulletCategories = [missile, laser]`, `ValidSignals = [pump_dilation]`). This is
  * the same shape as the `DamageType` special case, derived instead of hand-listed.
  *
  * Three guards keep the harvest honest, and together they admit exactly two classes:
- *  - the class must have no identity key of its own (so the ordinary `ID`/`…ID` harvest is not perturbed);
- *  - it must have exactly one `reference<self>` field, which is then unambiguously its identity;
- *  - that field's NAME must be unique in the whole schema. Without this, the GUI ids would qualify and
+ *  - the class must have no identity key of its own (so the ordinary `ID`/`…ID` harvest is not perturbed).
+ *  - it must have exactly one `reference<self>` field, which is then unambiguously its identity.
+ *  - that field's name must be unique in the whole schema. Without this, the GUI ids would qualify and
  *    every reference would declare itself: a part references a toggle by writing `ToggleID = "on_off"`
  *    in a `UIToggle` component, the very same field name the toggle declares itself with.
  *
  * A typo in a label declares a new label rather than being flagged, but that is the engine's own
- * behavior for these free-form categories; the value is in checking the consumer lists, which
- * outnumber the declaration sites in vanilla by 514 to 14.
+ * behavior for these free-form categories. The value is in checking the consumer lists, which
+ * outnumber the declaration sites.
  */
 export const LABEL_DECLARATION_FIELDS: ReadonlyMap<string, string> = (() => {
     const nameUses = new Map<string, number>();
@@ -662,7 +718,7 @@ function* selfKeyedMapDeclarationsOf(node: AbstractNode, target: string): Genera
  *  rock parts' `cosmoteer.rubble` aliases the asteroid doodads reference. */
 function* otherIdAliasesOf(element: AbstractNode, elementClass: string): Generator<EntityDeclaration> {
     // A whole-file-rooted instance (a door file aliased in by a ship) writes its `OtherIDs` at the
-    // document's top level; a list element writes them inside its group. Both read identically.
+    // document's top level. A list element writes them inside its group. Both read identically.
     if (!isGroupNode(element) && !isDocumentNode(element)) return;
     for (const member of element.elements) {
         const named = namedContainerOf(member);

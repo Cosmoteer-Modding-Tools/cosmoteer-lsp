@@ -1,0 +1,20 @@
+ID = Test.DuplicateIdMod
+Name = "Duplicate id fixture"
+Version = 1.0
+StringsFolder = "strings"
+
+// Registers three part files into a real ship Parts list, so the duplicate-id check has rooted
+// declarations to judge. template_base.rules is deliberately left unregistered.
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<ships/partship.rules>/PartShip/Parts"
+		ManyToAdd
+		[
+			&<registered_a.rules>/Part
+			&<registered_b.rules>/Part
+			&<registered_c.rules>/Part
+		]
+	}
+]

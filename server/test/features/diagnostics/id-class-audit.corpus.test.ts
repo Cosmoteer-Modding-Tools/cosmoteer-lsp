@@ -160,6 +160,9 @@ describe.skipIf(!HAVE)('cross-file id class coverage audit', () => {
         for (const [cls, t] of tallies) {
             if (!isValidatedIdClass(cls)) continue;
             expect.soft(t.samples.filter((s) => s.startsWith('vanilla')), cls).toEqual([]);
+            // A class the harvest stops covering answers 'no-coverage' and is then never judged at
+            // all, which reads here as a clean class rather than as a silently unvalidated one.
+            expect.soft(t.verdicts['no-coverage'], `${cls} lost its declaration coverage`).toBe(0);
         }
         expect(tallies.size).toBeGreaterThan(10);
     }, 3_000_000);

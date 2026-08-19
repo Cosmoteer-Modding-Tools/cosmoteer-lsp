@@ -106,17 +106,17 @@ export const completeFieldValue = (group: GroupNode, fieldName: string, cls: str
 /**
  * The schema field whose `key = value` right-hand side is `node`: the field of the enclosing group
  * (its class resolved through inheritance) or, at a whole-file root, of the document's root class.
- * Used to read a value node's declared type (e.g. to tell a localization-key field from a plain string).
+ * Any right-hand shape answers, a plain value as well as a math expression or a function call.
+ * Used to read a slot's declared type, for instance to tell an angle field from a plain float.
  *
- * @param node the value node being completed.
+ * @param node the assigned node whose declaring field is wanted.
  * @param cancellationToken cancellation for the inheritance walk that resolves the group's class.
  * @returns the field definition, or undefined when the node isn't a typed field value.
  */
-export const fieldOfValueNode = async (
+export const fieldOfAssignedNode = async (
     node: AbstractNode,
     cancellationToken: CancellationToken
 ): Promise<SchemaField | undefined> => {
-    if (!isValueNode(node)) return undefined;
     const parent = node.parent;
     if (!parent) return undefined;
     if (isDocumentNode(parent)) {
@@ -130,6 +130,21 @@ export const fieldOfValueNode = async (
     const cls = await resolveClassThroughInheritance(parent, cancellationToken);
     return cls ? fieldOf(cls, fieldName) : undefined;
 };
+
+/**
+ * The same lookup restricted to a value node, which is what every value-typed caller wants (a
+ * localization key, a math-function slot). A math expression or function call is answered by
+ * {@link fieldOfAssignedNode} instead.
+ *
+ * @param node the value node being completed.
+ * @param cancellationToken cancellation for the inheritance walk that resolves the group's class.
+ * @returns the field definition, or undefined when the node isn't a typed field value.
+ */
+export const fieldOfValueNode = async (
+    node: AbstractNode,
+    cancellationToken: CancellationToken
+): Promise<SchemaField | undefined> =>
+    isValueNode(node) ? fieldOfAssignedNode(node, cancellationToken) : undefined;
 
 /**
  * Enum (or bool) completions for a value typed inside `list`, resolving the element type through both

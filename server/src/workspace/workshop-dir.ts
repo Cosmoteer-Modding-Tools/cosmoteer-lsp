@@ -27,8 +27,8 @@ export const workshopContentDir = (): string | undefined => {
  * workspace). Those mods are just as installed as a subscribed one, and a code mod among them
  * supplies types the files being edited legitimately name.
  *
- * Two locations are probed: the user's own home directory, and — for a Proton install, where the
- * game writes into the prefix instead — the same path inside the compatibility data of this Steam
+ * Two locations are probed: the user's own home directory, and, for a Proton install where the
+ * game writes into the prefix instead, the same path inside the compatibility data of this Steam
  * library, resolved off the `Data` root the way the workshop folder is.
  *
  * @returns every existing `Mods` folder, empty when the game has no user data yet.

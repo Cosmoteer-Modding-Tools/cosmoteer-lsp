@@ -1,6 +1,5 @@
 import { DocumentUri } from 'vscode-languageserver';
 import { Token, TOKEN_TYPES } from '../lexer/lexer';
-import { MAX_NUMBER_OF_PROBLEMS } from '../../settings';
 import { ALLOWED_AUDIO_EXTENSIONS } from '../../utils/constants';
 import {
     AbstractNode,
@@ -31,12 +30,11 @@ const MX_ASSEMBLED_OPERATOR_SET: ReadonlySet<string> = new Set(MX_ASSEMBLED_OPER
 const MX_ASSEMBLED_OPERATOR_PREFIXES: ReadonlySet<string> = new Set(
     MX_ASSEMBLED_OPERATORS.flatMap((op) => Array.from({ length: op.length }, (_, i) => op.slice(0, i + 1)))
 );
-/**
- * TODO add Parser per Group to beatufy the code below lol
- */
-abstract class Parser {
-    abstract parse(): void;
-}
+// A file this broken carries no usable tree past this point, so parsing stops to bound the work.
+// Deliberately not the user's `maxNumberOfProblems`: the parse result is cached and persisted by
+// content, so it must not vary with a setting, and both diagnostic sites truncate on the setting
+// anyway.
+const MAX_PARSER_ERRORS = 100;
 
 /** The source spelling of punctuation tokens, for error messages. */
 const TOKEN_DISPLAY: Partial<Record<TOKEN_TYPES, string>> = {
@@ -51,6 +49,8 @@ const TOKEN_DISPLAY: Partial<Record<TOKEN_TYPES, string>> = {
     [TOKEN_TYPES.EQUALS]: '=',
     [TOKEN_TYPES.COMMA]: ',',
     [TOKEN_TYPES.STRING_DELIMITER]: '"',
+    [TOKEN_TYPES.TRUE]: 'true',
+    [TOKEN_TYPES.FALSE]: 'false',
 };
 
 /**
@@ -75,6 +75,29 @@ const NAME_FOLLOWERS: ReadonlySet<TOKEN_TYPES> = new Set([
     TOKEN_TYPES.COMMA,
     TOKEN_TYPES.RIGHT_BRACE,
     TOKEN_TYPES.RIGHT_BRACKET,
+]);
+
+/**
+ * The tokens a bare run between two quoted segments of one value may hold. An unescaped `"` inside a
+ * quoted value splits it into segments with bare source between them, and the game reads that whole
+ * run as one value, so everything in it belongs to the string. Prose punctuation the lexer has no
+ * grammar for arrives as UNEXPECTED (`?`, `#`, `@`), and the run also carries brackets, a colon and
+ * the boolean words, all of which the game keeps in the value (verified against `OTFile`).
+ *
+ * The value terminators stay out: a `,` or `;` in such a run makes the game refuse the file, and a
+ * `}`/`]` closes the parent, so absorbing either would hide a real error. `=`, `{` and `[` stay out
+ * too: they carry no meaning inside a quoted value, and swallowing them could silently eat the
+ * structure of a following member.
+ */
+const IN_STRING_RUN: ReadonlySet<TOKEN_TYPES> = new Set([
+    TOKEN_TYPES.VALUE,
+    TOKEN_TYPES.EXPRESSION,
+    TOKEN_TYPES.UNEXPECTED,
+    TOKEN_TYPES.LEFT_PAREN,
+    TOKEN_TYPES.RIGHT_PAREN,
+    TOKEN_TYPES.COLON,
+    TOKEN_TYPES.TRUE,
+    TOKEN_TYPES.FALSE,
 ]);
 
 /**
@@ -166,6 +189,27 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             ],
         } as ParserError);
     };
+    /**
+     * Whether the token an inheritance list is about to collect opens a new member instead of naming
+     * another base.
+     *
+     * Only a `{` or a `[` ends an inheritance list in the game. A newline is insignificant filler
+     * inside it (`Ships :` in builtin_ships/builtins.rules names eight bases, one per line, with no
+     * commas), while `}`, `]`, `=` and everything else are absorbed into the reference text until
+     * `Validator.ValidatePath` throws and the whole file is dropped. An inheritance whose body never
+     * comes is therefore a file the game refuses to load, and the only question left is how much of it
+     * stays readable here. A member head is the one shape that can be recognised without guessing: the
+     * game reaches it only on input it has already refused, so stopping there costs no conformance,
+     * and it is what keeps an unfinished head, the shape every group has while it is being typed, from
+     * swallowing the rest of the file.
+     *
+     * @param at the index of the token in question.
+     * @returns true when the token opens a new member.
+     */
+    const startsNewMember = (at: number): boolean =>
+        tokens[at]?.type === TOKEN_TYPES.VALUE &&
+        (tokens[at + 1]?.type === TOKEN_TYPES.EQUALS || tokens[at + 1]?.type === TOKEN_TYPES.COLON);
+
     const walk = (
         _lastNode?: AbstractNode,
         parent?: GroupNode | ListNode | AbstractNodeDocument
@@ -206,8 +250,15 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
 
             let lastNode: AbstractNode = node;
             while (tokens[current]?.type !== TOKEN_TYPES.RIGHT_BRACE) {
+                const before = current;
                 const nextNode = walk(lastNode, node);
                 if (!nextNode) {
+                    // A member that read its tokens and still built nothing, an inheritance whose body
+                    // never came being the one that happens while typing. The group has to keep
+                    // reading, or one unfinished member costs every member after it. Guarded on the
+                    // cursor having moved, so a walk that declines without consuming still ends the
+                    // body instead of spinning.
+                    if (current > before && tokens[current]) continue;
                     break;
                 }
                 lastNode = nextNode;
@@ -349,29 +400,41 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             // invent nodes the game never sees, including bogus localization keys. Only a run of
             // bare words that leads back into another segment on the same line is taken, which keeps
             // a genuine trailing word, a reference and an operator out of the string. The run has to
-            // start on a word, but punctuation the lexer reads as an operator may sit inside it, since
-            // prose is full of `Mod - Expansion` dashes and they carry no meaning inside a quoted value.
+            // start on a word, but everything in {@link IN_STRING_RUN} may sit inside it, since prose
+            // is full of `Mod - Expansion` dashes and `pourquoi ?` question marks and none of them
+            // carry meaning inside a quoted value.
+            // The game separates two unquoted tokens of a value by a single space when the source
+            // separates them, and concatenates a quoted token with its neighbour directly whatever
+            // stands between them (`"start"   tail ?` is the value `starttail ?`). The assembled
+            // text follows the same rule.
+            let previousWasQuoted = true;
+            let previousEnd = token.end ?? token.start;
             for (;;) {
                 const next = tokens[current];
                 if (!next || next.precededByNewline) break;
                 if (next.type === TOKEN_TYPES.STRING) {
                     value += next.value as string;
+                    previousWasQuoted = true;
+                    previousEnd = next.end ?? next.start;
                     current++;
                     continue;
                 }
                 if (next.type !== TOKEN_TYPES.VALUE) break;
                 let lookahead = current;
-                while (
-                    (tokens[lookahead]?.type === TOKEN_TYPES.VALUE ||
-                        tokens[lookahead]?.type === TOKEN_TYPES.EXPRESSION) &&
-                    !tokens[lookahead]?.precededByNewline
-                ) {
+                for (;;) {
+                    const type = tokens[lookahead]?.type;
+                    if (!type || !IN_STRING_RUN.has(type) || tokens[lookahead]?.precededByNewline) break;
                     lookahead++;
                 }
                 const rejoins = tokens[lookahead]?.type === TOKEN_TYPES.STRING && !tokens[lookahead]?.precededByNewline;
                 if (!rejoins) break;
                 while (current <= lookahead) {
-                    value += tokens[current]?.value as string;
+                    const runToken = tokens[current];
+                    const quoted = runToken.type === TOKEN_TYPES.STRING;
+                    if (!quoted && !previousWasQuoted && runToken.start > previousEnd) value += ' ';
+                    value += tokenDisplayText(runToken);
+                    previousWasQuoted = quoted;
+                    previousEnd = runToken.end ?? runToken.start;
                     current++;
                 }
             }
@@ -390,7 +453,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             return {
                 type: 'Value',
                 // Keep the type inferred from the first segment (String/Sprite/Sound/…) but carry the
-                // FULL concatenated text as the value, so hover/rename/goto see the whole string.
+                // full concatenated text as the value, so hover/rename/goto see the whole string.
                 valueType: { ...quotedType, value } as ValueNodeTypes,
                 parent,
                 position: {
@@ -532,7 +595,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 } as ValueNode;
             }
             // case for a unary sign before a parenthesized group, e.g. `-(&A/B)` or `-(5)`. The
-            // negative-number branch above only folds `-<number>`; a parenthesized operand is not a
+            // negative-number branch above only folds `-<number>`. A parenthesized operand is not a
             // bare number, so without this the sign would be returned as a lone Expression node and the
             // `( … )` left unconsumed. It then leaks out as sibling fields and swallows the following
             // group's identifier (a silent desync seen on vanilla `ION_ENERGY = -(&Part/…)`). Parse the
@@ -583,7 +646,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 tokens[current]?.type === TOKEN_TYPES.VALUE &&
                 tokens[current]?.lineNumber === token.lineNumber &&
                 !IS_NUMBER.test(tokenValue) &&
-                // A super-path segment is a NAME (`/SW_X`, `/BASE_SOUNDS`). A segment that starts with
+                // A super-path segment is a name (`/SW_X`, `/BASE_SOUNDS`). A segment that starts with
                 // a digit is really math the lexer glued through a value-char `-`: `166/64-0.6` lexes
                 // as `166`, `/`, `64-0.6`, and without this guard the `/` folds `64-0.6` into a bogus
                 // reference `/64-0.6` (which then reports as an unresolved reference). Treat it as the
@@ -1081,9 +1144,14 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             while (
                 tokens[current] &&
                 (tokens[current].type === TOKEN_TYPES.VALUE ||
+                    // A quoted base is legal: `Part : "A"` parses in the game exactly like
+                    // `Part : A`, the quotes only delimit the one path (verified against
+                    // Halfling.ObjectText in HalflingCore.dll).
+                    tokens[current].type === TOKEN_TYPES.STRING ||
                     (tokens[current].type === TOKEN_TYPES.EXPRESSION &&
                         tokens[current + 1]?.type === TOKEN_TYPES.VALUE) ||
-                    (tokens[current].type === TOKEN_TYPES.EXPRESSION && tokens[current].value === '/'))
+                    (tokens[current].type === TOKEN_TYPES.EXPRESSION && tokens[current].value === '/')) &&
+                !startsNewMember(current)
             ) {
                 const nextNode = walk(lastNode ?? undefined, parent);
                 lastNode = nextNode;
@@ -1104,11 +1172,12 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 if (isValueNode(nextNode)) {
                     if (nextNode.valueType.type === 'Reference') {
                         inheritanceNodes.push(nextNode as ValueNode);
-                    } else if (nextNode.valueType.type === 'String' && !nextNode.quoted) {
-                        // Same-file inheritance by bare name (e.g. `Child : Parent`). The
-                        // lexer classifies the bare identifier as a String. Normalize it to
-                        // a relative reference (`&Parent`) so it is captured as inheritance
-                        // and resolves through the parent scope like an explicit `&` ref.
+                    } else if (nextNode.valueType.type === 'String') {
+                        // Same-file inheritance by name (e.g. `Child : Parent`, or the quoted
+                        // `Child : "Parent"`). The lexer classifies both as a String, and a
+                        // quoted reference (`"&<f>/Part"`) already types as Reference above.
+                        // Normalize it to a relative reference (`&Parent`) so it is captured as
+                        // inheritance and resolves through the parent scope like an explicit `&` ref.
                         nextNode.valueType = {
                             type: 'Reference',
                             value: '&' + String(nextNode.valueType.value),
@@ -1132,12 +1201,14 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                             ),
                             token: tokens[current - 1],
                         } as ParserError);
+                        break;
                     }
                 } else {
                     errors.push({
                         message: l10n.t('Expected reference value after reference value but found {0}', nextNode.type),
                         token: tokens[current - 1],
                     } as ParserError);
+                    break;
                 }
                 if (tokens[current] === undefined) {
                     break;
@@ -1295,7 +1366,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
         // The mXparser operators the lexer does not emit as one EXPRESSION token (boolean `&`,
         // `||`, relations `<=`/`==`/`<>`, modulo `#`, bitwise `@&`, tetration `^^`, …) reach us as
         // short runs of VALUE/EXPRESSION/EQUALS/UNEXPECTED/paren tokens. Assemble the longest run
-        // whose concatenated source text is a known operator, requiring the tokens to be ADJACENT
+        // whose concatenated source text is a known operator, requiring the tokens to be adjacent
         // in the source (mXparser reads `< =` as two tokens, never as `<=`) and the operator to be
         // followed on the same line by a `(` or a plain number, the only operand forms the game's
         // reference substitution supports. Vanilla `statuses/fire` has
@@ -1404,7 +1475,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     end: lastOperatorToken.end ?? 0,
                 },
             } as ExpressionNode);
-            // For an explicit operator, consume it so the operand is not lexed as a `/`-path; for an
+            // For an explicit operator, consume it so the operand is not lexed as a `/`-path. For an
             // implicit `*` there is no operator token, so leave `(` for `walk` to consume as a group.
             if (!isImplicitMult) current += operatorTokenCount;
             // `!` is postfix (factorial): it applies to the value already pushed, so there is no
@@ -1479,7 +1550,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             continue;
         }
         const nextNode = walk(lastNode, ast);
-        if (errors.length > MAX_NUMBER_OF_PROBLEMS) {
+        if (errors.length > MAX_PARSER_ERRORS) {
             break;
         }
         if (!nextNode) {

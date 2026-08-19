@@ -1,0 +1,9 @@
+// No editor group, but a parent part to stack under, the shape 8 of the 9 group-less vanilla terran
+// parts use (railgun_accelerator, chaingun_magazine, thruster_rocket_extender, ...).
+Part
+{
+	ID = test.parented
+	NameKey = "Parts/WiredName"
+	EditorParentParts = [ "test.wired" ]
+	Size = [1, 1]
+}

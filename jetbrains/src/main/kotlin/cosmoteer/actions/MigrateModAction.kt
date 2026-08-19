@@ -14,6 +14,7 @@ import com.intellij.testFramework.LightVirtualFile
 import com.redhat.devtools.lsp4ij.LanguageServerManager
 import cosmoteer.preview.ShaderPreviewService
 import org.eclipse.lsp4j.ExecuteCommandParams
+import cosmoteer.lsp.commandResultOf
 
 /**
  * One-command workspace migration: asks the language server to upgrade every rules file of the
@@ -30,19 +31,36 @@ class MigrateModAction : AnAction() {
 
     override fun actionPerformed(event: AnActionEvent) {
         val project = event.project ?: return
-        val choice = Messages.showYesNoCancelDialog(
+        val choice = Messages.showDialog(
             project,
             "Migrate every rules file of this project to the current game version?\n\n" +
+                "\"Preview\" shows every change as a diff and writes nothing. " +
                 "\"Migrate\" applies the known game-update renames and rewrites. " +
                 "\"Migrate + Clean\" additionally removes fields the game never reads.",
             "Cosmoteer Migration",
-            "Migrate",
-            "Migrate + Clean",
-            Messages.getCancelButton(),
+            arrayOf("Preview", "Migrate", "Migrate + Clean", Messages.getCancelButton()),
+            0,
             null
         )
-        if (choice == Messages.CANCEL) return
-        val arguments = JsonObject().apply { addProperty("removeDeadFields", choice == Messages.NO) }
+        if (choice < 0 || choice == CANCEL_OPTION) return
+        val dryRun = choice == PREVIEW_OPTION
+        val arguments = JsonObject().apply {
+            addProperty("removeDeadFields", choice == CLEAN_OPTION)
+            addProperty("dryRun", dryRun)
+        }
+        execute(project, arguments).thenAccept { result ->
+            if (dryRun) showPreview(project, result) else showSummary(project, result)
+        }
+    }
+
+    /**
+     * Runs the migration command on the project's language server.
+     *
+     * @param project the project whose server is asked.
+     * @param arguments the single options object the command takes.
+     * @returns the raw `workspace/executeCommand` result, null when no server is running.
+     */
+    private fun execute(project: Project, arguments: JsonObject) =
         LanguageServerManager.getInstance(project)
             .getLanguageServer(ShaderPreviewService.SERVER_ID)
             .thenCompose { item ->
@@ -50,7 +68,54 @@ class MigrateModAction : AnAction() {
                     ?.executeCommand(ExecuteCommandParams(COMMAND, listOf(arguments)))
                     ?: java.util.concurrent.CompletableFuture.completedFuture<Any?>(null)
             }
-            .thenAccept { result -> showSummary(project, result) }
+
+    /**
+     * Shows what a dry run would change, as the IDE's own side-by-side diff over the rewritten files,
+     * and says what the view leaves out. A whole-mod migration can cover more files than one message
+     * carries, so the counts come from the full run rather than from the capped view.
+     *
+     * @param project the project the diff and notification belong to.
+     * @param result the raw `workspace/executeCommand` result (a Gson tree or null).
+     */
+    private fun showPreview(project: Project, result: Any?) {
+        val summary = commandResultOf(result)
+        val preview = summary?.getAsJsonObject("preview")
+        ApplicationManager.getApplication().invokeLater {
+            if (project.isDisposed) return@invokeLater
+            val group = NotificationGroupManager.getInstance().getNotificationGroup("Cosmoteer Language Server")
+            if (summary == null || preview == null) {
+                group.createNotification(
+                    "Cosmoteer migration",
+                    "The preview did not run (no workspace folder, or the server is not ready).",
+                    NotificationType.WARNING
+                ).notify(project)
+                return@invokeLater
+            }
+            val files = summary.get("files")?.asInt ?: 0
+            if (files == 0) {
+                group.createNotification(
+                    "Cosmoteer migration",
+                    "Everything is already up to date.",
+                    NotificationType.INFORMATION
+                ).notify(project)
+                return@invokeLater
+            }
+            val changed = preview.getAsJsonArray("changed")
+            val shown = changed != null && changed.size() > 0 && SharedBaseFlow.showSideBySideDiff(project, changed)
+            if (!shown) SharedBaseFlow.openDiff(project, preview.get("diff")?.asString ?: "", "cosmoteer-migration.diff")
+
+            val parts = mutableListOf("${summary.get("fixes")?.asInt ?: 0} fixes in $files files")
+            val manual = summary.getAsJsonArray("manual")?.size() ?: 0
+            if (manual > 0) parts += "$manual findings need manual review"
+            val omitted = preview.get("omitted")?.asInt ?: 0
+            if (omitted > 0) parts += "$omitted more files are not shown"
+            if (preview.get("diffTruncated")?.asBoolean == true) parts += "the diff stops short of the last files"
+            group.createNotification(
+                "Cosmoteer migration preview",
+                "${parts.joinToString(", ")}. Nothing was changed.",
+                NotificationType.INFORMATION
+            ).notify(project)
+        }
     }
 
     /**
@@ -62,7 +127,7 @@ class MigrateModAction : AnAction() {
      * @param result the raw `workspace/executeCommand` result (a Gson tree or null).
      */
     private fun showSummary(project: Project, result: Any?) {
-        val summary = result as? JsonObject
+        val summary = commandResultOf(result)
         ApplicationManager.getApplication().invokeLater {
             if (project.isDisposed) return@invokeLater
             val group = NotificationGroupManager.getInstance().getNotificationGroup("Cosmoteer Language Server")
@@ -154,5 +219,10 @@ class MigrateModAction : AnAction() {
 
     companion object {
         private const val COMMAND = "cosmoteer.migrateWorkspace"
+
+        /** Indexes into the option array of the dialog above, which is what `showDialog` answers with. */
+        private const val PREVIEW_OPTION = 0
+        private const val CLEAN_OPTION = 2
+        private const val CANCEL_OPTION = 3
     }
 }

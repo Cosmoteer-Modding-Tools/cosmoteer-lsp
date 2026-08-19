@@ -1,7 +1,6 @@
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AssignmentNode, isAssignmentNode } from '../../core/ast/ast';
 import { getStartOfAstNode } from '../../utils/ast.utils';
-import { isModRules } from '../../document/document-kind';
 import { isActionTargetValueNode } from '../../mod/action';
 import { isStringsFile } from '../../mod/strings-folder';
 import { Validation, ValidationError } from './validator';
@@ -12,11 +11,10 @@ export const ValidationForAssignment: Validation<AssignmentNode> = {
     callback: async (node: AssignmentNode, cancellationToken: CancellationToken) => {
         const missingSeparator = await checkMissingFieldSeparator(node, cancellationToken);
         if (missingSeparator) return missingSeparator;
-        if (isModRules(getStartOfAstNode(node).uri)) return; // We can't validate mod.rules at the moment
         if (node.right && node.right.type === 'Value' && node.right.valueType.type === 'Reference') {
-            // Action target paths (`OverrideIn`/`AddTo`/`AddBaseTo = "<...>"`) in an included
-            // fragment file are quoted game-root paths, not `&` references, so the ampersand hint
-            // must not fire on them (the mod-action validator resolves them against the game root).
+            // Action target paths (`OverrideIn`/`AddTo`/`AddBaseTo = "<...>"`) are quoted game-root
+            // paths, not `&` references, so the ampersand hint must not fire on them (the mod-action
+            // validator resolves them against the game root).
             if (isActionTargetValueNode(node.right)) return;
             if (node.right.quoted && node.right.valueType.value.startsWith('&')) {
                 return {

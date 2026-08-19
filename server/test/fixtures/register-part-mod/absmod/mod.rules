@@ -1,0 +1,12 @@
+ID = test.absolutetarget
+Name = "Absolute Target Fixture"
+Version = 1.0.0
+
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<./Data/cosmoteer.rules>/Ships"
+		ManyToAdd [ &<ships/absship.rules>/AbsShip ]
+	}
+]

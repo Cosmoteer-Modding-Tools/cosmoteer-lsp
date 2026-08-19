@@ -54,17 +54,26 @@ describe('unknown function name diagnostics', () => {
     });
 });
 
-describe('function arity diagnostics (too-few only)', () => {
+describe('function arity diagnostics', () => {
     it('flags too few arguments for a binary function', async () => {
         const error = await validate('X = pow(&A)\n');
         expect(error?.message).toBe('Too few arguments for "pow"');
         expect(error?.additionalInfo).toBe('The "pow" function takes exactly 2 argument(s), but got 1');
     });
 
-    it('does NOT flag too many arguments (over-count is unreliable due to parser flattening)', async () => {
-        // ceil takes one argument. Two are written here, but we deliberately stay quiet rather than
-        // risk false positives. The parser flattens nested calls into extra operands.
-        expect(await validate('X = ceil((&A), (&B))\n')).toBeUndefined();
+    it('flags too many arguments for a unary function', async () => {
+        // The old refusal here rested on the parser flattening nested calls into extra operands.
+        // `segmentArguments` collapses a comma-free run into one argument instead, and the check
+        // fires on nothing across vanilla plus every installed workshop mod, so it is safe.
+        const error = await validate('X = ceil((&A), (&B))\n');
+        expect(error?.message).toBe('Too many arguments for "ceil"');
+        expect(error?.additionalInfo).toBe('The "ceil" function takes exactly 1 argument(s), but got 2');
+    });
+
+    it('names the maximum when the function takes a range of arguments', async () => {
+        const error = await validate('X = round((&A), 2, 3)\n');
+        expect(error?.message).toBe('Too many arguments for "round"');
+        expect(error?.additionalInfo).toBe('The "round" function takes at most 2 argument(s), but got 3');
     });
 
     it('does NOT false-positive on a nested function call in argument position', async () => {

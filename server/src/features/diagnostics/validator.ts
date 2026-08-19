@@ -128,6 +128,27 @@ export type ValidationErrorData = {
      */
     insertLocalizationKey?: { key: string };
     /**
+     * A group the required-field check found members missing on, and what the quick fix needs to
+     * write them: the byte offset the new lines go at, the offset the group's `}` ends at (checked
+     * before anything is written, since the buffer can have moved on since the pass), the fields a
+     * value can be written for, and which of them this diagnostic reported. The diagnostic itself is
+     * anchored on the group's name, which is not an insertion point, so the offset cannot be derived
+     * from its range.
+     */
+    insertRequiredFields?: {
+        offset: number;
+        groupEnd: number;
+        fields: Array<{ name: string; text: string }>;
+        fieldIndex: number;
+    };
+    /**
+     * A mod whose ids this file uses without the manifest declaring it as a dependency. Carries only
+     * how the mod is named (its published file id or manifest id) and its display name. Finding the
+     * manifest and building the edit happens lazily in the code-action handler, since it writes to a
+     * different file than the one the diagnostic sits in, which a `rewrite` cannot express.
+     */
+    addModDependency?: { token: string; name: string };
+    /**
      * A quick fix spanning several byte-offset edits in the same file, for migrations a single
      * replacement cannot express (e.g. `Flammable = false` deletes its line and appends
      * `non_flammable` to the sibling `TypeCategories` list). Spans must not overlap. An edit whose

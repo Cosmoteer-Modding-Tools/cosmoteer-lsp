@@ -91,4 +91,19 @@ describe('validateRequiredFields', () => {
         const src = nestedLayers('\t\tLayers\n\t\t[\n\t\t\t{\n\t\t\t\tType = File\n\t\t\t\tFile = "x.music"\n\t\t\t}\n\t\t]');
         expect(await validateRequiredFields(parse(src, musicUri), token)).toHaveLength(0);
     });
+
+    // The finding is anchored on the group's name, which is not a place anything can be written, so
+    // the quick fix needs the insert offset handed to it on the diagnostic.
+    it('carries the insert payload the quick fix needs', async () => {
+        const src = toggle('');
+        const errors = await validateRequiredFields(parse(src), token);
+        const insert = errors[0].data?.insertRequiredFields;
+        expect(insert).toBeDefined();
+        // `Mode` is an enum, so the fix has a value it may write.
+        expect(insert?.fields.map((field) => field.name)).toEqual(['Mode']);
+        expect(insert?.fieldIndex).toBe(0);
+        // The offset sits at the end of the last member and before the group's own `}`.
+        expect(src.slice(0, insert!.offset).endsWith('Type = MultiToggle')).toBe(true);
+        expect(src[insert!.groupEnd - 1]).toBe('}');
+    });
 });

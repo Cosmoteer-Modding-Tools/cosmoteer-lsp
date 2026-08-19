@@ -1,0 +1,9 @@
+Part : <../base_hull.rules>/Part
+{
+	NameKey = "Parts/HullD"
+	ID = test.hull_d
+	MaxHealth = 7000
+	Density = 9
+	IsRotateable = true
+	CrewSpeedFactor = 1
+}

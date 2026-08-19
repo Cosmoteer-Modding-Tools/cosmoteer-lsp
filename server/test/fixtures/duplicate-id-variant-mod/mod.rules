@@ -1,0 +1,19 @@
+ID = Test.DuplicateIdVariant
+Name = "Variant manifest fixture"
+Version = 1.0
+CompatibleGameVersions = [0.29.0, 0.30.0]
+
+// Two manifests in one mod root: the game picks whichever CompatibleGameVersions matches best and
+// loads only that tree, so the same id declared in both alternatives is not a collision.
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<ships/partship.rules>/PartShip/Parts"
+		ManyToAdd
+		[
+			&<variant_a.rules>/Part
+			&<variant_b.rules>/Part
+		]
+	}
+]
