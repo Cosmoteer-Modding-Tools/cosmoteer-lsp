@@ -1,0 +1,29 @@
+Factions
+[
+	{
+		ID = monolith
+		NameKey = "Factions/Monolith"
+		Icon
+		{
+			Texture
+			{
+				File = "monolith.png"
+			}
+		}
+		BorderColor = [0, 196, 255]
+	}
+
+	{
+		ID = cabal
+		OtherIDs = [old_cabal]
+		NameKey = "Factions/Cabal"
+		Icon
+		{
+			Texture
+			{
+				File = "cabal.png"
+			}
+		}
+		BorderColor = [255, 237, 102]
+	}
+]

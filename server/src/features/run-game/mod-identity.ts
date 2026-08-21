@@ -1,7 +1,13 @@
 import { AbstractNodeDocument } from '../../core/ast/ast';
 import { basename } from 'path';
-import { listEntries, listMember, manifestPathsIn, readManifest, scalarMember } from '../../mod/mod-dependencies';
-import { currentGameVersionsLiteral } from '../diagnostics/validator.manifest-version';
+import { manifestPathsIn, readManifest, scalarMember } from '../../mod/mod-dependencies';
+import {
+    GameVersionInfo,
+    declaredCompatibleVersions,
+    modVersionVerdict,
+    readGameVersionInfo,
+} from '../post-update/game-version';
+import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 
 /**
  * The key the game files a loaded mod under, and the manifest it reads that key from.
@@ -25,32 +31,37 @@ export interface ModKey {
 /** The manifest basename the game falls back to when a file declares no compatible versions. */
 const DEFAULT_MANIFEST = 'mod.rules';
 
+/** The version facts of an install that could not be read, which decides no priority tier. */
+const UNREADABLE_VERSIONS: GameVersionInfo = { installed: '', accepted: [], source: 'none' };
+
 /**
  * The selection priority the game gives one manifest, mirroring `ModInfo.GetModInfoPath`.
  *
- * The one tier that cannot be reproduced from the files is the game's own `ModCompatibleGameVersions`
- * list, the older versions whose mods it still accepts, which lives in the assembly rather than in
- * any manifest. A file naming only such a version is scored here as if it named none, so a mod
- * whose variants differ in id or version across those two tiers can be judged against the wrong
- * variant. Every other tier matches the game exactly.
+ * The game scores a manifest that declares versions in three tiers: naming the installed version
+ * wins outright, naming one of the older versions the build still accepts comes next, and a file
+ * that names neither survives only when it sets `UseThisFileIfNoVersionMatch`. The middle tier
+ * needs the build's own `ModCompatibleGameVersions`, which is read out of the game assembly. An
+ * install whose assembly cannot be read leaves that tier undecidable, and a file that would have
+ * won it is then scored as if it named no accepted version, which is where this stops short of the
+ * game.
  *
  * @param manifest the parsed manifest.
  * @param path the manifest's path, whose basename decides the untagged fallback.
- * @param currentVersion the installed game's version, when it could be harvested.
+ * @param info the installed game's version facts.
  * @returns the priority, or null when the game would not select the file at all.
  */
-const manifestPriority = (
-    manifest: AbstractNodeDocument,
-    path: string,
-    currentVersion: string | undefined
-): number | null => {
+const manifestPriority = (manifest: AbstractNodeDocument, path: string, info: GameVersionInfo): number | null => {
     if (!scalarMember(manifest, 'ID') || !scalarMember(manifest, 'Name')) return null;
-    if (listMember(manifest, 'CompatibleGameVersions')) {
-        const versions = listEntries(manifest, 'CompatibleGameVersions');
-        if (currentVersion && versions.includes(currentVersion)) return 3;
-        return scalarMember(manifest, 'UseThisFileIfNoVersionMatch')?.toLowerCase() === 'true' ? 1 : -1;
+    const declared = declaredCompatibleVersions(manifest);
+    if (declared === undefined) return basename(path).toLowerCase() === DEFAULT_MANIFEST ? 0 : null;
+    switch (modVersionVerdict(declared, info)) {
+        case 'namesInstalled':
+            return 3;
+        case 'namesAccepted':
+            return 2;
+        default:
+            return scalarMember(manifest, 'UseThisFileIfNoVersionMatch')?.toLowerCase() === 'true' ? 1 : -1;
     }
-    return basename(path).toLowerCase() === DEFAULT_MANIFEST ? 0 : null;
 };
 
 /**
@@ -66,7 +77,13 @@ const manifestPriority = (
 export const loadedModKeyOf = async (modFolder: string): Promise<ModKey | null> => {
     const paths = manifestPathsIn(modFolder);
     if (paths.length === 0) return null;
-    const currentVersion = (await currentGameVersionsLiteral().catch(() => undefined))?.match(/"([^"]+)"/)?.[1];
+    // Only the scoring below needs the version facts, and a single-manifest folder never reaches it.
+    const info =
+        paths.length === 1
+            ? UNREADABLE_VERSIONS
+            : await readGameVersionInfo(CosmoteerWorkspaceService.instance.dataRootPath).catch(
+                  () => UNREADABLE_VERSIONS
+              );
 
     let chosen: { readonly id: string; readonly version: string; readonly priority: number } | null = null;
     for (const path of paths) {
@@ -76,7 +93,7 @@ export const loadedModKeyOf = async (modFolder: string): Promise<ModKey | null> 
         if (!id) continue;
         const version = scalarMember(manifest, 'Version') ?? '';
         if (paths.length === 1) return { id, version };
-        const priority = manifestPriority(manifest, path, currentVersion);
+        const priority = manifestPriority(manifest, path, info);
         if (priority === null) continue;
         if (!chosen || priority > chosen.priority) chosen = { id, version, priority };
     }

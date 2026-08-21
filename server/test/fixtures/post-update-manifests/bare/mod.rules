@@ -1,0 +1,4 @@
+// A bare, unquoted version list, which the workshop corpus really ships.
+ID = test.bare
+Name = "Bare list"
+CompatibleGameVersions = [ 0.30.4 ]

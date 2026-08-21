@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.8.0 Beta
+
+### Added
+
+- Render layers are now offered and checked per ship class. Only the layers the part's own ship declares are suggested, and a layer no ship declares, or one belonging to another ship class, is reported with the ship named. Turn it off with `cosmoteerLSPRules.diagnostics.validateRenderLayers`.
+- Quotes, braces, brackets and `<` now close themselves as you type, and `//` and `/* */` comments toggle with the editor's own comment shortcut.
+- A path field whose file or folder is not on disk is now reported, read against the folder of the file it is written in. The closest existing name is offered as a fix. Turn it off with `cosmoteerLSPRules.diagnostics.validatePaths`.
+- A sprite drawn out of shape next to the others in its list is now hinted at, with a fix that rewrites its `Size` to the shape the first level of the list is drawn at. Turn it off with `cosmoteerLSPRules.diagnostics.validateSpriteGeometry`.
+- Every place a file names the same thing now lights up when the caret rests on it. Members, group names, references, cross-file ids and particle data channels are covered, with the declaration marked apart from the places that read it.
+- Typing a field name inside a group that inherits now marks the fields the base already writes, each carrying the value it already has and the file and line it comes from.
+- A value in the game's own files can now be overridden from your mod in one step. The caret on it writes the `Overrides` action into the mod's `mod.rules`, with the value copied across and its paths rewritten to read from the game folder.
+- A new part, resource, shot or media effect can now be created and wired into the game in one step. `Cosmoteer: New Content File` writes the file with its required fields, derives the id, adds the name and description keys to every language file, and registers a part in the ship class you pick.
+- A part, a resource or anything else that declares an id can now be cloned under a name of your own. For a part the whole folder comes along, ids and paths are rewritten inside the copy, and the result is shown as a diff before anything is written.
+- A reference can now be walked segment by segment. `Cosmoteer: Explain This Reference` says which hop stopped, where the last one that worked landed, and every member the game really has at that place.
+- A deprecation a mod repeats across many files can now be fixed everywhere in one step. The lightbulb offers that one change for the whole mod beside the fix for the line under the caret, and shows every file it would rewrite as a diff first.
+- A mod can now be checked from the command line, so a build can fail on what the editor would have shown. `node out/server/src/cli/lint.mjs <folder>` runs the same whole-mod checks and reports as text, JSON, SARIF or GitHub annotations.
+- `--assert-loads` answers whether the game would load the mod at all. It walks every manifest action and answers with its own exit code, so a build fails on a mod that will not load.
+- What a game update did to your mod can now be asked for. `Cosmoteer: Show What the Game Update Changed` compares the project against what it reported under the previous game version and names every finding the update added and every one it took away.
+
+### Fixed
+
+- A value is now suggested while its quotes are still open. `Layer = "roo` used to answer with the group's field names rather than the ship render layers, and the accepted suggestion now writes the missing closing quote.
+- `Layer` written on an `IndicatorSprites` component is marked as having no effect, which is what the game does with it.
+- Renaming a localization key now moves it everywhere at once, rewriting the declaration in every language file the mod ships along with every field that names it. Before, it rewrote the one language file it was started from.
+- Running a mod in the game no longer warns about `CompatibleGameVersions` when the game would load the mod without complaint. The list is read from the parsed file and judged by the game's own rule, which also accepts the older versions the build still takes.
+- Files in the game install are re-read when they change on disk, so a Cosmoteer update installed while the editor is open no longer answers from the data the session started with. The same applies to a workshop mod Steam updates while you work.
+- Semantic highlighting in JetBrains IDEs is on by default and no longer flickers. The plugin paints the colors into the editor's own markup, so they follow the text through an edit.
+
 ## 0.7.0 Beta
 
 ### Fixed

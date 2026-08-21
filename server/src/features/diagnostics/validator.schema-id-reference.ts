@@ -599,6 +599,9 @@ export const undeclaredDependencyErrors = async (
         const token = dependencyTokenOf(identity);
         const name = identity.name ?? identity.manifestId ?? token ?? root;
         errors.push({
+            // Named here rather than where the pass that carries it is tagged: this check rides
+            // along with the element pass, which cannot tell its own findings apart.
+            code: 'validateUndeclaredDependencies',
             message: l10n.t(
                 "'{0}' is only installed on this machine. This file uses ids that mod declares, and the manifest does not list it under Dependencies, so those ids name nothing for anybody who does not have it.",
                 name

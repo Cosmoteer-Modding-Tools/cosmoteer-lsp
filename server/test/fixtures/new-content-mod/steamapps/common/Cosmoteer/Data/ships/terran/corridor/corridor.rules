@@ -1,0 +1,20 @@
+Part : <../base_part_terran.rules>/Part
+{
+	ID = cosmoteer.corridor
+	NameKey = "Parts/Corridor"
+	Size = [1, 1]
+	MaxHealth = 1000
+	Resources
+	[
+		[steel, 4]
+	]
+	EditorIcon
+	{
+		Texture
+		{
+			File = "icon.png"
+			SampleMode = Linear
+		}
+		Size = [32, 32]
+	}
+}

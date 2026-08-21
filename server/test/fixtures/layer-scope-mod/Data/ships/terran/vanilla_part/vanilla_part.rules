@@ -1,0 +1,11 @@
+Part
+{
+	ID = game.vanilla_part
+	Components
+	{
+		Sprite : &<../../shared/shared_sprites.rules>/Shared
+		{
+			Layer = "floors"
+		}
+	}
+}

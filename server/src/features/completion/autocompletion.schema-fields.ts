@@ -40,6 +40,12 @@ import { declaringFieldOf, mapEntryKeyTargetOf } from '../navigation/schema-id-r
 import { isIdDeclarationField } from '../../document/schema/entity-schema';
 import { resolveClassThroughInheritance } from './inheritance-resolution';
 import { shaderConstantCompletions, shaderConstantGroupClass } from './autocompletion.shader-constants';
+import {
+    NO_INHERITED_MEMBERS,
+    annotateInheritedMembers,
+    inheritedMembersFor,
+    suppliedByChain,
+} from './inherited-members';
 
 /**
  * The snippet inserted when a field name is accepted, it scaffolds the field's structure so the user
@@ -167,12 +173,16 @@ export const schemaFieldNameCompletions = async (
         offset >= member.position.start &&
         offset <= member.position.end;
     const present = new Set(members.filter((entry) => !underCursor(entry)).map(([name]) => name.toLowerCase()));
+    // A group that names a base already holds every member that base writes, and the popup used to
+    // offer those as though nothing had set them. Read what the chain really supplies so each of
+    // them can be offered with the value it already has.
+    const inherited = group ? await inheritedMembersFor(group, cancellationToken) : NO_INHERITED_MEMBERS;
     // A map entry group (`Upgrades [ { <cursor> } ]`) has no class of its own; its members are the
     // map's entry names, `Key`/`Value` or the `[KeyValuePairNames]` spellings like `Old`/`New`.
     if (!cls && group?.parent && isListNode(group.parent)) {
         const slot = listSlotType(group.parent);
         if (slot?.kind === 'map') {
-            return mapEntryNames(slot)
+            const entries: Completion[] = mapEntryNames(slot)
                 .filter(([name]) => !present.has(name.toLowerCase()))
                 .map(([name, valueType]) => ({
                     label: name,
@@ -182,6 +192,7 @@ export const schemaFieldNameCompletions = async (
                     isSnippet: true,
                     triggerSuggest: ['polymorphicGroup', 'enum', 'bool', 'reference'].includes(valueType.kind),
                 }));
+            return annotateInheritedMembers(entries, inherited);
         }
     }
     // A wrapper-delegation slot reads BOTH the wrapper's fields and the dispatched member's from the
@@ -221,7 +232,12 @@ export const schemaFieldNameCompletions = async (
     }));
 
     // One pick that scaffolds all the still-missing required fields at once (each a numbered tab stop).
-    const requiredMissing = missing.filter(({ field }) => !field.optional).map(({ field }) => field);
+    // A required field the chain already supplies is not missing, the game reads it here, so
+    // scaffolding it would write an override that changes nothing and would say the opposite of what
+    // the required-field check says about the same group.
+    const requiredMissing = missing
+        .filter(({ field }) => !field.optional && !suppliedByChain(field, inherited))
+        .map(({ field }) => field);
     if (requiredMissing.length >= 2) {
         completions.unshift({
             label: `Insert ${requiredMissing.length} required fields`,
@@ -246,7 +262,9 @@ export const schemaFieldNameCompletions = async (
         // `.shader` file its `Shader` field points at (not from the schema).
         completions.push(...(await shaderConstantCompletions(group, document.uri, present, cancellationToken)));
     }
-    return completions;
+    // Marked at the end rather than per field, so the injected `Type` and a material's shader
+    // constants are covered by the same pass as the schema fields.
+    return annotateInheritedMembers(completions, inherited);
 };
 
 /**
@@ -273,11 +291,39 @@ export const isBareFieldNameIdentifier = (node: AbstractNode): boolean => {
     return true;
 };
 
-/** Matches an in-progress value assignment at the end of a line: `Key = ` (value still empty). */
-const VALUE_POSITION = /(?:^|[\s{;[])([A-Za-z_]\w*)\s*=\s*$/;
+/** Matches an in-progress value assignment at the end of a line: `Key = ` (value still empty), or
+ *  `Key = "…` whose opening quote is not closed yet. The unclosed quote makes the parser produce no
+ *  value node to complete against, so the offset path is the only one that can serve a quoted value
+ *  while it is being typed (`Layer = "roo`). A closed quoted value is left out on purpose: it has a
+ *  value node, which the richer node-based completers serve. */
+const VALUE_POSITION = /(?:^|[\s{;[])([A-Za-z_]\w*)\s*=\s*(?:"[^"]*)?$/;
+
+/**
+ * Where a comment opens on the line left of the cursor, ignoring a `//` or `/*` that is part of a
+ * quoted value (an asset path writes both). Commented-out text still reads as an assignment, so
+ * without this a `// Layer = "` would be answered with the render layers of a line the game never
+ * sees.
+ *
+ * @param linePrefix the line text from its start up to the cursor.
+ * @returns the offset the comment opens at, or -1 when the cursor is not in one.
+ */
+const commentStartInPrefix = (linePrefix: string): number => {
+    let inString = false;
+    for (let i = 0; i < linePrefix.length - 1; i++) {
+        const character = linePrefix[i];
+        if (character === '"') inString = !inString;
+        else if (!inString && character === '/' && (linePrefix[i + 1] === '/' || linePrefix[i + 1] === '*')) return i;
+    }
+    return -1;
+};
 
 /** The field being assigned at an empty `Key = ` insertion point, or undefined if not one. */
-const fieldNameAtValuePosition = (linePrefix: string): string | undefined => VALUE_POSITION.exec(linePrefix)?.[1];
+const fieldNameAtValuePosition = (linePrefix: string): string | undefined => {
+    const match = VALUE_POSITION.exec(linePrefix);
+    if (!match) return undefined;
+    const comment = commentStartInPrefix(linePrefix);
+    return comment >= 0 && comment < match.index ? undefined : match[1];
+};
 
 /**
  * Value completion at an empty `Key = ` insertion point, where the AST has no value leaf yet, so the

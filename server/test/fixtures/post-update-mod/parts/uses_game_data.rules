@@ -1,0 +1,10 @@
+// Every reference here resolves into the game Data tree, which is what a game update rewrites.
+Part
+{
+	FromB = &<./Data/b.rules>/B/InnerValue
+	FromBase = &<./Data/base.rules>/Base/BaseOnly
+	FromPart = &<./Data/parts/base_part.rules>/Part/HeatTarget
+	// Nothing declares this yet. A later version of the game tree adds it, which is how the report
+	// gets a finding that stops failing rather than one that starts.
+	FromLater = &<./Data/b.rules>/B/AddedLater
+}

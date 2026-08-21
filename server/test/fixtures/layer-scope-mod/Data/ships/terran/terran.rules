@@ -1,0 +1,19 @@
+Terran
+{
+	ID = terran
+	RenderLayers
+	[
+		{
+			Key = "floors"
+			Value { }
+		}
+		{
+			Key = "roofs"
+			Value { }
+		}
+	]
+	Parts
+	[
+		&<vanilla_part/vanilla_part.rules>/Part
+	]
+}

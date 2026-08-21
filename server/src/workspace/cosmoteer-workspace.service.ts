@@ -3,7 +3,7 @@ import { AbstractNodeDocument } from '../core/ast/ast';
 import { readdir } from 'fs/promises';
 import { sep } from 'path';
 import { Dirent } from 'fs';
-import { parseFile } from '../utils/ast.utils';
+import { getParsedFileDocument } from './parsed-file-cache';
 import { isRulesFileName } from '../document/document-kind';
 import * as l10n from '@vscode/l10n';
 import * as path from 'path';
@@ -117,8 +117,10 @@ export class CosmoteerWorkspaceService {
         ) as CosmoteerFile & {
             readonly path: string;
         };
-        if (!(cosmoteerRules.content as CosmoteerWorkspaceData).parsedDocument)
-            (cosmoteerRules.content as CosmoteerWorkspaceData).parsedDocument = await parseFile(cosmoteerRules);
+        // Routed through the pin registry rather than parsed straight onto the node, so the root
+        // of every super-path resolution is re-read when the file behind it changed, which is what
+        // a game updated while the editor is open does to it.
+        await getParsedFileDocument(cosmoteerRules);
         return cosmoteerRules;
     }
 

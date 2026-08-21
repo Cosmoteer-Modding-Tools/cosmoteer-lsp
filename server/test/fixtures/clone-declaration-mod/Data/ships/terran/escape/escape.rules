@@ -1,0 +1,12 @@
+Part
+{
+	ID = cosmoteer.escape
+	Size = [1, 1]
+	Icon
+	{
+		Texture
+		{
+			File = "../../../../outside/thing.png"
+		}
+	}
+}

@@ -1,0 +1,9 @@
+Terran
+{
+	ID = cosmoteer.terran
+
+	Parts
+	[
+		&<corridor/corridor.rules>/Part
+	]
+}

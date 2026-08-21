@@ -1,0 +1,4 @@
+// Names only a version no current build accepts, which is the auto-disable case.
+ID = test.legacy
+Name = "Legacy versions only"
+CompatibleGameVersions = [ "0.22.0a" ]

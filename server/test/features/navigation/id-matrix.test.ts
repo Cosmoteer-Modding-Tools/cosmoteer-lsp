@@ -225,6 +225,31 @@ describe('id shape and feature matrix', () => {
             expect(crossFileReferenceTargetAtOffset(doc, offset, '\t\tKey = ')).toBe('Cosmoteer.Ships.ShipRenderLayerRules');
         });
 
+        it('an unclosed quote is still a value position, a closed one is left to the value node', () => {
+            const src = 'RenderLayers\n[\n\t{\n\t\tKey = "\n\t}\n]\n';
+            const doc = parse(src, 'file:///mod/ships/probe.rules');
+            const offset = src.indexOf('Key = "') + 'Key = "'.length;
+            expect(crossFileReferenceTargetAtOffset(doc, offset, '\t\tKey = "')).toBe(
+                'Cosmoteer.Ships.ShipRenderLayerRules'
+            );
+            expect(crossFileReferenceTargetAtOffset(doc, offset, '\t\tKey = "do')).toBe(
+                'Cosmoteer.Ships.ShipRenderLayerRules'
+            );
+            expect(crossFileReferenceTargetAtOffset(doc, offset, '\t\tKey = "doors"')).toBeUndefined();
+        });
+
+        it('a commented-out assignment is not a value position', () => {
+            const src = 'RenderLayers\n[\n\t{\n\t\tKey = "\n\t}\n]\n';
+            const doc = parse(src, 'file:///mod/ships/probe.rules');
+            const offset = src.indexOf('Key = "') + 'Key = "'.length;
+            expect(crossFileReferenceTargetAtOffset(doc, offset, '\t\t// Key = "')).toBeUndefined();
+            expect(crossFileReferenceTargetAtOffset(doc, offset, '\t\t/* Key = ')).toBeUndefined();
+            // A `//` inside the value's own quotes is part of the path, not a comment.
+            expect(crossFileReferenceTargetAtOffset(doc, offset, '\t\tKey = "a//b')).toBe(
+                'Cosmoteer.Ships.ShipRenderLayerRules'
+            );
+        });
+
         it('completion at a typed key offers the declared layers', async () => {
             const src = 'RenderLayers\n[\n\t{\n\t\tKey = doors\n\t\tValue { }\n\t}\n]\n';
             const labels = await labelsFor(findValueByText(parse(src, 'file:///mod/ships/probe.rules'), 'doors'));

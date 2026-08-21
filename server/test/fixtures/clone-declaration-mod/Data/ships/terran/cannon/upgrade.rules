@@ -1,0 +1,6 @@
+// Declares no id of its own, so the cannon folder stays a single copy unit. It names the cannon
+// with different casing than the declaration, which the game reads as the same id.
+Part : <cannon.rules>/Part
+{
+	EditorParentParts = [Cosmoteer.Cannon]
+}

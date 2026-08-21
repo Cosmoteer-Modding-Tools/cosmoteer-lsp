@@ -1,0 +1,12 @@
+Part
+{
+	ID = cosmoteer.broken
+	Size = [1, 1]
+	Icon
+	{
+		Texture
+		{
+			File = "gone.png"
+		}
+	}
+}

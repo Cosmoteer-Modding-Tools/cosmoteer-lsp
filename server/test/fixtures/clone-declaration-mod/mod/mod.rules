@@ -1,0 +1,4 @@
+ID = Test.CloneDeclaration
+Name = "Clone declaration fixture"
+Version = 1.0
+StringsFolder = "strings"

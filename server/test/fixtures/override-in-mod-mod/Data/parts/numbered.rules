@@ -1,0 +1,8 @@
+// A container hop written as a number, which the game reads as a position.
+Numbered
+{
+	7
+	{
+		Value = 1
+	}
+}

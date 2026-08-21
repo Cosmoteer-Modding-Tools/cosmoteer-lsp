@@ -45,6 +45,15 @@ export const endFsTrustWindow = (): void => {
     trustDepth = Math.max(0, trustDepth - 1);
 };
 
+/**
+ * The generation of the trust window that is currently open. Caches outside this module that
+ * validate their entries by size and mtime read it to get the same deal the caches here get: one
+ * stat per entry per window, and a fresh stat again as soon as the window closes.
+ *
+ * @returns the open window's generation, or undefined when no trust window is open.
+ */
+export const currentFsTrustGeneration = (): number | undefined => (trustDepth > 0 ? trustGen : undefined);
+
 const readdirCache: Map<string, ReaddirEntry> = new Map();
 const parseCache: Map<string, ParseEntry> = new Map();
 
@@ -213,6 +222,11 @@ export const cachedParseFilePath = async (
     const text = await readFile(fsPath, { encoding: 'utf-8' });
     if (cancellationToken?.isCancellationRequested) throw new CancellationError();
     const document = parser(lexer(text), fsPath).value;
+    // A cached entry that no longer matches the file means it changed with no watcher event behind
+    // it, which is what a game update installed mid session looks like. Everything worked out from
+    // the old text is stale too, so the caches derived from resolution are told, the same way a
+    // watched change tells them. Only a real replacement announces, never a first read.
+    if (cached) for (const listener of invalidationListeners) listener();
     parseCache.set(key, {
         size: stats.size,
         mtimeMs: stats.mtimeMs,

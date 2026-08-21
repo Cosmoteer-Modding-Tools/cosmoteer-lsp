@@ -35,6 +35,7 @@ import {
     ModOverviewContentProvider,
     showModOverview,
 } from './mod-overview/mod-overview';
+import { POST_UPDATE_REPORT_SCHEME, PostUpdateReportContentProvider, showPostUpdateReport } from './post-update/post-update-report';
 import {
     PART_WIRING_SCHEME,
     PartWiringCodeLensProvider,
@@ -46,6 +47,11 @@ import {
     EffectiveGroupContentProvider,
     showEffectiveGroup,
 } from './effective-group/effective-group';
+import {
+    REFERENCE_TRACE_SCHEME,
+    ReferenceTraceContentProvider,
+    showReferenceTrace,
+} from './reference-trace/reference-trace';
 import { SCHEMA_DOC_SCHEME, SchemaDocContentProvider, showSchemaSearch } from './schema-search/schema-search';
 import {
     DIFF_PREVIEW_SCHEME,
@@ -170,6 +176,17 @@ export async function activate(context: ExtensionContext) {
         })
     );
 
+    // What the game update changed: the difference between the findings recorded under the previous
+    // game version and the ones the project produces now, the compatibility verdict of every
+    // manifest, and what the migration would rewrite. A markdown preview like the mod overview.
+    const postUpdateProvider = new PostUpdateReportContentProvider();
+    context.subscriptions.push(
+        workspace.registerTextDocumentContentProvider(POST_UPDATE_REPORT_SCHEME, postUpdateProvider),
+        commands.registerCommand('cosmoteer.showPostUpdateReport', async () => {
+            await showPostUpdateReport(client, postUpdateProvider);
+        })
+    );
+
     // Part wiring: a CodeLens above each root `Part` group and a command that render what the part
     // still needs before the game can build it (the lens passes the part's line, the palette uses
     // the cursor).
@@ -193,6 +210,17 @@ export async function activate(context: ExtensionContext) {
         })
     );
 
+    // Reference trace: one command that walks the reference under the cursor and says which segment
+    // stopped it and what the game really has there. No CodeLens and no hover: a reference is far too
+    // common for a lens, and the walk crosses files, so it runs only when it is asked for.
+    const referenceTraceProvider = new ReferenceTraceContentProvider();
+    context.subscriptions.push(
+        workspace.registerTextDocumentContentProvider(REFERENCE_TRACE_SCHEME, referenceTraceProvider),
+        commands.registerCommand('cosmoteer.explainReference', async (uri?: Uri, position?: Position) => {
+            await showReferenceTrace(client, referenceTraceProvider, uri, position);
+        })
+    );
+
     // Schema search: one command that searches every schema type, field, enum member and Type=
     // registry plus the field documentation, opens a hit's documentation as a markdown preview, and
     // can write a found field straight into the group the cursor is in. The palette id deliberately
@@ -203,6 +231,15 @@ export async function activate(context: ExtensionContext) {
         workspace.registerTextDocumentContentProvider(SCHEMA_DOC_SCHEME, schemaDocProvider),
         commands.registerCommand('cosmoteer.searchSchema', async () => {
             await showSchemaSearch(client, schemaDocProvider);
+        })
+    );
+
+    // Creating a piece of content and wiring it into the game are one step, because a file nothing
+    // registers is a file the game never loads and the editor never types. The server writes and
+    // registers. This wrapper only asks the questions a tool cannot answer for the author.
+    context.subscriptions.push(
+        commands.registerCommand(NEW_CONTENT_LOCAL_COMMAND, async () => {
+            await createNewContent(client);
         })
     );
 
@@ -371,7 +408,7 @@ export async function activate(context: ExtensionContext) {
             if (!result.compatible) {
                 window.showWarningMessage(
                     l10n.t(
-                        "The mod's CompatibleGameVersions does not name the installed game version, so the game will turn it off again while loading."
+                        "The mod's CompatibleGameVersions names no game version this build accepts, so the game will turn it off again while loading."
                     )
                 );
             }
@@ -487,6 +524,38 @@ export async function activate(context: ExtensionContext) {
                 l10n.t('Added "{0}" to {1} language files.', result.key, result.changedFiles.length)
             );
         }),
+        // The command the server's whole-mod deprecation fix carries. The server does not claim it,
+        // so the editor runs this and the author reads the rewrite as a diff before it happens.
+        commands.registerCommand(MIGRATE_SYMBOL_LOCAL_COMMAND, async (args?: MigrateSymbolArgs) => {
+            if (!args?.symbol || !args.uri) return;
+            const run = async (dryRun: boolean) =>
+                (await client.sendRequest(ExecuteCommandRequest.type, {
+                    command: 'cosmoteer.migrateSymbol',
+                    arguments: [{ symbol: args.symbol, uri: args.uri, dryRun }],
+                })) as MigrationSummary | null;
+            const preview = await run(true);
+            if (!preview) {
+                window.showInformationMessage(l10n.t('Cosmoteer migration: no workspace folder is open.'));
+                return;
+            }
+            // Nothing to rewrite is the normal answer for a deprecation written once, and it has to
+            // be said, or the fix looks like it did nothing.
+            if (preview.files === 0) {
+                window.showInformationMessage(
+                    preview.manual.length > 0
+                        ? l10n.t(
+                              'Cosmoteer: {0} findings need manual review, nothing can be changed mechanically.',
+                              preview.manual.length
+                          )
+                        : l10n.t('Cosmoteer: nothing else in this mod needs that change.')
+                );
+                return;
+            }
+            await showMigrationPreview(preview, diffPreviewProvider, async () => {
+                const summary = await run(false);
+                if (summary) await showMigrationSummary(summary);
+            });
+        }),
         // The command the server's part-registration refactoring carries. The server does not claim
         // it, so the editor runs this and the author picks the ship class before anything is written.
         commands.registerCommand(REGISTER_PART_IN_SHIP_LOCAL_COMMAND, async (args?: RegisterPartArgs) => {
@@ -524,6 +593,51 @@ export async function activate(context: ExtensionContext) {
             }
             const cleanup = await saveAndTidy(result.changedFiles, openBefore);
             await showRegisterPartSummary(result, cleanup);
+        }),
+        // The command the server's override refactoring carries. The server does not claim it, so
+        // the editor runs this and the author picks the mod before anything is written.
+        commands.registerCommand(OVERRIDE_IN_MOD_LOCAL_COMMAND, async (args?: OverrideInModArgs) => {
+            if (!args) return;
+            const scan = (await client.sendRequest(ExecuteCommandRequest.type, {
+                command: 'cosmoteer.overrideInMod',
+                arguments: [args],
+            })) as OverrideInModScanResult | null;
+            if (!scan || scan.failure) {
+                window.showWarningMessage(
+                    scan?.failure
+                        ? overrideInModFailureMessage(scan.failure)
+                        : l10n.t('Cosmoteer: the override could not be worked out, so nothing was changed.')
+                );
+                return;
+            }
+            const mod = await pickOverrideMod(scan.candidates);
+            if (!mod) return;
+            const shape = await pickOverrideShape(scan);
+            if (!shape) return;
+            // Captured before the edit, so the tidy-up can tell the tabs the user had from the one
+            // the override opened on its own.
+            const openBefore = openDocumentPaths();
+            const result = (await client.sendRequest(ExecuteCommandRequest.type, {
+                command: 'cosmoteer.overrideInMod',
+                arguments: [{ ...args, mod: mod.key, shape }],
+            })) as OverrideInModApplyResult | null;
+            if (!result) {
+                window.showWarningMessage(
+                    l10n.t('Cosmoteer: the override could not be written, so nothing was changed.')
+                );
+                return;
+            }
+            if (result.failure) {
+                window.showWarningMessage(overrideInModFailureMessage(result.failure, result.manifests));
+                return;
+            }
+            const cleanup = await saveAndTidy(result.changedFiles, openBefore);
+            await showOverrideSummary(result, cleanup);
+        }),
+        // The command the server's clone refactoring carries. The server does not claim it, so the
+        // editor runs this and the author names the id and reads the copy before anything is written.
+        commands.registerCommand(CLONE_DECLARATION_LOCAL_COMMAND, async (args?: CloneDeclarationArgs) => {
+            if (args) await cloneDeclarationFlow(args, diffPreviewProvider);
         })
     );
 
@@ -689,6 +803,319 @@ const EXTRACT_LOCALIZATION_KEY_LOCAL_COMMAND = 'cosmoteer.extractLocalizationKey
  */
 const REGISTER_PART_IN_SHIP_LOCAL_COMMAND = 'cosmoteer.registerPartInShipFromAction';
 
+/**
+ * The command the server's "apply this deprecation to the whole mod" fix carries. The server does not
+ * claim it, so the editor runs this instead and the rewrite is shown as a diff before it happens.
+ */
+const MIGRATE_SYMBOL_LOCAL_COMMAND = 'cosmoteer.migrateSymbolFromAction';
+
+/** Mirror of the server's bulk-migration arguments (see server features/migration/migrate-symbol.ts). */
+interface MigrateSymbolArgs {
+    symbol: string;
+    uri: string;
+    dryRun?: boolean;
+}
+
+/**
+ * The palette command that creates a new content file. A distinct id from the server's own
+ * `cosmoteer.newContent`, because the language client auto-registers that one as a plain
+ * no-feedback forwarder and the questions have to be asked here.
+ */
+const NEW_CONTENT_LOCAL_COMMAND = 'cosmoteer.newContentFile';
+
+/**
+ * The command the server's "override this in my mod" refactoring carries. The server does not
+ * claim it, so the editor runs this instead and the author picks the mod first.
+ */
+const OVERRIDE_IN_MOD_LOCAL_COMMAND = 'cosmoteer.overrideInModFromAction';
+
+/**
+ * The command the server's "clone this under a new id" refactoring carries. The server does not claim
+ * it, so the editor runs this instead: the new id is a name only the author can give, and the copy
+ * writes files that have to be read before they are written.
+ */
+const CLONE_DECLARATION_LOCAL_COMMAND = 'cosmoteer.cloneDeclarationFromAction';
+
+/** What an id may be spelled with, the same set the server and the rename refactoring enforce. */
+const VALID_CLONE_ID = /^[A-Za-z0-9_.]+$/;
+
+/**
+ * Mirror of the server's clone arguments (see server
+ * features/refactor/clone-declaration/clone.command.ts).
+ */
+interface CloneDeclarationArgs {
+    uri: string;
+    offset: number;
+    newId?: string;
+    destinationDir?: string;
+    preview?: boolean;
+}
+
+/** Mirror of the server's report round. */
+interface CloneScanResult {
+    kind: 'scan';
+    id: string;
+    identityKey: string;
+    unit: 'directory' | 'file' | 'listElement';
+    files: number;
+    proposedId: string;
+    destinationDir: string;
+    modRoots: string[];
+    failure?: CloneFailure;
+}
+
+/** Mirror of the server's preview round. */
+interface ClonePreviewResult {
+    kind: 'preview';
+    diff: string;
+    changed: DiffPreviewFile[];
+    omitted: number;
+    writes: string[];
+    copied: string[];
+    stringsFiles: string[];
+    destinationDir: string;
+    newId: string;
+    unit: 'directory' | 'file' | 'listElement';
+    droppedOtherIds: string[];
+    keys: Array<{ from: string; to: string }>;
+    failure?: CloneFailure;
+    detail?: string[];
+}
+
+/** Mirror of the server's apply round. */
+interface CloneApplyResult {
+    kind: 'apply';
+    created: string;
+    createdPaths: string[];
+    changedFiles: string[];
+    stringsFiles: string[];
+    droppedOtherIds: string[];
+    keys: number;
+    newId: string;
+    unit: 'directory' | 'file' | 'listElement';
+    failure?: CloneFailure;
+    detail?: string[];
+}
+
+/** Why a clone did nothing, as the server words it. */
+type CloneFailure =
+    | 'stale'
+    | 'noDeclaration'
+    | 'inheritedIdentity'
+    | 'unreadableBase'
+    | 'severalIdentities'
+    | 'invalidId'
+    | 'idUnchanged'
+    | 'idTaken'
+    | 'notEditable'
+    | 'ambiguousDestination'
+    | 'destinationExists'
+    | 'unresolvablePath'
+    | 'escapingPath'
+    | 'writeFailed'
+    | 'editRejected';
+
+/**
+ * Say why a clone did not happen, one message per reason the server reports, each naming what the user
+ * can do about it.
+ *
+ * @param failure the server's reason.
+ * @param detail what the reason is about: a path, a file, or the mods to choose between.
+ * @returns the message to show.
+ */
+function cloneFailureMessage(failure: CloneFailure, detail?: string[]): string {
+    const first = detail?.[0] ?? '';
+    switch (failure) {
+        case 'stale':
+            return l10n.t('Cosmoteer: the declaration has moved since the offer was made, so nothing was changed.');
+        case 'noDeclaration':
+            return l10n.t('Cosmoteer: nothing here declares an id, so there is nothing to clone.');
+        case 'inheritedIdentity':
+            return l10n.t(
+                'Cosmoteer: this takes its id from a base file, so a copy would carry the same id. Give it an ID of its own first.'
+            );
+        case 'unreadableBase':
+            return l10n.t(
+                'Cosmoteer: a base file of this one could not be read, so there is no saying what the copy would carry.'
+            );
+        case 'severalIdentities':
+            return l10n.t('Cosmoteer: this file declares more than one thing. Put the cursor in the one to clone.');
+        case 'invalidId':
+            return l10n.t('Cosmoteer: an id is made of letters, digits, dots and underscores.');
+        case 'idUnchanged':
+            return l10n.t('Cosmoteer: that is the id it already has. The game matches ids without regard to case.');
+        case 'idTaken':
+            return l10n.t(
+                'Cosmoteer: something already declares that id, and the game keeps one of two such entries and drops the other.'
+            );
+        case 'notEditable':
+            return l10n.t(
+                "Cosmoteer: the copy would land outside a mod you can edit. The game's own files and installed workshop mods are left alone."
+            );
+        case 'ambiguousDestination':
+            return l10n.t(
+                'Cosmoteer: the workspace holds several mods, so which one gets the copy is yours to decide. Candidates: {0}.',
+                (detail ?? []).join(', ')
+            );
+        case 'destinationExists':
+            return l10n.t('Cosmoteer: {0} is already there, so nothing was changed.', first);
+        case 'unresolvablePath':
+            return l10n.t(
+                'Cosmoteer: this reads {0}, which is not on disk, so the copy would read nothing either.',
+                first
+            );
+        case 'escapingPath':
+            return l10n.t(
+                'Cosmoteer: this reads {0} from outside the destination mod, which a published mod cannot do. Copy that file into the mod first.',
+                first
+            );
+        case 'writeFailed':
+            return l10n.t('Cosmoteer: the copy could not be written, so it was removed again.');
+        case 'editRejected':
+            return l10n.t('Cosmoteer: the editor turned the edit down.');
+    }
+}
+
+/**
+ * Ask for the new id, show the whole copy as a diff, and write it once the author says so.
+ *
+ * The exchange is three rounds, the same shape the shared-base extraction uses: the server reports what
+ * cloning would take, the author names the id, the server works the copy out and answers with it, and
+ * only then is anything written.
+ *
+ * @param args the declaration the lightbulb offered.
+ * @param provider the content provider the copy's files are served from.
+ * @returns once the copy happened or the author backed out.
+ */
+async function cloneDeclarationFlow(args: CloneDeclarationArgs, provider: DiffPreviewProvider): Promise<void> {
+    const scan = (await client.sendRequest(ExecuteCommandRequest.type, {
+        command: 'cosmoteer.cloneDeclaration',
+        arguments: [args],
+    })) as CloneScanResult | null;
+    if (!scan || scan.failure) {
+        window.showWarningMessage(
+            scan?.failure
+                ? cloneFailureMessage(scan.failure)
+                : l10n.t('Cosmoteer: this could not be read, so nothing was changed.')
+        );
+        return;
+    }
+    const newId = await window.showInputBox({
+        title: l10n.t('Clone under a new id'),
+        prompt: l10n.t(
+            'The id the copy declares. Everything inside the copy that names the old id is rewritten to it.'
+        ),
+        value: scan.proposedId,
+        validateInput: (value) =>
+            VALID_CLONE_ID.test(value.trim())
+                ? undefined
+                : l10n.t('An id is made of letters, digits, dots and underscores.'),
+    });
+    if (!newId) return;
+
+    // Captured before the preview, not after: the diff opens the real files on its left-hand side, so
+    // by the time it is on screen those files count as open and the tidy-up would leave them behind.
+    const openBefore = openDocumentPaths();
+    const preview = (await client.sendRequest(ExecuteCommandRequest.type, {
+        command: 'cosmoteer.cloneDeclaration',
+        arguments: [{ ...args, newId: newId.trim(), preview: true }],
+    })) as ClonePreviewResult | null;
+    if (!preview || preview.failure) {
+        window.showWarningMessage(
+            preview?.failure
+                ? cloneFailureMessage(preview.failure, preview.detail)
+                : l10n.t('Cosmoteer: the copy could not be worked out, so nothing was changed.')
+        );
+        return;
+    }
+    const title = l10n.t('Clone: {0}', preview.newId);
+    if (preview.changed.length > 0) await showDiffPreview(provider, `clone-${preview.newId}`, preview.changed, title);
+    else await showPatchPreview(provider, `clone-${preview.newId}`, preview.diff);
+
+    if (!(await confirmClone(preview))) return;
+    const result = await window.withProgress(
+        { location: ProgressLocation.Notification, title: l10n.t('Cloning {0}', preview.newId) },
+        async () =>
+            (await client.sendRequest(ExecuteCommandRequest.type, {
+                command: 'cosmoteer.cloneDeclaration',
+                arguments: [{ ...args, newId: newId.trim() }],
+            })) as CloneApplyResult | null
+    );
+    if (!result) {
+        window.showWarningMessage(l10n.t('Cosmoteer: the copy could not be made, so nothing was changed.'));
+        return;
+    }
+    if (result.failure) {
+        window.showWarningMessage(cloneFailureMessage(result.failure, result.detail));
+        return;
+    }
+    await saveAndTidy(result.changedFiles, openBefore);
+    await showCloneSummary(result);
+}
+
+/**
+ * Have the author confirm the copy whose diff is now open beside the editor. Worth its click because
+ * applying it writes a folder of files into the project.
+ *
+ * @param preview the server's account of what the copy would write.
+ * @returns true when the author asked for it to happen.
+ */
+async function confirmClone(preview: ClonePreviewResult): Promise<boolean> {
+    const clone = l10n.t('Clone');
+    const parts: string[] = [];
+    parts.push(
+        preview.omitted > 0
+            ? l10n.t('The open diff shows {0} of the files the copy writes.', preview.changed.length)
+            : l10n.t('The open diff is the whole change.')
+    );
+    if (preview.keys.length > 0) {
+        parts.push(
+            l10n.t(
+                '{0} new language keys are declared with the text the original already has.',
+                preview.keys.length
+            )
+        );
+    }
+    if (preview.droppedOtherIds.length > 0) {
+        parts.push(
+            l10n.t(
+                'The OtherIDs aliases {0} stay with the original, because the game answers to them there.',
+                preview.droppedOtherIds.join(', ')
+            )
+        );
+    }
+    parts.push(l10n.t('References elsewhere in the project keep pointing at the original.'));
+    const confirmed = await window.showInformationMessage(
+        preview.unit === 'listElement'
+            ? l10n.t('Add {0} to the same list?', preview.newId)
+            : l10n.t('Write {0} files into {1}?', preview.writes.length, path.basename(preview.destinationDir)),
+        { modal: true, detail: parts.join(' ') },
+        clone
+    );
+    return confirmed === clone;
+}
+
+/**
+ * Render the outcome: one information message, with the copy behind a button.
+ *
+ * @param result what the server wrote.
+ * @returns once the message is dismissed or the copy is opened.
+ */
+async function showCloneSummary(result: CloneApplyResult): Promise<void> {
+    if (result.unit === 'listElement') {
+        window.showInformationMessage(l10n.t('Added {0} to the same list.', result.newId));
+        return;
+    }
+    const open = l10n.t('Open the copy');
+    const picked = await window.showInformationMessage(
+        l10n.t('Cloned as {0} into {1} files.', result.newId, result.createdPaths.length),
+        open
+    );
+    if (picked !== open || !result.created) return;
+    const document = await workspace.openTextDocument(Uri.file(result.created));
+    await window.showTextDocument(document);
+}
+
 /** Mirror of the server's extraction arguments (see server features/refactor/extract-localization-key.ts). */
 interface ExtractLocalizationKeyArgs {
     uri: string;
@@ -749,9 +1176,15 @@ interface MigrationSummary {
  *
  * @param summary the dry run's summary, whose `preview` carries the changes.
  * @param provider the content provider the rewritten contents are served from.
+ * @param apply what to run when the user asks for the change. Absent for the whole-workspace
+ * migration, which runs its own palette command.
  * @returns once the diff is open and the message shown.
  */
-async function showMigrationPreview(summary: MigrationSummary, provider: DiffPreviewProvider): Promise<void> {
+async function showMigrationPreview(
+    summary: MigrationSummary,
+    provider: DiffPreviewProvider,
+    apply?: () => Promise<void>
+): Promise<void> {
     const preview = summary.preview;
     if (!preview) return;
     if (summary.files === 0) {
@@ -771,7 +1204,9 @@ async function showMigrationPreview(summary: MigrationSummary, provider: DiffPre
         l10n.t('Cosmoteer migration preview: {0}. Nothing was changed.', parts.join(', ')),
         l10n.t('Apply migrations')
     );
-    if (choice) await commands.executeCommand('cosmoteer.migrateMod');
+    if (!choice) return;
+    if (apply) await apply();
+    else await commands.executeCommand('cosmoteer.migrateMod');
 }
 
 /**
@@ -945,6 +1380,145 @@ type RegisterPartFailure =
     | 'editRejected';
 
 /**
+ * Mirror of the server's content kinds (see server
+ * features/refactor/new-content/new-content.types.ts).
+ */
+type ContentKind = 'part' | 'resource' | 'bullet' | 'mediaEffect';
+
+/** Mirror of what one content kind would do in the mod. */
+interface ContentKindInfo {
+    kind: ContentKind;
+    folder: string;
+    registration: 'ship' | 'manifest' | 'none';
+    pointedAtBy?: string;
+    blocked?: string;
+}
+
+/** Mirror of a ship class a new part could be registered in. */
+interface NewContentShip {
+    key: string;
+    groupName: string;
+    id?: string;
+    fsPath: string;
+    target: 'workspace' | 'vanilla';
+    via: 'shipFile' | 'modAction';
+    blocked?: string;
+}
+
+/** Mirror of the server's scan round. */
+interface NewContentScanResult {
+    kind: 'scan';
+    modRoot: string;
+    modId: string;
+    idPrefix: string;
+    kinds: ContentKindInfo[];
+    ships: NewContentShip[];
+    failure?: NewContentFailure;
+}
+
+/** Mirror of the server's apply round. */
+interface NewContentApplyResult {
+    kind: 'apply';
+    created: string;
+    contentKind: ContentKind;
+    id: string;
+    route: 'ship' | 'manifest' | 'none';
+    registeredIn: string;
+    registrationFailure?: string;
+    manifests?: string[];
+    changedFiles: string[];
+    localizationKeys: string[];
+    localizationFiles: string[];
+    reference: string;
+    pointedAtBy?: string;
+    placeholderAssets: string[];
+    failure?: NewContentFailure;
+}
+
+/** Mirror of why the server created nothing at all. */
+type NewContentFailure =
+    | 'noModRoot'
+    | 'notEditable'
+    | 'unknownKind'
+    | 'invalidName'
+    | 'pathTaken'
+    | 'idTaken'
+    | 'writeFailed';
+
+/**
+ * Mirror of the server's override arguments (see server
+ * features/refactor/override-in-mod/override-in-mod.command.ts).
+ */
+interface OverrideInModArgs {
+    uri: string;
+    offset: number;
+    mod?: string;
+    shape?: 'inline' | 'file';
+}
+
+/** Mirror of one mod the override could be written into (same module). */
+interface OverrideModCandidate {
+    /** The identity the pick is sent back by. */
+    key: string;
+    name: string;
+    modRoot: string;
+    manifests: string[];
+    alreadyOverridden: boolean;
+    blocked?: 'ambiguousManifest' | 'notEditable';
+}
+
+/** Mirror of the server's candidate report (same module). */
+interface OverrideInModScanResult {
+    kind: 'scan';
+    memberName: string;
+    target: string;
+    body: string;
+    replacesContainer: boolean;
+    candidates: OverrideModCandidate[];
+    failure?: OverrideInModFailure;
+}
+
+/** Mirror of the server's answer once the action is written (same module). */
+interface OverrideInModApplyResult {
+    kind: 'apply';
+    modRoot: string;
+    manifestFsPath: string;
+    /** The fragment file that was created, empty for the inline shape. */
+    createdFsPath: string;
+    changedFiles: string[];
+    target: string;
+    memberName: string;
+    replacesContainer: boolean;
+    failure?: OverrideInModFailure;
+    /** The manifest names to choose between, only set for `ambiguousManifest`. */
+    manifests?: string[];
+}
+
+/** Why an override did nothing, as the server words it. */
+type OverrideInModFailure =
+    | 'stale'
+    | 'insideList'
+    | 'indexSegment'
+    | 'unnamedMember'
+    | 'shadowedName'
+    | 'emptyMember'
+    | 'inheritedMember'
+    | 'multiLineText'
+    | 'scopeRelativeValue'
+    | 'unrebasablePath'
+    | 'untypablePath'
+    | 'notVanilla'
+    | 'stringsFile'
+    | 'noGamePath'
+    | 'noModRoot'
+    | 'unknownMod'
+    | 'ambiguousManifest'
+    | 'notEditable'
+    | 'alreadyOverridden'
+    | 'editRejected'
+    | 'writeFailed';
+
+/**
  * What registering into a ship would do, shown under its entry in the picker.
  *
  * @param candidate the ship the server reported.
@@ -1060,6 +1634,424 @@ function registerPartFailureMessage(failure: RegisterPartFailure, manifests?: st
             return l10n.t('Cosmoteer: the file could not be edited, so nothing was changed.');
         case 'editRejected':
             return l10n.t('Cosmoteer: the editor turned down the edit, so nothing was changed.');
+    }
+}
+
+/**
+ * Create a new content file: ask what to create, what to call it and where to register it, then let
+ * the server write it, wire it in and add its localization keys.
+ *
+ * @param client the language client the command runs through.
+ */
+async function createNewContent(client: LanguageClient): Promise<void> {
+    const uri = window.activeTextEditor?.document.uri.toString() ?? workspace.workspaceFolders?.[0]?.uri.toString();
+    if (!uri) {
+        window.showInformationMessage(l10n.t('Cosmoteer: open the folder of your mod first.'));
+        return;
+    }
+    const scan = (await client.sendRequest(ExecuteCommandRequest.type, {
+        command: 'cosmoteer.newContent',
+        arguments: [{ uri }],
+    })) as NewContentScanResult | null;
+    if (!scan || scan.failure) {
+        window.showWarningMessage(
+            scan?.failure
+                ? newContentFailureMessage(scan.failure)
+                : l10n.t('Cosmoteer: the mod could not be read, so nothing was created.')
+        );
+        return;
+    }
+    const kind = await pickContentKind(scan);
+    if (!kind) return;
+    const name = await window.showInputBox({
+        title: l10n.t('Cosmoteer: New Content File'),
+        prompt:
+            kind.kind === 'resource' || !scan.idPrefix
+                ? l10n.t('Name it. The file, its folder and its id are derived from this.')
+                : l10n.t('Name it. The file, its folder and the id {0}.<name> are derived from this.', scan.idPrefix),
+        validateInput: (value) =>
+            /^[A-Za-z][A-Za-z0-9 _-]*$/.test(value.trim())
+                ? undefined
+                : l10n.t('Use letters, digits, spaces, underscores and dashes, starting with a letter.'),
+    });
+    if (!name) return;
+
+    let ship: NewContentShip | 'skip' | undefined;
+    if (kind.registration === 'ship') {
+        ship = await pickNewContentShip(scan.ships);
+        if (!ship) return;
+    }
+    // Captured before the write, so the tidy-up can tell the tabs the author had from the ones the
+    // registration opened on its own.
+    const openBefore = openDocumentPaths();
+    const result = (await client.sendRequest(ExecuteCommandRequest.type, {
+        command: 'cosmoteer.newContent',
+        arguments: [
+            {
+                uri,
+                kind: kind.kind,
+                name,
+                ship: ship && ship !== 'skip' ? ship.key : undefined,
+                skipRegistration: ship === 'skip',
+            },
+        ],
+    })) as NewContentApplyResult | null;
+    if (!result) {
+        window.showWarningMessage(l10n.t('Cosmoteer: nothing was created.'));
+        return;
+    }
+    if (result.failure) {
+        window.showWarningMessage(newContentFailureMessage(result.failure));
+        return;
+    }
+    await saveAndTidy(result.changedFiles, openBefore);
+    const document = await workspace.openTextDocument(Uri.file(result.created));
+    await window.showTextDocument(document, { preview: false });
+    await showNewContentSummary(result);
+}
+
+/**
+ * Offer the content kinds, each saying where it goes and what will wire it in.
+ *
+ * @param scan the server's report for this mod.
+ * @returns the picked kind, or undefined when the author backed out.
+ */
+async function pickContentKind(scan: NewContentScanResult): Promise<ContentKindInfo | undefined> {
+    const labels: Record<ContentKind, string> = {
+        part: l10n.t('Part'),
+        resource: l10n.t('Resource'),
+        bullet: l10n.t('Shot'),
+        mediaEffect: l10n.t('Media effect'),
+    };
+    const picked = await window.showQuickPick(
+        scan.kinds.map((info) => ({
+            label: labels[info.kind],
+            description: `${info.folder}/`,
+            detail:
+                info.pointedAtBy ??
+                (info.blocked
+                    ? l10n.t('Cannot be registered in this mod, so it will be created unwired')
+                    : info.registration === 'ship'
+                      ? l10n.t('Registered in a ship class you pick')
+                      : l10n.t("Registered with an action in this mod's mod.rules")),
+            info,
+        })),
+        { placeHolder: l10n.t('Pick what to create in {0}', scan.modId || workspace.asRelativePath(scan.modRoot)) }
+    );
+    return picked?.info;
+}
+
+/**
+ * Offer the ship classes a new part could be registered in, plus the honest option of creating it
+ * unregistered.
+ *
+ * @param ships the ship classes the server reported, in registry order.
+ * @returns the picked ship, `skip` to create it unwired, or undefined when the author backed out.
+ */
+async function pickNewContentShip(ships: NewContentShip[]): Promise<NewContentShip | 'skip' | undefined> {
+    const open = ships.filter((ship) => !ship.blocked);
+    const items = [
+        ...open.map((ship) => ({
+            label: ship.id ?? ship.groupName,
+            description: workspace.asRelativePath(ship.fsPath),
+            detail:
+                ship.via === 'modAction'
+                    ? l10n.t("Patched in from this mod's manifest, so the game files stay untouched")
+                    : l10n.t("Appended to this ship's own Parts list"),
+            ship: ship as NewContentShip | undefined,
+        })),
+        {
+            label: l10n.t('Do not register it yet'),
+            description: '',
+            detail: l10n.t('The file is created, and nothing will load it until a ship lists it'),
+            ship: undefined as NewContentShip | undefined,
+        },
+    ];
+    const picked = await window.showQuickPick(items, {
+        placeHolder: l10n.t('Pick the ship class this part belongs to'),
+        matchOnDescription: true,
+    });
+    if (!picked) return undefined;
+    return picked.ship ?? 'skip';
+}
+
+/**
+ * Say what was created and what still has to happen, which for a shot or a media effect is the whole
+ * point: nothing in the game registers those, so the reference to paste is the answer.
+ *
+ * @param result the server's summary.
+ */
+async function showNewContentSummary(result: NewContentApplyResult): Promise<void> {
+    const notes: string[] = [];
+    if (result.route === 'none') {
+        notes.push(result.pointedAtBy ?? l10n.t('Nothing references this file yet.'));
+        notes.push(l10n.t('The reference to use is {0}.', result.reference));
+    } else if (result.registrationFailure) {
+        notes.push(newContentRegistrationMessage(result.registrationFailure, result.manifests));
+        notes.push(l10n.t('The reference to use is {0}.', result.reference));
+    } else {
+        notes.push(l10n.t('Registered in {0}.', workspace.asRelativePath(result.registeredIn)));
+    }
+    if (result.localizationKeys.length > 0 && result.localizationFiles.length === 0) {
+        notes.push(
+            l10n.t(
+                'This mod ships no language file, so {0} was not declared anywhere and the game will show no name.',
+                result.localizationKeys[0]
+            )
+        );
+    }
+    if (result.placeholderAssets.length > 0) {
+        notes.push(
+            l10n.t(
+                'It points at {0} for now, which is a file of the game you can replace with your own.',
+                result.placeholderAssets[0]
+            )
+        );
+    }
+    window.showInformationMessage(
+        [l10n.t('Cosmoteer: created {0}.', workspace.asRelativePath(result.created)), ...notes].join(' ')
+    );
+}
+
+/**
+ * Say why nothing was created, one message per reason the server reports.
+ *
+ * @param failure the server's reason.
+ * @returns the message to show.
+ */
+function newContentFailureMessage(failure: NewContentFailure): string {
+    switch (failure) {
+        case 'noModRoot':
+            return l10n.t('Cosmoteer: this folder is in no mod. Open a mod with a mod.rules manifest first.');
+        case 'notEditable':
+            return l10n.t(
+                "Cosmoteer: this is the game's own data or somebody else's installed mod, which is not yours to add to."
+            );
+        case 'unknownKind':
+            return l10n.t('Cosmoteer: that kind of content is not one this version can create.');
+        case 'invalidName':
+            return l10n.t(
+                'Cosmoteer: that name leaves nothing usable behind. Use letters and digits, starting with a letter.'
+            );
+        case 'pathTaken':
+            return l10n.t('Cosmoteer: a file or folder of that name is already there, so nothing was created.');
+        case 'idTaken':
+            return l10n.t(
+                'Cosmoteer: that id is already declared, and two files with one id means the game keeps only one of them.'
+            );
+        case 'writeFailed':
+            return l10n.t('Cosmoteer: the file could not be written, so nothing was created.');
+    }
+}
+
+/**
+ * Say why a created file was not wired in, which never stops the file from being created.
+ *
+ * @param failure the server's reason.
+ * @param manifests the manifest names to choose between, only for `ambiguousManifest`.
+ * @returns the message to show.
+ */
+function newContentRegistrationMessage(failure: string, manifests?: string[]): string {
+    switch (failure) {
+        case 'noShipChosen':
+            return l10n.t('Nothing registers it yet, so no ship will build it until one lists it.');
+        case 'alreadyRegistered':
+            return l10n.t('It was already registered, so nothing was added twice.');
+        case 'ambiguousManifest':
+            return l10n.t(
+                'This mod has several manifests and none of them is mod.rules, so which one gets it is yours to decide. Candidates: {0}.',
+                (manifests ?? []).join(', ')
+            );
+        case 'manifestUnusable':
+            return l10n.t(
+                "This mod's Actions come from an included file, which cannot be appended to, so the action is yours to add."
+            );
+        case 'noGameRoot':
+            return l10n.t('The Cosmoteer game path is unset, so where the registry lives could not be read.');
+        case 'partsInherited':
+            return l10n.t('That ship gets its Parts list from a base file, which is not rewritten.');
+        case 'noPartsList':
+            return l10n.t('That ship declares no Parts list to add to.');
+        case 'editRejected':
+            return l10n.t('The editor turned the registration down, so the file is not wired in yet.');
+        default:
+            return l10n.t('It could not be registered, so nothing loads it yet.');
+    }
+}
+
+/**
+ * Offer the mods the override can go into and let the user pick one.
+ *
+ * @param candidates the mods the server reported.
+ * @returns the picked mod, or undefined when none can take it or the user backed out.
+ */
+async function pickOverrideMod(candidates: OverrideModCandidate[]): Promise<OverrideModCandidate | undefined> {
+    const open = candidates.filter((candidate) => !candidate.blocked);
+    if (open.length === 0) {
+        window.showInformationMessage(
+            l10n.t(
+                'Cosmoteer: no mod in this workspace can take the override. Either there is none, or every one of them ships several manifests and which gets the override is yours to decide.'
+            )
+        );
+        return undefined;
+    }
+    const picked = await window.showQuickPick(
+        open.map((candidate) => ({
+            label: candidate.name,
+            description: workspace.asRelativePath(candidate.modRoot),
+            detail: candidate.alreadyOverridden
+                ? l10n.t('This mod already overrides that value')
+                : l10n.t('The action is written into {0}', candidate.manifests[0] ?? 'mod.rules'),
+            candidate,
+        })),
+        { placeHolder: l10n.t('Pick the mod this override belongs in'), matchOnDescription: true }
+    );
+    return picked?.candidate;
+}
+
+/**
+ * Ask where the overridden value is written, which is only worth asking for a body big enough to
+ * crowd the manifest. A single value always goes in the manifest itself.
+ *
+ * @param scan the server's report, which says whether the body is a whole group or list.
+ * @returns the shape to write, or undefined when the user backed out.
+ */
+async function pickOverrideShape(scan: OverrideInModScanResult): Promise<'inline' | 'file' | undefined> {
+    if (!scan.replacesContainer) return 'inline';
+    const inline = l10n.t('Write it into mod.rules');
+    const file = l10n.t('Keep it in its own file');
+    const picked = await window.showQuickPick(
+        [
+            {
+                label: inline,
+                detail: l10n.t('The whole value is written into the action itself'),
+                shape: 'inline' as const,
+            },
+            {
+                label: file,
+                detail: l10n.t('A file is created under "overrides" and the action points at it'),
+                shape: 'file' as const,
+            },
+        ],
+        { placeHolder: l10n.t('Where should the overridden value be written?') }
+    );
+    return picked?.shape;
+}
+
+/**
+ * Say what the override did, with the file it changed behind a button.
+ *
+ * @param result the server's summary.
+ * @param cleanup what the tidy-up did.
+ */
+async function showOverrideSummary(result: OverrideInModApplyResult, cleanup?: ApplyCleanup): Promise<void> {
+    if (cleanup?.unsaved.length) {
+        window.showWarningMessage(
+            l10n.t(
+                'Cosmoteer: {0} files could not be saved and are still open with their changes. Save them yourself or undo.',
+                cleanup.unsaved.length
+            )
+        );
+    }
+    const changed = result.manifestFsPath;
+    const note = result.replacesContainer
+        ? ` ${l10n.t(
+              'This replaces the whole of that group, so everything the game reads under it now comes from your copy.'
+          )}`
+        : '';
+    const message = result.createdFsPath
+        ? l10n.t(
+              'Cosmoteer: added the override of {0} to {1}, with the value in {2}.',
+              result.memberName,
+              workspace.asRelativePath(changed),
+              workspace.asRelativePath(result.createdFsPath)
+          )
+        : l10n.t(
+              'Cosmoteer: added the override of {0} to {1}.',
+              result.memberName,
+              workspace.asRelativePath(changed)
+          );
+    const open = l10n.t('Open File');
+    const picked = await window.showInformationMessage(message + note, open);
+    if (picked !== open) return;
+    const doc = await workspace.openTextDocument(Uri.file(changed));
+    await window.showTextDocument(doc, { preview: true });
+}
+
+/**
+ * Say why an override did not happen, one message per reason the server reports, each naming what
+ * the user can do about it.
+ *
+ * @param failure the server's reason.
+ * @param manifests the manifest names to choose between, only for `ambiguousManifest`.
+ * @returns the message to show.
+ */
+function overrideInModFailureMessage(failure: OverrideInModFailure, manifests?: string[]): string {
+    switch (failure) {
+        case 'stale':
+            return l10n.t('Cosmoteer: the value has moved since the offer was made, so nothing was changed.');
+        case 'insideList':
+            return l10n.t(
+                'Cosmoteer: this value is inside a list, and the game addresses those by position, which another mod loading first renumbers. Override the whole list instead.'
+            );
+        case 'indexSegment':
+        case 'untypablePath':
+            return l10n.t(
+                'Cosmoteer: the path to this value runs through a name the game reads as a position rather than as a name, so an override written for it could point somewhere else.'
+            );
+        case 'unnamedMember':
+            return l10n.t('Cosmoteer: this value sits in a block with no name, so there is no path to write for it.');
+        case 'shadowedName':
+            return l10n.t(
+                'Cosmoteer: another member of that group already answers to this name, so an override would change that one instead.'
+            );
+        case 'emptyMember':
+            return l10n.t('Cosmoteer: this field has no value to copy, so nothing was changed.');
+        case 'inheritedMember':
+            return l10n.t(
+                'Cosmoteer: this group has bases of its own, and an override replaces the whole of it, so copying only its body would drop what the bases supply.'
+            );
+        case 'multiLineText':
+            return l10n.t(
+                'Cosmoteer: this value carries text running across a line break, which cannot be copied safely.'
+            );
+        case 'scopeRelativeValue':
+            return l10n.t(
+                'Cosmoteer: this value reads something around it, with "~", "^", ":" or a bare name, so it would mean something else from your mod.'
+            );
+        case 'unrebasablePath':
+            return l10n.t(
+                'Cosmoteer: a path in this value could not be rewritten to read from the game folder, so an override would point at nothing.'
+            );
+        case 'notVanilla':
+            return l10n.t(
+                'Cosmoteer: this file is not one of the game install, so edit it directly rather than overriding it.'
+            );
+        case 'stringsFile':
+            return l10n.t(
+                'Cosmoteer: language files cannot be changed by an action. Ship your own file for that language instead.'
+            );
+        case 'noGamePath':
+            return l10n.t('Cosmoteer: set the Cosmoteer game path so the override can name the file it changes.');
+        case 'noModRoot':
+            return l10n.t(
+                'Cosmoteer: this workspace holds no mod, so there is no manifest to write the override into.'
+            );
+        case 'unknownMod':
+            return l10n.t('Cosmoteer: that mod is no longer in the workspace, so nothing was changed.');
+        case 'ambiguousManifest':
+            return l10n.t(
+                'Cosmoteer: this mod has several manifests and none of them is mod.rules, so which one gets the override is yours to decide. Candidates: {0}.',
+                (manifests ?? []).join(', ')
+            );
+        case 'notEditable':
+            return l10n.t('Cosmoteer: the manifest could not take another action, so nothing was changed.');
+        case 'alreadyOverridden':
+            return l10n.t('Cosmoteer: this mod already overrides that value, so nothing was changed.');
+        case 'editRejected':
+            return l10n.t('Cosmoteer: the editor turned down the edit, so nothing was changed.');
+        case 'writeFailed':
+            return l10n.t('Cosmoteer: the file holding the override could not be written, so nothing was changed.');
     }
 }
 

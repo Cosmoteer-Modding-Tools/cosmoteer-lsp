@@ -133,6 +133,16 @@ interface CosmoteerLanguageServerAPI : LanguageServer {
     fun effectiveGroup(params: TextDocumentPositionParams): CompletableFuture<String?>
 
     /**
+     * Explains the reference at a position: which of its segments resolved, where the last one that
+     * did landed, and what the game would have found there.
+     *
+     * @param params the document and a position on the reference.
+     * @returns the markdown, or null when the position is not on a reference.
+     */
+    @JsonRequest("cosmoteer/explainReference")
+    fun explainReference(params: TextDocumentPositionParams): CompletableFuture<String?>
+
+    /**
      * Ranks every schema type, field, enum member and registry, plus the field documentation,
      * against a query.
      *

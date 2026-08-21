@@ -1,0 +1,9 @@
+Actions
+[
+	{
+		Action = Add
+		AddTo = "<cosmoteer.rules>/Ships"
+		Name = Extra
+		ToAdd = 1
+	}
+]

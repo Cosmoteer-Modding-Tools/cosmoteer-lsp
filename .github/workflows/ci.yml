@@ -46,8 +46,59 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # The bundles have to exist before the tests run. Four suites drive the built server over
+      # stdio and skip themselves when it is missing, so until now they had never run in CI.
+      - name: Build bundles
+        run: node esbuild.mjs
+
       - name: Server unit tests
         run: npm run test:server
+
+      # Prove the lint command works as a command, not only from a test runner, and keep a sample
+      # report on the run for a reviewer to read. The fixture mod carries errors on purpose, so
+      # exit code 1 is the expected answer. The report is deliberately not uploaded to code
+      # scanning: these are a fixture's findings, and they would show up as this repository's own.
+      - name: Lint the fixture mod
+        run: |
+          FIXTURE=server/test/cli/fixtures/lint-mod
+          GAME=server/test/fixtures/workspace/Data
+          CODE=0
+          node out/server/src/cli/lint.mjs "$FIXTURE" --game "$GAME" --scope allFiles || CODE=$?
+          if [ "$CODE" != "1" ]; then
+            echo "::error::The fixture mod carries errors, so exit code 1 was expected, not $CODE"
+            exit 1
+          fi
+          node out/server/src/cli/lint.mjs "$FIXTURE" --game "$GAME" --scope allFiles             --format sarif --fail-on none --quiet --out lint.sarif
+          node -e "const log = JSON.parse(require('fs').readFileSync('lint.sarif', 'utf8')); if (log.version !== '2.1.0' || log.runs[0].results.length === 0) { console.error('::error::The SARIF report is empty or not 2.1.0'); process.exit(1); }"
+
+      # The load check answers with an exit code and nothing else, so the code itself is asserted
+      # here rather than only from a test runner. The three fixture mods carry one of each answer
+      # on purpose: one the game would refuse to load, one it loads, and one whose single action
+      # cannot be judged at all. The fake Data tree in the repository stands in for the game, since
+      # the game's own data cannot be copied into a build service.
+      - name: Check the fixture mods load
+        run: |
+          GAME=server/test/fixtures/workspace/Data
+          expect_code() {
+            EXPECTED=$1
+            shift
+            CODE=0
+            node out/server/src/cli/lint.mjs "$@" --assert-loads --game "$GAME" --quiet > /dev/null || CODE=$?
+            if [ "$CODE" != "$EXPECTED" ]; then
+              echo "::error::$* answered with exit code $CODE, not $EXPECTED"
+              exit 1
+            fi
+          }
+          expect_code 1 server/test/cli/fixtures/assert-mod
+          expect_code 0 server/test/cli/fixtures/assert-clean-mod
+          expect_code 6 server/test/cli/fixtures/assert-unsure-mod
+          expect_code 0 server/test/cli/fixtures/assert-unsure-mod --allow-unverifiable
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: lint-sarif
+          path: lint.sarif
+          if-no-files-found: error
 
       # Packaging runs vscode:prepublish (check-types + lint + production esbuild) and proves the
       # extension is publishable. The VSIX is uploaded so it can be inspected from the run.

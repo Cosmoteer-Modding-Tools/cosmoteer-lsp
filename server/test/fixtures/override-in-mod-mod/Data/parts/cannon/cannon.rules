@@ -1,0 +1,36 @@
+// Stands in for a part of the game's own install: every member shape the override generator has to
+// answer for, in one file.
+Part
+{
+	ID = cosmoteer.test_cannon
+	Density = 5
+
+	Components
+	{
+		Weapon
+		{
+			Damage = 12
+			Reload = 2
+		}
+
+		Icon = "sprites/icon.png"
+		BaseRef = &<../base_part.rules>/Part
+		RootRef = &<./Data/parts/base_part.rules>/Part
+		Missing = "sprites/gone.png"
+		Scoped = "&~/Part/Density"
+		Inherited : &<../base_part.rules>/Part
+		{
+			Extra = 1
+		}
+		Twice = 1
+		Twice = 2
+		Nested = { A = 1 }
+		v_Faction
+	}
+
+	Sizes
+	[
+		2
+		1
+	]
+}

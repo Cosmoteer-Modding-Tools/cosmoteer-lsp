@@ -2,7 +2,7 @@ import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AbstractNodeDocument, isAssignmentNode } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
-import { RENAMED_MOD_RULES_FIELDS } from '../../document/schema/deprecations';
+import { migrationSymbolOf, RENAMED_MOD_RULES_FIELDS } from '../../document/schema/deprecations';
 import { ValidationError } from '../diagnostics/validator';
 import { validateSchema } from '../diagnostics/validator.schema';
 import { validateIgnoredFields } from '../diagnostics/validator.ignored-field';
@@ -160,16 +160,25 @@ export interface FileMigrationResult {
  * @param documentNode the file's parsed AST.
  * @param doc the file's text document (open buffer or disk content), used for offset→position.
  * @param includeDeadFields also remove every ignored/dead-field finding without a migration tag.
+ * Ignored when a `symbol` is given: a fix the author asked for one deprecation must not quietly
+ * delete unrelated fields as well.
  * @param token cancellation token for the validators.
+ * @param symbol collect only the findings of that one deprecation-registry entry (see
+ * deprecations.ts), which is what turns the whole-file migration into a single bulk rename.
  * @returns the file's edits and report bookkeeping.
  */
 export const collectFileMigration = async (
     documentNode: AbstractNodeDocument,
     doc: TextDocument,
     includeDeadFields: boolean,
-    token: CancellationToken
+    token: CancellationToken,
+    symbol?: string
 ): Promise<FileMigrationResult> => {
     const result: FileMigrationResult = { edits: [], byVersion: {}, manual: [], deadFieldsRemoved: 0 };
+    // A bulk fix rewrites files the author is not looking at, so it only ever does the one thing it
+    // offered to do. The dead-field cleanup is a separate decision and stays with the command that
+    // asks for it.
+    const deadFields = includeDeadFields && symbol === undefined;
     const bump = (version: string | undefined): void => {
         const key = version ?? '';
         result.byVersion[key] = (result.byVersion[key] ?? 0) + 1;
@@ -182,6 +191,7 @@ export const collectFileMigration = async (
             if (!isAssignmentNode(element)) continue;
             const rename = RENAMED_MOD_RULES_FIELDS[element.left.name.toLowerCase()];
             if (!rename) continue;
+            if (symbol !== undefined && migrationSymbolOf('manifestField', element.left.name) !== symbol) continue;
             result.edits.push({
                 range: {
                     start: doc.positionAt(element.left.position.start),
@@ -203,12 +213,15 @@ export const collectFileMigration = async (
         if (!data) continue;
         if (!data.migration) {
             // Not a game-version change: an ordinary ignored/dead field. Only stripped on request.
-            if (includeDeadFields && data.remove) {
+            if (deadFields && data.remove) {
                 result.edits.push({ range: removalRange(doc, data.remove.start, data.remove.end), newText: '' });
                 result.deadFieldsRemoved++;
             }
             continue;
         }
+        // The identity check is what keeps a bulk fix off every other deprecation in the file, and
+        // off the many live fields and component ids that happen to spell the same word.
+        if (symbol !== undefined && data.migration.symbol !== symbol) continue;
         const apply = data.migration.apply;
         if (apply === 'rewrite' && data.rewrite) {
             for (const edit of data.rewrite.edits) {

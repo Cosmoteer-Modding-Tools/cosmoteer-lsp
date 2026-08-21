@@ -1,0 +1,12 @@
+Part
+{
+	ID = cosmoteer.wall
+	Size = [1, 1]
+	Icon
+	{
+		Texture
+		{
+			File = "icon.png"
+		}
+	}
+}

@@ -31,7 +31,12 @@ import {
     schema,
     valueTypeLabel,
 } from '../../document/schema/schema';
-import { deprecatedDiscriminator, obsoleteField, renamedFieldAlias } from '../../document/schema/deprecations';
+import {
+    deprecatedDiscriminator,
+    migrationSymbolOf,
+    obsoleteField,
+    renamedFieldAlias,
+} from '../../document/schema/deprecations';
 import { SchemaField, SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { GroupNode } from '../../core/ast/ast';
 import { ValidationError } from './validator';
@@ -186,9 +191,13 @@ export const validateSchema = async (
                 node: element.left,
                 severity: 'hint',
                 data: replacementPresent
-                    ? { migration: { version: rename.version } }
+                    ? { migration: { version: rename.version, symbol: migrationSymbolOf('renamedAlias', written) } }
                     : {
-                          migration: { version: rename.version, apply: 'quickFix' },
+                          migration: {
+                              version: rename.version,
+                              apply: 'quickFix',
+                              symbol: migrationSymbolOf('renamedAlias', written),
+                          },
                           quickFix: { title: l10n.t("Change to '{0}'", rename.replacement), newText: rename.replacement },
                       },
             });
@@ -205,7 +214,7 @@ export const validateSchema = async (
             ),
             node: element.left,
             severity: 'hint',
-            data: { migration: { version: obsolete.version } },
+            data: { migration: { version: obsolete.version, symbol: migrationSymbolOf('obsoleteField', written) } },
         };
         // The mechanical rewrites wrap the existing scalar value in the successor's container shape
         // (`ComponentID = X` → `ComponentIDs = [X]`, `ExplosiveDamageResistance = X` →
@@ -222,7 +231,11 @@ export const validateSchema = async (
                       : undefined;
             if (wrap) {
                 error.data = {
-                    migration: { version: obsolete.version, apply: 'rewrite' },
+                    migration: {
+                        version: obsolete.version,
+                        apply: 'rewrite',
+                        symbol: migrationSymbolOf('obsoleteField', written),
+                    },
                     rewrite: {
                         title: l10n.t("Change to '{0}'", obsolete.replacement),
                         edits: [
@@ -394,7 +407,11 @@ export const validateSchema = async (
                 node: valueNode,
                 severity: 'warning',
                 data: {
-                    migration: { version: deprecation.version, apply: 'quickFix' },
+                    migration: {
+                        version: deprecation.version,
+                        apply: 'quickFix',
+                        symbol: migrationSymbolOf('discriminator', written),
+                    },
                     quickFix: {
                         title: l10n.t("Change to '{0}'", deprecation.replacement),
                         newText: deprecation.replacement,

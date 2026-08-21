@@ -1,0 +1,10 @@
+Type = Particles
+Def
+{
+	EmitPerSecond = 4
+	Texture
+	{
+		File = "../icon.png"
+		SampleMode = Linear
+	}
+}

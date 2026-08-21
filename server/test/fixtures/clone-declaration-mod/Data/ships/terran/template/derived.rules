@@ -1,0 +1,4 @@
+Part : <../base_part.rules>/Part
+{
+	Size = [2, 1]
+}

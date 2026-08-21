@@ -8,6 +8,8 @@ Cosmoteer Language server provides a lot of useful features, like:
 
 ### Added
 
+- Render layers are now offered and checked per ship class. Only the layers the part's own ship declares are suggested, and a layer no ship declares, or one belonging to another ship class, is reported with the ship named. Turn it off with `cosmoteerLSPRules.diagnostics.validateRenderLayers`.
+- Quotes, braces, brackets and `<` now close themselves as you type, and `//` and `/* */` comments toggle with the editor's own comment shortcut.
 - Seven shapes the game refuses to load are now reported instead of parsing as if they were fine, among them free text where a member name belongs, a number naming a member, a nameless `{` or `[` block outside a list, an inheritance with no body and a `/*` that no `*/` ever ends. Each of these makes the game drop the whole file at load time, so a mod could be shipped broken while the editor showed nothing.
 - A block comment the game does not close is now a warning, with a fix that makes it close. The game closes a block comment only when the run of `*` before the closing `/` is odd, so a banner like `/****** Section ******/` silently swallows everything up to the next `*/` when the mod loads.
 - A member written on a line whose value already runs to the line end is now a warning saying the value before it swallows it. The game accepts that shape and folds the member into the value, so it loses the member rather than failing to load.
@@ -20,9 +22,13 @@ Cosmoteer Language server provides a lot of useful features, like:
 ### Changed
 
 - The dead-field hint now also reads a field written as a bare list, the shape the game's own files use for effect collections. A `MediaEffects [ … ]` block that ended up on the component instead of on its hit or death slot is faded out with a remove quick fix instead of loading silently and doing nothing.
+- Semantic highlighting from the language server is on by default and is painted by the plugin itself, so the colors stay on the text while you type instead of dropping out whenever a request is still running.
 
 ### Fixed
 
+- A value is now suggested while its quotes are still open. `Layer = "roo` used to answer with the group's field names rather than the ship render layers, and the accepted suggestion now writes the missing closing quote.
+- `Layer` written on an `IndicatorSprites` component is marked as having no effect, which is what the game does with it.
+- Turning semantic highlighting on or off now reaches the files you already have open, instead of only the next file you open.
 - Values are read the way the game reads them in five shapes that used to shift list positions or invent members: computed values inside a list count as one element each, a list element starting with a minus and continuing with arithmetic stays one element, a stray `)` and an unescaped `"` stay part of their value, and a value written on the line below its `=` belongs to the field above it.
 
 ## 0.6.0 - 2026-08-04
@@ -83,7 +89,7 @@ Cosmoteer Language server provides a lot of useful features, like:
 ### Changed
 
 - Much faster starts. Project indexes and whole-workspace validation results are persisted, so reopening an unchanged mod restores everything in about a second.
-- Faster editing through incremental document sync, diagnostic and semantic-token deltas and lazily resolved completion documentation.
+- Faster editing through incremental document sync, diagnostic deltas and lazily resolved completion documentation.
 - Whole-workspace scans reuse per-file results and skip unchanged files.
 - The bundled language server ships as a native ES module bundle.
 

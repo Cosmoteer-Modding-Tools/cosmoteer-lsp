@@ -1,0 +1,11 @@
+Part
+{
+	ID = author.own_part
+	Components
+	{
+		Sprite : &<own_sprites.rules>/Sprites
+		{
+			Layer = "author.glow"
+		}
+	}
+}

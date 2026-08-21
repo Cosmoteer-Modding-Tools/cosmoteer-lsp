@@ -95,6 +95,13 @@ jobs:
           mkdir -p dist
           cp cosmoteer-language-server-*.vsix dist/
           cp jetbrains/build/distributions/*.zip dist/
+          # The lint command ships as an archive of its own. It is started as
+          # `node cosmoteer-rules-lint/cli/lint.mjs` and finds the server bundle one directory
+          # above itself, which is the layout written here.
+          mkdir -p cli-package/cosmoteer-rules-lint/cli
+          cp out/server/src/server.mjs cli-package/cosmoteer-rules-lint/
+          cp out/server/src/cli/lint.mjs cli-package/cosmoteer-rules-lint/cli/
+          tar -czf "dist/cosmoteer-rules-lint-${{ steps.version.outputs.version }}.tar.gz"             -C cli-package cosmoteer-rules-lint
 
       - uses: actions/upload-artifact@v6
         with:

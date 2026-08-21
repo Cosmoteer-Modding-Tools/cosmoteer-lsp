@@ -1,0 +1,6 @@
+Part
+{
+	TypeCategories = [thruster]
+	Flammable = false
+	CreatePartWhenDestroyed = cosmoteer.structure
+}

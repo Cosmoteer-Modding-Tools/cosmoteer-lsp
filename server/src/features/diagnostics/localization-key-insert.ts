@@ -65,11 +65,33 @@ const hasMember = (container: { elements: AbstractNode[] }, name: string): boole
 
 const tabs = (n: number): string => '\t'.repeat(n);
 
-/** Nested-group text creating `groups` (outer→inner) around a `leaf = value`, indented from `indent`. */
-const buildNested = (groups: string[], leaf: string, indent: number, value: string): string => {
-    if (groups.length === 0) return `${tabs(indent)}${leaf} = ${value}`;
-    const [head, ...rest] = groups;
-    return `${tabs(indent)}${head}\n${tabs(indent)}{\n${buildNested(rest, leaf, indent + 1, value)}\n${tabs(indent)}}`;
+/** One key a batch declares, with the text that file gets for it. */
+export interface LocalizationKeyInsertion {
+    /** The key path to declare (`Parts/Foo`). */
+    readonly key: string;
+    /** The value text to write, quotes included. */
+    readonly value: string;
+}
+
+/** The group chain still to be written under one container, shared by every key that walks it. */
+interface InsertBranch {
+    /** Group name to the branch below it, in the order the keys asked for them. */
+    readonly children: Map<string, InsertBranch>;
+    /** The `Leaf = value` members written directly in this group. */
+    readonly leaves: Array<{ name: string; value: string }>;
+}
+
+/** A fresh, empty branch. */
+const newBranch = (): InsertBranch => ({ children: new Map(), leaves: [] });
+
+/** The branch's text, its own members first and each nested group after them, indented from `indent`. */
+const renderBranch = (branch: InsertBranch, indent: number): string[] => {
+    const lines: string[] = [];
+    for (const leaf of branch.leaves) lines.push(`${tabs(indent)}${leaf.name} = ${leaf.value}`);
+    for (const [name, child] of branch.children) {
+        lines.push(`${tabs(indent)}${name}`, `${tabs(indent)}{`, ...renderBranch(child, indent + 1), `${tabs(indent)}}`);
+    }
+    return lines;
 };
 
 /** Convert a byte offset into an LSP {line, character} position within `text`. */
@@ -102,37 +124,86 @@ export const insertEditForFile = (
     text: string,
     key: string,
     value: string = '""'
-): TextEdit | null => {
-    const segments = key.split('/').filter((s) => s.length > 0);
-    if (segments.length === 0) return null;
-    const leaf = segments[segments.length - 1];
-    const groups = segments.slice(0, -1);
+): TextEdit | null => insertEditsForFile(document, text, [{ key, value }])[0] ?? null;
 
-    // Descend as far as existing groups match the path.
-    let container: AbstractNodeDocument | GroupNode = document;
-    let matched = 0;
-    for (; matched < groups.length; matched++) {
-        const next = childGroup(container, groups[matched]);
-        if (!next) break;
-        container = next;
-    }
-    const remaining = groups.slice(matched);
-    // If the whole path already exists down to the leaf, there is nothing to insert.
-    if (remaining.length === 0 && hasMember(container, leaf)) return null;
+/**
+ * The edits that declare a whole batch of key paths in one already-parsed strings file. Each key walks
+ * to the deepest existing group along its path, and the missing group chain plus a `Leaf = value`
+ * member is written under it. Keys landing in the same container become one edit, and keys sharing a
+ * missing group chain write that chain once, so a batch never leaves two `Parts` groups behind.
+ *
+ * Measuring the whole batch against a single parse is what makes it worth having: the game's own
+ * strings tree is 3.2 MB over eight files, and a clone declaring three keys would otherwise read and
+ * parse every one of them three times inside an interactive command.
+ *
+ * @param document the parsed strings file.
+ * @param text that file's source, which the insertion points are measured in.
+ * @param insertions the keys to declare, with the text each of them gets.
+ * @returns the edits in ascending offset order, empty when the file already declares every key or its
+ * structure cannot be edited safely.
+ */
+export const insertEditsForFile = (
+    document: AbstractNodeDocument,
+    text: string,
+    insertions: readonly LocalizationKeyInsertion[]
+): TextEdit[] => {
+    const byContainer = new Map<AbstractNodeDocument | GroupNode, InsertBranch>();
+    const written = new Set<string>();
+    for (const insertion of insertions) {
+        const segments = insertion.key.split('/').filter((segment) => segment.length > 0);
+        if (segments.length === 0) continue;
+        // One key path is declared once however often the batch asks for it.
+        const seen = segments.join('/').toLowerCase();
+        if (written.has(seen)) continue;
+        written.add(seen);
+        const leaf = segments[segments.length - 1];
+        const groups = segments.slice(0, -1);
 
-    if (isGroupNode(container)) {
-        // Insert on its own line just before the group's closing `}` (its position ends right after it).
-        const brace = container.position.end - 1;
-        if (text[brace] !== '}') return null;
-        const content = `${buildNested(remaining, leaf, childIndentOf(container), value)}\n`;
-        const pos = offsetToPosition(text, brace);
-        return { range: { start: pos, end: pos }, newText: content };
+        // Descend as far as existing groups match the path.
+        let container: AbstractNodeDocument | GroupNode = document;
+        let matched = 0;
+        for (; matched < groups.length; matched++) {
+            const next = childGroup(container, groups[matched]);
+            if (!next) break;
+            container = next;
+        }
+        const remaining = groups.slice(matched);
+        // If the whole path already exists down to the leaf, there is nothing to insert.
+        if (remaining.length === 0 && hasMember(container, leaf)) continue;
+
+        let branch: InsertBranch = byContainer.get(container) ?? newBranch();
+        byContainer.set(container, branch);
+        for (const group of remaining) {
+            const child: InsertBranch = branch.children.get(group) ?? newBranch();
+            branch.children.set(group, child);
+            branch = child;
+        }
+        if (!branch.leaves.some((existing) => existing.name === leaf)) {
+            branch.leaves.push({ name: leaf, value: insertion.value });
+        }
     }
-    // Document root: append at end of file.
-    const offset = text.length;
-    const lead = text.length > 0 && !text.endsWith('\n') ? '\n' : '';
-    const pos = offsetToPosition(text, offset);
-    return { range: { start: pos, end: pos }, newText: `${lead}${buildNested(remaining, leaf, 0, value)}\n` };
+
+    const edits: Array<{ offset: number; edit: TextEdit }> = [];
+    for (const [container, branch] of byContainer) {
+        if (isGroupNode(container)) {
+            // Insert on its own line just before the group's closing `}` (its position ends right after it).
+            const brace = container.position.end - 1;
+            if (text[brace] !== '}') continue;
+            const content = `${renderBranch(branch, childIndentOf(container)).join('\n')}\n`;
+            const pos = offsetToPosition(text, brace);
+            edits.push({ offset: brace, edit: { range: { start: pos, end: pos }, newText: content } });
+            continue;
+        }
+        // Document root: append at end of file.
+        const offset = text.length;
+        const lead = text.length > 0 && !text.endsWith('\n') ? '\n' : '';
+        const pos = offsetToPosition(text, offset);
+        edits.push({
+            offset,
+            edit: { range: { start: pos, end: pos }, newText: `${lead}${renderBranch(branch, 0).join('\n')}\n` },
+        });
+    }
+    return edits.sort((a, b) => a.offset - b.offset).map((entry) => entry.edit);
 };
 
 /**

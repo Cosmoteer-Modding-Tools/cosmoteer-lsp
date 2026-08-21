@@ -1,0 +1,14 @@
+ID = Test.LintMod
+Name = "Lint Fixture"
+Version = 1.0
+
+Actions
+[
+	{
+		Action = Add
+		AddTo = <cosmoteer.rules>
+		Name = LINT_FIXTURE
+		ToAdd = &<wired/part.rules>
+		CreateIfNotExisting = true
+	}
+]

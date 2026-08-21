@@ -14,9 +14,12 @@ Everything the server offers arrives through LSP4IJ: diagnostics (including the 
 component, required-field, shader and localization validators, all on by default), completion with
 snippets, hover, go-to-definition, find usages, document/workspace symbols, rename, formatting, quick
 fixes, signature help, inlay hints, color swatches, and document links. Editor highlighting
-comes from the bundled TextMate grammars for `.rules` and `.shader`. LSP semantic tokens can be
-layered on top through a setting (off by default, the asynchronous overlay repaint reads as
-flicker). The plugin also registers TextMate-backed file types, which give the files their icon
+comes from the bundled TextMate grammars for `.rules` and `.shader`, with the server's semantic
+tokens painted on top so a reference, a bareword value and a math function no longer all look the
+same. The plugin puts that overlay into the editor's markup itself instead of leaving it to
+LSP4IJ, so the colors follow the text through an edit rather than dropping out while a request is
+still running. It is on by default and can be turned off under Settings | Tools | Cosmoteer Rules.
+The plugin also registers TextMate-backed file types, which give the files their icon
 and keep the IDE from advertising other marketplace plugins for the extensions while leaving
 the actual editing to the TextMate grammar.
 
