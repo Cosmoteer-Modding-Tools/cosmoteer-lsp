@@ -191,7 +191,7 @@ A schema of every `.rules` type, extracted from the game's own classes, drives t
 
 Thanks to the Cosmoteer team for being so open and allowing the schema to be publicly available without modders first needing to generate it, and to the modders who have contributed to the community and provided feedback on this extension.
 
-Special thanks to Walt for the open communication and allowance. Also to Celeste for laying the ground for the JetBrains IDE support and providing valuable input, to Rojamahorse for valuable feedback, testing and a very complex mod to test the extension with, and to SkipperWraith who brought me back to this project.
+Special thanks to Walt for the open communication and allowance. Also to Celeste for laying the ground for the JetBrains IDE support and providing valuable input, to Rojamahorse for valuable feedback, testing and a very complex mod to test the extension with, and to SkipperWraith who brought me back to this project and gave me a lot of helpful feedback.
 
 ## Showcase
 

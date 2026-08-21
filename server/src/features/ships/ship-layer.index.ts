@@ -140,14 +140,19 @@ const layerKeysOf = (node: AbstractNode | undefined, into: Set<string>): void =>
 
 /** Whether an action target names this ship's `RenderLayers` (or the ship group holding it). */
 const targetsMember = (target: string, shipFsPath: string, groupName: string, member: string): boolean => {
-    const normalized = normalizeTargetPath(target).toLowerCase();
+    // The member names are compared folded, the way the game matches them, but the file part keeps
+    // the case it was written in. Lower casing that too would compare a lower cased path against a
+    // real one, and where the filesystem is case sensitive `foldPathCase` leaves the real path
+    // alone, so a target rooted at `./Data/…` could never match a folder actually named `Data`.
+    const written = normalizeTargetPath(target);
+    const normalized = written.toLowerCase();
     const wantedSuffix = `/${groupName.toLowerCase()}/${member.toLowerCase()}`;
     if (!normalized.endsWith(wantedSuffix)) return false;
     // The path names a file, which must be the ship's own file for the entries to land in its map.
-    const opening = normalized.indexOf('<');
-    const closing = normalized.indexOf('>');
+    const opening = written.indexOf('<');
+    const closing = written.indexOf('>');
     if (opening === -1 || closing === -1) return false;
-    const file = normalized.slice(opening + 1, closing);
+    const file = written.slice(opening + 1, closing);
     return foldPathCase(shipFsPath).endsWith(foldPathCase(file).replace(/^\.?\//, ''));
 };
 

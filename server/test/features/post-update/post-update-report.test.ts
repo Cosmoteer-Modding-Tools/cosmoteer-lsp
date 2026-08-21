@@ -302,7 +302,12 @@ describe('the report as a whole', () => {
         expect(report.markdown).toContain('Whether the installed game still takes this mod');
     });
 
-    it('shows a path in the spelling the author wrote, not the folded one the scan stores', async () => {
+    // Only where the filesystem ignores case, which is the only place a folded path is stored. On a
+    // case-sensitive filesystem `foldPathCase` is the identity, so the scan stores the spelling the
+    // author wrote and there is nothing to read back. The lower-cased path this sets up would name
+    // no file at all there, which is a state the scan cannot produce.
+    it.skipIf(process.platform !== 'win32' && process.platform !== 'darwin')(
+        'shows a path in the spelling the author wrote, not the folded one the scan stores', async () => {
         // Scan results are keyed by a case-folded path, so on Windows and macOS the stored path is
         // lower case. The report reads the real spelling back off the disk.
         const folders = [join(CACHE_HOME, 'CasedProject')];
@@ -330,7 +335,8 @@ describe('the report as a whole', () => {
         const report = await buildPostUpdateReport(request({ folderPaths: folders, entries: live }));
         expect(report.summary.status).toBe('compared');
         expect(report.markdown).toContain('Parts/BigGun.rules');
-    });
+    }
+    );
 
     it('says what it cannot see in every report it produces', async () => {
         const report = await buildPostUpdateReport(request());

@@ -165,6 +165,31 @@ class TestClient {
 }
 
 const settle = (ms: number): Promise<void> => new Promise((resolveTimer) => setTimeout(resolveTimer, ms));
+/**
+ * Wait until `part` has been published with at least one entry, or give up.
+ *
+ * A fixed pause measures how fast the machine is rather than whether the server answered, and a
+ * shared runner is slow enough that a pause long enough here would be a pause everywhere. Polling
+ * lets the check pass as soon as the answer lands and still fail when it never does.
+ *
+ * @param client the client whose pushed diagnostics to watch.
+ * @param part the fragment of the uri to wait for.
+ * @param timeoutMs how long to keep waiting.
+ * @returns the pushed diagnostics, or undefined when none arrived in time.
+ */
+const waitForPush = async (
+    client: TestClient,
+    part: string,
+    timeoutMs = 15_000
+): Promise<PublishParams['diagnostics'] | undefined> => {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+        const pushed = client.pushedFor(part);
+        if (pushed && pushed.length > 0) return pushed;
+        if (Date.now() >= deadline) return pushed;
+        await settle(100);
+    }
+};
 
 describe.skipIf(!existsSync(SERVER_BUNDLE))('modRulesReachable scope over the built server', () => {
     let client: TestClient;
@@ -234,8 +259,7 @@ describe.skipIf(!existsSync(SERVER_BUNDLE))('modRulesReachable scope over the bu
         client.send('workspace/didChangeWatchedFiles', {
             changes: [{ uri: toClientUri(join(MOD_DIR, 'wired', 'good.rules')), type: 2 }],
         });
-        await settle(2500);
-        const good = client.pushedFor(GOOD_URI_KEY);
+        const good = await waitForPush(client, GOOD_URI_KEY);
         expect(good).toBeDefined();
         expect(good!.length).toBeGreaterThan(0);
     }, 30_000);

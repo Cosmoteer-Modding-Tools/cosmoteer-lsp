@@ -41,9 +41,14 @@ const fileNode = (path: string): FileWithPath => ({
  * @param path the file to write.
  * @param text the new content.
  */
+// Each rewrite is stamped a second later than the one before it. `Date.now()` only counts whole
+// milliseconds, and two rewrites in one test land inside the same millisecond on a fast machine,
+// which would give a file of unchanged length the mtime it already had and make a real change
+// read as no change at all.
+let rewriteTick = 0;
 const rewrite = async (path: string, text: string): Promise<void> => {
     writeFileSync(path, text);
-    await utimes(path, new Date(), new Date(Date.now() + 5_000));
+    await utimes(path, new Date(), new Date(Date.now() + ++rewriteTick * 1_000));
 };
 
 /**
