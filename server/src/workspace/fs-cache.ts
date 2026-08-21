@@ -73,7 +73,12 @@ export const onFsInvalidation = (listener: () => void): void => {
 
 /** Whether the platform's default filesystem resolves paths case-insensitively. On Linux two
  *  paths differing only in case are distinct files, so folding keys there would let one file's
- *  cache entry answer for the other. */
+ *  cache entry answer for the other.
+ *
+ *  The game draws the same line, in `Halfling.IO.FilePath`: it compares every path through a
+ *  comparer chosen as `IsCaseSensitive ? Ordinal : OrdinalIgnoreCase`, which is what decides
+ *  whether it reads two spellings of a mod folder as one. It answers `IsCaseSensitive` by
+ *  probing the filesystem rather than by naming the operating system. */
 const CASE_INSENSITIVE_PATHS = process.platform === 'win32' || process.platform === 'darwin';
 
 /**
