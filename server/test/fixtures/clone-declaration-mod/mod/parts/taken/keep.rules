@@ -1,0 +1,6 @@
+// The clone must never write into a folder that is already there.
+Part
+{
+	ID = test.taken
+	Size = [1, 1]
+}

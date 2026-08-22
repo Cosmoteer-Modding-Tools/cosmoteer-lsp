@@ -1,0 +1,5 @@
+// The base the fixture part points at, so a copied reference has a real file to name.
+Part
+{
+	Armor = 1
+}

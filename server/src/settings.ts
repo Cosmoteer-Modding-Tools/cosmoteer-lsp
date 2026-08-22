@@ -131,6 +131,24 @@ export interface CosmoteerSettings {
         // through the whole inheritance chain, and nothing is judged when any hop of that chain
         // cannot be read.
         validateUnreceivableBuffs: boolean;
+        // When true (the default), report a path-shaped field whose file or folder is not on disk.
+        // Covers the values the asset check cannot reach, because it recognises a path by its
+        // extension and these carry one the game alone knows: a music track, a markov name file,
+        // and the folder fields a ship library or a texture set is read from. The path is resolved
+        // the way the game resolves it, against the folder of the file it is written in.
+        validatePaths: boolean;
+        // When true (the default), hint at a damage level whose art is stretched differently from
+        // the other levels of its own sprite list. The game draws every level into the quad its
+        // Size names, so a level whose pixel aspect over quad aspect differs from its siblings
+        // squashes or rotates the moment the part takes that damage. Only levels whose file and
+        // size can both be read are compared, and the first readable level sets the stretch the
+        // rest are judged against. Hint severity keeps it out of the Problems panel.
+        validateSpriteGeometry: boolean;
+        // When true (the default), report a sprite naming a render layer the ship that draws it does
+        // not declare. The game indexes the ship's own `RenderLayers` map when it first draws the
+        // part and throws when the id is not in it, so a typo and a layer borrowed from another ship
+        // class both crash rather than draw nothing. Layers a mod adds to a ship count as that ship's.
+        validateRenderLayers: boolean;
     };
     codeMods: {
         // When true (the default), a mod that ships a `.dll` has its own serializable types, fields
@@ -227,6 +245,9 @@ export const defaultSettings: CosmoteerSettings = {
         validateDuplicateIds: true,
         validateUndeclaredDependencies: true,
         validateUnreceivableBuffs: true,
+        validatePaths: true,
+        validateSpriteGeometry: true,
+        validateRenderLayers: true,
     },
     codeMods: {
         enabled: true,

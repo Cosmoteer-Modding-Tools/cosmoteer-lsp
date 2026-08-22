@@ -6,12 +6,12 @@ import org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm")
-    id("org.jetbrains.intellij.platform") version "2.17.0"
+    id("org.jetbrains.intellij.platform") version "2.18.1"
     id("org.jetbrains.changelog") version "2.2.1"
 }
 
 group = "modding.cosmoteer.tools"
-version = "0.7.0"
+version = "0.8.0"
 
 repositories {
     mavenCentral()

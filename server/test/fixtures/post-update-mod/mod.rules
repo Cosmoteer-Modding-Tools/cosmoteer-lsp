@@ -1,0 +1,6 @@
+// The mod used by the synthetic-update test. It reads the game tree the way a real mod does, so a
+// change to that tree moves its diagnostics without a single byte of the mod changing.
+ID = test.postupdate
+Name = "Post update fixture mod"
+Version = 1.0
+CompatibleGameVersions = [ "0.30.4c" ]

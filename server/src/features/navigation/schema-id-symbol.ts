@@ -9,7 +9,7 @@ import {
 } from '../../core/ast/ast';
 import { basenameOf } from '../../document/document-kind';
 import { documentRootClass } from '../../document/schema/document-root';
-import { entityDeclarationsOf } from '../../document/schema/entity-schema';
+import { entityDeclarationsOf, sameId } from '../../document/schema/entity-schema';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { DefinitionService } from './definition.service';
 import { enclosingContainerKey, referenceNodesOf } from './reference-index';
@@ -36,7 +36,21 @@ const topLevelIdNode = (document: AbstractNodeDocument): ValueNode | undefined =
     return undefined;
 };
 
-/** Find the whole-file root that declares `id` as an instance of `targetClass` (or a subclass). */
+/**
+ * Find the whole-file root that declares `id` as an instance of `targetClass` (or a subclass).
+ *
+ * The written id is matched the way the game matches it, ignoring case ({@link sameId}), and the
+ * symbol carries the declaration's own spelling rather than the spelling the caller asked with, so
+ * everything downstream works from the name the declaring file writes. The mention pre-filter the
+ * candidate walk uses is still a case-sensitive text match, so a file that spells the id differently
+ * everywhere is only reached once it is read for another reason.
+ *
+ * @param targetClass the class the declaration must be an instance of.
+ * @param id the written id to look for.
+ * @param folderPaths the project folders the candidate walk reads through.
+ * @param cancellationToken cancels the candidate walk.
+ * @returns the declaring symbol, or undefined when no file declares it.
+ */
 export const findIdDeclaration = async (
     targetClass: string,
     id: string,
@@ -48,14 +62,15 @@ export const findIdDeclaration = async (
         const rootClass = documentRootClass(document);
         if (rootClass && isSameOrSubclass(rootClass, targetClass)) {
             const idNode = topLevelIdNode(document);
-            if (idNode && String(idNode.valueType.value) === id) {
-                return { id, rootClass, location: definitionLocationOf(idNode) };
+            const declared = idNode ? String(idNode.valueType.value) : undefined;
+            if (idNode && declared !== undefined && sameId(declared, id)) {
+                return { id: declared, rootClass, location: definitionLocationOf(idNode) };
             }
         }
         // Aggregate list-element entity keyed by its identity field (`ID`/`ColorID`/`ToggleID`/…).
         for (const decl of entityDeclarationsOf(document)) {
-            if (decl.id === id && isSameOrSubclass(decl.elementClass, targetClass)) {
-                return { id, rootClass: decl.elementClass, location: definitionLocationOf(decl.node) };
+            if (sameId(decl.id, id) && isSameOrSubclass(decl.elementClass, targetClass)) {
+                return { id: decl.id, rootClass: decl.elementClass, location: definitionLocationOf(decl.node) };
             }
         }
     }
@@ -124,6 +139,11 @@ export const idSymbolAtMapKey = async (
  * references (`MaxBuffValues = { Engine = … }`), so find-all-references and rename reach every use of
  * an entity, not only its value-position uses.
  *
+ * The written id is compared the way the game compares it, ignoring case ({@link sameId}): the engine
+ * interns every id in an `InvariantCultureIgnoreCase` dictionary, so `ReceivableBuffs = [Engine]` and
+ * a declaration reading `engine` are one and the same name to it, and a rename that missed the second
+ * spelling would leave a live reference pointing at a name nothing declares any more.
+ *
  * @param document the parsed document to scan.
  * @param symbol the cross-file id symbol whose references are wanted.
  * @returns a generator of every matching reference node, a value node or a map-key identifier.
@@ -131,10 +151,10 @@ export const idSymbolAtMapKey = async (
 export function* idReferenceSites(document: AbstractNodeDocument, symbol: IdSymbol): Generator<AbstractNode> {
     for (const value of stringValueNodesOf(document)) {
         const ref = schemaReferenceFieldOf(value);
-        if (ref && ref.value === symbol.id && isSameOrSubclass(symbol.rootClass, ref.targetClass)) yield value;
+        if (ref && sameId(ref.value, symbol.id) && isSameOrSubclass(symbol.rootClass, ref.targetClass)) yield value;
     }
     for (const key of mapKeyReferencesOf(document)) {
-        if (key.value === symbol.id && isSameOrSubclass(symbol.rootClass, key.targetClass)) yield key.node;
+        if (sameId(key.value, symbol.id) && isSameOrSubclass(symbol.rootClass, key.targetClass)) yield key.node;
     }
 }
 

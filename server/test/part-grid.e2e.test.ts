@@ -16,7 +16,11 @@ const PART_FILE = join(FIXTURE_DIR, 'base_part.rules');
 
 const toClientUri = (fsPath: string): string => {
     const forward = resolve(fsPath).replace(/\\/g, '/');
-    return 'file:///' + forward.replace(/^([A-Za-z]):/, (_, drive: string) => `${drive.toLowerCase()}%3A`);
+    // A Windows path opens with a drive letter, a POSIX one with the separator itself. Leaving
+    // that separator in place would put four of them after `file:` and decode to a doubled root,
+    // which matches nothing the server has indexed.
+    const drive = forward.replace(/^([A-Za-z]):/, (_, letter: string) => `${letter.toLowerCase()}%3A`);
+    return 'file:///' + drive.replace(/^\//, '');
 };
 
 const FIXTURE_URI = toClientUri(FIXTURE_DIR);

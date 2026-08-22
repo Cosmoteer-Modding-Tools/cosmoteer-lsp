@@ -1,0 +1,12 @@
+// A part pointing at the fixture strings: one exactly spelled key, one written in a different case
+// (which the game still resolves), and a field that is not a localization key but happens to hold
+// the same text and must be left where it is.
+Part
+{
+	ID = test.loc_a
+	NameKey = "Parts/Foo"
+	DescriptionKey = "parts/fooDesc"
+	IconNameKey = "Titles/0"
+	SomeText = "Parts/Foo"
+	Size = [1, 1]
+}

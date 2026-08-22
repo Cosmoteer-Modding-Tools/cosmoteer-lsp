@@ -1,0 +1,4 @@
+ID = test.versionsplit
+Name = "Version Split Fixture"
+Version = 0.30.0
+CompatibleGameVersions = ["0.30.0"]

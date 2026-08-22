@@ -64,8 +64,15 @@ const referenceTargets = ((): Set<string> => {
     return out;
 })();
 
-/** The field that identifies an instance of `cls`: `ID`, else the unique self-referential `…ID`. */
-const identityKeyOf = (cls: string): string | undefined => {
+/**
+ * The field that identifies an instance of `cls`: `ID`, else the unique self-referential `…ID` the
+ * GUI entities carry (`ColorID`, `ToggleID`, …). Exported because a refactoring that writes an id
+ * has to name the slot the way the class spells it rather than assume every class spells it `ID`.
+ *
+ * @param cls the class whose identity slot is wanted.
+ * @returns the field name, or undefined when the class identifies its instances by nothing.
+ */
+export const identityKeyOf = (cls: string): string | undefined => {
     const fields = fieldsOf(cls);
     if (fields.some((field) => field.name === 'ID')) return 'ID';
     const selfIds = fields.filter(

@@ -38,9 +38,9 @@ import { readFile, stat } from 'fs/promises';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { BlockCommentSpan, lexer } from './core/lexer/lexer';
 import { parser } from './core/parser/parser';
-import { AbstractNodeDocument } from './core/ast/ast';
+import { AbstractNodeDocument, isGroupNode, isValueNode } from './core/ast/ast';
 import { ParserResultRegistrar } from './registrar/parser-result-registrar';
-import { findNodeAtPosition } from './utils/ast.utils';
+import { findNodeAtPosition, namedMembersOf } from './utils/ast.utils';
 import { extractValueCodeAction } from './features/refactor/extract-value';
 import {
     EXTRACT_LOCALIZATION_KEY_COMMAND,
@@ -77,8 +77,27 @@ import {
     RegisterPartHost,
     registerPartInShip,
 } from './features/refactor/register-part/register-part.command';
+import { overrideInModCodeAction } from './features/refactor/override-in-mod/override-in-mod.codeaction';
+import {
+    OVERRIDE_IN_MOD_COMMAND,
+    OverrideInModArgs,
+    overrideInMod,
+} from './features/refactor/override-in-mod/override-in-mod.command';
+import { cloneDeclarationCodeAction } from './features/refactor/clone-declaration/clone.codeaction';
+import {
+    CLONE_DECLARATION_COMMAND,
+    CloneDeclarationArgs,
+    CloneHost,
+    cloneDeclaration,
+} from './features/refactor/clone-declaration/clone.command';
+import {
+    NEW_CONTENT_COMMAND,
+    newContent,
+    NewContentHost,
+} from './features/refactor/new-content/new-content.command';
+import { NewContentArgs } from './features/refactor/new-content/new-content.types';
 import { AutoCompletionService, Completion } from './features/completion/autocompletion.service';
-import { valueRunAtCursor, wholeValueRange, withReplaceRange } from './features/completion/completion-range';
+import { openQuoteSuffix, valueRunAtCursor, wholeValueRange, withReplaceRange } from './features/completion/completion-range';
 import { DefinitionService } from './features/navigation/definition.service';
 import { computeDocumentLinks, resolveDocumentLink } from './features/navigation/document-links';
 import { DocumentSymbolService } from './features/navigation/document-symbol.service';
@@ -90,9 +109,10 @@ import {
     supertypesOf,
 } from './features/structure/type-hierarchy.service';
 import { ReferenceIndex } from './features/navigation/reference-index';
+import { clearDocumentHighlightCache, documentHighlightsAt } from './features/navigation/document-highlight';
 import { WorkspaceSymbolService } from './features/navigation/workspace-symbol.service';
 import { SchemaIdIndex } from './features/completion/schema-id.index';
-import { RenameService, dropEditsUnderRoot } from './features/navigation/rename.service';
+import { RenameRefusedError, RenameService, dropEditsUnderRoot } from './features/navigation/rename.service';
 import { InlayHintService } from './features/inlay/inlay-hint.service';
 import { HoverService } from './features/hover/hover.service';
 import { OPEN_IN_DECOMPILER_COMMAND } from './features/hover/decompiler-link';
@@ -155,7 +175,11 @@ import { validateManifestVersion } from './features/diagnostics/validator.manife
 import { validateModManifest } from './features/diagnostics/validator.mod-manifest';
 import { validatePartGeometry } from './features/diagnostics/validator.part-geometry';
 import { validateUnreceivableBuffs } from './features/diagnostics/validator.unreceivable-buff';
+import { validateSpriteGeometry } from './features/diagnostics/validator.sprite-geometry';
+import { validateRenderLayers } from './features/diagnostics/validator.render-layer';
+import { ShipLayerContext, invalidateShipLayers, judgeLayer, layerScopeForPart } from './features/ships/ship-layer.index';
 import { generateEffectiveGroupReport } from './features/effective-group/effective-group.report';
+import { generateReferenceTraceReport } from './features/navigation/explain-reference/reference-trace.report';
 import { validateDuplicateModIds } from './features/diagnostics/validator.duplicate-id';
 import { invalidateModContext } from './mod/mod-context';
 import { modRulesOffsetCompletions } from './features/completion/autocompletion.mod-rules';
@@ -178,6 +202,7 @@ import { invalidateEffectiveChainCache } from './semantics/effective-group';
 import { invalidateLooseDeclarationCache } from './features/diagnostics/validator.schema-id-reference';
 import { validateCrossFileIdReferences } from './features/diagnostics/validator.schema-id-reference';
 import { validateLocalizationKeys } from './features/diagnostics/validator.localization-key';
+import { validatePathValues } from './features/diagnostics/validator.path-value';
 import { buildInsertLocalizationKeyEdit } from './features/diagnostics/localization-key-insert';
 import { requiredFieldInsertText } from './features/diagnostics/required-field-insert';
 import { mapKeyTargetOf, schemaReferenceFieldOf } from './features/navigation/schema-id-reference.navigation';
@@ -219,6 +244,20 @@ import {
     MIGRATE_WORKSPACE_COMMAND,
     MigrationSummary,
 } from './features/migration/migrate-workspace';
+import { recordScanBaseline } from './features/post-update/post-update-baseline';
+import {
+    POST_UPDATE_REPORT_COMMAND,
+    PostUpdateReportResult,
+    buildPostUpdateReport,
+} from './features/post-update/post-update-report';
+import {
+    applyMigrationChanges,
+    MigrateSymbolArgs,
+    MIGRATE_SYMBOL_COMMAND,
+    migrateSymbolCodeAction,
+    MigrationChange,
+    narrowToSymbolScope,
+} from './features/migration/migrate-symbol';
 import { BUILD_MOD_SCHEMA_COMMAND, buildModSchema, ModSchemaSummary } from './features/mod-schema/mod-schema';
 import { watchDirectories, watchModAssemblies } from './features/mod-schema/watch';
 import { extendSchemaWithMods, modSchemaSignature } from './document/schema/schema';
@@ -296,6 +335,13 @@ const workspaceInitialized = new Promise<void>((resolve) => {
 });
 
 /**
+ * Whether the game tree scan has settled, as a plain flag beside {@link workspaceInitialized}. A
+ * request that has to answer between keystrokes cannot await the promise, so occurrence highlighting
+ * reads the flag and leaves the cross-file part of its answer out until the scan is done.
+ */
+let workspaceReady = false;
+
+/**
  * The client's workspace folders, fetched once and cached. Nearly every feature request needs the
  * folder list (through {@link searchFolderUris}), and asking the client each time made every
  * completion, hover, and validation pay a client round-trip. Never asks a client that did not
@@ -359,6 +405,7 @@ connection.onInitialize(async (params: InitializeParams) => {
                 workspaceDiagnostics: false,
             },
             definitionProvider: true,
+            documentHighlightProvider: true,
             documentLinkProvider: {
                 resolveProvider: true,
             },
@@ -392,13 +439,18 @@ connection.onInitialize(async (params: InitializeParams) => {
                 commands: [
                     OPEN_IN_DECOMPILER_COMMAND,
                     MIGRATE_WORKSPACE_COMMAND,
+                    MIGRATE_SYMBOL_COMMAND,
                     BUILD_MOD_SCHEMA_COMMAND,
                     EXTRACT_SHARED_BASE_COMMAND,
                     EXTRACT_LOCALIZATION_KEY_COMMAND,
                     REGISTER_PART_IN_SHIP_COMMAND,
+                    OVERRIDE_IN_MOD_COMMAND,
+                    CLONE_DECLARATION_COMMAND,
                     INSERT_SCHEMA_FIELD_COMMAND,
                     RUN_IN_COSMOTEER_COMMAND,
                     IMPORT_GAME_LOG_COMMAND,
+                    POST_UPDATE_REPORT_COMMAND,
+                    NEW_CONTENT_COMMAND,
                 ],
             },
             semanticTokensProvider: {
@@ -485,6 +537,7 @@ connection.onInitialized(async (_params) => {
     // The game-tree scan (or the decision that there is none) is settled. Index builds that were
     // waiting on it may now resolve the folder set, with the Data root included when it exists.
     resolveWorkspaceInitialized();
+    workspaceReady = true;
 
     if (hasConfigurationCapability) {
         // Register for all configuration changes.
@@ -524,6 +577,8 @@ connection.onInitialized(async (_params) => {
             validationScopeEpoch++;
             WorkspaceSymbolService.instance.reset();
             SchemaIdIndex.instance.reset();
+        invalidateShipLayers();
+            invalidateShipLayers();
             TemplateBaseIndex.instance.reset();
             LocalizationKeyIndex.instance.reset();
             ReverseIncludeIndex.instance.reset();
@@ -742,8 +797,10 @@ function ensureParserResult(uri: string): AbstractNodeDocument | undefined {
     return result;
 }
 
-/** How long to sit out further keystrokes before a push-model validation runs. */
-const VALIDATION_DEBOUNCE_MS = 250;
+/** How long to sit out further keystrokes before a push-model validation runs. Validating one open
+ *  document costs a fraction of this, so the wait is what the user feels between typing and seeing
+ *  the problem. It only has to outlast the gap between two keystrokes of continuous typing. */
+const VALIDATION_DEBOUNCE_MS = 100;
 
 /** Per-uri debounce timers of the push-diagnostics flow (clients without pull support). */
 const pushValidationTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
@@ -841,6 +898,7 @@ function registerOpenDocument(document: TextDocument): void {
     // workspace-symbol query. (find-all-references is stateless, it re-reads per query.)
     WorkspaceSymbolService.instance.markDirty(document.uri);
     SchemaIdIndex.instance.markDirty(document.uri);
+    invalidateShipLayersFor(document.uri);
     TemplateBaseIndex.instance.markDirty(document.uri);
     LocalizationKeyIndex.instance.markDirty(document.uri);
     ReverseIncludeIndex.instance.markDirty(document.uri);
@@ -946,6 +1004,7 @@ documents.onDidClose(async (e) => {
     diagnosticsCache.delete(e.document.uri);
     inlayHintCache.delete(e.document.uri);
     semanticTokensCache.delete(e.document.uri);
+    clearDocumentHighlightCache(e.document.uri);
     ParserResultRegistrar.instance.removeResult(e.document.uri);
     if (wholeWorkspaceEnabled()) {
         // Whole-workspace mode: the file's problems should persist after closing. Clear the
@@ -1069,6 +1128,20 @@ const VALIDATION_SEVERITY: Record<NonNullable<ValidationError['severity']>, Diag
 };
 
 /**
+ * Stamp a pass's findings with the rule every report identifies them by, leaving a finding that
+ * already named its own rule alone. Called where a pass is invoked, which is the only place the
+ * pass a finding came from is known.
+ *
+ * @param errors the findings one pass produced.
+ * @param code the rule id of that pass, from the table in server/src/cli/rule-ids.ts.
+ * @returns the same findings, now carrying the rule id.
+ */
+const tagged = (errors: ValidationError[], code: string): ValidationError[] => {
+    for (const error of errors) error.code ??= code;
+    return errors;
+};
+
+/**
  * Lexes, parses and validates one document, running every enabled validator pass over it and
  * mapping the findings onto LSP diagnostics. Serves both the open-document flow and the
  * whole-workspace pass over unopened files, so on-disk files go through the exact same path.
@@ -1158,6 +1231,9 @@ async function validateTextDocument(
             },
             message: error.message,
             source: 'cosmoteer-language-server',
+            // Every finding names the check behind it, so a report can group by rule and a reader
+            // can filter one off. A parse error belongs to no switchable pass, so its id is fixed.
+            code: 'parse-error',
         };
         if (hasDiagnosticRelatedInformationCapability && error.additionalInfo) {
             for (const info of error.additionalInfo) {
@@ -1192,7 +1268,7 @@ async function validateTextDocument(
             for (const node of parserResult.value.elements) {
                 pormises.push(Validator.instance.validate(node, cancelToken));
             }
-            return (await Promise.all(pormises).catch(() => [])).flat();
+            return tagged((await Promise.all(pormises).catch(() => [])).flat(), 'syntax-and-references');
         });
         // Top-level duplicate keys span sibling elements (each validated independently above), and
         // inheritance cycles span multiple nodes/files, and both need a whole-document view, so they run
@@ -1200,21 +1276,24 @@ async function validateTextDocument(
         const documentDuplicate = await ValidationForDocumentDuplicates.callback(parserResult.value, cancelToken).catch(
             () => undefined
         );
-        if (documentDuplicate) validationErrors.push(documentDuplicate);
+        if (documentDuplicate) {
+            documentDuplicate.code = 'document-duplicate';
+            validationErrors.push(documentDuplicate);
+        }
         const inheritanceCycleErrors = await timedPass('scan.vCyclesMs', () =>
             validateInheritanceCycles(parserResult.value, cancelToken).catch(() => [])
         );
-        validationErrors = validationErrors.concat(inheritanceCycleErrors);
+        validationErrors = validationErrors.concat(tagged(inheritanceCycleErrors, 'inheritance-cycle'));
         // Separate pass: `{`/`[` blocks that open with no name in front of them outside a list, which
         // the game refuses to load. Needs the sibling view of a whole scope, like the duplicate pass.
         const anonymousBlockErrors = await validateAnonymousBlocks(parserResult.value, cancelToken).catch(() => []);
-        validationErrors = validationErrors.concat(anonymousBlockErrors);
+        validationErrors = validationErrors.concat(tagged(anonymousBlockErrors, 'anonymous-block'));
         // Separate pass: schema-driven checks (currently invalid enum values), like the duplicate /
         // inheritance-cycle passes above. Self-gates to non-mod `.rules` files.
         const schemaErrors = await timedPass('scan.vSchemaMs', () =>
             validateSchema(parserResult.value, cancelToken).catch(() => [])
         );
-        validationErrors = validationErrors.concat(schemaErrors);
+        validationErrors = validationErrors.concat(tagged(schemaErrors, 'schema'));
         // Separate pass: schema `ID<…>` component references that name no component in the part.
         // On by default, but only once the game `Data` tree is indexed: the part-wide id union folds
         // in inherited vanilla bases, which cannot resolve without the install.
@@ -1222,7 +1301,7 @@ async function validateTextDocument(
             const siblingRefErrors = await timedPass('scan.vSiblingMs', () =>
                 validateSchemaSiblingReferences(parserResult.value, cancelToken).catch(() => [])
             );
-            validationErrors = validationErrors.concat(siblingRefErrors);
+            validationErrors = validationErrors.concat(tagged(siblingRefErrors, 'validateComponentReferences'));
         }
         // Separate pass: cross-file `ID<…>` references (GUI toggle/color/targeter/trigger ids) whose
         // id names no declaration in the project. On by default, but only once the game `Data` tree is
@@ -1231,7 +1310,7 @@ async function validateTextDocument(
             const idRefErrors = await timedPass('scan.vCrossFileMs', async () =>
                 validateCrossFileIdReferences(parserResult.value, await searchFolderUris(), cancelToken).catch(() => [])
             );
-            validationErrors = validationErrors.concat(idRefErrors);
+            validationErrors = validationErrors.concat(tagged(idRefErrors, 'validateCrossFileReferences'));
         }
         // Separate pass: groups missing a schema-required field, checked through the inheritance chain.
         // On by default. Optional-field detection (constructor defaults, nullable types, collections)
@@ -1248,14 +1327,14 @@ async function validateTextDocument(
                     .catch(() => undefined);
                 return validateRequiredFields(parserResult.value, cancelToken, workspaceBaseNames).catch(() => []);
             });
-            validationErrors = validationErrors.concat(requiredFieldErrors);
+            validationErrors = validationErrors.concat(tagged(requiredFieldErrors, 'validateRequiredFields'));
         }
         // Separate pass: inline `_`-prefixed shader constants a material sets, checked against the
         // uniforms its `.shader` declares. On by default. The game itself ships a few constant keys its
         // shaders never read, so those are suppressed by name in the validator's `VANILLA_DEAD_KEYS`.
         if (settings.diagnostics?.validateShaderConstants) {
             const shaderConstantErrors = await validateShaderConstants(parserResult.value, cancelToken).catch(() => []);
-            validationErrors = validationErrors.concat(shaderConstantErrors);
+            validationErrors = validationErrors.concat(tagged(shaderConstantErrors, 'validateShaderConstants'));
         }
         // Separate pass: literal localization keys (`NameKey = "Parts/Foo"`) that no strings file
         // declares. On by default, but only once the game `Data` tree is indexed: a mod referencing a
@@ -1264,39 +1343,51 @@ async function validateTextDocument(
             const localizationErrors = await timedPass('scan.vLocalizationMs', async () =>
                 validateLocalizationKeys(parserResult.value, await searchFolderUris(), cancelToken).catch(() => [])
             );
-            validationErrors = validationErrors.concat(localizationErrors);
+            validationErrors = validationErrors.concat(tagged(localizationErrors, 'validateLocalizationKeys'));
+        }
+
+        // Separate pass: a path shaped field whose file or folder is not on disk. The asset check
+        // finds a path by its extension, so a music track, a markov name file and the folder fields
+        // a texture set or a ship library is read from go unchecked, even though the game resolves
+        // every one of them while it loads. Ungated by the game index, since a relative path is read
+        // against the folder of the file it is written in, which needs no game tree.
+        if (settings.diagnostics?.validatePaths) {
+            const pathErrors = await timedPass('scan.vPathMs', async () =>
+                validatePathValues(parserResult.value, cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(tagged(pathErrors, 'validatePaths'));
         }
         // Separate pass: `,`/`;` separators that a line break already makes redundant. A token-level
         // scan, since separators never become AST nodes. Hint severity keeps the finding out of the
         // Problems panel (vanilla itself ships hundreds of trailing separators).
         if (settings.diagnostics?.validateRedundantSeparators) {
-            validationErrors = validationErrors.concat(validateRedundantSeparators(tokens));
+            validationErrors = validationErrors.concat(tagged(validateRedundantSeparators(tokens), 'validateRedundantSeparators'));
         }
         // Separate pass: a second member started on a line the member before it already owns, a second
         // reference hung on a field by a `,`, and a `*/` that closes no comment. All three are hard
         // load failures the parser cannot see, since the first two fold into a value and the third
         // lexes as an operator pair. Ungated, like the parser errors they belong with.
-        validationErrors = validationErrors.concat(validateMissingSeparators(tokens));
-        validationErrors = validationErrors.concat(validateUnbracketedValueList(tokens));
-        validationErrors = validationErrors.concat(validateOrphanCommentTerminators(tokens));
+        validationErrors = validationErrors.concat(tagged(validateMissingSeparators(tokens), 'missing-separator'));
+        validationErrors = validationErrors.concat(tagged(validateUnbracketedValueList(tokens), 'unbracketed-value-list'));
+        validationErrors = validationErrors.concat(tagged(validateOrphanCommentTerminators(tokens), 'orphan-comment-terminator'));
         // Separate pass: block comments the game's scanner never closes (an even run of `*` before the
         // closing `/`), which swallow every rule between them and the next `*/`. Comments produce no
         // tokens, so it reads the spans the lexer collected alongside them.
         if (settings.diagnostics?.validateUnclosedComments) {
             validationErrors = validationErrors.concat(
-                validateUnclosedComments(textDocument.getText(), blockComments)
+                tagged(validateUnclosedComments(textDocument.getText(), blockComments), 'validateUnclosedComments')
             );
         }
         // Separate pass: a `/*` that no `*/` ever ends, which takes the rest of the file down with it.
         // Ungated: the file does not load at all, so it is a hard error rather than a lint.
         validationErrors = validationErrors.concat(
-            validateUnterminatedComments(textDocument.getText(), blockComments)
+            tagged(validateUnterminatedComments(textDocument.getText(), blockComments), 'unterminated-comment')
         );
         // Separate pass: fields the game provably ignores (not a member of the resolved schema class
         // and never referenced in the file). Hint severity with a remove quick fix.
         if (settings.diagnostics?.validateIgnoredFields) {
             const ignoredFieldErrors = await validateIgnoredFields(parserResult.value, cancelToken).catch(() => []);
-            validationErrors = validationErrors.concat(ignoredFieldErrors);
+            validationErrors = validationErrors.concat(tagged(ignoredFieldErrors, 'validateIgnoredFields'));
         }
         // Separate pass: fields that restate the game's default, faded as dead weight with a remove
         // quick fix. Judged only inside groups that do not inherit, so an explicit default overriding
@@ -1305,7 +1396,7 @@ async function validateTextDocument(
             const defaultValueErrors = await timedPass('scan.vDefaultValueMs', () =>
                 validateDefaultValuedFields(parserResult.value, cancelToken).catch(() => [])
             );
-            validationErrors = validationErrors.concat(defaultValueErrors);
+            validationErrors = validationErrors.concat(tagged(defaultValueErrors, 'validateDefaultValues'));
         }
         // Separate pass: SCREAMING_CASE constants no reference reads, chains of them included. Needs
         // the project's mention index to prove the name is spelled nowhere else, so it runs with the
@@ -1314,7 +1405,7 @@ async function validateTextDocument(
             const unusedConstantErrors = await timedPass('scan.vUnusedConstantMs', async () =>
                 validateUnusedConstants(parserResult.value, await searchFolderUris(), cancelToken).catch(() => [])
             );
-            validationErrors = validationErrors.concat(unusedConstantErrors);
+            validationErrors = validationErrors.concat(tagged(unusedConstantErrors, 'validateUnusedConstants'));
         }
         // Separate pass: field sets several files of the mod repeat verbatim, which could live in one
         // shared base file instead. Compares the file against the files it would share that base with,
@@ -1329,7 +1420,7 @@ async function validateTextDocument(
                     await reachableFileFilter(cancelToken)
                 ).catch(() => [])
             );
-            validationErrors = validationErrors.concat(duplicateFieldErrors);
+            validationErrors = validationErrors.concat(tagged(duplicateFieldErrors, 'validateDuplicateFields'));
         }
         // Separate pass: the inverse question, a field whose value the group already inherits. Reads
         // the base files the document points at rather than the mod around it.
@@ -1337,7 +1428,7 @@ async function validateTextDocument(
             const redundantOverrideErrors = await timedPass('scan.vRedundantOverrideMs', async () =>
                 validateRedundantOverrides(parserResult.value, textDocument.getText(), cancelToken).catch(() => [])
             );
-            validationErrors = validationErrors.concat(redundantOverrideErrors);
+            validationErrors = validationErrors.concat(tagged(redundantOverrideErrors, 'validateRedundantOverrides'));
         }
         // Separate pass: part-grid values the part's own size puts out of the game's reach (a door
         // location off the perimeter ring, a blocked cell or a per-cell map key outside the part),
@@ -1346,7 +1437,26 @@ async function validateTextDocument(
             const partGeometryErrors = await timedPass('scan.vPartGeometryMs', async () =>
                 validatePartGeometry(parserResult.value, cancelToken).catch(() => [])
             );
-            validationErrors = validationErrors.concat(partGeometryErrors);
+            validationErrors = validationErrors.concat(tagged(partGeometryErrors, 'validatePartGeometry'));
+        }
+
+        // Separate pass: a sprite of a sprite list whose art the game stretches differently from the
+        // way it stretches the rest of the list, which draws that one entry squashed or on its side.
+        // No game index gate, since the pass reads the document it is given plus the art beside it.
+        if (settings.diagnostics?.validateSpriteGeometry) {
+            const spriteGeometryErrors = await timedPass('scan.vSpriteGeometryMs', async () =>
+                validateSpriteGeometry(parserResult.value, cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(tagged(spriteGeometryErrors, 'validateSpriteGeometry'));
+        }
+        // Separate pass: a sprite naming a render layer the ship that draws it does not declare,
+        // which the game throws on the first time it draws the part. Needs the game index: the ship
+        // registry the scope is built from lives in the install's own root file.
+        if (settings.diagnostics?.validateRenderLayers && gameIndexAvailable()) {
+            const renderLayerErrors = await timedPass('scan.vRenderLayerMs', async () =>
+                validateRenderLayers(parserResult.value, await shipLayerContext(), cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(tagged(renderLayerErrors, 'validateRenderLayers'));
         }
         // Separate pass: an id two files of this mod both register for one game collection, which
         // the game resolves by keeping one entry and dropping the rest. Needs the game index, like
@@ -1355,7 +1465,7 @@ async function validateTextDocument(
             const duplicateIdErrors = await timedPass('scan.vDuplicateIdMs', async () =>
                 validateDuplicateModIds(parserResult.value, await searchFolderPaths(), cancelToken).catch(() => [])
             );
-            validationErrors = validationErrors.concat(duplicateIdErrors);
+            validationErrors = validationErrors.concat(tagged(duplicateIdErrors, 'validateDuplicateIds'));
         }
         // Separate pass: a buff modifier, clamp or toggle naming a buff its own part never receives.
         // Needs the game index: the part's receivable set is folded through an inheritance chain that
@@ -1364,7 +1474,7 @@ async function validateTextDocument(
             const buffErrors = await timedPass('scan.vUnreceivableBuffMs', async () =>
                 validateUnreceivableBuffs(parserResult.value, cancelToken).catch(() => [])
             );
-            validationErrors = validationErrors.concat(buffErrors);
+            validationErrors = validationErrors.concat(tagged(buffErrors, 'validateUnreceivableBuffs'));
         }
         if (isModRules(textDocument.uri)) {
             // Separate pass: validate the manifest's action verbs/targets against the
@@ -1373,19 +1483,19 @@ async function validateTextDocument(
                 ModRulesRegistrar.instance.getActions(textDocument.uri),
                 cancelToken
             ).catch(() => []);
-            validationErrors = validationErrors.concat(modActionErrors);
+            validationErrors = validationErrors.concat(tagged(modActionErrors, 'mod-action'));
             // Separate pass: a version-split `mod_*.rules` without `CompatibleGameVersions` is
             // never selected by the game when the mod has other manifest files.
             const manifestVersionErrors = await validateManifestVersion(parserResult.value, cancelToken).catch(
                 () => []
             );
-            validationErrors = validationErrors.concat(manifestVersionErrors);
+            validationErrors = validationErrors.concat(tagged(manifestVersionErrors, 'manifest-version'));
             // Separate pass: the manifest own metadata against what `Cosmoteer.Mods.ModInfo`
             // reads (a missing or malformed `ID`/`Name`, a field name that is a near miss of a
             // real one, a declared folder or logo that is not on disk).
             if (settings.diagnostics?.validateModManifest) {
                 const modManifestErrors = await validateModManifest(parserResult.value, cancelToken).catch(() => []);
-                validationErrors = validationErrors.concat(modManifestErrors);
+                validationErrors = validationErrors.concat(tagged(modManifestErrors, 'validateModManifest'));
             }
         } else if (gameIndexAvailable() && isActionFragmentDocument(parserResult.value)) {
             // An included action fragment (launcher.rules, register.rules) holds a literal `Actions`
@@ -1397,7 +1507,7 @@ async function validateTextDocument(
             const modActionErrors = await validateModActions(parseModActions(parserResult.value), cancelToken).catch(
                 () => []
             );
-            validationErrors = validationErrors.concat(modActionErrors);
+            validationErrors = validationErrors.concat(tagged(modActionErrors, 'mod-action'));
         }
     } catch (e) {
         if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
@@ -1419,6 +1529,9 @@ async function validateTextDocument(
         if (error.unnecessary) diagnostic.tags = [DiagnosticTag.Unnecessary];
         // Round-trip quick-fix data (e.g. "did you mean") to the code-action handler.
         if (error.data) diagnostic.data = error.data;
+        // The rule the finding belongs to, which the lint reports group by and both editors show
+        // beside the message so a reader can filter on it.
+        if (error.code) diagnostic.code = error.code;
         if (hasDiagnosticRelatedInformationCapability && error.additionalInfo) {
             diagnostic.relatedInformation = [
                 {
@@ -1794,6 +1907,10 @@ async function runWorkspaceValidation(): Promise<void> {
     // Trust the fs caches for the duration of the pass: a scan re-checks the same directories and
     // base files tens of thousands of times, and the file watcher invalidates changed paths anyway.
     beginFsTrustWindow();
+    // Share one walk+stat sweep across the pass for the same reason. A client that cannot watch
+    // files leaves the mention index on its stateless sweep, which would otherwise re-stat the
+    // whole project once per reference query the pass makes.
+    beginStatSweepWindow();
     try {
         const files: string[] = [];
         for (const folder of folderUris) {
@@ -1862,16 +1979,62 @@ async function runWorkspaceValidation(): Promise<void> {
                     }
                     // Awaited, so a server shutdown right after the pass cannot tear the write.
                     await saveScanCache(dataRoot, folderUris.map(uriToFsPath), scanSettingsKeyOf(), entries);
+                    // The same results, recorded as this game version's generation, so a later game
+                    // update has a picture from before it to be compared against. Best effort, like
+                    // the caches: a failure to record never disturbs the pass that produced it.
+                    await recordScanBaseline({
+                        dataRoot,
+                        folderPaths: folderUris.map(uriToFsPath),
+                        settingsKey: scanSettingsKeyOf(),
+                        maxProblems: globalSettings.maxNumberOfProblems,
+                        entries,
+                    });
                 }
             }
         }
     } finally {
+        endStatSweepWindow();
         endFsTrustWindow();
         await stopScanCpuProfile();
         progress.done();
         if (workspaceValidationSource === source) workspaceValidationSource = undefined;
+        releaseScanMemory();
     }
 }
+
+/** How long after a pass the collection runs, long enough for the last publishes to be written and
+ *  short enough that the process is not left holding the pass's garbage while the user reads the
+ *  problems it produced. */
+const SCAN_MEMORY_RELEASE_DELAY_MS = 2_000;
+
+/** The pending collection, so a run of passes (a settings flip, a folder change) schedules one. */
+let scanMemoryReleaseTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Hands the memory a finished pass allocated back to the operating system. The pass touches every
+ * file of the project and drops each one again, which leaves a heap that is mostly garbage and a
+ * resident set several times the size the session settles at. The collector would get there on its
+ * own eventually, so this only decides when: at a moment the user is not waiting on anything, and
+ * not while they are typing into the next keystroke's validation.
+ *
+ * Needs the client to have started the server with `--expose-gc`, which all of ours do. Without it
+ * nothing happens and the heap shrinks whenever the collector decides.
+ */
+const releaseScanMemory = (): void => {
+    const collect = (globalThis as { gc?: () => void }).gc;
+    if (!collect || scanMemoryReleaseTimer) return;
+    scanMemoryReleaseTimer = setTimeout(() => {
+        scanMemoryReleaseTimer = undefined;
+        try {
+            // Twice: the first pass collects what the scan dropped, the second runs with the heap
+            // already small, which is when the collector compacts and gives pages back.
+            collect();
+            collect();
+        } catch {
+            // A collector that refuses is no reason to disturb the session.
+        }
+    }, SCAN_MEMORY_RELEASE_DELAY_MS).unref();
+};
 
 /**
  * How many files a pass has to cover before the client is told about it. Below this a whole-mod
@@ -2071,6 +2234,15 @@ connection.onCompletion(
         // cross-file id, a component id. Never handed to the reference completer, whose labels are
         // single path segments.
         const valueRange = wholeValueRange(textDocumentPosition.position, wordPrefix);
+        // The rest of the line, read for the same snapshot reason as the prefix: it says whether a
+        // quoted value the cursor sits in still needs its closing quote appended to the insert.
+        const lineSuffix = openDocument
+            ? openDocument.getText({
+                  start: textDocumentPosition.position,
+                  end: { line: textDocumentPosition.position.line + 1, character: 0 },
+              })
+            : '';
+        const valueSuffix = openQuoteSuffix(linePrefix, lineSuffix);
         const parserResult = ensureParserResult(textDocumentPosition.textDocument.uri);
         let completions: Completion[] = [];
         try {
@@ -2097,7 +2269,11 @@ connection.onCompletion(
                     // Not a `Key = ` value position → offer field names instead.
                     return schemaFieldNameCompletions(parserResult, offset, cancellationToken);
                 }
-                if (valueCompletions.length > 0) return valueCompletions;
+                if (valueCompletions.length > 0) {
+                    // Only inside an unclosed quote do these need the whole-value range: the insert
+                    // has to land on the typed text and carry the missing closing quote with it.
+                    return valueSuffix ? withReplaceRange(valueCompletions, valueRange, valueSuffix) : valueCompletions;
+                }
                 // A value position with no sync values: maybe a cross-file `ID<X>` field. Offer the
                 // project's ids of the target class (e.g. `ResourceType = ` → resource ids). An
                 // `ID = ` slot is the other way round: it declares an id, so the project's ids are
@@ -2106,14 +2282,23 @@ connection.onCompletion(
                     ? undefined
                     : crossFileReferenceTargetAtOffset(parserResult, offset, linePrefix);
                 if (target) {
-                    return withReplaceRange(
+                    const ids =
                         (await componentIdCompletionsForTarget(target, parserResult, cancellationToken).catch(
                             () => undefined
                         )) ??
-                            (await SchemaIdIndex.instance
-                                .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
-                                .catch(() => [])),
-                        valueRange
+                        (await SchemaIdIndex.instance
+                            .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
+                            .catch(() => []));
+                    return withReplaceRange(
+                        await scopedToShipLayers(
+                            ids,
+                            target,
+                            textDocumentPosition.textDocument.uri,
+                            parserResult,
+                            cancellationToken
+                        ),
+                        valueRange,
+                        valueSuffix
                     );
                 }
                 if (isLocalizationKeyFieldAtOffset(parserResult, offset, linePrefix)) {
@@ -2122,7 +2307,8 @@ connection.onCompletion(
                         await LocalizationKeyIndex.instance
                             .allKeyCompletions(await searchFolderUris(), cancellationToken)
                             .catch(() => []),
-                        valueRange
+                        valueRange,
+                        valueSuffix
                     );
                 }
                 return [];
@@ -2148,18 +2334,27 @@ connection.onCompletion(
                                 parserResult,
                                 cancellationToken
                             ).catch(() => undefined)) ?? [],
-                            valueRange
+                            valueRange,
+                            valueSuffix
                         );
                     }
                 }
                 // Cross-file `ID<X>` value completion (e.g. `ResourceType = ` → project resource ids).
                 // Only when nothing else matched, and gated internally to reference fields.
                 if (completions.length === 0) {
+                    const ids = await SchemaIdIndex.instance
+                        .idCompletions(node, await searchFolderUris(), cancellationToken)
+                        .catch(() => []);
                     completions = withReplaceRange(
-                        await SchemaIdIndex.instance
-                            .idCompletions(node, await searchFolderUris(), cancellationToken)
-                            .catch(() => []),
-                        valueRange
+                        await scopedToShipLayers(
+                            ids,
+                            schemaReferenceFieldOf(node)?.targetClass,
+                            textDocumentPosition.textDocument.uri,
+                            parserResult,
+                            cancellationToken
+                        ),
+                        valueRange,
+                        valueSuffix
                     );
                 }
                 // Localization-key value completion (a `KeyString` field, e.g. `NameKey = "…"`) → every
@@ -2169,7 +2364,8 @@ connection.onCompletion(
                         await LocalizationKeyIndex.instance
                             .keyCompletionsForNode(node, await searchFolderUris(), cancellationToken)
                             .catch(() => []),
-                        valueRange
+                        valueRange,
+                        valueSuffix
                     );
                 }
                 // A partially typed field name on its own line (`Ig`) parses as a bare Identifier
@@ -2231,14 +2427,23 @@ connection.onCompletion(
                         // An empty `OtherIDs [ … ]` resolves the cursor to the list rather than a
                         // value node, so the declaration check runs here too.
                         if (target && !isIdDeclarationPositionAt(parserResult, offset, linePrefix)) {
-                            completions = withReplaceRange(
+                            const ids =
                                 (await componentIdCompletionsForTarget(target, parserResult, cancellationToken).catch(
                                     () => undefined
                                 )) ??
-                                    (await SchemaIdIndex.instance
-                                        .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
-                                        .catch(() => [])),
-                                valueRange
+                                (await SchemaIdIndex.instance
+                                    .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
+                                    .catch(() => []));
+                            completions = withReplaceRange(
+                                await scopedToShipLayers(
+                                    ids,
+                                    target,
+                                    textDocumentPosition.textDocument.uri,
+                                    parserResult,
+                                    cancellationToken
+                                ),
+                                valueRange,
+                                valueSuffix
                             );
                         }
                     }
@@ -2430,7 +2635,85 @@ connection.languages.typeHierarchy.onSubtypes(async (params, cancellationToken) 
 // the game can see at load time, most of which is the vanilla install. Until the game `Data` root is
 // initialized, that coverage is missing and an unknown-id verdict could be wrong, so those passes
 // hold off rather than false-positive (they are on by default and activate once the path resolves).
+/**
+ * Drops the ship-layer index when the file that changed could have moved a ship's layer set: the
+ * ship files themselves and the manifests that add to them. A part file cannot, and parts are what
+ * an editing session touches, so the index survives ordinary typing.
+ *
+ * @param uri the document or watched file that changed.
+ */
+const invalidateShipLayersFor = (uri: string): void => {
+    const lower = uri.toLowerCase();
+    if (isManifestBasename(basenameOf(lower)) || lower.includes('/ships/') || lower.endsWith('cosmoteer.rules')) {
+        invalidateShipLayers();
+    }
+};
+
+/** The class a layer reference targets, the one completion narrows to the drawing ship's own set. */
+const SHIP_RENDER_LAYER_CLASS = 'Cosmoteer.Ships.ShipRenderLayerRules';
+
+/**
+ * Narrows render-layer suggestions to the layers the ship that draws this file declares. Layers are
+ * per ship class and the game throws on one the ship does not have, so offering the whole project's
+ * pool would offer values that crash. Every other reference class is handed back untouched, and so is
+ * a file no ship claims, where the union is the honest answer.
+ *
+ * @param completions the suggestions the id index produced.
+ * @param targetClass the class the field being completed references.
+ * @param uri the document being edited.
+ * @param parserResult that document, parsed, whose top-level group names the part or ship.
+ * @param cancellationToken cancels the ship reads.
+ * @returns the narrowed suggestions, or the originals when there is no scope to narrow to.
+ */
+const scopedToShipLayers = async (
+    completions: Completion[],
+    targetClass: string | undefined,
+    uri: string,
+    parserResult: AbstractNodeDocument,
+    cancellationToken: CancellationToken
+): Promise<Completion[]> => {
+    if (targetClass !== SHIP_RENDER_LAYER_CLASS || completions.length === 0) return completions;
+    const fsPath = uriToFsPath(uri);
+    const group = parserResult.elements.find((element) => isGroupNode(element) && !!element.identifier);
+    const groupName = group && isGroupNode(group) ? group.identifier?.name : undefined;
+    if (!fsPath || !group || !isGroupNode(group) || !groupName) return completions;
+    // The declared id scopes a part copied out of the game data, which no ship's list names by path.
+    const declaredId = namedMembersOf(group).find(([name]) => name.toLowerCase() === 'id')?.[1];
+    const partId =
+        declaredId && isValueNode(declaredId) ? String(declaredId.valueType.value).trim() || undefined : undefined;
+    const scope = await layerScopeForPart(
+        fsPath,
+        groupName,
+        await shipLayerContext(),
+        cancellationToken,
+        partId
+    ).catch(() => undefined);
+    if (!scope || scope.ships.length === 0) return completions;
+    const narrowed = completions.filter((completion) => {
+        const label = typeof completion === 'string' ? completion : completion.label;
+        return judgeLayer(scope, label) === 'accepted';
+    });
+    // A scope that filters everything away would leave the user with nothing to pick, which is worse
+    // than an unnarrowed list, so the full set stands in that case.
+    return narrowed.length > 0 ? narrowed : completions;
+};
+
 const gameIndexAvailable = (): boolean => !!CosmoteerWorkspaceService.instance.dataRootPath;
+
+/**
+ * The inputs the ship-layer index is built from: the game's own root file, which holds the ship
+ * registry, and the workspace folders whose mods may add ships, layers or parts.
+ *
+ * @returns the context, with an absent root when the game path is unset.
+ */
+const shipLayerContext = async (): Promise<ShipLayerContext> => {
+    const root = await CosmoteerWorkspaceService.instance.getCosmoteerRules().catch(() => undefined);
+    return {
+        gameRootDocument: (root?.content as { parsedDocument?: AbstractNodeDocument } | undefined)?.parsedDocument,
+        gameRootPath: root?.path,
+        folderPaths: await searchFolderPaths().catch(() => []),
+    };
+};
 
 // Folders the cross-file index searches: the open workspace (the mod) plus the Cosmoteer
 // game `Data` tree. Vanilla symbols (e.g. `Part` in `base_part.rules`) and most references
@@ -2649,6 +2932,7 @@ connection.onDidChangeWatchedFiles(async (params) => {
         } else {
             WorkspaceSymbolService.instance.markDirty(change.uri);
             SchemaIdIndex.instance.markDirty(change.uri);
+            invalidateShipLayersFor(change.uri);
             TemplateBaseIndex.instance.markDirty(change.uri);
             LocalizationKeyIndex.instance.markDirty(change.uri);
             ReverseIncludeIndex.instance.markDirty(change.uri);
@@ -2728,6 +3012,30 @@ connection.onReferences(async (params, cancellationToken) => {
     }
 });
 
+// Occurrence highlighting: the same search find all references runs, narrowed to the open file, so
+// resting the caret on a name marks every place this file names the same thing. It answers on every
+// cursor move, so it never waits for the game scan, and a position it has no answer for answers null,
+// which is what leaves the editor's own word matching in place.
+connection.onDocumentHighlight(async (params, cancellationToken) => {
+    // `.shader` files are HLSL. Parsing one with the Object Text parser yields a nonsense AST, and a
+    // word match over a shader is what the editor already does for free.
+    if (isShaderDocument(params.textDocument.uri)) return null;
+    const parserResult = ensureParserResult(params.textDocument.uri);
+    if (!parserResult) return null;
+    try {
+        return await documentHighlightsAt(
+            parserResult,
+            params.position,
+            workspaceReady,
+            documents.get(params.textDocument.uri)?.version,
+            cancellationToken
+        );
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        return null;
+    }
+});
+
 // Workspace symbols: flat, project-wide name search ("Go to Symbol in Workspace").
 connection.onWorkspaceSymbol(async (params, cancellationToken) => {
     try {
@@ -2749,14 +3057,17 @@ connection.onWorkspaceSymbol(async (params, cancellationToken) => {
 
 // Rename: validate the symbol under the cursor, then rewrite its declaration and every
 // reference segment that resolves to it across the project.
-connection.onPrepareRename(async (params) => {
+connection.onPrepareRename(async (params, cancellationToken) => {
     // Renaming inside a `.shader` is an HLSL rename, which the Object Text rename service cannot do.
     if (isShaderDocument(params.textDocument.uri)) return null;
     const parserResult = ensureParserResult(params.textDocument.uri);
     if (!parserResult) return null;
     try {
-        return await RenameService.instance.prepareRename(parserResult, params.position);
+        return await RenameService.instance.prepareRename(parserResult, params.position, cancellationToken);
     } catch (e) {
+        // A refusal carries the reason the rename cannot be done, so the editor shows that instead
+        // of its own "this element cannot be renamed".
+        if (e instanceof RenameRefusedError) return new ResponseError(LSPErrorCodes.RequestFailed, e.message);
         if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
         return null;
     }
@@ -2773,7 +3084,10 @@ connection.onRenameRequest(async (params, cancellationToken) => {
             params.position,
             params.newName,
             await searchFolderUris(),
-            cancellationToken
+            cancellationToken,
+            // The editor applies the edit to its own buffers, so a range in a file the author has
+            // open has to be measured against the unsaved text rather than against what is on disk.
+            openBufferReadOverride()
         );
         // Safety: rename searches the whole game tree but must never write to the read-only vanilla
         // install. Strip any edits under the Data root so we only touch the open mod. A developer
@@ -2781,6 +3095,8 @@ connection.onRenameRequest(async (params, cancellationToken) => {
         if (!edit || globalSettings.allowEditingVanillaFiles) return edit;
         return dropEditsUnderRoot(edit, CosmoteerWorkspaceService.instance.dataRootPath);
     } catch (e) {
+        // A refusal carries the reason the rename cannot be done, which the author reads.
+        if (e instanceof RenameRefusedError) return new ResponseError(LSPErrorCodes.RequestFailed, e.message);
         if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
         return null;
     }
@@ -2848,6 +3164,33 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
             );
             if (register) actions.push(register);
         }
+        // Overriding a value of the game's own install from a mod. The edit lands in the mod's
+        // manifest rather than in the file the caret is in, and which mod it goes into is a
+        // choice only the author can make, so this is carried as a command too. The offer
+        // consults no index: it reads the document in front of it and the folders it is handed.
+        if (parserResult && text !== undefined && document) {
+            const override = overrideInModCodeAction(
+                parserResult,
+                text,
+                document.offsetAt(params.range.start),
+                params.textDocument.uri,
+                CosmoteerWorkspaceService.instance.dataRootPath,
+                ((await getWorkspaceFoldersCached()) ?? []).map((folder) => uriToFsPath(folder.uri))
+            );
+            if (override) actions.push(override);
+        }
+        // The copy writes files that are not the one the caret is in, and its new id is a name only
+        // the author can choose, so it is offered as a command rather than as an edit. Not gated on
+        // the source being editable, unlike the offer above: copying a file of the game's own install
+        // into a mod is what this exists for, and it is the destination the command gates.
+        if (parserResult && document) {
+            const clone = cloneDeclarationCodeAction(
+                parserResult,
+                document.offsetAt(params.range.start),
+                params.textDocument.uri
+            );
+            if (clone) actions.push(clone);
+        }
     }
     for (const diagnostic of params.context.diagnostics) {
         const data = diagnostic.data as ValidationErrorData | undefined;
@@ -2900,6 +3243,12 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
                 });
             }
         }
+        // The same deprecation usually repeats across a mod, one `Flammable = false` per part file,
+        // so the whole-mod fix is offered beside the single-file one. It carries a command rather
+        // than an edit: which files change is only known after a sweep, which must not happen while
+        // the lightbulb menu is being built.
+        const bulkMigration = migrateSymbolCodeAction(diagnostic, params.textDocument.uri, data);
+        if (bulkMigration) actions.push(bulkMigration);
         if (data?.insertLocalizationKey) {
             const key = data.insertLocalizationKey.key;
             const edit = await buildInsertLocalizationKeyEdit(params.textDocument.uri, key, cancellationToken).catch(
@@ -3018,6 +3367,31 @@ connection.onExecuteCommand(async (params) => {
             return null;
         });
     }
+
+    // What the game update changed for this mod. Reads the findings the last scan already produced
+    // and the recording taken before the update, so it never validates anything a second time, and
+    // folds in a dry run of the migration, which is the other half of "what do I have to do now".
+    if (params.command === POST_UPDATE_REPORT_COMMAND) {
+        return await postUpdateReport().catch((e) => {
+            if (globalSettings.trace.server === 'messages') console.error(e);
+            return null;
+        });
+    }
+    // The same migration narrowed to one deprecation and to the mod the offer came from. It runs on
+    // the server for the same reason the whole-workspace one does: one implementation works the
+    // rewrite out and both clients only trigger it and show the summary.
+    if (params.command === MIGRATE_SYMBOL_COMMAND) {
+        const args = (params.arguments?.[0] ?? {}) as MigrateSymbolArgs;
+        if (!args.symbol || !args.uri) return null;
+        return await migrateWorkspace({
+            dryRun: args.dryRun === true,
+            symbol: args.symbol,
+            scopeFsPath: uriToFsPath(args.uri),
+        }).catch((e) => {
+            if (globalSettings.trace.server === 'messages') console.error(e);
+            return null;
+        });
+    }
     if (params.command === BUILD_MOD_SCHEMA_COMMAND) {
         return await rebuildModSchema().catch((e) => {
             if (globalSettings.trace.server === 'messages') console.error(e);
@@ -3081,6 +3455,61 @@ connection.onExecuteCommand(async (params) => {
         beginFsTrustWindow();
         try {
             return await registerPartInShip(args, registerPartHost(), CancellationToken.None).catch((e) => {
+                if (globalSettings.trace.server === 'messages') console.error(e);
+                return null;
+            });
+        } finally {
+            endFsTrustWindow();
+        }
+    }
+    // Writing an `Overrides` action for a value of the game's own files. It runs on the server
+    // because it writes into the mod's manifest and, for the fragment shape, creates a file, so
+    // both clients share one implementation of something that changes the user's project.
+    if (params.command === OVERRIDE_IN_MOD_COMMAND) {
+        const args = (params.arguments?.[0] ?? {}) as OverrideInModArgs;
+        // Trust the fs caches for the pass, like the part registration does: the manifest reads
+        // hit the same directories repeatedly, and nothing is written until the end.
+        beginFsTrustWindow();
+        try {
+            return await overrideInMod(args, registerPartHost(), CancellationToken.None).catch((e) => {
+                if (globalSettings.trace.server === 'messages') console.error(e);
+                return null;
+            });
+        } finally {
+            endFsTrustWindow();
+        }
+    }
+    if (params.command === CLONE_DECLARATION_COMMAND) {
+        const args = (params.arguments?.[0] ?? {}) as CloneDeclarationArgs;
+        // The copy reads the source's whole inheritance chain, which needs the fragment-rooting
+        // indexes built. The code action that offered this never waits for them, so this is where
+        // they are ensured.
+        await ensureFragmentRooting(CancellationToken.None);
+        // Trust the fs caches for the pass, like the shared-base extraction does: a part folder is
+        // read directory by directory and nothing is written until the end.
+        beginFsTrustWindow();
+        try {
+            return await cloneDeclaration(args, cloneHost(), CancellationToken.None).catch((e) => {
+                if (globalSettings.trace.server === 'messages') console.error(e);
+                return null;
+            });
+        } finally {
+            endFsTrustWindow();
+        }
+    }
+    // Creating a content file and wiring it into the game are one command, because a file nothing
+    // registers is typed by nothing and skipped by the whole-workspace pass, so an author would see
+    // every symptom of "the editor does not know this file" and none of the cause.
+    if (params.command === NEW_CONTENT_COMMAND) {
+        const args = (params.arguments?.[0] ?? {}) as NewContentArgs;
+        // The ship walk resolves references, which needs the fragment-rooting indexes built, exactly
+        // as the part registration this command hands off to does.
+        await ensureFragmentRooting(CancellationToken.None);
+        // Trust the fs caches for the pass: the registry, manifest and id reads hit the same
+        // directories repeatedly, and nothing is written until the end.
+        beginFsTrustWindow();
+        try {
+            return await newContent(args, newContentHost(), CancellationToken.None).catch((e) => {
                 if (globalSettings.trace.server === 'messages') console.error(e);
                 return null;
             });
@@ -3203,7 +3632,8 @@ function sharedBaseHost(
 
 /**
  * The server facilities the part registration runs against. Everything but the game registry is the
- * shared-base host's own, so the index refresh a written file needs stays defined in one place.
+ * shared-base host's own, so the index refresh a written file needs stays defined in one place. It is
+ * also the host the override generator runs against, whose needs are a subset of these.
  *
  * @returns the host for {@link registerPartInShip}.
  */
@@ -3222,6 +3652,57 @@ function registerPartHost(): RegisterPartHost {
             // so the freshly registered part would keep being reported as unreachable.
             if (paths.some((path) => isManifestBasename(basenameOf(path)))) invalidateModContext();
         },
+    };
+}
+
+/**
+ * The server facilities the clone runs against. The write and index-refresh half is the shared-base
+ * host's own, so the set of indexes a written file dirties stays defined in one place, and the rest is
+ * the three project lookups the copy needs: which ids are taken, which localization keys are taken,
+ * and what the source's keys already say in each language.
+ *
+ * @returns the host for {@link cloneDeclaration}.
+ */
+function cloneHost(): CloneHost {
+    const shared = sharedBaseHost(undefined, undefined);
+    return {
+        folderPaths: shared.folderPaths,
+        openDocuments: shared.openDocuments,
+        applyEdit: shared.applyEdit,
+        dataRoot: () => CosmoteerWorkspaceService.instance.dataRootPath,
+        declaredIds: async (cls, cancellationToken) =>
+            await SchemaIdIndex.instance.primaryIdsForClass(cls, await searchFolderUris(), cancellationToken),
+        declaredKeys: async (cancellationToken) =>
+            await LocalizationKeyIndex.instance.allKeysLower(await searchFolderUris(), cancellationToken),
+        localizationTexts: async (key, cancellationToken) =>
+            await LocalizationKeyIndex.instance.textsForKey(key, await searchFolderUris(), cancellationToken),
+        filesChanged: (paths) => {
+            shared.filesChanged(paths);
+            // A copy written into a mod changes that mod's reachability closure and its ModContext,
+            // which is memoized per mod root, so the new folder would keep reading as content the mod
+            // never loads.
+            if (paths.some((path) => isManifestBasename(basenameOf(path)))) invalidateModContext();
+        },
+    };
+}
+
+/**
+ * The server facilities the new-content command runs against. The part registration's host is its
+ * own, since creating a file needs exactly what registering one does, plus the project's id index so
+ * an id that would collide with the game's own content is refused before anything is written.
+ *
+ * @returns the host for {@link newContent}.
+ */
+function newContentHost(): NewContentHost {
+    const shared = registerPartHost();
+    return {
+        ...shared,
+        existingIds: async (cls, cancellationToken) =>
+            await SchemaIdIndex.instance.idsForClass(
+                cls,
+                ((await getWorkspaceFoldersCached()) ?? []).map((folder) => uriToFsPath(folder.uri)),
+                cancellationToken
+            ),
     };
 }
 
@@ -3393,12 +3874,49 @@ async function rebuildModSchema(): Promise<ModSchemaSummary | null> {
  *
  * @param options `removeDeadFields` also strips every ignored/dead-field finding (fields the game
  * never reads) on top of the migrations. Off unless the user opted in. `dryRun` works the whole
- * migration out and answers with it as a diff, without changing anything.
+ * migration out and answers with it as a diff, without changing anything. `symbol` narrows the run
+ * to one deprecation-registry entry, and `scopeFsPath` names the file the bulk fix was invoked
+ * from, whose mod the run then stays inside. Both are given together, by the bulk fix only.
  * @returns the summary for the invoking client to display, or null without workspace folders.
  */
+/**
+ * Build the post-update report out of what this session already knows.
+ *
+ * The findings come from the scan cache rather than from a fresh pass, so the report describes
+ * exactly what the Problems panel shows, and only the entries computed under the current epoch and
+ * index revisions are taken, which is the same gate the persisted scan cache uses. The migration is
+ * asked for a dry run, which brings its own progress and fs trust window.
+ *
+ * @returns the report for the invoking client, or null when no workspace folder is open.
+ */
+async function postUpdateReport(): Promise<PostUpdateReportResult | null> {
+    const folders = await getWorkspaceFoldersCached();
+    const folderUris = (folders ?? []).map((folder) => folder.uri);
+    if (folderUris.length === 0) return null;
+    const epoch = workspaceScanEpoch;
+    const revisions = scanRevisionSum();
+    const entries: ScanCacheEntry[] = [];
+    for (const [key, entry] of scanResultCache) {
+        if (entry.epoch !== epoch || entry.revisions !== revisions) continue;
+        entries.push([key, entry.size, entry.mtimeMs, entry.diagnostics]);
+    }
+    const migration = await migrateWorkspace({ dryRun: true }).catch(() => null);
+    return await buildPostUpdateReport({
+        dataRoot: CosmoteerWorkspaceService.instance.dataRootPath,
+        folderPaths: folderUris.map(uriToFsPath),
+        wholeWorkspaceEnabled: wholeWorkspaceEnabled(),
+        maxProblems: globalSettings.maxNumberOfProblems,
+        settingsKey: scanSettingsKeyOf(),
+        entries,
+        migration: migration ?? undefined,
+    });
+}
+
 async function migrateWorkspace(options: {
     removeDeadFields?: boolean;
     dryRun?: boolean;
+    symbol?: string;
+    scopeFsPath?: string;
 }): Promise<MigrationSummary | null> {
     const folders = await getWorkspaceFoldersCached();
     const folderUris = (folders ?? []).map((folder) => folder.uri);
@@ -3419,8 +3937,19 @@ async function migrateWorkspace(options: {
         }
         // Same scope the diagnostics scan uses: only files the game can actually load.
         const scopeKeys = await validationScopeKeys(token);
-        const scoped = scopeKeys ? files.filter((file) => scopeKeys.has(reachabilityKey(file))) : files;
+        const loadable = scopeKeys ? files.filter((file) => scopeKeys.has(reachabilityKey(file))) : files;
         await ensureFragmentRooting(token).catch(() => undefined);
+        // A bulk fix for one deprecation stays inside the mod it was invoked from and only visits
+        // the files that can mention the old name. Both gates belong to that command: the
+        // whole-workspace migration deliberately covers every folder the user opened.
+        const scoped =
+            options.symbol !== undefined && options.scopeFsPath !== undefined
+                ? await narrowToSymbolScope(
+                      loadable,
+                      { symbol: options.symbol, scopeFsPath: options.scopeFsPath, folderPaths },
+                      token
+                  )
+                : loadable;
         // An open editor buffer wins over the disk content, and its (possibly differently-encoded)
         // uri is the one the WorkspaceEdit must target, or the client would open a second buffer.
         const openByNorm = new Map<string, TextDocument>();
@@ -3433,7 +3962,7 @@ async function migrateWorkspace(options: {
             deadFieldsRemoved: 0,
             unparsable: 0,
         };
-        const changes: { [uri: string]: TextEdit[] } = {};
+        const changes: MigrationChange[] = [];
         let done = 0;
         for (const file of scoped) {
             done++;
@@ -3462,7 +3991,8 @@ async function migrateWorkspace(options: {
                 parserResult.value,
                 doc,
                 options.removeDeadFields === true,
-                token
+                token,
+                options.symbol
             ).catch(() => undefined);
             progress.report(Math.round((done / scoped.length) * 100), `${done}/${scoped.length}`);
             if (!fileResult) continue;
@@ -3475,7 +4005,7 @@ async function migrateWorkspace(options: {
             if (fileResult.edits.length === 0) continue;
             summary.files++;
             if (!preview) {
-                changes[doc.uri] = fileResult.edits;
+                changes.push({ uri: doc.uri, fsPath: file, text: doc.getText(), edits: fileResult.edits });
                 continue;
             }
             // A dry run answers with the text the edits produce rather than with the edits, so the
@@ -3494,8 +4024,18 @@ async function migrateWorkspace(options: {
             summary.preview = preview.result();
             return summary;
         }
-        if (summary.files > 0) {
-            await connection.workspace.applyEdit({ changes });
+        if (changes.length > 0) {
+            // Only a file the author already has open goes through the editor. A workspace edit over
+            // a file nobody opened gives it a dirty tab, and a mod-wide rename would leave hundreds
+            // of them behind, which is the same trade the shared-base extraction makes.
+            const applied = await applyMigrationChanges(changes, sharedBaseHost(undefined, undefined));
+            summary.files = applied.files;
+            if (applied.failed.length > 0) {
+                connection.console.warn(
+                    `Migration could not write ${applied.failed.length} files, which are unchanged: ` +
+                        applied.failed.slice(0, 10).join(', ')
+                );
+            }
         }
         return summary;
     } finally {
@@ -3631,6 +4171,24 @@ connection.onRequest('cosmoteer/effectiveGroup', async (params: TextDocumentPosi
             (await generateEffectiveGroupReport(parserResult, document.offsetAt(params.position), cancellationToken)) ??
             null
         );
+    } catch (e) {
+        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        return null;
+    }
+});
+
+// Reference trace: explain one reference path hop by hop, which segment stopped it, where the last
+// one that worked landed, and what the game really has at that place. On demand only, since the walk
+// crosses files.
+connection.onRequest('cosmoteer/explainReference', async (params: TextDocumentPositionParams, cancellationToken) => {
+    const parserResult = ensureParserResult(params.textDocument.uri);
+    const document = documents.get(params.textDocument.uri);
+    if (!parserResult || !document) return null;
+    try {
+        // The walk resolves through mod additions and action-wired fragments, so the rooting indexes
+        // have to be current or a reference the game reads perfectly well would come back unresolved.
+        await ensureFragmentRooting(cancellationToken);
+        return (await generateReferenceTraceReport(parserResult, params.position, cancellationToken)) ?? null;
     } catch (e) {
         if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
         return null;

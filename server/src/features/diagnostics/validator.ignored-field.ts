@@ -28,7 +28,7 @@ import {
 } from '../../document/schema/schema-context';
 import { classAncestry, discriminatorIsAmbiguous, fieldOf, fieldsOf, schema } from '../../document/schema/schema';
 import { documentRootClass } from '../../document/schema/document-root';
-import { deprecatedField } from '../../document/schema/deprecations';
+import { deprecatedField, migrationSymbolOf } from '../../document/schema/deprecations';
 import { ValidationError, ValidationErrorData } from './validator';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
@@ -478,7 +478,7 @@ export const validateIgnoredFields = async (
             },
         };
         if (deprecation) {
-            data.migration = { version: deprecation.version };
+            data.migration = { version: deprecation.version, symbol: migrationSymbolOf('deletedField', name) };
             if (deprecation.replacement && !siblingNamed(node, deprecation.replacement, element)) {
                 // A same-shaped successor took over the deleted field's job: renaming keeps
                 // the author's configured value alive, which a bare removal would drop.

@@ -4,8 +4,8 @@ import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.s
 import { foldPathCase } from '../../workspace/fs-cache';
 import { localModDirs, workshopContentDir } from '../../workspace/workshop-dir';
 import { readFile } from 'fs/promises';
-import { currentGameVersionsLiteral } from '../diagnostics/validator.manifest-version';
-import { manifestPathsIn } from '../../mod/mod-dependencies';
+import { declaredCompatibleVersions, modVersionVerdict, readGameVersionInfo } from '../post-update/game-version';
+import { manifestPathsIn, readManifest } from '../../mod/mod-dependencies';
 import { enableModInSettings, enabledModFolders } from './game-settings-file';
 import { findSteamExecutable, gameLiveness, launchGame } from './game-process';
 import { loadedModKeyOf, sameLoadedMod } from './mod-identity';
@@ -61,8 +61,9 @@ export type RunGameResult =
           /** Where the settings file was backed up, when it was written. */
           readonly backup?: string;
           /**
-           * False when the mod's manifest does not name the installed game version. The game turns
-           * such a mod straight back off while loading, so it never appears and nothing says why.
+           * False when the mod's manifest names no game version this build accepts, the installed
+           * one or one of the older ones it still takes. The game turns such a mod straight back
+           * off while loading, so it never appears and nothing says why.
            */
           readonly compatible: boolean;
       }
@@ -179,27 +180,45 @@ const linkMod = async (
 };
 
 /**
- * Whether the mod's manifest names the installed game version. With the game's own
- * `AutoDisableMods` on, a mod it considers incompatible is removed from the enabled set while the
+ * Whether the installed game would read the mod as compatible with itself.
+ *
+ * This is the game's own rule, `ModInfo.IsCompatibleWithGameVersion`: a mod is compatible when its
+ * `CompatibleGameVersions` names the installed version or any member of
+ * `Cosmoteer.Versions.ModCompatibleGameVersions`, the roughly twenty older versions the build still
+ * accepts. A manifest that declares no list at all is incompatible to the game, since the field is
+ * optional and stays null, and null is the first thing that rule turns away. With the game's own
+ * `AutoDisableMods` on, a mod it reads as incompatible is removed from the enabled set while the
  * game loads, so it silently never appears however carefully it was enabled here.
  *
+ * The manifests are read through the parser. A good part of the workshop corpus keeps a
+ * commented-out version list above the live one, and reading a manifest as text takes the commented
+ * line and judges the mod by versions its author retired years ago.
+ *
+ * Every manifest of the mod is read as one list, rather than only the one the game would select.
+ * The union can only make the answer more generous, and being generous here costs the user a
+ * warning they did not need while being strict costs them a warning that is wrong.
+ *
  * @param modRoot the mod to check.
- * @returns false only when a manifest declares versions and none of them is the installed one, so
- *  an unreadable manifest or a game whose version could not be harvested never raises a false alarm.
+ * @param dataRoot the game `Data` root, whose assembly states which versions the build accepts.
+ * @returns false only when a manifest could be read and the game's rule turns it down, so an
+ *  unreadable manifest and an unreadable assembly both leave the answer at true rather than raising
+ *  a false alarm.
  */
-const namesInstalledGameVersion = async (modRoot: string): Promise<boolean> => {
-    const literal = await currentGameVersionsLiteral().catch(() => undefined);
-    const current = literal?.match(/"([^"]+)"/)?.[1];
-    if (!current) return true;
-    let declaredAnywhere = false;
+export const gameAcceptsModVersions = async (modRoot: string, dataRoot: string): Promise<boolean> => {
+    const info = await readGameVersionInfo(dataRoot).catch(() => undefined);
+    if (!info) return true;
+    let declared: string[] | undefined;
+    let readAnyManifest = false;
     for (const path of manifestPathsIn(modRoot)) {
-        const text = await readFile(path, 'utf8').catch(() => null);
-        const written = text?.match(/CompatibleGameVersions\s*=\s*\[([^\]\n]*)\]/i)?.[1];
-        if (written === undefined) continue;
-        declaredAnywhere = true;
-        if (written.includes(`"${current}"`) || written.split(',').some((entry) => entry.trim() === current)) return true;
+        const manifest = await readManifest(path);
+        if (!manifest) continue;
+        readAnyManifest = true;
+        const versions = declaredCompatibleVersions(manifest);
+        if (versions) declared = [...(declared ?? []), ...versions];
     }
-    return !declaredAnywhere;
+    if (!readAnyManifest) return true;
+    const verdict = modVersionVerdict(declared, info);
+    return verdict !== 'namesNone' && verdict !== 'undeclared';
 };
 
 /** Maps a settings-file refusal onto the command's own reason set. */
@@ -234,7 +253,11 @@ export const runInCosmoteer = async (args: RunGameArgs, host: RunGameHost): Prom
     if (!dataRoot) return { kind: 'refused', reason: 'no-install' };
     const installRoot = dirname(dataRoot);
     const executable = join(installRoot, 'Bin', 'Cosmoteer.exe');
-    if (!(await stat(executable).then((entry) => entry.isFile()).catch(() => false))) {
+    if (
+        !(await stat(executable)
+            .then((entry) => entry.isFile())
+            .catch(() => false))
+    ) {
         return { kind: 'refused', reason: 'no-executable', detail: executable };
     }
 
@@ -293,7 +316,7 @@ export const runInCosmoteer = async (args: RunGameArgs, host: RunGameHost): Prom
         }
     }
 
-    const compatible = await namesInstalledGameVersion(modRoot);
+    const compatible = await gameAcceptsModVersions(modRoot, dataRoot);
     launchGame(installRoot, await findSteamExecutable(installRoot), host.reportError);
     return { kind: 'started', modFolder, linked, enabled: result.kind === 'enabled', backup, compatible };
 };

@@ -1,0 +1,8 @@
+// A container hop the game reads as navigation rather than as a name.
+Odd
+{
+	..
+	{
+		Value = 1
+	}
+}

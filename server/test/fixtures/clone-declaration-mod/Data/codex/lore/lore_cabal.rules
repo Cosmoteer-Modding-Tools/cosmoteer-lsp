@@ -1,0 +1,19 @@
+ID = cabal
+TitleKey = "Lore/Cabal/Title"
+TabNameKey = "Codex/Lore"
+Entries
+[
+	{
+		Image
+		{
+			Texture
+			{
+				File = "./Data/factions/cabal.png"
+				SampleMode = Linear
+			}
+		}
+	}
+	{
+		TextKey = "Lore/Cabal/Lore1"
+	}
+]

@@ -1,0 +1,5 @@
+ID = test.fragmod
+Name = "Fragment Actions Fixture"
+Version = 1.0.0
+
+Actions : &<launcher.rules>/Actions

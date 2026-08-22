@@ -1,0 +1,11 @@
+Part
+{
+	ID = game.rock_part
+	Components
+	{
+		Sprite : &<../../shared/shared_sprites.rules>/Shared
+		{
+			Layer = "asteroid"
+		}
+	}
+}

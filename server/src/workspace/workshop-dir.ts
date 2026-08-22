@@ -2,6 +2,7 @@ import { existsSync, readdirSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 import { CosmoteerWorkspaceService } from './cosmoteer-workspace.service';
+import { cachedPathExists } from './fs-cache';
 
 /** Cosmoteer's Steam app id, which names its workshop content folder. */
 export const COSMOTEER_APP_ID = '799600';
@@ -18,7 +19,10 @@ export const workshopContentDir = (): string | undefined => {
     const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
     if (!dataRoot) return undefined;
     const dir = join(dataRoot, '..', '..', '..', 'workshop', 'content', COSMOTEER_APP_ID);
-    return existsSync(dir) ? dir : undefined;
+    // Every file a refactoring judges asks whether it sits in somebody else's installed mod, so the
+    // probe is memoized rather than paid per file. Subscribing to a mod creates the folder, and the
+    // memo is dropped on the watcher event that arrives with the mod's files.
+    return cachedPathExists(dir) ? dir : undefined;
 };
 
 /**

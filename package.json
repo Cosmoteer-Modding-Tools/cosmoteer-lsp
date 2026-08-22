@@ -4,7 +4,7 @@
     "description": "A complete language server for Cosmoteer rules",
     "author": "Cosmoteer Modding Tools",
     "license": "MIT",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
@@ -44,6 +44,11 @@
                 "category": "Cosmoteer"
             },
             {
+                "command": "cosmoteer.showPostUpdateReport",
+                "title": "Cosmoteer: Show What the Game Update Changed",
+                "category": "Cosmoteer"
+            },
+            {
                 "command": "cosmoteer.editPartGrid",
                 "title": "Cosmoteer: Edit Part Grid",
                 "category": "Cosmoteer"
@@ -74,6 +79,11 @@
                 "category": "Cosmoteer"
             },
             {
+                "command": "cosmoteer.explainReference",
+                "title": "Cosmoteer: Explain This Reference",
+                "category": "Cosmoteer"
+            },
+            {
                 "command": "cosmoteer.searchSchema",
                 "title": "Cosmoteer: Search Schema and Field Docs",
                 "category": "Cosmoteer"
@@ -86,6 +96,11 @@
             {
                 "command": "cosmoteer.importGameLog",
                 "title": "Cosmoteer: Import Problems from the Game Log",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.newContentFile",
+                "title": "Cosmoteer: New Content File",
                 "category": "Cosmoteer"
             }
         ],
@@ -110,6 +125,10 @@
                 {
                     "command": "cosmoteer.showEffectiveGroup",
                     "when": "editorLangId == rules"
+                },
+                {
+                    "command": "cosmoteer.explainReference",
+                    "when": "editorLangId == rules"
                 }
             ],
             "editor/context": [
@@ -127,6 +146,11 @@
                     "command": "cosmoteer.showPartWiring",
                     "when": "editorLangId == rules",
                     "group": "navigation@11"
+                },
+                {
+                    "command": "cosmoteer.explainReference",
+                    "when": "editorLangId == rules",
+                    "group": "navigation@12"
                 }
             ]
         },
@@ -142,7 +166,8 @@
                 ],
                 "aliases": [
                     "Cosmoteer Rules"
-                ]
+                ],
+                "configuration": "./language-configuration.json"
             },
             {
                 "id": "cosmoteer-shader",
@@ -367,6 +392,24 @@
                     "default": true,
                     "description": "Report a buff modifier, buff clamp or buff toggle naming a buff its own part never receives, so the value it drives can never move. The game hands a part a buff only while that part is registered as a receiver of it, which happens once per entry of its ReceivableBuffs and never otherwise, so providing the buff from the same part does not help either. The set is folded through the whole inheritance chain, and nothing is judged when any hop of that chain cannot be read. Shown as an editor hint."
                 },
+                "cosmoteerLSPRules.diagnostics.validatePaths": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Report a path-shaped field whose file or folder is not on disk. This covers the values the asset check cannot reach, because that one recognises a path by its extension and these carry one only the game knows: a music track, a markov name file, and the folder fields a ship library or a roof texture set is read from. The path is resolved the way the game resolves it, against the folder of the file it is written in."
+                },
+                "cosmoteerLSPRules.diagnostics.validateSpriteGeometry": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Hint at a damage level whose art is stretched differently from the other levels of its own sprite list. The game draws every level into the quad its Size names, so a level whose art shape disagrees with its siblings squashes or reads rotated the moment the part takes that damage. Only levels whose file and size can both be read are compared, and the first readable level sets the stretch the rest are judged against. Shown as an editor hint, not in the Problems panel."
+                },
+                "cosmoteerLSPRules.diagnostics.validateRenderLayers": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Report a sprite naming a render layer the ship that draws it does not declare. Layers belong to a ship class rather than to one pool, and the game looks the layer up in that ship's own map the first time the part is drawn, throwing when it is not there. A misspelled layer and one borrowed from another ship class are both reported. Layers a mod adds to a ship, and parts a mod registers to one, are taken into account."
+                },
                 "cosmoteerLSPRules.allowEditingVanillaFiles": {
                     "scope": "resource",
                     "type": "boolean",
@@ -464,6 +507,8 @@
         "watch:esbuild": "node esbuild.mjs --watch",
         "watch:esbuild-test": "node esbuild.mjs --watch --test",
         "lint": "eslint ./client/src ./server/src",
+        "lint:mod": "node out/server/src/cli/lint.mjs",
+        "package:cli": "node scripts/build-cli-package.mjs",
         "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
         "test": "sh ./scripts/e2e.sh",
         "test:server": "cd server && npm test",

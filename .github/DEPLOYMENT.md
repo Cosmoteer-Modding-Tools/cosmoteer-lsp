@@ -5,7 +5,7 @@ Two GitHub Actions workflows live in `.github/workflows/`:
 | Workflow | Trigger | Secrets | What it does |
 |----------|---------|---------|--------------|
 | `ci.yml` | push to `master`, any pull request | none | Type-check, lint, server tests, package the VSIX, build the plugin. Safe on forks. |
-| `release.yml` | push a `v*` tag, or manual dispatch | per environment | Build + verify both, attach to a GitHub Release, then publish behind approval gates. |
+| `release.yml` | push a `v*` tag, or manual dispatch | per environment | Build + verify both, attach to a GitHub Release, then publish the extension, the plugin and the lint command behind approval gates. |
 
 ## How a release works
 
@@ -18,10 +18,17 @@ Two GitHub Actions workflows live in `.github/workflows/`:
    git tag v0.4.0
    git push origin v0.4.0
    ```
-4. The `build` job runs, verifies the versions match the tag, runs the full plugin verifier, and creates a GitHub Release with the VSIX and the plugin zip attached.
-5. The `publish-vscode` and `publish-jetbrains` jobs then wait for approval. Approve them from the run page (Actions → the run → *Review deployments*). Nothing reaches a marketplace until you click **Approve**.
+4. The `build` job runs, verifies the versions match the tag, runs the full plugin verifier, and creates a GitHub Release with the VSIX, the plugin zip and the lint command's archive attached.
+5. The `publish-vscode`, `publish-jetbrains` and `publish-npm` jobs then wait for approval. Approve them from the run page (Actions → the run → *Review deployments*). Nothing is published until you click **Approve**.
 
 A pre-release version such as `0.4.0-eap.1` publishes the plugin to an `eap` channel instead of the default one, keeping it off users' stable feed.
+
+## The lint command on npm
+
+`scripts/build-cli-package.mjs` assembles `cosmoteer-rules-lint`, the headless check documented in
+[docs/cli.md](../docs/cli.md), from the same build the VSIX is packaged from. The release archive is
+a tar of that directory and the npm package is published from it, so the two channels can never
+disagree about what they carry.
 
 ## Notes
 

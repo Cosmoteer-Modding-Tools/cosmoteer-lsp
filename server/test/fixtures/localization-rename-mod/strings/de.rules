@@ -1,0 +1,13 @@
+// A half-translated language file: it declares Parts/Foo but not Parts/FooDesc, which is what a mod
+// in the middle of being translated looks like.
+__Name = "Deutsch"
+
+Parts
+{
+	Foo = "Foo-Bauteil"
+}
+
+PartsExtra
+{
+	Foo = "Ein Bauteil der anderen Gruppe."
+}

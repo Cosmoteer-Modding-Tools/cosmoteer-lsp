@@ -10,7 +10,6 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.Messages
 import com.redhat.devtools.lsp4ij.LanguageServerManager
 import com.redhat.devtools.lsp4ij.commands.LSPCommand
 import com.redhat.devtools.lsp4ij.commands.LSPCommandAction
@@ -88,14 +87,12 @@ class RegisterPartInShipCommandAction : LSPCommandAction() {
                 return@invokeLater
             }
             val labels = open.map { labelOf(it) }.toTypedArray()
-            val choice = Messages.showChooseDialog(
+            val choice = chooseOne(
                 project,
                 "The part is added to the ship class's Parts list. A ship class of the game's own " +
                     "install is patched from this mod's manifest instead, with an AddMany action.",
                 "Cosmoteer: Register Part In A Ship Class",
-                null,
-                labels,
-                labels.first()
+                labels
             )
             if (choice < 0) return@invokeLater
             args.addProperty("ship", open[choice].get("key")?.asString ?: return@invokeLater)

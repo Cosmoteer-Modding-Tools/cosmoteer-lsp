@@ -1,0 +1,16 @@
+ID = test.newcontent
+Name = "New Content Fixture"
+Version = 1.0.0
+StringsFolder = "strings"
+
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<cosmoteer.rules>/Ships"
+		ManyToAdd
+		[
+			&<ships/modship.rules>/ModShip
+		]
+	}
+]

@@ -357,8 +357,17 @@ const checkReference = async (
  * real group/list but whose final member does not exist. Cosmoteer allows inheriting
  * from a base that doesn't define that member (it just contributes nothing), so this is
  * not an error. Only genuine inheritance refs whose base is missing are flagged.
+ *
+ * Exported so the reference trace can say the same thing about the same reference. Without it the
+ * trace would call one of the most common shapes in the game's own files broken.
+ *
+ * @param node the reference value to classify.
+ * @param startNode the navigation origin.
+ * @param uri the referring document's uri.
+ * @param cancellationToken cancels the navigation.
+ * @returns true when the reference extends a base that exists and simply lacks the member.
  */
-const inheritanceExtendsMissingMember = async (
+export const inheritanceExtendsMissingMember = async (
     node: ValueNode,
     startNode: AbstractNode,
     uri: string,
@@ -441,8 +450,14 @@ const basePrefixResolvesToContainer = async (
  * reference. Flagging them produced hundreds of false positives on real mods, and the game resolves
  * them at instantiation regardless. (Trade-off: a typo inside a `~` path is no longer caught, but it
  * could never be told apart from a legitimate runtime member.)
+ *
+ * Exported so the reference trace names this refusal with the validator's own rule rather than
+ * deriving a second one, which is what keeps the report and the diagnostics in agreement.
+ *
+ * @param node the reference value to classify.
+ * @returns true when the reference is rooted at the runtime object.
  */
-const isRuntimeRootReference = (node: ValueNode): boolean => {
+export const isRuntimeRootReference = (node: ValueNode): boolean => {
     const value = node.valueType.value;
     if (typeof value !== 'string') return false;
     const withoutAmpersand = value.startsWith('&') ? value.substring(1) : value;
@@ -453,15 +468,28 @@ const isRuntimeRootReference = (node: ValueNode): boolean => {
  * Whether a reference path contains a `:` virtual-inheritance segment (`&:/v_A`, `&../:/v_Group1`).
  * `:` jumps to the most-derived inheritor of the node, which is unknowable statically (the
  * referenced member may exist only in a child), so such references are never validated.
+ *
+ * Exported for the reference trace, for the same reason as {@link isRuntimeRootReference}.
+ *
+ * @param value the reference text.
+ * @returns true when one of the path's segments is a `:`.
  */
-const hasVirtualInheritanceSegment = (value: string): boolean => {
+export const hasVirtualInheritanceSegment = (value: string): boolean => {
     if (typeof value !== 'string') return false;
     const withoutAmpersand = value.startsWith('&') ? value.substring(1) : value;
     return extractSubstrings(withoutAmpersand).some((segment) => segment.trim() === ':');
 };
 
-const isInheritanceInSameFile = (value: ValueNode) => {
-    return (
+/**
+ * Whether a reference is one of its own group's `..`-relative inheritance entries. Such a reference
+ * is written from the inheriting group's container, so it is resolved from there rather than from the
+ * value node itself. Exported so the reference trace starts its walk where the validator starts it.
+ *
+ * @param value the reference value to classify.
+ * @returns true when the value is a same-file inheritance entry written with `..`.
+ */
+export const isInheritanceInSameFile = (value: ValueNode): boolean => {
+    return !!(
         value.valueType.type === 'Reference' &&
         value.valueType.value.startsWith('..') &&
         value.parent &&

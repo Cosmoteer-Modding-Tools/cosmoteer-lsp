@@ -1,0 +1,12 @@
+Part
+{
+	ID = game.vanilla_part
+	Components
+	{
+		Sprite
+		{
+			Type = Sprite
+			Layer = "asteroid"
+		}
+	}
+}

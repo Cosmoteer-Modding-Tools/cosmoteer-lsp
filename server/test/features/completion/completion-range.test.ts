@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { valueRunAtCursor, wholeValueRange, withReplaceRange } from '../../../src/features/completion/completion-range';
+import { openQuoteSuffix, valueRunAtCursor, wholeValueRange, withReplaceRange } from '../../../src/features/completion/completion-range';
 
 // The client measures a completion's replace range with its own word pattern, which breaks at `.` and
 // `/`. These helpers measure it on the server instead, so a slash-joined key and a dotted id replace
@@ -40,5 +40,32 @@ describe('withReplaceRange', () => {
             { label: 'A', range },
             { label: 'B', detail: 'd', range },
         ]);
+    });
+
+    it('appends the suffix to the inserted value, never to a snippet', () => {
+        const range = { start: { line: 1, character: 2 }, end: { line: 1, character: 5 } };
+        expect(withReplaceRange(['A', { label: 'S', insertText: 'S { $0 }', isSnippet: true }], range, '"')).toEqual([
+            { label: 'A', range, insertText: 'A"' },
+            { label: 'S', insertText: 'S { $0 }', isSnippet: true, range },
+        ]);
+    });
+});
+
+// Nothing writes the closing quote of a value the user is typing: JetBrains and a hand-typed value
+// leave it missing, while an editor that auto-closes quotes has already put it right of the cursor.
+describe('openQuoteSuffix', () => {
+    it('closes an unclosed quoted value', () => {
+        expect(openQuoteSuffix('\t\tLayer = "roo', '\n')).toBe('"');
+        expect(openQuoteSuffix('\t\tLayer = "', '')).toBe('"');
+    });
+
+    it('adds nothing when the editor already closed the quote', () => {
+        expect(openQuoteSuffix('\t\tLayer = "roo', '"\n')).toBe('');
+        expect(openQuoteSuffix('\t\tLayer = "roofs"', '\n')).toBe('');
+    });
+
+    it('adds nothing to an unquoted value', () => {
+        expect(openQuoteSuffix('\t\tLayer = roo', '\n')).toBe('');
+        expect(openQuoteSuffix('\t\tLayer = ', '\n')).toBe('');
     });
 });

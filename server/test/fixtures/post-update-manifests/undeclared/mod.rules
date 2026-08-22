@@ -1,0 +1,3 @@
+// Declares no CompatibleGameVersions at all.
+ID = test.undeclared
+Name = "No declared versions"

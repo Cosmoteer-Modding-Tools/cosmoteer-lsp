@@ -1,0 +1,13 @@
+// A mod with nothing wrong and one action this check cannot judge.
+ID = Test.AssertUnsure
+Name = "Assert Unsure Fixture"
+Version = 1.0
+
+Actions
+[
+	{
+		Action = Remove
+		Remove = "<action_targets.rules>/Group/Gone"
+		IgnoreIfNotExisting = true
+	}
+]

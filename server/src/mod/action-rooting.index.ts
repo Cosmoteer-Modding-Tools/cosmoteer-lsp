@@ -60,7 +60,7 @@ const MAX_REFERENCE_HOPS = 4;
  * @param raw the target path as written (quotes already stripped by the lexer).
  * @returns true when every inner segment is a plain member name.
  */
-const isTypableTargetPath = (raw: string): boolean => {
+export const isTypableTargetPath = (raw: string): boolean => {
     const m = /^&?\s*<[^>]*>\s*(?:\/(.*))?$/.exec(raw.trim());
     if (!m) return false;
     const segments = (m[1] ?? '').split('/').map((s) => s.trim());

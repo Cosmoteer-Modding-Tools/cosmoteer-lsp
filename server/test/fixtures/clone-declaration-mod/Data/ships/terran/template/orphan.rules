@@ -1,0 +1,5 @@
+Part : <../missing_base.rules>/Part
+{
+	ID = cosmoteer.orphan
+	Size = [1, 1]
+}

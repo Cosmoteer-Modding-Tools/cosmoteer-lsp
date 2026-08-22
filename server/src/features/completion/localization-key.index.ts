@@ -1,5 +1,13 @@
 import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    IdentifierNode,
+    isAssignmentNode,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+} from '../../core/ast/ast';
 import { namedMembersOf } from '../../utils/ast.utils';
 import { isLocalizationKeyType } from '../../document/schema/schema';
 import { buildMatchPool, MatchPool } from '../../utils/did-you-mean';
@@ -34,7 +42,7 @@ interface StringsFileKeys {
  * `StringsFolder` resolution `isStringsFile` does. This runs against every project file during the
  * one-time build, so it must not re-read manifests per file.
  */
-const isStringsDocument = (document: AbstractNodeDocument): boolean =>
+export const isStringsDocument = (document: AbstractNodeDocument): boolean =>
     STRINGS_PATH_SEGMENT.test(normalizeUri(document.uri)) ||
     namedMembersOf(document).some(([name]) => name === '__Name');
 
@@ -46,33 +54,93 @@ const languageOf = (document: AbstractNodeDocument): string => {
     return normalizeUri(document.uri).split('/').pop()?.replace(/\.rules$/i, '') ?? '';
 };
 
-/**
- * Collect the localization key paths a strings container declares into `out`. A key is the
- * slash-joined path from the file root to a leaf value (`Misc` group → `Okay` leaf → `Misc/Okay`),
- * mapped to that leaf's text. Meta members (`__Name`, `__DebugOnly`) are engine directives, not keys.
- */
-const collectKeys = (container: { elements: AbstractNode[] }, prefix: string, out: Map<string, string>): void => {
-    for (const [name, value] of namedMembersOf(container)) {
-        if (name.startsWith('__')) continue;
-        const path = prefix ? `${prefix}/${name}` : name;
-        if (isGroupNode(value)) collectKeys(value, path, out);
-        else if (isListNode(value)) collectListKeys(value, path, out);
-        else if (isValueNode(value)) out.set(path, String(value.valueType.value));
-    }
-};
+/** One path a strings file declares, at the node that spells the path's last segment. */
+export interface LocalizationKeyDeclaration {
+    /** The path the game looks a string up by (`Misc/Okay`). */
+    path: string;
+    /** The identifier spelling the last segment, absent when that segment is a list position. */
+    nameNode?: IdentifierNode;
+    /** The list position the last segment stands for, absent for a named member. */
+    listIndex?: number;
+    /** The declared node, a leaf value or the group/list that holds the keys below this path. */
+    node: AbstractNode;
+    /** The translated text, present only for a leaf. A group holds further keys instead. */
+    text?: string;
+}
 
 /**
- * Collect the keys of a strings list into `out`, addressed by element index: vanilla's
- * `FameTitles [ "WHO??" … ]` is referenced as `FameTitles/0`, `FameTitles/1`, … by `career.rules`.
+ * Every path a strings container declares, in document order. A key is the slash-joined path from the
+ * file root to a leaf value (`Misc` group → `Okay` leaf → `Misc/Okay`). Groups and lists are yielded
+ * alongside the leaves, because a group's name is a segment every key beneath it carries, which is
+ * what lets a rename move a whole branch. Meta members (`__Name`, `__DebugOnly`) are engine
+ * directives, not keys.
  */
-const collectListKeys = (list: { elements: AbstractNode[] }, prefix: string, out: Map<string, string>): void => {
-    list.elements.forEach((element, index) => {
+function* declarationsIn(
+    container: { elements: AbstractNode[] },
+    prefix: string
+): Generator<LocalizationKeyDeclaration> {
+    for (const element of container.elements) {
+        let name: string | undefined;
+        let nameNode: IdentifierNode | undefined;
+        let member: AbstractNode | null | undefined;
+        if (isAssignmentNode(element)) {
+            name = element.left.name;
+            nameNode = element.left;
+            member = element.right;
+        } else if ((isGroupNode(element) || isListNode(element)) && element.identifier) {
+            name = element.identifier.name;
+            nameNode = element.identifier;
+            member = element;
+        }
+        if (!name || !nameNode || !member || name.startsWith('__')) continue;
+        const path = prefix ? `${prefix}/${name}` : name;
+        if (isGroupNode(member)) {
+            yield { path, nameNode, node: member };
+            yield* declarationsIn(member, path);
+        } else if (isListNode(member)) {
+            yield { path, nameNode, node: member };
+            yield* listDeclarationsIn(member, path);
+        } else if (isValueNode(member)) {
+            yield { path, nameNode, node: member, text: String(member.valueType.value) };
+        }
+    }
+}
+
+/**
+ * The paths of a strings list, addressed by element index: vanilla's `FameTitles [ "WHO??" … ]` is
+ * referenced as `FameTitles/0`, `FameTitles/1`, … by `career.rules`. Such a segment is a position
+ * rather than a name, which is why the declaration carries an index and no identifier.
+ */
+function* listDeclarationsIn(
+    list: { elements: AbstractNode[] },
+    prefix: string
+): Generator<LocalizationKeyDeclaration> {
+    for (let index = 0; index < list.elements.length; index++) {
+        const element = list.elements[index];
         const path = `${prefix}/${index}`;
-        if (isGroupNode(element)) collectKeys(element, path, out);
-        else if (isListNode(element)) collectListKeys(element, path, out);
-        else if (isValueNode(element)) out.set(path, String(element.valueType.value));
-    });
-};
+        if (isGroupNode(element)) {
+            yield { path, listIndex: index, node: element };
+            yield* declarationsIn(element, path);
+        } else if (isListNode(element)) {
+            yield { path, listIndex: index, node: element };
+            yield* listDeclarationsIn(element, path);
+        } else if (isValueNode(element)) {
+            yield { path, listIndex: index, node: element, text: String(element.valueType.value) };
+        }
+    }
+}
+
+/**
+ * Every localization key path `document` declares, leaves and the groups above them alike. One rule
+ * decides what a path is, so the index and the rename can never disagree about which key a line of a
+ * strings file declares.
+ *
+ * @param document the parsed strings file to read.
+ * @returns each declared path with the node spelling its last segment.
+ */
+export function keyDeclarationsOf(document: AbstractNodeDocument): Generator<LocalizationKeyDeclaration> {
+    return declarationsIn(document, '');
+}
 
 /** English-ish languages sort first in hover output so the most-read text leads. */
 const isEnglish = (language: string): boolean => /^en\b|english/i.test(language);
@@ -149,7 +217,9 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
         this.bySource.delete(source);
         if (!isStringsDocument(document)) return prior !== undefined;
         const keys = new Map<string, string>();
-        collectKeys(document, '', keys);
+        for (const declaration of keyDeclarationsOf(document)) {
+            if (declaration.text !== undefined) keys.set(declaration.path, declaration.text);
+        }
         const language = languageOf(document);
         if (keys.size) this.bySource.set(source, { language, keys });
         if (!prior) return keys.size > 0;
@@ -252,6 +322,44 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
      *  suggestion queries skip re-lowercasing the whole key set per broken key. */
     public async allKeysMatchPool(folderPaths: string[], cancellationToken: CancellationToken): Promise<MatchPool> {
         return (await this.mergedKeys(folderPaths, cancellationToken)).pool;
+    }
+
+    /**
+     * The strings files that declare `path`, as normalized source uris. With `prefix` the answer
+     * covers every key the path stands above, which is what a group rename moves. Matching folds
+     * case, because the game keys a node's children with an invariant case-insensitive comparer and
+     * vanilla itself relies on that (`doodad_asteroid_gold_s.rules` asks for `Doodads/Asteroidgold_S`
+     * while the strings file spells it `AsteroidGold_S`).
+     *
+     * The rename uses this to see whether anything outside the mod being edited already declares the
+     * key. The base game and another mod's strings cannot be written, so a key they also declare
+     * cannot be renamed from here without leaving the two spellings out of step.
+     *
+     * @param path the key path, or the group path when `prefix` is set.
+     * @param prefix whether every key beneath `path` counts, not just `path` itself.
+     * @param folderPaths the project folders the strings index is built from.
+     * @param cancellationToken cancellation for the index build.
+     * @returns the normalized uris of the declaring strings files, in index order.
+     */
+    public async sourcesDeclaring(
+        path: string,
+        prefix: boolean,
+        folderPaths: string[],
+        cancellationToken: CancellationToken
+    ): Promise<string[]> {
+        await this.ensureBuilt(folderPaths, cancellationToken);
+        const wanted = path.toLowerCase();
+        const branch = `${wanted}/`;
+        const sources: string[] = [];
+        for (const [source, file] of this.bySource) {
+            for (const key of file.keys.keys()) {
+                const folded = key.toLowerCase();
+                if (folded !== wanted && !(prefix && folded.startsWith(branch))) continue;
+                sources.push(source);
+                break;
+            }
+        }
+        return sources;
     }
 
     /**

@@ -1,0 +1,34 @@
+Part
+{
+	Components
+	{
+		CombinedStorage
+		{
+			Type = MultiResourceStorage
+			ResourceType = bullet
+			ResourceStorages = [BeltStorages]
+			ViaBuffs
+			{
+				IncomingBuffTypes = [AmmoSupply]
+				ComponentID = BeltStorages
+			}
+		}
+		BeltStoragesProxy
+		{
+			Type = ResourceStorageProxy
+			ResourceType = bullet
+			PartLocation = [-1, 4]
+			ProxyableComponents
+			[
+				{
+					PartCriteria
+					{
+						Category = ammo_supplier
+						Rot = 0
+					}
+					ComponentID = BeltStorages
+				}
+			]
+		}
+	}
+}

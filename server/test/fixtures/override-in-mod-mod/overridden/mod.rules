@@ -1,0 +1,20 @@
+ID = test.overridden
+Name = "Already Overridden Fixture"
+Version = 1.0.0
+
+Actions
+[
+	{
+		Action = Overrides
+		OverrideIn = "<parts/cannon/cannon.rules>/Part/Components/Weapon"
+		Overrides
+		{
+			Damage = 99
+		}
+	}
+	{
+		Action = Overrides
+		OverrideIn = "<parts/cannon/cannon.rules>/Part"
+		Overrides = &<fragments/part.rules>/Part
+	}
+]

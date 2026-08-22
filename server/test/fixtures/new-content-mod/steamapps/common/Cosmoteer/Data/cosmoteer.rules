@@ -1,0 +1,7 @@
+// Stands in for the game's own root rules file: the registries the command reads, and nothing else.
+Resources = &<resources/resources.rules>/Resources
+Ships
+[
+	&<ships/terran/terran.rules>/Terran
+	&<ships/inherited/inherited.rules>/Inherited
+]

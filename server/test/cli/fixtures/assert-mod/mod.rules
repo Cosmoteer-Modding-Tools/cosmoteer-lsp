@@ -1,0 +1,77 @@
+// A mod that shows every way this check can answer: an action that loads, actions that stop the
+// game or the mod, and one instance of each reason an action cannot be judged at all.
+ID = Test.AssertMod
+Name = "Assert Fixture"
+Version = 1.0
+
+Actions : &<fragment_actions.rules>/Actions
+[
+	// Loads: the target group is in the game data and the entry is named.
+	{
+		Action = Add
+		AddTo = "<action_targets.rules>/Group"
+		Name = ADDED_OK
+		ToAdd = &<content.rules>/Added
+	}
+	// Fails while the game applies it: there is no such file.
+	{
+		Action = Add
+		AddTo = "<parts/does_not_exist.rules>/Part"
+		Name = ADDED_BROKEN
+		ToAdd = 1
+	}
+	// Not judged: an AddBase carrying an Index re-slots every base behind it.
+	{
+		Action = AddBase
+		AddBaseTo = "<parts/derived_part.rules>/Part"
+		BaseToAdd = &<content.rules>/Added
+		Index = 0
+	}
+	// Not judged: the target names a position in a list.
+	{
+		Action = Add
+		AddTo = "<action_targets.rules>/List/0"
+		ToAdd = 3
+	}
+	// Not judged: the target steps back up the tree.
+	{
+		Action = Add
+		AddTo = "<action_targets.rules>/Group/.."
+		Name = NAV
+		ToAdd = 1
+	}
+	// Not judged: the action creates the target when it is missing.
+	{
+		Action = Add
+		AddTo = "<action_targets.rules>/Group/Nested"
+		Name = CREATED
+		ToAdd = 1
+		CreateIfNotExisting = true
+	}
+	// Not judged: the target belongs to another workshop mod.
+	{
+		Action = Overrides
+		OverrideIn = "<./Data/../../../workshop/content/799600/123456/mod.rules>/Foo"
+		Overrides
+		{
+			A = 1
+		}
+		IgnoreIfNotExisting = true
+	}
+	// Not judged: the action says its target may be missing.
+	{
+		Action = Remove
+		Remove = "<action_targets.rules>/Group/Gone"
+		IgnoreIfNotExisting = true
+	}
+	// Fails while the game reads the manifest: no such verb.
+	{
+		Action = Frobnicate
+		AddTo = "<action_targets.rules>/Group"
+	}
+	// Fails while the game reads the manifest: AddMany needs ManyToAdd.
+	{
+		Action = AddMany
+		AddTo = "<action_targets.rules>/List"
+	}
+]

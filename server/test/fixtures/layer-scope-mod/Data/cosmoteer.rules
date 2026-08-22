@@ -1,0 +1,5 @@
+Ships
+[
+	&<ships/terran/terran.rules>/Terran
+	&<ships/rock/rock.rules>/Rock
+]
