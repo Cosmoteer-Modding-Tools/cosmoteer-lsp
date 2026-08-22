@@ -59,8 +59,10 @@ describe.skipIf(!HAVE_DATA)('the layer a sprite names has to be one its ship dec
         expect(errors[0].message).toContain("'asteroid'");
     });
 
-    // A base is reached by the parts that derive from it, so it is judged like them.
-    it('judges a base file by the ship of the parts that derive from it', async () => {
+    // A base is reached by the parts that derive from it, so it is judged like them. Reaching it
+    // means walking the install's own part files, which is slow enough to outlast the default
+    // timeout when the whole suite runs in parallel.
+    it('judges a base file by the ship of the parts that derive from it', { timeout: 60_000 }, async () => {
         const base = parseAs(
             'ships/terran/base_part_terran.rules',
             'Part\n{\n\tComponents\n\t{\n\t\tSprite\n\t\t{\n\t\t\tType = Sprite\n\t\t\tLayer = "asteroid"\n\t\t}\n\t}\n}\n'

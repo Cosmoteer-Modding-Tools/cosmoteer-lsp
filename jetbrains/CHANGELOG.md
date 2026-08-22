@@ -21,11 +21,15 @@ Cosmoteer Language server provides a lot of useful features, like:
 
 ### Changed
 
+- Problems now appear about twice as fast after you stop typing.
+- Checking a whole mod is faster. A pass reads each folder once instead of once per reference into it, and which ships a part may be drawn on is worked out once for the project instead of once per part file.
+- The language server is started with more room for short-lived data, so the collections a whole-mod check used to trigger are rarer and no longer stall it for up to half a second at a time. It also settles back to less memory once the check is done.
 - The dead-field hint now also reads a field written as a bare list, the shape the game's own files use for effect collections. A `MediaEffects [ … ]` block that ended up on the component instead of on its hit or death slot is faded out with a remove quick fix instead of loading silently and doing nothing.
 - Semantic highlighting from the language server is on by default and is painted by the plugin itself, so the colors stay on the text while you type instead of dropping out whenever a request is still running.
 
 ### Fixed
 
+- A file written in the same instant the editor read the folder it sits in is no longer missed until something else changes there.
 - A value is now suggested while its quotes are still open. `Layer = "roo` used to answer with the group's field names rather than the ship render layers, and the accepted suggestion now writes the missing closing quote.
 - `Layer` written on an `IndicatorSprites` component is marked as having no effect, which is what the game does with it.
 - Turning semantic highlighting on or off now reaches the files you already have open, instead of only the next file you open.

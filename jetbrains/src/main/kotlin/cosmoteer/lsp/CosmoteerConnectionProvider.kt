@@ -21,7 +21,12 @@ import cosmoteer.settings.CosmoteerSettings
 class CosmoteerConnectionProvider(project: Project) : ProcessStreamConnectionProvider() {
     init {
         val node = resolveNode(project)
-        commands = listOf(node, PluginPaths.serverJs().toString(), "--stdio")
+        // The young-generation size the VS Code client also passes. A whole-mod check allocates one
+        // AST per file and drops it again, which fills Node's default young generation hundreds of
+        // times and promotes short-lived objects into the old generation, where clearing them costs
+        // a pause the user sees. `--expose-gc` lets the server hand that memory back once a check is
+        // over rather than sit on it.
+        commands = listOf(node, "--max-semi-space-size=64", "--expose-gc", PluginPaths.serverJs().toString(), "--stdio")
         project.basePath?.let { workingDirectory = it }
         userEnvironmentVariables = mapOf("EXTENSION_BUNDLE_PATH" to PluginPaths.l10nBundle().toString())
     }

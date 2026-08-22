@@ -21,8 +21,15 @@ All notable changes to this project will be documented in this file.
 - `--assert-loads` answers whether the game would load the mod at all. It walks every manifest action and answers with its own exit code, so a build fails on a mod that will not load.
 - What a game update did to your mod can now be asked for. `Cosmoteer: Show What the Game Update Changed` compares the project against what it reported under the previous game version and names every finding the update added and every one it took away.
 
+### Changed
+
+- Problems now appear about twice as fast after you stop typing.
+- Checking a whole mod is faster. A pass reads each folder once instead of once per reference into it, and which ships a part may be drawn on is worked out once for the project instead of once per part file.
+- The language server is started with more room for short-lived data, so the collections a whole-mod check used to trigger are rarer and no longer stall it for up to half a second at a time. It also settles back to less memory once the check is done.
+
 ### Fixed
 
+- A file written in the same instant the editor read the folder it sits in is no longer missed until something else changes there.
 - A value is now suggested while its quotes are still open. `Layer = "roo` used to answer with the group's field names rather than the ship render layers, and the accepted suggestion now writes the missing closing quote.
 - `Layer` written on an `IndicatorSprites` component is marked as having no effect, which is what the game does with it.
 - Renaming a localization key now moves it everywhere at once, rewriting the declaration in every language file the mod ships along with every field that names it. Before, it rewrote the one language file it was started from.

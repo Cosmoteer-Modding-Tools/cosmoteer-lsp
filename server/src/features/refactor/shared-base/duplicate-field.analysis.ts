@@ -1,9 +1,8 @@
 import { createHash } from 'crypto';
-import { existsSync } from 'fs';
 import { dirname, relative, resolve } from 'path';
 import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode } from '../../../core/ast/ast';
 import { CosmoteerWorkspaceService } from '../../../workspace/cosmoteer-workspace.service';
-import { onFsInvalidation } from '../../../workspace/fs-cache';
+import { cachedPathExists, onFsInvalidation } from '../../../workspace/fs-cache';
 import { collectBaseUses, resolveBasePath } from './base-index';
 import { extractableMembers, ExtractableMember, judgeContainer } from './extractability';
 import { BaseLocation, ExtractionPlan, ExtractionTier, MemberRecord, Participant } from './plan.types';
@@ -100,11 +99,13 @@ const computeBaseIdentity = (reference: string, declaringDir: string): string | 
     // still the answer when the file cannot be found, so a broken reference keeps its container.
     if (/^\.[\\/]/.test(path)) {
         const inGame = resolveBasePath(path, declaringDir);
-        if (inGame && existsSync(inGame)) return `${inGame.replace(/\\/g, '/').toLowerCase()}|${suffix.toLowerCase()}`;
+        if (inGame && cachedPathExists(inGame)) {
+            return `${inGame.replace(/\\/g, '/').toLowerCase()}|${suffix.toLowerCase()}`;
+        }
         return `game:${path.toLowerCase()}|${suffix.toLowerCase()}`;
     }
     const target = resolve(declaringDir, path);
-    if (!existsSync(target)) return undefined;
+    if (!cachedPathExists(target)) return undefined;
     return `${target.replace(/\\/g, '/').toLowerCase()}|${suffix.toLowerCase()}`;
 };
 

@@ -77,6 +77,7 @@ const touch = (file: FileWithPath): void => {
  */
 const statOrUndefined = async (fsPath: string): Promise<Stats | undefined> => {
     perfCount('fs.stat');
+    perfCount('fs.statPin');
     try {
         return await stat(fsPath);
     } catch {

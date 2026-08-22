@@ -76,7 +76,12 @@ const runPass = (label, cacheDir) =>
         const env = { ...process.env, LOCALAPPDATA: cacheDir };
         if (process.env.STARTUP_CPU_PROF) env.COSMOTEER_CPU_PROF = process.env.STARTUP_CPU_PROF;
         const t0 = Date.now();
-        const server = spawn('node', [SERVER, '--stdio'], { stdio: ['pipe', 'pipe', 'inherit'], env });
+        // The flags every client launches the server with, so the phases are timed under the same
+        // collection schedule a real session has.
+        const server = spawn('node', ['--max-semi-space-size=64', '--expose-gc', SERVER, '--stdio'], {
+            stdio: ['pipe', 'pipe', 'inherit'],
+            env,
+        });
 
         let buf = Buffer.alloc(0);
         const waiters = new Map();

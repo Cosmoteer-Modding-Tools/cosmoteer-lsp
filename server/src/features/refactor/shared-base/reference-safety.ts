@@ -1,5 +1,5 @@
-import { existsSync } from 'fs';
 import { isAbsolute, relative, resolve } from 'path';
+import { cachedPathExists } from '../../../workspace/fs-cache';
 
 /** A rewrite of one path inside a member's source, in offsets relative to that source. */
 export interface ReferenceRebase {
@@ -74,7 +74,7 @@ export const looksLikeAssetPath = (token: string): boolean => {
 export const rebasePath = (path: string, declaringDir: string, baseDir: string): string | undefined => {
     const target = resolve(declaringDir, path.trim());
     // Only a path that exists can be proven to still name the same file afterwards.
-    if (!existsSync(target)) return undefined;
+    if (!cachedPathExists(target)) return undefined;
     const rebased = relative(baseDir, target).replace(/\\/g, '/');
     if (rebased.length === 0 || isAbsolute(rebased)) return undefined;
     return rebased;
@@ -99,7 +99,7 @@ export const rebasePath = (path: string, declaringDir: string, baseDir: string):
 export const gameRootRebase = (path: string, declaringDir: string, dataRoot: string): string | undefined => {
     const target = resolve(declaringDir, path.trim());
     // Only a path that exists can be proven to still name the same file afterwards.
-    if (!existsSync(target)) return undefined;
+    if (!cachedPathExists(target)) return undefined;
     const rebased = relative(dataRoot, target).replace(/\\/g, '/');
     // A target outside the game tree has no game-root spelling, so the member is refused instead.
     if (rebased.length === 0 || isAbsolute(rebased) || rebased.startsWith('..')) return undefined;

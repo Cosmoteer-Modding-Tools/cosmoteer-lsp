@@ -797,8 +797,10 @@ function ensureParserResult(uri: string): AbstractNodeDocument | undefined {
     return result;
 }
 
-/** How long to sit out further keystrokes before a push-model validation runs. */
-const VALIDATION_DEBOUNCE_MS = 250;
+/** How long to sit out further keystrokes before a push-model validation runs. Validating one open
+ *  document costs a fraction of this, so the wait is what the user feels between typing and seeing
+ *  the problem. It only has to outlast the gap between two keystrokes of continuous typing. */
+const VALIDATION_DEBOUNCE_MS = 100;
 
 /** Per-uri debounce timers of the push-diagnostics flow (clients without pull support). */
 const pushValidationTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
@@ -1905,6 +1907,10 @@ async function runWorkspaceValidation(): Promise<void> {
     // Trust the fs caches for the duration of the pass: a scan re-checks the same directories and
     // base files tens of thousands of times, and the file watcher invalidates changed paths anyway.
     beginFsTrustWindow();
+    // Share one walk+stat sweep across the pass for the same reason. A client that cannot watch
+    // files leaves the mention index on its stateless sweep, which would otherwise re-stat the
+    // whole project once per reference query the pass makes.
+    beginStatSweepWindow();
     try {
         const files: string[] = [];
         for (const folder of folderUris) {
@@ -1987,12 +1993,48 @@ async function runWorkspaceValidation(): Promise<void> {
             }
         }
     } finally {
+        endStatSweepWindow();
         endFsTrustWindow();
         await stopScanCpuProfile();
         progress.done();
         if (workspaceValidationSource === source) workspaceValidationSource = undefined;
+        releaseScanMemory();
     }
 }
+
+/** How long after a pass the collection runs, long enough for the last publishes to be written and
+ *  short enough that the process is not left holding the pass's garbage while the user reads the
+ *  problems it produced. */
+const SCAN_MEMORY_RELEASE_DELAY_MS = 2_000;
+
+/** The pending collection, so a run of passes (a settings flip, a folder change) schedules one. */
+let scanMemoryReleaseTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Hands the memory a finished pass allocated back to the operating system. The pass touches every
+ * file of the project and drops each one again, which leaves a heap that is mostly garbage and a
+ * resident set several times the size the session settles at. The collector would get there on its
+ * own eventually, so this only decides when: at a moment the user is not waiting on anything, and
+ * not while they are typing into the next keystroke's validation.
+ *
+ * Needs the client to have started the server with `--expose-gc`, which all of ours do. Without it
+ * nothing happens and the heap shrinks whenever the collector decides.
+ */
+const releaseScanMemory = (): void => {
+    const collect = (globalThis as { gc?: () => void }).gc;
+    if (!collect || scanMemoryReleaseTimer) return;
+    scanMemoryReleaseTimer = setTimeout(() => {
+        scanMemoryReleaseTimer = undefined;
+        try {
+            // Twice: the first pass collects what the scan dropped, the second runs with the heap
+            // already small, which is when the collector compacts and gives pages back.
+            collect();
+            collect();
+        } catch {
+            // A collector that refuses is no reason to disturb the session.
+        }
+    }, SCAN_MEMORY_RELEASE_DELAY_MS).unref();
+};
 
 /**
  * How many files a pass has to cover before the client is told about it. Below this a whole-mod

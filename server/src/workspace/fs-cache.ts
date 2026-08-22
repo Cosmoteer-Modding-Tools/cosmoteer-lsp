@@ -1,4 +1,4 @@
-import { Dirent } from 'fs';
+import { Dirent, existsSync } from 'fs';
 import { readdir, readFile, stat } from 'fs/promises';
 import * as path from 'path';
 import { CancellationToken } from 'vscode-languageserver';
@@ -17,15 +17,25 @@ import { perfCount } from '../utils/perf-counters';
 // unchanged, parsed documents while the file's size and mtime are unchanged. Open editor buffers
 // always win over disk through the parser-result registrar, so navigation sees unsaved edits.
 
-/** Upper bound of cached directory listings. */
-const READDIR_CAP = 1_024;
+/** Upper bound of cached directory listings. One entry per directory of the game tree plus the
+ *  open mods, which a whole-workspace pass revisits from end to end. A cap below that count turns
+ *  the cache into a treadmill: the walk evicts the entries the reference resolutions are about to
+ *  ask for, and both pay a fresh listing. A listing is a handful of dirents, so the headroom is
+ *  cheap next to the syscalls it saves. */
+const READDIR_CAP = 16_384;
 /** Upper bound of cached parsed documents (LRU), bounding memory on huge mod/game trees. The
  *  whole-workspace scan's cross-file working set exceeds this on real mods, but raising it to
  *  1024 bought only ~0.6s of a 15s scan for ~130MB of peak heap, so the lower bound wins. */
 const PARSE_CAP = 512;
 
 type ReaddirEntry = { mtimeMs: number; entries: Dirent[]; seenGen?: number };
-type ParseEntry = { size: number; mtimeMs: number; document: AbstractNodeDocument; seenGen?: number };
+type ParseEntry = {
+    size: number;
+    mtimeMs: number;
+    document: AbstractNodeDocument;
+    seenGen?: number;
+    takenUnsettled?: boolean;
+};
 
 // During a whole-workspace scan, re-validating an unchanged cache entry with a stat per hit is the
 // dominant remaining syscall cost (one stat per path segment per reference). A scan opens a trust
@@ -112,6 +122,32 @@ const keyOf = (fsPath: string): string => {
     return key;
 };
 
+/** How long a modification time stays too young to prove anything. Filesystem timestamps are
+ *  quantized, so a write can land inside the same tick as the read that cached the old content,
+ *  and the two are then indistinguishable by mtime alone. */
+const MTIME_SETTLE_MS = 2_000;
+
+/**
+ * Whether a modification time is recent enough that a later write could still share it.
+ *
+ * @param mtimeMs the entry's modification time.
+ * @returns true while the timestamp cannot prove the file or directory is unchanged.
+ */
+const mtimeUnsettled = (mtimeMs: number): boolean => Date.now() - mtimeMs < MTIME_SETTLE_MS;
+
+/**
+ * Whether a cached file entry has to be read again before it may be served. An entry taken while
+ * its timestamp was still unsettled is served as it is (re-reading on every lookup would turn a
+ * save into a storm of re-parses), and read once more as soon as the timestamp is old enough to
+ * mean something. So content written inside the same tick as the cached read is picked up, without
+ * paying for the doubt more than once.
+ *
+ * @param entry the cached entry whose timestamp was matched.
+ * @returns true when the entry must be replaced by a fresh read.
+ */
+const staleWithinTick = (entry: { mtimeMs: number; takenUnsettled?: boolean }): boolean =>
+    entry.takenUnsettled === true && !mtimeUnsettled(entry.mtimeMs);
+
 /**
  * Deletes the oldest entries of a cache until it is back under its cap.
  *
@@ -130,7 +166,9 @@ const enforceCap = (cache: Map<string, unknown>, cap: number): void => {
  * `readdir(dirPath, { withFileTypes: true })` with an mtime-validated cache. Every hit stats the
  * directory and serves the cached listing only while the directory's mtime is unchanged. A file
  * created, deleted, or renamed in the directory updates that mtime, so the cache can never hide a
- * new file, while an unchanged directory answers with one `stat` instead of a full listing.
+ * new file, while an unchanged directory answers with one `stat` instead of a full listing. A
+ * directory whose mtime is still unsettled is listed again whatever the comparison says, since a
+ * write that lands in the same timestamp tick as the cached read is invisible to it.
  *
  * @param dirPath the directory to list.
  * @returns the directory's entries.
@@ -143,9 +181,10 @@ export const cachedReaddir = async (dirPath: string): Promise<Dirent[]> => {
         return trusted.entries;
     }
     perfCount('fs.stat');
+    perfCount('fs.statDir');
     const stats = await stat(dirPath);
     const cached = readdirCache.get(key);
-    if (cached && cached.mtimeMs === stats.mtimeMs) {
+    if (cached && cached.mtimeMs === stats.mtimeMs && !mtimeUnsettled(stats.mtimeMs)) {
         perfCount('fs.readdirHit');
         if (trustDepth > 0) cached.seenGen = trustGen;
         return cached.entries;
@@ -189,6 +228,8 @@ export const cachedDirLookup = async (dirPath: string): Promise<Map<string, stri
  * wins over disk, so navigation into a file with unsaved edits resolves against what the user
  * sees. Disk results are validated by size+mtime, so an external change re-reads while repeated
  * resolutions of the same target (the common case: many references into one base file) parse once.
+ * A result taken while the file's timestamp was still unsettled is read once more as soon as that
+ * timestamp can prove something, so a write inside the same tick is not served for the session.
  *
  * @param fsPath the on-disk path of the file.
  * @param cancellationToken cancels between the IO steps.
@@ -212,10 +253,11 @@ export const cachedParseFilePath = async (
         return trusted.document;
     }
     perfCount('fs.stat');
+    perfCount('fs.statFile');
     const stats = await stat(fsPath);
     if (cancellationToken?.isCancellationRequested) throw new CancellationError();
     const cached = parseCache.get(key);
-    if (cached && cached.size === stats.size && cached.mtimeMs === stats.mtimeMs) {
+    if (cached && cached.size === stats.size && cached.mtimeMs === stats.mtimeMs && !staleWithinTick(cached)) {
         perfCount('fs.parseHit');
         if (trustDepth > 0) cached.seenGen = trustGen;
         // Refresh LRU position.
@@ -237,9 +279,37 @@ export const cachedParseFilePath = async (
         mtimeMs: stats.mtimeMs,
         document,
         seenGen: trustDepth > 0 ? trustGen : undefined,
+        takenUnsettled: mtimeUnsettled(stats.mtimeMs),
     });
     enforceCap(parseCache, PARSE_CAP);
     return document;
+};
+
+/** Existence answers by path. The refactoring analyses ask whether a path a member carries names
+ *  a real file before they judge the member, which is one probe per reference of every member of
+ *  every file, over the same handful of paths a mod writes everywhere. */
+const existsMemo: Map<string, boolean> = new Map();
+
+/** Upper bound of memoized existence answers, well past the distinct paths a mod names. */
+const EXISTS_MEMO_CAP = 32_768;
+
+/**
+ * `existsSync` with a memo that lives until the next filesystem invalidation. Synchronous, for the
+ * judgement paths that cannot await, and never used to decide that a file the user just created is
+ * still missing, because a watcher event clears the memo with the rest of the caches.
+ *
+ * @param fsPath the path to probe.
+ * @returns whether the path exists.
+ */
+export const cachedPathExists = (fsPath: string): boolean => {
+    const key = keyOf(fsPath);
+    const cached = existsMemo.get(key);
+    if (cached !== undefined) return cached;
+    perfCount('fs.exists');
+    const answer = existsSync(fsPath);
+    if (existsMemo.size >= EXISTS_MEMO_CAP) existsMemo.clear();
+    existsMemo.set(key, answer);
+    return answer;
 };
 
 /**
@@ -275,12 +345,14 @@ export const primeParsedFile = async (fsPath: string, document: AbstractNodeDocu
 export const invalidateFsPath = (fsPath: string): void => {
     parseCache.delete(keyOf(fsPath));
     readdirCache.delete(keyOf(path.dirname(fsPath)));
+    existsMemo.clear();
     for (const listener of invalidationListeners) listener();
 };
 
-/** Empties both caches. For workspace-root changes and tests. */
+/** Empties the caches. For workspace-root changes and tests. */
 export const clearFsCaches = (): void => {
     readdirCache.clear();
     parseCache.clear();
+    existsMemo.clear();
     for (const listener of invalidationListeners) listener();
 };

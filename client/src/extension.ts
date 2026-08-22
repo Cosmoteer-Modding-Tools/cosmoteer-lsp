@@ -77,6 +77,15 @@ export async function activate(context: ExtensionContext) {
                 env: {
                     ...bundle,
                 },
+                // A whole-mod check allocates heavily and briefly (one AST per file, dropped again
+                // once its diagnostics are out). Node's default young generation is too small for
+                // that: it fills hundreds of times, and the objects that survive only because a
+                // collection caught them mid-file are promoted into the old generation, where
+                // clearing them costs a major collection the user feels as a pause. A larger young
+                // generation halves the collections and cuts the longest pause of a scan by more
+                // than half, at the price of a bigger resident set while the scan runs. `--expose-gc`
+                // lets the server hand that memory back once a check is over rather than sit on it.
+                execArgv: ['--max-semi-space-size=64', '--expose-gc'],
             },
             transport: TransportKind.ipc,
         },

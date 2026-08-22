@@ -81,7 +81,9 @@ describe.skipIf(!HAVE_DATA)('the ship a part is drawn on decides its layers', ()
 
     // The base every terran part derives from is named by no `Parts` list, but the parts that derive
     // from it are, and they reach it, so it is scoped like them rather than left to the pool.
-    it('scopes a base file through the parts that derive from it', async () => {
+    // The reach walk reads the install's part files, which outlasts the default timeout when the
+    // whole suite runs in parallel.
+    it('scopes a base file through the parts that derive from it', { timeout: 60_000 }, async () => {
         const base = await layerScopeForPart(join(DATA_DIR, 'ships/terran/base_part_terran.rules'), 'Part', context, token);
         expect(base.ships.map((ship) => ship.shipName)).toEqual(['Terran']);
         expect(judgeLayer(base, 'roofs')).toBe('accepted');

@@ -21,7 +21,6 @@ import {
     collectShipClasses,
     manifestsIn,
     modRootsUnder,
-    partsListRegisters,
     referenceTextsOf,
     shipEntryKey,
     shipPartsListOf,
@@ -100,6 +99,10 @@ interface ShipRecord {
 interface ShipLayerData {
     /** Every ship class reached, keyed by {@link shipEntryKey}. */
     ships: Map<string, ShipRecord>;
+    /** Registered part, keyed by {@link shipEntryKey}, to the ships whose lists name it. Resolving
+     *  a ship's list entries costs a path resolution each, and the question every part file asks is
+     *  the reverse one, so the lists are turned around once per build instead of walked per part. */
+    registeredBy: Map<string, ShipLayerScope[]>;
     /** Every layer id any ship declares, lower-cased. */
     allLayers: Set<string>;
     /** The reach of every ship, from its registered parts outward, built on first need. */
@@ -261,7 +264,23 @@ const build = async (context: ShipLayerContext, cancellationToken: CancellationT
     }
 
     for (const record of ships.values()) for (const layer of record.scope.layers) allLayers.add(layer);
-    return { ships, allLayers };
+
+    // The lists, read the other way round: part key to the ships naming it, in ship order, so a
+    // part reached by two ships is answered with both in the order the ships were built.
+    const registeredBy = new Map<string, ShipLayerScope[]>();
+    for (const record of ships.values()) {
+        for (const registration of record.registrations) {
+            for (const element of registration.elements) {
+                if (!isValueNode(element) || element.valueType.type !== 'Reference') continue;
+                const location = locationOf(String(element.valueType.value), registration.declaringDir);
+                if (!location || location.groupPath.length === 0) continue;
+                const key = shipEntryKey(location.fsPath, location.groupPath[0]);
+                const scopes = registeredBy.get(key) ?? registeredBy.set(key, []).get(key)!;
+                if (!scopes.some((known) => known.key === record.scope.key)) scopes.push(record.scope);
+            }
+        }
+    }
+    return { ships, registeredBy, allLayers };
 };
 
 /** How far each ship's parts reach: the ids they declare, and the files they pull in. */
@@ -389,13 +408,7 @@ export const layerScopeForPart = async (
     const own = data.ships.get(shipEntryKey(partFsPath, partGroupName));
     if (own) return { ships: [own.scope], allLayers: data.allLayers };
 
-    const ships: ShipLayerScope[] = [];
-    for (const record of data.ships.values()) {
-        const registers = record.registrations.some((registration) =>
-            partsListRegisters(registration.elements, registration.declaringDir, partFsPath, partGroupName)
-        );
-        if (registers) ships.push(record.scope);
-    }
+    const ships: ShipLayerScope[] = [...(data.registeredBy.get(shipEntryKey(partFsPath, partGroupName)) ?? [])];
     if (ships.length === 0) {
         // No list names this file. Two things still tie it to a ship: the id it declares, which a
         // copy of a game part keeps, and the parts that pull it in, which is how a base file or a

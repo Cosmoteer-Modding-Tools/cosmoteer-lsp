@@ -1,5 +1,6 @@
+import { Dirent } from 'fs';
 import { readFile } from 'fs/promises';
-import { join, sep } from 'path';
+import { resolve, sep } from 'path';
 import { cachedReaddir } from '../../workspace/fs-cache';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument } from '../../core/ast/ast';
@@ -56,11 +57,27 @@ export const uriToFsPath = (uri: string): string => {
  * @returns each rules file path under `dir`.
  */
 export async function* collectRulesFiles(dir: string): AsyncGenerator<string> {
-    const entries = await cachedReaddir(dir).catch(() => []);
-    for (const entry of entries) {
-        const full = join(dir, entry.name);
-        if (entry.isDirectory()) yield* collectRulesFiles(full);
-        else if (entry.isFile() && isRulesFileName(entry.name)) yield full;
+    // One generator frame walking an explicit stack, rather than a generator per directory
+    // delegating to the next: a project walk descends thousands of directories, and the delegation
+    // chain costs a promise hop per level per file. The root is resolved once so the children can
+    // be built by concatenation, which is what `join` would return for an already-normal path.
+    const root = resolve(dir);
+    const frames: Array<{ dir: string; entries: Dirent[]; index: number }> = [
+        { dir: root, entries: await cachedReaddir(root).catch(() => []), index: 0 },
+    ];
+    while (frames.length > 0) {
+        const frame = frames[frames.length - 1];
+        if (frame.index >= frame.entries.length) {
+            frames.pop();
+            continue;
+        }
+        const entry = frame.entries[frame.index++];
+        const full = frame.dir.endsWith(sep) ? frame.dir + entry.name : frame.dir + sep + entry.name;
+        if (entry.isDirectory()) {
+            frames.push({ dir: full, entries: await cachedReaddir(full).catch(() => []), index: 0 });
+        } else if (entry.isFile() && isRulesFileName(entry.name)) {
+            yield full;
+        }
     }
 }
 

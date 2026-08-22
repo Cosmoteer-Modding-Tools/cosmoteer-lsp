@@ -80,7 +80,11 @@ export class LanguageServerSession {
      * @returns once the server has answered the initialize request.
      */
     async start(): Promise<void> {
-        const server = spawn(process.execPath, [this.options.serverPath, '--stdio'], {
+        // The flags both editor clients pass, so a command-line check collects the same way an
+        // editor session does instead of paying extra major collections for the ASTs a whole-mod
+        // check allocates and drops.
+        const nodeArgs = ['--max-semi-space-size=64', '--expose-gc'];
+        const server = spawn(process.execPath, [...nodeArgs, this.options.serverPath, '--stdio'], {
             stdio: ['pipe', 'pipe', 'pipe'],
             env: this.options.env,
         });
