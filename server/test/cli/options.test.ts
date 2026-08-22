@@ -120,6 +120,6 @@ describe('the help', () => {
     });
 
     it('tells the reader how the tool is started', () => {
-        expect(helpText()).toContain('node out/server/src/cli/lint.mjs');
+        expect(helpText()).toContain('cosmoteer-rules-lint [options] [folder...]');
     });
 });

@@ -508,6 +508,7 @@
         "watch:esbuild-test": "node esbuild.mjs --watch --test",
         "lint": "eslint ./client/src ./server/src",
         "lint:mod": "node out/server/src/cli/lint.mjs",
+        "package:cli": "node scripts/build-cli-package.mjs",
         "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
         "test": "sh ./scripts/e2e.sh",
         "test:server": "cd server && npm test",

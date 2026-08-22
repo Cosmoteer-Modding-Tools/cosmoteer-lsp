@@ -233,8 +233,8 @@ describe.skipIf(!existsSync(CLI_BUNDLE) || !existsSync(SERVER_BUNDLE))('the lint
     it('answers the help and the version without running anything', () => {
         const help = runCli('--help');
         expect(help.code).toBe(0);
-        expect(help.stdout).toContain('node out/server/src/cli/lint.mjs');
-        expect(help.stdout).not.toContain('npx');
+        expect(help.stdout).toContain('cosmoteer-rules-lint [options] [folder...]');
+        expect(help.stdout).toContain('npx cosmoteer-rules-lint');
 
         const version = runCli('--version');
         expect(version.code).toBe(0);

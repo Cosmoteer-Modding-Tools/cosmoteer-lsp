@@ -17,7 +17,7 @@ All notable changes to this project will be documented in this file.
 - A part, a resource or anything else that declares an id can now be cloned under a name of your own. For a part the whole folder comes along, ids and paths are rewritten inside the copy, and the result is shown as a diff before anything is written.
 - A reference can now be walked segment by segment. `Cosmoteer: Explain This Reference` says which hop stopped, where the last one that worked landed, and every member the game really has at that place.
 - A deprecation a mod repeats across many files can now be fixed everywhere in one step. The lightbulb offers that one change for the whole mod beside the fix for the line under the caret, and shows every file it would rewrite as a diff first.
-- A mod can now be checked from the command line, so a build can fail on what the editor would have shown. `node out/server/src/cli/lint.mjs <folder>` runs the same whole-mod checks and reports as text, JSON, SARIF or GitHub annotations.
+- A mod can now be checked from the command line, so a build can fail on what the editor would have shown. `npx cosmoteer-rules-lint <folder>` runs the same whole-mod checks and reports as text, JSON, SARIF or GitHub annotations.
 - `--assert-loads` answers whether the game would load the mod at all. It walks every manifest action and answers with its own exit code, so a build fails on a mod that will not load.
 - What a game update did to your mod can now be asked for. `Cosmoteer: Show What the Game Update Changed` compares the project against what it reported under the previous game version and names every finding the update added and every one it took away.
 

@@ -375,7 +375,11 @@ export const helpText = (): string => {
     return `Check a Cosmoteer mod the way the editor checks it, and report what it finds.
 
 Usage
-  node out/server/src/cli/lint.mjs [options] [folder...]
+  cosmoteer-rules-lint [options] [folder...]
+
+Installed globally that is the command. Without installing it, "npx cosmoteer-rules-lint" runs the
+same thing, and a copy unpacked from a release archive is started as
+"node cosmoteer-rules-lint/cli/lint.mjs".
 
 With no folder, the current directory is checked. Every folder given is checked as one project.
 
