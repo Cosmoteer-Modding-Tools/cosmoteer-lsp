@@ -1,0 +1,9 @@
+Def
+{
+	EmitPerSecond = 4
+	MAX = &<../base_part.rules>/Part/MaxHealth
+	Texture
+	{
+		File = "../shared/shared_icon.png"
+	}
+}

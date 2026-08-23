@@ -1,0 +1,6 @@
+Part
+{
+	ID = cosmoteer.crew
+	Size = [1, 1]
+	EditorParentParts = [cosmoteer.crew2]
+}

@@ -11,6 +11,7 @@ import {
     isValueNode,
     ValueNode,
 } from '../../core/ast/ast';
+import { assignmentNameOf, childNodesOf } from '../../utils/ast.utils';
 import { listSlotType, resolveGroupClass } from '../../document/schema/schema-context';
 import { documentRootClass } from '../../document/schema/document-root';
 import { fieldOf, scalarReferenceTargetOf, typeDef } from '../../document/schema/schema';
@@ -44,7 +45,7 @@ export const schemaReferenceFieldOf = (
     if (isListNode(container)) {
         const owner = container.parent;
         if (!owner) return undefined;
-        const fieldName = container.identifier?.name ?? assignmentFieldNameOf(owner, container);
+        const fieldName = container.identifier?.name ?? assignmentNameOf(container);
         const cls = fieldName ? ownerClassOf(owner) : undefined;
         const field = cls && fieldName ? fieldOf(cls, fieldName) : undefined;
         const vt = field?.valueType;
@@ -82,7 +83,7 @@ export const schemaReferenceFieldOf = (
 
     // Direct field value: `Field = ref`.
     if (!(isGroupNode(container) || isDocumentNode(container))) return undefined;
-    const fieldName = assignmentFieldNameOf(container, node);
+    const fieldName = assignmentNameOf(node);
     const cls = fieldName ? ownerClassOf(container) : undefined;
     const field = cls && fieldName ? fieldOf(cls, fieldName) : undefined;
     if (field?.valueType.kind === 'reference')
@@ -115,22 +116,13 @@ export const mapEntryKeyTargetOf = (entry: GroupNode): string | undefined => {
     const list = entry.parent;
     if (!list || !isListNode(list)) return undefined;
     const owner = list.parent;
-    const fieldName = list.identifier?.name ?? (owner ? assignmentFieldNameOf(owner, list) : undefined);
+    const fieldName = list.identifier?.name ?? assignmentNameOf(list);
     if (!fieldName) return undefined;
     const cls = owner ? ownerClassOf(owner) : undefined;
     const vt = cls ? fieldOf(cls, fieldName)?.valueType : undefined;
     if (vt?.kind === 'map') return vt.key.kind === 'reference' ? vt.key.target : undefined;
     const candidates = REFERENCE_MAP_KEY_FIELDS.get(fieldName.toLowerCase());
     return candidates?.length === 1 ? candidates[0] : undefined;
-};
-
-/** The field name whose assignment value is `child`, among `container`'s elements. */
-const assignmentFieldNameOf = (container: AbstractNode, child: AbstractNode): string | undefined => {
-    if (!isGroupNode(container) && !isDocumentNode(container)) return undefined;
-    for (const element of container.elements) {
-        if (isAssignmentNode(element) && element.right === child) return element.left.name;
-    }
-    return undefined;
 };
 
 /**
@@ -148,7 +140,7 @@ export const declaringFieldOf = (
     const own = isGroupNode(container) || isListNode(container) ? container.identifier?.name : undefined;
     return {
         ownerClass: owner ? ownerClassOf(owner) : undefined,
-        fieldName: own ?? (owner ? assignmentFieldNameOf(owner, container) : undefined),
+        fieldName: own ?? assignmentNameOf(container),
     };
 };
 
@@ -172,7 +164,7 @@ export const isSameOrSubclass = (cls: string, target: string): boolean => {
 export const mapKeyTargetOf = (group: GroupNode): string | undefined => {
     const owner = group.parent;
     if (!owner) return undefined;
-    const fieldName = group.identifier?.name ?? assignmentFieldNameOf(owner, group);
+    const fieldName = group.identifier?.name ?? assignmentNameOf(group);
     const cls = fieldName ? ownerClassOf(owner) : undefined;
     const field = cls && fieldName ? fieldOf(cls, fieldName) : undefined;
     const vt = field?.valueType;
@@ -180,7 +172,7 @@ export const mapKeyTargetOf = (group: GroupNode): string | undefined => {
 };
 
 /** A map-key reference: the key's identifier node, the class its name references, and that name. */
-export interface MapKeyReference {
+interface MapKeyReference {
     readonly node: IdentifierNode;
     readonly targetClass: string;
     readonly value: string;
@@ -209,17 +201,11 @@ export function* mapKeyReferencesOf(document: AbstractNodeDocument): Generator<M
         if (keyId && mapGroup && isGroupNode(mapGroup)) {
             const target = mapKeyTargetOf(mapGroup);
             if (target) {
-                const owner = mapGroup.parent;
-                const fieldName = mapGroup.identifier?.name ?? (owner ? assignmentFieldNameOf(owner, mapGroup) : undefined);
+                const fieldName = mapGroup.identifier?.name ?? assignmentNameOf(mapGroup);
                 yield { node: keyId, targetClass: target, value: keyId.name, fieldName };
             }
         }
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) yield* visit(child);
     }
     for (const element of document.elements) yield* visit(element);

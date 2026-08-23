@@ -21,6 +21,7 @@ import { shaderConstants } from './shader-index';
 import { expandShaderSource } from './shader-source';
 import { translateToGlsl, type GlslTranslation } from './hlsl-to-glsl';
 import { materialConstants, materialShaderNode } from './shader-reference';
+import { childNamed, numberOf } from '../part-editor/vector-forms';
 
 /**
  * Assembles everything the live shader preview webview needs to render a material the way the game
@@ -31,7 +32,7 @@ import { materialConstants, materialShaderNode } from './shader-reference';
  */
 
 /** A shader constant the preview exposes, with its declared type and the value the material sets. */
-export interface ShaderPreviewConstant {
+interface ShaderPreviewConstant {
     /** The constant name including its leading underscore. */
     readonly name: string;
     /** The normalized kind (`float`, `vec3`, `texture`, …). */
@@ -55,7 +56,7 @@ export interface ShaderPreviewConstant {
 }
 
 /** The blend factors and operators a material draws with, using the engine's enum spellings. */
-export interface ShaderPreviewBlend {
+interface ShaderPreviewBlend {
     /** The named engine mode these factors correspond to, or `Custom` for an unmatched factor group. */
     readonly label: string;
     readonly srcRgb: string;
@@ -67,7 +68,7 @@ export interface ShaderPreviewBlend {
 }
 
 /** The sampler state a texture is drawn with, read from its rules fields (engine defaults when absent). */
-export interface ShaderPreviewSampler {
+interface ShaderPreviewSampler {
     /** `Point` or `Linear`. The engine default is `Point`; vanilla sets `Linear` on most textures. */
     readonly sampleMode: string;
     /** The horizontal wrap mode, `Clamp` or `Wrap`. */
@@ -81,7 +82,7 @@ export interface ShaderPreviewSampler {
 }
 
 /** A texture the material binds, keyed by the shader uniform it feeds (`_texture` for the base one). */
-export interface ShaderPreviewTexture {
+interface ShaderPreviewTexture {
     /** The sampler uniform name this texture feeds. */
     readonly name: string;
     /** The `file://` URI of the resolved image, or null when it did not resolve. */
@@ -95,7 +96,7 @@ export interface ShaderPreviewTexture {
  * game computes each particle's vertex colour on the CPU by lerping across the `ColorRamp` updater's
  * colours keyed by normalized lifetime, so the preview replays exactly that.
  */
-export interface ShaderPreviewParticleColor {
+interface ShaderPreviewParticleColor {
     /** The particle lifetime in seconds (the mean when the def gives a range). */
     readonly lifetime: number;
     /** True when the ramp is keyed by inverted lifetime. */
@@ -109,7 +110,7 @@ export interface ShaderPreviewParticleColor {
  * renders one cell of the texture, chosen per particle or animated over its lifetime, so the preview
  * must remap its UVs to a cell instead of stretching the whole sheet.
  */
-export interface ShaderPreviewSpriteSheet {
+interface ShaderPreviewSpriteSheet {
     /** The full texture size in pixels. */
     readonly textureSize: readonly number[];
     /** One cell's size in pixels. */
@@ -264,21 +265,8 @@ const assignmentValue = (group: GroupNode, name: string): ValueNode | null => {
     return null;
 };
 
-/** A direct child of a group by name: an assignment's value (any node kind) or a named group/list. */
-const childNamed = (group: GroupNode, name: string): AbstractNode | null => {
-    for (const element of group.elements) {
-        if (isAssignmentNode(element) && element.left.name === name && element.right) return element.right;
-        if ((isGroupNode(element) || isListNode(element)) && element.identifier?.name === name) return element;
-    }
-    return null;
-};
-
 /** The raw source text of a node, sliced from the document by its offsets. */
 const rawText = (node: AbstractNode, text: string): string => text.slice(node.position.start, node.position.end).trim();
-
-/** The numeric literal of a value node, or null when it is not a plain number. */
-const numberOf = (node: AbstractNode): number | null =>
-    isValueNode(node) && node.valueType.type === 'Number' ? (node.valueType.value as number) : null;
 
 /** The string form of a named child's value, or null. */
 const childText = (group: GroupNode, name: string): string | null => {

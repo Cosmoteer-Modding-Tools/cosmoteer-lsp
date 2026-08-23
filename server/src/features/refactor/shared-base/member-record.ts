@@ -60,6 +60,13 @@ export const memberSpanOf = (node: AbstractNode): { start: number; end: number }
     return { start, end };
 };
 
+/** Character codes the member scanners compare against, kept out of the loops. */
+const QUOTE = 34;
+const CARRIAGE_RETURN = 13;
+const SPACE = 32;
+const TAB = 9;
+const NEWLINE = 10;
+
 /**
  * The comparison form of a member's source: indentation dropped, runs of spaces and tabs inside a
  * line collapsed to one, blank lines dropped, and a trailing `,`/`;` removed. Line structure is kept
@@ -70,30 +77,49 @@ export const memberSpanOf = (node: AbstractNode): { start: number; end: number }
  * @returns the normalized text two members are compared by.
  */
 export const normalizeMemberText = (raw: string): string => {
-    let out = '';
+    // Scanned by char code over spans rather than character by character: the member texts of a
+    // whole mod pass through here twice per scan, and appending one character at a time built a
+    // string per character of every file in the project.
+    const parts: string[] = [];
+    let segmentStart = 0;
+    // The last character written out, which decides whether a run of spaces collapses to one or to
+    // nothing. -1 until something has been written.
+    let last = -1;
     let quoted = false;
-    for (const char of raw) {
+    const flush = (end: number): void => {
+        if (end <= segmentStart) return;
+        parts.push(raw.slice(segmentStart, end));
+        last = raw.charCodeAt(end - 1);
+    };
+    for (let i = 0; i < raw.length; i++) {
+        const code = raw.charCodeAt(i);
         if (quoted) {
             // Quoted text is the value itself. Collapsing whitespace in it would make two members
             // whose strings differ only in spacing compare equal, and they would then be merged.
-            out += char;
-            if (char === '"') quoted = false;
+            if (code === QUOTE) quoted = false;
             continue;
         }
-        if (char === '"') {
+        if (code === QUOTE) {
             quoted = true;
-            out += char;
             continue;
         }
-        if (char === '\r') continue;
-        if (char === ' ' || char === '\t') {
-            const last = out[out.length - 1];
-            if (last !== undefined && last !== ' ' && last !== '\n') out += ' ';
+        if (code === CARRIAGE_RETURN) {
+            flush(i);
+            segmentStart = i + 1;
             continue;
         }
-        out += char;
+        if (code === SPACE || code === TAB) {
+            flush(i);
+            if (last !== -1 && last !== SPACE && last !== NEWLINE) {
+                parts.push(' ');
+                last = SPACE;
+            }
+            segmentStart = i + 1;
+        }
     }
-    return out
+    flush(raw.length);
+    return parts
+        .join('')
         .replace(/ +\n/g, '\n')
         .replace(/\n+/g, '\n')
         .replace(/^\n+|\n+$/g, '')

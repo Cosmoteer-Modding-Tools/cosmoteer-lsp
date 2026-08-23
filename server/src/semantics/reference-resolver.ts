@@ -18,7 +18,7 @@ import { isNumber } from '../utils/utils';
  * resolver shared by navigation, validation, hover and completion) resolves `^/N` into an added base
  * consistently. `extraIndex` is 0-based past the static list.
  */
-export type InheritanceExtensionSource = (node: AbstractNode, extraIndex: number) => AbstractNode | undefined;
+type InheritanceExtensionSource = (node: AbstractNode, extraIndex: number) => AbstractNode | undefined;
 
 let inheritanceExtensionSource: InheritanceExtensionSource | undefined;
 
@@ -41,7 +41,7 @@ export const registerInheritanceExtensionSource = (source: InheritanceExtensionS
  * Overrides-injected member the same way for navigation, validation, hover and completion. Consulted
  * only when the node has no such member of its own.
  */
-export type MemberExtensionSource = (node: AbstractNode, member: string) => AbstractNode | undefined;
+type MemberExtensionSource = (node: AbstractNode, member: string) => AbstractNode | undefined;
 
 let memberExtensionSource: MemberExtensionSource | undefined;
 
@@ -60,9 +60,41 @@ export const registerMemberExtensionSource = (source: MemberExtensionSource | un
  * answers one name at a time, which is all a reference path needs. A walker that enumerates a
  * container's effective members has to ask what those names are.
  */
-export type MemberEnumerationSource = (node: AbstractNode) => string[];
+type MemberEnumerationSource = (
+    node: AbstractNode
+) => Array<{ name: string; precedence: InjectionPrecedence; value: AbstractNode }>;
+
+/**
+ * What an injected member does to a member of the same name the node writes itself. `replaces` is
+ * the game replacing the node's own child, so the injected declaration is the one it reads there.
+ * `adds` inserts beside it, which the game refuses to load when the name is already taken, so such
+ * an injection never wins. `removes` deletes the node's own child, and what the game reads under
+ * that name afterwards is whatever a base supplies, or nothing. `rewrites` is a `Replace`, which
+ * names an existing member rather than merging one in: where the node writes no such member the
+ * action rewrites something else, or nothing, and it must not invent one here.
+ */
+export type InjectionPrecedence = 'replaces' | 'adds' | 'removes' | 'rewrites';
 
 let memberEnumerationSource: MemberEnumerationSource | undefined;
+
+/**
+ * The member a mod's `Overrides` action puts in place of the one a node writes itself. Separate from
+ * {@link MemberExtensionSource}, which answers for a member the node does not write: this one is
+ * asked before the node's own members and must answer only where the game really replaces them.
+ */
+type MemberReplacementSource = (node: AbstractNode, member: string) => AbstractNode | undefined;
+
+let memberReplacementSource: MemberReplacementSource | undefined;
+
+/**
+ * Registers the source of replacing injected members. Same registration inversion as
+ * {@link registerMemberExtensionSource}.
+ *
+ * @param source the replacement source, or undefined to clear it (tests).
+ */
+export const registerMemberReplacementSource = (source: MemberReplacementSource | undefined): void => {
+    memberReplacementSource = source;
+};
 
 /**
  * Registers the source of injected member names. Same registration inversion as
@@ -80,15 +112,10 @@ export const registerMemberEnumerationSource = (source: MemberEnumerationSource 
  * @param node the container to ask about.
  * @returns one entry per injected member, empty when no mod touches this node.
  */
-export const injectedMembersOf = (node: AbstractNode): Array<{ name: string; value: AbstractNode }> => {
-    const names = memberEnumerationSource?.(node) ?? [];
-    const injected: Array<{ name: string; value: AbstractNode }> = [];
-    for (const name of names) {
-        const value = memberExtensionSource?.(node, name);
-        if (value) injected.push({ name, value });
-    }
-    return injected;
-};
+export const injectedMembersOf = (
+    node: AbstractNode
+): Array<{ name: string; value: AbstractNode; precedence: InjectionPrecedence }> =>
+    memberEnumerationSource?.(node) ?? [];
 
 /**
  * Canonical single-step navigation within the in-memory AST.
@@ -160,9 +187,16 @@ export const stepIntoNode = (
             // still resolve precisely. Reference paths look members up per segment, per
             // reference, so the per-container name tables are built once and reused.
             const index = memberIndexOf(node);
-            if (index.exact.has(segment)) return index.exact.get(segment);
-            const lower = index.lower.get(segment.toLowerCase());
-            if (lower !== undefined) return lower;
+            const exact = index.exact.has(segment);
+            const lower = exact ? undefined : index.lower.get(segment.toLowerCase());
+            if (exact || lower !== undefined) {
+                // A mod action that rewrites this node's own child answers before the node does,
+                // and only here: a verb that rewrites a member creates none, so it must never be
+                // asked about a name the node does not write.
+                const replaced = memberReplacementSource?.(node, segment);
+                if (replaced) return replaced;
+                return exact ? index.exact.get(segment) : lower;
+            }
             // The node defines no such member itself, so a member a mod's nested `Overrides` action
             // merges in resolves here (undefined when nothing is injected, the prior behaviour).
             return memberExtensionSource?.(node, segment) ?? null;

@@ -1,0 +1,26 @@
+// A second file, so the sweep has to reach past the one the rename started in. It also carries the
+// two shapes the rewrite must leave alone: a key handed over as a reference rather than written out,
+// and a key spelled as a verbatim string, whose text does not line up with the source it was read
+// from. The last part points at the neighbouring group, which a prefix rename must not touch.
+Part
+{
+	ID = test.loc_b
+	NameKey = "Parts/Foo"
+	DescriptionKey = "Parts/FooDesc"
+	Size = [1, 1]
+}
+
+Part
+{
+	ID = test.loc_b_ref
+	NameKey = &<a.rules>/Part/NameKey
+	DescriptionKey = @"Parts/FooDesc"
+	Size = [1, 1]
+}
+
+Part
+{
+	ID = test.loc_b_other
+	NameKey = "PartsExtra/Foo"
+	Size = [1, 1]
+}

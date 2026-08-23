@@ -16,15 +16,15 @@ import {
     AbstractNode,
     AbstractNodeDocument,
     isAssignmentNode,
-    isDocumentNode,
     isGroupNode,
     isListNode,
     isValueNode,
 } from '../../core/ast/ast';
+import { childNodesOf } from '../../utils/ast.utils';
 import { schema } from './schema';
 import { ValueType } from './schema.types';
 
-export const PART_CATEGORY_CLASS = 'Cosmoteer.Ships.Parts.PartCategory';
+const PART_CATEGORY_CLASS = 'Cosmoteer.Ships.Parts.PartCategory';
 
 /** Every reference target class the schema mentions anywhere in a field value type. */
 const referenceTargetsOf = (valueType: ValueType, out: Set<string>): void => {
@@ -94,7 +94,7 @@ const MARKER_FIELD_TARGETS: ReadonlyMap<string, ReadonlySet<string>> = (() => {
 })();
 
 /** A marker-class usage: the class the position targets and the written id, both declaring it. */
-export interface MarkerUsage {
+interface MarkerUsage {
     readonly cls: string;
     readonly id: string;
 }
@@ -131,12 +131,7 @@ export function* markerUsagesOf(document: AbstractNodeDocument): Generator<Marke
         // The named container spellings: `TypeCategories [ … ]` and the inheriting
         // `TypeCategories : ^/0/TypeCategories [ … ]` carry no assignment node.
         if ((isListNode(node) || isGroupNode(node)) && node.identifier) yield* usagesAt(node.identifier.name, node);
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) yield* visit(child);
     }
     for (const element of document.elements) yield* visit(element);

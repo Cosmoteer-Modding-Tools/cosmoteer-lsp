@@ -1,0 +1,51 @@
+// Fixture for the reference trace. Every reference below fails in one specific way, so a test can
+// pin the exact hop the walk stops at and what the report offers there. Nothing here is meant to be
+// a file the game would load.
+Base
+{
+	Kept = 1
+}
+
+Entries
+[
+	1
+	2
+]
+
+Deriving : Base
+{
+	Extra = 2
+	// The file hop itself fails: there is no such file next to this one.
+	NoSuchFile = &<missing.rules>/Anything
+	// The file hop resolves, and the member after it is looked up in that file.
+	CrossFile = &<../colors.rules>/Black
+	// A list position past the end: Entries has two entries.
+	PastEnd = &../Entries/5
+	// A scalar with a further segment: Kept is a number, so nothing can follow it.
+	IntoScalar = &Kept/Deeper
+	// A base number the container does not have: Deriving declares one base.
+	NoSuchBase = &^/2/Kept
+	// A near miss of a member this group writes.
+	Typo = &Etxra
+	// A member only the base declares, so the hop is found through the inheritance chain.
+	FromBase = &Kept
+	// A "." segment: the game's own path grammar allows it, the resolver has no rule for it.
+	Dotted = &../Base/./Kept
+	// A bare reference standing alone as a list element. The parser reads it as an identifier rather
+	// than as a value, because the element in front of it is not a value.
+	Bare
+	[
+		{ Type = Beam }
+		&../../Base/Kept
+	]
+}
+
+// A group extending a member its base does not declare. The game allows that: the base contributes
+// nothing to the member and the group keeps what it writes itself.
+Extending : Base
+{
+	Widen : ^/0/Widen
+	{
+		Extra = 3
+	}
+}

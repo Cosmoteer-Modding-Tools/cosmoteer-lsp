@@ -28,9 +28,9 @@ import {
 } from '../../document/schema/schema-context';
 import { classAncestry, discriminatorIsAmbiguous, fieldOf, fieldsOf, schema } from '../../document/schema/schema';
 import { documentRootClass } from '../../document/schema/document-root';
-import { deprecatedField } from '../../document/schema/deprecations';
+import { deprecatedField, migrationSymbolOf } from '../../document/schema/deprecations';
 import { ValidationError, ValidationErrorData } from './validator';
-import { getStartOfAstNode } from '../../utils/ast.utils';
+import { childNodesOf, getStartOfAstNode } from '../../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
 
 // Per-document memo of the reference-segment set. Documents are replaced wholesale on re-parse, so
@@ -157,7 +157,7 @@ const EMBEDDED_REFERENCE = /&[^\s()"]+/g;
 const BARE_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
 
 /** The callbacks {@link walkReferenceReads} feeds, one per read shape it finds. */
-export interface ReferenceReadHooks {
+interface ReferenceReadHooks {
     /** A reference text: a Reference value, a `&…` embedded in a string, a bare `&…` member. */
     reference: (text: string, owner: string | undefined) => void;
     /** A string value that is a plain identifier, the shape a schema id field names a member with. */
@@ -240,6 +240,20 @@ export const referencedSegments = (document: AbstractNodeDocument): Set<string> 
 };
 
 /**
+ * Whether a registry dispatches to this class, without materializing its member list per call.
+ *
+ * @param registryKey the registry whose members are searched.
+ * @param cls the class the group resolved to.
+ * @returns true when one of the registry's discriminators names the class.
+ */
+const registryDeclaresClass = (registryKey: string, cls: string): boolean => {
+    const members = schema.registries[registryKey]?.members;
+    if (!members) return false;
+    for (const discriminator in members) if (members[discriminator] === cls) return true;
+    return false;
+};
+
+/**
  * Whether the named member of `group` is provably ignored by the game: the group resolves to a
  * `purelyReflective` class (schemagen proved its whole `extends` chain reads only its `[Serialize]`
  * members, so the member list is the complete set of keys the engine reads), the class does not
@@ -289,8 +303,7 @@ export const ignoredFieldClass = (group: GroupNode, name: string, document: Abst
     // so a poor fit does not signal a mis-resolution but a group that genuinely carries mostly dead
     // fields, which is precisely the group the hint helps most. The mis-resolutions the guard defends
     // against never have both anchors agreeing.
-    const slotPinned =
-        !!disc && !!slotRegistry && Object.values(schema.registries[slotRegistry]?.members ?? {}).includes(cls);
+    const slotPinned = !!disc && !!slotRegistry && registryDeclaresClass(slotRegistry, cls);
     if (!slotPinned && !classFitsGroup(group, cls)) return undefined;
     const def = schema.types[cls];
     // The class must be purely reflective (its member list is the complete read set) and concrete. An
@@ -478,7 +491,7 @@ export const validateIgnoredFields = async (
             },
         };
         if (deprecation) {
-            data.migration = { version: deprecation.version };
+            data.migration = { version: deprecation.version, symbol: migrationSymbolOf('deletedField', name) };
             if (deprecation.replacement && !siblingNamed(node, deprecation.replacement, element)) {
                 // A same-shaped successor took over the deleted field's job: renaming keeps
                 // the author's configured value alive, which a bare removal would drop.
@@ -557,12 +570,7 @@ export const validateIgnoredFields = async (
                 if (cls) report(node, member, cls);
             }
         }
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) if (child) visit(child);
     };
     // A file that is one object writes its members at the top level (a whole-file media effect, a

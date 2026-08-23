@@ -18,13 +18,13 @@ import { foldPathCase } from '../../workspace/fs-cache';
  */
 
 /** What the enable attempt did, or why it refused to touch the file. */
-export type EnableModResult =
+type EnableModResult =
     | { readonly kind: 'already-enabled'; readonly entry: string }
     | { readonly kind: 'enabled'; readonly text: string; readonly entry: string }
     | { readonly kind: 'refused'; readonly reason: EnableRefusal };
 
 /** Why the settings file was left alone. Each is a shape the game did not write. */
-export type EnableRefusal = 'unparseable' | 'no-game-settings' | 'no-enabled-mods' | 'not-equivalent' | 'bad-entry';
+type EnableRefusal = 'unparseable' | 'no-game-settings' | 'no-enabled-mods' | 'not-equivalent' | 'bad-entry';
 
 /**
  * How a mod folder is written into `EnabledMods`: relative to the settings file when it sits under

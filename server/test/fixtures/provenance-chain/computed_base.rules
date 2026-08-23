@@ -1,0 +1,6 @@
+// The base writes a value the game works out as it loads, so an override of it has no earlier
+// value to quote.
+MathBase
+{
+	Computed = 1 + 2
+}

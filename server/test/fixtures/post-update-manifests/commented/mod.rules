@@ -1,0 +1,9 @@
+// Shaped after the installed workshop corpus, where a commented-out version list is kept above the
+// live one. Reading the file as text takes the commented line, reading it as a tree takes the live one.
+ID = test.commented
+Name = "Commented list above the live one"
+Version = 1.0
+
+//CompatibleGameVersions = [ "0.29.0" ]
+
+CompatibleGameVersions = [ "0.30.4c" ]

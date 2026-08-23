@@ -19,7 +19,7 @@ import { allShaderUniformNames, shaderConstants } from '../shader/shader-index';
 import { ShaderConstantKind } from '../shader/shader-parser';
 import { materialConstants, materialShaderNode } from '../shader/shader-reference';
 import { closestMatch } from '../../utils/did-you-mean';
-import { ValidationError } from './validator';
+import { didYouMeanFix, ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 
 /**
@@ -173,9 +173,7 @@ export const validateShaderConstants = async (
                     ),
                     node: constant.key,
                     severity: 'warning',
-                    ...(suggestion
-                        ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
-                        : {}),
+                    ...didYouMeanFix(suggestion),
                 });
                 continue;
             }

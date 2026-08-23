@@ -19,6 +19,13 @@ import {
 } from '../../semantics/value-evaluator';
 import { formatWithUnit, unitForValue } from '../../semantics/value-units';
 import { globalSettings } from '../../settings';
+import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
+import { getStartOfAstNode } from '../../utils/ast.utils';
+import { describeTargetInline } from '../hover/target-preview';
+import { FileWithPath } from '../../workspace/cosmoteer-workspace.service';
+
+/** The resolver for a reference whose target is not a number, shared by every hint that needs one. */
+const navigation = new FullNavigationStrategy();
 
 /**
  * Inlay hints (`textDocument/inlayHint`) showing the computed result of math assignments
@@ -156,7 +163,11 @@ export class InlayHintService {
             // game's ModifiableValue shape (`Arc { BaseValue = 160d }`). Its BaseValue is the
             // number the reference effectively supplies, so surface that member instead.
             if (group.length === 1 && isReferenceValueNode(group[0])) {
-                await this.emitBaseValueHint(group[0], end, cancellationToken, hints);
+                if (await this.emitBaseValueHint(group[0], end, cancellationToken, hints)) return;
+                // Anything else a reference points at: a written value, a list's entries, a group's
+                // fields or a whole file. None of those work out to a number, and following one used
+                // to mean opening the file it names.
+                await this.emitTargetHint(group[0], end, cancellationToken, hints);
             }
             return;
         }
@@ -180,16 +191,19 @@ export class InlayHintService {
      * @param position the position just after the reference, where the hint sits.
      * @param cancellationToken token cancelling the request.
      * @param hints the accumulator the hint is pushed into.
+     * @returns true when the target carried the ModifiableValue shape, so no other hint is wanted.
      */
     private async emitBaseValueHint(
         reference: ValueNode,
         position: Position,
         cancellationToken: CancellationToken,
         hints: InlayHint[]
-    ): Promise<void> {
-        if (globalSettings.inlayHints?.showBaseValue === false) return;
+    ): Promise<boolean> {
         const member = await resolveReferencedBaseValue(reference, cancellationToken);
-        if (!member) return;
+        if (!member) return false;
+        // The shape is what decides which hint belongs here, so the setting is read after it, or
+        // turning this one off would hand the slot to the generic preview instead of clearing it.
+        if (globalSettings.inlayHints?.showBaseValue === false) return true;
         let label: string | null = null;
         if (isValueNode(member) && member.valueType.type !== 'Reference') {
             label = String(member.valueType.value);
@@ -202,10 +216,47 @@ export class InlayHintService {
                 label = formatWithUnit(value, unit);
             }
         }
-        if (!label) return;
+        if (!label) return true;
         hints.push({
             position,
             label: `/BaseValue = ${label}`,
+            kind: InlayHintKind.Type,
+            paddingLeft: true,
+        });
+        return true;
+    }
+
+    /**
+     * Annotate a reference whose target is not a number with what it points at, cut to one short
+     * label: a written value, a list's entries, a group's fields, or the name of a whole file.
+     * Toggleable via the `inlayHints.showTargetValue` setting, on by default.
+     *
+     * @param reference the lone reference value node the hint annotates.
+     * @param position the position just after the reference, where the hint sits.
+     * @param cancellationToken token cancelling the request.
+     * @param hints the accumulator the hint is pushed into.
+     */
+    private async emitTargetHint(
+        reference: ValueNode,
+        position: Position,
+        cancellationToken: CancellationToken,
+        hints: InlayHint[]
+    ): Promise<void> {
+        if (globalSettings.inlayHints?.showTargetValue === false) return;
+        const target = await navigation
+            .navigate(
+                String(reference.valueType.value),
+                reference,
+                getStartOfAstNode(reference).uri,
+                cancellationToken
+            )
+            .catch(() => null);
+        if (!target) return;
+        const label = describeTargetInline(target as AbstractNode | FileWithPath);
+        if (!label) return;
+        hints.push({
+            position,
+            label: `= ${label}`,
             kind: InlayHintKind.Type,
             paddingLeft: true,
         });

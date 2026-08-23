@@ -3,7 +3,6 @@ import {
     isAssignmentNode,
     isDocumentNode,
     isGroupNode,
-    isIdentifierNode,
     isListNode,
     isValueNode,
     ListNode,
@@ -17,6 +16,7 @@ import {
     isShaderConstantField,
 } from '../../document/schema/schema';
 import { deprecatedDiscriminator } from '../../document/schema/deprecations';
+import { memberNameAt } from '../../utils/ast.utils';
 
 /**
  * Markdown documenting the schema field a hovered node belongs to its value type, whether it's
@@ -38,27 +38,7 @@ export const schemaFieldHover = (node: AbstractNode, containerClass?: string): s
     if (container && isListNode(container)) return positionalElementHover(node, container);
     if (!container || !(isGroupNode(container) || isDocumentNode(container))) return null;
 
-    let fieldName: string | undefined;
-    // A group- or list-form field (`_centerColor { … }`, `TypeCategories [ … ]`, `Resources [ … ]`,
-    // or an overriding `TypeCategories : ^/0/TypeCategories [ … ]`): these are written without an
-    // `=`, so hovering the key resolves to the container node itself, whose name is its identifier.
-    // There is no sibling assignment to match below.
-    if ((isGroupNode(node) || isListNode(node)) && node.identifier) {
-        fieldName = node.identifier.name;
-    }
-    // A valueless field written as a bare key (`Scale2In` with no `= value`, common for optional
-    // particle-channel bindings) parses to a standalone Identifier under the group. There is no
-    // assignment to match below, so take its name directly and still show the field's type.
-    if (!fieldName && isIdentifierNode(node)) {
-        fieldName = node.name;
-    }
-    for (const element of container.elements) {
-        if (fieldName) break;
-        if (isAssignmentNode(element) && (element.right === node || element.left === node)) {
-            fieldName = element.left.name;
-            break;
-        }
-    }
+    const fieldName = memberNameAt(node, container);
     if (!fieldName) return null;
 
     const cls =

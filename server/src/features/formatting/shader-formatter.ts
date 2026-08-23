@@ -8,7 +8,7 @@
  * macro (after a trailing `\`). Preprocessor directives themselves go to column 0, HLSL style.
  */
 
-export interface ShaderFormattingOptions {
+interface ShaderFormattingOptions {
     tabSize: number;
     insertSpaces: boolean;
 }

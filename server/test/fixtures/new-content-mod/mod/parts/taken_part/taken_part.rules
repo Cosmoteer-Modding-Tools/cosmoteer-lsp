@@ -1,0 +1,20 @@
+Part : <./Data/ships/terran/base_part_terran.rules>/Part
+{
+	ID = test.taken_part
+	NameKey = "Parts/Existing"
+	Size = [1, 1]
+	MaxHealth = 1000
+	Resources
+	[
+		[steel, 4]
+	]
+	EditorIcon
+	{
+		Texture
+		{
+			File = "./Data/ships/terran/corridor/icon.png"
+			SampleMode = Linear
+		}
+		Size = [32, 32]
+	}
+}

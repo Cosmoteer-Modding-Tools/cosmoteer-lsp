@@ -1,0 +1,14 @@
+// A mod that loads with nothing left unjudged.
+ID = Test.AssertClean
+Name = "Assert Clean Fixture"
+Version = 1.0
+
+Actions
+[
+	{
+		Action = Add
+		AddTo = "<action_targets.rules>/Group"
+		Name = CLEAN_ADD
+		ToAdd = &<content.rules>/Added
+	}
+]

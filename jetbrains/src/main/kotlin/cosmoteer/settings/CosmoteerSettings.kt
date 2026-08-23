@@ -47,11 +47,17 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateDuplicateIds: Boolean = true
         var validateUndeclaredDependencies: Boolean = true
         var validateUnreceivableBuffs: Boolean = true
+        var validatePaths: Boolean = true
+        var validateSpriteGeometry: Boolean = true
+        var validateRenderLayers: Boolean = true
+        var validateUnusedParticleChannels: Boolean = true
         var codeModsEnabled: Boolean = true
         var codeModsAutoRefresh: Boolean = true
         var inlayShowBaseValue: Boolean = true
+        var inlayShowTargetValue: Boolean = true
         var hoverShowSubstitutions: Boolean = true
         var hoverShowModifiers: Boolean = true
+        var hoverShowProvenance: Boolean = true
         var allowEditingVanillaFiles: Boolean = false
         var formattingEnabled: Boolean = true
         var decompilerShowInHover: Boolean = false
@@ -59,10 +65,11 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var decompilerTool: String = "auto"
         /**
          * JetBrains-only, not sent to the server: whether LSP semantic tokens re-color the editor
-         * on top of the TextMate highlighting. Off by default because the overlay re-applies
-         * asynchronously after every edit, which reads as constant color flicker.
+         * on top of the TextMate highlighting. On by default since the plugin paints the tokens
+         * itself (see CosmoteerSemanticHighlightService), which is what removed the flicker the
+         * option used to warn about.
          */
-        var semanticTokensEnabled: Boolean = false
+        var semanticTokensEnabled: Boolean = true
         /**
          * JetBrains-only, not sent to the server: whether the user has already been told that the
          * whole mod is validated, not only the open files. Shown at most once, the first time a
@@ -111,15 +118,23 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateDuplicateIds" to state.validateDuplicateIds,
             "validateUndeclaredDependencies" to state.validateUndeclaredDependencies,
             "validateUnreceivableBuffs" to state.validateUnreceivableBuffs,
+            "validatePaths" to state.validatePaths,
+            "validateSpriteGeometry" to state.validateSpriteGeometry,
+            "validateRenderLayers" to state.validateRenderLayers,
+            "validateUnusedParticleChannels" to state.validateUnusedParticleChannels,
         ),
         "codeMods" to mapOf(
             "enabled" to state.codeModsEnabled,
             "autoRefresh" to state.codeModsAutoRefresh,
         ),
-        "inlayHints" to mapOf("showBaseValue" to state.inlayShowBaseValue),
+        "inlayHints" to mapOf(
+            "showBaseValue" to state.inlayShowBaseValue,
+            "showTargetValue" to state.inlayShowTargetValue,
+        ),
         "hover" to mapOf(
             "showSubstitutions" to state.hoverShowSubstitutions,
             "showModifiers" to state.hoverShowModifiers,
+            "showProvenance" to state.hoverShowProvenance,
         ),
         "allowEditingVanillaFiles" to state.allowEditingVanillaFiles,
         "decompiler" to mapOf(

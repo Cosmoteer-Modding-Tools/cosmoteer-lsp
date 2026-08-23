@@ -1,0 +1,26 @@
+ID = Test.PartUnlockMod
+Name = "Part unlock fixture"
+Version = 1.0
+
+// Registers three parts into the fixture ship and adds this mod's techs to the career tech list,
+// which is how a mod really gates its own parts behind research. Each part is named by a different
+// spelling, so the part-unlock sweep is exercised on the file reference, the toggle choice and the
+// build battle whitelist side by side.
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<ships/partship.rules>/PartShip/Parts"
+		ManyToAdd
+		[
+			&<fileref_part.rules>/Part
+			&<toggled_part.rules>/Part
+			&<whitelisted_part.rules>/Part
+		]
+	}
+	{
+		Action = AddMany
+		AddTo = "<modes/career/career.rules>/Techs"
+		ManyToAdd = &<techs.rules>/Techs
+	}
+]

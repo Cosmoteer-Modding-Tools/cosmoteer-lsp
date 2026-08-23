@@ -36,6 +36,9 @@
                                  displayName="Cosmoteer Rules"
                                  instance="cosmoteer.settings.CosmoteerSettingsConfigurable"/>
         <postStartupActivity implementation="cosmoteer.textmate.TextMateBundleActivity"/>
+        <!-- Paints the server's semantic tokens into the open editors. LSP4IJ's own overlay is
+             switched off in CosmoteerLanguageServerFactory, see the service for why. -->
+        <postStartupActivity implementation="cosmoteer.highlight.SemanticHighlightActivity"/>
         <!-- TextMate-backed marker types: the TextMate plugin re-claims the files for highlighting,
              but the registration provides the file icon and suppresses the plugin-advertiser banner. -->
         <fileType name="Cosmoteer Rules" implementationClass="cosmoteer.file.RulesFileType"
@@ -65,59 +68,112 @@
     </extensions>
 
     <actions>
+        <!-- One submenu per menu the plugin contributes to, so its fourteen commands read as one
+             entry rather than filling the IDE menu they sit in. Every action below joins one of
+             these instead of joining ToolsMenu or EditorPopupMenu directly. -->
+        <group id="cosmoteer.ToolsGroup" text="Cosmoteer" popup="true"
+               description="Tools for editing Cosmoteer rules files" icon="/icons/rules.png">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </group>
+        <group id="cosmoteer.EditorPopupGroup" text="Cosmoteer" popup="true"
+               description="Tools for the rules file in the editor" icon="/icons/rules.png">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </group>
         <action id="cosmoteer.previewShader"
                 class="cosmoteer.actions.PreviewShaderAction"
                 text="Cosmoteer: Preview Shader"
                 description="Open the live WebGL preview for the material at the caret"
                 icon="/icons/rules.png">
-            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <override-text place="MainMenu" text="Preview Shader"/>
+            <override-text place="EditorPopup" text="Preview Shader"/>
+            <add-to-group group-id="cosmoteer.EditorPopupGroup" anchor="last"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
         </action>
         <action id="cosmoteer.editPartGrid"
                 class="cosmoteer.actions.EditPartGridAction"
                 text="Cosmoteer: Edit Part Grid"
                 description="Open the interactive grid editor for the part at the caret"
                 icon="/icons/rules.png">
-            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <override-text place="MainMenu" text="Edit Part Grid"/>
+            <override-text place="EditorPopup" text="Edit Part Grid"/>
+            <add-to-group group-id="cosmoteer.EditorPopupGroup" anchor="last"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
         </action>
         <action id="cosmoteer.showModOverview"
                 class="cosmoteer.actions.ShowModOverviewAction"
                 text="Cosmoteer: Show Mod Overview"
                 description="Render what the mod manifest does as a markdown report"
                 icon="/icons/rules.png">
-            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <override-text place="MainMenu" text="Show Mod Overview"/>
+            <override-text place="EditorPopup" text="Show Mod Overview"/>
+            <add-to-group group-id="cosmoteer.EditorPopupGroup" anchor="last"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
         </action>
         <action id="cosmoteer.showPartWiring"
                 class="cosmoteer.actions.ShowPartWiringAction"
                 text="Cosmoteer: Show Part Wiring"
                 description="Report what the part at the caret still needs before the game can build it"
                 icon="/icons/rules.png">
-            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <override-text place="MainMenu" text="Show Part Wiring"/>
+            <override-text place="EditorPopup" text="Show Part Wiring"/>
+            <add-to-group group-id="cosmoteer.EditorPopupGroup" anchor="last"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
         </action>
         <action id="cosmoteer.showEffectiveGroup"
                 class="cosmoteer.actions.ShowEffectiveGroupAction"
                 text="Cosmoteer: Show What The Game Loads Here"
                 description="Fold the inheritance chain of the group at the caret into the member set the game really reads"
                 icon="/icons/rules.png">
-            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <override-text place="MainMenu" text="Show What The Game Loads Here"/>
+            <override-text place="EditorPopup" text="Show What The Game Loads Here"/>
+            <add-to-group group-id="cosmoteer.EditorPopupGroup" anchor="last"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.explainReference"
+                class="cosmoteer.actions.ExplainReferenceAction"
+                text="Cosmoteer: Explain This Reference"
+                description="Walk the reference at the caret segment by segment and say where it stops and what the game has there"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="Explain This Reference"/>
+            <override-text place="EditorPopup" text="Explain This Reference"/>
+            <add-to-group group-id="cosmoteer.EditorPopupGroup" anchor="last"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
         </action>
         <action id="cosmoteer.migrateMod"
                 class="cosmoteer.actions.MigrateModAction"
                 text="Cosmoteer: Migrate Mod to Current Game Version"
                 description="Apply the known game-update renames, rewrites, and removals to every rules file"
                 icon="/icons/rules.png">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <override-text place="MainMenu" text="Migrate Mod to Current Game Version"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.showPostUpdateReport"
+                class="cosmoteer.actions.PostUpdateReportAction"
+                text="Cosmoteer: Show What The Game Update Changed"
+                description="Compare what the project reports now with what it reported under the previous game version, and judge the manifest against the installed game"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="Show What The Game Update Changed"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.newContentFile"
+                class="cosmoteer.actions.NewContentAction"
+                text="Cosmoteer: New Content File"
+                description="Create a part, resource, shot or media effect and wire it into the game"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="New Content File"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+            <!-- Also under the New submenu of the project view, which is where somebody looks
+                 for a way to create a file. The action reads the selected folder, so creating
+                 from there finds the mod that folder belongs to. -->
+            <add-to-group group-id="NewGroup" anchor="last"/>
         </action>
         <action id="cosmoteer.extractSharedBaseFiles"
                 class="cosmoteer.actions.ExtractSharedBaseAction"
                 text="Cosmoteer: Extract Shared Base Files"
                 description="Move fields several files write word for word into one base file all of them inherit"
                 icon="/icons/rules.png">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <override-text place="MainMenu" text="Extract Shared Base Files"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
         </action>
         <!-- The id is the command the server writes into its "extract shared base file" refactoring,
              and has to stay exactly that: LSP4IJ looks an action up by the command id when the server
@@ -144,34 +200,64 @@
                 text="Cosmoteer: Register This Part In A Ship Class"
                 description="Add the part at the caret to a ship class's Parts list, or to the mod manifest when the ship is the game's own"
                 icon="/icons/rules.png"/>
+        <!-- Same arrangement as the three entries above: the id is the command the server writes
+             into its "apply this deprecation to the whole mod" fix, and the server leaves that
+             command unclaimed so this runs here and can show the rewrite as a diff first. Not in a
+             menu, it is reached through the code action. -->
+        <action id="cosmoteer.migrateSymbolFromAction"
+                class="cosmoteer.actions.MigrateSymbolCommandAction"
+                text="Cosmoteer: Apply This Deprecation To The Whole Mod"
+                description="Apply the deprecation fix at the caret to every file of this mod"
+                icon="/icons/rules.png"/>
+        <!-- Same arrangement again: the id is the command the server writes into its "override this
+             in my mod" refactoring, and the server leaves that command unclaimed so this runs here
+             and can ask which mod. Not in a menu. -->
+        <action id="cosmoteer.overrideInModFromAction"
+                class="cosmoteer.actions.OverrideInModCommandAction"
+                text="Cosmoteer: Override This Value In A Mod"
+                description="Write the Overrides action that changes the value at the caret from a mod, leaving the game's own files untouched"
+                icon="/icons/rules.png"/>
+        <!-- Same arrangement as the entries above: the id is the command the server writes into its
+             "clone this under a new id" refactoring, and the server leaves that command unclaimed so
+             this runs here and can ask for the id and show the copy first. Not in a menu. -->
+        <action id="cosmoteer.cloneDeclarationFromAction"
+                class="cosmoteer.actions.CloneDeclarationCommandAction"
+                text="Cosmoteer: Clone This Under A New ID"
+                description="Copy the declaration at the caret, and the files it needs, under an id of your own"
+                icon="/icons/rules.png"/>
         <action id="cosmoteer.buildModSchema"
                 class="cosmoteer.actions.BuildModSchemaAction"
                 text="Cosmoteer: Rebuild Schema from Code Mod Assemblies"
                 description="Re-read every code mod assembly so its own types and Type= discriminators resolve"
                 icon="/icons/rules.png">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <override-text place="MainMenu" text="Extract Shared Base File Here"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
         </action>
         <action id="cosmoteer.runInGame"
                 class="cosmoteer.actions.RunInCosmoteerAction"
                 text="Cosmoteer: Run this Mod in Cosmoteer"
                 description="Link the mod into the game's mods folder, enable it, and start the game in developer mode"
                 icon="/icons/rules.png">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <override-text place="MainMenu" text="Run this Mod in Cosmoteer"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
         </action>
         <action id="cosmoteer.importGameLog"
                 class="cosmoteer.actions.ImportGameLogAction"
                 text="Cosmoteer: Import Problems from the Game Log"
                 description="Read what the game itself refused to load the last time it ran this mod"
                 icon="/icons/rules.png">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <override-text place="MainMenu" text="Import Problems from the Game Log"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
         </action>
         <action id="cosmoteer.searchSchema"
                 class="cosmoteer.actions.SearchSchemaAction"
                 text="Cosmoteer: Search Schema and Field Docs"
                 description="Search every schema type, field, and field description by name or by wording"
                 icon="/icons/rules.png">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
-            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <override-text place="MainMenu" text="Search Schema and Field Docs"/>
+            <override-text place="EditorPopup" text="Search Schema and Field Docs"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+            <add-to-group group-id="cosmoteer.EditorPopupGroup" anchor="last"/>
         </action>
     </actions>
 </idea-plugin>

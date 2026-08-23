@@ -1,0 +1,4 @@
+ID = test.migratesymbol
+Name = "Migrate Symbol Fixture"
+Version = 1.0.0
+ModifiesMultiplayer = true

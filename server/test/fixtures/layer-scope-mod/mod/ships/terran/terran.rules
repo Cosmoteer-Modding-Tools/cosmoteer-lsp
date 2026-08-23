@@ -1,0 +1,14 @@
+Terran
+{
+	RenderLayers
+	[
+		{
+			Key = "author.glow"
+			Value { }
+		}
+	]
+	Parts
+	[
+		&<own_part/own_part.rules>/Part
+	]
+}

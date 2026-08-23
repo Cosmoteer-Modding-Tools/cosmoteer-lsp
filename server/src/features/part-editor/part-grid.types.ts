@@ -51,7 +51,7 @@ export interface SpriteLayerData {
 }
 
 /** The properties every grid layer carries, whatever its interaction kind. */
-export interface GridLayerBase {
+interface GridLayerBase {
     /** A stable identifier, the field path joined with `/` (e.g. `Components/cannon/CrewDestinations`). */
     readonly id: string;
     /** The display label (the field name, suffixed with the component name for component fields). */
@@ -276,7 +276,7 @@ export interface RotationIntListData {
 }
 
 /** The part's rotation and flip capabilities, editable from the sidebar. */
-export interface RotationFieldData {
+interface RotationFieldData {
     readonly isRotateable: RotationBoolData;
     readonly isFlippable: RotationBoolData;
     readonly flipHRotate: RotationIntListData | null;

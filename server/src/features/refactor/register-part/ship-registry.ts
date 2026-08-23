@@ -18,14 +18,6 @@ import { namedMembersOf } from '../../../utils/ast.utils';
 import { foldPathCase } from '../../../workspace/fs-cache';
 import { dirOf, locationOf, readRulesFile } from '../shared-base/base-index';
 
-/**
- * The class the game's own ship registry holds, `Cosmoteer.Data.Rules.Ships` being a
- * `list<group Cosmoteer.Ships.ShipRules>`. Recorded here because it is what makes the game root's
- * `Ships` list the authoritative source: no id index can answer this, since a mod ship wired in by an
- * `AddMany` action never reaches one.
- */
-export const SHIP_RULES_CLASS = 'Cosmoteer.Ships.ShipRules';
-
 /** The game root's member holding the registry, matched case-insensitively like the game's lookup. */
 const SHIPS_MEMBER = 'Ships';
 

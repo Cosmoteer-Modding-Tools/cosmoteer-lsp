@@ -5,16 +5,16 @@ import {
     AbstractNode,
     AbstractNodeDocument,
     isAssignmentNode,
-    isDocumentNode,
     isGroupNode,
     isListNode,
     isValueNode,
 } from '../../core/ast/ast';
+import { childNodesOf } from '../../utils/ast.utils';
 import { isModRules } from '../../document/document-kind';
 import { aliasRootIndex } from '../../document/schema/alias-root';
 import { MARKER_CLASSES } from '../../document/schema/category-usage';
 import { documentRootClass } from '../../document/schema/document-root';
-import { ENTITY_FIELDS, PART_RULES_CLASS } from '../../document/schema/entity-schema';
+import { ENTITY_FIELDS, PART_RULES_CLASS, sameId } from '../../document/schema/entity-schema';
 import { typeDef } from '../../document/schema/schema';
 import { ActionRootingIndex } from '../../mod/action-rooting.index';
 import { computeModReachability, ModReachability, reachabilityKey, relativeToMod } from '../../mod/mod-reachability';
@@ -25,7 +25,7 @@ import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 
 /** One id a file declares for a game collection, with the member the registration wires in. */
-export interface ModIdDeclaration {
+interface ModIdDeclaration {
     readonly cls: string;
     readonly id: string;
     /** The node to underline, always inside the document being validated. */
@@ -99,12 +99,7 @@ function* listDeclarationsIn(node: AbstractNode): Generator<ModIdDeclaration> {
             }
         }
     }
-    const children: AbstractNode[] =
-        isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-            ? node.elements
-            : isAssignmentNode(node)
-              ? (node.right ? [node.right] : [])
-              : [];
+    const children = childNodesOf(node);
     for (const child of children) yield* listDeclarationsIn(child);
 }
 
@@ -252,7 +247,9 @@ const peerFilesDeclaring = async (
     folderPaths: string[],
     cancellationToken: CancellationToken
 ): Promise<string[]> => {
-    const key = `${reachabilityKey(modRoot)}|${declaration.cls}|${declaration.id}`;
+    // The id is folded into the key because the peers are matched with {@link sameId}, so two
+    // spellings of one name must not be remembered as two separate verdicts.
+    const key = `${reachabilityKey(modRoot)}|${declaration.cls}|${declaration.id.toLowerCase()}`;
     const cached = peerVerdicts.get(key);
     if (cached) return cached.filter((peer) => realKey(peer) !== ownKey);
     const declaring: string[] = [];
@@ -266,7 +263,9 @@ const peerFilesDeclaring = async (
         // game reads as strings, never a second entry in a collection.
         if (await isStringsFile(candidate.uri, cancellationToken)) continue;
         for (const peer of modIdDeclarationsOf(candidate)) {
-            if (peer.cls !== declaration.cls || peer.id !== declaration.id) continue;
+            // The engine interns ids ignoring case, so `SW.Armor` and `SW.armor` take the same slot
+            // in the collection and the second one really does drop the first.
+            if (peer.cls !== declaration.cls || !sameId(peer.id, declaration.id)) continue;
             if (!isRegistered(candidate.uri, peer.member)) continue;
             declaring.push(fsPath);
             break;

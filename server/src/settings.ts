@@ -131,6 +131,30 @@ export interface CosmoteerSettings {
         // through the whole inheritance chain, and nothing is judged when any hop of that chain
         // cannot be read.
         validateUnreceivableBuffs: boolean;
+        // When true (the default), report a path-shaped field whose file or folder is not on disk.
+        // Covers the values the asset check cannot reach, because it recognises a path by its
+        // extension and these carry one the game alone knows: a music track, a markov name file,
+        // and the folder fields a ship library or a texture set is read from. The path is resolved
+        // the way the game resolves it, against the folder of the file it is written in.
+        validatePaths: boolean;
+        // When true (the default), hint at a damage level whose art is stretched differently from
+        // the other levels of its own sprite list. The game draws every level into the quad its
+        // Size names, so a level whose pixel aspect over quad aspect differs from its siblings
+        // squashes or rotates the moment the part takes that damage. Only levels whose file and
+        // size can both be read are compared, and the first readable level sets the stretch the
+        // rest are judged against. Hint severity keeps it out of the Problems panel.
+        validateSpriteGeometry: boolean;
+        // When true (the default), report a sprite naming a render layer the ship that draws it does
+        // not declare. The game indexes the ship's own `RenderLayers` map when it first draws the
+        // part and throws when the id is not in it, so a typo and a layer borrowed from another ship
+        // class both crash rather than draw nothing. Layers a mod adds to a ship count as that ship's.
+        validateRenderLayers: boolean;
+        // When true (the default), hint at a particle data channel a file computes and nothing in
+        // the effect ever reads, which is what a channel name misspelled on one side of the pair
+        // leaves behind. The effect's shared body is folded in first, in both directions, and a file
+        // whose readers cannot all be seen is left alone rather than judged on half of them. Hint
+        // severity keeps it out of the Problems panel. Needs the game folder.
+        validateUnusedParticleChannels: boolean;
     };
     codeMods: {
         // When true (the default), a mod that ships a `.dll` has its own serializable types, fields
@@ -153,6 +177,10 @@ export interface CosmoteerSettings {
         // reference effectively supplies at runtime, and it is otherwise invisible without
         // following the reference by hand.
         showBaseValue: boolean;
+        // When true (the default), a reference whose target is not a number is annotated with what
+        // it points at: the written value, a list's entries, a group's fields, or the name of the
+        // file it names. Cut to one short label, since the hint sits inside the line of code.
+        showTargetValue: boolean;
     };
     hover: {
         // When true (the default), a hover over a computed value lists every reference the
@@ -166,6 +194,11 @@ export interface CosmoteerSettings {
         // usually lives in another part entirely, so neither was answerable without reading the
         // whole project by hand.
         showModifiers: boolean;
+        // When true (the default), a hover over a member of a group that inherits says which
+        // declaration of the chain it replaces and where that one is written, and a hover over a
+        // group's own name says how many of its fields its bases supply. A file shows one level of
+        // the chain, so neither was visible without opening every base by hand.
+        showProvenance: boolean;
     };
     // When true, a refactoring may also read and rewrite files inside the Cosmoteer game `Data`
     // install: renames reach into it, and the shared-base extraction treats it as a project of its
@@ -227,6 +260,10 @@ export const defaultSettings: CosmoteerSettings = {
         validateDuplicateIds: true,
         validateUndeclaredDependencies: true,
         validateUnreceivableBuffs: true,
+        validatePaths: true,
+        validateSpriteGeometry: true,
+        validateRenderLayers: true,
+        validateUnusedParticleChannels: true,
     },
     codeMods: {
         enabled: true,
@@ -234,10 +271,12 @@ export const defaultSettings: CosmoteerSettings = {
     },
     inlayHints: {
         showBaseValue: true,
+        showTargetValue: true,
     },
     hover: {
         showSubstitutions: true,
         showModifiers: true,
+        showProvenance: true,
     },
     allowEditingVanillaFiles: false,
     decompiler: {

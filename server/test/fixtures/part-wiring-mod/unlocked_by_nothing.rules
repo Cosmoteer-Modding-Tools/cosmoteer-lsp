@@ -1,0 +1,10 @@
+// The uncovered case of the mod overview's part-unlock section: a part the manifest registers into
+// the ship's Parts list, so the game builds it, that techs.rules deliberately never names.
+Part
+{
+	ID = test.unlocked_by_nothing
+	NameKey = "Parts/WiredName"
+	DescriptionKey = "Parts/WiredDesc"
+	EditorGroup = "TestStructure"
+	Size = [1, 1]
+}

@@ -30,7 +30,7 @@ import * as l10n from '@vscode/l10n';
 export const IMPORT_GAME_LOG_COMMAND = 'cosmoteer.readGameLog';
 
 /** One imported finding, ready for the client to publish in its own collection. */
-export interface GameLogDiagnostic {
+interface GameLogDiagnostic {
     readonly uri: string;
     readonly diagnostic: Diagnostic;
 }

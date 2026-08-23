@@ -1,9 +1,19 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNodeDocument, GroupNode, ListNode, isGroupNode, isListNode, isValueNode } from '../../src/core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, GroupNode, ListNode, isGroupNode, isListNode, isValueNode } from '../../src/core/ast/ast';
 import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
-import { EffectiveListEntry, flattenGroup, flattenList, flattenListMember } from '../../src/semantics/effective-group';
+import {
+    EffectiveListEntry,
+    flattenGroup,
+    flattenList,
+    flattenListMember,
+    invalidateEffectiveChainCache,
+} from '../../src/semantics/effective-group';
+import {
+    registerMemberEnumerationSource,
+    registerMemberExtensionSource,
+} from '../../src/semantics/reference-resolver';
 import { walkAst } from '../helpers';
 import { initWorkspace, workspaceFile } from '../workspace-helper';
 import { readFileSync } from 'fs';
@@ -214,5 +224,153 @@ describe('effective list flattening', () => {
         expect(entryValues((await flattenList(items, token)).entries)).toEqual(['A', 'B']);
         // The base's own list, read on its own, is just its own entries.
         expect(entryValues((await flattenList(list(doc, 'Items'), token)).entries)).toEqual(['A']);
+    });
+});
+
+// A mod's manifest merges members into a node of another file. What the game reads there is the
+// verb's own rule, and the fold has to answer with the game's answer rather than with the file's.
+describe('effective group with mod-injected members', () => {
+    const doc = parse('Target\n{\n\tOwn = 1\n\tKept = 2\n}\n');
+    const target = group(doc, 'Target');
+    const injected = parse('Mod\n{\n\tOwn = 99\n\tFresh = 7\n}\n');
+    const injectedOwn = group(injected, 'Mod').elements[0];
+    const injectedFresh = group(injected, 'Mod').elements[1];
+
+    /**
+     * Registers one injected member with the precedence its verb has.
+     *
+     * @param entries the members the manifest merges into the node.
+     * @param into the node the action names, the target group unless a case says otherwise.
+     */
+    const inject = (
+        entries: Array<{ name: string; node: AbstractNode; precedence: 'replaces' | 'adds' | 'removes' | 'rewrites' }>,
+        into: AbstractNode = target
+    ): void => {
+        registerMemberEnumerationSource((node) =>
+            node === into
+                ? entries.map((entry) => ({ name: entry.name, precedence: entry.precedence, value: entry.node }))
+                : []
+        );
+        registerMemberExtensionSource((node, member) =>
+            node === into ? entries.find((entry) => entry.name === member)?.node : undefined
+        );
+    };
+
+    afterEach(() => {
+        registerMemberEnumerationSource(undefined);
+        registerMemberExtensionSource(undefined);
+        invalidateEffectiveChainCache();
+    });
+
+    it('lets an Overrides member replace the one the file writes, in its place', async () => {
+        inject([{ name: 'Own', node: injectedOwn, precedence: 'replaces' }]);
+        const flattened = await flattenGroup(target, token);
+        const own = flattened.members.find((member) => member.name === 'Own')!;
+        expect(isValueNode(own.value!) && own.value.valueType.value).toBe(99);
+        expect(own.origin.injected).toBe(true);
+        // The file's own declaration is hidden rather than dropped, and the order is unchanged.
+        expect(own.shadows).toHaveLength(1);
+        expect(flattened.members.map((member) => member.name)).toEqual(['Own', 'Kept']);
+    });
+
+    it('appends an Overrides member the file does not write', async () => {
+        inject([{ name: 'Fresh', node: injectedFresh, precedence: 'replaces' }]);
+        const flattened = await flattenGroup(target, token);
+        expect(flattened.members.map((member) => member.name)).toEqual(['Own', 'Kept', 'Fresh']);
+    });
+
+    it('leaves the written member standing against a colliding Add', async () => {
+        // The game throws on a group that would hold the name twice, so there is no winner to name.
+        inject([{ name: 'Own', node: injectedOwn, precedence: 'adds' }]);
+        const flattened = await flattenGroup(target, token);
+        const own = flattened.members.find((member) => member.name === 'Own')!;
+        expect(isValueNode(own.value!) && own.value.valueType.value).toBe(1);
+        expect(own.origin.injected).toBeUndefined();
+    });
+
+    it('lets a later action write a name an earlier one removed', async () => {
+        // The game applies the actions in written order, so a member removed and then written again
+        // is a member it reads.
+        inject([
+            { name: 'Own', node: injectedOwn, precedence: 'removes' },
+            { name: 'Own', node: injectedFresh, precedence: 'replaces' },
+        ]);
+        const flattened = await flattenGroup(target, token);
+        const own = flattened.members.find((member) => member.name === 'Own');
+        expect(own).toBeDefined();
+        expect(isValueNode(own!.value!) && own!.value.valueType.value).toBe(7);
+    });
+
+    it('lets the last of two actions naming one member win', async () => {
+        inject([
+            { name: 'Own', node: injectedOwn, precedence: 'replaces' },
+            { name: 'Own', node: injectedFresh, precedence: 'replaces' },
+        ]);
+        const flattened = await flattenGroup(target, token);
+        const own = flattened.members.find((member) => member.name === 'Own')!;
+        expect(isValueNode(own.value!) && own.value.valueType.value).toBe(7);
+    });
+
+    it('does not let a Replace invent a member the file never writes', async () => {
+        // `ModReplaceAction` names an existing member and creates none, so there is nothing here for
+        // it to rewrite.
+        inject([{ name: 'Fresh', node: injectedFresh, precedence: 'rewrites' }]);
+        const flattened = await flattenGroup(target, token);
+        expect(flattened.members.map((member) => member.name)).toEqual(['Own', 'Kept']);
+    });
+
+    it('lets a Replace rewrite a member the file does write', async () => {
+        inject([{ name: 'Own', node: injectedFresh, precedence: 'rewrites' }]);
+        const flattened = await flattenGroup(target, token);
+        const own = flattened.members.find((member) => member.name === 'Own')!;
+        expect(isValueNode(own.value!) && own.value.valueType.value).toBe(7);
+        expect(own.shadows).toHaveLength(1);
+    });
+
+    it('drops a member a Remove action deletes', async () => {
+        // `ModRemoveAction` deletes the child from its parent, so the game reads nothing there.
+        inject([{ name: 'Own', node: injectedOwn, precedence: 'removes' }]);
+        const flattened = await flattenGroup(target, token);
+        expect(flattened.members.map((member) => member.name)).toEqual(['Kept']);
+    });
+
+    it('says nothing about a Remove of a name the file never writes', async () => {
+        inject([{ name: 'Absent', node: injectedOwn, precedence: 'removes' }]);
+        const flattened = await flattenGroup(target, token);
+        expect(flattened.members.map((member) => member.name)).toEqual(['Own', 'Kept']);
+    });
+
+    it('adds a member the file does not write, whichever verb merged it in', async () => {
+        inject([{ name: 'Fresh', node: injectedFresh, precedence: 'adds' }]);
+        const flattened = await flattenGroup(target, token);
+        expect(flattened.members.map((member) => member.name)).toContain('Fresh');
+    });
+
+    it('reads the inherited declaration where a Remove deletes the written one', async () => {
+        // `ModRemoveAction` deletes the child of this node only, and the game then reads the name off
+        // the base the group inherits, as if the file had never written it.
+        const chain = parse('Base\n{\n\tOwn = 5\n}\n\nDerived : &Base\n{\n\tOwn = 1\n\tKept = 2\n}\n');
+        const derived = group(chain, 'Derived');
+        inject([{ name: 'Own', node: injectedOwn, precedence: 'removes' }], derived);
+        const flattened = await flattenGroup(derived, token);
+        expect(flattened.members.map((member) => member.name)).toEqual(['Own', 'Kept']);
+        const own = flattened.members.find((member) => member.name === 'Own')!;
+        expect(isValueNode(own.value!) && own.value.valueType.value).toBe(5);
+        expect(own.origin.inherited).toBe(true);
+        expect(own.origin.injected).toBeUndefined();
+    });
+
+    it('reads a member a mod merges into the base a group inherits', async () => {
+        // The manifest may name the base rather than the deriving group, and the game merges there
+        // before anything reads through it, so the injected value arrives one hop out.
+        const chain = parse('Base\n{\n\tOwn = 5\n}\n\nDerived : &Base\n{\n\tKept = 2\n}\n');
+        inject([{ name: 'Own', node: injectedOwn, precedence: 'replaces' }], group(chain, 'Base'));
+        const flattened = await flattenGroup(group(chain, 'Derived'), token);
+        const own = flattened.members.find((member) => member.name === 'Own')!;
+        expect(isValueNode(own.value!) && own.value.valueType.value).toBe(99);
+        expect(own.origin.inherited).toBe(true);
+        expect(own.origin.injected).toBe(true);
+        // The base's own declaration is what the injected one hides.
+        expect(own.shadows).toHaveLength(1);
     });
 });

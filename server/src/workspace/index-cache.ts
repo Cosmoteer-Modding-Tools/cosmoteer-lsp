@@ -37,7 +37,7 @@ const CACHE_FORMAT_VERSION = 5;
 const STAT_CONCURRENCY = 64;
 
 /** One swept file: its on-disk path plus the identity stat every startup consumer needs. */
-export interface SweptFile {
+interface SweptFile {
     path: string;
     size: number;
     mtimeMs: number;
@@ -440,7 +440,7 @@ export const saveScanCache = async (
 };
 
 /** One workspace file's identity stamp: the path as walked, plus size and mtime. */
-export type ProjectFileStamp = [path: string, size: number, mtimeMs: number];
+type ProjectFileStamp = [path: string, size: number, mtimeMs: number];
 
 /** The on-disk shape of one saved project cache file. */
 interface ProjectCacheFile {
@@ -453,7 +453,7 @@ interface ProjectCacheFile {
 }
 
 /** A loaded project cache: the per-index states and the saved workspace-file stamps. */
-export interface LoadedProjectCache {
+interface LoadedProjectCache {
     readonly states: Record<string, unknown>;
     readonly stamps: ProjectFileStamp[];
 }

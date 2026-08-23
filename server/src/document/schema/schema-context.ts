@@ -19,7 +19,7 @@ import {
     isListNode,
     isValueNode,
 } from '../../core/ast/ast';
-import { namedMembersOf } from '../../utils/ast.utils';
+import { childNodesOf, namedMembersOf } from '../../utils/ast.utils';
 import {
     classAncestry,
     classByDiscriminator,
@@ -63,13 +63,14 @@ const ROOT_GROUP_BY_PATH: ReadonlyArray<{ readonly test: RegExp; readonly cls: s
 const MIN_GROUP_ROOT_COVERAGE = 0.5;
 
 /**
- * Whether `cls` is a plausible root for `group`: it must own a majority of the group's named members.
- * Guards the folder-scoped root against a non-ship group that happens to sit under a ships folder (a
- * group with too few members to judge, < 3, carries too little signal and is rejected, staying
- * unrooted rather than risking a mis-root).
+ * The names a group's assignments and identified `{}`/`[]` members declare, in written order. A bare
+ * identifier line carries no member name and is left out.
+ *
+ * @param group the group whose members to name.
+ * @returns the declared member names.
  */
-const groupFitsClass = (group: GroupNode, cls: string): boolean => {
-    const names = group.elements
+const declaredMemberNames = (group: GroupNode): string[] =>
+    group.elements
         .map((node) =>
             isAssignmentNode(node)
                 ? node.left.name
@@ -78,6 +79,15 @@ const groupFitsClass = (group: GroupNode, cls: string): boolean => {
                   : undefined
         )
         .filter((name): name is string => !!name);
+
+/**
+ * Whether `cls` is a plausible root for `group`: it must own a majority of the group's named members.
+ * Guards the folder-scoped root against a non-ship group that happens to sit under a ships folder (a
+ * group with too few members to judge, < 3, carries too little signal and is rejected, staying
+ * unrooted rather than risking a mis-root).
+ */
+const groupFitsClass = (group: GroupNode, cls: string): boolean => {
+    const names = declaredMemberNames(group);
     if (names.length < 3) return false;
     const known = names.filter((name) => fieldOf(cls, name)).length;
     return known / names.length >= MIN_GROUP_ROOT_COVERAGE;
@@ -112,7 +122,7 @@ const groupClassCache: WeakMap<GroupNode, { epoch: number; value: string | undef
  * take the slot type of the action's target. Consulted only after ordinary resolution yields nothing, so
  * a rooted context always wins.
  */
-export type NodeSlotSource = (node: GroupNode | ListNode) => ValueType | undefined;
+type NodeSlotSource = (node: GroupNode | ListNode) => ValueType | undefined;
 
 const nodeSlotFallbacks: NodeSlotSource[] = [];
 
@@ -201,7 +211,7 @@ export const mapEntryNames = (map: MapValueType): ReadonlyArray<readonly [string
  * @param member the written member name.
  * @returns the entry member's value type, or undefined when the member is neither entry name.
  */
-export const mapEntryMemberType = (map: MapValueType, member: string): ValueType | undefined =>
+const mapEntryMemberType = (map: MapValueType, member: string): ValueType | undefined =>
     mapEntryNames(map).find(([name]) => name.toLowerCase() === member.toLowerCase())?.[1];
 
 /**
@@ -367,15 +377,7 @@ export const registryForGroup = (group: GroupNode): SchemaRegistry | undefined =
 
 /** The named members (fields, subgroups, sublists) a group declares, excluding the structural `Type=`. */
 const ownedFieldNames = (group: GroupNode): string[] =>
-    group.elements
-        .map((node) =>
-            isAssignmentNode(node)
-                ? node.left.name
-                : isGroupNode(node) || isListNode(node)
-                  ? node.identifier?.name
-                  : undefined
-        )
-        .filter((name): name is string => !!name && name.toLowerCase() !== 'type');
+    declaredMemberNames(group).filter((name) => name.toLowerCase() !== 'type');
 
 /**
  * Root an inheritance-base fragment group (a top-level group in an unrooted document, pulled in only
@@ -837,12 +839,7 @@ const findEnclosing = <T extends AbstractNode>(
             // the closer and types into the parent container, not into this one.
             if (offset < end) best = node;
         }
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) visit(child);
     };
     for (const element of document.elements) visit(element);

@@ -1,16 +1,8 @@
 import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
-import {
-    AbstractNode,
-    AbstractNodeDocument,
-    isAssignmentNode,
-    isDocumentNode,
-    isGroupNode,
-    isListNode,
-    isValueNode,
-} from '../core/ast/ast';
-import { parseFilePath } from '../utils/ast.utils';
+import { AbstractNode, AbstractNodeDocument, isValueNode } from '../core/ast/ast';
+import { childNodesOf, parseFilePath } from '../utils/ast.utils';
 import { safeReaddir } from '../utils/fs.utils';
 import { isManifestBasename } from '../document/document-kind';
 import { documentsMentioning, uriToFsPath } from '../features/navigation/workspace-files';
@@ -32,12 +24,7 @@ const canonical = (path: string): string => path.replace(/\\/g, '/').toLowerCase
 function* crossFileReferencesOf(node: AbstractNode): Generator<string> {
     if (isValueNode(node) && node.valueType.type === 'Reference') yield String(node.valueType.value);
     for (const base of (node as { inheritance?: AbstractNode[] }).inheritance ?? []) yield* crossFileReferencesOf(base);
-    const children: AbstractNode[] =
-        isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-            ? node.elements
-            : isAssignmentNode(node)
-              ? (node.right ? [node.right] : [])
-              : [];
+    const children = childNodesOf(node);
     for (const child of children) yield* crossFileReferencesOf(child);
 }
 

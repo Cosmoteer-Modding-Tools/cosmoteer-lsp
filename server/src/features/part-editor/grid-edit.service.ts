@@ -20,6 +20,7 @@ import {
     locatePartGroup,
 } from './part-grid-data.service';
 import { childNamed, enumNameOf, readMapEntries, readRect, readVector, readVectorEvaluated } from './vector-forms';
+import { offsetToPosition } from '../../utils/text.utils';
 
 /**
  * Turns one grid editor mutation into a minimal WorkspaceEdit against the part's own file. Every
@@ -32,12 +33,12 @@ import { childNamed, enumNameOf, readMapEntries, readRect, readVector, readVecto
  */
 
 /** A localized refusal from an edit builder. */
-export interface EditError {
+interface EditError {
     readonly error: string;
 }
 
 /** An edit outcome: LSP text edits, or a localized refusal. */
-export type EditOutcome = TextEdit[] | EditError;
+type EditOutcome = TextEdit[] | EditError;
 
 /**
  * Whether an edit builder refused instead of producing edits.
@@ -46,19 +47,6 @@ export type EditOutcome = TextEdit[] | EditError;
  * @returns true when it is a refusal carrying a message.
  */
 export const isError = (outcome: EditOutcome): outcome is EditError => 'error' in outcome;
-
-/** Converts a byte offset into an LSP position within `text`. */
-const offsetToPosition = (text: string, offset: number): { line: number; character: number } => {
-    let line = 0;
-    let lineStart = 0;
-    for (let i = 0; i < offset && i < text.length; i++) {
-        if (text[i] === '\n') {
-            line++;
-            lineStart = i + 1;
-        }
-    }
-    return { line, character: offset - lineStart };
-};
 
 /** An LSP range between two byte offsets of `text`. */
 const rangeBetween = (text: string, start: number, end: number): Range =>

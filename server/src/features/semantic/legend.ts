@@ -23,12 +23,12 @@ export const TOKEN_TYPES = [
 
 export type TokenType = (typeof TOKEN_TYPES)[number];
 
-export const TOKEN_MODIFIERS = [
+const TOKEN_MODIFIERS = [
     'declaration', // a defining occurrence (entity name / uniform declaration)
     'defaultLibrary', // a built-in (math function / engine-provided shader symbol)
 ] as const;
 
-export type TokenModifier = (typeof TOKEN_MODIFIERS)[number];
+type TokenModifier = (typeof TOKEN_MODIFIERS)[number];
 
 export const typeIndex = (type: TokenType): number => TOKEN_TYPES.indexOf(type);
 export const modifierBit = (modifier: TokenModifier): number => 1 << TOKEN_MODIFIERS.indexOf(modifier);

@@ -1,0 +1,16 @@
+ID = Test.ReferenceTrace
+Name = "Reference Trace Fixture"
+Version = 1.0
+
+Actions
+[
+	{
+		// The target is not there, and the action says outright that this is allowed: the game
+		// creates it rather than failing, so the report must not call it broken.
+		Action = Add
+		AddTo = <not_a_real_file.rules>
+		Name = ADDED
+		ToAdd = &<added.rules>
+		CreateIfNotExisting = true
+	}
+]

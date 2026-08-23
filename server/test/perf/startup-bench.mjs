@@ -76,7 +76,12 @@ const runPass = (label, cacheDir) =>
         const env = { ...process.env, LOCALAPPDATA: cacheDir };
         if (process.env.STARTUP_CPU_PROF) env.COSMOTEER_CPU_PROF = process.env.STARTUP_CPU_PROF;
         const t0 = Date.now();
-        const server = spawn('node', [SERVER, '--stdio'], { stdio: ['pipe', 'pipe', 'inherit'], env });
+        // The flags every client launches the server with, so the phases are timed under the same
+        // collection schedule a real session has.
+        const server = spawn('node', ['--max-semi-space-size=64', '--expose-gc', SERVER, '--stdio'], {
+            stdio: ['pipe', 'pipe', 'inherit'],
+            env,
+        });
 
         let buf = Buffer.alloc(0);
         const waiters = new Map();
@@ -197,6 +202,16 @@ const main = async () => {
     for (const phase of PHASES) {
         const row = results.map((r) => pad(r.counters?.[phase] ?? 0) + '      ').join('');
         console.log(`${phase.padEnd(28)}${row}`);
+    }
+
+    // Syscall and cache counts behind those phases. A startup that suddenly stats or parses much
+    // more than the pass before it explains a wall-clock regression that the phase table cannot.
+    const COUNTS = ['fs.stat', 'fs.readdir', 'fs.parse', 'fs.parseHit', 'pin.hit', 'pin.parse'];
+    console.log('\ncache counts');
+    console.log(`${''.padEnd(28)}${results.map((r) => r.label.padStart(12)).join('')}`);
+    for (const counter of COUNTS) {
+        const row = results.map((r) => pad(r.counters?.[counter] ?? 0) + '      ').join('');
+        console.log(`${counter.padEnd(28)}${row}`);
     }
 
     const warms = results.filter((r) => r.label.startsWith('WARM#'));

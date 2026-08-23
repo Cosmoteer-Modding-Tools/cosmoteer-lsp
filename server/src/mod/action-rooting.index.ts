@@ -25,13 +25,13 @@ import {
 import { ValueType } from '../document/schema/schema.types';
 import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
 import { normalizeUri } from '../features/navigation/reference-location';
-import { ReverseIncludeIndex } from '../features/navigation/reverse-include.index';
+import { agreedValueType, ReverseIncludeIndex } from '../features/navigation/reverse-include.index';
 import { WatchedDocumentIndex } from '../features/navigation/watched-document-index';
-import { modFolderPaths, uriToFsPath } from '../features/navigation/workspace-files';
+import { modFolderPaths } from '../features/navigation/workspace-files';
 import { cachedParseFilePath } from '../workspace/fs-cache';
-import { CosmoteerWorkspaceService, FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
+import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { Action } from './action';
-import { isActionFragmentDocument, parseModActions } from './action-parser';
+import { isActionFragmentDocument, parseModActions, textCouldCarryActions } from './action-parser';
 import { normalizeTargetPath, resolveActionTarget } from './action-target-resolver';
 
 const navigation = new FullNavigationStrategy();
@@ -60,7 +60,7 @@ const MAX_REFERENCE_HOPS = 4;
  * @param raw the target path as written (quotes already stripped by the lexer).
  * @returns true when every inner segment is a plain member name.
  */
-const isTypableTargetPath = (raw: string): boolean => {
+export const isTypableTargetPath = (raw: string): boolean => {
     const m = /^&?\s*<[^>]*>\s*(?:\/(.*))?$/.exec(raw.trim());
     if (!m) return false;
     const segments = (m[1] ?? '').split('/').map((s) => s.trim());
@@ -192,18 +192,7 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
     public memberType(uri: string, member: string): ValueType | undefined {
         const sources = this.byTarget.get(normalizeUri(uri))?.get(member.toLowerCase());
         if (!sources || sources.size === 0) return undefined;
-        let chosen: ValueType | undefined;
-        let signature: string | undefined;
-        for (const valueType of sources.values()) {
-            const current = JSON.stringify(valueType);
-            if (signature === undefined) {
-                signature = current;
-                chosen = valueType;
-            } else if (current !== signature) {
-                return undefined;
-            }
-        }
-        return chosen;
+        return agreedValueType(sources);
     }
 
     /**
@@ -244,6 +233,18 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
             cancellationToken,
             'Indexing action rooting'
         );
+    }
+
+    /**
+     * Only a manifest or a file declaring a top-level `Actions` list contributes here, and both
+     * write that name into their text, so the build skips the parse of every other file of the mod.
+     *
+     * @param uri the file's uri.
+     * @param text the file's raw text.
+     * @returns true when the file could carry mod actions.
+     */
+    protected override acceptsText(uri: string, text: string): boolean {
+        return textCouldCarryActions(uri, text);
     }
 
     /**

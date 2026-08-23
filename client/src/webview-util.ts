@@ -1,4 +1,4 @@
-import { Uri } from 'vscode';
+import { Uri, Webview } from 'vscode';
 import { readFileSync, statSync } from 'fs';
 
 /**
@@ -43,9 +43,32 @@ export const imageDataUri = (fileUri: string | null): string | null => {
  *
  * @returns a 32-character alphanumeric nonce.
  */
-export const nonceString = (): string => {
+const nonceString = (): string => {
     let text = '';
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     for (let i = 0; i < 32; i++) text += chars.charAt(Math.floor(Math.random() * chars.length));
     return text;
+};
+
+/**
+ * The shell pieces a panel's HTML is built from: a fresh nonce, a builder for the URIs of the
+ * bundled media assets, and the content-security-policy that admits them.
+ *
+ * @param webview the panel's webview, whose resource URIs and CSP source the shell is built on.
+ * @param extensionUri the extension root, under which the bundled `media` folder lives.
+ * @returns the nonce, an asset URI builder taking the path parts under `media`, and the policy.
+ */
+export const webviewShell = (
+    webview: Webview,
+    extensionUri: Uri
+): { nonce: string; asset: (...parts: string[]) => string; csp: string } => {
+    const nonce = nonceString();
+    // A per-panel cache-buster so a rebuilt media script is fetched fresh, not served from the
+    // webview's resource cache.
+    const asset = (...parts: string[]): string =>
+        `${webview.asWebviewUri(Uri.joinPath(extensionUri, 'media', ...parts)).toString()}?v=${nonce}`;
+    const csp =
+        `default-src 'none'; img-src ${webview.cspSource} blob: data:; ` +
+        `style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+    return { nonce, asset, csp };
 };

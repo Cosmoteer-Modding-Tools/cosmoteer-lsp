@@ -4,12 +4,11 @@ import {
     AbstractNodeDocument,
     GroupNode,
     isAssignmentNode,
-    isDocumentNode,
     isGroupNode,
-    isListNode,
     isValueNode,
     ValueNode,
 } from '../../core/ast/ast';
+import { childNodesOf } from '../../utils/ast.utils';
 import { isModRules } from '../../document/document-kind';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { fieldOf, schema } from '../../document/schema/schema';
@@ -165,12 +164,7 @@ export const validateDefaultValuedFields = async (
                 }
             }
         }
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node) && node.right
-                  ? [node.right]
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) visit(child);
     };
     visit(document);

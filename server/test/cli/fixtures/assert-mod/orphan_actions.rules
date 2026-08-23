@@ -1,0 +1,9 @@
+// An action list no manifest of this mod includes. The game never runs it, so a broken action here
+// must never be reported as stopping the mod.
+Actions
+[
+	{
+		Action = Remove
+		Remove = "<action_targets.rules>/AlsoNotThere"
+	}
+]

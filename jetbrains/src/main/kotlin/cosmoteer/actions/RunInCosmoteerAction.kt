@@ -9,7 +9,6 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.Messages
 import com.redhat.devtools.lsp4ij.LanguageServerManager
 import cosmoteer.lsp.commandResultOf
 import cosmoteer.preview.ShaderPreviewService
@@ -94,13 +93,11 @@ class RunInCosmoteerAction : AnAction() {
                     val candidates = answer.getAsJsonArray("candidates").map { it.asString }.toTypedArray()
                     // The dialog answers with the index of the picked entry, and with -1 when the
                     // user closed it without picking one.
-                    val picked = Messages.showChooseDialog(
+                    val picked = chooseOne(
                         project,
                         "Which Cosmoteer user folder does the game use?",
                         "Run in Cosmoteer",
-                        null,
-                        candidates,
-                        candidates.firstOrNull() ?: ""
+                        candidates
                     )
                     val chosen = candidates.getOrNull(picked) ?: return@invokeLater
                     execute(project, uri, chosen).thenAccept { next -> handle(project, uri, next) }
@@ -123,7 +120,7 @@ class RunInCosmoteerAction : AnAction() {
                     if (answer.get("compatible")?.asBoolean == false) {
                         group.createNotification(
                             "Cosmoteer",
-                            "The mod's CompatibleGameVersions does not name the installed game version, " +
+                            "The mod's CompatibleGameVersions names no game version this build accepts, " +
                                 "so the game will turn it off again while loading.",
                             NotificationType.WARNING
                         ).notify(project)

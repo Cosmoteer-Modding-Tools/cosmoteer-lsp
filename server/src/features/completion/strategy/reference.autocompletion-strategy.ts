@@ -244,26 +244,20 @@ const getOptionsForElement = (node: AbstractNode, search: string = EMPTY_STRING)
         // offered like any member.
         const voidFieldName = (v: AbstractNode): string | undefined =>
             !isListNode(node) && isIdentifierNode(v) ? v.name : undefined;
-        const own = node.elements
-            .filter(
-                (v) =>
-                    ((isGroupNode(v) || isListNode(v)) && matches(v.identifier?.name)) ||
-                    search === EMPTY_STRING ||
-                    (isListNode(v) && v.identifier === undefined) ||
-                    (isGroupNode(v) && v.identifier === undefined) ||
-                    (isAssignmentNode(v) && matches(v.left.name)) ||
-                    matches(voidFieldName(v))
-            )
-            .map((v) => {
-                if ((isListNode(v) && v.identifier === undefined) || (isGroupNode(v) && v.identifier === undefined)) {
-                    return node.elements.indexOf(v).toString() + '/';
-                } else if ((isGroupNode(v) || isListNode(v)) && v.identifier) {
-                    return v.identifier.name;
-                } else if (isAssignmentNode(v)) {
-                    return v.left.name;
-                }
-                return voidFieldName(v) ?? EMPTY_STRING;
-            });
+        const own = node.elements.flatMap((v, index) => {
+            const anonymousContainer = (isGroupNode(v) || isListNode(v)) && v.identifier === undefined;
+            const offered =
+                ((isGroupNode(v) || isListNode(v)) && matches(v.identifier?.name)) ||
+                search === EMPTY_STRING ||
+                anonymousContainer ||
+                (isAssignmentNode(v) && matches(v.left.name)) ||
+                matches(voidFieldName(v));
+            if (!offered) return [];
+            if (anonymousContainer) return [index.toString() + '/'];
+            if ((isGroupNode(v) || isListNode(v)) && v.identifier) return [v.identifier.name];
+            if (isAssignmentNode(v)) return [v.left.name];
+            return [voidFieldName(v) ?? EMPTY_STRING];
+        });
         return [...own, ...injected.filter((name) => !own.includes(name))];
     }
     return [];

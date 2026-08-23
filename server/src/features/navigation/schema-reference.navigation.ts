@@ -10,6 +10,7 @@ import {
     ListNode,
     ValueNode,
 } from '../../core/ast/ast';
+import { assignmentNameOf, childNodesOf } from '../../utils/ast.utils';
 import { classOfGroup, listSlotType, registryForContainer } from '../../document/schema/schema-context';
 import { fieldOf, registryOf, scalarReferenceTargetOf } from '../../document/schema/schema';
 
@@ -77,13 +78,7 @@ export const componentReferenceIdOf = (node: AbstractNode | null | undefined): s
 
     // The field name is the sibling assignment whose right-hand value is this node (the parser links
     // a value's `parent` to the enclosing group, not its assignment).
-    let fieldName: string | undefined;
-    for (const element of group.elements) {
-        if (isAssignmentNode(element) && element.right === node) {
-            fieldName = element.left.name;
-            break;
-        }
-    }
+    const fieldName = assignmentNameOf(node);
     if (!fieldName) return undefined;
 
     const container = group.parent;
@@ -126,12 +121,7 @@ const findComponentInDocument = (node: AbstractNode, targetName: string): Abstra
                 caseInsensitive = current;
             }
         }
-        const children: AbstractNode[] =
-            isGroupNode(current) || isListNode(current) || isDocumentNode(current)
-                ? current.elements
-                : isAssignmentNode(current)
-                  ? (current.right ? [current.right] : [])
-                  : [];
+        const children = childNodesOf(current);
         for (const child of children) stack.push(child);
     }
     return caseInsensitive;

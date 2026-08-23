@@ -180,25 +180,18 @@ export const validateUnbracketedValueList = (tokens: Token[]): ValidationError[]
 
 /**
  * Whether the separator at `index` is the last meaningful token on its (logical) line. Unsuppressed
- * newlines are recorded on the FOLLOWING token's `precededByNewline`, so the scan walks forward:
- * a newline before the next non-comment token means the separator sits at a line end; reaching a
- * non-comment token first means the separator still terminates something. A multi-line block
- * comment hides its inner newlines inside its own token, which errs toward not flagging.
+ * newlines are recorded on the following token's `precededByNewline`, so the answer is that token's
+ * own flag, and a separator at the end of the file has nothing after it at all. Comments produce no
+ * tokens, and only a `//` comment reports the newline that ends it, so a separator followed by a
+ * multi-line block comment reads as still terminating something, which errs toward not flagging.
  *
  * @param tokens the document's lexer tokens.
  * @param index the position of the separator token in `tokens`.
- * @returns true when only comments follow before the next unsuppressed newline or end of file.
+ * @returns true when the separator is followed by an unsuppressed newline or by the end of file.
  */
 const isFollowedByLineBreakOrEof = (tokens: Token[], index: number): boolean => {
-    for (let j = index + 1; j < tokens.length; j++) {
-        const candidate = tokens[j];
-        if (candidate.precededByNewline) return true;
-        if (candidate.type === TOKEN_TYPES.SINGLE_COMMENT || candidate.type === TOKEN_TYPES.MULTI_COMMENT) {
-            continue;
-        }
-        return false;
-    }
-    return true;
+    const next = tokens[index + 1];
+    return next === undefined || !!next.precededByNewline;
 };
 
 /**

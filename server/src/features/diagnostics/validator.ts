@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
 import {
     AbstractNode,
@@ -88,6 +89,13 @@ export type ValidationError = {
     message: string;
     node: AbstractNode;
     /**
+     * The rule this finding belongs to, which every lint report groups and filters by (see
+     * server/src/cli/rule-ids.ts). Where a setting switches the pass off, the id is that setting's
+     * key, so a reported rule can be turned off without a lookup table. Usually left unset here and
+     * filled in where the pass is invoked, which is the only place a finding's pass is known.
+     */
+    code?: string;
+    /**
      * Byte-offset span to underline instead of `node`'s own span. For findings that read as a whole
      * clause (a faded-out dead field covers its value too, not just the key) where no single node
      * spans it: an AssignmentNode carries no position, so the span cannot come from a node alone.
@@ -110,6 +118,16 @@ export type ValidationError = {
     /** Optional payload attached to the emitted LSP Diagnostic (e.g. a quick-fix), see server.ts. */
     data?: ValidationErrorData;
 };
+
+/**
+ * The did-you-mean quick fix a finding carries when a close match was found, meant to be spread into
+ * the error so a finding without a match carries no data at all.
+ *
+ * @param suggestion The closest name the check found, or nothing when it found none.
+ * @returns The `data` payload holding the quick fix, or an empty object when there is no suggestion.
+ */
+export const didYouMeanFix = (suggestion: string | null | undefined): Pick<ValidationError, 'data'> =>
+    suggestion ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } } : {};
 
 /** Extra data round-tripped on a Diagnostic so a code action can act on it without re-analyzing. */
 export type ValidationErrorData = {
@@ -160,7 +178,9 @@ export type ValidationErrorData = {
      * `version` is the game version that made the change (undefined when the changelog does not
      * record it). `apply` names the attached fix the migration may apply mechanically. When absent
      * the finding needs author judgment (e.g. a part whose fireproofing must not clobber an
-     * inherited category list) and the migration only reports it.
+     * inherited category list) and the migration only reports it. `symbol` names the
+     * deprecation-registry entry behind the finding (see deprecations.ts), so a bulk fix can collect
+     * this one deprecation across the mod and leave every other finding alone.
      */
-    migration?: { version?: string; apply?: 'rewrite' | 'quickFix' | 'remove' };
+    migration?: { version?: string; apply?: 'rewrite' | 'quickFix' | 'remove'; symbol?: string };
 };

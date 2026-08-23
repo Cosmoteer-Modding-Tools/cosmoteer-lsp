@@ -4,7 +4,6 @@ import {
     AbstractNodeDocument,
     AssignmentNode,
     isAssignmentNode,
-    isDocumentNode,
     isFunctionCallNode,
     isGroupNode,
     isIdentifierNode,
@@ -14,6 +13,7 @@ import {
     ListNode,
     ValueNode,
 } from '../../core/ast/ast';
+import { childNodesOf } from '../../utils/ast.utils';
 import { isModRules } from '../../document/document-kind';
 import {
     groupDiscriminator,
@@ -31,10 +31,15 @@ import {
     schema,
     valueTypeLabel,
 } from '../../document/schema/schema';
-import { deprecatedDiscriminator, obsoleteField, renamedFieldAlias } from '../../document/schema/deprecations';
+import {
+    deprecatedDiscriminator,
+    migrationSymbolOf,
+    obsoleteField,
+    renamedFieldAlias,
+} from '../../document/schema/deprecations';
 import { SchemaField, SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { GroupNode } from '../../core/ast/ast';
-import { ValidationError } from './validator';
+import { didYouMeanFix, ValidationError } from './validator';
 import { closestMatch } from '../../utils/did-you-mean';
 import { ALL_MATH_FUNCTION_NAMES } from '../../semantics/math-function-registry';
 import { evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
@@ -186,9 +191,13 @@ export const validateSchema = async (
                 node: element.left,
                 severity: 'hint',
                 data: replacementPresent
-                    ? { migration: { version: rename.version } }
+                    ? { migration: { version: rename.version, symbol: migrationSymbolOf('renamedAlias', written) } }
                     : {
-                          migration: { version: rename.version, apply: 'quickFix' },
+                          migration: {
+                              version: rename.version,
+                              apply: 'quickFix',
+                              symbol: migrationSymbolOf('renamedAlias', written),
+                          },
                           quickFix: { title: l10n.t("Change to '{0}'", rename.replacement), newText: rename.replacement },
                       },
             });
@@ -205,7 +214,7 @@ export const validateSchema = async (
             ),
             node: element.left,
             severity: 'hint',
-            data: { migration: { version: obsolete.version } },
+            data: { migration: { version: obsolete.version, symbol: migrationSymbolOf('obsoleteField', written) } },
         };
         // The mechanical rewrites wrap the existing scalar value in the successor's container shape
         // (`ComponentID = X` → `ComponentIDs = [X]`, `ExplosiveDamageResistance = X` →
@@ -222,7 +231,11 @@ export const validateSchema = async (
                       : undefined;
             if (wrap) {
                 error.data = {
-                    migration: { version: obsolete.version, apply: 'rewrite' },
+                    migration: {
+                        version: obsolete.version,
+                        apply: 'rewrite',
+                        symbol: migrationSymbolOf('obsoleteField', written),
+                    },
                     rewrite: {
                         title: l10n.t("Change to '{0}'", obsolete.replacement),
                         edits: [
@@ -340,9 +353,7 @@ export const validateSchema = async (
             message: l10n.t("'{0}' is not a valid {1}. Expected one of: {2}", written, typeName, members.join(', ')),
             node: value,
             severity: 'warning',
-            ...(suggestion
-                ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
-                : {}),
+            ...didYouMeanFix(suggestion),
         });
     };
 
@@ -394,7 +405,11 @@ export const validateSchema = async (
                 node: valueNode,
                 severity: 'warning',
                 data: {
-                    migration: { version: deprecation.version, apply: 'quickFix' },
+                    migration: {
+                        version: deprecation.version,
+                        apply: 'quickFix',
+                        symbol: migrationSymbolOf('discriminator', written),
+                    },
                     quickFix: {
                         title: l10n.t("Change to '{0}'", deprecation.replacement),
                         newText: deprecation.replacement,
@@ -408,9 +423,7 @@ export const validateSchema = async (
             message: l10n.t("'{0}' is not a valid {1} type.", written, registry.name),
             node: valueNode,
             severity: 'warning',
-            ...(suggestion
-                ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
-                : {}),
+            ...didYouMeanFix(suggestion),
         });
     };
 
@@ -451,12 +464,7 @@ export const validateSchema = async (
             // not read it, so it must still surface the rename hint.
             if (disc && (!cls || cls === slotRegistry || deprecatedDiscriminator(disc))) checkDiscriminator(node);
         }
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) visit(child);
     };
 
@@ -592,9 +600,7 @@ export const validateSchema = async (
                 ),
                 node: nameNode,
                 severity: 'warning',
-                ...(suggestion
-                    ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
-                    : {}),
+                ...didYouMeanFix(suggestion),
             });
         }
     };

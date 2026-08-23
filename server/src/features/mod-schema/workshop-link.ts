@@ -13,11 +13,11 @@
  * published id and gets no link, which is correct: there is nothing to link to yet.
  */
 import { readFile } from 'fs/promises';
-import { dirname, join } from 'path';
+import { join } from 'path';
 import { COSMOTEER_APP_ID } from '../../workspace/workshop-dir';
 
 /** Where a code mod is published, for the hover footer. */
-export interface WorkshopLink {
+interface WorkshopLink {
     /** The mod's Steam Workshop page. */
     url: string;
     /** The mod's display name from its manifest, absent when the manifest could not be read. */

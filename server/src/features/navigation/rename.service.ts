@@ -13,7 +13,7 @@ import { getStartOfAstNode } from '../../utils/ast.utils';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { DefinitionService, isReferenceValue } from './definition.service';
 import { FullNavigationStrategy } from './full.navigation-strategy';
-import { filePathToUri } from './navigation-strategy';
+import { filePathToUri, segmentName, segmentSpans, SegmentSpan } from './navigation-strategy';
 import { definitionLocationOf, locationKey, normalizeUri, referenceSiteLocation } from './reference-location';
 import { findReferenceTargetAtPosition, referenceNodesOf } from './reference-index';
 import { resolveSchemaSiblingReference, stringValueNodesOf, valueTextRange } from './schema-reference.navigation';
@@ -23,19 +23,18 @@ import { particleChannelAt, channelOccurrences, channelRangeOf } from './particl
 import { documentRootClass } from '../../document/schema/document-root';
 import { isValueNode } from '../../core/ast/ast';
 import { documentsMentioning } from './workspace-files';
+import {
+    buildLocalizationKeyRenameEdit,
+    localizationKeyRenameTargetAt,
+} from '../refactor/rename-localization-key';
+
+export { RenameRefusedError } from '../refactor/rename-localization-key';
 
 /** A renameable symbol: the identifier text to rewrite, its name, and the target identity. */
 interface RenameSymbol {
     nameNode: IdentifierNode;
     name: string;
     targetKey: string;
-}
-
-/** A `/`-delimited path segment and its character span within the reference value string. */
-interface SegmentSpan {
-    text: string;
-    start: number;
-    end: number;
 }
 
 /** A valid Cosmoteer member name: what a rename target may be renamed to. */
@@ -61,20 +60,6 @@ export const dropEditsUnderRoot = (edit: WorkspaceEdit, root: string | undefined
 
 /** A valid Cosmoteer ID value like a member name but dotted ids are allowed (`cosmoteer.fire`). */
 const VALID_ID = /^[A-Za-z0-9_.]+$/;
-
-/** Split a reference value into its `/`-delimited segments with offsets (mirrors `extractSubstrings`). */
-const segmentSpans = (value: string): SegmentSpan[] => {
-    const spans: SegmentSpan[] = [];
-    const regex = /[^/]+/g;
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(value)) !== null) {
-        spans.push({ text: match[0], start: match.index, end: match.index + match[0].length });
-    }
-    return spans;
-};
-
-/** The bare member name of a segment: the leading relative `&` sigil stripped. */
-const segmentName = (span: SegmentSpan): string => span.text.replace(/^&/, '');
 
 /** The document range covering a segment's name (excluding any leading `&`). */
 const segmentNameRange = (node: ValueNode, span: SegmentSpan): Range => {
@@ -111,11 +96,25 @@ export class RenameService {
         return RenameService._instance;
     }
 
-    /** Validate the cursor sits on a renameable name and report its range + current text. */
+    /**
+     * Validate the cursor sits on a renameable name and report its range + current text.
+     *
+     * @param document the parsed document the caret is in.
+     * @param position the caret position.
+     * @param cancellationToken cancellation for the schema lookup a localization key needs.
+     * @returns the span to rewrite and its current text, or null when nothing here can be renamed.
+     */
     public async prepareRename(
         document: AbstractNodeDocument,
-        position: Position
+        position: Position,
+        cancellationToken: CancellationToken = CancellationToken.None
     ): Promise<{ range: Range; placeholder: string } | null> {
+        // A localization key is a slash path into the mod's language files rather than a member name
+        // or a reference segment, so it is recognized before either of those branches can claim it.
+        // Inside a strings file the general member rename would rewrite the key in that one language.
+        const localizationKey = await localizationKeyRenameTargetAt(document, position, cancellationToken);
+        if (localizationKey) return { range: localizationKey.range, placeholder: localizationKey.segment };
+
         const found = findReferenceTargetAtPosition(document, position);
         if (!found) return null;
 
@@ -156,17 +155,44 @@ export class RenameService {
         return { range: identifierRange(symbol.nameNode), placeholder: symbol.name };
     }
 
+    /**
+     * The whole rename as one {@link WorkspaceEdit}: the declaration plus every site that refers to it.
+     *
+     * @param document the parsed document the caret is in.
+     * @param position the caret position.
+     * @param newName the name the symbol is being given.
+     * @param folderPaths the project folders to search.
+     * @param cancellationToken cancels the search.
+     * @param readOverride the unsaved text of an open file, so a cross-file edit is measured against
+     *        the buffer the editor will apply it to rather than against stale bytes on disk.
+     * @returns the edit to apply, or null when nothing under the caret can be renamed.
+     */
     public async rename(
         document: AbstractNodeDocument,
         position: Position,
         newName: string,
         folderPaths: string[],
-        cancellationToken: CancellationToken
+        cancellationToken: CancellationToken,
+        readOverride?: (absPath: string) => string | undefined
     ): Promise<WorkspaceEdit | null> {
         const changes: { [uri: string]: TextEdit[] } = {};
         const add = (uri: string, range: Range, text: string) => {
             (changes[uri] ??= []).push(TextEdit.replace(range, text));
         };
+
+        // A localization key renames across the mod's language files and every field pointing at it,
+        // so it is handled first, before the reference-shaped branches below.
+        const localizationKey = await localizationKeyRenameTargetAt(document, position, cancellationToken);
+        if (localizationKey) {
+            return buildLocalizationKeyRenameEdit(
+                localizationKey,
+                newName,
+                document.uri,
+                folderPaths,
+                cancellationToken,
+                readOverride
+            );
+        }
 
         // Cross-file `ID<X>` rename: rewrite the whole-file root's `ID` declaration and every bare-id
         // reference to it across the project (e.g. rename resource `battery` → all `ResourceType =`).

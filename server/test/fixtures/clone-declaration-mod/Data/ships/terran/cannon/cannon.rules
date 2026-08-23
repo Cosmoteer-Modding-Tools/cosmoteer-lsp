@@ -1,0 +1,31 @@
+Part : <../base_part.rules>/Part
+{
+	NameKey = "Parts/Cannon"
+	IconNameKey = "Parts/CannonIcon"
+	ID = cosmoteer.cannon // Part IDs must always be in the form of "author_name.part_name".
+	OtherIDs = [old_cannon]
+	DescriptionKey = "Parts/CannonDesc"
+	EditorGroup = "WeaponsProjectile"
+	SelectionTypeID = "cannons"
+	TypeCategories = [weapon, uses_ammo]
+	Size = [2, 2]
+	MaxHealth = 12000
+	Icon
+	{
+		Texture
+		{
+			File = "icon.png"
+			SampleMode = Linear
+		}
+	}
+	Blueprints
+	{
+		Texture
+		{
+			File = "../shared/shared_icon.png"
+			SampleMode = Linear
+		}
+	}
+	HEAT_TO_RESOURCE = &<./Data/statuses/heat/heat.rules>/STATUS_TO_RESOURCE_RATIO
+	EXTRA = (&~/Part/MaxHealth) * 2
+}

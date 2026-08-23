@@ -26,6 +26,7 @@ describe('inlay hints for referenced BaseValue groups', () => {
 
     afterEach(() => {
         globalSettings.inlayHints.showBaseValue = true;
+        globalSettings.inlayHints.showTargetValue = true;
     });
 
     it('annotates a reference to a group carrying a BaseValue', async () => {
@@ -53,9 +54,19 @@ describe('inlay hints for referenced BaseValue groups', () => {
         expect(labels(await hintsFor(src))).toEqual(['= 1.570796 rad (90°)', '/BaseValue = 90d']);
     });
 
-    it('does not annotate a reference to a group without a BaseValue', async () => {
+    it('previews a group without a BaseValue by its own fields', async () => {
         const src = ['Shield', '{', '\tRadius = 13', '}', 'Ref = &Shield'].join('\n');
-        expect(await hintsFor(src)).toHaveLength(0);
+        expect(labels(await hintsFor(src))).toEqual(['= {Radius = 13}']);
+    });
+
+    it('previews a list target by its entries', async () => {
+        const src = ['Rect', '[', '\t0, 1, 2, 1', ']', 'Ref = &Rect'].join('\n');
+        expect(labels(await hintsFor(src))).toEqual(['= [0, 1, 2, 1]']);
+    });
+
+    it('previews a written value a reference stands for', async () => {
+        const src = ['ICON = ui/icon.png', 'Ref = &ICON'].join('\n');
+        expect(labels(await hintsFor(src))).toEqual(['= ui/icon.png']);
     });
 
     it('keeps the numeric hint for a reference that resolves to a number', async () => {
@@ -63,9 +74,26 @@ describe('inlay hints for referenced BaseValue groups', () => {
         expect(labels(await hintsFor(src))).toEqual(['= 50']);
     });
 
-    it('emits nothing when the setting is off', async () => {
+    it('emits nothing when the BaseValue setting is off', async () => {
+        // The shape decides which hint belongs on the line, so turning this one off clears the slot
+        // rather than handing it to the generic preview.
         globalSettings.inlayHints.showBaseValue = false;
         const src = ['Shield', '{', '\tBaseValue = 1200', '}', 'Ref = &Shield'].join('\n');
+        expect(await hintsFor(src)).toHaveLength(0);
+    });
+
+    it('keeps the closing bracket on a preview it has to cut', async () => {
+        // The label sits inside the line of code, so a long list is cut. Cutting the bracket off with
+        // it would leave the reader looking at a line that reads as unfinished rather than shortened.
+        const entries = Array.from({ length: 40 }, (_, index) => index).join(', ');
+        const src = ['Rect', '[', entries, ']', 'Ref = &Rect'].join('\n');
+        const label = labels(await hintsFor(src))[0];
+        expect(label.endsWith('…]')).toBe(true);
+    });
+
+    it('emits no preview when the target-value setting is off', async () => {
+        globalSettings.inlayHints.showTargetValue = false;
+        const src = ['Shield', '{', '\tRadius = 13', '}', 'Ref = &Shield'].join('\n');
         expect(await hintsFor(src)).toHaveLength(0);
     });
 });

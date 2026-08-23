@@ -48,7 +48,6 @@ const TOKEN_DISPLAY: Partial<Record<TOKEN_TYPES, string>> = {
     [TOKEN_TYPES.COLON]: ':',
     [TOKEN_TYPES.EQUALS]: '=',
     [TOKEN_TYPES.COMMA]: ',',
-    [TOKEN_TYPES.STRING_DELIMITER]: '"',
     [TOKEN_TYPES.TRUE]: 'true',
     [TOKEN_TYPES.FALSE]: 'false',
 };
@@ -112,6 +111,19 @@ const IN_STRING_RUN: ReadonlySet<TOKEN_TYPES> = new Set([
  */
 const isListElementIdentifier = (parent: AbstractNode | undefined): boolean => parent?.type === 'List';
 
+// Hoisted out of the parse loop, which tests these for every member name and for the guarded
+// sign/slash branches of every parsed file. A regex literal in the body allocates a fresh RegExp per
+// call, and none of these carries state.
+
+/** Matches a name that holds whitespace, which the game refuses as a member name. */
+const HAS_WHITESPACE = /\s/;
+
+/** Matches a bare identifier, a name or a dotted name, with no reference sigil in front of it. */
+const IDENTIFIER_VALUE = /^[A-Za-z_][\w.]*$/;
+
+/** Matches a token that opens with a name character, so a `/` before it reads as a path segment. */
+const STARTS_WITH_NAME_CHAR = /^[A-Za-z_]/;
+
 export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => {
     let current = 0;
     const errors: ParserError[] = [];
@@ -174,7 +186,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             } as ParserError);
             return;
         }
-        if (!/\s/.test(name) && (!next || next.precededByNewline || NAME_FOLLOWERS.has(next.type))) {
+        if (!HAS_WHITESPACE.test(name) && (!next || next.precededByNewline || NAME_FOLLOWERS.has(next.type))) {
             return;
         }
         errors.push({
@@ -570,7 +582,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 !tokens[current]?.precededByNewline &&
                 (token.value === '-' || token.value === '+') &&
                 (NUMBER_WITH_UNIT.test(tokenValue) ||
-                    /^[A-Za-z_][\w.]*$/.test(tokenValue) ||
+                    IDENTIFIER_VALUE.test(tokenValue) ||
                     GLUED_ARITHMETIC.test(tokenValue)) &&
                 !lastCompletesValue
             ) {
@@ -651,7 +663,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 // as `166`, `/`, `64-0.6`, and without this guard the `/` folds `64-0.6` into a bogus
                 // reference `/64-0.6` (which then reports as an unresolved reference). Treat it as the
                 // division operator instead by falling through to the Expression case below.
-                /^[A-Za-z_]/.test(tokenValue)
+                STARTS_WITH_NAME_CHAR.test(tokenValue)
             ) {
                 const value = '/' + tokenValue;
                 current++;
@@ -1260,11 +1272,6 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             return right;
         }
 
-        if (token.type === TOKEN_TYPES.SINGLE_COMMENT || token.type === TOKEN_TYPES.MULTI_COMMENT) {
-            current++;
-            return walk(_lastNode, parent);
-        }
-
         if (token.type === TOKEN_TYPES.RIGHT_PAREN && _lastNode?.type !== 'Value') {
             // A `)` reaching here is unmatched. Every paren-group/function-call loop consumes its
             // own closing `)` before calling `walk`, so this is a stray paren. The real OT parser
@@ -1300,15 +1307,6 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             } as ValueNode;
         } else if (token.type === TOKEN_TYPES.RIGHT_PAREN && _lastNode?.type === 'Value') {
             current++;
-            return walk(_lastNode, parent);
-        }
-
-        if (token.type === TOKEN_TYPES.STRING_DELIMITER) {
-            current++;
-            errors.push({
-                message: l10n.t('String delimiters are only allowed after a String'),
-                token,
-            } as ParserError);
             return walk(_lastNode, parent);
         }
 
@@ -1569,13 +1567,13 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
     return { value: ast, parserErrors: errors };
 };
 
-export type ParserError = {
+type ParserError = {
     message: string;
     token: Token;
     additionalInfo?: Pick<ParserError, 'message' | 'token'>[];
 };
 
-export interface TokenParserResult {
+interface TokenParserResult {
     value: AbstractNodeDocument;
     parserErrors: ParserError[];
 }

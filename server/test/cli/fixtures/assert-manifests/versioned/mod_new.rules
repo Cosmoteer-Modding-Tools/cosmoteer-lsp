@@ -1,0 +1,4 @@
+ID = Test.Versioned
+Name = "Versioned"
+CompatibleGameVersions [ 0.30.4c ]
+UseThisFileIfNoVersionMatch = true

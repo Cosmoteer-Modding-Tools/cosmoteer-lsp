@@ -10,9 +10,10 @@
  *
  * Lives under `features/part-editor` on purpose. `esbuild.cache-id.mjs` seeds the cache-id closure
  * from `server/src/mod` (where `mod-overview.ts` lives) but not from here, so shipping this module
- * leaves every user's on-disk caches valid. For the same reason the two helpers it shares in spirit
- * with `mod-overview.ts` (`code`, `fileLink`) and the `isRegistered` predicate of
- * `validator.duplicate-id.ts` are reimplemented locally rather than exported out of those files.
+ * leaves every user's on-disk caches valid. For the same reason the `fileLink` label it shares in
+ * spirit with `mod-overview.ts` and the `isRegistered` predicate of `validator.duplicate-id.ts` are
+ * written locally rather than exported out of those files. The link encoding underneath both is
+ * shared, since `features/report/markdown-link.ts` pulls nothing else in.
  * Reading `fileReferenceSites` out of `features/navigation` is not such a case: find-all-references
  * missed the file-reference spelling entirely, so that search had to change regardless, and one
  * implementation of it is what keeps this report and find-all-references agreeing.
@@ -33,12 +34,12 @@ import {
 import { basenameOf } from '../../document/document-kind';
 import { aliasRootIndex } from '../../document/schema/alias-root';
 import { documentRootClass } from '../../document/schema/document-root';
-import { fieldsOf, isLocalizationKeyType, schema } from '../../document/schema/schema';
+import { fieldsOf, isLocalizationKeyType } from '../../document/schema/schema';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { ValueType } from '../../document/schema/schema.types';
 import { ActionRootingIndex } from '../../mod/action-rooting.index';
 import { findMemberThroughInheritance, ResolveReferenceFn } from '../../semantics/inheritance-resolver';
-import { getStartOfAstNode, namedMembersOf } from '../../utils/ast.utils';
+import { childNodesOf, getStartOfAstNode, namedMembersOf } from '../../utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { LocalizationKeyIndex } from '../completion/localization-key.index';
 import { SchemaIdIndex } from '../completion/schema-id.index';
@@ -48,7 +49,11 @@ import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
 import { declaringFieldOf, isSameOrSubclass } from '../navigation/schema-id-reference.navigation';
 import { FileReferenceAnchor, fileReferenceName, fileReferenceSites } from '../navigation/schema-id-symbol';
 import { documentsMentioning, uriToFsPath } from '../navigation/workspace-files';
-import { PART_RULES_CLASS } from './part-fields';
+import { code, linkDestination } from '../report/markdown-link';
+// The table lives in part-fields.ts so the mod overview's part-unlock section can read it without
+// pulling this report into the cache-id closure. Re-exported, since callers already import it here.
+import { MODE_PART_FIELDS, PART_RULES_CLASS } from './part-fields';
+export { MODE_PART_FIELDS };
 
 /** The verdict of one checklist row: wired, not wired, or not judgeable from what is indexed. */
 export type WiringMark = 'ok' | 'missing' | 'unknown';
@@ -66,7 +71,7 @@ export interface WiringRow {
 }
 
 /** A part's identity as the rest of the game names it: its `ID`, its `OtherIDs` aliases, and where. */
-export interface PartIdentity {
+interface PartIdentity {
     /** The written `ID`, absent when the part declares none. */
     readonly id?: string;
     /** The `OtherIDs` aliases, which every id reference resolves through just like the primary id. */
@@ -103,48 +108,6 @@ const DEFAULT_PART_FIELD = 'defaultpartid';
 
 /** How far up the parent chain the enclosing tech group is looked for. */
 const MAX_ENCLOSING_DEPTH = 8;
-
-/** Whether a schema value type reaches a reference to a part, through list/map/tuple nesting. */
-const reachesPartReference = (valueType: ValueType | undefined): boolean => {
-    if (!valueType) return false;
-    switch (valueType.kind) {
-        case 'reference':
-            return isSameOrSubclass(valueType.target, PART_RULES_CLASS);
-        case 'list':
-        case 'range':
-        case 'interpolated':
-            return reachesPartReference(valueType.element);
-        case 'map':
-            return reachesPartReference(valueType.key) || reachesPartReference(valueType.value);
-        case 'tuple':
-            return valueType.elements.some(reachesPartReference);
-        default:
-            return false;
-    }
-};
-
-/**
- * Every field of a `Cosmoteer.Modes.*` class whose value names a part, keyed by the lower-cased
- * field name and mapping to the classes that declare it. Derived from the schema at module load,
- * so a game update that adds a mode surface is picked up by regenerating the schema rather than by
- * editing this file. Today it holds exactly five declarations under three names: `PartsUnlocked`
- * (career techs and build-battle techs), `PartID` (both `ToggleChoice` shapes) and `PartsWhitelist`
- * (the build-battle mode). The key is the field name rather than the class because a tech element's
- * owner class only resolves once the alias chain that roots `techs.rules` has run, and the row must
- * degrade to a looser match instead of to nothing.
- */
-export const MODE_PART_FIELDS: ReadonlyMap<string, readonly string[]> = (() => {
-    const byName = new Map<string, string[]>();
-    for (const [fullName, type] of Object.entries(schema.types)) {
-        if (!fullName.startsWith('Cosmoteer.Modes.')) continue;
-        for (const field of type.fields ?? []) {
-            if (!reachesPartReference(field.valueType)) continue;
-            const key = field.name.toLowerCase();
-            (byName.get(key) ?? byName.set(key, []).get(key)!).push(fullName);
-        }
-    }
-    return byName;
-})();
 
 /** The field names worth collecting a naming site for: the mode surface plus the ship default. */
 const WIRING_FIELD_NAMES: ReadonlySet<string> = new Set([...MODE_PART_FIELDS.keys(), DEFAULT_PART_FIELD]);
@@ -218,26 +181,15 @@ const textsOf = (node: AbstractNode | undefined): string[] => {
     return out;
 };
 
-/** Markdown-safe inline code (backticks cannot appear in an id or a `.rules` path anyway). */
-const code = (text: string): string => '`' + text.replace(/`/g, "'") + '`';
-
 /**
- * A markdown link to a file, labeled with its bare file name. The destination is a `vscode://file/…`
- * deep link, not a `file:` uri: markdown-it's link validator (in VS Code's own preview too) rejects
- * the `file:` scheme outright and leaves the raw `[…](…)` text visible. Parentheses are
- * percent-encoded on top of the per-segment encoding, since an unencoded `)` in a file name
- * (`Kopie (2).rules`) would close the markdown destination early.
+ * A markdown link to a file, labeled with its bare file name.
  *
  * @param path the file's on-disk path or uri.
  * @returns the markdown link.
  */
 export const fileLink = (path: string): string => {
     const plain = uriToFsPath(path).replace(/\\/g, '/');
-    const encoded = plain
-        .split('/')
-        .map((segment) => encodeURIComponent(segment).replace(/\(/g, '%28').replace(/\)/g, '%29'))
-        .join('/');
-    return `[${basenameOf(plain)}](vscode://file/${encoded})`;
+    return `[${basenameOf(plain)}](vscode://file/${linkDestination(plain)})`;
 };
 
 /**
@@ -542,14 +494,7 @@ const collectNameSites = (document: AbstractNodeDocument, names: ReadonlySet<str
             }
             return;
         }
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? node.right
-                      ? [node.right]
-                      : []
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) visit(child);
     };
     for (const element of document.elements) visit(element);

@@ -1,0 +1,10 @@
+Part
+{
+	ID = "editing_probe"
+	Sprite
+	{
+		File = "sprite.png"
+		Layer = "roofs"
+	}
+	ShowCondition = "? game.Fame > 0"
+}

@@ -1,0 +1,7 @@
+// A part wired in by the manifest, so it is inside the reachable scope.
+Part
+{
+	A = 1
+	A = 2
+	HeatTarget = &<./Data/parts/base_part.rules>/Part/HeatTarget
+}

@@ -1,0 +1,25 @@
+// The mod's English strings. `Greeting` is deliberately also declared by the fixture game tree, so
+// the rename has a key it must refuse to move.
+__Name = "English"
+__DebugOnly = false
+
+Parts
+{
+	Foo = "Foo part"
+	FooDesc = "A part the rename fixture points at."
+}
+
+// A sibling group whose name starts with the one above, so a prefix rename that matched on text
+// rather than on whole path segments would rewrite it too.
+PartsExtra
+{
+	Foo = "A part of the other group."
+}
+
+Titles
+[
+	"First"
+	"Second"
+]
+
+Greeting = "Hello from the fixture mod"

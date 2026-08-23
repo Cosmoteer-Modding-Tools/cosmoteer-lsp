@@ -265,9 +265,14 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
     'Cosmoteer.Ships.Parts.Graphics.PartResourceSpritesRules': [
         { name: 'HasZeroResourceSprite', valueType: { kind: 'bool' }, optional: true },
     ],
-    // Indicator sprites render on a named ship render layer.
+    // Four of the game's own parts write `Layer` on an `IndicatorSprites` component, naming an
+    // `indicators` layer no ship declares. `PartIndicatorSpritesRules` has no such field in the
+    // game's code (its only serialized member is `Indicators`), and the indicator layer the renderer
+    // uses is the one flagged `IsIndicators`, chosen in code rather than named here. So the member is
+    // carried as dead: it keeps hover and the ignored-field hint honest, and the layer check leaves
+    // it alone rather than reporting the game's own leftover.
     'Cosmoteer.Ships.Parts.Graphics.PartIndicatorSpritesRules': [
-        { name: 'Layer', valueType: RENDER_LAYER_REF, optional: true },
+        { name: 'Layer', valueType: RENDER_LAYER_REF, optional: true, dead: true },
     ],
     // A turret weapon names the emitter component it fires through.
     'Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules': [{ name: 'Emitter', valueType: COMPONENT_REF, optional: true }],

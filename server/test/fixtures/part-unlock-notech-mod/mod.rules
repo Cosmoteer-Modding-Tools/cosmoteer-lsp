@@ -1,0 +1,17 @@
+ID = Test.PartUnlockNoTechMod
+Name = "Part unlock fixture without techs"
+Version = 1.0
+
+// A mod that declares a part and no tech at all. Read on its own, with no game files alongside it,
+// nothing in the project says what research gates anything, so the sweep has nothing to judge.
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<ships/partship.rules>/PartShip/Parts"
+		ManyToAdd
+		[
+			&<solo_part.rules>/Part
+		]
+	}
+]

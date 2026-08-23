@@ -80,7 +80,7 @@ export interface ModSchemaExtension {
  * The read side of the shipped schema, which stands in for the game assemblies the C# extractor
  * resolves against. Narrow on purpose, so a test can drive extraction from a raw bundle.
  */
-export interface GameSchemaView {
+interface GameSchemaView {
     /** A game type by FullName. */
     type(fullName: string): SchemaTypeDef | undefined;
     /** A game registry by FullName. */

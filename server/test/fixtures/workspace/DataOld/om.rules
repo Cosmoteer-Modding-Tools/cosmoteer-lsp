@@ -1,0 +1,13 @@
+// A mod file in a folder whose name merely starts with `Data`, so it is not one of the game's own
+// files even though its path shares that prefix. Derives from the game part the same way om.rules
+// does, so a report over it has something the game writes to compare against.
+Part : &<./Data/parts/base_part.rules>/Part
+{
+	Components : ^/0/Components
+	{
+		IsOperational : ^/0/IsOperational
+		{
+			Mode = Any
+		}
+	}
+}

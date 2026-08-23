@@ -1,0 +1,19 @@
+// A base whose members are given their real values only by the groups inheriting it, which is what
+// the game's `:` picks between when it builds one. The consumer below reaches both the base's own
+// declaration and, through `:`, the deriving one.
+Parent
+{
+	v_Foo = 0
+}
+
+Child : Parent
+{
+	v_Foo = 42
+	v_OnlyInChild = 5
+}
+
+Consumer
+{
+	OnlyInChild = &../Parent/:/v_OnlyInChild
+	Foo = &../Parent/:/v_Foo
+}

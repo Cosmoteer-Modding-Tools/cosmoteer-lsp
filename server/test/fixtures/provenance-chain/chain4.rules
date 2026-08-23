@@ -1,0 +1,4 @@
+Chain4 : &<chain3.rules>/Chain3
+{
+	M4 = 4
+}

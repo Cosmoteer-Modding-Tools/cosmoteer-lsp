@@ -36,7 +36,7 @@ import {
     targetsAnotherPart,
     tupleComponentTargetAt,
 } from '../diagnostics/validator.schema-sibling';
-import { namedMembersOf } from '../../utils/ast.utils';
+import { childNodesOf, documentRootOf, namedMembersOf } from '../../utils/ast.utils';
 import { Completion } from './autocompletion.service';
 import { ValueType } from '../../document/schema/schema.types';
 
@@ -222,13 +222,6 @@ const loadByNormalizedKey = async (key: string): Promise<AbstractNodeDocument | 
     return ParserResultRegistrar.instance.getResultByPath(path) ?? (await cachedParseFilePath(path).catch(() => null));
 };
 
-/** The document root an AST node belongs to, by walking its parent chain. */
-const documentRootOf = (node: AbstractNode): AbstractNodeDocument | undefined => {
-    let current: AbstractNode | undefined = node;
-    while (current && !isDocumentNode(current)) current = current.parent;
-    return current && isDocumentNode(current) ? current : undefined;
-};
-
 /** The document a resolved action target lives in: parsed from a file, or the target node's root. */
 const documentOfResolved = async (resolved: AbstractNode | FileWithPath | null): Promise<AbstractNodeDocument | null> => {
     if (!resolved) return null;
@@ -245,12 +238,7 @@ const overrideInValuesOf = (document: AbstractNodeDocument): ValueNode[] => {
         if (isAssignmentNode(node) && node.left.name === 'OverrideIn' && isValueNode(node.right)) {
             out.push(node.right);
         }
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) visit(child);
     };
     visit(document);
@@ -303,12 +291,7 @@ const collectComponentReferences = (document: AbstractNodeDocument, into: Map<st
     const visit = (node: AbstractNode): void => {
         if (isGroupNode(node)) checkGroup(node);
         if (isListNode(node)) checkTupleList(node);
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) visit(child);
     };
     visit(document);

@@ -1,0 +1,15 @@
+Factions
+[
+	{
+		ID = test.first
+		OtherIDs = [old_first]
+		NameKey = "Factions/First"
+		Icon
+		{
+			Texture
+			{
+				File = "first.png"
+			}
+		}
+	}
+]

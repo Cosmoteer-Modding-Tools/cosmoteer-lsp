@@ -1,3 +1,4 @@
+import { registry } from '../../utils/registry';
 /**
  * A curated table of the HLSL builtin functions Cosmoteer shaders use, shared by shader completion and
  * shader signature help. It is not the full HLSL standard library, just the intrinsics that actually
@@ -6,14 +7,14 @@
  */
 
 /** One HLSL intrinsic's signature. */
-export interface Intrinsic {
+interface Intrinsic {
     /** Ordered parameter names, each rendered into the label so the client can highlight it. */
     readonly params: readonly string[];
     /** One-line description shown in completion detail and the signature-help popup. */
     readonly doc: string;
 }
 
-export const HLSL_INTRINSICS: Readonly<Record<string, Intrinsic>> = {
+export const HLSL_INTRINSICS: Readonly<Record<string, Intrinsic>> = registry({
     abs: { params: ['x'], doc: 'Absolute value, component-wise.' },
     acos: { params: ['x'], doc: 'Arccosine of each component, in radians.' },
     all: { params: ['x'], doc: 'True if every component is non-zero.' },
@@ -66,7 +67,7 @@ export const HLSL_INTRINSICS: Readonly<Record<string, Intrinsic>> = {
     tex2D: { params: ['sampler', 'uv'], doc: 'Sample a 2D texture at uv (legacy DX9 form).' },
     transpose: { params: ['m'], doc: 'Transpose of a matrix.' },
     trunc: { params: ['x'], doc: 'Truncate each component toward zero.' },
-};
+});
 
 /**
  * The full set of HLSL intrinsic function names, for validation. It is a superset of the documented
@@ -91,14 +92,14 @@ export const HLSL_INTRINSIC_NAMES: ReadonlySet<string> = new Set([
 ]);
 
 /** One texture method, with its call signature, return type, and a one-line explanation. */
-export interface TextureMethod {
+interface TextureMethod {
     readonly signature: string;
     readonly returns: string;
     readonly doc: string;
 }
 
 /** The sampling/query methods available on a texture object (offered after a `.`, documented on hover). */
-export const TEXTURE_METHODS: Readonly<Record<string, TextureMethod>> = {
+export const TEXTURE_METHODS: Readonly<Record<string, TextureMethod>> = registry({
     Sample: {
         signature: 'Sample(sampler, uv)',
         returns: 'float4',
@@ -139,10 +140,10 @@ export const TEXTURE_METHODS: Readonly<Record<string, TextureMethod>> = {
         returns: 'void',
         doc: "Write the texture's width and height into the output parameters.",
     },
-};
+});
 
 /** An engine-provided uniform, with its HLSL type and what it holds. */
-export interface EngineUniform {
+interface EngineUniform {
     readonly type: string;
     readonly doc: string;
 }
@@ -153,7 +154,7 @@ export interface EngineUniform {
  * completion still offer them, type-resolution resolve `_texture.` to the texture methods, and hover
  * explain where each value comes from.
  */
-export const ENGINE_UNIFORMS: Readonly<Record<string, EngineUniform>> = {
+export const ENGINE_UNIFORMS: Readonly<Record<string, EngineUniform>> = registry({
     _texture: { type: 'Texture2D', doc: 'The material base-colour texture, bound by the engine.' },
     _color: { type: 'float4', doc: 'The per-draw colour tint, supplied by the engine.' },
     _transform: { type: 'float4x4', doc: 'The model-view-projection matrix for the current draw.' },
@@ -165,7 +166,7 @@ export const ENGINE_UNIFORMS: Readonly<Record<string, EngineUniform>> = {
     _globalAmbientLight: { type: 'float3', doc: 'The scene ambient light colour.' },
     _globalDiffuseLight: { type: 'float3', doc: 'The scene diffuse light colour.' },
     _globalSpecularLight: { type: 'float3', doc: 'The scene specular light colour.' },
-};
+});
 
 /** A human description of an HLSL type token (`float3` → a 3-component float vector), or null if unknown. */
 export const describeHlslType = (token: string): string | null => {

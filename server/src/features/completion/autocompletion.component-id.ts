@@ -1,8 +1,8 @@
 import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, GroupNode, isDocumentNode, isGroupNode } from '../../core/ast/ast';
+import { AbstractNodeDocument, GroupNode, isGroupNode } from '../../core/ast/ast';
 import { registryForGroup } from '../../document/schema/schema-context';
 import { fieldOf, registryOf, scalarReferenceTargetOf } from '../../document/schema/schema';
-import { namedMembersOf } from '../../utils/ast.utils';
+import { documentRootOf, namedMembersOf } from '../../utils/ast.utils';
 import {
     collectPartComponentIds,
     NON_SIBLING_FIELDS,
@@ -13,13 +13,6 @@ import { Completion } from './autocompletion.service';
 
 /** The registry whose ids the engine resolves part-wide (across nesting and inherited bases). */
 const PART_COMPONENT_REGISTRY = 'PartComponentRules';
-
-/** The document node an AST node belongs to, by walking its parent chain. */
-const documentOf = (node: AbstractNode): AbstractNodeDocument | undefined => {
-    let current: AbstractNode | undefined = node;
-    while (current && !isDocumentNode(current)) current = current.parent;
-    return current && isDocumentNode(current) ? current : undefined;
-};
 
 /**
  * Completions for a same-registry `ID<…>` component reference field (`OperationalToggle = …`,
@@ -72,7 +65,7 @@ export const componentIdCompletions = async (
         });
     }
     if (registry.name === PART_COMPONENT_REGISTRY) {
-        const document = documentOf(group);
+        const document = documentRootOf(group);
         if (document) {
             const partWide = await collectPartComponentIds(document, cancellationToken);
             for (const [lower, name] of partWide.components) {

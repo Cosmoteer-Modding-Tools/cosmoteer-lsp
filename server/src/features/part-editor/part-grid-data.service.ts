@@ -13,7 +13,6 @@ import { getStartOfAstNode } from '../../utils/ast.utils';
 import { findMemberThroughInheritance } from '../../semantics/inheritance-resolver';
 import { EffectiveMember, effectiveMember, resolveReference } from '../../semantics/effective-member';
 import { evaluateNumericValue } from '../../semantics/value-evaluator';
-import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
 import { resolveAssetPath } from '../navigation/asset-resolver';
 import { filePathToUri } from '../navigation/navigation-strategy';
 import {
@@ -71,8 +70,6 @@ import {
 
 const CREW_RULES_CLASS = 'Cosmoteer.Ships.Parts.Crew.PartCrewRules';
 const GRAPHICS_RULES_CLASS = 'Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules';
-
-const navigation = new FullNavigationStrategy();
 
 /**
  * The provenance of a read node: its owning file and an anchor range. Container nodes carry a
@@ -1022,7 +1019,7 @@ export const inheritedIntList = async (
 };
 
 /** The effective element values of a grid field, read through inheritance for override materialization. */
-export interface EffectiveFieldState {
+interface EffectiveFieldState {
     /** The readable vectors (cells or fractional points) of a list field. */
     readonly cells: Array<{ x: number; y: number }>;
     /** The readable `{Key; Value}` entries of a map field. */

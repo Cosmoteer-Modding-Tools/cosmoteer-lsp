@@ -1,0 +1,15 @@
+// An action list the manifest pulls in. The game concatenates it into the manifest's own list, so
+// a broken action in here stops the game exactly as one in the manifest does.
+Actions
+[
+	{
+		Action = Add
+		AddTo = "<action_targets.rules>/Group"
+		Name = FROM_FRAGMENT
+		ToAdd = 2
+	}
+	{
+		Action = Remove
+		Remove = "<action_targets.rules>/NotThere"
+	}
+]

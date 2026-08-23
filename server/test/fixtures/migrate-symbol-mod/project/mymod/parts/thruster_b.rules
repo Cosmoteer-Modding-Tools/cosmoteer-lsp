@@ -1,0 +1,4 @@
+Part
+{
+	CreatePartWhenDestroyed = cosmoteer.structure
+}

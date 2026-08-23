@@ -1,0 +1,7 @@
+// Stands in for the game's own part base: everything a derived part inherits, and a leftover ID.
+Part
+{
+	ID = cosmoteer.base_part
+	Size = [1, 1]
+	MaxHealth = 100
+}

@@ -3,7 +3,6 @@ import { getStartOfAstNode } from '../../utils/ast.utils';
 import { cachedParseFilePath, cachedReaddir, foldPathCase, onFsInvalidation } from '../../workspace/fs-cache';
 import { getParsedFileDocument } from '../../workspace/parsed-file-cache';
 import {
-    CosmoteerFile,
     CosmoteerWorkspaceService,
     FileTree,
     FileWithPath,
@@ -151,6 +150,36 @@ const isInheritanceMember = (node: AbstractNode | null | undefined): boolean =>
     !!node.parent.inheritance &&
     node.parent.inheritance.some((inheritance) => inheritance === node);
 
+/**
+ * The scope a relative `&…` reference is looked up in.
+ *
+ * Exported because the scope rule is part of what "this reference resolves from here" means, and a
+ * second copy of it elsewhere is how a reader of a reference and its resolver start disagreeing.
+ * `navigate` calls this for its own `&` branch, so both always answer the same node.
+ *
+ * @param path the whitespace-stripped reference path, leading `&` included.
+ * @param startNode the node bearing the reference.
+ * @returns the scope the first segment is looked up in, or undefined when the bearer has none.
+ */
+export const relativeReferenceScope = (path: string, startNode: AbstractNode): AbstractNode | undefined => {
+    // A relative `&Name` is resolved one scope up from the bearer node. When
+    // the bearer is itself an inheritance reference (`Child : Parent`), the
+    // name is a sibling of the inheriting group, so resolve against the
+    // group's container (grandparent) instead of the group's own members.
+    let scope: AbstractNode | undefined = isInheritanceMember(startNode) ? startNode.parent?.parent : startNode.parent;
+    // A bare relative `&Name` names a field in the nearest enclosing named scope. List
+    // containers are positional (their elements have no names), so a name reference
+    // sitting inside a list e.g., `Costs = [&BaseCost * 2]` must resolve against
+    // the list's enclosing group, not the list itself. Climb out of any lists.
+    // This does not apply to a positional `&N` (a numeric index, e.g. the `&1` of a
+    // `: 1` numeric-inheritance) nor to the explicit traversal operators (`..`, `~`,
+    // `^`). Those address the list as a real level, so leave their scope alone.
+    const leadingSegment = path.substring(1).split('/')[0];
+    const isNamedLookup = /^[A-Za-z_]/.test(leadingSegment);
+    if (isNamedLookup) while (scope && isListNode(scope)) scope = scope.parent;
+    return scope;
+};
+
 export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | null | FileWithPath> {
     async navigate(
         path: string,
@@ -205,29 +234,19 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         }
         const resolve = (): Promise<AbstractNode | null | FileWithPath> => {
             if (path.startsWith('&<') || path.startsWith('<')) {
-                return this.navigateRules(path.substring(path.startsWith('&') ? 2 : 1), currentLocation, cancellationToken);
+                return this.navigateRules(
+                    path.substring(path.startsWith('&') ? 2 : 1),
+                    currentLocation,
+                    cancellationToken,
+                    visited,
+                    inheritanceVisited
+                );
             }
             if (path.startsWith('&/') || path.startsWith('/')) {
-                return this.navigateSuperPath(path, cancellationToken);
+                return this.navigateSuperPath(path, cancellationToken, visited, inheritanceVisited);
             }
             if (path.startsWith('&') && startNode.parent) {
-                // A relative `&Name` is resolved one scope up from the bearer node. When
-                // the bearer is itself an inheritance reference (`Child : Parent`), the
-                // name is a sibling of the inheriting group, so resolve against the
-                // group's container (grandparent) instead of the group's own members.
-                let scope: AbstractNode | undefined = isInheritanceMember(startNode)
-                    ? startNode.parent.parent
-                    : startNode.parent;
-                // A bare relative `&Name` names a field in the nearest enclosing named scope. List
-                // containers are positional (their elements have no names), so a name reference
-                // sitting inside a list e.g., `Costs = [&BaseCost * 2]` must resolve against
-                // the list's enclosing group, not the list itself. Climb out of any lists.
-                // This does not apply to a positional `&N` (a numeric index, e.g. the `&1` of a
-                // `: 1` numeric-inheritance) nor to the explicit traversal operators (`..`, `~`,
-                // `^`). Those address the list as a real level, so leave their scope alone.
-                const leadingSegment = path.substring(1).split('/')[0];
-                const isNamedLookup = /^[A-Za-z_]/.test(leadingSegment);
-                if (isNamedLookup) while (scope && isListNode(scope)) scope = scope.parent;
+                const scope = relativeReferenceScope(path, startNode);
                 if (!scope) return Promise.resolve(null);
                 return this.navigateReference(path.substring(1), scope, cancellationToken, visited, inheritanceVisited);
             }
@@ -379,7 +398,13 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         return node ?? null;
     };;
 
-    navigateRules = async (path: string, currentLocation: string, cancellationToken: CancellationToken) => {
+    navigateRules = async (
+        path: string,
+        currentLocation: string,
+        cancellationToken: CancellationToken,
+        visited: Set<AbstractNode> = new Set(),
+        inheritanceVisited: Set<AbstractNode> = new Set()
+    ) => {
         // ObjectText `<...>` file paths may use a backslash separator (`<hit_effects\foo.rules>`):
         // `\` is not in `Path.GetInvalidPathChars()`, so the game's PATH_RE accepts it and resolves
         // it on Windows via the .NET path APIs (which treat `\` and `/` interchangeably). Normalize
@@ -403,7 +428,9 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
                     pathes.slice(lastWorkspacePathIndex + 1).join('/'),
                     document,
                     document.uri,
-                    cancellationToken
+                    cancellationToken,
+                    visited,
+                    inheritanceVisited
                 ).catch(() => null);
             }
             return file;
@@ -413,14 +440,18 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
                     pathes.slice(2),
                     CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath,
                     lastWorkspacePathIndex - 2,
-                    cancellationToken
+                    cancellationToken,
+                    visited,
+                    inheritanceVisited
                 );
             }
             return await this.navigateRulesByCurrentLocation(
                 pathes,
                 currentLocation,
                 lastWorkspacePathIndex,
-                cancellationToken
+                cancellationToken,
+                visited,
+                inheritanceVisited
             );
         }
     };
@@ -429,7 +460,9 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         pathes: string[],
         currentLocation: string,
         lastWorkspacePathIndex: number,
-        cancellationToken: CancellationToken
+        cancellationToken: CancellationToken,
+        visited: Set<AbstractNode> = new Set(),
+        inheritanceVisited: Set<AbstractNode> = new Set()
     ) => {
         try {
             const cleanedPath = filePathToDirectoryPath(currentLocation);
@@ -442,8 +475,9 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
                     currentPath = path.join(currentPath, '..');
                     continue;
                 }
+                const wanted = pathes[i].toLowerCase();
                 for (const dirent of dir) {
-                    if (dirent.name.toLowerCase() === pathes[i].toLowerCase()) {
+                    if (dirent.name.toLowerCase() === wanted) {
                         if (i === lastWorkspacePathIndex && dirent.isFile()) {
                             const parsed = await cachedParseFilePath(createDirentPath(dirent), cancellationToken);
                             if (pathes.length - 1 > lastWorkspacePathIndex) {
@@ -451,7 +485,9 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
                                     pathes.slice(lastWorkspacePathIndex + 1).join('/'),
                                     parsed,
                                     dirent.parentPath,
-                                    cancellationToken
+                                    cancellationToken,
+                                    visited,
+                                    inheritanceVisited
                                 ).catch(() => null);
                             }
                             return parsed;
@@ -485,14 +521,21 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         return file;
     };
 
-    navigateSuperPath = async (path: string, cancellationToken: CancellationToken) => {
+    navigateSuperPath = async (
+        path: string,
+        cancellationToken: CancellationToken,
+        visited: Set<AbstractNode> = new Set(),
+        inheritanceVisited: Set<AbstractNode> = new Set()
+    ) => {
         const comsoteerRules = await CosmoteerWorkspaceService.instance.getCosmoteerRules();
         if (!comsoteerRules || !comsoteerRules.content.parsedDocument) return null;
         return await this.navigate(
             path.substring(path.at(0) === '&' ? 2 : 1),
             comsoteerRules.content.parsedDocument,
             comsoteerRules.path,
-            cancellationToken
+            cancellationToken,
+            visited,
+            inheritanceVisited
         ).catch(() => null);
     };
 }

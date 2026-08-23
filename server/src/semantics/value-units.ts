@@ -23,7 +23,7 @@ import { formatNumber } from './value-evaluator';
  */
 
 /** A unit a rendered number can carry. `angle` means radians, `percent` a fraction, `seconds` a duration. */
-export type ValueUnit = 'angle' | 'percent' | 'seconds';
+type ValueUnit = 'angle' | 'percent' | 'seconds';
 
 /** The operators that hand their operands' unit to the result. Everything else changes what the number is. */
 const UNIT_PRESERVING_OPERATORS: ReadonlySet<string> = new Set(['+', '-', '*', '/']);
@@ -110,7 +110,7 @@ const declaredUnitOf = (valueType: ValueType | undefined): ValueUnit | undefined
  * @param cancellationToken cancellation for the inheritance walk resolving the container's class.
  * @returns the unit, or undefined when the slot is untyped or names none.
  */
-export const fieldUnitOf = async (
+const fieldUnitOf = async (
     node: AbstractNode,
     cancellationToken: CancellationToken
 ): Promise<ValueUnit | undefined> => {

@@ -76,7 +76,11 @@ const settings = {
 };
 
 // ── LSP plumbing ─────────────────────────────────────────────────────────────────────────────────
-const nodeArgs = MAX_OLD_SPACE_MB > 0 ? [`--max-old-space-size=${MAX_OLD_SPACE_MB}`] : [];
+// The flags every client launches the server with (client/src/extension.ts,
+// CosmoteerConnectionProvider.kt, cli/lsp-client.ts). Without them the bench would collect on a
+// different schedule than any real session.
+const nodeArgs = ['--max-semi-space-size=64', '--expose-gc'];
+if (MAX_OLD_SPACE_MB > 0) nodeArgs.push(`--max-old-space-size=${MAX_OLD_SPACE_MB}`);
 // SCAN_CPU_PROF=dir makes the server write one scan-scoped .cpuprofile per pass into that
 // directory (see server/src/utils/cpu-profile.ts). Analyze self-times to attribute scan cost
 // precisely. The summed per-pass counters cross-bill under concurrency.
@@ -194,19 +198,27 @@ const reportPass = (label, elapsedMs, stats) => {
         'scan.vRequiredMs',
         'scan.vCrossFileMs',
         'scan.vLocalizationMs',
+        'scan.vPathMs',
         'scan.vUnusedConstantMs',
         'scan.vDuplicateFieldsMs',
         'scan.vRedundantOverrideMs',
         'scan.vPartGeometryMs',
+        'scan.vSpriteGeometryMs',
         'scan.vDuplicateIdMs',
         'scan.vUnreceivableBuffMs',
         'navigate',
         'navigate.memoHit',
         'fs.stat',
+        'fs.statDir',
+        'fs.statFile',
+        'fs.statPin',
+        'fs.exists',
         'fs.readdir',
         'fs.readdirHit',
         'fs.parse',
         'fs.parseHit',
+        'pin.hit',
+        'pin.parse',
         'asset.fsProbe',
         'asset.memoHit',
         'schemaEpochBump',
@@ -220,7 +232,14 @@ const reportPass = (label, elapsedMs, stats) => {
         rootUri: MOD_URI,
         workspaceFolders: [{ uri: MOD_URI, name: 'mod' }],
         capabilities: {
-            workspace: { workspaceFolders: true, configuration: true },
+            // The watched-files capability matters to what this measures: without it the server
+            // keeps the mention index on a stateless sweep that re-stats the whole project per
+            // query, which no real client pays.
+            workspace: {
+                workspaceFolders: true,
+                configuration: true,
+                didChangeWatchedFiles: { dynamicRegistration: true },
+            },
             textDocument: { publishDiagnostics: { relatedInformation: true } },
             window: { workDoneProgress: true },
         },
@@ -268,6 +287,19 @@ const reportPass = (label, elapsedMs, stats) => {
     };
     const warmMs = await runWarmPass('WARM scan  (same server, populated caches)');
     const warm2Ms = await runWarmPass('WARM scan #2  (must match warm #1: catches cache poisoning)');
+
+    // SCAN_IDLE_MS=n holds the server open and idle afterwards, reporting what it settles at. The
+    // memory a finished pass hands back arrives over the collections that follow it, so the number
+    // right at the end of a pass says nothing about what the session costs while it sits there.
+    const idleMs = Number(process.env.SCAN_IDLE_MS || 0);
+    if (idleMs > 0) {
+        for (let waited = 0; waited < idleMs; waited += 5_000) {
+            await new Promise((r) => setTimeout(r, Math.min(5_000, idleMs - waited)));
+            const idle = (await request('cosmoteer/perfStats', null)).result;
+            const seconds = Math.round((waited + 5_000) / 1000);
+            console.log(`idle +${seconds}s`.padEnd(21) + `heap ${mb(idle.memory.heapUsed)} / rss ${mb(idle.memory.rss)}`);
+        }
+    }
 
     await request('shutdown', {});
     send('exit', {});

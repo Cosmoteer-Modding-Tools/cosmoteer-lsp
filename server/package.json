@@ -6,7 +6,7 @@
     "engines": {
         "node": "*"
     },
-    "version": "0.7.0",
+    "version": "0.8.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
@@ -25,6 +25,6 @@
     "devDependencies": {
         "@types/node": "^24",
         "@types/winreg": "^1.2.36",
-        "vitest": "^4.1.9"
+        "vitest": "^4.1.11"
     }
 }

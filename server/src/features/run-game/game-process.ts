@@ -19,7 +19,7 @@ const COSMOTEER_APP_ID = '799600';
 const GAME_EXECUTABLE = 'Cosmoteer.exe';
 
 /** Whether the game is running, or that the probe could not tell. */
-export type GameLiveness = 'running' | 'not-running' | 'unknown';
+type GameLiveness = 'running' | 'not-running' | 'unknown';
 
 /** Runs a command and answers its stdout, or null when it could not be run. */
 const output = (command: string, args: string[]): Promise<string | null> =>

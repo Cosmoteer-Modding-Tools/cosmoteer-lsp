@@ -42,14 +42,17 @@ export type SourceShape = 'list' | 'group' | 'composite';
 /**
  * The AST shape the verb's target must resolve to in the game tree (per the modding wiki).
  * `list` must point at a `[]` list node (AddMany.AddTo); `container` must point at a
- * `[]` list or `{}` group node (AddBase.AddBaseTo).
+ * `[]` list or `{}` group node (AddBase.AddBaseTo); `group` must point at a `{}` group
+ * node or a whole file (Overrides.OverrideIn), which `ModOverridesAction.ApplyAction`
+ * enforces by throwing "must be a {} group node or file" on anything else. A file's top
+ * level is a group in the game's own tree, so `allowsWholeFileTarget` covers that half.
  *
  * Verbs that accept any target node (Add, Replace, Remove, …) leave this undefined.
  */
-export type TargetShape = 'list' | 'container';
+export type TargetShape = 'list' | 'container' | 'group';
 
 /** Per-verb field schema, the single source of truth for parsing, validation and completion. */
-export interface VerbSchema {
+interface VerbSchema {
     targets: string[];
     sources: string[];
     flags: ActionFlag[];
@@ -98,6 +101,7 @@ export const VERB_SCHEMA: Record<ActionVerb, VerbSchema> = {
         flags: ['CreateIfNotExisting', 'IgnoreIfNotExisting'],
         required: ['OverrideIn', 'Overrides'],
         sourceShape: 'group',
+        targetShape: 'group',
         allowsWholeFileTarget: true,
     },
     Replace: {
@@ -136,9 +140,6 @@ const targetFieldKeys = new Set([...TARGET_FIELDS].map((name) => name.toLowerCas
 
 /** Whether a written field name is a target field, ignoring case like the game's node lookup. */
 export const isTargetField = (name: string): boolean => targetFieldKeys.has(name.toLowerCase());
-
-/** Every field name that supplies source data (a reference or inline group/list). */
-export const SOURCE_FIELDS = new Set<string>(Object.values(VERB_SCHEMA).flatMap((s) => s.sources));
 
 /** Every boolean flag field name across all verbs. */
 export const FLAG_FIELDS = new Set<string>(Object.values(VERB_SCHEMA).flatMap((s) => s.flags));

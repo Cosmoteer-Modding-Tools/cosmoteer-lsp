@@ -104,7 +104,7 @@ const toolFromName = (executable: string): DecompilerTool | undefined => {
  * @param preferred restrict the search to one tool (the non-`auto` `decompiler.tool` setting).
  * @returns the first decompiler found, or null.
  */
-export const findDecompiler = async (preferred?: DecompilerTool): Promise<Decompiler | null> => {
+const findDecompiler = async (preferred?: DecompilerTool): Promise<Decompiler | null> => {
     const candidates: Decompiler[] = [];
     const add = (tool: DecompilerTool, executable: string | undefined | null): void => {
         if (executable) candidates.push({ tool, executable });

@@ -8,7 +8,6 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.Messages
 import cosmoteer.lsp.commandResultOf
 
 /**
@@ -61,15 +60,13 @@ class ExtractSharedBaseAction : AnAction() {
                 return@invokeLater
             }
             val labels = plans.map { it.asJsonObject.get("label")?.asString ?: "" }.toTypedArray()
-            val choice = Messages.showChooseDialog(
+            val choice = chooseOne(
                 project,
                 "Every entry moves the repeated fields into one base file, either a new one the " +
                     "listed files are rewritten to inherit or the base they already inherit. " +
                     "The diff is shown before anything changes. Scanned $scanned files.",
                 "Cosmoteer Shared Base",
-                null,
-                labels,
-                labels.first()
+                labels
             )
             if (choice < 0) return@invokeLater
             // The plan goes back exactly as it arrived. The server re-reads the files it names and

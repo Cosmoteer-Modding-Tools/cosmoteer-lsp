@@ -1,0 +1,25 @@
+// Career techs the manifest adds to the game's tech list. The first names its part only by pointing
+// at the part file, the second only through a toggle choice. `PartsWhitelist` sits alongside them
+// and belongs to the build battle mode rather than to research.
+Techs
+[
+	{
+		ID = test.tech_fileref_only
+		Cost = 1000
+		PartsUnlocked = [&<fileref_part.rules>/Part/ID]
+	}
+	{
+		ID = test.tech_toggle
+		Cost = 2000
+		ToggleChoicesUnlocked
+		[
+			{
+				ToggleID = test.toggle
+				Mode = 1
+				PartID = test.toggled
+			}
+		]
+	}
+]
+
+PartsWhitelist = [test.whitelisted]

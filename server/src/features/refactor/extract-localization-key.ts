@@ -49,7 +49,7 @@ export interface ExtractLocalizationKeyArgs {
 }
 
 /** Why an extraction did nothing. */
-export type ExtractLocalizationKeyFailure = 'stale' | 'noStringsFiles' | 'editRejected';
+type ExtractLocalizationKeyFailure = 'stale' | 'noStringsFiles' | 'editRejected';
 
 /** What the extraction did, or why it did nothing. */
 export interface ExtractLocalizationKeyResult {
@@ -62,7 +62,7 @@ export interface ExtractLocalizationKeyResult {
 }
 
 /** The result plus the edit itself, which the server applies rather than sending to the client. */
-export interface ExtractLocalizationKeyPlan extends ExtractLocalizationKeyResult {
+interface ExtractLocalizationKeyPlan extends ExtractLocalizationKeyResult {
     edit?: WorkspaceEdit;
 }
 

@@ -1,16 +1,6 @@
 import { DocumentUri } from 'vscode-languageserver';
 import { AbstractNodeDocument } from '../core/ast/ast';
-
-/** Canonicalize a `file://` URI or OS path for comparison (decode, slashes, case). */
-const normalizePath = (uriOrPath: string): string => {
-    let path = uriOrPath.startsWith('file://') ? uriOrPath.slice('file://'.length) : uriOrPath;
-    try {
-        path = decodeURIComponent(path);
-    } catch {
-        /* leave as-is on malformed escapes */
-    }
-    return path.replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase();
-};
+import { normalizeUri } from '../features/navigation/reference-location';
 
 export class ParserResultRegistrar {
     private static _instance: ParserResultRegistrar;
@@ -41,7 +31,7 @@ export class ParserResultRegistrar {
      * @returns the registered AST for that file, or `undefined` if none is open for it.
      */
     public getResultByPath(osPath: string): AbstractNodeDocument | undefined {
-        return this.byNormalizedPath.get(normalizePath(osPath));
+        return this.byNormalizedPath.get(normalizeUri(osPath));
     }
 
     /** Every currently-registered (open/parsed) document. */
@@ -51,20 +41,20 @@ export class ParserResultRegistrar {
 
     public setResult(uri: DocumentUri, result: AbstractNodeDocument): void {
         this.results.set(uri, result);
-        this.byNormalizedPath.set(normalizePath(uri), result);
+        this.byNormalizedPath.set(normalizeUri(uri), result);
     }
 
     public removeResult(uri: DocumentUri): void {
         const removed = this.results.get(uri);
         this.results.delete(uri);
         if (!removed) return;
-        const normalized = normalizePath(uri);
+        const normalized = normalizeUri(uri);
         if (this.byNormalizedPath.get(normalized) !== removed) return;
         this.byNormalizedPath.delete(normalized);
         // The same file can be registered under another uri spelling. Re-point the path entry at
         // that surviving document so path lookups keep finding it.
         for (const [otherUri, document] of this.results) {
-            if (normalizePath(otherUri) === normalized) {
+            if (normalizeUri(otherUri) === normalized) {
                 this.byNormalizedPath.set(normalized, document);
                 return;
             }

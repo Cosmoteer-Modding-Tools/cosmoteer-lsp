@@ -21,16 +21,29 @@
  *   - {@link OBSOLETE_FIELDS}: fields that still work but were superseded by a richer field.
  * To add an enum-value rename later, add a `DEPRECATED_ENUM_VALUES` map and a matching lookup.
  *
+ * Every entry also has an identity, its {@link migrationSymbolOf} symbol, which the diagnostics carry
+ * and {@link deprecationBySymbol} reads back. That is what lets a fix say "apply this one rename to
+ * the whole mod" and collect only the findings of that entry, instead of matching the old name as
+ * text, which would hit the many places the same word is a live field or a component id.
+ *
  * The entries come from the official changelogs (cosmoteer.wiki.gg transcriptions of the Steam
  * posts), cross-checked against the extracted schema: a deleted field's name is absent, a renamed
  * alias carries both spellings on one schema field, an obsolete field exists alongside its
  * successor.
  */
 
+import { registry } from '../../utils/registry';
+
 /** A renamed symbol: the spelling to use now, and a short note on why it changed. */
-export interface Deprecation {
+interface Deprecation {
     /** The current name that replaces the deprecated one. */
     readonly replacement: string;
+    /**
+     * The old name's canonical spelling, for a map keyed by a lower-cased name. Only needed where
+     * the key is not the spelling a modder writes, so a message can name the field the way the file
+     * does. Omitted where the key already is that spelling.
+     */
+    readonly name?: string;
     /** A short human note on the rename, shown in the hint and on hover. */
     readonly note: string;
     /** The game version that made the change, when the changelog records it (e.g. `0.23.0`). */
@@ -46,14 +59,14 @@ const AMMO_TO_RESOURCE = 'ammo was generalized into the resource system';
  * `Resource*` (ammo is just a resource now). The rename predates the recorded changelogs, so the
  * entries carry no version.
  */
-const DEPRECATED_DISCRIMINATORS: Readonly<Record<string, Deprecation>> = {
+const DEPRECATED_DISCRIMINATORS: Readonly<Record<string, Deprecation>> = registry({
     AmmoChange: { replacement: 'ResourceChange', note: AMMO_TO_RESOURCE },
     AmmoDrain: { replacement: 'ResourceDrain', note: AMMO_TO_RESOURCE },
     ExplosiveAmmoDrain: { replacement: 'ExplosiveResourceDrain', note: AMMO_TO_RESOURCE },
     AmmoStorage: { replacement: 'ResourceStorage', note: AMMO_TO_RESOURCE },
     AmmoConsumer: { replacement: 'ResourceConsumer', note: AMMO_TO_RESOURCE },
     AmmoConverter: { replacement: 'ResourceConverter', note: AMMO_TO_RESOURCE },
-};
+});
 
 /**
  * The deprecation for a `Type=` discriminator value, if it is a known renamed type.
@@ -65,9 +78,11 @@ export const deprecatedDiscriminator = (written: string): Deprecation | undefine
     DEPRECATED_DISCRIMINATORS[written];
 
 /** A field the game deleted outright (no old spelling left in its code): the migration guidance. */
-export interface FieldDeprecation {
+interface FieldDeprecation {
     /** FullName of the class that used to read the field. */
     readonly className: string;
+    /** The deleted field's canonical spelling, since the map is keyed by its lower-cased name. */
+    readonly name: string;
     /** A short human note on what replaced the field, shown in the hint and on hover. */
     readonly note: string;
     /** The game version that deleted the field, when the changelog records it. */
@@ -92,10 +107,11 @@ export interface FieldDeprecation {
  * member flagged `dead` in the overlay, which keeps old mods parsing and hovering, and the entry here
  * upgrades the dead-field hint with the migration.
  */
-const DEPRECATED_FIELDS: Readonly<Record<string, FieldDeprecation>> = {
+const DEPRECATED_FIELDS: Readonly<Record<string, FieldDeprecation>> = registry({
     // ---- 0.24.1 ----
     penetrationrecttype: {
         className: 'Cosmoteer.Bullets.Hits.BulletPenetratingHitRules',
+        name: 'PenetrationRectType',
         note: 'the parameter is unused and can be safely removed',
         version: '0.24.1',
         removeOnMigrate: true,
@@ -103,28 +119,32 @@ const DEPRECATED_FIELDS: Readonly<Record<string, FieldDeprecation>> = {
     // ---- 0.26.1 ----
     suppresswholeshiptargetoverlaysforpartsfilter: {
         className: 'Cosmoteer.Ships.Parts.Weapons.WeaponRules',
+        name: 'SuppressWholeShipTargetOverlaysForPartsFilter',
         note: "its functionality is covered by 'SuppressDirectControlWhenTargetingPartsFilter'",
         version: '0.26.1',
         replacement: 'SuppressDirectControlWhenTargetingPartsFilter',
     },
     suppresswholeshiptargetoverlayswhentargetingshiprelativepoints: {
         className: 'Cosmoteer.Ships.Parts.Weapons.WeaponRules',
+        name: 'SuppressWholeShipTargetOverlaysWhenTargetingShipRelativePoints',
         note: "its functionality is covered by 'SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints'",
         version: '0.26.1',
         replacement: 'SuppressShipWideExplicitTargetsWhenTargetingShipRelativePoints',
     },
     valueoutputsmoothing: {
         className: 'Cosmoteer.Ships.Parts.Thrusters.ThrusterRules',
+        name: 'ValueOutputSmoothing',
         note: "use the 'IntensityTweenDuration' of a ContinuousEffects component instead",
         version: '0.26.1',
     },
     // ---- 0.30.0 (Meltdown) ----
     flammable: {
         className: 'Cosmoteer.Ships.Parts.PartRules',
+        name: 'Flammable',
         note: "fire immunity is now the 'non_flammable' part category: TypeCategories = [non_flammable]",
         version: '0.30.0',
     },
-};
+});
 
 /**
  * The deprecation for a class member, if the named field is a known deleted field of that class.
@@ -141,9 +161,11 @@ export const deprecatedField = (className: string, fieldName: string): FieldDepr
 };
 
 /** A field rename whose old spelling the game still deserializes: the modern spelling to prefer. */
-export interface FieldRename {
+interface FieldRename {
     /** FullNames of the classes that carry the renamed field. */
     readonly classNames: readonly string[];
+    /** The old name's canonical spelling, since the map is keyed by its lower-cased form. */
+    readonly name: string;
     /** The current field name that replaces the old spelling. */
     readonly replacement: string;
     /** A short human note on the rename, shown in the hint and on hover. */
@@ -160,21 +182,24 @@ const SOURCE_TO_FRIENDLY = 'the behavior now also covers all friendly ships, not
  * carries both spellings as aliases of one field, so the old name deserializes fine and no other
  * check ever flags it. This registry is the only source that says "prefer the modern name".
  */
-const RENAMED_FIELD_ALIASES: Readonly<Record<string, FieldRename>> = {
+const RENAMED_FIELD_ALIASES: Readonly<Record<string, FieldRename>> = registry({
     // ---- 0.23.0 ----
     createpartwhendestroyed: {
         classNames: ['Cosmoteer.Ships.Parts.PartRules'],
+        name: 'CreatePartWhenDestroyed',
         replacement: 'UnderlyingPart',
         note: 'renamed; the old name is still accepted for backwards-compatibility',
         version: '0.23.0',
     },
     createpartpertilewhendestroyed: {
         classNames: ['Cosmoteer.Ships.Parts.PartRules'],
+        name: 'CreatePartPerTileWhenDestroyed',
         replacement: 'UnderlyingPartPerTile',
         note: 'renamed; the old name is still accepted for backwards-compatibility',
         version: '0.23.0',
     },
     sourceshiplowcollisions: {
+        name: 'SourceShipLowCollisions',
         classNames: [
             'Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules',
             'Cosmoteer.Bullets.Hits.BulletPenetratingHitRules',
@@ -185,6 +210,7 @@ const RENAMED_FIELD_ALIASES: Readonly<Record<string, FieldRename>> = {
         version: '0.23.0',
     },
     sourceshiphighcollisions: {
+        name: 'SourceShipHighCollisions',
         classNames: [
             'Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules',
             'Cosmoteer.Bullets.Hits.BulletPenetratingHitRules',
@@ -196,17 +222,19 @@ const RENAMED_FIELD_ALIASES: Readonly<Record<string, FieldRename>> = {
     },
     ignoresourceshiplowloschecks: {
         classNames: ['Cosmoteer.Ships.Parts.Weapons.WeaponRules'],
+        name: 'IgnoreSourceShipLowLOSChecks',
         replacement: 'IgnoreFriendlyShipLowLOSChecks',
         note: SOURCE_TO_FRIENDLY,
         version: '0.23.0',
     },
     ignoresourceshiphighloschecks: {
         classNames: ['Cosmoteer.Ships.Parts.Weapons.WeaponRules'],
+        name: 'IgnoreSourceShipHighLOSChecks',
         replacement: 'IgnoreFriendlyShipHighLOSChecks',
         note: SOURCE_TO_FRIENDLY,
         version: '0.23.0',
     },
-};
+});
 
 /**
  * The rename for a class member written under its pre-rename spelling, if it is a known renamed
@@ -226,9 +254,11 @@ export const renamedFieldAlias = (className: string, written: string): FieldRena
 };
 
 /** A field that still works but was superseded by a richer field the game now prefers. */
-export interface ObsoleteField {
+interface ObsoleteField {
     /** FullNames of the classes that carry the obsolete field. */
     readonly classNames: readonly string[];
+    /** The obsolete field's canonical spelling, since the map is keyed by its lower-cased name. */
+    readonly name: string;
     /** The field that supersedes it. */
     readonly replacement: string;
     /** A short human note on the migration, shown in the hint and on hover. */
@@ -242,9 +272,10 @@ export interface ObsoleteField {
  * separate members in the current DLL (the game keeps reading the old one for backwards
  * compatibility), so unlike {@link RENAMED_FIELD_ALIASES} these are not aliases of one field.
  */
-const OBSOLETE_FIELDS: Readonly<Record<string, ObsoleteField>> = {
+const OBSOLETE_FIELDS: Readonly<Record<string, ObsoleteField>> = registry({
     // ---- 0.24.0 ----
     explosivedamageresistance: {
+        name: 'ExplosiveDamageResistance',
         classNames: [
             'Cosmoteer.Ships.Parts.PartRules',
             'Cosmoteer.Ships.Parts.Defenses.ArcShieldRules',
@@ -257,11 +288,12 @@ const OBSOLETE_FIELDS: Readonly<Record<string, ObsoleteField>> = {
     // ---- 0.26.0 ----
     componentid: {
         classNames: ['Cosmoteer.Ships.Parts.Logic.BuffMultiProxyRules'],
+        name: 'ComponentID',
         replacement: 'ComponentIDs',
         note: "ViaBuffs now supports multiple components through a 'ComponentIDs' list",
         version: '0.26.0',
     },
-};
+});
 
 /**
  * The successor for a class member superseded by a richer field, if it is a known obsolete field of
@@ -282,11 +314,104 @@ export const obsoleteField = (className: string, fieldName: string): ObsoleteFie
  * schema-validated (its loader lives outside the serialization system), so these entries are consumed
  * by the workspace migration directly rather than by a validator.
  */
-export const RENAMED_MOD_RULES_FIELDS: Readonly<Record<string, Deprecation>> = {
+export const RENAMED_MOD_RULES_FIELDS: Readonly<Record<string, Deprecation>> = registry({
     // ---- 0.24.0 ----
     modifiesmultiplayer: {
+        name: 'ModifiesMultiplayer',
         replacement: 'ModifiesGameplay',
         note: 'renamed for clarity; the old name is still accepted for backwards-compatibility',
         version: '0.24.0',
     },
+});
+
+/**
+ * Which of the registries above a migration symbol names. The registries are keyed by the old name,
+ * and one old name can mean different things in different registries, so the kind is part of the
+ * identity rather than a detail of it.
+ */
+type MigrationSymbolKind = 'discriminator' | 'deletedField' | 'renamedAlias' | 'obsoleteField' | 'manifestField';
+
+/** What a migration symbol names: the registry entry behind it, in the form a message can read. */
+interface DeprecationSymbol {
+    /** The registry the entry came from. */
+    readonly kind: MigrationSymbolKind;
+    /** The old name's canonical spelling, for messages that name the field the way a file writes it. */
+    readonly name: string;
+    /** The current name that replaces it, absent for a deletion nothing took over. */
+    readonly replacement?: string;
+    /** The game version that made the change, when the changelog records it. */
+    readonly version?: string;
+}
+
+/**
+ * The identity of one deprecation-registry entry, which a diagnostic carries so a bulk fix can
+ * collect exactly that deprecation across a mod and nothing else. Case is folded, because the game
+ * resolves member names ignoring case and the same field is written `Flammable` in one file and
+ * `flammable` in the next.
+ *
+ * @param kind which registry the entry lives in.
+ * @param written the old name as written in the file, or as the registry keys it.
+ * @returns the symbol.
+ */
+export const migrationSymbolOf = (kind: MigrationSymbolKind, written: string): string =>
+    `${kind}:${written.toLowerCase()}`;
+
+/**
+ * The registry entry a migration symbol names. The lookup has to live here because the registries
+ * are module-private, and a bulk fix needs the entry to say what it is about to change.
+ *
+ * @param symbol a symbol built by {@link migrationSymbolOf}.
+ * @returns the entry, or undefined when no registry holds it (a symbol from an older release, say).
+ */
+export const deprecationBySymbol = (symbol: string): DeprecationSymbol | undefined => {
+    const separator = symbol.indexOf(':');
+    if (separator < 0) return undefined;
+    const kind = symbol.slice(0, separator) as MigrationSymbolKind;
+    const key = symbol.slice(separator + 1);
+    switch (kind) {
+        case 'discriminator': {
+            // The only registry keyed by the canonical spelling, so its key is compared case-folded.
+            const entry = Object.entries(DEPRECATED_DISCRIMINATORS).find(([name]) => name.toLowerCase() === key);
+            if (!entry) return undefined;
+            return { kind, name: entry[0], replacement: entry[1].replacement, version: entry[1].version };
+        }
+        case 'deletedField': {
+            const entry = DEPRECATED_FIELDS[key];
+            if (!entry) return undefined;
+            return { kind, name: entry.name, replacement: entry.replacement, version: entry.version };
+        }
+        case 'renamedAlias': {
+            const entry = RENAMED_FIELD_ALIASES[key];
+            if (!entry) return undefined;
+            return { kind, name: entry.name, replacement: entry.replacement, version: entry.version };
+        }
+        case 'obsoleteField': {
+            const entry = OBSOLETE_FIELDS[key];
+            if (!entry) return undefined;
+            return { kind, name: entry.name, replacement: entry.replacement, version: entry.version };
+        }
+        case 'manifestField': {
+            const entry = RENAMED_MOD_RULES_FIELDS[key];
+            if (!entry) return undefined;
+            return { kind, name: entry.name ?? key, replacement: entry.replacement, version: entry.version };
+        }
+        default:
+            return undefined;
+    }
 };
+
+/**
+ * Every migration symbol the registries hold. A test walks it to prove each one resolves and that
+ * the per-symbol migration runs add up to the unfiltered one, which is what keeps the next
+ * deprecation entry from shipping without an identity.
+ *
+ * @returns the symbols, registry by registry.
+ */
+export const allDeprecationSymbols = (): string[] => [
+    ...Object.keys(DEPRECATED_DISCRIMINATORS).map((name) => migrationSymbolOf('discriminator', name)),
+    ...Object.keys(DEPRECATED_FIELDS).map((key) => migrationSymbolOf('deletedField', key)),
+    ...Object.keys(RENAMED_FIELD_ALIASES).map((key) => migrationSymbolOf('renamedAlias', key)),
+    ...Object.keys(OBSOLETE_FIELDS).map((key) => migrationSymbolOf('obsoleteField', key)),
+    ...Object.keys(RENAMED_MOD_RULES_FIELDS).map((key) => migrationSymbolOf('manifestField', key)),
+];
+

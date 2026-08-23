@@ -41,6 +41,17 @@ buildIndexes();
 /** The mod extension currently merged in, so re-applying a changed one starts from the game schema. */
 let appliedModExtension: ModSchemaExtension | undefined;
 
+let schemaGen = 0;
+
+/**
+ * How many times the bundle has been reshaped by a mod merge. A consumer that memoizes an answer
+ * derived purely from the schema stores this alongside the memo and recomputes once the two differ,
+ * which is what keeps such a memo honest across {@link extendSchemaWithMods}.
+ *
+ * @returns the current schema generation.
+ */
+export const schemaGeneration = (): number => schemaGen;
+
 /**
  * What the merge actually inserted, which is not the same as what the extension offered: an entry
  * the game already declares is skipped, and unmerging must not then delete the game's own. Kept as
@@ -111,15 +122,15 @@ export const extendSchemaWithMods = (extension: ModSchemaExtension | undefined):
         appliedModKeys = applied;
     }
     buildIndexes();
+    schemaGen++;
     fieldsOfCache.clear();
+    requiredFieldsCache.clear();
+    typeChainCache.clear();
     fieldIndexCache.clear();
     acceptsShaderConstantsCache.clear();
     localizationKeyFieldNameSet = undefined;
     declaredFieldNameSet = undefined;
 };
-
-/** The mod schema currently merged in, for a consumer that needs to know whether one is active. */
-export const activeModSchema = (): ModSchemaExtension | undefined => appliedModExtension;
 
 /**
  * A signature of what the merged mod extension contributes: its types with their field names and
@@ -256,6 +267,23 @@ export const fieldsOf = (fullName: string): SchemaField[] => {
         cur = t.extends;
     }
     fieldsOfCache.set(fullName, out);
+    return out;
+};
+
+/** Memo of {@link requiredFieldsOf} per class. The schema is immutable after load, so it never goes stale. */
+const requiredFieldsCache = new Map<string, SchemaField[]>();
+
+/**
+ * The fields of a class the game requires, own and inherited. Memoized per class.
+ *
+ * @param fullName the class FullName.
+ * @returns the class's own and inherited fields that are not optional.
+ */
+export const requiredFieldsOf = (fullName: string): SchemaField[] => {
+    const cached = requiredFieldsCache.get(fullName);
+    if (cached) return cached;
+    const out = fieldsOf(fullName).filter((field) => !field.optional);
+    requiredFieldsCache.set(fullName, out);
     return out;
 };
 
@@ -864,12 +892,14 @@ const documentationLink = (owningType?: string): string | undefined => {
 };
 
 const WIKI = 'https://cosmoteer.wiki.gg/wiki';
-/** The general modding-wiki landing page. Kept for reference, but deliberately not linked from hovers
- *  (see {@link wikiUrlForType}): only class-specific pages are worth a footer link. */
-export const MODDING_WIKI_URL = `${WIKI}/Modding`;
+
+/** Memo of {@link typeChain} per class, mirroring {@link fieldsOf}'s. */
+const typeChainCache = new Map<string, string[]>();
 
 /** The inheritance chain of FullNames for a class (itself first, then each `extends`). */
 const typeChain = (fullName: string): string[] => {
+    const cached = typeChainCache.get(fullName);
+    if (cached) return cached;
     const out: string[] = [];
     let cur: string | undefined = fullName;
     const guard = new Set<string>();
@@ -878,6 +908,7 @@ const typeChain = (fullName: string): string[] => {
         out.push(cur);
         cur = schema.types[cur]?.extends;
     }
+    typeChainCache.set(fullName, out);
     return out;
 };
 

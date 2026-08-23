@@ -30,6 +30,7 @@ import {
     isValueNode,
     ValueNode,
 } from '../../core/ast/ast';
+import { childNodesOf } from '../../utils/ast.utils';
 import { classAncestry, fieldOf, fieldsOf, schema } from './schema';
 import { ValueType } from './schema.types';
 import { aliasRootIndex } from './alias-root';
@@ -64,8 +65,15 @@ const referenceTargets = ((): Set<string> => {
     return out;
 })();
 
-/** The field that identifies an instance of `cls`: `ID`, else the unique self-referential `…ID`. */
-const identityKeyOf = (cls: string): string | undefined => {
+/**
+ * The field that identifies an instance of `cls`: `ID`, else the unique self-referential `…ID` the
+ * GUI entities carry (`ColorID`, `ToggleID`, …). Exported because a refactoring that writes an id
+ * has to name the slot the way the class spells it rather than assume every class spells it `ID`.
+ *
+ * @param cls the class whose identity slot is wanted.
+ * @returns the field name, or undefined when the class identifies its instances by nothing.
+ */
+export const identityKeyOf = (cls: string): string | undefined => {
     const fields = fieldsOf(cls);
     if (fields.some((field) => field.name === 'ID')) return 'ID';
     const selfIds = fields.filter(
@@ -77,7 +85,7 @@ const identityKeyOf = (cls: string): string | undefined => {
     return selfIds.length === 1 ? selfIds[0].name : undefined;
 };
 
-export interface EntityField {
+interface EntityField {
     /** The C# FullName of the element class held in this list. */
     readonly elementClass: string;
     /** The field on each element that carries its id (`ID`, `ColorID`, `ToggleID`, …). */
@@ -137,7 +145,7 @@ const idValueNodeOf = (element: AbstractNode, identityKey: string): ValueNode | 
     return undefined;
 };
 
-export interface EntityDeclaration {
+interface EntityDeclaration {
     readonly elementClass: string;
     readonly id: string;
     /** The node to jump to for go-to-definition: an id value node, or a group-keyed member. */
@@ -414,12 +422,7 @@ export function* entityDeclarationsOf(document: AbstractNodeDocument): Generator
         // A loose GUI id group a mod.rules action later adds into the game's collection.
         const loose = looseGuiDeclarationOf(node);
         if (loose) yield loose;
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) yield* visit(child);
     }
     for (const element of document.elements) yield* visit(element);
@@ -528,9 +531,9 @@ export const hasId = (ids: ReadonlySet<string>, id: string): boolean => {
 };
 
 export const PART_RULES_CLASS = 'Cosmoteer.Ships.Parts.PartRules';
-export const SIM_OBJECT_SPAWNER_CLASS = 'Cosmoteer.Generators.Simulation.SimObjectSpawner';
-export const DAMAGE_TYPE_CLASS = 'Cosmoteer.DamageType';
-export const PART_STAT_CLASS = 'Cosmoteer.Game.PartStatRules';
+const SIM_OBJECT_SPAWNER_CLASS = 'Cosmoteer.Generators.Simulation.SimObjectSpawner';
+const DAMAGE_TYPE_CLASS = 'Cosmoteer.DamageType';
+const PART_STAT_CLASS = 'Cosmoteer.Game.PartStatRules';
 
 /**
  * Lower-cased names of the map fields whose keys write part stats into existence (`Stats`: the
@@ -781,12 +784,7 @@ function* spawnerTagDeclarationsOf(document: AbstractNodeDocument): Generator<En
                 }
             }
         }
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) yield* visit(child);
     }
     for (const element of document.elements) yield* visit(element);

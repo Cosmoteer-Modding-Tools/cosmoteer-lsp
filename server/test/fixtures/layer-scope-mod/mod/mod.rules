@@ -1,0 +1,15 @@
+ID = author.layerscope
+Name = "Layer scope fixture"
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<ships/terran/terran.rules>/Terran/RenderLayers"
+		ManyToAdd = &<ships/terran/terran.rules>/Terran/RenderLayers
+	}
+	{
+		Action = AddMany
+		AddTo = "<ships/terran/terran.rules>/Terran/Parts"
+		ManyToAdd = &<ships/terran/terran.rules>/Terran/Parts
+	}
+]

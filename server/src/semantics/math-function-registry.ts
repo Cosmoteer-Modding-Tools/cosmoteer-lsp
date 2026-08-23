@@ -1,3 +1,4 @@
+import { registry } from '../utils/registry';
 /**
  * The single source of truth for every math function the extension knows about. Signature help,
  * the unknown-function and arity diagnostics, argument-type checking and numeric evaluation are
@@ -105,7 +106,7 @@ const variadic = (doc: string, fn: (xs: number[]) => number): MathFunctionSpec =
  * Argument-type checking (number or reference) applies only to entries with an `evaluate`, other
  * functions have signatures we do not model and would false-positive.
  */
-const CURATED: Record<string, MathFunctionSpec> = {
+const CURATED: Record<string, MathFunctionSpec> = registry({
     // Rounding, sign, magnitude
     ceil: unary('x', 'Round up to the nearest integer.', unaryFn(Math.ceil)),
     floor: unary('x', 'Round down to the nearest integer.', unaryFn(Math.floor)),
@@ -200,10 +201,10 @@ const CURATED: Record<string, MathFunctionSpec> = {
         doc: 'Convert a decibel string to a linear volume.',
         source: 'cosmoteer',
     },
-};
+});
 
 const buildRegistry = (): Record<string, MathFunctionSpec> => {
-    const registry: Record<string, MathFunctionSpec> = {};
+    const table: Record<string, MathFunctionSpec> = Object.create(null);
     const groups: [readonly string[], [number, number]][] = [
         [UNARY_NAMES, [1, 1]],
         [BINARY_NAMES, [2, 2]],
@@ -211,9 +212,9 @@ const buildRegistry = (): Record<string, MathFunctionSpec> => {
         [VARIADIC_NAMES, [1, Infinity]],
     ];
     for (const [names, arity] of groups) {
-        for (const name of names) registry[name] = { arity, source: 'mxparser' };
+        for (const name of names) table[name] = { arity, source: 'mxparser' };
     }
-    return Object.assign(registry, CURATED);
+    return Object.assign(table, CURATED);
 };
 
 /** Every known math function, keyed by lowercase name. */
@@ -236,10 +237,10 @@ export const KNOWN_FUNCTION_NAMES: ReadonlySet<string> = new Set(
 );
 
 /** mXparser mathematical constants usable bare in an expression (no `&`). */
-export const CONSTANTS: Readonly<Record<string, number>> = {
+export const CONSTANTS: Readonly<Record<string, number>> = registry({
     pi: Math.PI,
     e: Math.E,
-};
+});
 
 /** Lowercased names of bare numeric constants (`pi`, `e`) that are valid operands without a `&`. */
 export const KNOWN_CONSTANT_NAMES: ReadonlySet<string> = new Set(Object.keys(CONSTANTS));

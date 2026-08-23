@@ -1,0 +1,6 @@
+// The only part of the fixture. No tech names it, and no tech exists to name it.
+Part
+{
+	ID = test.solo
+	Size = [1, 1]
+}

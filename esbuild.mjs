@@ -1,4 +1,5 @@
 import { context } from 'esbuild';
+import { readFileSync } from 'node:fs';
 import { computeCacheBuildId } from './esbuild.cache-id.mjs';
 
 const production = process.argv.includes('--production');
@@ -13,9 +14,21 @@ async function main() {
         // injected only for one-shot builds (production packaging and the perf benches). Under
         // `--watch` the id is left undefined and the server falls back to hashing its own bundle,
         // which changes on every incremental rebuild, so a dev never serves a stale cache.
-        const define = watch ? {} : { __CACHE_BUILD_ID__: JSON.stringify(computeCacheBuildId()) };
+        // The lint command prints its version, and the package manifests sit outside the compiled
+        // source root, so the number is injected here rather than imported. A watch build leaves it
+        // undefined and the command reports 'unknown', which is right for a build with no version.
+        const version = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
+        const define = watch
+            ? {}
+            : {
+                  __CACHE_BUILD_ID__: JSON.stringify(computeCacheBuildId()),
+                  __CLI_VERSION__: JSON.stringify(version),
+              };
         const ctx = await context({
-            entryPoints: ['client/src/extension.ts', 'server/src/server.ts'],
+            // The lint command is a third entry point rather than a project of its own: it lives in
+            // server/src, so `check-types`, `lint` and the l10n export already cover it, and the
+            // bundle it produces sits beside the server bundle it drives.
+            entryPoints: ['client/src/extension.ts', 'server/src/server.ts', 'server/src/cli/lint.ts'],
             bundle: true,
             define,
             // Native ESM bundles. The `.mjs` suffix makes Node (and the VS Code extension host,

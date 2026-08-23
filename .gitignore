@@ -75,3 +75,7 @@ field-docs.seed.json
 
 # Local planning notes from a repository audit. Working document, not part of the shipped docs.
 docs/ROADMAP.local.md
+
+# Build output of scripts/build-cli-package.mjs: the publishable form of the lint command,
+# assembled from out/ on every release.
+cli-package

@@ -1,12 +1,5 @@
 import { CancellationToken, Hover, MarkupKind, Position } from 'vscode-languageserver';
-import {
-    AbstractNode,
-    AbstractNodeDocument,
-    isListNode,
-    isGroupNode,
-    isValueNode,
-    ValueNode,
-} from '../../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, isGroupNode, ValueNode } from '../../core/ast/ast';
 import { DefinitionService, isReferenceValue } from '../navigation/definition.service';
 import { isAssetValue, resolveAssetPath } from '../navigation/asset-resolver';
 import { filePathToUri } from '../navigation/navigation-strategy';
@@ -16,7 +9,7 @@ import { resolvePartComponentDeclaration } from '../diagnostics/validator.schema
 import { resolveSchemaIdReference } from '../navigation/schema-id-reference.navigation';
 import { evaluateNumericValueTraced } from '../../semantics/value-evaluator';
 import { formatWithUnit, unitForValue } from '../../semantics/value-units';
-import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
+import { FileWithPath } from '../../workspace/cosmoteer-workspace.service';
 import { schemaDiscriminatorHover, schemaFieldHover } from './schema-hover';
 import { resolveClassThroughInheritance } from '../completion/inheritance-resolution';
 import { decompilerHoverLink } from './decompiler-link';
@@ -24,6 +17,8 @@ import { shaderConstantHover } from '../shader/shader-hover';
 import { localizationKeyHover } from './localization-key-hover';
 import { substitutionTraceMarkdown } from './substitution-trace';
 import { modifierTraceMarkdown } from './modifier-trace';
+import { provenanceMarkdown } from './provenance-trace';
+import { describeTargetMarkdown } from './target-preview';
 
 /**
  * Hover (`textDocument/hover`) showing what a node resolves to. The single biggest
@@ -37,7 +32,9 @@ import { modifierTraceMarkdown } from './modifier-trace';
  * buffs that drive them.
  *
  * Reuses the shared {@link evaluateNumericValueTraced} (which already follows inheritance), so an
- * inherited / overridden field hovers as its effective value.
+ * inherited / overridden field hovers as its effective value. Under that it says where the
+ * declaration stands in its group's chain: the value it replaces, and for a group how much of its
+ * member set its bases supply.
  */
 export class HoverService {
     private static _instance: HoverService;
@@ -85,7 +82,9 @@ export class HoverService {
             const target = await DefinitionService.instance
                 .resolveReferenceTarget(document, node, cancellationToken)
                 .catch(() => null);
-            const described = target && !isFile(target as FileWithPath) ? describeTarget(target as AbstractNode) : null;
+            // A whole-file target is named rather than skipped: `Bullet = &<…/bullet_med.rules>` is
+            // one of the commonest references there is, and it used to hover with nothing at all.
+            const described = target ? describeTargetMarkdown(target as AbstractNode | FileWithPath) : null;
             if (described) lines.push(`→ ${described}`);
         } else {
             // A schema `ID<>` reference written as a bare id: a sibling component (same file), a
@@ -111,6 +110,12 @@ export class HoverService {
         // For a localization key (`NameKey = "Parts/Foo"`), show its translated text per language.
         const localizationInfo = await localizationKeyHover(node, folderPaths, cancellationToken).catch(() => null);
         if (localizationInfo) lines.push(localizationInfo);
+
+        // Where this declaration stands in its group's inheritance chain: the value it replaces, and
+        // for a group how much of its member set comes from its bases. The last fact about this
+        // particular line, before the generic schema tail below.
+        const provenance = await provenanceMarkdown(node, document.uri, cancellationToken).catch(() => null);
+        if (provenance) lines.push(provenance);
 
         // An inline shader-constant key, enriched from the referenced `.shader` (its HLSL type and
         // default). Falls back to the generic schema description below when the shader can't be read.
@@ -162,12 +167,4 @@ const describeAsset = async (
 };
 
 /** A short human-readable description of a resolved target node. */
-const describeTarget = (node: AbstractNode): string | null => {
-    if (isValueNode(node)) {
-        const value = (node as ValueNode).valueType.value;
-        return `\`${String(value)}\``;
-    }
-    if (isGroupNode(node)) return node.identifier ? `group \`${node.identifier.name}\`` : 'group `{ … }`';
-    if (isListNode(node)) return node.identifier ? `list \`${node.identifier.name}\`` : 'list `[ … ]`';
-    return null;
-};
+const describeTarget = (node: AbstractNode): string | null => describeTargetMarkdown(node);

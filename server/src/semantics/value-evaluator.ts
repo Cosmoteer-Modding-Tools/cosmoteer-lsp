@@ -1,7 +1,6 @@
 import { CancellationToken } from 'vscode-languageserver';
 import {
     AbstractNode,
-    ExpressionNode,
     FunctionCallNode,
     isExpressionNode,
     isFunctionCallNode,
@@ -158,6 +157,16 @@ const evaluate = async (node: AbstractNode, context: EvalContext): Promise<numbe
     return null;
 };
 
+// The sigil and suffix patterns of the unquoted-value path, hoisted out of the body below, which
+// runs for every unquoted value node of a parse. A regex literal inside it allocates a fresh RegExp
+// per call. A shared instance carries no state here: only `WHITESPACE_RUN` is global, and it is used
+// through `String.prototype.replace`, which resets `lastIndex` itself.
+const REFERENCE_SIGIL = /^[&<>/.~^]/;
+const WHITESPACE_RUN = /\s+/g;
+const PERCENT_LITERAL = /^-?\d*\.?\d+%$/;
+const DEGREES_LITERAL = /^-?\d*\.?\d+d$/;
+const RADIANS_LITERAL = /^-?\d*\.?\d+r$/;
+
 const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<number | null> => {
     if (node.valueType.type === 'Number') return node.valueType.value;
     // A bare mXparser constant (`pi`, `e`) lexes as an unquoted token, sometimes typed `String`,
@@ -166,15 +175,15 @@ const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<num
     if (!node.quoted) {
         const text = String(node.valueType.value);
         const constant = CONSTANTS[text.toLowerCase()];
-        if (constant !== undefined && !/^[&<>/.~^]/.test(text)) return constant;
+        if (constant !== undefined && !REFERENCE_SIGIL.test(text)) return constant;
         // The game's ExpressionEvaluator rewrites suffixed numbers before handing the string to
         // mXparser: `50%` → 0.5, `90d` (degrees) → radians, `2r` (radians) → the bare number.
         // The lexer keeps the suffix inside the value token, so such a literal never reaches the
         // reference path. Convert it here the same way.
-        const literal = text.replace(/\s+/g, '');
-        if (/^-?\d*\.?\d+%$/.test(literal)) return parseFloat(literal) / 100;
-        if (/^-?\d*\.?\d+d$/.test(literal)) return (parseFloat(literal) / 360) * (Math.PI * 2);
-        if (/^-?\d*\.?\d+r$/.test(literal)) return parseFloat(literal);
+        const literal = text.replace(WHITESPACE_RUN, '');
+        if (PERCENT_LITERAL.test(literal)) return parseFloat(literal) / 100;
+        if (DEGREES_LITERAL.test(literal)) return (parseFloat(literal) / 360) * (Math.PI * 2);
+        if (RADIANS_LITERAL.test(literal)) return parseFloat(literal);
     }
     if (node.valueType.type !== 'Reference') return null;
     // `visited` is the current resolution path, not every node ever seen: a node already on the

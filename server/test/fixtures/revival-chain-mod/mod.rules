@@ -1,0 +1,14 @@
+ID = Test.RevivalMod
+Name = "Revival Chain Fixture"
+Version = 1.0
+
+Actions
+[
+	{
+		Action = Add
+		AddTo = <cosmoteer.rules>
+		Name = WIRED
+		ToAdd = &<wired/live.rules>
+		CreateIfNotExisting = true
+	}
+]

@@ -1,0 +1,10 @@
+// A file whose top level holds the override target, so the whole-file target shape is covered.
+Terran
+{
+	ID = cosmoteer.terran
+
+	Parts
+	[
+		&<../parts/cannon/cannon.rules>/Part
+	]
+}

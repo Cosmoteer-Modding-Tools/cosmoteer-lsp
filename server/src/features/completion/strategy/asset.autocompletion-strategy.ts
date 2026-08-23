@@ -1,9 +1,9 @@
 import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
 import { join } from 'path';
-import { readdir } from 'fs/promises';
 import { ValueNode } from '../../../core/ast/ast';
 import { getStartOfAstNode } from '../../../utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../../workspace/cosmoteer-workspace.service';
+import { cachedReaddir } from '../../../workspace/fs-cache';
 import { assetBaseDirsFromInheritance, normalizeDir } from '../../diagnostics/asset-base-path';
 import { FullNavigationStrategy } from '../../navigation/full.navigation-strategy';
 import { AutoCompletionStrategy } from './autocompletion.strategy';
@@ -66,15 +66,17 @@ export class AssetAutoCompletionStrategy extends AutoCompletionStrategy<
         // From an empty value, offer the game-data root as a starting point for absolute paths.
         if (value === '') add({ label: './Data/', kind: CompletionItemKind.Folder, insertText: './Data/' });
 
+        const lowerPartial = partial.toLowerCase();
         for (const dir of await this.targetDirectories(dirPart, uri, node, cancellationToken)) {
             try {
-                for (const entry of await readdir(dir, { withFileTypes: true })) {
+                for (const entry of await cachedReaddir(dir)) {
                     if (cancellationToken.isCancellationRequested) return completions;
                     const name = entry.name;
-                    if (partial && !name.toLowerCase().startsWith(partial.toLowerCase())) continue;
+                    const lowerName = name.toLowerCase();
+                    if (partial && !lowerName.startsWith(lowerPartial)) continue;
                     if (entry.isDirectory()) {
                         add({ label: name + '/', kind: CompletionItemKind.Folder, insertText: name + '/' });
-                    } else if (entry.isFile() && extensions.some((extension) => name.toLowerCase().endsWith(extension))) {
+                    } else if (entry.isFile() && extensions.some((extension) => lowerName.endsWith(extension))) {
                         add({ label: name, kind: CompletionItemKind.File, insertText: name });
                     }
                 }

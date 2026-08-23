@@ -1,6 +1,6 @@
 import { Location, Range } from 'vscode-languageserver';
-import { AbstractNode, isListNode, isAssignmentNode, isDocumentNode, isGroupNode } from '../../core/ast/ast';
-import { getStartOfAstNode } from '../../utils/ast.utils';
+import { AbstractNode, isListNode, isDocumentNode, isGroupNode } from '../../core/ast/ast';
+import { assignmentKeyIn, getStartOfAstNode } from '../../utils/ast.utils';
 import { filePathToUri } from './navigation-strategy';
 
 /**
@@ -39,9 +39,7 @@ export const definitionNameOf = (node: AbstractNode): string | null => {
     if ((isGroupNode(node) || isListNode(node)) && node.identifier) return node.identifier.name;
     const container = node.parent;
     if (container && (isGroupNode(container) || isListNode(container) || isDocumentNode(container))) {
-        for (const element of container.elements) {
-            if (isAssignmentNode(element) && element.right === node) return element.left.name;
-        }
+        return assignmentKeyIn(node, container) ?? null;
     }
     return null;
 };
@@ -69,6 +67,23 @@ export const normalizeUri = (uriOrPath: string): string => {
 };
 
 /**
+ * Whether a folder set covers a file, so the indexes and analyses built over those folders know
+ * about it and its siblings. A file outside them would be judged against a set that never saw the
+ * files around it.
+ *
+ * @param uri the document uri to test.
+ * @param folderPaths the folders being searched.
+ * @returns true when the file lives under one of the folders.
+ */
+export const isCoveredByFolders = (uri: string, folderPaths: readonly string[]): boolean => {
+    const key = normalizeUri(uri);
+    return folderPaths.some((folder) => {
+        const prefix = normalizeUri(folder).replace(/\/+$/, '');
+        return key === prefix || key.startsWith(`${prefix}/`);
+    });
+};
+
+/**
  * A stable identity string for a {@link Location}: file (spelling-independent) plus
  * range. Two references resolving to the same target produce the same key, which is
  * how the reference index buckets referrers under their shared definition.
@@ -76,4 +91,23 @@ export const normalizeUri = (uriOrPath: string): string => {
 export const locationKey = (location: Location): string => {
     const { start, end } = location.range;
     return `${normalizeUri(location.uri)}#${start.line}:${start.character}-${end.line}:${end.character}`;
+};
+
+/**
+ * Drop duplicate locations (same file + range), keeping the first of each. Go-to-definition
+ * and find-all-references both gather from several passes that can land on the same site.
+ *
+ * @param locations The gathered locations, in the order they should be offered.
+ * @returns The same locations minus every repeat of an already seen {@link locationKey}.
+ */
+export const dedupeLocations = (locations: Location[]): Location[] => {
+    const seen = new Set<string>();
+    const out: Location[] = [];
+    for (const location of locations) {
+        const key = locationKey(location);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(location);
+    }
+    return out;
 };

@@ -1,5 +1,5 @@
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
+import { AbstractNode, isDocumentNode, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
 import { Action, ACTION_VERBS, ActionSource, SourceShape, TargetShape, VERB_SCHEMA } from '../../mod/action';
 import { normalizeTargetPath } from '../../mod/action-target-resolver';
 import { resolveWithModContext } from '../../mod/mod-context';
@@ -64,6 +64,12 @@ const targetMatchesShape = (node: AbstractNode, shape: TargetShape): boolean => 
             return isListNode(node);
         case 'container':
             return isGroupNode(node) || isListNode(node);
+        case 'group':
+            // The game throws while loading an `Overrides` whose target is not a group or a file,
+            // so a list or a plain value there costs the user the whole mod rather than one action.
+            // A document counts: `OTFile` derives from `OTGroupNode`, and a whole-file reference
+            // such as `BASE_AUDIO = &<sounds/base_audio.rules>` resolves to one.
+            return isGroupNode(node) || isDocumentNode(node);
     }
 };
 
@@ -74,6 +80,8 @@ const targetShapeDescription = (shape: TargetShape): string => {
             return l10n.t('a list "[ ]"');
         case 'container':
             return l10n.t('a group "{ }" or a list "[ ]"');
+        case 'group':
+            return l10n.t('a group "{ }"');
     }
 };
 

@@ -1,0 +1,15 @@
+Rock
+{
+	ID = rock
+	RenderLayers
+	[
+		{
+			Key = "asteroid"
+			Value { }
+		}
+	]
+	Parts
+	[
+		&<rock_part/rock_part.rules>/Part
+	]
+}

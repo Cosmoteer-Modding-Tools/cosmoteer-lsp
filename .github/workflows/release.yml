@@ -13,6 +13,9 @@ name: Release
 # Required config (per environment, see .github/DEPLOYMENT.md):
 #   vscode-marketplace:    AZURE_CLIENT_ID, AZURE_TENANT_ID (Entra ID via OIDC, no stored secret)
 #   jetbrains-marketplace: PUBLISH_TOKEN, CERTIFICATE_CHAIN, PRIVATE_KEY, PRIVATE_KEY_PASSWORD
+#   npm-registry:          nothing. npm trusted publishing exchanges GitHub's OIDC token, so no
+#                          publish token is stored. The package's trusted publisher on npmjs.com
+#                          has to name this repository and this workflow file.
 
 on:
   push:
@@ -95,11 +98,24 @@ jobs:
           mkdir -p dist
           cp cosmoteer-language-server-*.vsix dist/
           cp jetbrains/build/distributions/*.zip dist/
+          # The lint command ships as an npm package and as an archive of the same directory, so
+          # both channels carry the same files. The publish job downloads what this assembles
+          # rather than building a second copy of it.
+          node scripts/build-cli-package.mjs
+          tar -czf "dist/cosmoteer-rules-lint-${{ steps.version.outputs.version }}.tar.gz"             -C cli-package cosmoteer-rules-lint
 
       - uses: actions/upload-artifact@v6
         with:
           name: release-artifacts
           path: dist/*
+          if-no-files-found: error
+
+      # The npm package goes up unpacked, because `npm publish` needs the directory it was
+      # assembled in and the release archive is a tar of that same directory.
+      - uses: actions/upload-artifact@v6
+        with:
+          name: cli-package
+          path: cli-package/cosmoteer-rules-lint/**
           if-no-files-found: error
 
       # Attach the exact verified artifacts to a GitHub Release (tag events only).
@@ -181,3 +197,35 @@ jobs:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
         run: ./gradlew publishPlugin
+
+  publish-npm:
+    name: Publish the lint command to npm
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Protected environment: a reviewer must approve. Auth is npm trusted publishing over GitHub's
+    # OIDC token, so nothing long-lived is stored. Publish tokens are being retired for direct
+    # publishing, and this is the channel that replaces them.
+    environment: npm-registry
+    permissions:
+      contents: read
+      id-token: write # request GitHub's OIDC token for npm to verify
+    steps:
+      # Publish the exact package the build job assembled and the release archive holds.
+      - uses: actions/download-artifact@v7
+        with:
+          name: cli-package
+          path: cli-package
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs a recent npm, and the one bundled with Node is not guaranteed to
+      # be it. Provenance is what ties the published tarball to this workflow run.
+      - name: Publish
+        working-directory: cli-package
+        run: |
+          npm install -g npm@latest
+          npm publish --provenance --access public

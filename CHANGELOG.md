@@ -2,6 +2,56 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.8.0 Beta
+
+### Added
+
+- Render layers are now offered and checked per ship class. Only the layers the part's own ship declares are suggested, and a layer no ship declares, or one belonging to another ship class, is reported with the ship named. Turn it off with `cosmoteerLSPRules.diagnostics.validateRenderLayers`.
+- Quotes, braces, brackets and `<` now close themselves as you type, and `//` and `/* */` comments toggle with the editor's own comment shortcut.
+- A path field whose file or folder is not on disk is now reported, read against the folder of the file it is written in. The closest existing name is offered as a fix. Turn it off with `cosmoteerLSPRules.diagnostics.validatePaths`.
+- A sprite drawn out of shape next to the others in its list is now hinted at, with a fix that rewrites its `Size` to the shape the first level of the list is drawn at. Turn it off with `cosmoteerLSPRules.diagnostics.validateSpriteGeometry`.
+- Every place a file names the same thing now lights up when the caret rests on it. Members, group names, references, cross-file ids and particle data channels are covered, with the declaration marked apart from the places that read it.
+- Typing a field name inside a group that inherits now marks the fields the base already writes, each carrying the value it already has and the file and line it comes from.
+- A value in the game's own files can now be overridden from your mod in one step. The caret on it writes the `Overrides` action into the mod's `mod.rules`, with the value copied across and its paths rewritten to read from the game folder.
+- A new part, resource, shot or media effect can now be created and wired into the game in one step. `Cosmoteer: New Content File` writes the file with its required fields, derives the id, adds the name and description keys to every language file, and registers a part in the ship class you pick.
+- A part, a resource or anything else that declares an id can now be cloned under a name of your own. For a part the whole folder comes along, ids and paths are rewritten inside the copy, and the result is shown as a diff before anything is written.
+- A reference can now be walked segment by segment. `Cosmoteer: Explain This Reference` says which hop stopped, where the last one that worked landed, and every member the game really has at that place.
+- A deprecation a mod repeats across many files can now be fixed everywhere in one step. The lightbulb offers that one change for the whole mod beside the fix for the line under the caret, and shows every file it would rewrite as a diff first.
+- A mod can now be checked from the command line, so a build can fail on what the editor would have shown. `npx cosmoteer-rules-lint <folder>` runs the same whole-mod checks and reports as text, JSON, SARIF or GitHub annotations.
+- `--assert-loads` answers whether the game would load the mod at all. It walks every manifest action and answers with its own exit code, so a build fails on a mod that will not load.
+- What a game update did to your mod can now be asked for. `Cosmoteer: Show What the Game Update Changed` compares the project against what it reported under the previous game version and names every finding the update added and every one it took away.
+- A hover now says where the declaration under the cursor stands in its group's chain. A member names the value it replaces and the file and line that one is written in, and a group's own name says how many of its fields its bases supply. Turn it off with `cosmoteerLSPRules.hover.showProvenance`.
+- A reference can now be replaced with the value it stands for. The lightbulb offers "Inline the value" on a reference resolving to a single written value, and the value is copied the way its own file spells it. A path that would name something else from here is refused rather than moved.
+- The effective-group report now lists what a mod loads in place of the game's own value, with the game's value beside it and a link to the line it is written on.
+- A value a mod's manifest overrides is now read as the value the game loads. An `Overrides` action replaces the member it names, so hover, navigation and the reports answer with the mod's value where they used to answer with the file's own.
+- The mod overview now names which unreachable file brings the most others back with it, and names the file whose commented-out line disabled the chain where one did.
+- A reference that does not work out to a number now shows what it points at, both inline and on hover: the written value, a list's entries, a group's fields, or the name of the file it names. Turn the inline half off with `cosmoteerLSPRules.inlayHints.showTargetValue`.
+- The mod overview now lists the mod's own parts that no tech in the project unlocks. Such a part is buildable from the start of a career rather than broken, so the section says so rather than reporting a fault.
+- A particle channel a file computes that nothing in the effect reads is now faded out. That is what a channel name misspelled on one side of the pair leaves behind, and the particle simply draws without whatever it was computing. Turn it off with `cosmoteerLSPRules.diagnostics.validateUnusedParticleChannels`.
+- A manifest's `Replace` and `Remove` actions are now read the way the game reads them. A member a mod replaces shows the value the mod puts there, and one it removes is gone from what the game loads, so the reports and hovers stop describing a file the game never sees.
+
+### Changed
+
+- Problems now appear about twice as fast after you stop typing.
+- Checking a whole mod is faster. A pass reads each folder once instead of once per reference into it, and which ships a part may be drawn on is worked out once for the project instead of once per part file.
+- The language server is started with more room for short-lived data, so the collections a whole-mod check used to trigger are rarer and no longer stall it for up to half a second at a time. It also settles back to less memory once the check is done.
+- A second check of the same mod is now nearly instant, and reopening a project it has already checked no longer redoes the work. The results a pass computes are kept for the next one, which used to be thrown away for a large part of the mod because the word index behind the cross-file checks was still growing while the pass ran.
+- Reading a file is about twice as fast, which shortens startup and every check that follows.
+- Whether a file is a language-strings file is now worked out once for the mod rather than once for every file checked, which used to re-read the mod's manifest thousands of times over a whole-mod check.
+- Starting up in a mod is faster. The indexes that read a mod's actions no longer parse every file of the mod to find the handful that declare any, and whether a class has any declared ids is worked out once per class rather than once per reference.
+
+### Fixed
+
+- A value that only begins with `true` or `false` is read as the value it is. `Name = truest` used to be read as the boolean `true` followed by a second value `st`, which invented a member the game never sees, and localized prose such as `falsely` broke the same way.
+- Everything written after a `/* … */` comment on the same line is now reported at the column it really stands in. The comment's opening `/*` was not counted, so problems, highlighting and go-to-definition landed two columns early, and a comment running across lines pushed the next line one column late.
+- A file written in the same instant the editor read the folder it sits in is no longer missed until something else changes there.
+- A value is now suggested while its quotes are still open. `Layer = "roo` used to answer with the group's field names rather than the ship render layers, and the accepted suggestion now writes the missing closing quote.
+- `Layer` written on an `IndicatorSprites` component is marked as having no effect, which is what the game does with it.
+- Renaming a localization key now moves it everywhere at once, rewriting the declaration in every language file the mod ships along with every field that names it. Before, it rewrote the one language file it was started from.
+- Running a mod in the game no longer warns about `CompatibleGameVersions` when the game would load the mod without complaint. The list is read from the parsed file and judged by the game's own rule, which also accepts the older versions the build still takes.
+- Files in the game install are re-read when they change on disk, so a Cosmoteer update installed while the editor is open no longer answers from the data the session started with. The same applies to a workshop mod Steam updates while you work.
+- Semantic highlighting in JetBrains IDEs is on by default and no longer flickers. The plugin paints the colors into the editor's own markup, so they follow the text through an edit.
+
 ## 0.7.0 Beta
 
 ### Fixed

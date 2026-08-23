@@ -1,0 +1,15 @@
+// A workshop mod deriving a part from the game's own files, so a report can show what it changes.
+// Reached the way a real mod reaches the install, through the game-root escape.
+Part : &<./Data/parts/base_part.rules>/Part
+{
+	HeatTarget = OwnStorage
+	Components : ^/0/Components
+	{
+		IsOperational : ^/0/IsOperational
+		{
+			// The same word the game's own file writes here, so nothing about it changed.
+			Type = MultiToggle
+			Mode = Any
+		}
+	}
+}

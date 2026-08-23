@@ -4,7 +4,8 @@ Version = 1.0
 StringsFolder = "strings"
 
 // Registers one part file into a real ship Parts list and adds one career tech, so the wiring
-// report has ground truth for both the registration row and the mode row. orphan_part.rules and
+// report has ground truth for both the registration row and the mode row. unlocked_by_nothing.rules
+// is registered too but named by no tech, which is the part-unlock section's finding. orphan_part.rules and
 // parented_part.rules are deliberately wired in by nothing.
 Actions
 [
@@ -14,6 +15,7 @@ Actions
 		ManyToAdd
 		[
 			&<wired_part.rules>/Part
+			&<unlocked_by_nothing.rules>/Part
 		]
 	}
 	{

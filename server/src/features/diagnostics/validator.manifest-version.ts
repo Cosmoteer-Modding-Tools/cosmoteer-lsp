@@ -1,9 +1,15 @@
 import { CancellationToken } from 'vscode-languageserver';
-import { readFile, readdir } from 'fs/promises';
+import { readdir } from 'fs/promises';
 import { dirname, join } from 'path';
 import { AbstractNode, AbstractNodeDocument, isAssignmentNode, isGroupNode, isListNode } from '../../core/ast/ast';
 import { basenameOf, isManifestBasename } from '../../document/document-kind';
 import { findModRoot } from '../../mod/mod-root';
+import { readManifest } from '../../mod/mod-dependencies';
+import {
+    clearGameVersionInfoCache,
+    declaredCompatibleVersions,
+    readGameVersionInfo,
+} from '../post-update/game-version';
 import { collectRulesFiles, uriToFsPath } from '../navigation/workspace-files';
 import { foldPathCase } from '../../workspace/fs-cache';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
@@ -11,11 +17,26 @@ import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 
 /**
- * The `CompatibleGameVersions = […]` literal of the installed game's own Standard Mods manifests,
- * which the devs keep at the current game version (`["0.30.4c"]`). Harvested once per session and
- * used as the quick fix's insert content, so the fix always names the version of the installed
- * game instead of a hardcoded string that rots. Undefined when no install is configured or the
- * manifests are unreadable, in which case the diagnostic carries no fix.
+ * The written form of a version list, in the quoted spelling the game's own manifests use.
+ *
+ * @param versions the versions to write.
+ * @returns the list literal, ready to be inserted into a manifest.
+ */
+const versionsLiteral = (versions: readonly string[]): string => `[${versions.map((one) => `"${one}"`).join(', ')}]`;
+
+/**
+ * The `CompatibleGameVersions` the installed game's own Standard Mods manifests declare, which the
+ * developers keep at the current game version (`["0.30.4c"]`). Harvested once per session.
+ *
+ * The manifests are read through the parser rather than by matching the raw text, because the format
+ * lets a list run over several lines and a text match confined to one line would miss it.
+ *
+ * This is the manifest source on its own, which stays separate because
+ * {@link readGameVersionInfo} falls back to it when the game assembly cannot be read. Anything that
+ * wants the best answer the install can give should call {@link gameVersionsInsertLiteral}.
+ *
+ * @returns the literal, or undefined when no install is configured or no shipped manifest declares
+ *          the field.
  */
 let cachedVersionsLiteral: Promise<string | undefined> | undefined;
 export const currentGameVersionsLiteral = (): Promise<string | undefined> => {
@@ -26,18 +47,37 @@ export const currentGameVersionsLiteral = (): Promise<string | undefined> => {
         const entries = await readdir(standardMods, { withFileTypes: true }).catch(() => []);
         for (const entry of entries) {
             if (!entry.isDirectory()) continue;
-            const text = await readFile(join(standardMods, entry.name, 'mod.rules'), 'utf8').catch(() => undefined);
-            const literal = text?.match(/CompatibleGameVersions\s*=\s*(\[[^\]\n]*\])/i)?.[1];
-            if (literal) return literal;
+            const manifest = await readManifest(join(standardMods, entry.name, 'mod.rules'));
+            const declared = manifest ? declaredCompatibleVersions(manifest) : undefined;
+            if (declared && declared.length > 0) return versionsLiteral(declared);
         }
         return undefined;
     })();
     return cachedVersionsLiteral;
 };
 
-/** Drop the harvested version literal (call when the configured game install changes). */
+/**
+ * The version list the quick fix inserts, taken from the best source the install offers.
+ *
+ * The installed build states its own version in its assembly, as the constant
+ * `Cosmoteer.Versions.GameVersion`, so that is the version a manifest should name and it is read
+ * first. The shipped Standard Mods manifests remain the fallback for an install whose assembly
+ * cannot be read, since the developers keep them at the current version.
+ *
+ * @returns the literal to insert, or undefined when neither source could be read, in which case the
+ *          diagnostic carries no fix.
+ */
+export const gameVersionsInsertLiteral = async (): Promise<string | undefined> => {
+    const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+    const info = await readGameVersionInfo(dataRoot).catch(() => undefined);
+    if (info?.source === 'assembly' && info.installed) return versionsLiteral([info.installed]);
+    return currentGameVersionsLiteral().catch(() => undefined);
+};
+
+/** Drop the harvested version facts (call when the configured game install changes). */
 export const clearGameVersionsCache = (): void => {
     cachedVersionsLiteral = undefined;
+    clearGameVersionInfoCache();
 };
 
 /** The written name of a top-level member, whatever container form it takes. */
@@ -88,7 +128,7 @@ export const validateManifestVersion = async (
         break;
     }
     if (!hasSibling) return [];
-    const versions = await currentGameVersionsLiteral();
+    const versions = await gameVersionsInsertLiteral();
     return [
         {
             message: l10n.t(

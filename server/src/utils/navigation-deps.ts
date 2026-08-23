@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { normalizeUri } from '../features/navigation/reference-location';
 
 // The navigation memo (full.navigation-strategy.ts) caches absolute-reference resolutions. An
 // open-buffer edit used to wipe the whole memo on every keystroke, because there was no record of
@@ -14,20 +15,13 @@ const storage = new AsyncLocalStorage<Set<string>>();
 
 /**
  * The canonical dependency key of a file, matching for `file://` URIs and OS paths of the same
- * file regardless of encoding, slash direction, or case.
+ * file regardless of encoding, slash direction, or case. The shared {@link normalizeUri} form,
+ * so a dependency key and a reference-index key agree on what counts as the same file.
  *
  * @param uriOrPath the file's uri or OS path.
  * @returns the canonical key.
  */
-export const navigationDepKey = (uriOrPath: string): string => {
-    let path = uriOrPath.startsWith('file://') ? uriOrPath.slice('file://'.length) : uriOrPath;
-    try {
-        path = decodeURIComponent(path);
-    } catch {
-        /* leave as-is on malformed escapes */
-    }
-    return path.replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase();
-};
+export const navigationDepKey = (uriOrPath: string): string => normalizeUri(uriOrPath);
 
 /**
  * Records that the currently running resolution read the given file. A no-op when no resolution

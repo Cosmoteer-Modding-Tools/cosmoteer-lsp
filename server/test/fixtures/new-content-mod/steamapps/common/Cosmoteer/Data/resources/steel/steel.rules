@@ -1,0 +1,13 @@
+ID = steel
+NameKey = "Resource/Steel"
+BuyPrice = 25
+MaxStackSize = 40
+Icon
+{
+	Texture
+	{
+		File = "icon.png"
+		MipLevels = max
+	}
+	Size = [64, 64]
+}

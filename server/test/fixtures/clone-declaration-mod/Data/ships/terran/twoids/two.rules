@@ -1,0 +1,11 @@
+Part
+{
+	ID = cosmoteer.two_one
+	Size = [1, 1]
+}
+
+Part
+{
+	ID = cosmoteer.two_two
+	Size = [1, 1]
+}

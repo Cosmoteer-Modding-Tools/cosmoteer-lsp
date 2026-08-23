@@ -36,6 +36,20 @@ Actions
 		OverrideIn = "<parts/derived_part.rules>/Part/Components"
 		Overrides = &<extra_components.rules>
 	}
+	// An Overrides naming a member the target file writes itself. The game replaces that child
+	// outright, so the mod's value is the one it loads there.
+	{
+		Action = Overrides
+		OverrideIn = "<parts/derived_part.rules>/Part/Components"
+		Overrides
+		{
+			HeatProducer
+			{
+				Type = StaticToggle
+				ToggleOn = false
+			}
+		}
+	}
 	{
 		Action = Add
 		AddTo = "<parts/derived_part.rules>/Part/Components"
@@ -45,6 +59,33 @@ Actions
 			Type = StaticToggle
 			ToggleOn = true
 		}
+	}
+	// `Replace` swaps one member's value while keeping its name and its place, and `Remove` deletes
+	// the member outright. Both name an existing member, which is why their target is resolved
+	// without following it.
+	{
+		Action = Replace
+		Replace = "<parts/rewrite_target.rules>/Part/Replaced"
+		With = 99
+	}
+	{
+		Action = Remove
+		Remove = "<parts/rewrite_target.rules>/Part/Removed"
+	}
+	// A `Replace` whose target member is itself a reference. The game resolves the target without
+	// dereferencing its final node, so this swaps the reference and not what it points at.
+	{
+		Action = Replace
+		Replace = "<parts/rewrite_target.rules>/Part/Indirect"
+		With = 42
+	}
+	// An `Add` naming a list. The game appends an anonymous element there and drops the name, so
+	// nothing can ever read `PhantomItem` off that list.
+	{
+		Action = Add
+		AddTo = "<parts/rewrite_target.rules>/Part/Items"
+		Name = PhantomItem
+		ToAdd = 42
 	}
 	// An AddBase carrying an explicit Index inserts mid-list and is deliberately NOT modelled (it
 	// could re-slot every following base), so `<base_part.rules>/Part/^/0/...` must stay unresolved.

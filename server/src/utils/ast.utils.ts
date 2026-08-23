@@ -39,6 +39,83 @@ export const namedMembersOf = (node: { elements: AbstractNode[] }): [string, Abs
     return members;
 };
 
+/**
+ * The nodes a whole-document walk descends into: a container's elements, an assignment's value.
+ * The single definition of "child" the diagnostic and schema passes walk documents by. Inheritance
+ * lists, function-call arguments and math operands are deliberately left out of it.
+ * @param node the node a walk has reached
+ * @returns the nodes to visit below it, in document order, empty when it holds none
+ */
+export const childNodesOf = (node: AbstractNode): AbstractNode[] =>
+    isGroupNode(node) || isListNode(node) || isDocumentNode(node)
+        ? node.elements
+        : isAssignmentNode(node) && node.right
+          ? [node.right]
+          : [];
+
+/** Per-container lookup table from an assignment's right-hand node to its field name. Built once per
+ *  container instead of rescanning its elements for every candidate node, which made a string-heavy
+ *  group quadratic. Keyed weakly so a table dies with its AST. */
+const namesByRight: WeakMap<object, Map<unknown, string>> = new WeakMap();
+
+/**
+ * The field name whose `Key = value` right-hand side is `node`, read from the enclosing group or
+ * document. Every pass that names a value node by the field it was written for reads it from here,
+ * so they share one table per container.
+ *
+ * @param node the node to name.
+ * @returns the assignment's field name, or undefined when `node` is not an assignment value.
+ */
+export const assignmentNameOf = (node: AbstractNode): string | undefined => {
+    const parent = node.parent;
+    if (!parent || !(isGroupNode(parent) || isDocumentNode(parent))) return undefined;
+    return assignmentKeyIn(node, parent);
+};
+
+/**
+ * The same lookup as {@link assignmentNameOf}, against a container the caller names itself. A walk
+ * that also descends lists shares the table this way, since it decides which container kinds count
+ * rather than inheriting the group and document guard.
+ *
+ * @param node the node to name.
+ * @param container the group, list, or document whose assignments are searched.
+ * @returns the assignment's field name, or undefined when `node` is not an assignment value.
+ */
+export const assignmentKeyIn = (node: AbstractNode, container: { elements: AbstractNode[] }): string | undefined => {
+    let table = namesByRight.get(container);
+    if (!table) {
+        table = new Map();
+        for (const element of container.elements) {
+            if (isAssignmentNode(element)) table.set(element.right, element.left.name);
+        }
+        namesByRight.set(container, table);
+    }
+    return table.get(node);
+};
+
+/**
+ * The member name a node belongs to, resolved from the container holding it. A hover or a lookup
+ * lands on a value, on a key, or on the container a group- or list-form member is written as, and
+ * all three answer for the same member.
+ *
+ * @param node the node to name.
+ * @param container the group, list, or document holding it.
+ * @returns the member name, or undefined when the node is not a named member of the container.
+ */
+export const memberNameAt = (node: AbstractNode, container: { elements: AbstractNode[] }): string | undefined => {
+    // A group- or list-form member (`_centerColor { … }`, `TypeCategories [ … ]`, or an overriding
+    // `TypeCategories : ^/0/TypeCategories [ … ]`) is written without an `=`, so its key resolves to
+    // the container node itself and carries its name on its identifier. A valueless field written as
+    // a bare key (`Scale2In` with no `= value`, common for optional particle-channel bindings) parses
+    // to a standalone identifier. Neither has a sibling assignment to match.
+    if ((isGroupNode(node) || isListNode(node)) && node.identifier) return node.identifier.name;
+    if (isIdentifierNode(node)) return node.name;
+    for (const element of container.elements) {
+        if (isAssignmentNode(element) && (element.right === node || element.left === node)) return element.left.name;
+    }
+    return undefined;
+};
+
 export const parseFile = async (file: FileWithPath): Promise<AbstractNodeDocument> => {
     const data = await readFile(file.path, { encoding: 'utf-8' });
     const document = parser(lexer(data), file.path).value;
@@ -64,31 +141,14 @@ export const findNodeAtPosition = (document: AbstractNodeDocument, position: Pos
 };
 
 const findNodeAtPositionRecursive = (node: AbstractNode, position: Position): AbstractNode | undefined => {
-    if (isGroupNode(node)) {
+    if (isGroupNode(node) || isListNode(node)) {
         // Inheritance is checked before (and independently of) the members: an empty inheriting
         // group (`Components : ^/0/Components { }`) has no elements, so a check nested in the
         // member loop would never see the cursor on the inheritance reference.
-        if (node.inheritance) {
-            for (const inheritance of node.inheritance) {
-                const foundNode = findNodeAtPositionRecursive(inheritance, position);
-                if (foundNode) {
-                    return foundNode;
-                }
-            }
-        }
-        for (const property of node.elements) {
-            const foundNode = findNodeAtPositionRecursive(property, position);
+        for (const inheritance of node.inheritance ?? []) {
+            const foundNode = findNodeAtPositionRecursive(inheritance, position);
             if (foundNode) {
                 return foundNode;
-            }
-        }
-    } else if (isListNode(node)) {
-        if (node.inheritance) {
-            for (const inheritance of node.inheritance) {
-                const foundNode = findNodeAtPositionRecursive(inheritance, position);
-                if (foundNode) {
-                    return foundNode;
-                }
             }
         }
         for (const element of node.elements) {
@@ -175,6 +235,20 @@ export const findNodeByIdentifier = (node: AbstractNode, identifier: string): Ab
         if (!caseInsensitiveMatch && name?.toLowerCase() === lower) caseInsensitiveMatch = element;
     }
     return caseInsensitiveMatch;
+};
+
+/**
+ * The document a node belongs to, by walking its parent chain. Unlike `getStartOfAstNode`, a node
+ * from a detached subtree whose chain never reaches a document yields undefined instead of a
+ * mis-cast top node, so callers can tell a rooted node from a loose one.
+ *
+ * @param node the node whose owning document is wanted.
+ * @returns the owning document, or undefined when the chain reaches no document.
+ */
+export const documentRootOf = (node: AbstractNode): AbstractNodeDocument | undefined => {
+    let current: AbstractNode | undefined = node;
+    while (current && !isDocumentNode(current)) current = current.parent;
+    return current && isDocumentNode(current) ? current : undefined;
 };
 
 /** Memo of each node's owning document. Resolution calls this on essentially every step, and the

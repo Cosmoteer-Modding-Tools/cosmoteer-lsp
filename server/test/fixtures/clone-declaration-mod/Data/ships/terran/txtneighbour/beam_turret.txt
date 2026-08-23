@@ -1,0 +1,5 @@
+Part
+{
+	ID = cosmoteer.beam_turret
+	Size = [1, 1]
+}
