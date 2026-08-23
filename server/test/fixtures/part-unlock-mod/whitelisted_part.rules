@@ -1,0 +1,7 @@
+// A part only the build battle's `PartsWhitelist` names. That whitelist picks what a build battle
+// offers rather than what research unlocks, so nothing here gates the part.
+Part
+{
+	ID = test.whitelisted
+	Size = [1, 1]
+}

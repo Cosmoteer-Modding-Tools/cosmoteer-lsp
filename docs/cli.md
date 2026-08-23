@@ -147,13 +147,31 @@ The exit code is the whole product of a gate run, so each one means a single thi
 For code scanning, write SARIF and let the run itself pass:
 
 ```yaml
-- run: npx cosmoteer-rules-lint . --format sarif --out lint.sarif --fail-on none --quiet
+- run: npx cosmoteer-rules-lint . --game "$COSMOTEER_HOME" --format sarif --out lint.sarif --fail-on none --quiet
 - uses: github/codeql-action/upload-sarif@v3
   with:
     sarif_file: lint.sarif
 ```
 
 `--quiet` keeps progress off the error stream, which is worth it in a log nobody watches live.
+
+All three of those read the game's data, so they belong on a runner that has Cosmoteer installed. A
+hosted runner does not, and the run has to say so rather than pretend:
+
+```yaml
+- name: Check what can be checked without the game
+  run: npx cosmoteer-rules-lint . --no-game --min-severity error --quiet
+```
+
+What survives such a run is everything decided by the file itself: a parse error, a duplicate key, a
+circular inheritance, a nameless block, an unterminated comment and the schema. What cannot is
+anything that resolves into the game's files, and worse, a reference into them now reads as
+unresolved. Those reports are warnings, so the default fail level already passes over them, and the
+severity floor above keeps them out of the printed report. The floor hides real warnings with them,
+such as a missing separator, so a project that wants those back lowers it and reads the reference
+warnings as noise. A SARIF or GitHub report from a run like this is refused unless you also pass
+`--force`, which is deliberate: a weakened result should not become a repository's code scanning
+history.
 
 ## Runs after the first one
 

@@ -219,7 +219,7 @@ const valueText = (node: AbstractNode | null): string => {
  * @param origin the declaration to read.
  * @returns its value node, null for an assignment with no value yet.
  */
-const valueAt = (origin: MemberOrigin): AbstractNode | null => {
+export const valueAt = (origin: MemberOrigin): AbstractNode | null => {
     const node = origin.node;
     if (isIdentifierNode(node) && node.parent) {
         const assignment = node.parent.elements.find((element) => isAssignmentNode(element) && element.left === node);

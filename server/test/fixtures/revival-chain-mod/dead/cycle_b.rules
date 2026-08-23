@@ -1,0 +1,4 @@
+CycleB
+{
+	Other = &<cycle_a.rules>/CycleA
+}

@@ -52,6 +52,14 @@ export interface ModReachability {
      * Files absent from the map are referenced by nothing in the mod at all.
      */
     deadReferencers: Map<string, string[]>;
+    /**
+     * The forward half of the same graph: for each unreachable file (keyed per
+     * {@link reachabilityKey}) the unreachable files it really references, so wiring the key back in
+     * brings the whole subtree with it. Unlike {@link deadReferencers} these edges are read from
+     * comment-stripped text, since a chain held together by a commented-out line does not come back
+     * when the file at its head does. Empty when the walk was cancelled before the files were read.
+     */
+    deadEdges: Map<string, string[]>;
 }
 
 /** The canonical set-membership key for a file path on a case-insensitive filesystem. */
@@ -296,6 +304,7 @@ export const computeModReachability = async (
     // unreachable files need scanning: a reachable referencer would have pulled the file in.
     const unreachableKeys = new Set(unreachable.map((file) => reachabilityKey(file)));
     const deadReferencers = new Map<string, string[]>();
+    const deadEdges = new Map<string, string[]>();
     const deadTexts = token.isCancellationRequested
         ? []
         : await Promise.all(unreachable.map((file) => readFile(file, 'utf8').catch(() => '')));
@@ -303,14 +312,29 @@ export const computeModReachability = async (
         const file = unreachable[index];
         const fromDir = dirname(file);
         const fileKey = reachabilityKey(file);
+        let raw = 0;
         for (const match of text.matchAll(FILE_REF_RE)) {
             const target = resolveRef(match[1], fromDir, root, knownFiles);
             if (!target) continue;
             const targetKey = reachabilityKey(target);
             if (!unreachableKeys.has(targetKey) || targetKey === fileKey) continue;
+            raw++;
             const referencers = deadReferencers.get(targetKey) ?? deadReferencers.set(targetKey, []).get(targetKey)!;
             if (!referencers.includes(file)) referencers.push(file);
         }
+        // The forward edges are the ones a revival count rides on, and a commented-out reference
+        // revives nothing, so they are read again from stripped text. Most dead files reference no
+        // other dead file at all, and the second pass is worth paying only for the ones that do.
+        if (raw === 0) continue;
+        const live = new Set<string>();
+        for (const match of stripComments(text).matchAll(FILE_REF_RE)) {
+            const target = resolveRef(match[1], fromDir, root, knownFiles);
+            if (!target) continue;
+            const targetKey = reachabilityKey(target);
+            if (!unreachableKeys.has(targetKey) || targetKey === fileKey) continue;
+            live.add(targetKey);
+        }
+        if (live.size > 0) deadEdges.set(fileKey, [...live]);
     }
     // A commented-out reference from a reachable file is the most actionable annotation of all,
     // being the exact line whose uncommenting revives the file, so it goes first. Targets a live
@@ -322,7 +346,7 @@ export const computeModReachability = async (
         deadReferencers.set(targetKey, [...fresh, ...existing]);
     }
 
-    return { modRoot: root, manifests, allRulesFiles, reachable, unreachable, deadReferencers };
+    return { modRoot: root, manifests, allRulesFiles, reachable, unreachable, deadReferencers, deadEdges };
 };
 
 /** The relative, forward-slash path of `file` under the mod root, for display. */

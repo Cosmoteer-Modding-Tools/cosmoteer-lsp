@@ -293,6 +293,15 @@ export const RULES: readonly LintRule[] = [
         needsGameData: true,
     },
     {
+        id: 'validateUnusedParticleChannels',
+        title: 'Unused particle channels',
+        description:
+            'A particle data channel a file computes that nothing in the effect ever reads, which is what a channel name misspelled on one side of the pair leaves behind.',
+        defaultLevel: 'hint',
+        setting: 'validateUnusedParticleChannels',
+        needsGameData: true,
+    },
+    {
         id: 'validateModManifest',
         title: 'Mod manifest',
         description:

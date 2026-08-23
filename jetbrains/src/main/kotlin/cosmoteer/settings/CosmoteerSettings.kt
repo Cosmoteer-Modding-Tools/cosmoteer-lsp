@@ -50,11 +50,14 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validatePaths: Boolean = true
         var validateSpriteGeometry: Boolean = true
         var validateRenderLayers: Boolean = true
+        var validateUnusedParticleChannels: Boolean = true
         var codeModsEnabled: Boolean = true
         var codeModsAutoRefresh: Boolean = true
         var inlayShowBaseValue: Boolean = true
+        var inlayShowTargetValue: Boolean = true
         var hoverShowSubstitutions: Boolean = true
         var hoverShowModifiers: Boolean = true
+        var hoverShowProvenance: Boolean = true
         var allowEditingVanillaFiles: Boolean = false
         var formattingEnabled: Boolean = true
         var decompilerShowInHover: Boolean = false
@@ -118,15 +121,20 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validatePaths" to state.validatePaths,
             "validateSpriteGeometry" to state.validateSpriteGeometry,
             "validateRenderLayers" to state.validateRenderLayers,
+            "validateUnusedParticleChannels" to state.validateUnusedParticleChannels,
         ),
         "codeMods" to mapOf(
             "enabled" to state.codeModsEnabled,
             "autoRefresh" to state.codeModsAutoRefresh,
         ),
-        "inlayHints" to mapOf("showBaseValue" to state.inlayShowBaseValue),
+        "inlayHints" to mapOf(
+            "showBaseValue" to state.inlayShowBaseValue,
+            "showTargetValue" to state.inlayShowTargetValue,
+        ),
         "hover" to mapOf(
             "showSubstitutions" to state.hoverShowSubstitutions,
             "showModifiers" to state.hoverShowModifiers,
+            "showProvenance" to state.hoverShowProvenance,
         ),
         "allowEditingVanillaFiles" to state.allowEditingVanillaFiles,
         "decompiler" to mapOf(

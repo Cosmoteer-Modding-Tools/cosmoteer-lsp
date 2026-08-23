@@ -20,6 +20,15 @@ All notable changes to this project will be documented in this file.
 - A mod can now be checked from the command line, so a build can fail on what the editor would have shown. `npx cosmoteer-rules-lint <folder>` runs the same whole-mod checks and reports as text, JSON, SARIF or GitHub annotations.
 - `--assert-loads` answers whether the game would load the mod at all. It walks every manifest action and answers with its own exit code, so a build fails on a mod that will not load.
 - What a game update did to your mod can now be asked for. `Cosmoteer: Show What the Game Update Changed` compares the project against what it reported under the previous game version and names every finding the update added and every one it took away.
+- A hover now says where the declaration under the cursor stands in its group's chain. A member names the value it replaces and the file and line that one is written in, and a group's own name says how many of its fields its bases supply. Turn it off with `cosmoteerLSPRules.hover.showProvenance`.
+- A reference can now be replaced with the value it stands for. The lightbulb offers "Inline the value" on a reference resolving to a single written value, and the value is copied the way its own file spells it. A path that would name something else from here is refused rather than moved.
+- The effective-group report now lists what a mod loads in place of the game's own value, with the game's value beside it and a link to the line it is written on.
+- A value a mod's manifest overrides is now read as the value the game loads. An `Overrides` action replaces the member it names, so hover, navigation and the reports answer with the mod's value where they used to answer with the file's own.
+- The mod overview now names which unreachable file brings the most others back with it, and names the file whose commented-out line disabled the chain where one did.
+- A reference that does not work out to a number now shows what it points at, both inline and on hover: the written value, a list's entries, a group's fields, or the name of the file it names. Turn the inline half off with `cosmoteerLSPRules.inlayHints.showTargetValue`.
+- The mod overview now lists the mod's own parts that no tech in the project unlocks. Such a part is buildable from the start of a career rather than broken, so the section says so rather than reporting a fault.
+- A particle channel a file computes that nothing in the effect reads is now faded out. That is what a channel name misspelled on one side of the pair leaves behind, and the particle simply draws without whatever it was computing. Turn it off with `cosmoteerLSPRules.diagnostics.validateUnusedParticleChannels`.
+- A manifest's `Replace` and `Remove` actions are now read the way the game reads them. A member a mod replaces shows the value the mod puts there, and one it removes is gone from what the game loads, so the reports and hovers stop describing a file the game never sees.
 
 ### Changed
 

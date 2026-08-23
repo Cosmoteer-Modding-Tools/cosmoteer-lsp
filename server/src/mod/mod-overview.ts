@@ -5,8 +5,9 @@ import { uriToFsPath } from '../features/navigation/workspace-files';
 import { Action } from './action';
 import { normalizeTargetPath } from './action-target-resolver';
 import { resolveWithModContext } from './mod-context';
-import { computeModReachability, reachabilityKey, relativeToMod } from './mod-reachability';
+import { ModReachability, computeModReachability, reachabilityKey, relativeToMod } from './mod-reachability';
 import { findModRoot } from './mod-root';
+import { partTechCoverage } from './part-tech-coverage';
 import { parseModActions } from './action-parser';
 import { parseFilePath } from '../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
@@ -76,10 +77,15 @@ const targetStatus = async (action: Action, token: CancellationToken): Promise<b
  * the `.rules` files no action or include ever pulls in (probable forgotten content).
  *
  * @param manifestUri the mod.rules document uri the overview is requested for.
+ * @param folderPaths the project folders, for the id index the part-unlock section reads.
  * @param token cancels target resolution and the reachability walk.
  * @returns the markdown text, or undefined when the uri is not inside a mod.
  */
-export const generateModOverview = async (manifestUri: string, token: CancellationToken): Promise<string | undefined> => {
+export const generateModOverview = async (
+    manifestUri: string,
+    folderPaths: string[],
+    token: CancellationToken
+): Promise<string | undefined> => {
     const manifestPath = uriToFsPath(manifestUri);
     const modRoot = findModRoot(manifestUri);
     if (!modRoot) return undefined;
@@ -200,7 +206,142 @@ export const generateModOverview = async (manifestUri: string, token: Cancellati
                 lines.push('</details>');
                 lines.push('');
             }
+            const chains = revivalChains(reachability);
+            if (chains.length > 0) {
+                lines.push(`#### ${l10n.t('Revival chains')}`);
+                lines.push('');
+                lines.push(
+                    l10n.t(
+                        'Unreachable files that carry others behind them. Wiring one back in brings its whole chain with it, and a chain held together only by a commented-out line is not counted, since uncommenting that line is the wiring.'
+                    )
+                );
+                lines.push('');
+                for (const chain of chains.slice(0, REVIVAL_CHAIN_LIMIT)) {
+                    const disabled = chain.disabledBy ? ` ← ${fileLink(modRoot, chain.disabledBy)}` : '';
+                    const alike =
+                        chain.alike > 0
+                            ? ` · ${l10n.t('and {0} more of this name', String(chain.alike))}`
+                            : '';
+                    const brings =
+                        chain.revived === 1
+                            ? l10n.t('brings one file back with it')
+                            : l10n.t('brings {0} files back with it', String(chain.revived));
+                    lines.push(`- ${fileLink(modRoot, chain.file)} · ${brings}${disabled}${alike}`);
+                }
+                if (chains.length > REVIVAL_CHAIN_LIMIT) {
+                    lines.push(`- _(+${chains.length - REVIVAL_CHAIN_LIMIT})_`);
+                }
+                lines.push('');
+            }
         }
     }
+    // ── Part unlocks ───────────────────────────────────────────────────────────
+    const coverage = await partTechCoverage(modRoot, reachability?.reachable ?? new Set(), folderPaths, token).catch(
+        () => undefined
+    );
+    if (coverage && coverage.total > 0) {
+        lines.push(`## ${l10n.t('Part unlocks')}`);
+        lines.push('');
+        if (!coverage.judged) {
+            lines.push(l10n.t('No file in the project declares a tech, so nothing here can say what gates a part.'));
+        } else if (coverage.uncovered.length === 0) {
+            lines.push(l10n.t('Every part the game loads from this mod is named by a tech.'));
+        } else {
+            lines.push(
+                l10n.t(
+                    '{0} of the {1} parts the game loads from this mod are named by no tech. Such a part is buildable from the start of a career rather than broken, so this is worth a look rather than a fix.',
+                    String(coverage.uncovered.length),
+                    String(coverage.total)
+                )
+            );
+            lines.push('');
+            for (const part of coverage.uncovered.slice(0, UNCOVERED_PART_LIMIT)) {
+                lines.push(`- ${code(part.id)} · ${fileLink(modRoot, part.file)}`);
+            }
+            if (coverage.uncovered.length > UNCOVERED_PART_LIMIT) {
+                lines.push(`- _(+${coverage.uncovered.length - UNCOVERED_PART_LIMIT})_`);
+            }
+        }
+        lines.push('');
+    }
+
     return lines.join('\n');
+};
+
+/** How many ungated parts the report lists before the rest are counted in a tail. */
+const UNCOVERED_PART_LIMIT = 20;
+
+/** How many revival chains the report lists before the rest are counted in a tail. */
+const REVIVAL_CHAIN_LIMIT = 10;
+
+/** An unreachable file that carries others behind it. */
+interface RevivalChain {
+    /** The file to wire back in. */
+    readonly file: string;
+    /** How many further unreachable files come back with it. */
+    readonly revived: number;
+    /** The reachable file naming it on a commented-out line, when one does. */
+    readonly disabledBy?: string;
+    /** Further files of the same name heading a chain of the same size. */
+    readonly alike: number;
+}
+
+/**
+ * The unreachable files worth wiring back in first, ranked by how much comes back with them.
+ *
+ * A chain head is a dead file no live reference from another dead file points at. That is the file
+ * an author has to name themselves, and everything reachable from it through live references is
+ * already wired behind it. Files that sit only inside a cycle are named by each other and head
+ * nothing, so they are left out rather than offered as a root that revives its own referrer.
+ *
+ * A mod that generates a family of parts from one template leaves one identical chain per folder,
+ * and a list of those reads as many findings where there is one. Heads sharing a file name and a
+ * chain size are therefore one row carrying the count of the rest.
+ *
+ * @param reachability the computed reachability of the mod.
+ * @returns the chains that bring at least one further file back, largest first.
+ */
+const revivalChains = (reachability: ModReachability): RevivalChain[] => {
+    const { deadEdges, deadReferencers, reachable, unreachable, modRoot } = reachability;
+    if (deadEdges.size === 0) return [];
+    const pointedAt = new Set<string>();
+    for (const targets of deadEdges.values()) for (const target of targets) pointedAt.add(target);
+
+    const chains: RevivalChain[] = [];
+    for (const file of unreachable) {
+        const key = reachabilityKey(file);
+        if (pointedAt.has(key)) continue;
+        const seen = new Set<string>([key]);
+        const stack = [...(deadEdges.get(key) ?? [])];
+        while (stack.length > 0) {
+            const next = stack.pop()!;
+            if (seen.has(next)) continue;
+            seen.add(next);
+            stack.push(...(deadEdges.get(next) ?? []));
+        }
+        if (seen.size === 1) continue;
+        // The line whose uncommenting is the wiring, when the mod already names the file and only a
+        // comment holds it back.
+        const disabledBy = (deadReferencers.get(key) ?? []).find((referencer) =>
+            reachable.has(reachabilityKey(referencer))
+        );
+        chains.push({ file, revived: seen.size - 1, disabledBy, alike: 0 });
+    }
+    chains.sort(
+        (a, b) => b.revived - a.revived || relativeToMod(modRoot, a.file).localeCompare(relativeToMod(modRoot, b.file))
+    );
+
+    const collapsed: RevivalChain[] = [];
+    const byShape = new Map<string, number>();
+    for (const chain of chains) {
+        const shape = `${basenameOf(chain.file).toLowerCase()}|${chain.revived}`;
+        const first = byShape.get(shape);
+        if (first === undefined) {
+            byShape.set(shape, collapsed.length);
+            collapsed.push(chain);
+            continue;
+        }
+        collapsed[first] = { ...collapsed[first], alike: collapsed[first].alike + 1 };
+    }
+    return collapsed;
 };

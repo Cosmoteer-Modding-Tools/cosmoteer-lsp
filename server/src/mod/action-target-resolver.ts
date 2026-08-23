@@ -34,6 +34,53 @@ export const normalizeTargetPath = (value: string): string => {
 };
 
 /**
+ * Split a normalized target path into the container part and the member name it ends with, at the
+ * last `/` outside the `<…>` file span, since a file path carries slashes of its own.
+ *
+ * @param path the normalized target path.
+ * @returns the two halves, or undefined when the path names no member.
+ */
+export const splitTargetMember = (path: string): { container: string; member: string } | undefined => {
+    let depth = 0;
+    let cut = -1;
+    for (let index = 0; index < path.length; index++) {
+        const char = path[index];
+        if (char === '<') depth++;
+        else if (char === '>') depth--;
+        else if (char === '/' && depth === 0) cut = index;
+    }
+    if (cut <= 0 || cut === path.length - 1) return undefined;
+    return { container: path.slice(0, cut), member: path.slice(cut + 1) };
+};
+
+/**
+ * Resolve the container a target's last segment names a member of, without following that member.
+ *
+ * `resolveActionTarget` answers with the node a path leads to, and the walk dereferences a final
+ * reference on the way, which is right for asking whether a target exists and wrong for asking which
+ * member an action rewrites: the game reads these two verbs with `dereferenceFinalNode: false`, so
+ * `Replace = <f>/A/B` rewrites `B` in `A` even when `B` is a reference into another file entirely.
+ *
+ * @param target the action's target value node.
+ * @param cancellationToken cancels the resolution.
+ * @returns the container and the member name, or null when the path names no member the walk reaches.
+ */
+export const resolveActionTargetMember = async (
+    target: ValueNode,
+    cancellationToken: CancellationToken
+): Promise<{ container: AbstractNode | FileWithPath; member: string } | null> => {
+    const raw = String(target.valueType.value);
+    if (!raw.includes('<')) return null;
+    const split = splitTargetMember(normalizeTargetPath(raw));
+    if (!split) return null;
+    const container = await navigation
+        .navigate(split.container, target, getStartOfAstNode(target).uri, cancellationToken)
+        .catch(() => null);
+    if (!container) return null;
+    return { container: container as AbstractNode | FileWithPath, member: split.member };
+};
+
+/**
  * Resolve a mod-action target value node against the game Data root (and the Steam
  * workshop folder for `../` escapes). Returns the resolved node/file, or null.
  * Pure-vanilla resolution. Mod-context awareness (mod-added globals) is layered on

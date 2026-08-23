@@ -145,7 +145,7 @@ describe('generateModOverview', () => {
     beforeAll(async () => {
         clearModRootCache();
         const uri = pathToFileURL(join(MOD_DIR, 'mod.rules')).href;
-        markdown = (await generateModOverview(uri, token))!;
+        markdown = (await generateModOverview(uri, [MOD_DIR], token))!;
         expect(markdown).toBeDefined();
     });
 
@@ -196,5 +196,70 @@ describe('generateModOverview', () => {
         expect(markdown).toContain('](vscode://file/');
         expect(markdown).toContain('[orphan/dead (Kopie).rules](');
         expect(markdown).toContain('dead%20%28Kopie%29.rules)');
+    });
+});
+
+const REVIVAL_DIR = join(FIXTURES_DIR, 'revival-chain-mod');
+
+describe('revival chains', () => {
+    let markdown: string;
+    let deadEdges: Map<string, string[]>;
+
+    beforeAll(async () => {
+        clearModRootCache();
+        const result = await computeModReachability(REVIVAL_DIR, token);
+        expect(result).toBeDefined();
+        deadEdges = result!.deadEdges;
+        markdown = (await generateModOverview(pathToFileURL(join(REVIVAL_DIR, 'mod.rules')).href, [REVIVAL_DIR], token))!;
+    });
+
+    it('keeps only the references a dead file really makes', () => {
+        const commented = deadEdges.get(reachabilityKey(join(REVIVAL_DIR, 'dead', 'commented.rules')));
+        expect(commented).toBeUndefined();
+        const head = deadEdges.get(reachabilityKey(join(REVIVAL_DIR, 'dead', 'head.rules')));
+        expect(head).toHaveLength(1);
+    });
+
+    it('counts the whole chain behind the file that heads it', () => {
+        expect(markdown).toContain('#### Revival chains');
+        expect(markdown).toMatch(/\[dead\/head\.rules\]\([^)]+\) · brings 2 files back with it/);
+    });
+
+    it('lists the chain that brings the most files back first', () => {
+        // Wiring in a head brings every file behind it, so the row worth reading first is the one
+        // that revives the most.
+        const rows = markdown.split('\n').filter((line) => line.includes('back with it'));
+        expect(rows[0]).toContain('zz_big/bighead.rules');
+        expect(rows[0]).toContain('brings 3 files back with it');
+        expect(rows[1]).toContain('dead/head.rules');
+        expect(rows[2]).toContain('dead3/head.rules');
+    });
+
+    it('points at the commented-out line that disabled the chain', () => {
+        expect(markdown).toMatch(/\[dead\/head\.rules\]\([^)]+\) · brings 2 files back with it ← \[wired\/live\.rules\]\(/);
+    });
+
+    it('leaves out a file whose only onward reference is commented out', () => {
+        // It is still listed among the unreachable files, it just heads no chain.
+        expect(markdown).toContain('dead/commented.rules');
+        expect(markdown).not.toMatch(/\[dead\/commented\.rules\]\([^)]+\) · brings/);
+    });
+
+    it('collapses chains of the same name and size into one row', () => {
+        // A mod that generates a family of parts from one template leaves one identical chain per
+        // folder, and listing each of them reads as many findings where there is one.
+        expect(markdown).toMatch(/brings 2 files back with it .* and 1 more of this name/);
+        expect(markdown.match(/brings 2 files back with it/g)).toHaveLength(1);
+    });
+
+    it('keeps a same-named head of a different size in its own row', () => {
+        // dead3/head.rules carries one file where the two chains above carry two, and folding it
+        // into their row would hide a chain of a different size behind their count.
+        expect(markdown).toMatch(/\[dead3\/head\.rules\]\([^)]+\) · brings one file back with it/);
+        expect(markdown).not.toMatch(/brings one file back with it[^\n]*more of this name/);
+    });
+
+    it('offers neither half of a dead cycle as a chain head', () => {
+        expect(markdown).not.toMatch(/\[dead\/cycle_[ab]\.rules\]\([^)]+\) · brings/);
     });
 });

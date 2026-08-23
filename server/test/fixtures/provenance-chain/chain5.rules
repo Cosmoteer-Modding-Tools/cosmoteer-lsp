@@ -1,0 +1,5 @@
+// Far end of the chain: its bases sit in four separate files, one more than the summary names.
+Chain5 : &<chain4.rules>/Chain4
+{
+	M5 = 5
+}

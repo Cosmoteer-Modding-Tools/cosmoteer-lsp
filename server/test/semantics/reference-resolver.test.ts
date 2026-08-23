@@ -3,6 +3,7 @@ import {
     stepIntoNode,
     registerInheritanceExtensionSource,
     registerMemberExtensionSource,
+    registerMemberReplacementSource,
 } from '../../src/semantics/reference-resolver';
 import { AbstractNode, isListNode, isAssignmentNode, isGroupNode } from '../../src/core/ast/ast';
 import { lexer } from '../../src/core/lexer/lexer';
@@ -76,7 +77,10 @@ describe('stepIntoNode member extension (Overrides)', () => {
     const doc = parser(lexer('Target\n{\n\tOwn = 1\n}\n'), 'file:///t.rules').value;
     const target = doc.elements.find((e) => isGroupNode(e) && e.identifier?.name === 'Target')!;
 
-    afterEach(() => registerMemberExtensionSource(undefined));
+    afterEach(() => {
+        registerMemberExtensionSource(undefined);
+        registerMemberReplacementSource(undefined);
+    });
 
     it('returns the node own member without consulting the source', () => {
         const own = stepIntoNode(target, 'Own');
@@ -93,7 +97,19 @@ describe('stepIntoNode member extension (Overrides)', () => {
             node === target && member === 'Injected' ? injected : undefined
         );
         expect(stepIntoNode(target, 'Injected')).toBe(injected);
-        // A member the node defines itself is still resolved from the node, not the source.
+        // The extension source answers for a name the node does not write. A name it does write is
+        // still its own, because an `Add` beside an existing name stops the game loading.
         expect(stepIntoNode(target, 'Own')).not.toBe(injected);
+    });
+
+    it('lets an Overrides replacement answer for a member the node writes itself', () => {
+        // `ModOverridesAction` replaces the node's own child, so the mod's declaration is the one
+        // the game reads there and the one every reference into it has to land on.
+        const injected = doc.elements[0] as AbstractNode;
+        registerMemberReplacementSource((node, member) =>
+            node === target && member === 'Own' ? injected : undefined
+        );
+        expect(stepIntoNode(target, 'Own')).toBe(injected);
+        expect(stepIntoNode(target, 'Absent')).toBeNull();
     });
 });

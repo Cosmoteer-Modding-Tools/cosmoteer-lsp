@@ -1,0 +1,7 @@
+// A part the tech tree names only by pointing at this file, the spelling vanilla's own tech tree
+// uses. Its id appears in no tech as text, so only the resolved file reference can gate it.
+Part
+{
+	ID = test.fileref_only
+	Size = [1, 1]
+}

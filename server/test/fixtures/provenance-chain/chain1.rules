@@ -1,0 +1,6 @@
+// First link of a four-file chain, so a group at the far end has more base files than the chain
+// summary spells out.
+Chain1
+{
+	M1 = 1
+}

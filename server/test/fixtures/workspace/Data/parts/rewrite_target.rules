@@ -1,0 +1,18 @@
+// The file the action-resolution fixture's `Replace` and `Remove` actions rewrite, kept apart from
+// the parts the other cases read so a rewrite here cannot move their answers.
+Part
+{
+	ID = test.rewrite_target
+	Kept = 1
+	Replaced = 2
+	Removed = 3
+	// A member whose own value is a reference, so a `Replace` naming it has a node it could
+	// follow. The game resolves that target without following it, and this pins that it does not.
+	Indirect = &<./Data/c.rules>/C/Leaf
+	// The list an `Add` action names, which is a shape the game has no place to put a name in.
+	Items
+	[
+		1
+		2
+	]
+}

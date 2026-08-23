@@ -8,6 +8,14 @@ Cosmoteer Language server provides a lot of useful features, like:
 
 ### Added
 
+- A hover now says where the declaration under the cursor stands in its group's chain. A member names the value it replaces and the file and line that one is written in, and a group's own name says how many of its fields its bases supply. The checkbox for it is under Editing in the settings page.
+- A reference can now be replaced with the value it stands for. "Inline the value" appears on a reference resolving to a single written value, and the value is copied the way its own file spells it.
+- The effective-group report now lists what a mod loads in place of the game's own value, with the game's value beside it.
+- The mod overview now names which unreachable file brings the most others back with it, and names the file whose commented-out line disabled the chain where one did.
+- A reference that does not work out to a number now shows what it points at, both as an inlay hint and on hover. The checkbox for the inline half is under Editing in the settings page.
+- The mod overview now lists the mod's own parts that no tech in the project unlocks.
+- A particle channel a file computes that nothing in the effect reads is now faded out, which is what a misspelled channel name leaves behind.
+- A manifest's `Replace` and `Remove` actions are now read the way the game reads them, so a member a mod replaces or removes shows what the game really loads.
 - Render layers are now offered and checked per ship class. Only the layers the part's own ship declares are suggested, and a layer no ship declares, or one belonging to another ship class, is reported with the ship named. Turn it off with `cosmoteerLSPRules.diagnostics.validateRenderLayers`.
 - Quotes, braces, brackets and `<` now close themselves as you type, and `//` and `/* */` comments toggle with the editor's own comment shortcut.
 - Seven shapes the game refuses to load are now reported instead of parsing as if they were fine, among them free text where a member name belongs, a number naming a member, a nameless `{` or `[` block outside a list, an inheritance with no body and a `/*` that no `*/` ever ends. Each of these makes the game drop the whole file at load time, so a mod could be shipped broken while the editor showed nothing.

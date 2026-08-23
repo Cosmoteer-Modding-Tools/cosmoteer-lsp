@@ -22,7 +22,10 @@ import {
     flattenGroup,
 } from '../../semantics/effective-group';
 import { getStartOfAstNode } from '../../utils/ast.utils';
+import { navigationDepKey } from '../../utils/navigation-deps';
 import { findEnclosingGroup } from '../../document/schema/schema-context';
+import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
+import { valueAt } from '../completion/inherited-members';
 
 /**
  * The "what the game actually loads here" report: the member set a container really deserializes,
@@ -46,6 +49,15 @@ const VALUE_WIDTH = 60;
 
 /** Markdown-safe inline code. */
 const code = (text: string): string => '`' + text.replace(/`/g, "'") + '`';
+
+/**
+ * One table cell's text. A written value may hold a newline or a `|`, and either one shifts the
+ * row apart from the header the reader is matching it against.
+ *
+ * @param text the cell's rendered text.
+ * @returns the text, safe to sit between two pipes.
+ */
+const cell = (text: string): string => text.replace(/\s+/g, ' ').replace(/\|/g, '\\|');
 
 /**
  * A markdown link to a node's position, labeled `file.rules:line`. Uses the `vscode://file/…` deep
@@ -136,7 +148,7 @@ const defaultRows = (cls: string | undefined, present: ReadonlySet<string>): str
     for (const field of fieldsOf(cls)) {
         if (present.has(field.name.toLowerCase())) continue;
         rows.push(
-            `| ${code(field.name)} | ${defaultText(field)} | ${
+            `| ${cell(code(field.name))} | ${cell(defaultText(field))} | ${
                 field.optional ? l10n.t('schema default') : l10n.t('**required, and written nowhere**')
             } |`
         );
@@ -162,14 +174,61 @@ const defaultText = (field: SchemaField): string => {
  * @returns the markdown row.
  */
 const memberRow = (member: EffectiveMemberEntry): string => {
-    const where = member.origin.inherited
-        ? l10n.t('inherited from {0}', originLink(member.origin))
-        : l10n.t('written here, {0}', originLink(member.origin));
+    const where = member.origin.injected
+        ? l10n.t('merged in by a mod action, {0}', originLink(member.origin))
+        : member.origin.inherited
+          ? l10n.t('inherited from {0}', originLink(member.origin))
+          : l10n.t('written here, {0}', originLink(member.origin));
     const shadowed =
         member.shadows.length > 0
             ? ` · ${l10n.t('shadows {0}', member.shadows.map(originLink).join(', '))}`
             : '';
-    return `| ${code(member.name)} | ${valueText(member.value)} | ${where}${shadowed} |`;
+    return `| ${cell(code(member.name))} | ${cell(valueText(member.value))} | ${where}${shadowed} |`;
+};
+
+/**
+ * Whether a file is one of the game's own, so a declaration in it is what the game ships rather than
+ * what a mod writes over it.
+ *
+ * @param uri the file's uri or path, in either of the two shapes the walk produces.
+ * @param dataRootKey the canonical key of the game `Data` folder.
+ * @returns true when the file sits inside the game's `Data` folder.
+ */
+const isGameFile = (uri: string, dataRootKey: string): boolean =>
+    (navigationDepKey(uri) + '/').startsWith(dataRootKey + '/');
+
+/**
+ * The rows naming what this chain loads in place of what the game's own files declare.
+ *
+ * A member is listed when the game declares it somewhere the chain shadows and the two values are
+ * written differently. A value with no one-line spelling, a group, a list or a computed expression,
+ * is left out rather than rendered as two identical placeholders: the report would be claiming a
+ * comparison it cannot show.
+ *
+ * @param members the flattened member set.
+ * @returns the markdown rows, empty when nothing the game writes is replaced here.
+ */
+const changedRows = (members: readonly EffectiveMemberEntry[]): string[] => {
+    const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+    if (!dataRoot) return [];
+    const dataRootKey = navigationDepKey(dataRoot);
+    const rows: string[] = [];
+    for (const member of members) {
+        if (isGameFile(member.origin.uri, dataRootKey)) continue;
+        // The nearest declaration of this member the game itself carries, which need not sit at the
+        // nearest hop of the chain that does.
+        const shadowed = member.shadows.find((origin) => isGameFile(origin.uri, dataRootKey));
+        if (!shadowed) continue;
+        const theirs = valueAt(shadowed);
+        if (!isValueNode(theirs) || !isValueNode(member.value)) continue;
+        if (theirs.valueType.value === member.value.valueType.value) continue;
+        rows.push(
+            `| ${cell(code(member.name))} | ${cell(valueText(theirs))} | ${cell(valueText(member.value))} | ${originLink(
+                shadowed
+            )} |`
+        );
+    }
+    return rows;
 };
 
 /**
@@ -246,6 +305,24 @@ export const generateEffectiveGroupReport = async (
         lines.push(`| *${l10n.t('none')}* | | |`);
     } else {
         for (const member of flattened.members) lines.push(memberRow(member));
+    }
+
+    const changed = changedRows(flattened.members);
+    if (changed.length > 0) {
+        lines.push('');
+        lines.push(`## ${l10n.t("Changed from the game's own files")}`);
+        lines.push('');
+        lines.push(
+            l10n.t(
+                'Members the game declares itself that this chain loads a different value for. A value with no one-line spelling is left out.'
+            )
+        );
+        lines.push('');
+        lines.push(
+            `| ${l10n.t('Member')} | ${l10n.t('The game writes')} | ${l10n.t('Loaded here')} | ${l10n.t('Where the game writes it')} |`
+        );
+        lines.push('| --- | --- | --- | --- |');
+        lines.push(...changed);
     }
 
     const present = new Set(flattened.members.map((member) => member.name.toLowerCase()));

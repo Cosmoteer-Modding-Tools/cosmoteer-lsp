@@ -42,6 +42,7 @@ import { AbstractNodeDocument, isGroupNode, isValueNode } from './core/ast/ast';
 import { ParserResultRegistrar } from './registrar/parser-result-registrar';
 import { findNodeAtPosition, namedMembersOf } from './utils/ast.utils';
 import { extractValueCodeAction } from './features/refactor/extract-value';
+import { inlineValueCodeAction } from './features/refactor/inline-value';
 import {
     EXTRACT_LOCALIZATION_KEY_COMMAND,
     ExtractLocalizationKeyArgs,
@@ -177,6 +178,7 @@ import { validatePartGeometry } from './features/diagnostics/validator.part-geom
 import { validateUnreceivableBuffs } from './features/diagnostics/validator.unreceivable-buff';
 import { validateSpriteGeometry } from './features/diagnostics/validator.sprite-geometry';
 import { validateRenderLayers } from './features/diagnostics/validator.render-layer';
+import { validateUnusedParticleChannels } from './features/diagnostics/validator.particle-channel';
 import { ShipLayerContext, invalidateShipLayers, judgeLayer, layerScopeForPart } from './features/ships/ship-layer.index';
 import { generateEffectiveGroupReport } from './features/effective-group/effective-group.report';
 import { generateReferenceTraceReport } from './features/navigation/explain-reference/reference-trace.report';
@@ -429,7 +431,11 @@ connection.onInitialize(async (params: InitializeParams) => {
             },
             documentFormattingProvider: true,
             codeActionProvider: {
-                codeActionKinds: [CodeActionKind.QuickFix, CodeActionKind.RefactorExtract],
+                codeActionKinds: [
+                    CodeActionKind.QuickFix,
+                    CodeActionKind.RefactorExtract,
+                    CodeActionKind.RefactorInline,
+                ],
             },
             // The "Open in decompiler" hover link executes on the server (it spawns the user's
             // ILSpy/dotPeek locally), so VS Code and the JetBrains plugin share one implementation.
@@ -1457,6 +1463,17 @@ async function validateTextDocument(
                 validateRenderLayers(parserResult.value, await shipLayerContext(), cancelToken).catch(() => [])
             );
             validationErrors = validationErrors.concat(tagged(renderLayerErrors, 'validateRenderLayers'));
+        }
+        // Separate pass: a particle data channel a file computes that nothing in the effect reads.
+        // Needs the game index: a mod's effect usually takes its body from a vanilla `Def`, and
+        // without that file every channel it writes would read as dropped.
+        if (settings.diagnostics?.validateUnusedParticleChannels && gameIndexAvailable()) {
+            const particleChannelErrors = await timedPass('scan.vParticleChannelMs', async () =>
+                validateUnusedParticleChannels(parserResult.value, cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(
+                tagged(particleChannelErrors, 'validateUnusedParticleChannels')
+            );
         }
         // Separate pass: an id two files of this mod both register for one game collection, which
         // the game resolves by keeping one entry and dropping the rest. Needs the game index, like
@@ -2866,6 +2883,9 @@ async function ensureFragmentRooting(cancellationToken: CancellationToken): Prom
     // AddBase/Overrides/Add) invalidates every `^/N`/injected-member resolution the memo cached.
     if (AddBaseIndex.instance.revision + MemberInjectionIndex.instance.revision !== actionRevisionBefore) {
         clearNavigationMemo();
+        // The flatten memo is keyed on an epoch bumped when a file changes, which is before these
+        // indexes have caught up, so a fold taken in that window holds the old injected members.
+        invalidateEffectiveChainCache();
     }
 }
 
@@ -3119,7 +3139,11 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
     const wantsRefactor =
         !isShaderDocument(params.textDocument.uri) &&
         (!params.context.only ||
-            params.context.only.some((kind) => CodeActionKind.RefactorExtract.startsWith(kind)));
+            params.context.only.some((kind) =>
+                [CodeActionKind.RefactorExtract, CodeActionKind.RefactorInline].some((offered) =>
+                    offered.startsWith(kind)
+                )
+            ));
     if (wantsRefactor) {
         const parserResult = ensureParserResult(params.textDocument.uri);
         const text = documents.get(params.textDocument.uri)?.getText();
@@ -3138,6 +3162,16 @@ connection.onCodeAction(async (params, cancellationToken): Promise<CodeAction[]>
                 cancellationToken
             ).catch(() => undefined);
             if (extractKey) actions.push(extractKey);
+            // A reference read once costs a reader a jump to learn one number: offer to replace it
+            // with the value the game reads through it.
+            const inline = await inlineValueCodeAction(
+                parserResult,
+                text,
+                params.range.start,
+                params.textDocument.uri,
+                cancellationToken
+            ).catch(() => undefined);
+            if (inline) actions.push(inline);
         }
         // The shared-base extraction creates a file and rewrites every file that will inherit it, so
         // it is offered as a command rather than an edit (see extract-shared-base.codeaction.ts).
@@ -4124,7 +4158,7 @@ connection.onRequest('cosmoteer/modOverview', async (params: { textDocument: { u
         // Action targets resolve against the effective game tree, so the workspace and the fragment
         // indexes must be ready, exactly as for validation of the manifest itself.
         await ensureFragmentRooting(cancellationToken);
-        return (await generateModOverview(params.textDocument.uri, cancellationToken)) ?? null;
+        return (await generateModOverview(params.textDocument.uri, await searchFolderUris(), cancellationToken)) ?? null;
     } catch (e) {
         if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
         return null;

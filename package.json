@@ -434,6 +434,18 @@
                     "default": true,
                     "description": "Show the referenced group's BaseValue as an inline hint. A reference like 'Arc = &~/Part/Components/ArcShield/Arc' whose target group has a BaseValue member renders '/BaseValue = 160d' after the reference."
                 },
+                "cosmoteerLSPRules.diagnostics.validateUnusedParticleChannels": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Hint at a particle data channel a file computes that nothing in the effect reads, which is what a misspelled channel name leaves behind. The effect's shared body is folded in first, so a reader in the file the emitter pulls in still counts. Needs the Cosmoteer folder."
+                },
+                "cosmoteerLSPRules.inlayHints.showTargetValue": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Annotate a reference whose target is not a number with what it points at: the written value, a list's entries, a group's fields, or the name of the file it names. Cut short, since the hint sits inside the line."
+                },
                 "cosmoteerLSPRules.hover.showSubstitutions": {
                     "scope": "resource",
                     "type": "boolean",
@@ -445,6 +457,12 @@
                     "type": "boolean",
                     "default": true,
                     "description": "List what a modifiable value's modifiers do to its base number: what drives each one, the mode it combines with, the clamp it puts on the result, and which part supplies the buff. A modifier driven by a runtime buff shows the interval it is clamped to rather than a number the file cannot prove."
+                },
+                "cosmoteerLSPRules.hover.showProvenance": {
+                    "scope": "resource",
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Say where a declaration stands in its group's inheritance chain: which value of the chain a member replaces and where that one is written, and for a group how many of its fields its bases supply."
                 },
                 "cosmoteerLSPRules.associateShaderFiles": {
                     "scope": "window",

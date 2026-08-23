@@ -4,8 +4,9 @@ import { CancellationToken } from 'vscode-languageserver';
 import { FullNavigationStrategy } from '../../src/features/navigation/full.navigation-strategy';
 import { ValidationForValue } from '../../src/features/diagnostics/validator.value';
 import { ReferenceAutoCompletionStrategy } from '../../src/features/completion/strategy/reference.autocompletion-strategy';
-import { AbstractNode, AbstractNodeDocument, ValueNode } from '../../src/core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, GroupNode, ListNode, ValueNode, isGroupNode, isListNode } from '../../src/core/ast/ast';
 import { parseFilePath } from '../../src/utils/ast.utils';
+import { flattenGroup } from '../../src/semantics/effective-group';
 import { AddBaseIndex } from '../../src/mod/add-base.index';
 import { MemberInjectionIndex } from '../../src/mod/member-injection.index';
 import { clearModRootCache } from '../../src/mod/mod-root';
@@ -116,9 +117,78 @@ describe('Member injection: nested Overrides and Add(Name)', () => {
         expect(await navigate(`&${PART}/Components/NotInjected`)).toBeNull();
     });
 
-    it('still resolves the node own members without the index (`Components/HeatProducer`)', async () => {
-        // HeatProducer is derived_part's own component. The member index is consulted only on a miss.
-        expect(await navigate(`&${PART}/Components/HeatProducer`)).not.toBeNull();
+    it('resolves an Overrides that names a member the target file writes itself', async () => {
+        // `ModOverridesAction` replaces the target's own child, so what the game reads at
+        // `HeatProducer` is the mod's declaration and not derived_part's.
+        expect(valueOf(await navigate(`&${PART}/Components/HeatProducer/ToggleOn`))).toBe(false);
+        expect(valueOf(await navigate(`&${PART}/Components/HeatProducer/Type`))).toBe('StaticToggle');
+    });
+
+    it('still resolves a node own member no action names (`Components/IsOperational`)', async () => {
+        expect(await navigate(`&${PART}/Components/IsOperational`)).not.toBeNull();
+    });
+});
+
+describe('Member rewriting: Replace and Remove', () => {
+    const REWRITTEN = '<./Data/parts/rewrite_target.rules>/Part';
+
+    it('resolves a replaced member to what the action puts in its place', async () => {
+        // `ModReplaceAction` swaps the target's child for a reference to `With`, keeping the name.
+        expect(valueOf(await navigate(`&${REWRITTEN}/Replaced`))).toBe(99);
+    });
+
+    it('leaves the members no action names alone', async () => {
+        expect(valueOf(await navigate(`&${REWRITTEN}/Kept`))).toBe(1);
+    });
+
+    it('drops a removed member from what the game reads there', async () => {
+        const document = await parseFilePath(join(WORKSPACE_DATA_DIR, 'parts', 'rewrite_target.rules'));
+        const part = document.elements.find((element) => isGroupNode(element) && element.identifier?.name === 'Part');
+        const flattened = await flattenGroup(part as GroupNode, token);
+        const names = flattened.members.map((member) => member.name);
+        expect(names).toContain('Kept');
+        expect(names).toContain('Replaced');
+        expect(names).not.toContain('Removed');
+    });
+
+    it('still resolves a reference to a removed member, deliberately', async () => {
+        // The game fails to read such a reference, but reporting it here would flag references in
+        // files the author cannot edit, since a mod may remove a member of the game's own tree.
+        expect(await navigate(`&${REWRITTEN}/Removed`)).not.toBeNull();
+    });
+
+    it('rewrites a member that is itself a reference, not the node it points at', async () => {
+        // `ModReplaceAction` looks its target up without dereferencing the final node, so the member
+        // the action swaps is the reference written here.
+        expect(valueOf(await navigate(`&${REWRITTEN}/Indirect`))).toBe(42);
+    });
+
+    it('leaves the file a replaced reference points at alone', async () => {
+        // Had the target been followed, the action would have landed on `c.rules` and rewritten a
+        // file the mod never names.
+        expect(valueOf(await navigate('&<./Data/c.rules>/C/Leaf'))).toBe(300);
+    });
+});
+
+describe('Add naming a list, which carries no member names', () => {
+    const ITEMS = '<./Data/parts/rewrite_target.rules>/Part/Items';
+
+    it('records no injected name on a list an Add action targets', async () => {
+        // `ModAddAction` appends an anonymous element to a list and drops the `Name`, so a name
+        // recorded there would be one nothing can ever read.
+        const document = await parseFilePath(join(WORKSPACE_DATA_DIR, 'parts', 'rewrite_target.rules'));
+        const part = document.elements.find(
+            (element) => isGroupNode(element) && element.identifier?.name === 'Part'
+        ) as GroupNode;
+        const items = part.elements.find(
+            (element) => isListNode(element) && element.identifier?.name === 'Items'
+        ) as ListNode;
+        expect(MemberInjectionIndex.instance.injectedMemberNames(items)).toEqual([]);
+        // The list writes two entries, so two offered options are the entries the file itself
+        // holds, and the name the action carried is nowhere among them.
+        const options = await complete(`&${ITEMS}/`);
+        expect(options).toHaveLength(2);
+        expect(options).not.toContain('PhantomItem');
     });
 });
 

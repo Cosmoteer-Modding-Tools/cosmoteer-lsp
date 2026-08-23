@@ -264,6 +264,42 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
     }
 
     /**
+     * Every declaration of `targetClass` (or a subclass) the project carries, with the file each one
+     * is written in. `primaryIdsForClass` answers the ids alone and drops aliases, which is what a
+     * completion list wants. A report that has to say where a part is declared, or which files hold
+     * the project's techs, needs the file as well.
+     *
+     * @param targetClass the class whose declarations are wanted.
+     * @param folderPaths the project folders, for the index build.
+     * @param cancellationToken cancels the build.
+     * @param sourcePrefix a normalized uri prefix declarations must come from, or undefined for all.
+     * @returns one entry per declaration, aliases included and marked.
+     */
+    public async declarationsForClass(
+        targetClass: string,
+        folderPaths: string[],
+        cancellationToken: CancellationToken,
+        sourcePrefix?: string
+    ): Promise<Array<{ id: string; source: string; alias: boolean }>> {
+        await this.ensureFresh(
+            (progress) => this.buildFromProject(folderPaths, progress),
+            cancellationToken,
+            'Indexing references'
+        );
+
+        const declarations: Array<{ id: string; source: string; alias: boolean }> = [];
+        for (const [source, entries] of this.bySource) {
+            if (sourcePrefix && !source.startsWith(sourcePrefix)) continue;
+            for (const entry of entries) {
+                if (isSameOrSubclass(entry.cls, targetClass)) {
+                    declarations.push({ id: entry.id, source, alias: entry.alias === true });
+                }
+            }
+        }
+        return declarations;
+    }
+
+    /**
      * Collects the primary ids of `targetClass` (or a subclass): every declared id except the
      * `OtherIDs` legacy aliases, plus the engine builtins. Optionally restricted to declarations
      * from sources under a uri prefix, which is how the label-field derivation reads the base

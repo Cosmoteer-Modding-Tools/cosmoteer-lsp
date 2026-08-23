@@ -47,6 +47,7 @@ describe('the rule table', () => {
             'validateUndeclaredDependencies',
             'validateLocalizationKeys',
             'validateRenderLayers',
+            'validateUnusedParticleChannels',
             'validateDuplicateIds',
             'validateUnreceivableBuffs',
         ]);

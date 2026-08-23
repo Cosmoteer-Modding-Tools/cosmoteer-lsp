@@ -34,6 +34,11 @@ import { inheritanceEntriesOf, injectedMembersOf, memberNameOf, memberValueOf } 
  *   and it is why the existing validators, which treat every list as undecidable, are stricter than
  *   they need to be rather than wrong.
  *
+ * A third operation belongs to the mods rather than to the format: a manifest action merges members
+ * into a node of another file, and `ModOverridesAction` replaces the node's own child under that name
+ * while `ModAddAction` inserts beside it. Both are folded in here, each with the precedence its verb
+ * really has, so what the report shows is what the game loads rather than what the file says alone.
+ *
  * Where the game throws, this reports. `GetInheritedGroups` raises `OTNavigateException` when a base
  * cannot be resolved and when it resolves to the wrong kind of node, and self-inheritance raises
  * `InvalidOperationException`. The load fails outright. A language server cannot fail, and half a
@@ -71,6 +76,9 @@ export interface MemberOrigin {
     readonly hop: number;
     /** True for anything found past hop 0. */
     readonly inherited: boolean;
+    /** True when a mod's manifest merged this declaration in rather than the file writing it. Such a
+     *  declaration sits at hop 0 while living in another file, so `inherited` cannot stand for it. */
+    readonly injected?: boolean;
 }
 
 /** One member of the flattened container. */
@@ -366,20 +374,45 @@ const localMembersOf = (container: FlattenableContainer, hop: number): MutableMe
             shadows: [],
         });
     }
-    // A member a mod's nested `Overrides` action merges into this node is one the game reads here,
-    // even though this file never wrote it. `stepIntoNode` already resolves those by name. Without
-    // them the enumeration would answer a member set the game does not have.
-    const written = new Set(members.map((member) => member.name.toLowerCase()));
+    // A member a mod's manifest merges into this node is one the game reads here, even though this
+    // file never wrote it. What it does to a name the file does write is the verb's own rule.
+    // `ModOverridesAction` and `ModReplaceAction` swap the target's child in place, keeping its
+    // position, so the injected declaration wins and the written one is what it hides.
+    // `ModAddAction` inserts beside it instead, and `OTGroupNode.Insert` throws on a name the group
+    // already holds, so a colliding `Add` stops the game loading rather than naming a winner. The
+    // written declaration stands there, since inventing one the game never reaches would be worse
+    // than saying what the file says. `ModRemoveAction` deletes the child outright, and what the
+    // game reads under that name afterwards is whatever a base supplies, which is what dropping it
+    // from this level leaves standing.
+    const current = new Map<string, MutableMemberEntry>();
+    const order: string[] = [];
+    for (const member of members) {
+        const key = member.name.toLowerCase();
+        if (!current.has(key)) order.push(key);
+        current.set(key, member);
+    }
     for (const injected of injectedMembersOf(container)) {
-        if (written.has(injected.name.toLowerCase())) continue;
-        members.push({
+        const key = injected.name.toLowerCase();
+        const held = current.get(key);
+        if (injected.precedence === 'removes') {
+            current.delete(key);
+            continue;
+        }
+        // A `Replace` names a member rather than merging one in, so where nothing holds the name
+        // there is nothing here for it to rewrite.
+        if (injected.precedence === 'rewrites' && !held) continue;
+        // An `Add` beside a name this level already holds is what the game refuses to load, so it
+        // names no winner and the written declaration stands.
+        if (injected.precedence === 'adds' && held) continue;
+        if (!held) order.push(key);
+        current.set(key, {
             name: injected.name,
             value: memberValueOf(injected.value),
-            origin: originOf(injected.value, hop),
-            shadows: [],
+            origin: { ...originOf(injected.value, hop), injected: true },
+            shadows: held ? [held.origin] : [],
         });
     }
-    return members;
+    return order.map((key) => current.get(key)).filter((member): member is MutableMemberEntry => member !== undefined);
 };
 
 /**

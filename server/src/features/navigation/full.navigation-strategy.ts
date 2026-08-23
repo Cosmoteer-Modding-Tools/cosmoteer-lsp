@@ -235,10 +235,16 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         }
         const resolve = (): Promise<AbstractNode | null | FileWithPath> => {
             if (path.startsWith('&<') || path.startsWith('<')) {
-                return this.navigateRules(path.substring(path.startsWith('&') ? 2 : 1), currentLocation, cancellationToken);
+                return this.navigateRules(
+                    path.substring(path.startsWith('&') ? 2 : 1),
+                    currentLocation,
+                    cancellationToken,
+                    visited,
+                    inheritanceVisited
+                );
             }
             if (path.startsWith('&/') || path.startsWith('/')) {
-                return this.navigateSuperPath(path, cancellationToken);
+                return this.navigateSuperPath(path, cancellationToken, visited, inheritanceVisited);
             }
             if (path.startsWith('&') && startNode.parent) {
                 const scope = relativeReferenceScope(path, startNode);
@@ -393,7 +399,13 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         return node ?? null;
     };;
 
-    navigateRules = async (path: string, currentLocation: string, cancellationToken: CancellationToken) => {
+    navigateRules = async (
+        path: string,
+        currentLocation: string,
+        cancellationToken: CancellationToken,
+        visited: Set<AbstractNode> = new Set(),
+        inheritanceVisited: Set<AbstractNode> = new Set()
+    ) => {
         // ObjectText `<...>` file paths may use a backslash separator (`<hit_effects\foo.rules>`):
         // `\` is not in `Path.GetInvalidPathChars()`, so the game's PATH_RE accepts it and resolves
         // it on Windows via the .NET path APIs (which treat `\` and `/` interchangeably). Normalize
@@ -417,7 +429,9 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
                     pathes.slice(lastWorkspacePathIndex + 1).join('/'),
                     document,
                     document.uri,
-                    cancellationToken
+                    cancellationToken,
+                    visited,
+                    inheritanceVisited
                 ).catch(() => null);
             }
             return file;
@@ -427,14 +441,18 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
                     pathes.slice(2),
                     CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath,
                     lastWorkspacePathIndex - 2,
-                    cancellationToken
+                    cancellationToken,
+                    visited,
+                    inheritanceVisited
                 );
             }
             return await this.navigateRulesByCurrentLocation(
                 pathes,
                 currentLocation,
                 lastWorkspacePathIndex,
-                cancellationToken
+                cancellationToken,
+                visited,
+                inheritanceVisited
             );
         }
     };
@@ -443,7 +461,9 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         pathes: string[],
         currentLocation: string,
         lastWorkspacePathIndex: number,
-        cancellationToken: CancellationToken
+        cancellationToken: CancellationToken,
+        visited: Set<AbstractNode> = new Set(),
+        inheritanceVisited: Set<AbstractNode> = new Set()
     ) => {
         try {
             const cleanedPath = filePathToDirectoryPath(currentLocation);
@@ -465,7 +485,9 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
                                     pathes.slice(lastWorkspacePathIndex + 1).join('/'),
                                     parsed,
                                     dirent.parentPath,
-                                    cancellationToken
+                                    cancellationToken,
+                                    visited,
+                                    inheritanceVisited
                                 ).catch(() => null);
                             }
                             return parsed;
@@ -499,14 +521,21 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         return file;
     };
 
-    navigateSuperPath = async (path: string, cancellationToken: CancellationToken) => {
+    navigateSuperPath = async (
+        path: string,
+        cancellationToken: CancellationToken,
+        visited: Set<AbstractNode> = new Set(),
+        inheritanceVisited: Set<AbstractNode> = new Set()
+    ) => {
         const comsoteerRules = await CosmoteerWorkspaceService.instance.getCosmoteerRules();
         if (!comsoteerRules || !comsoteerRules.content.parsedDocument) return null;
         return await this.navigate(
             path.substring(path.at(0) === '&' ? 2 : 1),
             comsoteerRules.content.parsedDocument,
             comsoteerRules.path,
-            cancellationToken
+            cancellationToken,
+            visited,
+            inheritanceVisited
         ).catch(() => null);
     };
 }

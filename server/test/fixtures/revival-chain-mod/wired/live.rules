@@ -1,0 +1,6 @@
+Live
+{
+	Value = 1
+	// The line that disabled a whole chain, the shape this report exists to point at.
+	//Head = &<../dead/head.rules>/Head
+}

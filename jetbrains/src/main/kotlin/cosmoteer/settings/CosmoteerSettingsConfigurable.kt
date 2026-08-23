@@ -181,6 +181,15 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                     )
             }
             row {
+                checkBox("Check particle data channels")
+                    .bindSelected(state::validateUnusedParticleChannels)
+                    .comment(
+                        "Reports a particle channel a file computes that nothing in the effect " +
+                        "reads, which is what a channel name misspelled on one side leaves " +
+                        "behind. The shared body an emitter pulls in is folded in first."
+                    )
+            }
+            row {
                 checkBox("Check damage level sprite geometry")
                     .bindSelected(state::validateSpriteGeometry)
                     .comment(
@@ -218,6 +227,14 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                     .comment("A reference to a group with a BaseValue member renders '/BaseValue = 160d' inline.")
             }
             row {
+                checkBox("Show what a reference points at when it is not a number")
+                    .bindSelected(state::inlayShowTargetValue)
+                    .comment(
+                        "A reference to a list renders '= [0, 1, 2, 1]' inline, and one naming a whole " +
+                        "file renders that file's name."
+                    )
+            }
+            row {
                 checkBox("Show what a computed value's references stood for")
                     .bindSelected(state::hoverShowSubstitutions)
                     .comment(
@@ -231,6 +248,15 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                     .comment(
                         "A hover over a modifiable value lists each modifier, what drives it, the clamp " +
                         "it puts on the result, and which part supplies the buff."
+                    )
+            }
+            row {
+                checkBox("Show which inherited value a declaration replaces")
+                    .bindSelected(state::hoverShowProvenance)
+                    .comment(
+                        "A hover over a member of a group that inherits names the declaration of the " +
+                        "chain it replaces, and a hover over a group's name says how many of its fields " +
+                        "its bases supply."
                     )
             }
             row {

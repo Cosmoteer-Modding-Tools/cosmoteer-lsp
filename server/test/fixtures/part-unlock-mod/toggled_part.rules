@@ -1,0 +1,7 @@
+// A part a tech names only through a toggle choice's `PartID`, which the game unlocks the same way
+// it unlocks a part written in `PartsUnlocked`.
+Part
+{
+	ID = test.toggled
+	Size = [1, 1]
+}

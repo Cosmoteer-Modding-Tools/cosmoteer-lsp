@@ -48,7 +48,10 @@ import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
 import { declaringFieldOf, isSameOrSubclass } from '../navigation/schema-id-reference.navigation';
 import { FileReferenceAnchor, fileReferenceName, fileReferenceSites } from '../navigation/schema-id-symbol';
 import { documentsMentioning, uriToFsPath } from '../navigation/workspace-files';
-import { PART_RULES_CLASS } from './part-fields';
+// The table lives in part-fields.ts so the mod overview's part-unlock section can read it without
+// pulling this report into the cache-id closure. Re-exported, since callers already import it here.
+import { MODE_PART_FIELDS, PART_RULES_CLASS } from './part-fields';
+export { MODE_PART_FIELDS };
 
 /** The verdict of one checklist row: wired, not wired, or not judgeable from what is indexed. */
 export type WiringMark = 'ok' | 'missing' | 'unknown';
@@ -103,48 +106,6 @@ const DEFAULT_PART_FIELD = 'defaultpartid';
 
 /** How far up the parent chain the enclosing tech group is looked for. */
 const MAX_ENCLOSING_DEPTH = 8;
-
-/** Whether a schema value type reaches a reference to a part, through list/map/tuple nesting. */
-const reachesPartReference = (valueType: ValueType | undefined): boolean => {
-    if (!valueType) return false;
-    switch (valueType.kind) {
-        case 'reference':
-            return isSameOrSubclass(valueType.target, PART_RULES_CLASS);
-        case 'list':
-        case 'range':
-        case 'interpolated':
-            return reachesPartReference(valueType.element);
-        case 'map':
-            return reachesPartReference(valueType.key) || reachesPartReference(valueType.value);
-        case 'tuple':
-            return valueType.elements.some(reachesPartReference);
-        default:
-            return false;
-    }
-};
-
-/**
- * Every field of a `Cosmoteer.Modes.*` class whose value names a part, keyed by the lower-cased
- * field name and mapping to the classes that declare it. Derived from the schema at module load,
- * so a game update that adds a mode surface is picked up by regenerating the schema rather than by
- * editing this file. Today it holds exactly five declarations under three names: `PartsUnlocked`
- * (career techs and build-battle techs), `PartID` (both `ToggleChoice` shapes) and `PartsWhitelist`
- * (the build-battle mode). The key is the field name rather than the class because a tech element's
- * owner class only resolves once the alias chain that roots `techs.rules` has run, and the row must
- * degrade to a looser match instead of to nothing.
- */
-export const MODE_PART_FIELDS: ReadonlyMap<string, readonly string[]> = (() => {
-    const byName = new Map<string, string[]>();
-    for (const [fullName, type] of Object.entries(schema.types)) {
-        if (!fullName.startsWith('Cosmoteer.Modes.')) continue;
-        for (const field of type.fields ?? []) {
-            if (!reachesPartReference(field.valueType)) continue;
-            const key = field.name.toLowerCase();
-            (byName.get(key) ?? byName.set(key, []).get(key)!).push(fullName);
-        }
-    }
-    return byName;
-})();
 
 /** The field names worth collecting a naming site for: the mode surface plus the ship default. */
 const WIRING_FIELD_NAMES: ReadonlySet<string> = new Set([...MODE_PART_FIELDS.keys(), DEFAULT_PART_FIELD]);
