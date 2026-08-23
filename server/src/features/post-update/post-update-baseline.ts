@@ -31,7 +31,7 @@ import { gameAssemblyPathFor, readGameVersionInfo } from './game-version';
  */
 
 /** Bump when the persisted shape changes, which discards every stored baseline. */
-export const BASELINE_FORMAT_VERSION = 1;
+const BASELINE_FORMAT_VERSION = 1;
 
 /**
  * How many grouped findings one generation stores. A large mod produces a few thousand groups, so
@@ -119,7 +119,7 @@ interface BaselineFile {
 type SerializedSnapshot = Omit<PostUpdateSnapshot, 'findings'> & { findings: StoredFinding[] };
 
 /** What {@link savePostUpdateBaseline} did, which the server log states so the store is not silent. */
-export type BaselineSaveOutcome = 'created' | 'updated' | 'rolledOver' | 'skipped';
+type BaselineSaveOutcome = 'created' | 'updated' | 'rolledOver' | 'skipped';
 
 /**
  * The store's file for one game install and one set of workspace folders.
@@ -149,7 +149,7 @@ const folderKeyOf = (folderPaths: readonly string[]): string =>
         .slice(0, 16);
 
 /** What a snapshot is built from: one scan's per-file results and the state it ran under. */
-export interface SnapshotInput {
+interface SnapshotInput {
     readonly gameVersion: string;
     readonly settingsKey: string;
     readonly environment: EnvironmentFingerprint;
@@ -168,9 +168,11 @@ export interface SnapshotInput {
 export const buildSnapshot = (input: SnapshotInput): PostUpdateSnapshot => {
     const groups = new Map<string, { path: string; ruleId: string; severity: LintSeverity; lines: number[]; message: string }>();
     const cappedFiles: string[] = [];
+    const stamps: StoredStamp[] = [];
     let findingCount = 0;
-    for (const [path, , , diagnostics] of input.entries) {
+    for (const [path, size, mtimeMs, diagnostics] of input.entries) {
         const relative = workspaceRelativePath(path, input.folderPaths);
+        stamps.push([relative, size, Math.round(mtimeMs)]);
         if (input.maxProblems > 0 && diagnostics.length >= input.maxProblems) cappedFiles.push(relative);
         for (const diagnostic of diagnostics) {
             findingCount++;
@@ -192,11 +194,6 @@ export const buildSnapshot = (input: SnapshotInput): PostUpdateSnapshot => {
             (a, b) =>
                 compareText(a.path, b.path) || compareText(a.ruleId, b.ruleId) || compareText(a.severity, b.severity)
         );
-    const stamps: StoredStamp[] = input.entries.map(([path, size, mtimeMs]) => [
-        workspaceRelativePath(path, input.folderPaths),
-        size,
-        Math.round(mtimeMs),
-    ]);
     return {
         gameVersion: input.gameVersion,
         savedAt: Date.now(),
@@ -303,7 +300,7 @@ export const savePostUpdateBaseline = async (
 };
 
 /** What one finished scan hands the store, which is what the scan already has in hand. */
-export interface ScanRecording {
+interface ScanRecording {
     /** The game `Data` root the scan resolved against. */
     readonly dataRoot: string;
     /** The workspace folders the scan covered. */

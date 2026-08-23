@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
 import {
     AbstractNode,
@@ -117,6 +118,16 @@ export type ValidationError = {
     /** Optional payload attached to the emitted LSP Diagnostic (e.g. a quick-fix), see server.ts. */
     data?: ValidationErrorData;
 };
+
+/**
+ * The did-you-mean quick fix a finding carries when a close match was found, meant to be spread into
+ * the error so a finding without a match carries no data at all.
+ *
+ * @param suggestion The closest name the check found, or nothing when it found none.
+ * @returns The `data` payload holding the quick fix, or an empty object when there is no suggestion.
+ */
+export const didYouMeanFix = (suggestion: string | null | undefined): Pick<ValidationError, 'data'> =>
+    suggestion ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } } : {};
 
 /** Extra data round-tripped on a Diagnostic so a code action can act on it without re-analyzing. */
 export type ValidationErrorData = {

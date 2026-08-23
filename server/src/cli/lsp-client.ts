@@ -7,7 +7,7 @@ import type { WireDiagnostic } from './findings';
 // editor two answers to the same question, which is exactly the failure this tool exists to catch.
 
 /** The title the server's whole-workspace pass reports progress under. */
-export const SCAN_PROGRESS_TITLE = 'Validating workspace';
+const SCAN_PROGRESS_TITLE = 'Validating workspace';
 
 /** A workspace folder as the protocol names it. */
 export interface WorkspaceFolder {
@@ -16,7 +16,7 @@ export interface WorkspaceFolder {
 }
 
 /** Everything the session needs to stand a server up and answer its questions. */
-export interface SessionOptions {
+interface SessionOptions {
     /** Path of the built server bundle to run. */
     serverPath: string;
     /** The folders to validate. */
@@ -41,7 +41,7 @@ interface WireMessage {
 }
 
 /** The reply to a request: either a result or the error the server answered with. */
-export interface RequestReply {
+interface RequestReply {
     result?: unknown;
     error?: { code: number; message: string };
 }

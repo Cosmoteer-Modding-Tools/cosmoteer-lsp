@@ -38,7 +38,7 @@ export interface GameLogFinding {
 }
 
 /** What one log says: which mods ran, which game version, and what failed. */
-export interface GameLogReport {
+interface GameLogReport {
     readonly path: string;
     readonly gameVersion?: string;
     /** The ids of the mods the run had enabled. A mod that failed to load is missing from this. */

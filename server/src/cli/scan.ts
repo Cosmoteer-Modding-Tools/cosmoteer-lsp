@@ -19,7 +19,7 @@ const SETTLE_MS = 2000;
 const POLL_MS = 50;
 
 /** What a finished scan produced, or why it did not finish. */
-export type ScanOutcome =
+type ScanOutcome =
     | {
           kind: 'complete';
           findings: LintFinding[];
@@ -33,7 +33,7 @@ export type ScanOutcome =
     | { kind: 'failed'; reason: string; detail: string };
 
 /** What the scan needs beyond the command line: where the game is, and where the server bundle is. */
-export interface ScanRequest {
+interface ScanRequest {
     options: LintOptions;
     /** The game `Data` root to configure, empty when the run has none. */
     gamePath: string;
@@ -62,7 +62,7 @@ export const defaultServerPath = (): string => join(__dirname, '..', 'server.mjs
  * @param request what the run was asked to do.
  * @returns the settings object to send.
  */
-export const scanSettings = (request: ScanRequest): unknown => ({
+const scanSettings = (request: ScanRequest): unknown => ({
     maxNumberOfProblems: request.options.maxProblems,
     cosmoteerPath: request.gamePath,
     diagnostics: {
@@ -89,7 +89,7 @@ export const scanSettings = (request: ScanRequest): unknown => ({
  * @param scratchDirectory the private directory, when the run asked for one.
  * @returns the environment to spawn with.
  */
-export const scanEnvironment = (scratchDirectory: string | undefined): NodeJS.ProcessEnv => {
+const scanEnvironment = (scratchDirectory: string | undefined): NodeJS.ProcessEnv => {
     const environment: NodeJS.ProcessEnv = { ...process.env };
     delete environment.EXTENSION_BUNDLE_PATH;
     if (!scratchDirectory) return environment;

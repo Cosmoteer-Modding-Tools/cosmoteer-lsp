@@ -10,6 +10,7 @@ import {
 } from '../../../core/ast/ast';
 import { basenameOf } from '../../../document/document-kind';
 import { findNodeAtPosition } from '../../../utils/ast.utils';
+import { code, linkDestination, plainPathOf } from '../../report/markdown-link';
 import { findReferenceTargetAtPosition } from '../reference-index';
 import {
     AvailableAt,
@@ -36,28 +37,16 @@ import {
 /** How many characters of a written value a line shows before it is cut. */
 const VALUE_WIDTH = 60;
 
-/** Markdown-safe inline code. */
-const code = (text: string): string => '`' + text.replace(/`/g, "'") + '`';
-
 /**
  * A markdown link to a place, labeled `file.rules:line`. Uses the `vscode://file/…` deep link with a
- * `:line` suffix, since markdown-it rejects the `file:` scheme outright. This is the effective-group
- * report's own encoding, kept identical so the two reports link the same way.
+ * `:line` suffix, since markdown-it rejects the `file:` scheme outright. The encoding is the shared
+ * one, so this report and the effective-group report link the same way.
  *
  * @param place the place to link to.
  * @returns the markdown link.
  */
 const placeLink = (place: TracePlace): string => {
-    // A parsed cross-file document carries a plain OS path while the open document carries a real
-    // uri, so both shapes reach here and only the second arrives encoded.
-    const path = place.uri.startsWith('file://')
-        ? decodeURIComponent(place.uri.slice('file://'.length)).replace(/^\/(?=[A-Za-z]:)/, '')
-        : place.uri;
-    const encoded = path
-        .replace(/\\/g, '/')
-        .split('/')
-        .map((segment: string) => encodeURIComponent(segment).replace(/\(/g, '%28').replace(/\)/g, '%29'))
-        .join('/');
+    const encoded = linkDestination(plainPathOf(place.uri));
     if (place.line === undefined) return `[${basenameOf(place.uri)}](vscode://file/${encoded})`;
     const line = place.line + 1;
     return `[${basenameOf(place.uri)}:${line}](vscode://file/${encoded}:${line})`;

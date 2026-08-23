@@ -11,6 +11,7 @@ import { LocalizationText } from '../../completion/localization-key.index';
 import { filePathToUri } from '../../navigation/navigation-strategy';
 import { normalizeUri } from '../../navigation/reference-location';
 import { uriToFsPath } from '../../navigation/workspace-files';
+import { openBuffers } from '../command-host';
 import { modRootsUnder } from '../register-part/ship-registry';
 import { editableModRootOf } from '../shared-base/shared-base.analysis-entry';
 import { buildClonePlan, ClonePlan, CloneFailure, idLeafOf } from './clone-plan';
@@ -71,7 +72,7 @@ export interface CloneScanResult {
 }
 
 /** One file the clone writes, with the text it would hold. */
-export interface ClonePreviewFile {
+interface ClonePreviewFile {
     fsPath: string;
     /** The file's contents afterwards, for a side-by-side view against what is on disk. */
     after: string;
@@ -130,7 +131,7 @@ export interface CloneApplyResult {
     detail?: string[];
 }
 
-export type CloneDeclarationSummary = CloneScanResult | ClonePreviewResult | CloneApplyResult;
+type CloneDeclarationSummary = CloneScanResult | ClonePreviewResult | CloneApplyResult;
 
 /** The server-side facilities the command needs, injected so the module stays testable. */
 export interface CloneHost {
@@ -161,13 +162,6 @@ const MAX_PREVIEW_FILES = 40;
 
 /** The author prefix the game's own files tell mod authors never to use for their own content. */
 const RESERVED_AUTHOR = 'cosmoteer';
-
-/** The open buffers keyed by normalized uri, so a file open in the editor is read and edited live. */
-const openBuffers = (host: CloneHost): Map<string, TextDocument> => {
-    const map = new Map<string, TextDocument>();
-    for (const document of host.openDocuments()) map.set(normalizeUri(document.uri), document);
-    return map;
-};
 
 /** The unsaved text of an open file, or undefined when the editor does not hold it. */
 const openTextOf = (open: ReadonlyMap<string, TextDocument>) => (fsPath: string): string | undefined =>
@@ -341,7 +335,7 @@ const stringsFileAfter = (fsPath: string, text: string, edits: readonly TextEdit
  * @param folders the workspace folders, which the file names are shown relative to.
  * @returns the preview.
  */
-export const previewClone = (plan: ClonePlan, folders: string[]): ClonePreviewResult => {
+const previewClone = (plan: ClonePlan, folders: string[]): ClonePreviewResult => {
     const sections: string[] = [];
     const changed: ClonePreviewFile[] = [];
     const writes: string[] = [];
@@ -398,7 +392,7 @@ export const previewClone = (plan: ClonePlan, folders: string[]): ClonePreviewRe
  * @param host the server facilities.
  * @returns what was done, or the reason nothing was.
  */
-export const applyClone = async (plan: ClonePlan, host: CloneHost): Promise<CloneApplyResult> => {
+const applyClone = async (plan: ClonePlan, host: CloneHost): Promise<CloneApplyResult> => {
     const open = openBuffers(host);
     const createdPaths: string[] = [];
     const changes: Record<string, TextEdit[]> = {};

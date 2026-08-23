@@ -21,7 +21,7 @@ export type NodePathRefusal =
     | 'detached';
 
 /** The member path of a node, or the reason it has none. */
-export interface NodePathResult {
+interface NodePathResult {
     /** The member names from the file root down to the node, outermost first. */
     segments?: string[];
     /** Set when no path can be emitted, and then `segments` is absent. */

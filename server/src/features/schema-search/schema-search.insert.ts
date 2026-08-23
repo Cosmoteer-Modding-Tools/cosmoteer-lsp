@@ -31,7 +31,7 @@ export interface InsertSchemaFieldArgs {
 }
 
 /** Why an insert did nothing, in a word the client turns into a sentence. */
-export type InsertSchemaFieldFailure = 'stale' | 'notAField' | 'noContext' | 'classMismatch' | 'noAnchor' | 'editRejected';
+type InsertSchemaFieldFailure = 'stale' | 'notAField' | 'noContext' | 'classMismatch' | 'noAnchor' | 'editRejected';
 
 /** What the command answers with. */
 export interface InsertSchemaFieldResult {

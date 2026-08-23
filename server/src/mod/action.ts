@@ -52,7 +52,7 @@ export type SourceShape = 'list' | 'group' | 'composite';
 export type TargetShape = 'list' | 'container' | 'group';
 
 /** Per-verb field schema, the single source of truth for parsing, validation and completion. */
-export interface VerbSchema {
+interface VerbSchema {
     targets: string[];
     sources: string[];
     flags: ActionFlag[];
@@ -140,9 +140,6 @@ const targetFieldKeys = new Set([...TARGET_FIELDS].map((name) => name.toLowerCas
 
 /** Whether a written field name is a target field, ignoring case like the game's node lookup. */
 export const isTargetField = (name: string): boolean => targetFieldKeys.has(name.toLowerCase());
-
-/** Every field name that supplies source data (a reference or inline group/list). */
-export const SOURCE_FIELDS = new Set<string>(Object.values(VERB_SCHEMA).flatMap((s) => s.sources));
 
 /** Every boolean flag field name across all verbs. */
 export const FLAG_FIELDS = new Set<string>(Object.values(VERB_SCHEMA).flatMap((s) => s.flags));

@@ -31,7 +31,7 @@ export interface LocalizationEntry {
 }
 
 /** A template, emitted for one name. */
-export interface EmittedTemplate {
+interface EmittedTemplate {
     /** The whole file, newline terminated. */
     readonly text: string;
     /** The localization keys the file names, in the order they appear. */

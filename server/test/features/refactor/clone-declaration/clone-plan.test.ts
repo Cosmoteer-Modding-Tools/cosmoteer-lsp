@@ -29,6 +29,9 @@ const ESCAPE = `${DATA}/ships/terran/escape/escape.rules`;
 const LORE = `${DATA}/codex/lore/lore_cabal.rules`;
 const MOD_FACTIONS = `${MOD}/factions/factions_mod.rules`;
 const MINE = `${MOD}/parts/mine/mine.rules`;
+const EMITTER = `${DATA}/ships/terran/txtfragment/emitter.rules`;
+const PROBE = `${DATA}/ships/terran/txtnotes/probe.rules`;
+const BEACON = `${DATA}/ships/terran/txtstale/beacon.rules`;
 
 const read = (path: string): string => readFileSync(path, { encoding: 'utf-8' });
 
@@ -131,6 +134,25 @@ describe('cloning a part folder out of the game install', () => {
         expect(copy).toContain('EditorGroup = "WeaponsProjectile"');
         expect(copy).toContain('SelectionTypeID = "cannons"');
         expect(copy).toContain('TypeCategories = [weapon, uses_ammo]');
+    });
+
+    it('rebases the references of a txt rules fragment the folder carries', async () => {
+        const built = planOf(await plan(EMITTER, 'cosmoteer.emitter', 'me.big_emitter'));
+        const copy = copyOf(built, 'effect.txt');
+        expect(copy).toContain('&<./Data/ships/terran/base_part.rules>/Part/MaxHealth');
+        expect(copy).toContain('File = "./Data/ships/terran/shared/shared_icon.png"');
+    });
+
+    it('carries a txt whose path names nothing on disk byte for byte, rather than refusing the clone', async () => {
+        const built = planOf(await plan(BEACON, 'cosmoteer.beacon', 'me.big_beacon'));
+        expect(built.files.find((file) => file.destination.endsWith('changes.txt'))?.text).toBeUndefined();
+        expect(copyOf(built, 'big_beacon.rules')).toContain('ID = me.big_beacon');
+    });
+
+    it('carries prose the parser refuses byte for byte, so a note cannot block the clone', async () => {
+        const built = planOf(await plan(PROBE, 'cosmoteer.probe', 'me.big_probe'));
+        expect(built.unit).toBe('directory');
+        expect(built.files.find((file) => file.destination.endsWith('notes.txt'))?.text).toBeUndefined();
     });
 
     it('rewrites a reference whose casing differs from the declaration, the way the game reads it', async () => {

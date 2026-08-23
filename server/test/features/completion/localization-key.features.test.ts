@@ -221,4 +221,30 @@ describe('insert into all the mod’s language files', () => {
             expect(edits[0].newText).toContain('New = ""');
         }
     });
+
+    // `Cosmoteer.Localization.Strings` reaches a language file twice, and both paths spell the
+    // extension out: the language picker enumerates `*.rules` in each strings folder, and loading a
+    // language opens `<folder>/<id>.rules`. A `.txt` next to them is prose the game never reads, so
+    // the quick fix must not put a key the player will never see into it.
+    it('leaves a .txt in the strings folder alone, whatever it holds', async () => {
+        const language = `__Name = "Francais"\n__DebugOnly = false\nParts { Foo = "Foo" }\n`;
+        writeFileSync(join(root, 'strings', 'fr.txt'), language);
+        writeFileSync(join(root, 'strings', 'notes.txt'), `prose about the mod\n`);
+        const partUri = pathToFileURL(join(root, 'parts', 'p.rules')).href;
+        const edit = await buildInsertLocalizationKeyEdit(partUri, 'Parts/New', token);
+        const changed = Object.keys(edit!.changes!);
+        expect(changed).toHaveLength(2);
+        expect(changed.some((fileUri) => fileUri.toLowerCase().endsWith('.txt'))).toBe(false);
+    });
+
+    // Only the language picker reads `__Name`, so a mod file that adds strings to a language the
+    // base game already offers needs none. Gating the insert on the marker would skip those files.
+    it('writes into a language file that declares no __Name', async () => {
+        writeFileSync(join(root, 'strings', 'fr.rules'), `Parts { Foo = "Foo" }\n`);
+        const partUri = pathToFileURL(join(root, 'parts', 'p.rules')).href;
+        const edit = await buildInsertLocalizationKeyEdit(partUri, 'Parts/New', token);
+        const changed = Object.keys(edit!.changes!);
+        expect(changed).toHaveLength(3);
+        expect(changed.some((fileUri) => fileUri.toLowerCase().endsWith('fr.rules'))).toBe(true);
+    });
 });

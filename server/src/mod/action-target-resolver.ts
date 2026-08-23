@@ -40,7 +40,7 @@ export const normalizeTargetPath = (value: string): string => {
  * @param path the normalized target path.
  * @returns the two halves, or undefined when the path names no member.
  */
-export const splitTargetMember = (path: string): { container: string; member: string } | undefined => {
+const splitTargetMember = (path: string): { container: string; member: string } | undefined => {
     let depth = 0;
     let cut = -1;
     for (let index = 0; index < path.length; index++) {

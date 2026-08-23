@@ -4,7 +4,6 @@ import {
     AbstractNode,
     AbstractNodeDocument,
     GroupNode,
-    ListNode,
     isGroupNode,
     isListNode,
     isValueNode,
@@ -57,7 +56,7 @@ const PARTS_MEMBER = 'Parts';
 const ADDING_VERBS = new Set(['Add', 'AddMany', 'Replace', 'Override', 'Overrides']);
 
 /** One ship class and the layer ids a part drawn on it may name. */
-export interface ShipLayerScope {
+interface ShipLayerScope {
     /** The ship's identity, `fsPath|groupName` folded, as {@link shipEntryKey} builds it. */
     key: string;
     /** The ship group's name, for a message that can say which ship refused the layer. */

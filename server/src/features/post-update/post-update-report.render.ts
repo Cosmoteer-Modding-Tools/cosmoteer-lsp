@@ -2,6 +2,7 @@ import * as l10n from '@vscode/l10n';
 import { existsSync, realpathSync } from 'fs';
 import { join } from 'path';
 import { foldPathCase } from '../../workspace/fs-cache';
+import { code, linkDestination } from '../report/markdown-link';
 import { GameVersionInfo } from './game-version';
 import { PostUpdateSnapshot } from './post-update-baseline';
 import {
@@ -28,7 +29,7 @@ import {
 const MAX_ROWS = 100;
 
 /** Everything the renderer needs, gathered by the report builder. */
-export interface PostUpdateRenderInput {
+interface PostUpdateRenderInput {
     readonly request: PostUpdateReportRequest;
     readonly info: GameVersionInfo;
     readonly summary: PostUpdateSummary;
@@ -477,9 +478,6 @@ const lineLinks = (folderPaths: readonly string[], relativePath: string, lines: 
     return shown.join('<br>');
 };
 
-/** Markdown-safe inline code. */
-const code = (text: string): string => '`' + String(text).replace(/`/g, "'") + '`';
-
 /**
  * One table cell of free text, kept on its own line and short enough to read.
  *
@@ -529,8 +527,7 @@ const displayPath = (absolute: string | undefined, relativePath: string): string
  * A markdown link to a file and line, labeled with the path as the report stores it.
  *
  * The destination is a `vscode://file/…` deep link with a `:line` suffix rather than a `file:` uri,
- * which the markdown preview rejects outright. Parentheses are percent-encoded on top of the
- * per-segment encoding, since an unencoded `)` in a file name would close the link early.
+ * which the markdown preview rejects outright.
  *
  * @param folderPaths the open workspace folders, to turn the stored relative path back into a file.
  * @param relativePath the file as the recording stores it.
@@ -541,12 +538,7 @@ const fileLink = (folderPaths: readonly string[], relativePath: string, line: nu
     const absolute = absolutePathOf(folderPaths, relativePath);
     const label = displayPath(absolute, relativePath);
     if (!absolute) return code(label);
-    const encoded = absolute
-        .replace(/\\/g, '/')
-        .split('/')
-        .map((segment) => encodeURIComponent(segment).replace(/\(/g, '%28').replace(/\)/g, '%29'))
-        .join('/');
-    return `[${label}:${line}](vscode://file/${encoded}:${line})`;
+    return `[${label}:${line}](vscode://file/${linkDestination(absolute)}:${line})`;
 };
 
 /**

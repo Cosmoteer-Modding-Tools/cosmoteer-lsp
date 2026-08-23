@@ -21,7 +21,7 @@ import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.s
  */
 
 /** The id and version pair the game keys a loaded mod by, both as written. */
-export interface ModKey {
+interface ModKey {
     /** The manifest `ID`, in the `author.mod` form the loader requires. */
     readonly id: string;
     /** The manifest `Version`, empty when none is written, the way `ModData` stores it. */

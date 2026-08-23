@@ -23,7 +23,7 @@ const pascalCase = (raw: string): string =>
         .join('');
 
 /** One localization key the source writes, and the field writing it. */
-export interface CloneKeyField {
+interface CloneKeyField {
     /** The field's name as the file spells it. */
     readonly field: string;
     /** The key path the source points at. */

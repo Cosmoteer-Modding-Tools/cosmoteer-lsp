@@ -1,4 +1,5 @@
-import { EventEmitter, TextDocumentContentProvider, Uri, ViewColumn, commands, l10n, languages, window, workspace } from 'vscode';
+import { Uri, ViewColumn, commands, l10n, languages, window, workspace } from 'vscode';
+import { VirtualContentProvider } from '../virtual-content-provider';
 
 /** The virtual-document scheme the rewritten file contents are served under. */
 export const DIFF_PREVIEW_SCHEME = 'cosmoteer-diff-preview';
@@ -16,22 +17,9 @@ export interface DiffPreviewFile {
  * them side by side against what is on disk without anything being written first. Shared by the
  * shared-base extraction and the migration dry run, which both answer with rewritten file contents.
  */
-export class DiffPreviewProvider implements TextDocumentContentProvider {
-    private readonly contentByUri = new Map<string, string>();
-    private readonly changeEmitter = new EventEmitter<Uri>();
-    public readonly onDidChange = this.changeEmitter.event;
-
-    /** Stores (or refreshes) the content behind a preview uri and notifies an already-open tab. */
-    public set(uri: Uri, content: string): void {
-        this.contentByUri.set(uri.toString(), content);
-        this.changeEmitter.fire(uri);
-    }
-
-    public provideTextDocumentContent(uri: Uri): string {
-        return (
-            this.contentByUri.get(uri.toString()) ??
-            l10n.t('This preview is no longer available. Run the command again.')
-        );
+export class DiffPreviewProvider extends VirtualContentProvider {
+    public constructor() {
+        super(() => l10n.t('This preview is no longer available. Run the command again.'));
     }
 }
 

@@ -8,16 +8,14 @@ import { computeSignatureHelp } from '../../features/signature/signature-help.se
 import { formatRulesDocument } from '../../features/formatting/rules-formatter';
 import { formatShaderDocument } from '../../features/formatting/shader-formatter';
 import { minimalReplacementEdits } from '../../features/formatting/formatting.service';
-import { collectIncludeText } from '../../features/shader/shader-index';
 import { shaderDocumentHover } from '../../features/shader/shader-document-features';
 import { shaderSignatureHelp } from '../../features/shader/shader-signature';
 import { isShaderDocument } from '../../document/document-kind';
-import { uriToFsPath } from '../../features/navigation/workspace-files';
 import { globalSettings } from '../../settings';
-import { CancellationError } from '../../utils/cancellation';
+import { traceFailure } from '../../utils/cancellation';
 import { connection, documents } from '../context';
 import { inlayHintCache, semanticTokensCache } from '../document-caches';
-import { ensureParserResult, openBufferReadOverride } from '../open-documents';
+import { ensureParserResult, shaderIncludeTextFor } from '../open-documents';
 import { searchFolderUris } from '../workspace-folders';
 
 /** The whole-document range, so one inlay computation covers every later scroll request. */
@@ -144,12 +142,7 @@ export function register(): void {
             const document = documents.get(params.textDocument.uri);
             if (!document) return null;
             const text = document.getText();
-            const includeText = await collectIncludeText(
-                text,
-                uriToFsPath(params.textDocument.uri),
-                undefined,
-                openBufferReadOverride()
-            ).catch(() => '');
+            const includeText = await shaderIncludeTextFor(text, params.textDocument.uri);
             return shaderDocumentHover(text, document.offsetAt(params.position), includeText);
         }
         const parserResult = ensureParserResult(params.textDocument.uri);
@@ -162,7 +155,7 @@ export function register(): void {
                 await searchFolderUris()
             );
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -239,7 +232,7 @@ export function register(): void {
             });
         } catch (e) {
             if (inlayHintCache.get(uri)?.version === documents.get(uri)?.version) inlayHintCache.delete(uri);
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -295,12 +288,7 @@ export function register(): void {
             // `.shader` files: signature help for the HLSL intrinsic or file/include function the cursor is in.
             if (isShaderDocument(params.textDocument.uri)) {
                 const text = document.getText();
-                const includeText = await collectIncludeText(
-                    text,
-                    uriToFsPath(params.textDocument.uri),
-                    undefined,
-                    openBufferReadOverride()
-                ).catch(() => '');
+                const includeText = await shaderIncludeTextFor(text, params.textDocument.uri);
                 return shaderSignatureHelp(text, document.offsetAt(params.position), includeText);
             }
             return computeSignatureHelp(document.getText(), document.offsetAt(params.position));

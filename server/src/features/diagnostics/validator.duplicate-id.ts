@@ -5,11 +5,11 @@ import {
     AbstractNode,
     AbstractNodeDocument,
     isAssignmentNode,
-    isDocumentNode,
     isGroupNode,
     isListNode,
     isValueNode,
 } from '../../core/ast/ast';
+import { childNodesOf } from '../../utils/ast.utils';
 import { isModRules } from '../../document/document-kind';
 import { aliasRootIndex } from '../../document/schema/alias-root';
 import { MARKER_CLASSES } from '../../document/schema/category-usage';
@@ -25,7 +25,7 @@ import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 
 /** One id a file declares for a game collection, with the member the registration wires in. */
-export interface ModIdDeclaration {
+interface ModIdDeclaration {
     readonly cls: string;
     readonly id: string;
     /** The node to underline, always inside the document being validated. */
@@ -99,12 +99,7 @@ function* listDeclarationsIn(node: AbstractNode): Generator<ModIdDeclaration> {
             }
         }
     }
-    const children: AbstractNode[] =
-        isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-            ? node.elements
-            : isAssignmentNode(node)
-              ? (node.right ? [node.right] : [])
-              : [];
+    const children = childNodesOf(node);
     for (const child of children) yield* listDeclarationsIn(child);
 }
 

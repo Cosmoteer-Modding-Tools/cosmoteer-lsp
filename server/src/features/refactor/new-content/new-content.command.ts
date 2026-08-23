@@ -1,18 +1,19 @@
 import { existsSync, statSync } from 'fs';
 import { mkdir, readFile, writeFile } from 'fs/promises';
-import { dirname, resolve } from 'path';
+import { dirname } from 'path';
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AbstractNodeDocument } from '../../../core/ast/ast';
 import { identityOfMod, ModIdentity } from '../../../mod/mod-dependencies';
 import { findModRoot } from '../../../mod/mod-root';
 import { parseText } from '../../../utils/ast.utils';
-import { CosmoteerWorkspaceData, FileWithPath } from '../../../workspace/cosmoteer-workspace.service';
-import { foldPathCase } from '../../../workspace/fs-cache';
+import { isUnder } from '../../../utils/relative-path';
+import { CosmoteerWorkspaceData } from '../../../workspace/cosmoteer-workspace.service';
 import { insertEditForFile, modStringsFiles } from '../../diagnostics/localization-key-insert';
 import { filePathToUri } from '../../navigation/navigation-strategy';
 import { normalizeUri } from '../../navigation/reference-location';
 import { uriToFsPath } from '../../navigation/workspace-files';
+import { documentFor, lineEndingOf, openBuffers } from '../command-host';
 import { relativeRulesReference } from '../shared-base/base-file.emitter';
 import { dirOf, readRulesFile } from '../shared-base/base-index';
 import { editableModRootOf } from '../shared-base/shared-base.analysis-entry';
@@ -108,9 +109,6 @@ interface Target {
     id: string;
 }
 
-/** The line ending a file already uses, so anything written beside it keeps it. */
-const lineEndingOf = (text: string): '\n' | '\r\n' => (text.includes('\r\n') ? '\r\n' : '\n');
-
 /**
  * The name a folder stands in as a file under. Nothing is ever written to it: the gates all read a
  * file path and walk up from its directory, so a folder only needs a name below it to be judged the
@@ -146,36 +144,6 @@ const anchorOf = (uri: string): Anchor => {
         isDirectory = false;
     }
     return isDirectory ? { fsPath: `${fsPath}/${FOLDER_ANCHOR}`, dir: fsPath } : { fsPath, dir: dirOf(fsPath) };
-};
-
-/** Whether a path sits inside a directory, folding case the way the filesystem matches it. */
-const isUnder = (fsPath: string, root: string | undefined): boolean => {
-    if (!root) return false;
-    const key = foldPathCase(resolve(fsPath).replace(/\\/g, '/'));
-    const prefix = foldPathCase(resolve(root).replace(/\\/g, '/').replace(/\/+$/, ''));
-    return key === prefix || key.startsWith(`${prefix}/`);
-};
-
-/** The open buffers keyed by normalized uri, so a file open in the editor is read and edited live. */
-const openBuffers = (host: NewContentHost): Map<string, TextDocument> => {
-    const map = new Map<string, TextDocument>();
-    for (const document of host.openDocuments()) map.set(normalizeUri(document.uri), document);
-    return map;
-};
-
-/** The open buffer for a path, or a document built from its disk content. */
-const documentFor = async (
-    fsPath: string,
-    open: ReadonlyMap<string, TextDocument>
-): Promise<TextDocument | undefined> => {
-    const canonical = filePathToUri(fsPath);
-    const buffer = open.get(normalizeUri(canonical));
-    if (buffer) return buffer;
-    try {
-        return TextDocument.create(canonical, 'rules', 0, await readFile(fsPath, { encoding: 'utf-8' }));
-    } catch {
-        return undefined;
-    }
 };
 
 /** A scan result carrying nothing but the reason there is nothing to report. */
@@ -688,7 +656,6 @@ const applyRound = async (
 
     // The reference is written from the directory of the file the command was invoked on, which is
     // the file the author is looking at and the one they will paste it into.
-    const anchorDir = dirOf(uriToFsPath(args.uri).replace(/\\/g, '/'));
     const member = kind === 'part' ? 'Part' : undefined;
     return {
         kind: 'apply',

@@ -13,6 +13,7 @@ import {
     isValueNode,
 } from '../../core/ast/ast';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
+import { code } from '../report/markdown-link';
 
 /**
  * What a reference points at, rendered on one line.
@@ -38,9 +39,6 @@ const INLINE_WIDTH = 40;
 
 /** How many entries the inline form shows. */
 const INLINE_ENTRIES = 6;
-
-/** Markdown-safe inline code. */
-const code = (text: string): string => '`' + text.replace(/`/g, "'") + '`';
 
 /** The caps one rendering runs under. */
 interface PreviewCaps {

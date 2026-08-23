@@ -18,7 +18,7 @@ import { isNumber } from '../utils/utils';
  * resolver shared by navigation, validation, hover and completion) resolves `^/N` into an added base
  * consistently. `extraIndex` is 0-based past the static list.
  */
-export type InheritanceExtensionSource = (node: AbstractNode, extraIndex: number) => AbstractNode | undefined;
+type InheritanceExtensionSource = (node: AbstractNode, extraIndex: number) => AbstractNode | undefined;
 
 let inheritanceExtensionSource: InheritanceExtensionSource | undefined;
 
@@ -41,7 +41,7 @@ export const registerInheritanceExtensionSource = (source: InheritanceExtensionS
  * Overrides-injected member the same way for navigation, validation, hover and completion. Consulted
  * only when the node has no such member of its own.
  */
-export type MemberExtensionSource = (node: AbstractNode, member: string) => AbstractNode | undefined;
+type MemberExtensionSource = (node: AbstractNode, member: string) => AbstractNode | undefined;
 
 let memberExtensionSource: MemberExtensionSource | undefined;
 
@@ -60,7 +60,7 @@ export const registerMemberExtensionSource = (source: MemberExtensionSource | un
  * answers one name at a time, which is all a reference path needs. A walker that enumerates a
  * container's effective members has to ask what those names are.
  */
-export type MemberEnumerationSource = (
+type MemberEnumerationSource = (
     node: AbstractNode
 ) => Array<{ name: string; precedence: InjectionPrecedence; value: AbstractNode }>;
 
@@ -82,7 +82,7 @@ let memberEnumerationSource: MemberEnumerationSource | undefined;
  * {@link MemberExtensionSource}, which answers for a member the node does not write: this one is
  * asked before the node's own members and must answer only where the game really replaces them.
  */
-export type MemberReplacementSource = (node: AbstractNode, member: string) => AbstractNode | undefined;
+type MemberReplacementSource = (node: AbstractNode, member: string) => AbstractNode | undefined;
 
 let memberReplacementSource: MemberReplacementSource | undefined;
 

@@ -22,7 +22,7 @@ const scopeCandidateCache = new Map<string, ModFacts>();
 const modPlanCache = new Map<string, ExtractionPlan[]>();
 
 /** What a whole mod contributes to the analysis, merged from its files. */
-export interface ModFacts {
+interface ModFacts {
     /** Every container of the mod that could take part in an extraction. */
     candidates: Candidate[];
     /** How many containers of the mod inherit each base, keyed by the base's identity. */
@@ -108,20 +108,6 @@ export const fileFactsForPath = async (
     candidateCache.set(key, facts);
     return facts;
 };
-
-/**
- * The containers of one file that could take part in an extraction.
- *
- * @param fsPath the file to read.
- * @param anchorDir the directory fingerprints are expressed relative to.
- * @param cancellationToken cancels between the reads.
- * @returns the file's candidate containers, empty when it cannot be read or parsed.
- */
-export const candidatesForPath = async (
-    fsPath: string,
-    anchorDir: string,
-    cancellationToken: CancellationToken
-): Promise<Candidate[]> => (await fileFactsForPath(fsPath, anchorDir, cancellationToken)).candidates;
 
 /**
  * Every `.rules` file under a directory, sorted so the analysis is reproducible, memoized because a

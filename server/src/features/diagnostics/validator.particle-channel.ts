@@ -88,9 +88,8 @@ const bindsDefaultChannel = (group: GroupNode, cls: string): boolean => {
     const written = new Set<string>();
     for (const element of group.elements) {
         if (isAssignmentNode(element)) written.add(element.left.name.toLowerCase());
-        else if ((isGroupNode(element) || element.type === 'List') && 'identifier' in element) {
-            const identifier = (element as GroupNode).identifier;
-            if (identifier) written.add(identifier.name.toLowerCase());
+        else if (isGroupNode(element) || isListNode(element)) {
+            if (element.identifier) written.add(element.identifier.name.toLowerCase());
         }
     }
     for (const field of fieldsOf(cls)) {

@@ -86,21 +86,7 @@ export const completeFieldValue = (group: GroupNode, fieldName: string, cls: str
     if (!cls) return [];
     const field = fieldOf(cls, fieldName);
     if (!field) return [];
-    const valueType = field.valueType;
-    if (valueType.kind === 'enum') {
-        return (enumDef(valueType.ref)?.members ?? []).map((member) => ({
-            label: member,
-            kind: CompletionItemKind.EnumMember,
-            detail: valueType.name,
-        }));
-    }
-    if (valueType.kind === 'bool') {
-        return [
-            { label: 'true', kind: CompletionItemKind.Value },
-            { label: 'false', kind: CompletionItemKind.Value },
-        ];
-    }
-    return [];
+    return enumOrBoolCompletions(field.valueType);
 };
 
 /**
@@ -192,8 +178,15 @@ const enclosingMapType = (entry: GroupNode): (ValueType & { kind: 'map' }) | und
     return valueType?.kind === 'map' ? valueType : undefined;
 };
 
-/** Enum-member or boolean completions for a resolved value type, or nothing for other kinds. */
-const enumOrBoolCompletions = (valueType: ValueType): Completion[] => {
+/**
+ * Enum-member or boolean completions for a resolved value type, the one place that decides what a
+ * scalar slot may legally hold. Every value path shares it: a value node, a list element, and the
+ * offset-based completion at an empty `Key = ` position.
+ *
+ * @param valueType the schema type of the slot being filled.
+ * @returns the legal value completions for that slot, empty for every other kind.
+ */
+export const enumOrBoolCompletions = (valueType: ValueType): Completion[] => {
     if (valueType.kind === 'enum') {
         return (enumDef(valueType.ref)?.members ?? []).map((member) => ({
             label: member,

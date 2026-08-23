@@ -1,6 +1,4 @@
-import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
-import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
 import {
@@ -31,7 +29,7 @@ import type { ValueType } from '../../document/schema/schema.types';
 import { normalizeUri } from '../navigation/reference-location';
 import { documentsMentioning, uriToFsPath } from '../navigation/workspace-files';
 import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
-import { parseText } from '../../utils/ast.utils';
+import { childNodesOf, parseText } from '../../utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { workshopContentDir } from '../../workspace/workshop-dir';
 import { workshopModOf } from '../mod-schema/workshop-link';
@@ -44,7 +42,7 @@ import {
 } from '../../mod/mod-dependencies';
 import { closestMatch } from '../../utils/did-you-mean';
 import { globalSettings } from '../../settings';
-import { ValidationError } from './validator';
+import { didYouMeanFix, ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 
 /** A cross-file id reference found in a document, with the class it targets and the written id. */
@@ -414,12 +412,7 @@ const writesMapEntryKey = (document: AbstractNodeDocument, id: string): boolean 
             found = true;
             return;
         }
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) visit(child);
     };
     for (const element of document.elements) visit(element);
@@ -455,12 +448,7 @@ const looseDeclarationIn = (document: AbstractNodeDocument, id: string): boolean
             found = true;
             return;
         }
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) visit(child);
     };
     for (const element of document.elements) visit(element);
@@ -663,9 +651,7 @@ export const unresolvedIdError = (reference: IdReference, ids: ReadonlySet<strin
             : l10n.t("No {0} named '{1}' in the project.", targetName, reference.value),
         node: reference.node,
         severity: 'warning',
-        ...(suggestion
-            ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
-            : {}),
+        ...didYouMeanFix(suggestion),
     };
 };
 

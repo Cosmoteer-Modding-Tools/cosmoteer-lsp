@@ -51,7 +51,7 @@ const topLevelIdNode = (document: AbstractNodeDocument): ValueNode | undefined =
  * @param cancellationToken cancels the candidate walk.
  * @returns the declaring symbol, or undefined when no file declares it.
  */
-export const findIdDeclaration = async (
+const findIdDeclaration = async (
     targetClass: string,
     id: string,
     folderPaths: string[],

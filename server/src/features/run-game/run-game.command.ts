@@ -30,7 +30,7 @@ import { loadedModKeyOf, sameLoadedMod } from './mod-identity';
 export const RUN_IN_COSMOTEER_COMMAND = 'cosmoteer.runInCosmoteer';
 
 /** Why the command did nothing. Each one is reported to the user as its own sentence. */
-export type RunGameRefusal =
+type RunGameRefusal =
     | 'unsupported-platform'
     | 'no-install'
     | 'no-executable'

@@ -2,7 +2,7 @@ import { isAbsolute, relative, resolve } from 'path';
 import { cachedPathExists } from '../../../workspace/fs-cache';
 
 /** A rewrite of one path inside a member's source, in offsets relative to that source. */
-export interface ReferenceRebase {
+interface ReferenceRebase {
     /** Offset of the path's first character. */
     start: number;
     /** Offset one past the path's last character. */
@@ -12,7 +12,7 @@ export interface ReferenceRebase {
 }
 
 /** What a member's references mean for extraction. */
-export interface ReferenceVerdict {
+interface ReferenceVerdict {
     /** True when every reference the member carries still names the same target from the base file. */
     safe: boolean;
     /** The path rewrites that make it so, empty when the member carries no path. */
@@ -32,7 +32,7 @@ export const isGameRootPath = (path: string): boolean => /^\s*\.[\\/]/.test(path
  * list is deliberately closed: matching "anything with a dot" would swallow a dotted part id such as
  * `cosmoteer.armor` and refuse half the fields in the game.
  */
-export const ASSET_EXTENSIONS = new Set([
+const ASSET_EXTENSIONS = new Set([
     'png',
     'jpg',
     'jpeg',
@@ -71,7 +71,7 @@ export const looksLikeAssetPath = (token: string): boolean => {
  * @returns the rewritten path, or undefined when the target does not exist or cannot be reached
  * from the base directory by a relative path.
  */
-export const rebasePath = (path: string, declaringDir: string, baseDir: string): string | undefined => {
+const rebasePath = (path: string, declaringDir: string, baseDir: string): string | undefined => {
     const target = resolve(declaringDir, path.trim());
     // Only a path that exists can be proven to still name the same file afterwards.
     if (!cachedPathExists(target)) return undefined;
@@ -96,7 +96,7 @@ export const rebasePath = (path: string, declaringDir: string, baseDir: string):
  * @returns the rewritten path, or undefined when the target does not exist or lies outside the
  * game's `Data` tree.
  */
-export const gameRootRebase = (path: string, declaringDir: string, dataRoot: string): string | undefined => {
+const gameRootRebase = (path: string, declaringDir: string, dataRoot: string): string | undefined => {
     const target = resolve(declaringDir, path.trim());
     // Only a path that exists can be proven to still name the same file afterwards.
     if (!cachedPathExists(target)) return undefined;
@@ -107,7 +107,7 @@ export const gameRootRebase = (path: string, declaringDir: string, dataRoot: str
 };
 
 /** How {@link analyzeReferences} re-expresses a path the member carries. */
-export interface ReferenceRebaseOptions {
+interface ReferenceRebaseOptions {
     /**
      * The game's `Data` directory. Set it when the member is being copied into a mod, so paths come
      * out in the `./Data/…` form rather than as a hop chain back into the install.

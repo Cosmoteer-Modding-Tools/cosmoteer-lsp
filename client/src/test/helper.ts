@@ -37,7 +37,7 @@ async function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export const getDocPath = (p: string) => {
+const getDocPath = (p: string) => {
     // `__dirname` is `out/client/test` (tsc strips the `src` rootDir), so the repo root is three up.
     return path.resolve(__dirname, '../../../client/testFixture', p);
 };

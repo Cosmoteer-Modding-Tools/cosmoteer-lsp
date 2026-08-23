@@ -1,13 +1,6 @@
 import { CancellationToken } from 'vscode-languageserver';
-import {
-    AbstractNode,
-    AbstractNodeDocument,
-    isAssignmentNode,
-    isDocumentNode,
-    isGroupNode,
-    isListNode,
-    isValueNode,
-} from '../../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
+import { childNodesOf } from '../../utils/ast.utils';
 import { normalizeUri } from '../navigation/reference-location';
 import { WatchedDocumentIndex } from '../navigation/watched-document-index';
 import { inheritanceBaseLeafName } from '../../utils/reference.utils';
@@ -23,11 +16,7 @@ const baseNamesOf = (document: AbstractNodeDocument): string[] => {
                 if (leaf) names.add(leaf);
             }
         }
-        const children = isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-            ? node.elements
-            : isAssignmentNode(node)
-              ? (node.right ? [node.right] : [])
-              : [];
+        const children = childNodesOf(node);
         for (const child of children) visit(child);
     };
     visit(document);

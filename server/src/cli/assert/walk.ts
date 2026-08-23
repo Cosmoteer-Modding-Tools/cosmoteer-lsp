@@ -11,7 +11,7 @@ import { isManifestBasename, isRulesFileName } from '../../document/document-kin
 const MAX_DEPTH = 24;
 
 /** What one walk of a mod folder found. */
-export interface ModFiles {
+interface ModFiles {
     /** Every `.rules` and `.txt` file under the folder, absolute, in walk order. */
     rulesFiles: string[];
     /** The subset the game would read as a manifest. */

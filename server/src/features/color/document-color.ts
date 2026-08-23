@@ -4,13 +4,13 @@ import {
     AbstractNodeDocument,
     GroupNode,
     isAssignmentNode,
-    isDocumentNode,
     isGroupNode,
     isListNode,
     isValueNode,
     ListNode,
     ValueNode,
 } from '../../core/ast/ast';
+import { childNodesOf } from '../../utils/ast.utils';
 import { listSlotType } from '../../document/schema/schema-context';
 
 /**
@@ -121,12 +121,7 @@ function* colorGroups(document: AbstractNodeDocument): Generator<ColorGroup> {
             const form = colorForm(components);
             if (form) yield { group: node, form, components };
         }
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) yield* visit(child);
     };
     for (const element of document.elements) yield* visit(element);
@@ -142,12 +137,7 @@ function* colorLists(document: AbstractNodeDocument): Generator<ColorList> {
             const channels = colorListChannels(node);
             if (channels) yield { list: node, channels };
         }
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) yield* visit(child);
     };
     for (const element of document.elements) yield* visit(element);

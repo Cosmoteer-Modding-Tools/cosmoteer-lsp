@@ -85,6 +85,28 @@ import {
 import { clearWorkspaceDiagnostics, runWorkspaceValidation } from '../workspace-scan';
 
 /**
+ * Drops every index and cache whose contents are keyed to the file set the server resolves against,
+ * so the next query rebuilds them. Used whenever that file set moves under the server: a workspace
+ * folder was added or removed, or the Cosmoteer path now points at a different game install.
+ *
+ * @returns nothing
+ */
+function resetProjectIndexes(): void {
+    WorkspaceSymbolService.instance.reset();
+    SchemaIdIndex.instance.reset();
+    invalidateShipLayers();
+    TemplateBaseIndex.instance.reset();
+    LocalizationKeyIndex.instance.reset();
+    ReverseIncludeIndex.instance.reset();
+    AddBaseIndex.instance.reset();
+    MemberInjectionIndex.instance.reset();
+    ActionRootingIndex.instance.reset();
+    MentionIndex.instance.reset();
+    clearFsCaches();
+    invalidateSchemaContextCache();
+}
+
+/**
  * Registers the three lifecycle handlers: the capability handshake, the startup that scans the game
  * tree and warms the project indexes, and the configuration change that decides what has to be
  * recomputed under the new settings.
@@ -292,18 +314,7 @@ export function register(): void {
                 // linger.
                 invalidateWorkspaceFoldersCache();
                 bumpValidationScopeEpoch();
-                WorkspaceSymbolService.instance.reset();
-                SchemaIdIndex.instance.reset();
-                invalidateShipLayers();
-                TemplateBaseIndex.instance.reset();
-                LocalizationKeyIndex.instance.reset();
-                ReverseIncludeIndex.instance.reset();
-                AddBaseIndex.instance.reset();
-                MemberInjectionIndex.instance.reset();
-                ActionRootingIndex.instance.reset();
-                MentionIndex.instance.reset();
-                clearFsCaches();
-                invalidateSchemaContextCache();
+                resetProjectIndexes();
                 if (wholeWorkspaceEnabled()) {
                     await clearWorkspaceDiagnostics();
                     await runWorkspaceValidation();
@@ -392,16 +403,7 @@ export function register(): void {
             await CosmoteerWorkspaceService.instance.initialize(settings!.cosmoteerPath, workDoneProgress);
             // The Cosmoteer root changed where references resolve to, so drop the cached symbol
             // table (find-all-references / rename are stateless and re-resolve per query).
-            WorkspaceSymbolService.instance.reset();
-            SchemaIdIndex.instance.reset();
-            TemplateBaseIndex.instance.reset();
-            LocalizationKeyIndex.instance.reset();
-            ReverseIncludeIndex.instance.reset();
-            AddBaseIndex.instance.reset();
-            ActionRootingIndex.instance.reset();
-            MentionIndex.instance.reset();
-            clearFsCaches();
-            invalidateSchemaContextCache();
+            resetProjectIndexes();
         }
         // Changed settings change what a validation would produce (validators toggled, ignore paths,
         // problem limits), but open documents' versions are unchanged. The version-keyed caches

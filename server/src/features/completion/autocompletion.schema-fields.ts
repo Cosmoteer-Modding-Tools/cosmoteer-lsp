@@ -21,19 +21,17 @@ import {
 } from '../../document/schema/schema-context';
 import { documentRootClass, documentRootRegistry } from '../../document/schema/document-root';
 import {
-    enumDef,
     fieldOf,
     fieldSignatureMarkdown,
     fieldsOf,
     isLocalizationKeyType,
     scalarReferenceTargetOf,
     schema,
-    typeDef,
     valueTypeLabel,
 } from '../../document/schema/schema';
 import { SchemaField, SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { Completion } from './autocompletion.service';
-import { completeFieldValue, discriminatorCompletions } from './autocompletion.schema';
+import { completeFieldValue, discriminatorCompletions, enumOrBoolCompletions } from './autocompletion.schema';
 import { componentIdCompletions } from './autocompletion.component-id';
 import { componentNameCompletions } from './autocompletion.component-name';
 import { declaringFieldOf, mapEntryKeyTargetOf } from '../navigation/schema-id-reference.navigation';
@@ -74,29 +72,6 @@ export const fieldSnippet = (name: string, valueType: ValueType, stop = '$0'): s
 };
 
 /**
- * Enum members or booleans a scalar-kind slot accepts, empty for every other kind.
- *
- * @param valueType the schema type of the slot being filled.
- * @returns the legal value completions for that slot.
- */
-const scalarValueCompletions = (valueType: ValueType): Completion[] => {
-    if (valueType.kind === 'enum') {
-        return (enumDef(valueType.ref)?.members ?? []).map((member) => ({
-            label: member,
-            kind: CompletionItemKind.EnumMember,
-            detail: valueType.name,
-        }));
-    }
-    if (valueType.kind === 'bool') {
-        return [
-            { label: 'true', kind: CompletionItemKind.Value },
-            { label: 'false', kind: CompletionItemKind.Value },
-        ];
-    }
-    return [];
-};
-
-/**
  * What a fresh element of a list actually is, offered instead of field names: a `{ … }` scaffold
  * for a list of groups (with `Type = ` primed when the element is polymorphic), enum members or
  * booleans for scalar element kinds, nothing otherwise. This replaces the earlier behavior where a
@@ -132,7 +107,7 @@ const listElementCompletions = (list: ListNode): Completion[] => {
             },
         ];
     }
-    return scalarValueCompletions(element);
+    return enumOrBoolCompletions(element);
 };
 
 /**
@@ -361,14 +336,14 @@ export const schemaValueCompletionsAtOffset = async (
         }
         const cls = memberScopeClassAt(document, offset);
         const field = cls ? fieldOf(cls, fieldName) : undefined;
-        return field ? scalarValueCompletions(field.valueType) : [];
+        return field ? enumOrBoolCompletions(field.valueType) : [];
     }
 
     // Document top level (whole-file root): `Type` → root registry discriminators, else enum/bool field.
     const registry = documentRootRegistry(document);
     if (registry && fieldName === registry.typeField) return discriminatorCompletions(registry);
     const field = fieldAtOffset(document, offset, fieldName);
-    return field ? scalarValueCompletions(field.valueType) : [];
+    return field ? enumOrBoolCompletions(field.valueType) : [];
 };
 
 /** The schema field of the `Key = ` being assigned at `offset`, resolved against the member scope
@@ -397,13 +372,8 @@ export const crossFileReferenceTargetAtOffset = (
     const fieldName = fieldNameAtValuePosition(linePrefix);
     if (!fieldName) return undefined;
     const valueType = fieldAtOffset(document, offset, fieldName)?.valueType;
-    if (valueType?.kind === 'reference') return valueType.target;
-    if (
-        (valueType?.kind === 'list' || valueType?.kind === 'range' || valueType?.kind === 'interpolated') &&
-        valueType.element.kind === 'reference'
-    ) {
-        return valueType.element.target;
-    }
+    const direct = referenceTargetOf(valueType);
+    if (direct !== undefined) return direct;
     // A scalar-form group element (`EditorParentParts = ["cosmoteer.armor"]`): a bare entry of a
     // `list<group>` field reads as the element class's scalar payload.
     if (

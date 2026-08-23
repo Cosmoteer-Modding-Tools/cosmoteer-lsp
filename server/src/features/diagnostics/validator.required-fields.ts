@@ -4,21 +4,20 @@ import {
     AbstractNodeDocument,
     GroupNode,
     ListNode,
-    isAssignmentNode,
     isDocumentNode,
     isGroupNode,
     isListNode,
     isValueNode,
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
-import { namedMembersOf, getStartOfAstNode } from '../../utils/ast.utils';
+import { childNodesOf, namedMembersOf, getStartOfAstNode } from '../../utils/ast.utils';
 import {
     groupDiscriminator,
     registryForGroup,
     registryHintFromContainer,
     resolveGroupClass,
 } from '../../document/schema/schema-context';
-import { discriminatorIsAmbiguous, fieldsOf } from '../../document/schema/schema';
+import { discriminatorIsAmbiguous, requiredFieldsOf } from '../../document/schema/schema';
 import { SchemaField } from '../../document/schema/schema.types';
 import { DefinitionService } from '../navigation/definition.service';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
@@ -111,11 +110,7 @@ export const validateRequiredFields = async (
                 groups.push(node);
             }
         }
-        const children = isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-            ? node.elements
-            : isAssignmentNode(node)
-              ? (node.right ? [node.right] : [])
-              : [];
+        const children = childNodesOf(node);
         for (const child of children) collect(child);
     };
     for (const element of document.elements) collect(element);
@@ -128,7 +123,7 @@ export const validateRequiredFields = async (
         if (name && (inheritedBaseNames.has(name) || workspaceBaseNames?.has(name))) continue;
         const cls = resolveGroupClass(group);
         if (!cls) continue;
-        const required = fieldsOf(cls).filter((field) => !field.optional);
+        const required = requiredFieldsOf(cls);
         if (required.length === 0) continue;
 
         // Lower-cased: a written `maxhealth` satisfies required `MaxHealth` (game lookup ignores case).

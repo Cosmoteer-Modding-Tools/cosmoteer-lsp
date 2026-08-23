@@ -1,6 +1,6 @@
 import { Location, Range } from 'vscode-languageserver';
-import { AbstractNode, isListNode, isAssignmentNode, isDocumentNode, isGroupNode } from '../../core/ast/ast';
-import { getStartOfAstNode } from '../../utils/ast.utils';
+import { AbstractNode, isListNode, isDocumentNode, isGroupNode } from '../../core/ast/ast';
+import { assignmentKeyIn, getStartOfAstNode } from '../../utils/ast.utils';
 import { filePathToUri } from './navigation-strategy';
 
 /**
@@ -39,9 +39,7 @@ export const definitionNameOf = (node: AbstractNode): string | null => {
     if ((isGroupNode(node) || isListNode(node)) && node.identifier) return node.identifier.name;
     const container = node.parent;
     if (container && (isGroupNode(container) || isListNode(container) || isDocumentNode(container))) {
-        for (const element of container.elements) {
-            if (isAssignmentNode(element) && element.right === node) return element.left.name;
-        }
+        return assignmentKeyIn(node, container) ?? null;
     }
     return null;
 };
@@ -76,4 +74,23 @@ export const normalizeUri = (uriOrPath: string): string => {
 export const locationKey = (location: Location): string => {
     const { start, end } = location.range;
     return `${normalizeUri(location.uri)}#${start.line}:${start.character}-${end.line}:${end.character}`;
+};
+
+/**
+ * Drop duplicate locations (same file + range), keeping the first of each. Go-to-definition
+ * and find-all-references both gather from several passes that can land on the same site.
+ *
+ * @param locations The gathered locations, in the order they should be offered.
+ * @returns The same locations minus every repeat of an already seen {@link locationKey}.
+ */
+export const dedupeLocations = (locations: Location[]): Location[] => {
+    const seen = new Set<string>();
+    const out: Location[] = [];
+    for (const location of locations) {
+        const key = locationKey(location);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(location);
+    }
+    return out;
 };

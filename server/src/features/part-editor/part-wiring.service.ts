@@ -11,6 +11,7 @@
 import { CancellationToken } from 'vscode-languageserver';
 import * as l10n from '@vscode/l10n';
 import { AbstractNodeDocument } from '../../core/ast/ast';
+import { code } from '../report/markdown-link';
 import { locatePartGroup } from './part-grid-data.service';
 import {
     PartReferenceSite,
@@ -27,9 +28,6 @@ import {
 
 /** The glyph each verdict renders as, matching the mod overview's action marks. */
 const MARKS: Record<WiringMark, string> = { ok: '✓', missing: '✗', unknown: '·' };
-
-/** Markdown-safe inline code (backticks cannot appear in an id or a `.rules` path anyway). */
-const code = (text: string): string => '`' + text.replace(/`/g, "'") + '`';
 
 /**
  * Renders the "what does this part still need" markdown report for the part at an offset: whether a

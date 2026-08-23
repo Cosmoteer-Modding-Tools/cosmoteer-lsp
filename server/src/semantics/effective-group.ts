@@ -100,7 +100,7 @@ export interface EffectiveListEntry {
 }
 
 /** What a walk found, and what it could not read. */
-export interface EffectiveContainer {
+interface EffectiveContainer {
     /** Every base actually folded in, nearest first, excluding the starting container. */
     readonly bases: readonly MemberOrigin[];
     /** Bases that could not be folded in. Empty when the whole chain resolved. */
@@ -110,13 +110,13 @@ export interface EffectiveContainer {
 }
 
 /** A flattened group: its effective members in the game's own order. */
-export interface EffectiveGroup extends EffectiveContainer {
+interface EffectiveGroup extends EffectiveContainer {
     /** Surviving inherited members first (farthest base first), then the local ones. */
     readonly members: readonly EffectiveMemberEntry[];
 }
 
 /** A flattened list: the concatenation the game builds. */
-export interface EffectiveList extends EffectiveContainer {
+interface EffectiveList extends EffectiveContainer {
     /** Inherited entries first, then the local ones. */
     readonly entries: readonly EffectiveListEntry[];
     /** False when the list declares no inheritance, so `entries` is just its own. */
@@ -124,7 +124,7 @@ export interface EffectiveList extends EffectiveContainer {
 }
 
 /** A container this module can flatten. */
-export type FlattenableContainer = GroupNode | ListNode | AbstractNodeDocument;
+type FlattenableContainer = GroupNode | ListNode | AbstractNodeDocument;
 
 /**
  * The bases of a container, resolved one hop.
@@ -200,6 +200,21 @@ const referenceTextOf = (entry: AbstractNode): string => {
     const value = (entry as ValueNode).valueType;
     return value && typeof value.value === 'string' ? value.value : '<base>';
 };
+
+/**
+ * The record of a base a walk refused to fold in, anchored on the reference that named it.
+ *
+ * @param ref the inheritance reference node naming the base.
+ * @param reason why the base could not be folded in.
+ * @param hop the hop of the container holding the reference, so the base itself sits one further out.
+ * @returns the entry to collect in {@link EffectiveContainer.unreadable}.
+ */
+const unreadableBase = (ref: AbstractNode, reason: UnreadableReason, hop: number): UnreadableBase => ({
+    reference: referenceTextOf(ref),
+    reason,
+    node: ref,
+    hop: hop + 1,
+});
 
 /**
  * The origin stamp of a node found at a given hop.
@@ -300,22 +315,12 @@ const flattenGroupAt = async (
     for (const base of bases) {
         if (visited.has(base.node)) {
             // The game raises "inherits from itself" and fails the load.
-            unreadable.push({
-                reference: referenceTextOf(base.ref),
-                reason: 'cycle',
-                node: base.ref,
-                hop: hop + 1,
-            });
+            unreadable.push(unreadableBase(base.ref, 'cycle', hop));
             continue;
         }
         if (isListNode(base.node)) {
             // The game throws: a group may only inherit a group.
-            unreadable.push({
-                reference: referenceTextOf(base.ref),
-                reason: 'wrong-kind',
-                node: base.ref,
-                hop: hop + 1,
-            });
+            unreadable.push(unreadableBase(base.ref, 'wrong-kind', hop));
             continue;
         }
         foldedBases.push(originOf(base.node, hop + 1));
@@ -462,22 +467,12 @@ const flattenListAt = async (
     visited.add(list);
     for (const base of bases) {
         if (visited.has(base.node)) {
-            unreadable.push({
-                reference: referenceTextOf(base.ref),
-                reason: 'cycle',
-                node: base.ref,
-                hop: hop + 1,
-            });
+            unreadable.push(unreadableBase(base.ref, 'cycle', hop));
             continue;
         }
         if (!isListNode(base.node)) {
             // The game throws: a list may only inherit a list.
-            unreadable.push({
-                reference: referenceTextOf(base.ref),
-                reason: 'wrong-kind',
-                node: base.ref,
-                hop: hop + 1,
-            });
+            unreadable.push(unreadableBase(base.ref, 'wrong-kind', hop));
             continue;
         }
         foldedBases.push(originOf(base.node, hop + 1));

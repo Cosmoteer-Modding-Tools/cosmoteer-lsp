@@ -329,6 +329,3 @@ export const subtypesOf = async (
         budget.dispose();
     }
 };
-
-/** The subtype payload cap, exported so a test can assert it without repeating the number. */
-export const subtypeLimit = SUBTYPE_LIMIT;

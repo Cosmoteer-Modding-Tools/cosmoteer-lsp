@@ -4,10 +4,10 @@ import { foldPathCase } from '../../../workspace/fs-cache';
 import { isGameRootPath, looksLikeAssetPath, PATH_TOKEN } from '../shared-base/reference-safety';
 
 /** Why a path inside a copied file could not be carried over. */
-export type PathRefusal = 'unresolvablePath' | 'escapingPath';
+type PathRefusal = 'unresolvablePath' | 'escapingPath';
 
 /** One path rewrite inside a copied file, in offsets of that file's own source. */
-export interface UnitRebase {
+interface UnitRebase {
     /** Offset of the path's first character. */
     readonly start: number;
     /** Offset one past the path's last character. */
@@ -31,10 +31,10 @@ export interface UnitRebaseContext {
 }
 
 /** What one path came to. */
-export type PathRebase = { newText: string } | { refusal: PathRefusal };
+type PathRebase = { newText: string } | { refusal: PathRefusal };
 
 /** What a whole copied file's paths came to. */
-export type FileRebase = { rebases: UnitRebase[] } | { refusal: PathRefusal; path: string };
+type FileRebase = { rebases: UnitRebase[] } | { refusal: PathRefusal; path: string };
 
 /** A path with forward slashes, so every comparison and every emitted path reads the same on every OS. */
 const slashed = (path: string): string => path.replace(/\\/g, '/');

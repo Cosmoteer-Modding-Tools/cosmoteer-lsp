@@ -1,5 +1,3 @@
-export const startsWithAmpersandAndLetter = (value: string) => /^&[A-Za-z_.]/.test(value);
-
 /**
  * The authoritative ObjectText reference-path grammar, ported from
  * `Halfling.ObjectText.Validator.PATH_RE` in the game's `HalflingCore.dll` (see the

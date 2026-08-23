@@ -3,7 +3,6 @@ import { join } from 'path';
 import {
     AbstractNode,
     AbstractNodeDocument,
-    isAssignmentNode,
     isDocumentNode,
     isGroupNode,
     isListNode,
@@ -15,6 +14,7 @@ import { fieldOf, typeDef } from '../../document/schema/schema';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { ValueType } from '../../document/schema/schema.types';
 import { isStringsFile } from '../../mod/strings-folder';
+import { assignmentNameOf } from '../../utils/ast.utils';
 import { closestMatch } from '../../utils/did-you-mean';
 import { resolveAssetPath } from '../navigation/asset-resolver';
 import { stringValueNodesOf } from '../navigation/schema-reference.navigation';
@@ -53,32 +53,6 @@ export const PATH_FIELD_KINDS: ReadonlyMap<string, PathKind> = new Map<string, P
     ['ship', 'file'],
     ['logoship', 'file'],
 ]);
-
-/** Per-container lookup table from an assignment's right-hand node to its field name. Built once per
- *  container instead of rescanning its elements for every candidate node, which made a string-heavy
- *  group quadratic. Keyed weakly so a table dies with its AST. */
-const namesByRight: WeakMap<object, Map<unknown, string>> = new WeakMap();
-
-/**
- * The field name whose `Key = value` right-hand side is `node`, read from the enclosing group or
- * document.
- *
- * @param node the node to name.
- * @returns the assignment's field name, or undefined when `node` is not an assignment value.
- */
-const assignmentNameOf = (node: AbstractNode): string | undefined => {
-    const parent = node.parent;
-    if (!parent || !(isGroupNode(parent) || isDocumentNode(parent))) return undefined;
-    let table = namesByRight.get(parent);
-    if (!table) {
-        table = new Map();
-        for (const element of parent.elements) {
-            if (isAssignmentNode(element)) table.set(element.right, element.left.name);
-        }
-        namesByRight.set(parent, table);
-    }
-    return table.get(node);
-};
 
 /** The class owning the fields of a member-bearing container (a group, or a whole-file-root document). */
 const ownerClassOf = (container: AbstractNode): string | undefined =>

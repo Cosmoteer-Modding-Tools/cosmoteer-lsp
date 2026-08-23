@@ -1,18 +1,7 @@
-import {
-    CancellationToken,
-    CodeLens,
-    CodeLensProvider,
-    EventEmitter,
-    Position,
-    Range,
-    TextDocument,
-    TextDocumentContentProvider,
-    Uri,
-    commands,
-    l10n,
-    window,
-} from 'vscode';
+import { CancellationToken, CodeLens, CodeLensProvider, Position, Range, TextDocument, Uri, l10n } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { showCaretReport } from '../caret-report';
+import { VirtualContentProvider } from '../virtual-content-provider';
 
 /** The virtual-document scheme the rendered wiring markdown is served under. */
 export const PART_WIRING_SCHEME = 'cosmoteer-part-wiring';
@@ -57,22 +46,9 @@ export class PartWiringCodeLensProvider implements CodeLensProvider {
  * Serves the generated wiring markdown as a read-only virtual document, so the built-in markdown
  * preview can render it without writing a file into the user's mod.
  */
-export class PartWiringContentProvider implements TextDocumentContentProvider {
-    private readonly contentByUri = new Map<string, string>();
-    private readonly changeEmitter = new EventEmitter<Uri>();
-    public readonly onDidChange = this.changeEmitter.event;
-
-    /** Stores (or refreshes) the markdown behind a wiring uri and notifies open previews. */
-    public set(uri: Uri, markdown: string): void {
-        this.contentByUri.set(uri.toString(), markdown);
-        this.changeEmitter.fire(uri);
-    }
-
-    public provideTextDocumentContent(uri: Uri): string {
-        return (
-            this.contentByUri.get(uri.toString()) ??
-            l10n.t('The part wiring report is no longer available. Run the command again.')
-        );
+export class PartWiringContentProvider extends VirtualContentProvider {
+    public constructor() {
+        super(() => l10n.t('The part wiring report is no longer available. Run the command again.'));
     }
 }
 
@@ -86,31 +62,21 @@ export class PartWiringContentProvider implements TextDocumentContentProvider {
  * @param uri the part file's uri, or undefined to use the active editor.
  * @param position a position inside the part group, or undefined to use the cursor.
  */
-export async function showPartWiring(
+export const showPartWiring = (
     client: LanguageClient,
     provider: PartWiringContentProvider,
     uri?: Uri,
     position?: Position
-): Promise<void> {
-    const editor = window.activeTextEditor;
-    const targetUri = uri ?? editor?.document.uri;
-    const targetPosition = position ?? editor?.selection.active;
-    if (!targetUri || !targetPosition) return;
-    const markdown = await client.sendRequest<string | null>('cosmoteer/partWiring', {
-        textDocument: { uri: targetUri.toString() },
-        position: { line: targetPosition.line, character: targetPosition.character },
-    });
-    if (!markdown) {
-        void window.showWarningMessage(l10n.t('No part wiring available: the cursor is not inside a part.'));
-        return;
-    }
-    // One stable wiring uri per (file, line), so re-running the command refreshes the open preview
-    // instead of stacking new tabs. The part uri and line ride along in the query for reference.
-    const wiringUri = Uri.from({
-        scheme: PART_WIRING_SCHEME,
-        path: '/Part Wiring.md',
-        query: `${targetUri.toString()}#${targetPosition.line}`,
-    });
-    provider.set(wiringUri, markdown);
-    await commands.executeCommand('markdown.showPreview', wiringUri);
-}
+): Promise<void> =>
+    showCaretReport(
+        client,
+        provider,
+        {
+            method: 'cosmoteer/partWiring',
+            scheme: PART_WIRING_SCHEME,
+            documentName: 'Part Wiring.md',
+            missing: l10n.t('No part wiring available: the cursor is not inside a part.'),
+        },
+        uri,
+        position
+    );

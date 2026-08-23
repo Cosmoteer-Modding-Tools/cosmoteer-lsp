@@ -21,6 +21,7 @@ import { invalidateLooseDeclarationCache } from '../features/diagnostics/validat
 import { clearNavigationMemo, invalidateNavigationMemoForFile } from '../features/navigation/full.navigation-strategy';
 import { normalizeUri } from '../features/navigation/reference-location';
 import { uriToFsPath } from '../features/navigation/workspace-files';
+import { collectIncludeText } from '../features/shader/shader-index';
 import { documents } from './context';
 import { diagnosticsCache, inlayHintCache } from './document-caches';
 import { bumpWorkspaceScanEpoch } from './scan-epoch';
@@ -86,6 +87,25 @@ export function ensureLexResult(document: TextDocument): {
 }
 
 /**
+ * Marks every content-derived project index stale for one file, so each of them re-reads it at its
+ * next query. Every path that changes a file has to dirty the same set, an open-buffer edit, a disk
+ * change and a refactor's write alike, so the set is named in one place here.
+ *
+ * @param uri the uri of the file whose content changed.
+ */
+export function markProjectIndexesDirty(uri: string): void {
+    WorkspaceSymbolService.instance.markDirty(uri);
+    SchemaIdIndex.instance.markDirty(uri);
+    invalidateShipLayersFor(uri);
+    TemplateBaseIndex.instance.markDirty(uri);
+    LocalizationKeyIndex.instance.markDirty(uri);
+    ReverseIncludeIndex.instance.markDirty(uri);
+    AddBaseIndex.instance.markDirty(uri);
+    MemberInjectionIndex.instance.markDirty(uri);
+    ActionRootingIndex.instance.markDirty(uri);
+}
+
+/**
  * Lexes and parses an open document once per version and publishes the result to every consumer:
  * the parser-result registrar (completion/hover/navigation read the live AST back), the project
  * indexes (marked dirty for their next query), and the mod-manifest registrar. Validation used to
@@ -126,15 +146,7 @@ export function registerOpenDocument(document: TextDocument): void {
     invalidateLooseDeclarationCache();
     // An edit changes which symbols this file contributes. Re-index it lazily at the next
     // workspace-symbol query. (find-all-references is stateless, it re-reads per query.)
-    WorkspaceSymbolService.instance.markDirty(document.uri);
-    SchemaIdIndex.instance.markDirty(document.uri);
-    invalidateShipLayersFor(document.uri);
-    TemplateBaseIndex.instance.markDirty(document.uri);
-    LocalizationKeyIndex.instance.markDirty(document.uri);
-    ReverseIncludeIndex.instance.markDirty(document.uri);
-    AddBaseIndex.instance.markDirty(document.uri);
-    MemberInjectionIndex.instance.markDirty(document.uri);
-    ActionRootingIndex.instance.markDirty(document.uri);
+    markProjectIndexesDirty(document.uri);
     if (isModRules(document.uri)) {
         // Parse the manifest's actions. A mod.rules edit changes the effective game tree.
         ModRulesRegistrar.instance.registerManifest(parserResult.value);
@@ -183,3 +195,16 @@ export function openBufferReadOverride(): (absPath: string) => string | undefine
     }
     return (absPath) => openByPath.get(absPath.replace(/\\/g, '/').toLowerCase());
 }
+
+/**
+ * The text of a shader's whole `#include` chain, read the way every shader feature needs it: from the
+ * live buffer of the file being edited, against the game `Data` directory, preferring open buffers over
+ * disk, and yielding an empty string when the chain cannot be read. The override snapshots the open
+ * documents, so it is built per call rather than once.
+ *
+ * @param text the source of the shader being edited (the open buffer).
+ * @param uri the uri of that shader, the base for resolving its includes.
+ * @returns the joined text of the included files, empty when there are none or the read failed.
+ */
+export const shaderIncludeTextFor = (text: string, uri: string): Promise<string> =>
+    collectIncludeText(text, uriToFsPath(uri), undefined, openBufferReadOverride()).catch(() => '');

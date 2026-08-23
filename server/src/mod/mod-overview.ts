@@ -2,6 +2,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, isAssignmentNode, isValueNode } from '../core/ast/ast';
 import { basenameOf } from '../document/document-kind';
 import { uriToFsPath } from '../features/navigation/workspace-files';
+import { code, linkDestination } from '../features/report/markdown-link';
 import { Action } from './action';
 import { normalizeTargetPath } from './action-target-resolver';
 import { resolveWithModContext } from './mod-context';
@@ -25,24 +26,9 @@ const headerField = (document: AbstractNodeDocument, name: string): string | und
     return undefined;
 };
 
-/** Markdown-safe inline code (escapes backticks, which cannot appear in a `.rules` path anyway). */
-const code = (text: string): string => '`' + text.replace(/`/g, "'") + '`';
-
-/**
- * A markdown link to a file, labeled with its mod-relative path. The destination is a
- * `vscode://file/…` deep link, not a `file:` uri: markdown-it's link validator (in VS Code's
- * preview too) rejects the `file:` scheme outright, leaving the raw `[…](…)` text visible.
- * Parentheses are percent-encoded on top of the per-segment encoding, since an unencoded `)` in a
- * file name (`Kopie (2).rules`) would close the markdown destination early.
- */
-const fileLink = (modRoot: string, absPath: string): string => {
-    const encoded = absPath
-        .replace(/\\/g, '/')
-        .split('/')
-        .map((segment) => encodeURIComponent(segment).replace(/\(/g, '%28').replace(/\)/g, '%29'))
-        .join('/');
-    return `[${relativeToMod(modRoot, absPath)}](vscode://file/${encoded})`;
-};
+/** A markdown link to a file, labeled with its mod-relative path. */
+const fileLink = (modRoot: string, absPath: string): string =>
+    `[${relativeToMod(modRoot, absPath)}](vscode://file/${linkDestination(absPath)})`;
 
 /** The display text of an action's first source: a reference's path, or the inline shape. */
 const sourceText = (action: Action): string => {

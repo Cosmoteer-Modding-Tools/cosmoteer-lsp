@@ -168,14 +168,23 @@ export const unreachableConstants = (
     const { declarations, live, readBy } = readDocumentConstants(document);
     if (declarations.size === 0) return [];
     const reachable = new Set<string>();
+    // The inverse of `readBy`: what each constant reads, so spreading liveness is one lookup per step.
+    const readsOf = new Map<string, string[]>();
+    for (const [candidate, readers] of readBy) {
+        for (const reader of readers) {
+            const read = readsOf.get(reader);
+            if (read) read.push(candidate);
+            else readsOf.set(reader, [candidate]);
+        }
+    }
     const queue = [...live, ...(extraLive ?? [])];
     while (queue.length > 0) {
         const key = queue.pop()!;
         if (reachable.has(key) || !declarations.has(key)) continue;
         reachable.add(key);
         // Whatever this constant's own value reads is reached through it.
-        for (const [candidate, readers] of readBy) {
-            if (readers.has(key) && !reachable.has(candidate)) queue.push(candidate);
+        for (const candidate of readsOf.get(key) ?? []) {
+            if (!reachable.has(candidate)) queue.push(candidate);
         }
     }
     const unreachable: Array<{ declaration: ConstantDeclaration; read: boolean }> = [];

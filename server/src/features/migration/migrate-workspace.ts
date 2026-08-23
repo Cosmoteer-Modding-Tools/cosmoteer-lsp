@@ -19,7 +19,7 @@ import { unifiedDiff } from '../../utils/unified-diff';
 export const MIGRATE_WORKSPACE_COMMAND = 'cosmoteer.migrateWorkspace';
 
 /** A migration finding that needs author judgment, reported instead of auto-fixed. */
-export interface ManualFinding {
+interface ManualFinding {
     /** The file the finding is in. */
     uri: string;
     /** 1-based line of the finding, for a human-readable report. */
@@ -63,14 +63,14 @@ export const MAX_PREVIEW_CONTENT_BYTES = 2_000_000;
 export const MAX_PREVIEW_DIFF_BYTES = 1_000_000;
 
 /** One file a dry run would change, with the text it would end up holding. */
-export interface MigrationPreviewFile {
+interface MigrationPreviewFile {
     fsPath: string;
     /** The file's contents after the migration, for a side-by-side view against what is on disk. */
     after: string;
 }
 
 /** What a dry run would change, in the formats an editor can render. */
-export interface MigrationPreview {
+interface MigrationPreview {
     /** Every changed file as one unified diff, for a client without a diff view. */
     diff: string;
     /** The changed files with their rewritten contents, capped by {@link MAX_PREVIEW_FILES}. */
@@ -82,7 +82,7 @@ export interface MigrationPreview {
 }
 
 /** Gathers a dry run's changed files, dropping whatever does not fit in one message. */
-export interface MigrationPreviewCollector {
+interface MigrationPreviewCollector {
     /**
      * Records one changed file.
      *
@@ -143,7 +143,7 @@ export const createMigrationPreview = (): MigrationPreviewCollector => {
 };
 
 /** The per-file slice of a migration: the edits to apply plus the report bookkeeping. */
-export interface FileMigrationResult {
+interface FileMigrationResult {
     edits: TextEdit[];
     byVersion: Record<string, number>;
     manual: ManualFinding[];

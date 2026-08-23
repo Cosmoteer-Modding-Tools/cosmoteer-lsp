@@ -6,6 +6,7 @@ import {
     isValueNode,
 } from '../../../core/ast/ast';
 import { basenameOf } from '../../../document/document-kind';
+import { ActionSource } from '../../../mod/action';
 import { parseModActions } from '../../../mod/action-parser';
 import { normalizeTargetPath } from '../../../mod/action-target-resolver';
 import { namedMembersOf } from '../../../utils/ast.utils';
@@ -34,6 +35,20 @@ export type ManifestChoice =
     | { readonly kind: 'ambiguous'; readonly manifests: string[] };
 
 /**
+ * The manifest an entry goes into: the one named `mod.rules`, or the mod's only one.
+ *
+ * A version split mod (`mod_0.30.rules` beside `mod_0.29.rules`) needs the author to say which
+ * variants get the entry, so it is refused rather than guessed at.
+ *
+ * @param manifests the mod's manifests.
+ * @returns the manifest, or undefined when the choice belongs to the author.
+ */
+export const manifestToWrite = (manifests: readonly string[]): string | undefined => {
+    const named = manifests.find((path) => basenameOf(path).toLowerCase() === 'mod.rules');
+    return named ?? (manifests.length === 1 ? manifests[0] : undefined);
+};
+
+/**
  * The manifest a registration is written into: the plain `mod.rules` when the mod ships one, and the
  * only manifest when it ships exactly one under another name.
  *
@@ -47,9 +62,8 @@ export type ManifestChoice =
 export const manifestForRegistration = (modRoot: string): ManifestChoice => {
     const manifests = manifestsIn(modRoot);
     if (manifests.length === 0) return { kind: 'none' };
-    const named = manifests.find((path) => basenameOf(path).toLowerCase() === 'mod.rules');
-    if (named) return { kind: 'manifest', fsPath: named };
-    if (manifests.length === 1) return { kind: 'manifest', fsPath: manifests[0] };
+    const chosen = manifestToWrite(manifests);
+    if (chosen) return { kind: 'manifest', fsPath: chosen };
     return { kind: 'ambiguous', manifests: manifests.map(basenameOf) };
 };
 
@@ -136,10 +150,46 @@ const referencesFile = (
 };
 
 /**
- * Whether one of a mod's manifests already adds a file to a list.
+ * Whether one of a mod's manifests already carries an action that does something to a target, with
+ * the caller deciding what counts as that something.
  *
  * Every manifest of the mod is read, variants included, since a version-split mod may already carry
- * the registration in the variant that is not being written to.
+ * the entry in the variant that is not being written to.
+ *
+ * @param modRoot the mod whose manifests are read.
+ * @param target the game node as an action target names it.
+ * @param matches whether one source of a matching action is the entry being looked for, called with
+ * the directory of the manifest the source is written in.
+ * @param verb the action verb to look at, absent when every verb counts.
+ * @returns true when one source of one matching action satisfies the predicate.
+ */
+export const manifestActionMatches = async (
+    modRoot: string,
+    target: string,
+    matches: (source: ActionSource, declaringDir: string) => boolean | Promise<boolean>,
+    verb?: string
+): Promise<boolean> => {
+    const wanted = normalizeTargetPath(target).toLowerCase();
+    for (const manifestFsPath of manifestsIn(modRoot)) {
+        const file = await readRulesFile(manifestFsPath);
+        if (!file) continue;
+        const declaringDir = dirOf(manifestFsPath);
+        for (const action of parseModActions(file.document)) {
+            if (verb !== undefined && action.type !== verb) continue;
+            const hits = action.targets.some(
+                (node) => normalizeTargetPath(String(node.valueType.value)).toLowerCase() === wanted
+            );
+            if (!hits) continue;
+            for (const source of action.sources) {
+                if (await matches(source, declaringDir)) return true;
+            }
+        }
+    }
+    return false;
+};
+
+/**
+ * Whether one of a mod's manifests already adds a file to a list.
  *
  * @param modRoot the mod whose manifests are read.
  * @param target the list as an action target names it.
@@ -150,25 +200,9 @@ export const manifestAlreadyAdds = async (
     modRoot: string,
     target: string,
     fileFsPath: string
-): Promise<boolean> => {
-    const wanted = normalizeTargetPath(target).toLowerCase();
-    for (const manifestFsPath of manifestsIn(modRoot)) {
-        const file = await readRulesFile(manifestFsPath);
-        if (!file) continue;
-        const declaringDir = dirOf(manifestFsPath);
-        for (const action of parseModActions(file.document)) {
-            const hits = action.targets.some(
-                (node) => normalizeTargetPath(String(node.valueType.value)).toLowerCase() === wanted
-            );
-            if (!hits) continue;
-            for (const source of action.sources) {
-                // A source is a `ManyToAdd [ … ]` list or a single `ToAdd`, and both reach the game
-                // the same way, so a bare reference counts as a registration just as a list element
-                // does.
-                const elements: readonly AbstractNode[] = isListNode(source) ? source.elements : [source];
-                if (referencesFile(elements, declaringDir, fileFsPath)) return true;
-            }
-        }
-    }
-    return false;
-};
+): Promise<boolean> =>
+    // A source is a `ManyToAdd [ … ]` list or a single `ToAdd`, and both reach the game the same way,
+    // so a bare reference counts as a registration just as a list element does.
+    await manifestActionMatches(modRoot, target, (source, declaringDir) =>
+        referencesFile(isListNode(source) ? source.elements : [source], declaringDir, fileFsPath)
+    );

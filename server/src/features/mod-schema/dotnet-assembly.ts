@@ -132,7 +132,7 @@ export interface DotNetAssembly {
 }
 
 /** What a `call` or `callvirt` instruction targets. */
-export interface CallTarget {
+interface CallTarget {
     readonly name: string;
     readonly declaringType?: string;
     /** The instantiation of a generic method call, empty for a non-generic one. */
@@ -1042,7 +1042,7 @@ export const isTokenOpcode = (opcode: number): boolean => TOKEN_OPCODES.has(opco
  * @param token the 32-bit token.
  * @returns the table id and 1-based row.
  */
-export const tokenParts = (token: number): { table: number; row: number } => ({
+const tokenParts = (token: number): { table: number; row: number } => ({
     table: (token >>> 24) & 0xff,
     row: token & 0x00ffffff,
 });

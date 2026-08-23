@@ -1,6 +1,6 @@
 import { Disposable, ExtensionContext, Position, Uri, ViewColumn, WebviewPanel, commands, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
-import { imageDataUri, nonceString } from '../webview-util';
+import { imageDataUri, webviewShell } from '../webview-util';
 
 /** The preview payload shape returned by the server's `cosmoteer/shaderPreview` request. */
 interface ShaderPreviewData {
@@ -172,16 +172,7 @@ export class ShaderPreviewPanel {
 
     /** The webview shell HTML, wiring in the bundled script and stylesheet by webview URI. */
     private html(): string {
-        const nonce = nonceString();
-        // A per-panel cache-buster so a rebuilt media script is fetched fresh, not served from the
-        // webview's resource cache.
-        const asset = (...parts: string[]): string =>
-            `${this.panel.webview
-                .asWebviewUri(Uri.joinPath(this.context.extensionUri, 'media', ...parts))
-                .toString()}?v=${nonce}`;
-        const csp =
-            `default-src 'none'; img-src ${this.panel.webview.cspSource} blob: data:; ` +
-            `style-src ${this.panel.webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+        const { nonce, asset, csp } = webviewShell(this.panel.webview, this.context.extensionUri);
         return `<!DOCTYPE html>
 <html lang="en">
 <head>

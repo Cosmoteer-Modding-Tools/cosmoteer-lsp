@@ -7,7 +7,7 @@ import { collectReferencedTxtKeys } from '../features/navigation/txt-reference-s
 import { basenameOf, isDocumentationFileName } from '../document/document-kind';
 import { computeModReachability, reachabilityKey } from '../mod/mod-reachability';
 import { findModRoot } from '../mod/mod-root';
-import { getWorkspaceFoldersCached } from './workspace-folders';
+import { getWorkspaceFoldersCached, workspaceFolderPaths } from './workspace-folders';
 
 /** Whether the whole-workspace diagnostics feature is currently enabled. */
 export const wholeWorkspaceEnabled = (): boolean => globalSettings.diagnostics?.validateWholeWorkspace ?? true;
@@ -39,10 +39,7 @@ export function bumpValidationScopeEpoch(): void {
 async function referencedTxtKeys(token: CancellationToken): Promise<Set<string> | undefined> {
     if (referencedTxtCache?.epoch === validationScopeEpoch) return referencedTxtCache.keys;
     const epoch = validationScopeEpoch;
-    const folders = await getWorkspaceFoldersCached();
-    const keys = await collectReferencedTxtKeys((folders ?? []).map((folder) => uriToFsPath(folder.uri)), token).catch(
-        () => undefined
-    );
+    const keys = await collectReferencedTxtKeys(await workspaceFolderPaths(), token).catch(() => undefined);
     if (!token.isCancellationRequested) referencedTxtCache = { epoch, keys };
     return keys;
 }

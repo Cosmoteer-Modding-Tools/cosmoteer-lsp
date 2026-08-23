@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from 'fs/promises';
+import { mkdir, rm, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { dirname } from 'path';
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
@@ -7,8 +7,8 @@ import { parseText } from '../../../utils/ast.utils';
 import { unifiedDiff } from '../../../utils/unified-diff';
 import { workspaceRelativePath } from '../../../utils/relative-path';
 import { foldPathCase } from '../../../workspace/fs-cache';
-import { filePathToUri } from '../../navigation/navigation-strategy';
 import { normalizeUri } from '../../navigation/reference-location';
+import { documentFor, openBuffers } from '../command-host';
 import { baseTargetFrom, BaseTarget } from './base-index';
 import { buildBaseFileText, buildBaseInsertText, relativeRulesReference } from './base-file.emitter';
 import { buildConsumerEdits, mergeFileEdits } from './consumer-rewrite';
@@ -88,7 +88,7 @@ export interface SharedBaseApplyResult {
 }
 
 /** One file the extraction would change, with the text it would end up holding. */
-export interface SharedBasePreviewFile {
+interface SharedBasePreviewFile {
     fsPath: string;
     /** The file's contents after the rewrite, for a side-by-side view against what is on disk. */
     after: string;
@@ -124,7 +124,7 @@ export interface SharedBasePreviewResult {
  */
 const MAX_PREVIEW_FILES = 40;
 
-export type ExtractSharedBaseSummary = SharedBaseScanResult | SharedBaseApplyResult | SharedBasePreviewResult;
+type ExtractSharedBaseSummary = SharedBaseScanResult | SharedBaseApplyResult | SharedBasePreviewResult;
 
 /** The server-side facilities the command needs, injected so the module stays testable. */
 export interface SharedBaseHost {
@@ -148,25 +148,6 @@ export interface SharedBaseHost {
 
 /** How many plans a sweep reports, so a large mod does not answer with a list nobody reads. */
 const MAX_REPORTED_PLANS = 40;
-
-/** The open buffer for a path, or a document built from its disk content. */
-const documentFor = async (fsPath: string, open: ReadonlyMap<string, TextDocument>): Promise<TextDocument | undefined> => {
-    const canonical = filePathToUri(fsPath);
-    const buffer = open.get(normalizeUri(canonical));
-    if (buffer) return buffer;
-    try {
-        return TextDocument.create(canonical, 'rules', 0, await readFile(fsPath, { encoding: 'utf-8' }));
-    } catch {
-        return undefined;
-    }
-};
-
-/** The open buffers keyed by normalized uri, so a file open in the editor is edited in place. */
-const openBuffers = (host: SharedBaseHost): Map<string, TextDocument> => {
-    const map = new Map<string, TextDocument>();
-    for (const document of host.openDocuments()) map.set(normalizeUri(document.uri), document);
-    return map;
-};
 
 /**
  * A one-line description of a plan for the client's picker.
@@ -584,7 +565,7 @@ export const applySharedBase = async (
  * @param cancellationToken cancels the re-reads.
  * @returns the diff and the same counts the apply would report.
  */
-export const previewSharedBase = async (
+const previewSharedBase = async (
     serialized: SerializedPlan,
     baseFileName: string | undefined,
     host: SharedBaseHost,

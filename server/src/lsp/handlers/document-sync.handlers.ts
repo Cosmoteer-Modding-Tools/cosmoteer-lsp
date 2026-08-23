@@ -14,8 +14,7 @@ import { filePathToUri } from '../../features/navigation/navigation-strategy';
 import { normalizeUri } from '../../features/navigation/reference-location';
 import { uriToFsPath } from '../../features/navigation/workspace-files';
 import { reachabilityKey } from '../../mod/mod-reachability';
-import { globalSettings } from '../../settings';
-import { CancellationError } from '../../utils/cancellation';
+import { traceFailure } from '../../utils/cancellation';
 import { hasPullDiagnosticsCapability } from '../capabilities';
 import { connection, documents, tokenSourceManager } from '../context';
 import { diagnosticsCache, inlayHintCache, semanticTokensCache } from '../document-caches';
@@ -24,7 +23,7 @@ import { openDocumentNorms, openParseCache, registerOpenDocument } from '../open
 import { cancelPushValidation, computeDiagnosticsCached, schedulePushValidation } from '../push-diagnostics';
 import { bumpWorkspaceScanEpoch } from '../scan-epoch';
 import { isOutsideRulesPanel, validationScopeKeys, wholeWorkspaceEnabled } from '../validation-scope';
-import { validateWorkspaceFile, workspaceDiagnosticUris } from '../workspace-scan';
+import { retractWorkspaceDiagnostics, validateWorkspaceFile } from '../workspace-scan';
 
 /**
  * Registers the document lifecycle: the close that retracts or persists a file's problems, the
@@ -66,12 +65,7 @@ export function register(): void {
                 // (open files always validate), but its problems leave the panel with the tab instead
                 // of persisting the way scanned files' problems do.
                 await connection.sendDiagnostics({ uri: e.document.uri, diagnostics: [] });
-                const closedNorm = normalizeUri(canonicalUri);
-                for (const stored of [...workspaceDiagnosticUris]) {
-                    if (normalizeUri(stored) !== closedNorm) continue;
-                    workspaceDiagnosticUris.delete(stored);
-                    await connection.sendDiagnostics({ uri: stored, diagnostics: [] });
-                }
+                await retractWorkspaceDiagnostics(canonicalUri);
                 return;
             }
             if (normalizeUri(canonicalUri) !== normalizeUri(e.document.uri)) {
@@ -94,7 +88,7 @@ export function register(): void {
                 // keystrokes. Validation is scheduled separately below.
                 registerOpenDocument(e.document);
             } catch (err) {
-                if (globalSettings.trace.server === 'messages' && !(err instanceof CancellationError)) console.error(err);
+                traceFailure(err);
             }
             // A pull-capable client requests `textDocument/diagnostic` itself after the change. Pushing
             // here as well would run the whole validation twice per edit.
@@ -117,12 +111,7 @@ export function register(): void {
         }
         // If the whole-workspace pass pushed diagnostics for this file before it was opened, retract
         // them. The pull result replaces them, and keeping both would double every entry.
-        const norm = normalizeUri(params.textDocument.uri);
-        for (const stored of workspaceDiagnosticUris) {
-            if (normalizeUri(stored) !== norm) continue;
-            workspaceDiagnosticUris.delete(stored);
-            await connection.sendDiagnostics({ uri: stored, diagnostics: [] });
-        }
+        await retractWorkspaceDiagnostics(params.textDocument.uri);
         const items = await computeDiagnosticsCached(document);
         if (cancelToken.isCancellationRequested) {
             throw new ResponseError(LSPErrorCodes.RequestCancelled, 'diagnostic pull cancelled');

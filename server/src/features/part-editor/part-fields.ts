@@ -16,7 +16,7 @@ import { isSameOrSubclass } from '../navigation/schema-id-reference.navigation';
 export const PART_RULES_CLASS = 'Cosmoteer.Ships.Parts.PartRules';
 
 export const ADJACENCY_FLAGS_ENUM = 'Cosmoteer.Ships.Parts.AdjacencyFlags';
-export const TRAVEL_DIRECTION_ENUM = 'Cosmoteer.Ships.Crew.TravelDirection';
+const TRAVEL_DIRECTION_ENUM = 'Cosmoteer.Ships.Crew.TravelDirection';
 
 /**
  * The part-root cell-set fields, one `cellSet` layer each. Door locations name the outside cells a

@@ -64,7 +64,7 @@ import { getParsedFileDocument } from '../../../workspace/parsed-file-cache';
  */
 
 /** What the whole walk amounts to. */
-export type ReferenceTraceVerdict =
+type ReferenceTraceVerdict =
     | /** Every hop resolved. */ 'resolved'
     | /** Only the mod's own additions supply it, which is how the game reads it inside that mod. */ 'resolved-via-mod'
     | /** A `~` path the file cannot answer, so the game answers it when the rule is instantiated. */ 'runtime-only'
@@ -90,7 +90,7 @@ export type HopKind =
     | /** A segment the path grammar allows but the resolver has no rule for. */ 'unmodelled';
 
 /** What a hop landed on. */
-export type LandedKind = 'file' | 'document' | 'group' | 'list' | 'value' | 'other';
+type LandedKind = 'file' | 'document' | 'group' | 'list' | 'value' | 'other';
 
 /** A place in the project, as a file and an optional line. */
 export interface TracePlace {
@@ -126,7 +126,7 @@ export interface ReferenceHop {
 }
 
 /** One name the game would find at the place the walk stopped. */
-export interface AvailableMember {
+interface AvailableMember {
     readonly name: string;
     /** Where the winning declaration lives. */
     readonly origin: TracePlace;

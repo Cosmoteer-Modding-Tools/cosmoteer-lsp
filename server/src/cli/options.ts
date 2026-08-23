@@ -2,7 +2,7 @@ import { resolve } from 'path';
 import { LintSeverity, RULES, SEVERITY_ORDER } from './rule-ids';
 
 /** How the run writes its findings. */
-export type OutputFormat = 'text' | 'json' | 'sarif' | 'github';
+type OutputFormat = 'text' | 'json' | 'sarif' | 'github';
 
 /** Which files the whole-workspace pass covers, in the server's own wording. */
 export type ValidationScope = 'allFiles' | 'modRulesReachable';
@@ -51,7 +51,7 @@ export interface LintOptions {
 }
 
 /** What reading the command line produced. */
-export type ParsedArguments =
+type ParsedArguments =
     | { kind: 'run'; options: LintOptions }
     | { kind: 'help' }
     | { kind: 'version' }

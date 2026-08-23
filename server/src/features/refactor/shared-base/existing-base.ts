@@ -22,7 +22,7 @@ const pathKey = (path: string): string => foldPathCase(path.replace(/\\/g, '/'))
  * Why a set of containers cannot put its repeated fields into the base it already inherits. Returned
  * rather than a bare boolean so the reason can be asserted in a test and explained in a review.
  */
-export type UpgradeRefusal =
+type UpgradeRefusal =
     /** Something else in the mod inherits that base, and would silently gain the fields. */
     | 'otherInheritors'
     /** The base is not a file of the mod being edited, so it must not be rewritten. */

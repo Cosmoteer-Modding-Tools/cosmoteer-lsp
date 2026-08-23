@@ -10,6 +10,7 @@ import {
     dirOfPath,
     locateCloneTarget,
     removableMemberSpan,
+    unitFileKindOf,
 } from '../../../../src/features/refactor/clone-declaration/clone-target';
 import { clearModRootCache } from '../../../../src/mod/mod-root';
 import { parseText } from '../../../../src/utils/ast.utils';
@@ -26,6 +27,8 @@ const TWO = `${FIXTURE}/Data/ships/terran/twoids/two.rules`;
 const LORE = `${FIXTURE}/Data/codex/lore/lore_cabal.rules`;
 const FACTIONS = `${FIXTURE}/Data/factions/factions.rules`;
 const SMOKE = `${FIXTURE}/Data/ships/terran/cannon/particles/smoke.rules`;
+const TXT_NEIGHBOUR = `${FIXTURE}/Data/ships/terran/txtneighbour/beam.rules`;
+const TXT_NOTES = `${FIXTURE}/Data/ships/terran/txtnotes/probe.rules`;
 
 const read = (path: string): string => readFileSync(path, { encoding: 'utf-8' });
 
@@ -111,6 +114,14 @@ describe('the copy unit', () => {
         expect(await copyUnitOf(WALL, CancellationToken.None)).toBe('file');
     });
 
+    it('carries the single file when the neighbour declaring an id is a txt rules fragment', async () => {
+        expect(await copyUnitOf(TXT_NEIGHBOUR, CancellationToken.None)).toBe('file');
+    });
+
+    it('carries the whole folder when the only txt beside the file is prose the parser refuses', async () => {
+        expect(await copyUnitOf(TXT_NOTES, CancellationToken.None)).toBe('directory');
+    });
+
     it('never carries a whole mod, however few declarations the folder holds', async () => {
         expect(await copyUnitOf(`${FIXTURE}/mod/mod.rules`, CancellationToken.None)).toBe('file');
     });
@@ -131,6 +142,19 @@ describe('reading the source', () => {
         const part = document.elements.find((element) => 'identifier' in element)!;
         const span = removableMemberSpan(part as never, text, 'OtherIDs')!;
         expect(text.slice(span.start, span.end)).toBe('\tOtherIDs = [old_cannon]\n');
+    });
+
+    it('names a txt a file that has to be read before it is judged, and a readme.rules plain rules', () => {
+        expect(unitFileKindOf('/parts/mine/mine.rules')).toBe('rules');
+        // A readme is prose by name, but the extension still puts an id in it into the collection, so
+        // the folder is judged on it the way it always was.
+        expect(unitFileKindOf('/parts/mine/readme.rules')).toBe('rules');
+        expect(unitFileKindOf('/parts/mine/effect.txt')).toBe('maybeRules');
+        expect(unitFileKindOf('/parts/mine/readme.txt')).toBe('other');
+        expect(unitFileKindOf('/parts/mine/icon.png')).toBe('other');
+        // The kind is read off the name, so a Windows path has to reach the same verdict.
+        expect(unitFileKindOf('C:\\parts\\mine\\readme.txt')).toBe('other');
+        expect(unitFileKindOf('C:\\parts\\mine\\effect.txt')).toBe('maybeRules');
     });
 
     it('reads a directory off a path with either separator', () => {

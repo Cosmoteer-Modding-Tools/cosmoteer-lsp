@@ -23,7 +23,7 @@ import { CosmoteerWorkspaceData, CosmoteerWorkspaceService } from '../workspace/
 const STRINGS_FOLDER_FIELD = 'StringsFolder';
 
 /** Normalize an fs path or `file://` URI to a comparable lowercase, forward-slash, no-trailing-slash form. */
-export const normalizeFsPath = (path: string): string => {
+const normalizeFsPath = (path: string): string => {
     let p = path.trim();
     if (p.startsWith('file://')) p = decodeURIComponent(p.slice('file://'.length));
     return p

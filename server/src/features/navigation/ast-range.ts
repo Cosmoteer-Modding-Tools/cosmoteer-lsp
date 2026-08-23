@@ -43,7 +43,7 @@ export const unionRange = (a: Range, b: Range): Range => ({
  * Visit the position of `node` and every descendant, across all node shapes. Some
  * structural nodes (e.g. `Assignment`) carry no own `position`, so each visit is guarded.
  */
-export const walkPositions = (node: AbstractNode | null | undefined, visit: (position: AstPosition) => void): void => {
+const walkPositions = (node: AbstractNode | null | undefined, visit: (position: AstPosition) => void): void => {
     if (!node) return; // a bare key (`EmitPerOneShot`) parses to an assignment with no right value
     if (node.position) visit(node.position);
     if (isGroupNode(node) || isListNode(node)) {

@@ -15,7 +15,7 @@ import {
 } from '../../features/schema-search/schema-search';
 import { perfReset, perfSnapshot } from '../../utils/perf-counters';
 import { globalSettings } from '../../settings';
-import { CancellationError } from '../../utils/cancellation';
+import { traceFailure } from '../../utils/cancellation';
 import { connection, documents } from '../context';
 import { ensureFragmentRooting } from '../fragment-rooting';
 import { ensureParserResult, openBufferReadOverride } from '../open-documents';
@@ -48,7 +48,7 @@ export function register(): void {
                 readOverride
             );
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -70,7 +70,7 @@ export function register(): void {
                 cancellationToken
             );
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -95,7 +95,7 @@ export function register(): void {
                 cancellationToken
             );
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return { status: 'error' };
         }
     });
@@ -109,7 +109,7 @@ export function register(): void {
             await ensureFragmentRooting(cancellationToken);
             return (await generateModOverview(params.textDocument.uri, await searchFolderUris(), cancellationToken)) ?? null;
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -134,7 +134,7 @@ export function register(): void {
                 )) ?? null
             );
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -155,7 +155,7 @@ export function register(): void {
                 null
             );
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -173,7 +173,7 @@ export function register(): void {
             await ensureFragmentRooting(cancellationToken);
             return (await generateReferenceTraceReport(parserResult, params.position, cancellationToken)) ?? null;
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -200,7 +200,7 @@ export function register(): void {
             }
             return searchSchema(params, contextClass);
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });

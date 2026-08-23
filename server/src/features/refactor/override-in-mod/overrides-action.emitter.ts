@@ -10,7 +10,7 @@ import { relativeRulesReference } from '../shared-base/base-file.emitter';
  */
 
 /** Where the `Overrides` map comes from: written into the action, or read from a file of the mod. */
-export type OverridesSource =
+type OverridesSource =
     | {
           /** The map is written into the manifest, which suits a value or two. */
           readonly kind: 'inline';

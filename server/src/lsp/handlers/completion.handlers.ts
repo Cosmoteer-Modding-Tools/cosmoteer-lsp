@@ -19,17 +19,15 @@ import { particleChannelCompletionsAtOffset } from '../../features/navigation/pa
 import { mapKeyTargetOf, schemaReferenceFieldOf } from '../../features/navigation/schema-id-reference.navigation';
 import { findEnclosingGroup, findEnclosingList, listElementReferenceTarget } from '../../document/schema/schema-context';
 import { shaderCompletions, shaderIncludePathCompletions } from '../../features/shader/shader-completion';
-import { collectIncludeText } from '../../features/shader/shader-index';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { isModRules, isShaderDocument } from '../../document/document-kind';
 import { findNodeAtPosition } from '../../utils/ast.utils';
 import { uriToFsPath } from '../../features/navigation/workspace-files';
-import { globalSettings } from '../../settings';
-import { CancellationError } from '../../utils/cancellation';
+import { traceFailure } from '../../utils/cancellation';
 import { finishCompletionList, resolveCompletionDocumentation } from '../completion-list';
 import { connection, documents } from '../context';
 import { ensureFragmentRooting } from '../fragment-rooting';
-import { ensureParserResult, openBufferReadOverride } from '../open-documents';
+import { ensureParserResult, shaderIncludeTextFor } from '../open-documents';
 import { scopedToShipLayers } from '../ship-layers';
 import { searchFolderUris } from '../workspace-folders';
 
@@ -56,12 +54,7 @@ export function register(): void {
                     ).catch(() => []);
                 }
                 // Widen completion to the include chain so a custom base shader's symbols resolve too.
-                const includeText = await collectIncludeText(
-                    text,
-                    uriToFsPath(textDocumentPosition.textDocument.uri),
-                    undefined,
-                    openBufferReadOverride()
-                ).catch(() => '');
+                const includeText = await shaderIncludeTextFor(text, textDocumentPosition.textDocument.uri);
                 return shaderCompletions(text, offset, includeText);
             }
             // The line left of the cursor drives both the whole-value replace range and the over-cap
@@ -95,6 +88,24 @@ export function register(): void {
                 // may simply not be parsed yet, and the client must ask again rather than cache nothing.
                 if (!parserResult) return { isIncomplete: true, items: [] };
                 await ensureFragmentRooting(cancellationToken);
+                /** The project's ids for a reference target, ship-layer narrowed and ranged onto the value. */
+                const idCompletionsFor = async (target: string): Promise<Completion[]> =>
+                    withReplaceRange(
+                        await scopedToShipLayers(
+                            (await componentIdCompletionsForTarget(target, parserResult, cancellationToken).catch(
+                                () => undefined
+                            )) ??
+                                (await SchemaIdIndex.instance
+                                    .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
+                                    .catch(() => [])),
+                            target,
+                            textDocumentPosition.textDocument.uri,
+                            parserResult,
+                            cancellationToken
+                        ),
+                        valueRange,
+                        valueSuffix
+                    );
                 // Offset-based completion, shared by the no-leaf branch below and the bare-identifier
                 // fallback: at an empty `Key = ` value position offer that field's legal values, else
                 // offer the enclosing group's not-yet-present schema field names.
@@ -127,24 +138,7 @@ export function register(): void {
                         ? undefined
                         : crossFileReferenceTargetAtOffset(parserResult, offset, linePrefix);
                     if (target) {
-                        const ids =
-                            (await componentIdCompletionsForTarget(target, parserResult, cancellationToken).catch(
-                                () => undefined
-                            )) ??
-                            (await SchemaIdIndex.instance
-                                .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
-                                .catch(() => []));
-                        return withReplaceRange(
-                            await scopedToShipLayers(
-                                ids,
-                                target,
-                                textDocumentPosition.textDocument.uri,
-                                parserResult,
-                                cancellationToken
-                            ),
-                            valueRange,
-                            valueSuffix
-                        );
+                        return idCompletionsFor(target);
                     }
                     if (isLocalizationKeyFieldAtOffset(parserResult, offset, linePrefix)) {
                         // A `KeyString` field (`NameKey = `) → the project's strings keys.
@@ -272,31 +266,14 @@ export function register(): void {
                             // An empty `OtherIDs [ … ]` resolves the cursor to the list rather than a
                             // value node, so the declaration check runs here too.
                             if (target && !isIdDeclarationPositionAt(parserResult, offset, linePrefix)) {
-                                const ids =
-                                    (await componentIdCompletionsForTarget(target, parserResult, cancellationToken).catch(
-                                        () => undefined
-                                    )) ??
-                                    (await SchemaIdIndex.instance
-                                        .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
-                                        .catch(() => []));
-                                completions = withReplaceRange(
-                                    await scopedToShipLayers(
-                                        ids,
-                                        target,
-                                        textDocumentPosition.textDocument.uri,
-                                        parserResult,
-                                        cancellationToken
-                                    ),
-                                    valueRange,
-                                    valueSuffix
-                                );
+                                completions = await idCompletionsFor(target);
                             }
                         }
                         }
                     }
                 }
             } catch (e) {
-                if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+                traceFailure(e);
             }
             return finishCompletionList(completions, wordPrefix);
         }

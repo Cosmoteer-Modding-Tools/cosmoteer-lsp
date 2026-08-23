@@ -101,7 +101,7 @@ export const sortFindings = (findings: readonly LintFinding[]): LintFinding[] =>
 const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 /** Which findings a report carries, and which of them decide the exit code. */
-export interface FindingFilter {
+interface FindingFilter {
     /** The least severe finding the report carries. */
     minSeverity: LintSeverity;
     /** Rule ids to keep, or undefined to keep every rule. */

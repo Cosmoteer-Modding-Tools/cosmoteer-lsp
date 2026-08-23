@@ -25,11 +25,11 @@ import {
 import { ValueType } from '../document/schema/schema.types';
 import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
 import { normalizeUri } from '../features/navigation/reference-location';
-import { ReverseIncludeIndex } from '../features/navigation/reverse-include.index';
+import { agreedValueType, ReverseIncludeIndex } from '../features/navigation/reverse-include.index';
 import { WatchedDocumentIndex } from '../features/navigation/watched-document-index';
-import { modFolderPaths, uriToFsPath } from '../features/navigation/workspace-files';
+import { modFolderPaths } from '../features/navigation/workspace-files';
 import { cachedParseFilePath } from '../workspace/fs-cache';
-import { CosmoteerWorkspaceService, FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
+import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { Action } from './action';
 import { isActionFragmentDocument, parseModActions } from './action-parser';
 import { normalizeTargetPath, resolveActionTarget } from './action-target-resolver';
@@ -192,18 +192,7 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
     public memberType(uri: string, member: string): ValueType | undefined {
         const sources = this.byTarget.get(normalizeUri(uri))?.get(member.toLowerCase());
         if (!sources || sources.size === 0) return undefined;
-        let chosen: ValueType | undefined;
-        let signature: string | undefined;
-        for (const valueType of sources.values()) {
-            const current = JSON.stringify(valueType);
-            if (signature === undefined) {
-                signature = current;
-                chosen = valueType;
-            } else if (current !== signature) {
-                return undefined;
-            }
-        }
-        return chosen;
+        return agreedValueType(sources);
     }
 
     /**

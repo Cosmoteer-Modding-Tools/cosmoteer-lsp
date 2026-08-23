@@ -2,17 +2,16 @@ import {
     CancellationToken,
     CodeLens,
     CodeLensProvider,
-    EventEmitter,
     Position,
     Range,
     TextDocument,
-    TextDocumentContentProvider,
     Uri,
     commands,
     l10n,
     window,
 } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { VirtualContentProvider } from '../virtual-content-provider';
 
 /** The virtual-document scheme the rendered overview markdown is served under. */
 export const MOD_OVERVIEW_SCHEME = 'cosmoteer-mod-overview';
@@ -51,19 +50,9 @@ export class ModOverviewCodeLensProvider implements CodeLensProvider {
  * Serves the generated overview markdown as a read-only virtual document, so the built-in markdown
  * preview can render it without writing a file into the user's mod.
  */
-export class ModOverviewContentProvider implements TextDocumentContentProvider {
-    private readonly contentByUri = new Map<string, string>();
-    private readonly changeEmitter = new EventEmitter<Uri>();
-    public readonly onDidChange = this.changeEmitter.event;
-
-    /** Stores (or refreshes) the markdown behind an overview uri and notifies open previews. */
-    public set(uri: Uri, markdown: string): void {
-        this.contentByUri.set(uri.toString(), markdown);
-        this.changeEmitter.fire(uri);
-    }
-
-    public provideTextDocumentContent(uri: Uri): string {
-        return this.contentByUri.get(uri.toString()) ?? l10n.t('The mod overview is no longer available. Run the command again.');
+export class ModOverviewContentProvider extends VirtualContentProvider {
+    public constructor() {
+        super(() => l10n.t('The mod overview is no longer available. Run the command again.'));
     }
 }
 

@@ -3,27 +3,21 @@ import { clearSharedBaseScanCache } from '../features/refactor/shared-base/mod-s
 import { RegisterPartHost } from '../features/refactor/register-part/register-part.command';
 import { CloneHost } from '../features/refactor/clone-declaration/clone.command';
 import { NewContentHost } from '../features/refactor/new-content/new-content.command';
-import { WorkspaceSymbolService } from '../features/navigation/workspace-symbol.service';
 import { SchemaIdIndex } from '../features/completion/schema-id.index';
-import { TemplateBaseIndex } from '../features/diagnostics/template-base.index';
 import { LocalizationKeyIndex } from '../features/completion/localization-key.index';
-import { ReverseIncludeIndex } from '../features/navigation/reverse-include.index';
 import { MentionIndex } from '../features/navigation/mention.index';
-import { AddBaseIndex } from '../mod/add-base.index';
-import { MemberInjectionIndex } from '../mod/member-injection.index';
-import { ActionRootingIndex } from '../mod/action-rooting.index';
 import { invalidateModContext } from '../mod/mod-context';
 import { invalidateSchemaContextCache } from '../document/schema/schema-context';
 import { basenameOf, isManifestBasename } from '../document/document-kind';
 import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
 import { invalidateFsPath } from '../workspace/fs-cache';
 import { filePathToUri } from '../features/navigation/navigation-strategy';
-import { uriToFsPath } from '../features/navigation/workspace-files';
 import { connection, documents } from './context';
 import { diagnosticsCache, inlayHintCache } from './document-caches';
+import { markProjectIndexesDirty } from './open-documents';
 import { bumpWorkspaceScanEpoch } from './scan-epoch';
 import { bumpValidationScopeEpoch } from './validation-scope';
-import { getWorkspaceFoldersCached, searchFolderUris } from './workspace-folders';
+import { searchFolderUris, workspaceFolderPaths } from './workspace-folders';
 
 
 /**
@@ -40,7 +34,7 @@ export function sharedBaseHost(
 ): SharedBaseHost {
     return {
         inScope,
-        folderPaths: async () => ((await getWorkspaceFoldersCached()) ?? []).map((folder) => uriToFsPath(folder.uri)),
+        folderPaths: workspaceFolderPaths,
         openDocuments: () => documents.all(),
         applyEdit: async (changes) => (await connection.workspace.applyEdit({ changes })).applied,
         report: (percentage, message) => progress?.report(percentage, message),
@@ -51,15 +45,7 @@ export function sharedBaseHost(
             for (const path of paths) {
                 invalidateFsPath(path);
                 MentionIndex.instance.markDirty(path);
-                const uri = filePathToUri(path);
-                WorkspaceSymbolService.instance.markDirty(uri);
-                SchemaIdIndex.instance.markDirty(uri);
-                TemplateBaseIndex.instance.markDirty(uri);
-                LocalizationKeyIndex.instance.markDirty(uri);
-                ReverseIncludeIndex.instance.markDirty(uri);
-                AddBaseIndex.instance.markDirty(uri);
-                MemberInjectionIndex.instance.markDirty(uri);
-                ActionRootingIndex.instance.markDirty(uri);
+                markProjectIndexesDirty(filePathToUri(path));
             }
             invalidateSchemaContextCache();
             // A brand-new base file is outside the manifest's reachability closure until it is redone.
@@ -140,10 +126,6 @@ export function newContentHost(): NewContentHost {
     return {
         ...shared,
         existingIds: async (cls, cancellationToken) =>
-            await SchemaIdIndex.instance.idsForClass(
-                cls,
-                ((await getWorkspaceFoldersCached()) ?? []).map((folder) => uriToFsPath(folder.uri)),
-                cancellationToken
-            ),
+            await SchemaIdIndex.instance.idsForClass(cls, await workspaceFolderPaths(), cancellationToken),
     };
 }

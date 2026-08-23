@@ -36,7 +36,7 @@ export interface ActionRecord {
 }
 
 /** What collecting the actions of one manifest produced. */
-export interface ActionCollection {
+interface ActionCollection {
     records: ActionRecord[];
     /** Files this manifest pulls its actions in from, absolute. */
     includedFiles: string[];

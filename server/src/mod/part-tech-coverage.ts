@@ -43,7 +43,7 @@ import { getStartOfAstNode } from '../utils/ast.utils';
  */
 
 /** What the sweep found for one mod. */
-export interface PartTechCoverage {
+interface PartTechCoverage {
     /** False when no file in the project declares a tech at all, so nothing can be judged. */
     readonly judged: boolean;
     /** How many of the mod's parts were judged, which is how many the game loads. */

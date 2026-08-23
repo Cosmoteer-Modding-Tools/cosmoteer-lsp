@@ -18,7 +18,7 @@ import { recordScanBaseline } from '../features/post-update/post-update-baseline
 import { startScanCpuProfile, stopScanCpuProfile } from '../utils/cpu-profile';
 import { perfCount, perfSampleMemory } from '../utils/perf-counters';
 import { globalSettings } from '../settings';
-import { CancellationError } from '../utils/cancellation';
+import { traceFailure } from '../utils/cancellation';
 import { connection } from './context';
 import { ensureFragmentRooting } from './fragment-rooting';
 import { isDocumentOpen, openDocumentNorms } from './open-documents';
@@ -30,7 +30,7 @@ import {
     wholeWorkspaceEnabled,
     workspaceValidationScope,
 } from './validation-scope';
-import { getWorkspaceFoldersCached } from './workspace-folders';
+import { workspaceFolderUris } from './workspace-folders';
 
 // ── Whole-workspace diagnostics ─────────────────────────────────────────────────────────────
 // On by default. Besides the file open in the editor (see `documents.onDidChangeContent`), the
@@ -47,9 +47,26 @@ import { getWorkspaceFoldersCached } from './workspace-folders';
  *  wall time, eight bought nothing further while raising peak heap. */
 export const WORKSPACE_DIAGNOSTIC_CONCURRENCY = 6;
 /** URIs we have published whole-workspace diagnostics for, so we can clear them when disabled. */
-export const workspaceDiagnosticUris = new Set<string>();
+const workspaceDiagnosticUris = new Set<string>();
 /** Cancels an in-flight whole-workspace pass when settings or folders change again. */
 let workspaceValidationSource: CancellationTokenSource | undefined;
+
+/**
+ * Retracts the whole-workspace diagnostics published for one file. A retraction has to be sent to
+ * the same uri string the entry was published under, so entries are matched by normalized form: the
+ * uri a watcher or an editor hands us may differ in encoding from our `filePathToUri` form.
+ *
+ * @param uri the file whose published problems should leave the panel, in any uri encoding.
+ * @returns once every matching entry has been dropped and retracted.
+ */
+export async function retractWorkspaceDiagnostics(uri: string): Promise<void> {
+    const norm = normalizeUri(uri);
+    for (const stored of [...workspaceDiagnosticUris]) {
+        if (normalizeUri(stored) !== norm) continue;
+        workspaceDiagnosticUris.delete(stored);
+        await connection.sendDiagnostics({ uri: stored, diagnostics: [] });
+    }
+}
 
 
 interface ScanResultEntry {
@@ -197,7 +214,7 @@ export async function validateWorkspaceFile(file: string, openNorms: Set<string>
         workspaceDiagnosticUris.add(uri);
         await connection.sendDiagnostics({ uri, diagnostics });
     } catch (e) {
-        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        traceFailure(e);
     }
 }
 
@@ -213,8 +230,7 @@ export async function runWorkspaceValidation(): Promise<void> {
     workspaceValidationSource = source;
     const token = source.token;
 
-    const folders = await getWorkspaceFoldersCached();
-    const folderUris = (folders ?? []).map((folder) => folder.uri);
+    const folderUris = await workspaceFolderUris();
     if (folderUris.length === 0) return;
 
     const progress = await connection.window.createWorkDoneProgress();
@@ -228,7 +244,7 @@ export async function runWorkspaceValidation(): Promise<void> {
     // whole project once per reference query the pass makes.
     beginStatSweepWindow();
     try {
-        const files: string[] = [];
+        let files: string[] = [];
         for (const folder of folderUris) {
             for await (const file of collectRulesFiles(uriToFsPath(folder))) {
                 if (token.isCancellationRequested) return;
@@ -239,11 +255,7 @@ export async function runWorkspaceValidation(): Promise<void> {
         // manifest's reachability closure), so dead backups and templates stay out of the Problems
         // panel. A folder without a manifest keeps every file (nothing to scope by).
         const scopeKeys = await validationScopeKeys(token);
-        if (scopeKeys) {
-            const scoped = files.filter((file) => scopeKeys.has(reachabilityKey(file)));
-            files.length = 0;
-            files.push(...scoped);
-        }
+        if (scopeKeys) files = files.filter((file) => scopeKeys.has(reachabilityKey(file)));
         const openNorms = openDocumentNorms();
         // Problems published for files that are no longer in scope (the closure shrank, or a tab
         // close or watcher event validated them before the scope gates existed) are not refreshed

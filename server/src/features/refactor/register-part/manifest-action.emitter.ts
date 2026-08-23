@@ -17,7 +17,7 @@ const ACTIONS_MEMBER = 'actions';
 const DEFAULT_INDENT = '\t';
 
 /** Where a new action entry goes in a manifest, and what is written around it. */
-export type ManifestInsert =
+type ManifestInsert =
     | {
           /** `append` puts the entry in the existing `Actions` list, `createList` writes a fresh one. */
           readonly kind: 'append' | 'createList';

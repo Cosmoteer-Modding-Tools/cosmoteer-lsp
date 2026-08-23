@@ -13,11 +13,11 @@ import { shaderDocumentDefinition, shaderDocumentSymbols, shaderSymbolDefinition
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { isShaderDocument } from '../../document/document-kind';
 import { globalSettings } from '../../settings';
-import { CancellationError } from '../../utils/cancellation';
+import { traceFailure } from '../../utils/cancellation';
 import { connection, documents } from '../context';
 import { ensureFragmentRooting, workspaceReady } from '../fragment-rooting';
 import { ensureLexResult, ensureParserResult, openBufferReadOverride } from '../open-documents';
-import { getWorkspaceFoldersCached, searchFolderPaths, searchFolderUris } from '../workspace-folders';
+import { searchFolderPaths, searchFolderUris, workspaceFolderUris } from '../workspace-folders';
 
 /**
  * Registers the read-only navigation requests: go-to-definition, document links, the outline,
@@ -27,7 +27,7 @@ import { getWorkspaceFoldersCached, searchFolderPaths, searchFolderUris } from '
 export function register(): void {
     // Go-to-definition: resolve the reference under the cursor to its target location.
     connection.onDefinition(async (params: TextDocumentPositionParams, cancellationToken) => {
-        // `.shader` files: resolve an `#include "…"` under the cursor to the included file, or a `_uniform`
+        // `.shader` files: resolve an `#include "ï¿½"` under the cursor to the included file, or a `_uniform`
         // / function name to its declaration in this file or the include chain.
         if (isShaderDocument(params.textDocument.uri)) {
             const document = documents.get(params.textDocument.uri);
@@ -50,7 +50,7 @@ export function register(): void {
                 await searchFolderUris()
             );
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -66,7 +66,7 @@ export function register(): void {
         try {
             return computeDocumentLinks(parserResult);
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -81,7 +81,7 @@ export function register(): void {
             await ensureFragmentRooting(cancellationToken);
             return await resolveDocumentLink(link, parserResult, await searchFolderUris(), cancellationToken);
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return link;
         }
     });
@@ -100,12 +100,12 @@ export function register(): void {
             if (cancellationToken.isCancellationRequested) return null;
             return DocumentSymbolService.instance.getDocumentSymbols(parserResult);
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
 
-    // Folding: one region per `{ … }` / `[ … ]` body, plus the comment runs. Structural, no resolution.
+    // Folding: one region per `{ ï¿½ }` / `[ ï¿½ ]` body, plus the comment runs. Structural, no resolution.
     connection.onFoldingRanges((params, cancellationToken) => {
         // `.shader` files are HLSL, with no rules AST to fold. Answering `null` rather than an empty
         // list leaves the editor's own indentation folding in place instead of replacing it with nothing.
@@ -118,7 +118,7 @@ export function register(): void {
             const { tokens, blockComments } = ensureLexResult(document);
             return computeFoldingRanges(document, parserResult, tokens, blockComments);
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -133,7 +133,7 @@ export function register(): void {
             if (cancellationToken.isCancellationRequested) return null;
             return computeSelectionRanges(document, parserResult, params.positions);
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -151,19 +151,19 @@ export function register(): void {
             if (cancellationToken.isCancellationRequested) return null;
             return prepareTypeHierarchy(parserResult, params.position, await searchFolderPaths());
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
 
     connection.languages.typeHierarchy.onSupertypes(async (params, cancellationToken) => {
         try {
-            // Builds the indexes the resolution reads: the alias roots a `<…>` base resolves through and
+            // Builds the indexes the resolution reads: the alias roots a `<ï¿½>` base resolves through and
             // the AddBase index holding the bases a mod appends.
             await ensureFragmentRooting(cancellationToken);
             return await supertypesOf(params.item, await searchFolderPaths(), cancellationToken);
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -181,7 +181,7 @@ export function register(): void {
             // A cancellation from the client is not that: the user moved on, so answer nothing.
             return cancellationToken.isCancellationRequested ? null : items;
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -205,7 +205,7 @@ export function register(): void {
                 await connection.window.createWorkDoneProgress()
             );
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -229,7 +229,7 @@ export function register(): void {
                 cancellationToken
             );
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -240,15 +240,14 @@ export function register(): void {
             // Scoped to the open project (the mod), not the whole game tree. A project-wide
             // symbol table over all of Cosmoteer would be huge, and "go to symbol in workspace" is
             // about the files you're editing.
-            const folders = await getWorkspaceFoldersCached();
-            const folderUris = (folders ?? []).map((folder) => folder.uri);
+            const folderUris = await workspaceFolderUris();
             return await WorkspaceSymbolService.instance.getWorkspaceSymbols(
                 params.query,
                 folderUris,
                 cancellationToken
             );
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -266,7 +265,7 @@ export function register(): void {
             // A refusal carries the reason the rename cannot be done, so the editor shows that instead
             // of its own "this element cannot be renamed".
             if (e instanceof RenameRefusedError) return new ResponseError(LSPErrorCodes.RequestFailed, e.message);
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });
@@ -295,7 +294,7 @@ export function register(): void {
         } catch (e) {
             // A refusal carries the reason the rename cannot be done, which the author reads.
             if (e instanceof RenameRefusedError) return new ResponseError(LSPErrorCodes.RequestFailed, e.message);
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
             return null;
         }
     });

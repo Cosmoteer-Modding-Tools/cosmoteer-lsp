@@ -1,17 +1,8 @@
 import { readFile } from 'fs/promises';
 import { CancellationToken, Position, Range, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
-import {
-    AbstractNode,
-    AbstractNodeDocument,
-    IdentifierNode,
-    isAssignmentNode,
-    isDocumentNode,
-    isGroupNode,
-    isValueNode,
-    ValueNode,
-} from '../../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, IdentifierNode, isValueNode, ValueNode } from '../../core/ast/ast';
 import { isLocalizationKeyType, localizationKeyFieldNames } from '../../document/schema/schema';
-import { findNodeAtPosition, getStartOfAstNode, parseText } from '../../utils/ast.utils';
+import { assignmentNameOf, findNodeAtPosition, getStartOfAstNode, parseText } from '../../utils/ast.utils';
 import { CancellationError } from '../../utils/cancellation';
 import { ParserResultRegistrar } from '../../registrar/parser-result-registrar';
 import { fieldOfValueNode } from '../completion/autocompletion.schema';
@@ -41,7 +32,7 @@ export class RenameRefusedError extends Error {
 }
 
 /** What a localization-key rename rewrites: one segment of a key path, everywhere it is written. */
-export interface LocalizationKeyRenameTarget {
+interface LocalizationKeyRenameTarget {
     /** The key path down to the segment being renamed (`Parts/Foo`, or `Parts` for a group). */
     path: string;
     /** The segment's current text, which the new name replaces. */
@@ -108,25 +99,6 @@ const literalContentStart = (node: ValueNode): number | undefined => {
     const written = String(node.valueType.value);
     if (node.quoted) return width === written.length + 2 ? characterStart + 1 : undefined;
     return width === written.length ? characterStart : undefined;
-};
-
-/** Per-container lookup from an assignment's right-hand node to its field name, so a string-heavy
- *  group is walked once rather than once per candidate value. Keyed weakly so tables die with the AST. */
-const namesByRight: WeakMap<object, Map<unknown, string>> = new WeakMap();
-
-/** The field name whose `key = value` right-hand side is `node`, from the enclosing group or document. */
-const assignmentNameOf = (node: ValueNode): string | undefined => {
-    const parent = node.parent;
-    if (!parent || !(isGroupNode(parent) || isDocumentNode(parent))) return undefined;
-    let table = namesByRight.get(parent);
-    if (!table) {
-        table = new Map();
-        for (const element of parent.elements) {
-            if (isAssignmentNode(element)) table.set(element.right, element.left.name);
-        }
-        namesByRight.set(parent, table);
-    }
-    return table.get(node);
 };
 
 /**

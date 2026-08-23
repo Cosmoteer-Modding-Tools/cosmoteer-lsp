@@ -19,20 +19,18 @@ import { reachabilityKey } from '../../mod/mod-reachability';
 import { invalidateFsPath } from '../../workspace/fs-cache';
 import { basenameOf, isManifestBasename, isRulesFileName } from '../../document/document-kind';
 import { filePathToUri } from '../../features/navigation/navigation-strategy';
-import { normalizeUri } from '../../features/navigation/reference-location';
 import { uriToFsPath } from '../../features/navigation/workspace-files';
 import { hasPullDiagnosticsCapability } from '../capabilities';
 import { connection } from '../context';
 import { diagnosticsCache, inlayHintCache } from '../document-caches';
 import { codeModAutoRefreshEnabled, refreshModSchema } from '../mod-schema';
-import { openDocumentNorms } from '../open-documents';
+import { markProjectIndexesDirty, openDocumentNorms } from '../open-documents';
 import { bumpWorkspaceScanEpoch } from '../scan-epoch';
-import { invalidateShipLayersFor } from '../ship-layers';
 import { bumpValidationScopeEpoch, validationScopeKeys, wholeWorkspaceEnabled } from '../validation-scope';
 import {
     WORKSPACE_DIAGNOSTIC_CONCURRENCY,
+    retractWorkspaceDiagnostics,
     validateWorkspaceFile,
-    workspaceDiagnosticUris,
 } from '../workspace-scan';
 
 /**
@@ -91,25 +89,10 @@ export function register(): void {
                 AddBaseIndex.instance.remove(change.uri);
                 MemberInjectionIndex.instance.remove(change.uri);
                 ActionRootingIndex.instance.remove(change.uri);
-                // Clear any whole-workspace diagnostics we published for the now-deleted file. We must
-                // send to the same uri string we published with, so match by normalized form (the
-                // watcher's uri may differ in encoding from our `filePathToUri` form).
-                const deletedNorm = normalizeUri(change.uri);
-                for (const stored of workspaceDiagnosticUris) {
-                    if (normalizeUri(stored) !== deletedNorm) continue;
-                    workspaceDiagnosticUris.delete(stored);
-                    await connection.sendDiagnostics({ uri: stored, diagnostics: [] });
-                }
+                // Clear any whole-workspace diagnostics we published for the now-deleted file.
+                await retractWorkspaceDiagnostics(change.uri);
             } else {
-                WorkspaceSymbolService.instance.markDirty(change.uri);
-                SchemaIdIndex.instance.markDirty(change.uri);
-                invalidateShipLayersFor(change.uri);
-                TemplateBaseIndex.instance.markDirty(change.uri);
-                LocalizationKeyIndex.instance.markDirty(change.uri);
-                ReverseIncludeIndex.instance.markDirty(change.uri);
-                AddBaseIndex.instance.markDirty(change.uri);
-                MemberInjectionIndex.instance.markDirty(change.uri);
-                ActionRootingIndex.instance.markDirty(change.uri);
+                markProjectIndexesDirty(change.uri);
                 if (openNorms) toRevalidate.push(uriToFsPath(change.uri));
             }
         }
@@ -142,12 +125,7 @@ export function register(): void {
                     inScope.push(file);
                     continue;
                 }
-                const staleNorm = normalizeUri(filePathToUri(file));
-                for (const stored of [...workspaceDiagnosticUris]) {
-                    if (normalizeUri(stored) !== staleNorm) continue;
-                    workspaceDiagnosticUris.delete(stored);
-                    await connection.sendDiagnostics({ uri: stored, diagnostics: [] });
-                }
+                await retractWorkspaceDiagnostics(filePathToUri(file));
             }
             let next = 0;
             const worker = async (): Promise<void> => {

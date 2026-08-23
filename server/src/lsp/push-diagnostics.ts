@@ -1,7 +1,6 @@
 import { Diagnostic } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { globalSettings } from '../settings';
-import { CancellationError } from '../utils/cancellation';
+import { traceFailure } from '../utils/cancellation';
 import { connection, documents, tokenSourceManager } from './context';
 import { diagnosticsCache } from './document-caches';
 import { validateTextDocument } from './validate-document';
@@ -69,7 +68,7 @@ export function schedulePushValidation(document: TextDocument): void {
             const diagnostics = await computeDiagnosticsCached(current);
             await connection.sendDiagnostics({ uri, version: current.version, diagnostics });
         } catch (e) {
-            if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+            traceFailure(e);
         }
     };
     if (!diagnosticsCache.has(uri)) {

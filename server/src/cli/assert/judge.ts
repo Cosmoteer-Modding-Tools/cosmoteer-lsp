@@ -40,7 +40,7 @@ export interface JudgeContext {
 }
 
 /** What judging one action produced. */
-export interface ActionJudgement {
+interface ActionJudgement {
     verdict: ActionVerdict;
     /** Everything the check could not see about this action, which may stand beside a pass. */
     disclosures: Disclosure[];
@@ -264,18 +264,18 @@ export const judgeAction = (
             detail: `The check reported ${unrecognised.length === 1 ? 'a problem' : 'problems'} here that this version of the command cannot explain. Run the check without --assert-loads to read ${unrecognised.length === 1 ? 'it' : 'them'} in full.`,
         });
     }
-    const blocking = errors.filter((finding) => effectOf(finding, verb) !== 'no-effect');
-    if (blocking.length > 0) {
-        const effect = effectOf(blocking[0], verb);
-        return done({ ...base, mark: 'failed', effect, detail: `${blocking[0].message}. ${consequence(effect)}` });
+    const blocking = errors.find((finding) => effectOf(finding, verb) !== 'no-effect');
+    if (blocking) {
+        const effect = effectOf(blocking, verb);
+        return done({ ...base, mark: 'failed', effect, detail: `${blocking.message}. ${consequence(effect)}` });
     }
-    const dead = errors.filter((finding) => effectOf(finding, verb) === 'no-effect');
-    if (dead.length > 0) {
+    const dead = errors.find((finding) => effectOf(finding, verb) === 'no-effect');
+    if (dead) {
         return done({
             ...base,
             mark: 'ok',
             effect: 'no-effect',
-            detail: `${dead[0].message}. ${consequence('no-effect')}`,
+            detail: `${dead.message}. ${consequence('no-effect')}`,
         });
     }
     return done({ ...base, mark: 'ok', detail: 'The target is there and the action applies.' });

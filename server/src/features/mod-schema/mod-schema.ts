@@ -49,7 +49,7 @@ const SKIPPED_DIRECTORIES = new Set(['node_modules', '.git', '.vs', '.idea', 'ob
 const MAX_WALK_DEPTH = 5;
 
 /** One discovered assembly with the stat that decides whether a cached extraction still applies. */
-export interface AssemblyStamp {
+interface AssemblyStamp {
     path: string;
     size: number;
     mtimeMs: number;

@@ -146,7 +146,7 @@ const missingGameDataBanner = (report: LintReport): string[] => {
  * @param report the assembled report.
  * @returns the rule ids that produced findings, with their counts, most findings first.
  */
-export const ruleBreakdown = (report: LintReport): string[] => {
+const ruleBreakdown = (report: LintReport): string[] => {
     const counts = new Map<string, number>();
     for (const finding of report.findings) counts.set(finding.ruleId, (counts.get(finding.ruleId) ?? 0) + 1);
     return [...counts.entries()]

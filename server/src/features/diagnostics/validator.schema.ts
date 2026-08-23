@@ -4,7 +4,6 @@ import {
     AbstractNodeDocument,
     AssignmentNode,
     isAssignmentNode,
-    isDocumentNode,
     isFunctionCallNode,
     isGroupNode,
     isIdentifierNode,
@@ -14,6 +13,7 @@ import {
     ListNode,
     ValueNode,
 } from '../../core/ast/ast';
+import { childNodesOf } from '../../utils/ast.utils';
 import { isModRules } from '../../document/document-kind';
 import {
     groupDiscriminator,
@@ -39,7 +39,7 @@ import {
 } from '../../document/schema/deprecations';
 import { SchemaField, SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { GroupNode } from '../../core/ast/ast';
-import { ValidationError } from './validator';
+import { didYouMeanFix, ValidationError } from './validator';
 import { closestMatch } from '../../utils/did-you-mean';
 import { ALL_MATH_FUNCTION_NAMES } from '../../semantics/math-function-registry';
 import { evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
@@ -353,9 +353,7 @@ export const validateSchema = async (
             message: l10n.t("'{0}' is not a valid {1}. Expected one of: {2}", written, typeName, members.join(', ')),
             node: value,
             severity: 'warning',
-            ...(suggestion
-                ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
-                : {}),
+            ...didYouMeanFix(suggestion),
         });
     };
 
@@ -425,9 +423,7 @@ export const validateSchema = async (
             message: l10n.t("'{0}' is not a valid {1} type.", written, registry.name),
             node: valueNode,
             severity: 'warning',
-            ...(suggestion
-                ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
-                : {}),
+            ...didYouMeanFix(suggestion),
         });
     };
 
@@ -468,12 +464,7 @@ export const validateSchema = async (
             // not read it, so it must still surface the rename hint.
             if (disc && (!cls || cls === slotRegistry || deprecatedDiscriminator(disc))) checkDiscriminator(node);
         }
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) visit(child);
     };
 
@@ -609,9 +600,7 @@ export const validateSchema = async (
                 ),
                 node: nameNode,
                 severity: 'warning',
-                ...(suggestion
-                    ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
-                    : {}),
+                ...didYouMeanFix(suggestion),
             });
         }
     };

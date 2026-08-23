@@ -23,9 +23,9 @@ import { isSameOrSubclass } from '../navigation/schema-id-reference.navigation';
 import { BUILTIN_IDS } from '../../document/schema/entity-schema';
 import { includingDocumentsOf, overrideTargetsOf } from '../../mod/override-sources';
 import { isFile, FileWithPath } from '../../workspace/cosmoteer-workspace.service';
-import { namedMembersOf, getStartOfAstNode } from '../../utils/ast.utils';
+import { childNodesOf, getStartOfAstNode } from '../../utils/ast.utils';
 import { closestMatch } from '../../utils/did-you-mean';
-import type { ValidationError } from './validator';
+import { didYouMeanFix, type ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 
 const navigation = new FullNavigationStrategy();
@@ -57,7 +57,7 @@ const isNode = (value: unknown): value is AbstractNode =>
     !!value && !isFile(value as FileWithPath) && typeof (value as AbstractNode).type === 'string';
 
 /** The part-wide component-id collection: the loose existence union plus the precise declarations. */
-export interface PartComponentIds {
+interface PartComponentIds {
     /** Every reachable group/list identifier (and assignment-declared name), lowercased. This is the
      *  over-inclusive union the validator's false-positive-free existence test checks against. */
     readonly all: Set<string>;
@@ -265,12 +265,7 @@ const collectComponentIdsUncached = async (
                     }
                 }
             }
-            const children: AbstractNode[] =
-                isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                    ? node.elements
-                    : isAssignmentNode(node)
-                      ? (node.right ? [node.right] : [])
-                      : [];
+            const children = childNodesOf(node);
             for (const child of children) stack.push(child);
         }
     }
@@ -350,9 +345,7 @@ export const validateSchemaSiblingReferences = async (
                 : l10n.t("No component named '{0}' in this part.", written),
             node: value,
             severity: 'warning',
-            ...(suggestion
-                ? { data: { quickFix: { title: l10n.t("Change to '{0}'", suggestion), newText: suggestion } } }
-                : {}),
+            ...didYouMeanFix(suggestion),
         });
     };
 
@@ -395,12 +388,7 @@ export const validateSchemaSiblingReferences = async (
         if (cancellationToken.isCancellationRequested) return;
         if (isGroupNode(node)) checkGroup(node);
         if (isListNode(node)) checkTupleList(node);
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) visit(child);
     };
 
@@ -445,7 +433,7 @@ export const isComponentField = (cls: string, fieldName: string, registry: Retur
  * @param fieldName the field being written.
  * @returns the referenced component class FullName, or undefined when the field names no component.
  */
-export const componentTargetOfField = (cls: string, fieldName: string): string | undefined => {
+const componentTargetOfField = (cls: string, fieldName: string): string | undefined => {
     const valueType = fieldOf(cls, fieldName)?.valueType;
     const targetOf = (type: ValueType | undefined): string | undefined =>
         type?.kind === 'reference'
@@ -605,12 +593,7 @@ const hasCandidateSiblingReference = (document: AbstractNodeDocument, registry: 
                 }
             }
         }
-        const children: AbstractNode[] =
-            isGroupNode(node) || isListNode(node) || isDocumentNode(node)
-                ? node.elements
-                : isAssignmentNode(node)
-                  ? (node.right ? [node.right] : [])
-                  : [];
+        const children = childNodesOf(node);
         for (const child of children) visit(child);
     };
     for (const element of document.elements) visit(element);

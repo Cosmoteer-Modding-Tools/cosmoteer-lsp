@@ -1,3 +1,4 @@
+import { registry } from '../../utils/registry';
 /**
  * A focused translator from the constrained HLSL dialect Cosmoteer `.shader` files use into GLSL ES
  * 1.00, the version WebGL1 (and therefore a VS Code webview) compiles. It is best-effort: it covers
@@ -22,7 +23,7 @@
  * the shader defines its own `vert` whose inputs the preview can synthesize from the quad, so the
  * preview runs the shader's real per-vertex math instead of the generic stand-ins.
  */
-export interface GlslVertexStage {
+interface GlslVertexStage {
     /** The GLSL ES 1.00 vertex shader source. */
     readonly glsl: string;
     /** The fragment shader reading the vertex stage's varyings instead of the stand-in defaults. */
@@ -44,7 +45,7 @@ export interface GlslTranslation {
 }
 
 /** Maps an HLSL scalar/vector/matrix type token to its GLSL spelling. */
-const TYPE_MAP: Readonly<Record<string, string>> = {
+const TYPE_MAP: Readonly<Record<string, string>> = registry({
     float2: 'vec2',
     float3: 'vec3',
     float4: 'vec4',
@@ -56,7 +57,7 @@ const TYPE_MAP: Readonly<Record<string, string>> = {
     float4x4: 'mat4',
     matrix: 'mat4',
     uint: 'int',
-};
+});
 
 /** The GLSL type names that can open a file-scope declaration. */
 const GLSL_TYPES = ['vec2', 'vec3', 'vec4', 'mat2', 'mat3', 'mat4', 'float', 'int', 'bool'];
@@ -551,7 +552,7 @@ const pruneUnreachableFunctions = (src: string, entry: string): { src: string; k
  * can animate the beam time and expose intensity and fade as live controls. World locations scale
  * `vUv` up so world-unit noise math (nebulas) still shows variation across the quad.
  */
-const FIELD_DEFAULTS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+const FIELD_DEFAULTS: Readonly<Record<string, Readonly<Record<string, string>>>> = registry<Readonly<Record<string, string>>>({
     uv: { vec2: 'vUv', vec4: 'vec4(vUv, 0.0, 1.0)' },
     color: { vec4: 'vColor', vec3: 'vColor.rgb' },
     // The engine tangent is (rightDir.xy, flipX, flipY); an unrotated unflipped sprite is (1, 0, 1, 1).
@@ -590,7 +591,7 @@ const FIELD_DEFAULTS: Readonly<Record<string, Readonly<Record<string, string>>>>
     buff: { float: '0.0' },
     length: { float: 'uPvBeamLength' },
     unexploredUV: { vec2: 'vUv' },
-};
+});
 
 /**
  * Overloads covering HLSL's implicit scalar promotion in `lerp` calls (`lerp(luminance, rgb, t)`
@@ -634,7 +635,7 @@ vec4 lerp_(vec4 a, vec4 b, float t) { return mix(a, b, t); }
  * `vertexOffset.y` carries the half-thickness the game's CPU normally supplies. A field with no
  * entry here means the vertex stage cannot be synthesized and the preview keeps the stand-in path.
  */
-const VERT_INPUT_DEFAULTS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+const VERT_INPUT_DEFAULTS: Readonly<Record<string, Readonly<Record<string, string>>>> = registry<Readonly<Record<string, string>>>({
     location: { vec4: 'vec4(aPos * 50.0, 0.0, 1.0)' },
     locationMin: { vec4: 'vec4(aPos * 50.0, 0.0, 1.0)' },
     locationMax: { vec4: 'vec4(aPos * 50.0, 0.0, 1.0)' },
@@ -691,7 +692,7 @@ const VERT_INPUT_DEFAULTS: Readonly<Record<string, Readonly<Record<string, strin
     cycleSiblingCount: { float: '1.0' },
     randomTimeOffset: { float: '0.0' },
     roofOpacity: { float: '1.0' },
-};
+});
 
 /** The preview-only uniforms standing in for the vertex-stage inputs the engine feeds per frame. */
 const PV_UNIFORMS = `uniform float uPvBeamTime;

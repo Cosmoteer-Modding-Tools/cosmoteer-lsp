@@ -48,17 +48,3 @@ export const gameRootPath = (dataRoot: string, toFile: string): string | undefin
     if (rel.length === 0 || rel.startsWith('..') || isAbsolute(rel)) return undefined;
     return gameRootPathOf(rel);
 };
-
-/**
- * An inheritance reference naming a group inside a file of the game install.
- *
- * @param dataRoot the game's `Data` directory.
- * @param toFile the on-disk path of the file being referenced.
- * @param member the name of the group inside that file, omitted to reference the file itself.
- * @returns the reference text with no leading sigil, or undefined when the file is not inside the
- * install.
- */
-export const gameRootReference = (dataRoot: string, toFile: string, member?: string): string | undefined => {
-    const path = gameRootPath(dataRoot, toFile);
-    return path === undefined ? undefined : `<${path}>${member ? `/${member}` : ''}`;
-};

@@ -20,7 +20,16 @@ import {
     StringsFileInsert,
     stringsInsertsFor,
 } from './clone-localization';
-import { CloneTarget, CloneTargetRefusal, CloneUnit, dirOfPath, filesUnder, removableMemberSpan } from './clone-target';
+import {
+    CloneTarget,
+    CloneTargetRefusal,
+    CloneUnit,
+    dirOfPath,
+    filesUnder,
+    maybeRulesDocumentOf,
+    removableMemberSpan,
+    unitFileKindOf,
+} from './clone-target';
 import { rebaseUnitFile, UnitRebaseContext } from './unit-rebase';
 
 /** Why a clone did not happen. Every one of them is a state the copy would have been wrong in. */
@@ -39,13 +48,20 @@ export type CloneFailure =
     | 'editRejected';
 
 /**
+ * The refusals that come from a single path inside a copied file, as against the ones that describe
+ * the clone as a whole. A caller that only guessed the file was rules can read one of these as the
+ * guess having been wrong.
+ */
+const PATH_REFUSALS: ReadonlySet<CloneFailure> = new Set<CloneFailure>(['unresolvablePath', 'escapingPath']);
+
+/**
  * What an id may be spelled with. The same set the rename refactoring enforces, because a clone
  * declares an id exactly the way a rename rewrites one.
  */
 export const VALID_ID = /^[A-Za-z0-9_.]+$/;
 
 /** One file the clone writes. */
-export interface ClonePlanFile {
+interface ClonePlanFile {
     /** The file it is copied from. */
     readonly source: string;
     /** Where the copy goes. */
@@ -104,7 +120,7 @@ export interface ClonePlanContext {
 }
 
 /** What the caller asks a plan for. */
-export interface CloneRequest {
+interface CloneRequest {
     /** The id the copy declares. */
     readonly newId: string;
     /** The directory the copy lands in, absent for the default beside or below the source. */
@@ -143,7 +159,7 @@ const isUnder = (path: string, root: string): boolean => {
  * @param dataRoot the game's `Data` directory.
  * @returns the directory, or the reason one cannot be picked.
  */
-export const defaultDestinationDir = (
+const defaultDestinationDir = (
     target: CloneTarget,
     newId: string,
     sourceEditable: string | undefined,
@@ -460,20 +476,44 @@ export const buildClonePlan = async (
         for (const source of sources) {
             if (cancellationToken.isCancellationRequested) return { failure: 'stale' };
             const to = destinationOf.get(source)!;
-            if (!source.toLowerCase().endsWith('.rules')) {
+            const verbatim = (): void => {
                 files.push({ source, destination: to, created: true });
+            };
+            const declaring = foldPathCase(source) === foldPathCase(declaringPath);
+            // The file the caret anchored is rules whatever it is named. A `.txt` beside it is a rules
+            // fragment whose references have to follow the copy when it reads as one, and a note to
+            // the reader otherwise, which travels byte for byte like the sprites do.
+            const kind = declaring ? 'rules' : unitFileKindOf(source);
+            if (kind === 'other') {
+                verbatim();
                 continue;
             }
-            const declaring = foldPathCase(source) === foldPathCase(declaringPath);
             const fileText = declaring
                 ? text
                 : (context.openText?.(source) ?? (await readFile(source, { encoding: 'utf-8' }).catch(() => undefined)));
-            if (fileText === undefined) return { failure: 'stale', detail: [source] };
+            if (fileText === undefined) {
+                // A `.rules` the unit cannot read is content the copy needs, so the clone is refused.
+                // A `.txt` goes on travelling byte for byte, exactly as it does when it is prose.
+                if (kind === 'rules') return { failure: 'stale', detail: [source] };
+                verbatim();
+                continue;
+            }
             let parsed: AbstractNodeDocument;
-            try {
-                parsed = declaring ? document : parseText(fileText, source);
-            } catch {
-                return { failure: 'stale', detail: [source] };
+            if (kind === 'rules') {
+                try {
+                    parsed = declaring ? document : parseText(fileText, source);
+                } catch {
+                    return { failure: 'stale', detail: [source] };
+                }
+            } else {
+                const judged = maybeRulesDocumentOf(fileText, source);
+                // Prose holds nothing the copy can rebase, and refusing the clone over it would put a
+                // note in the way of the whole folder.
+                if (judged === undefined) {
+                    verbatim();
+                    continue;
+                }
+                parsed = judged;
             }
             const rebaseContext: UnitRebaseContext = {
                 sourceDir: dirOfPath(source),
@@ -493,7 +533,17 @@ export const buildClonePlan = async (
                 declaring ? target.container : undefined,
                 declaring ? target.node : undefined
             );
-            if ('failure' in rewritten) return rewritten;
+            if ('failure' in rewritten) {
+                // A `.txt` is only ever guessed to be rules, so a path in it that cannot be carried
+                // over says the guess was wrong rather than that the clone is impossible. The file
+                // travels byte for byte the way prose does, which is what it did before it was read
+                // at all. Refusing here would let one stale path in a note stop a whole part.
+                if (kind === 'maybeRules' && PATH_REFUSALS.has(rewritten.failure)) {
+                    verbatim();
+                    continue;
+                }
+                return rewritten;
+            }
             if (declaring) droppedOtherIds = rewritten.dropped;
             files.push({ source, destination: to, text: rewritten.text, before: fileText, created: true });
         }

@@ -13,7 +13,14 @@ import {
 } from '../../core/ast/ast';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { DefinitionService, isReferenceValue } from './definition.service';
-import { definitionLocationOf, definitionNameOf, locationKey, normalizeUri, referenceSiteLocation } from './reference-location';
+import {
+    dedupeLocations,
+    definitionLocationOf,
+    definitionNameOf,
+    locationKey,
+    normalizeUri,
+    referenceSiteLocation,
+} from './reference-location';
 import { resolveSchemaSiblingReference, stringValueNodesOf } from './schema-reference.navigation';
 import {
     FileReferenceAnchor,
@@ -303,17 +310,4 @@ export const findReferenceTargetAtPosition = (
         if (hit) return hit;
     }
     return null;
-};
-
-/** Drop duplicate locations (same file + range). */
-const dedupeLocations = (locations: Location[]): Location[] => {
-    const seen = new Set<string>();
-    const out: Location[] = [];
-    for (const location of locations) {
-        const key = locationKey(location);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push(location);
-    }
-    return out;
 };

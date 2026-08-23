@@ -5,10 +5,11 @@ import { CosmoteerWorkspaceService } from '../../../workspace/cosmoteer-workspac
 import { cachedPathExists, onFsInvalidation } from '../../../workspace/fs-cache';
 import { collectBaseUses, resolveBasePath } from './base-index';
 import { extractableMembers, ExtractableMember, judgeContainer } from './extractability';
+import { commentRanges } from './member-record';
 import { BaseLocation, ExtractionPlan, ExtractionTier, MemberRecord, Participant } from './plan.types';
 
 /** How many containers must repeat a field set before extracting it is worth a base file. */
-export const MIN_PARTICIPANTS = 3;
+const MIN_PARTICIPANTS = 3;
 
 /** How many fields must move together, so a base file is never created for a single value. */
 export const MIN_FIELDS = 2;
@@ -32,7 +33,7 @@ export interface AnalysisFile {
 }
 
 /** Everything the analysis needs that is not a file. */
-export interface AnalysisOptions {
+interface AnalysisOptions {
     /** The directory every fingerprint is expressed relative to, in practice the mod root. */
     anchorDir?: string;
     minParticipants?: number;
@@ -139,10 +140,14 @@ const containersOf = (document: AbstractNodeDocument): GroupNode[] => {
 export const candidatesInFile = (file: AnalysisFile, anchorDir: string, minFields: number): Candidate[] => {
     const candidates: Candidate[] = [];
     const declaringDir = dirname(file.fsPath);
+    // Scanned on the first accepted container and reused by the rest, so a file whose containers are
+    // all refused is never scanned at all.
+    let comments: ReadonlyArray<{ start: number; end: number }> | undefined;
     for (const container of containersOf(file.document)) {
         const facts = judgeContainer(container, file.text);
         if (typeof facts === 'string') continue;
-        const members = extractableMembers(facts, file.document, file.text, declaringDir, anchorDir);
+        comments ??= commentRanges(file.text);
+        const members = extractableMembers(facts, file.document, file.text, declaringDir, anchorDir, comments);
         if (members.length < minFields) continue;
         const baseReference = facts.inheritance ? String(facts.inheritance.valueType.value) : undefined;
         const baseIdentity = baseReference ? baseIdentityOf(baseReference, declaringDir) : undefined;

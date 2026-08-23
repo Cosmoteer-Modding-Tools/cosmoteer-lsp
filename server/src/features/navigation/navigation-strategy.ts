@@ -84,6 +84,39 @@ export const extractSubstrings = (input: string): string[] => {
     return out;
 };
 
+/** A `/`-delimited path segment of a reference value, and where it sits inside that value. */
+export interface SegmentSpan {
+    readonly text: string;
+    readonly start: number;
+    readonly end: number;
+}
+
+/**
+ * Split a reference value into the same segments {@link extractSubstrings} returns, each carrying the
+ * offsets it occupies inside the value. Navigation features that decorate or rewrite one segment of a
+ * path need those offsets to turn a segment back into a range on the line.
+ *
+ * @param value the raw reference text, such as `&<file.rules>/Part/ID`.
+ * @returns one span per segment, in the order the segments are written.
+ */
+export const segmentSpans = (value: string): SegmentSpan[] => {
+    const spans: SegmentSpan[] = [];
+    const regex = /[^/]+/g;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(value)) !== null) {
+        spans.push({ text: match[0], start: match.index, end: match.index + match[0].length });
+    }
+    return spans;
+};
+
+/**
+ * The bare member name a segment spells, so it can be compared against a declared name.
+ *
+ * @param span the segment to name.
+ * @returns the segment text with its leading relative `&` sigil stripped.
+ */
+export const segmentName = (span: SegmentSpan): string => span.text.replace(/^&/, '');
+
 /**
  * Remove whitespace that is in an ObjectText reference path the spaces ObjectText's
  * `PATH_RE` allows after `&`, around `/` and around segments (e.g. `& <file>/X`, `&  ~/Part`,
@@ -91,6 +124,9 @@ export const extractSubstrings = (input: string): string[] => {
  * spaces. Used before resolving so `& <file>` resolves identically to `&<file>`.
  */
 export const stripReferenceWhitespace = (path: string): string => {
+    // Most paths carry no insignificant whitespace, and this runs once per reference resolution
+    // before the navigation memo can even be consulted, so such a path is returned as it came.
+    if (!path.includes(' ') && !path.includes('\t')) return path;
     let out = '';
     let insideFilePath = false;
     for (const ch of path) {

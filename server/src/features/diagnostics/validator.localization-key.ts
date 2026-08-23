@@ -1,52 +1,21 @@
 import { CancellationToken } from 'vscode-languageserver';
-import {
-    AbstractNodeDocument,
-    isAssignmentNode,
-    isDocumentNode,
-    isGroupNode,
-    ValueNode,
-} from '../../core/ast/ast';
+import { AbstractNodeDocument, ValueNode } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { isLocalizationKeyType, localizationKeyFieldNames } from '../../document/schema/schema';
 import { fieldOfValueNode } from '../completion/autocompletion.schema';
 import { LocalizationKeyIndex } from '../completion/localization-key.index';
 import { stringValueNodesOf } from '../navigation/schema-reference.navigation';
 import { isStringsFile } from '../../mod/strings-folder';
+import { assignmentNameOf } from '../../utils/ast.utils';
 import { closestMatch } from '../../utils/did-you-mean';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
 
-/** Per-container lookup table from an assignment's right-hand node to its field name. Built once
- *  per group instead of rescanning the group's elements for every candidate value node, which made
- *  string-heavy groups quadratic. Keyed weakly so tables die with their AST. */
-const namesByRight: WeakMap<object, Map<unknown, string>> = new WeakMap();
-
-/**
- * The field name whose `key = value` right-hand side is `node`, from the enclosing group or
- * document.
- *
- * @param node the string value node to name.
- * @returns the assignment's field name, or undefined when `node` is not an assignment value.
- */
 /** Did-you-mean results per unknown key (lowercased, the match is case-insensitive), valid for one
  *  strings-index revision. The same missing key typically appears in many files of a mod, and each
  *  suggestion scans the full key set, so the scan pays that scan once per distinct key instead of
  *  once per occurrence. */
 let suggestionMemo: { revision: number; byKey: Map<string, string | null> } | undefined;
-
-const assignmentNameOf = (node: ValueNode): string | undefined => {
-    const parent = node.parent;
-    if (!parent || !(isGroupNode(parent) || isDocumentNode(parent))) return undefined;
-    let table = namesByRight.get(parent);
-    if (!table) {
-        table = new Map();
-        for (const element of parent.elements) {
-            if (isAssignmentNode(element)) table.set(element.right, element.left.name);
-        }
-        namesByRight.set(parent, table);
-    }
-    return table.get(node);
-};
 
 /**
  * Validates literal localization-key values (a `KeyString` field such as `NameKey = "Parts/Foo"`),

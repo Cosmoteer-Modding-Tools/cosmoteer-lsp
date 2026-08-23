@@ -46,7 +46,7 @@ import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.serv
 import { primeParsedFile } from '../workspace/fs-cache';
 import { uriToFsPath } from '../features/navigation/workspace-files';
 import { globalSettings } from '../settings';
-import { CancellationError } from '../utils/cancellation';
+import { traceFailure } from '../utils/cancellation';
 import { perfCount } from '../utils/perf-counters';
 import { hasDiagnosticRelatedInformationCapability } from './capabilities';
 import { getDocumentSettings } from './document-settings';
@@ -201,11 +201,8 @@ export async function validateTextDocument(
     };
     try {
         validationErrors = await timedPass('scan.vElementsMs', async () => {
-            const pormises: Promise<ValidationError[]>[] = [];
-            for (const node of parserResult.value.elements) {
-                pormises.push(Validator.instance.validate(node, cancelToken));
-            }
-            return tagged((await Promise.all(pormises).catch(() => [])).flat(), 'syntax-and-references');
+            const passes = parserResult.value.elements.map((node) => Validator.instance.validate(node, cancelToken));
+            return tagged((await Promise.all(passes).catch(() => [])).flat(), 'syntax-and-references');
         });
         // Top-level duplicate keys span sibling elements (each validated independently above), and
         // inheritance cycles span multiple nodes/files, and both need a whole-document view, so they run
@@ -458,7 +455,7 @@ export async function validateTextDocument(
             validationErrors = validationErrors.concat(tagged(modActionErrors, 'mod-action'));
         }
     } catch (e) {
-        if (globalSettings.trace.server === 'messages' && !(e instanceof CancellationError)) console.error(e);
+        traceFailure(e);
     }
     if (!persist) perfCount('scan.validateMs', Date.now() - validateStarted);
 

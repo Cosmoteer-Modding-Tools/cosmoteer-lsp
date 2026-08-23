@@ -1,12 +1,5 @@
 import { CancellationToken, Hover, MarkupKind, Position } from 'vscode-languageserver';
-import {
-    AbstractNode,
-    AbstractNodeDocument,
-    isListNode,
-    isGroupNode,
-    isValueNode,
-    ValueNode,
-} from '../../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, isGroupNode, ValueNode } from '../../core/ast/ast';
 import { DefinitionService, isReferenceValue } from '../navigation/definition.service';
 import { isAssetValue, resolveAssetPath } from '../navigation/asset-resolver';
 import { filePathToUri } from '../navigation/navigation-strategy';
@@ -16,7 +9,7 @@ import { resolvePartComponentDeclaration } from '../diagnostics/validator.schema
 import { resolveSchemaIdReference } from '../navigation/schema-id-reference.navigation';
 import { evaluateNumericValueTraced } from '../../semantics/value-evaluator';
 import { formatWithUnit, unitForValue } from '../../semantics/value-units';
-import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
+import { FileWithPath } from '../../workspace/cosmoteer-workspace.service';
 import { schemaDiscriminatorHover, schemaFieldHover } from './schema-hover';
 import { resolveClassThroughInheritance } from '../completion/inheritance-resolution';
 import { decompilerHoverLink } from './decompiler-link';

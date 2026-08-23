@@ -56,7 +56,7 @@ export interface InheritedMember {
 
 /** The member names a chain supplies, keyed by lower-cased name, because the game matches member
  *  names without regard to case. */
-export type InheritedMembers = ReadonlyMap<string, InheritedMember>;
+type InheritedMembers = ReadonlyMap<string, InheritedMember>;
 
 /** The answer for a group that inherits nothing, and for every chain this module will not speak for. */
 export const NO_INHERITED_MEMBERS: InheritedMembers = new Map<string, InheritedMember>();

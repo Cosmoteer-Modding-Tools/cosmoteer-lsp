@@ -5,9 +5,8 @@ import { isModRules } from '../document/document-kind';
 import { registerInheritanceExtensionSource } from '../semantics/reference-resolver';
 import { WatchedDocumentIndex } from '../features/navigation/watched-document-index';
 import { normalizeUri } from '../features/navigation/reference-location';
-import { modFolderPaths, uriToFsPath } from '../features/navigation/workspace-files';
-import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
-import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
+import { modFolderPaths } from '../features/navigation/workspace-files';
+import { FileTree, isFile } from '../workspace/cosmoteer-workspace.service';
 import { isActionFragmentDocument, parseModActions } from './action-parser';
 import { resolveActionTarget } from './action-target-resolver';
 

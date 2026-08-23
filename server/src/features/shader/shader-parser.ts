@@ -1,3 +1,4 @@
+import { registry } from '../../utils/registry';
 /**
  * A scanner for Cosmoteer `.shader` files (HLSL with a small preprocessor). It extracts the three
  * things the language server cares about: the `#include` chain, the entry-point function names, and
@@ -12,7 +13,7 @@
 export type ShaderConstantKind = 'texture' | 'sampler' | 'float' | 'vec2' | 'vec3' | 'vec4' | 'matrix' | 'int' | 'bool';
 
 /** The source position of a declared name, so navigation can jump to it (0-based line and column). */
-export interface DeclarationPosition {
+interface DeclarationPosition {
     /** The 0-based line the name appears on. */
     readonly line: number;
     /** The 0-based column of the name's first character. */
@@ -34,7 +35,7 @@ export interface ShaderConstant {
 }
 
 /** A function defined at file scope, with the position of its name for navigation. */
-export interface ShaderFunction {
+interface ShaderFunction {
     /** The function name, e.g. `pix` or `vert`. */
     readonly name: string;
     /** Where the name appears in this file. */
@@ -54,7 +55,7 @@ export interface ParsedShader {
 }
 
 /** The HLSL declaration types the scanner recognizes, mapped to a normalized {@link ShaderConstantKind}. */
-const TYPE_KINDS: Readonly<Record<string, ShaderConstantKind>> = {
+const TYPE_KINDS: Readonly<Record<string, ShaderConstantKind>> = registry({
     Texture2D: 'texture',
     Texture3D: 'texture',
     TextureCube: 'texture',
@@ -70,7 +71,7 @@ const TYPE_KINDS: Readonly<Record<string, ShaderConstantKind>> = {
     int: 'int',
     uint: 'int',
     bool: 'bool',
-};
+});
 
 const TYPE_TOKENS = Object.keys(TYPE_KINDS).join('|');
 
@@ -228,7 +229,7 @@ export const parseShader = (source: string): ParsedShader => {
 }
 
 /** One parameter of a shader function, with its HLSL type and name. */
-export interface ShaderParam {
+interface ShaderParam {
     /** The parameter's HLSL type token, e.g. `float2`. */
     readonly type: string;
     /** The parameter name. */
@@ -328,7 +329,7 @@ const matchingBrace = (text: string, open: number): number => {
 };
 
 /** The parameters and body-so-far of the function enclosing a cursor offset. */
-export interface FunctionScope {
+interface FunctionScope {
     /** The enclosing function's parameters, in order. */
     readonly params: readonly ShaderParam[];
     /** The body text from the opening brace up to the cursor, for scanning locals already in scope. */

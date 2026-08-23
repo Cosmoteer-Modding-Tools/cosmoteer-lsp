@@ -188,6 +188,20 @@ interface LocalSymbol {
 }
 
 /**
+ * The type tokens a declaration may open with in this scope, as a regex alternation: the HLSL builtins
+ * plus the struct types the file and its includes define.
+ *
+ * @param scope the file plus its includes, scanned for `struct` definitions.
+ * @returns the type names joined with `|`, ready to splice into a regular expression.
+ */
+const typeAlternation = (scope: string): string => {
+    const structNames: string[] = [];
+    const structRe = /\bstruct\s+(\w+)/g;
+    for (let m = structRe.exec(scope); m !== null; m = structRe.exec(scope)) structNames.push(m[1]);
+    return [...HLSL_TYPES, ...structNames].join('|');
+};
+
+/**
  * The parameters and locals of the function enclosing the cursor, so completion offers `input`, `uv`,
  * and other in-scope names, not only file globals. Parameters come from the enclosing signature.
  * Locals are the typed declarations written in the body before the cursor. Returns an empty list when
@@ -204,10 +218,7 @@ const localSymbols = (scope: string, currentText: string, offset: number): Local
 
     // Locals declared in the body so far: an optional qualifier, a known type (or a struct type from
     // scope), then the variable name (not a function, so not immediately followed by `(`).
-    const structNames: string[] = [];
-    const structRe = /\bstruct\s+(\w+)/g;
-    for (let m = structRe.exec(scope); m !== null; m = structRe.exec(scope)) structNames.push(m[1]);
-    const types = [...HLSL_TYPES, ...structNames].join('|');
+    const types = typeAlternation(scope);
     const declaration = new RegExp(
         `(?:^|[;{(,]|\\bin\\b|\\bout\\b|\\binout\\b|\\bconst\\b|\\bstatic\\b)\\s*(${types})\\b\\s+([A-Za-z_]\\w*)\\b(?!\\s*\\()`,
         'g'
@@ -232,10 +243,7 @@ const localSymbols = (scope: string, currentText: string, offset: number): Local
 const isDeclarationNameContext = (text: string, offset: number, scope: string): boolean => {
     const lineStart = text.lastIndexOf('\n', offset - 1) + 1;
     const prefix = text.slice(lineStart, offset);
-    const structNames: string[] = [];
-    const structRe = /\bstruct\s+(\w+)/g;
-    for (let m = structRe.exec(scope); m !== null; m = structRe.exec(scope)) structNames.push(m[1]);
-    const types = [...HLSL_TYPES, ...structNames].join('|');
+    const types = typeAlternation(scope);
     return new RegExp(`(?:^|[;{(,])\\s*(?:${types})\\b\\s+\\w*$`).test(prefix);
 };
 

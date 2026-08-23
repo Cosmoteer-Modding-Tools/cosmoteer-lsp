@@ -7,14 +7,13 @@ import { invalidateEffectiveChainCache } from '../semantics/effective-group';
 import { invalidateLooseDeclarationCache } from '../features/diagnostics/validator.schema-id-reference';
 import { localModDirs, workshopContentDir } from '../workspace/workshop-dir';
 import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
-import { uriToFsPath } from '../features/navigation/workspace-files';
 import { globalSettings } from '../settings';
 import { hasPullDiagnosticsCapability } from './capabilities';
 import { connection, documents } from './context';
 import { diagnosticsCache, inlayHintCache } from './document-caches';
 import { schedulePushValidation } from './push-diagnostics';
 import { bumpWorkspaceScanEpoch } from './scan-epoch';
-import { getWorkspaceFoldersCached } from './workspace-folders';
+import { workspaceFolderPaths } from './workspace-folders';
 
 /**
  * The folders a code mod's assemblies can live in: every open workspace folder, plus the installed
@@ -24,8 +23,7 @@ import { getWorkspaceFoldersCached } from './workspace-folders';
  * @returns the search roots, empty when there is nothing to search.
  */
 async function modAssemblyRoots(): Promise<string[]> {
-    const folders = await getWorkspaceFoldersCached();
-    const roots = (folders ?? []).map((folder) => uriToFsPath(folder.uri));
+    const roots = await workspaceFolderPaths();
     const workshop = workshopContentDir();
     if (workshop) roots.push(workshop);
     // Mods the user installed by hand live outside the workshop tree, and their types are named by

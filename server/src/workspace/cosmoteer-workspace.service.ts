@@ -316,7 +316,7 @@ export type Directory = {
     children: FileTree[];
 };
 
-export type CosmoteerFile = {
+type CosmoteerFile = {
     type: 'File';
     readonly name: string;
     content: CosmoteerWorkspaceData;

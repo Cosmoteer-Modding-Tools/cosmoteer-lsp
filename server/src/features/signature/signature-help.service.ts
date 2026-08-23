@@ -15,6 +15,9 @@ import { MathFunctionSpec, mathFunction } from '../../semantics/math-function-re
 // Fallback parameter names for registry entries that declare an arity but no named params.
 const GENERIC_PARAM_NAMES = ['a', 'b', 'c', 'd', 'e'];
 
+/** A character a function name may hold, hoisted out of the per-character scan below. */
+const IDENT_CHAR = /[A-Za-z0-9_]/;
+
 /**
  * Derive the parameter labels for a spec: curated names when present, otherwise generic names from
  * the arity (`x` for unary, `a, b` for binary, `…values` for variadic). An optional tail parameter
@@ -26,7 +29,7 @@ const GENERIC_PARAM_NAMES = ['a', 'b', 'c', 'd', 'e'];
  */
 export const paramsOf = (spec: MathFunctionSpec): readonly string[] => {
     if (spec.params) return spec.params;
-    const [min, max] = spec.arity;
+    const [, max] = spec.arity;
     if (!isFinite(max)) return ['…values'];
     if (max === 1) return ['x'];
     return GENERIC_PARAM_NAMES.slice(0, max);
@@ -50,7 +53,7 @@ const buildSignature = (rawName: string, spec: MathFunctionSpec): SignatureInfor
 };
 
 /** The active function call enclosing `offset`, found by a forward scan that tracks parenthesis nesting. */
-export interface ActiveCall {
+interface ActiveCall {
     name: string;
     /** Zero-based index of the argument the cursor is in (commas before it at this call's depth). */
     activeParameter: number;
@@ -86,7 +89,7 @@ export const activeCallAt = (text: string, offset: number): ActiveCall | undefin
             pendingIdent = '';
             continue;
         }
-        if (/[A-Za-z0-9_]/.test(c)) {
+        if (IDENT_CHAR.test(c)) {
             pendingIdent += c;
             continue;
         }

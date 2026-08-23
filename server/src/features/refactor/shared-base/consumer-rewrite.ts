@@ -4,7 +4,7 @@ import { removalRange } from '../../../utils/removal-range';
 import { ExtractionPlan, Participant } from './plan.types';
 
 /** Why a participant cannot be rewritten, reported instead of editing a file that has moved on. */
-export type RewriteRefusal = 'memberMoved' | 'inheritanceMoved';
+type RewriteRefusal = 'memberMoved' | 'inheritanceMoved';
 
 /**
  * Confirm the file still says what the plan was built from. A plan can sit in the client between

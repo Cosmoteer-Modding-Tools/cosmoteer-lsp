@@ -5,6 +5,7 @@ import { CancellationToken, TextEdit, WorkspaceEdit } from 'vscode-languageserve
 import { AbstractNode, AbstractNodeDocument, isGroupNode, GroupNode } from '../../core/ast/ast';
 import { parseText } from '../../utils/ast.utils';
 import { safeReaddir } from '../../utils/fs.utils';
+import { offsetToPosition } from '../../utils/text.utils';
 import { filePathToUri } from '../navigation/navigation-strategy';
 import { findModRoot } from '../../mod/mod-root';
 import { resolveStringsFolders, isUnderFolder } from '../../mod/strings-folder';
@@ -92,19 +93,6 @@ const renderBranch = (branch: InsertBranch, indent: number): string[] => {
         lines.push(`${tabs(indent)}${name}`, `${tabs(indent)}{`, ...renderBranch(child, indent + 1), `${tabs(indent)}}`);
     }
     return lines;
-};
-
-/** Convert a byte offset into an LSP {line, character} position within `text`. */
-const offsetToPosition = (text: string, offset: number): { line: number; character: number } => {
-    let line = 0;
-    let lineStart = 0;
-    for (let i = 0; i < offset; i++) {
-        if (text[i] === '\n') {
-            line++;
-            lineStart = i + 1;
-        }
-    }
-    return { line, character: offset - lineStart };
 };
 
 /**

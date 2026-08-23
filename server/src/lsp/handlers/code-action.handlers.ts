@@ -15,13 +15,12 @@ import { addDependencyEdit } from '../../mod/mod-dependencies';
 import { findModRoot } from '../../mod/mod-root';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { isShaderDocument } from '../../document/document-kind';
-import { uriToFsPath } from '../../features/navigation/workspace-files';
 import { removalRange } from '../../utils/removal-range';
 import { globalSettings } from '../../settings';
 import { connection, documents } from '../context';
 import { ensureParserResult } from '../open-documents';
 import { reachableFileFilter } from '../validation-scope';
-import { getWorkspaceFoldersCached, searchFolderUris } from '../workspace-folders';
+import { searchFolderUris, workspaceFolderPaths } from '../workspace-folders';
 
 /**
  * Registers the code-action request: the refactorings offered on the tree under the caret and the
@@ -115,7 +114,7 @@ export function register(): void {
                     document.offsetAt(params.range.start),
                     params.textDocument.uri,
                     CosmoteerWorkspaceService.instance.dataRootPath,
-                    ((await getWorkspaceFoldersCached()) ?? []).map((folder) => uriToFsPath(folder.uri))
+                    await workspaceFolderPaths()
                 );
                 if (override) actions.push(override);
             }

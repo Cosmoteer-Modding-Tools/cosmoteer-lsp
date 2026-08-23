@@ -32,7 +32,7 @@ const ACCEPTED_FIELD = 'ModCompatibleGameVersions';
 const INSTALLED_FIELD = 'GameVersion';
 
 /** Where the version facts came from, so the report can say how sure it is. */
-export type GameVersionSource = 'assembly' | 'manifest' | 'none';
+type GameVersionSource = 'assembly' | 'manifest' | 'none';
 
 /** The version facts of one install. */
 export interface GameVersionInfo {

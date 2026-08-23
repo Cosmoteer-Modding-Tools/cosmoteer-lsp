@@ -1,5 +1,6 @@
-import { EventEmitter, TextDocumentContentProvider, Uri, commands, l10n, window, workspace } from 'vscode';
+import { Uri, commands, l10n, window, workspace } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
+import { VirtualContentProvider } from '../virtual-content-provider';
 
 /** The virtual-document scheme the rendered report is served under. */
 export const POST_UPDATE_REPORT_SCHEME = 'cosmoteer-post-update';
@@ -14,22 +15,9 @@ interface PostUpdateReportResult {
  * Serves the generated report as a read-only virtual document, so the built-in markdown preview can
  * render it without writing a file into the user's mod.
  */
-export class PostUpdateReportContentProvider implements TextDocumentContentProvider {
-    private readonly contentByUri = new Map<string, string>();
-    private readonly changeEmitter = new EventEmitter<Uri>();
-    public readonly onDidChange = this.changeEmitter.event;
-
-    /** Stores (or refreshes) the markdown behind a report uri and notifies open previews. */
-    public set(uri: Uri, markdown: string): void {
-        this.contentByUri.set(uri.toString(), markdown);
-        this.changeEmitter.fire(uri);
-    }
-
-    public provideTextDocumentContent(uri: Uri): string {
-        return (
-            this.contentByUri.get(uri.toString()) ??
-            l10n.t('The report is no longer available. Run the command again.')
-        );
+export class PostUpdateReportContentProvider extends VirtualContentProvider {
+    public constructor() {
+        super(() => l10n.t('The report is no longer available. Run the command again.'));
     }
 }
 

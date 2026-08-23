@@ -11,7 +11,7 @@
  * {@link getDocumentKind} / {@link isModRules} rather than re-deriving it from the
  * URI, so the classification can be refined in one spot later.
  */
-export type DocumentKind = 'rules' | 'mod-rules';
+type DocumentKind = 'rules' | 'mod-rules';
 
 /**
  * Classify by basename. A manifest is `mod.rules` or any `mod_*.rules` (Cosmoteer

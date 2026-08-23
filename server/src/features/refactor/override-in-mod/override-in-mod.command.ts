@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from 'fs/promises';
+import { mkdir, rm, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
@@ -6,16 +6,15 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AbstractNode, isValueNode } from '../../../core/ast/ast';
 import { basenameOf, isModRules } from '../../../document/document-kind';
 import { ActionSource } from '../../../mod/action';
-import { parseModActions } from '../../../mod/action-parser';
-import { normalizeTargetPath } from '../../../mod/action-target-resolver';
 import { findModRoot } from '../../../mod/mod-root';
 import { isStringsFile } from '../../../mod/strings-folder';
 import { memberNameOf, stepIntoNode } from '../../../semantics/reference-resolver';
 import { parseText } from '../../../utils/ast.utils';
+import { isUnder } from '../../../utils/relative-path';
 import { foldPathCase } from '../../../workspace/fs-cache';
-import { filePathToUri } from '../../navigation/navigation-strategy';
-import { normalizeUri } from '../../navigation/reference-location';
 import { uriToFsPath } from '../../navigation/workspace-files';
+import { documentFor, lineEndingOf, openBuffers } from '../command-host';
+import { manifestActionMatches, manifestToWrite } from '../new-content/registration.emitter';
 import { manifestActionInsert } from '../register-part/manifest-action.emitter';
 import { manifestsIn, modRootsUnder } from '../register-part/ship-registry';
 import { relativeRulesReference } from '../shared-base/base-file.emitter';
@@ -155,51 +154,6 @@ const FRAGMENT_DIR = 'overrides';
 /** How many mods a scan reports, so a workspace full of mods still answers with a readable list. */
 const MAX_REPORTED_MODS = 40;
 
-/** The open buffers keyed by normalized uri, so a file open in the editor is read and edited live. */
-const openBuffers = (host: OverrideInModHost): Map<string, TextDocument> => {
-    const map = new Map<string, TextDocument>();
-    for (const document of host.openDocuments()) map.set(normalizeUri(document.uri), document);
-    return map;
-};
-
-/**
- * The open buffer for a path, or a document built from its disk content.
- *
- * @param fsPath the file to read.
- * @param open the editor's buffers, keyed by normalized uri.
- * @returns the document, or undefined when the file cannot be read.
- */
-const documentFor = async (
-    fsPath: string,
-    open: ReadonlyMap<string, TextDocument>
-): Promise<TextDocument | undefined> => {
-    const canonical = filePathToUri(fsPath);
-    const buffer = open.get(normalizeUri(canonical));
-    if (buffer) return buffer;
-    try {
-        return TextDocument.create(canonical, 'rules', 0, await readFile(fsPath, { encoding: 'utf-8' }));
-    } catch {
-        return undefined;
-    }
-};
-
-/**
- * Whether a path sits inside a directory, folding case the way the filesystem matches it.
- *
- * @param fsPath the path to test.
- * @param root the directory it may sit in.
- * @returns true when the path is the directory or lies below it.
- */
-const isUnder = (fsPath: string, root: string | undefined): boolean => {
-    if (!root) return false;
-    const key = foldPathCase(resolve(fsPath).replace(/\\/g, '/'));
-    const prefix = foldPathCase(resolve(root).replace(/\\/g, '/').replace(/\/+$/, ''));
-    return key === prefix || key.startsWith(`${prefix}/`);
-};
-
-/** The line ending a file already uses, so anything written into it keeps it. */
-const lineEndingOf = (text: string): '\n' | '\r\n' => (text.includes('\r\n') ? '\r\n' : '\n');
-
 /**
  * The member names an `Overrides` source supplies, folded to lower case the way the game's own child
  * lookup matches them.
@@ -244,25 +198,14 @@ const overriddenNamesOf = async (source: ActionSource, declaringDir: string): Pr
  * @param memberName the member the override would change.
  * @returns true when an action already supplies that member there.
  */
-const modAlreadyOverrides = async (modRoot: string, target: string, memberName: string): Promise<boolean> => {
-    const wanted = normalizeTargetPath(target).toLowerCase();
+const modAlreadyOverrides = (modRoot: string, target: string, memberName: string): Promise<boolean> => {
     const key = memberName.toLowerCase();
-    for (const manifestFsPath of manifestsIn(modRoot)) {
-        const file = await readRulesFile(manifestFsPath);
-        if (!file) continue;
-        const declaringDir = dirname(manifestFsPath).replace(/\\/g, '/');
-        for (const action of parseModActions(file.document)) {
-            if (action.type !== 'Overrides') continue;
-            const hits = action.targets.some(
-                (node) => normalizeTargetPath(String(node.valueType.value)).toLowerCase() === wanted
-            );
-            if (!hits) continue;
-            for (const source of action.sources) {
-                if ((await overriddenNamesOf(source, declaringDir)).has(key)) return true;
-            }
-        }
-    }
-    return false;
+    return manifestActionMatches(
+        modRoot,
+        target,
+        async (source, declaringDir) => (await overriddenNamesOf(source, declaringDir)).has(key),
+        'Overrides'
+    );
 };
 
 /** The value the offer was made on, resolved against what its file says right now. */
@@ -330,20 +273,6 @@ const candidateModRoots = async (host: OverrideInModHost): Promise<string[]> => 
         }
     }
     return roots;
-};
-
-/**
- * The manifest an action goes into: the one named `mod.rules`, or the mod's only one.
- *
- * A version split mod (`mod_0.30.rules` beside `mod_0.29.rules`) needs the author to say which
- * variants get the override, so it is refused rather than guessed at.
- *
- * @param manifests the mod's manifests.
- * @returns the manifest, or undefined when the choice belongs to the author.
- */
-const manifestToWrite = (manifests: readonly string[]): string | undefined => {
-    const named = manifests.find((path) => basenameOf(path).toLowerCase() === 'mod.rules');
-    return named ?? (manifests.length === 1 ? manifests[0] : undefined);
 };
 
 /**

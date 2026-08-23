@@ -26,6 +26,7 @@ import { navigationDepKey } from '../../utils/navigation-deps';
 import { findEnclosingGroup } from '../../document/schema/schema-context';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { valueAt } from '../completion/inherited-members';
+import { code, linkDestination, plainPathOf } from '../report/markdown-link';
 
 /**
  * The "what the game actually loads here" report: the member set a container really deserializes,
@@ -47,9 +48,6 @@ import { valueAt } from '../completion/inherited-members';
 /** How many characters of a written value a row shows before it is cut. */
 const VALUE_WIDTH = 60;
 
-/** Markdown-safe inline code. */
-const code = (text: string): string => '`' + text.replace(/`/g, "'") + '`';
-
 /**
  * One table cell's text. A written value may hold a newline or a `|`, and either one shifts the
  * row apart from the header the reader is matching it against.
@@ -68,16 +66,7 @@ const cell = (text: string): string => text.replace(/\s+/g, ' ').replace(/\|/g, 
  */
 const originLink = (origin: MemberOrigin): string => {
     const line = origin.node.position.line + 1;
-    // A parsed cross-file document carries a plain OS path while the open document carries a real
-    // uri, so both shapes reach here and only the second arrives encoded.
-    const path = origin.uri.startsWith('file://')
-        ? decodeURIComponent(origin.uri.slice('file://'.length)).replace(/^\/(?=[A-Za-z]:)/, '')
-        : origin.uri;
-    const encoded = path
-        .replace(/\\/g, '/')
-        .split('/')
-        .map((segment: string) => encodeURIComponent(segment).replace(/\(/g, '%28').replace(/\)/g, '%29'))
-        .join('/');
+    const encoded = linkDestination(plainPathOf(origin.uri));
     return `[${basenameOf(origin.uri)}:${line}](vscode://file/${encoded}:${line})`;
 };
 

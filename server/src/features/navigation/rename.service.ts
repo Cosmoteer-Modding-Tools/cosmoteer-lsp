@@ -13,7 +13,7 @@ import { getStartOfAstNode } from '../../utils/ast.utils';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { DefinitionService, isReferenceValue } from './definition.service';
 import { FullNavigationStrategy } from './full.navigation-strategy';
-import { filePathToUri } from './navigation-strategy';
+import { filePathToUri, segmentName, segmentSpans, SegmentSpan } from './navigation-strategy';
 import { definitionLocationOf, locationKey, normalizeUri, referenceSiteLocation } from './reference-location';
 import { findReferenceTargetAtPosition, referenceNodesOf } from './reference-index';
 import { resolveSchemaSiblingReference, stringValueNodesOf, valueTextRange } from './schema-reference.navigation';
@@ -35,13 +35,6 @@ interface RenameSymbol {
     nameNode: IdentifierNode;
     name: string;
     targetKey: string;
-}
-
-/** A `/`-delimited path segment and its character span within the reference value string. */
-interface SegmentSpan {
-    text: string;
-    start: number;
-    end: number;
 }
 
 /** A valid Cosmoteer member name: what a rename target may be renamed to. */
@@ -67,20 +60,6 @@ export const dropEditsUnderRoot = (edit: WorkspaceEdit, root: string | undefined
 
 /** A valid Cosmoteer ID value like a member name but dotted ids are allowed (`cosmoteer.fire`). */
 const VALID_ID = /^[A-Za-z0-9_.]+$/;
-
-/** Split a reference value into its `/`-delimited segments with offsets (mirrors `extractSubstrings`). */
-const segmentSpans = (value: string): SegmentSpan[] => {
-    const spans: SegmentSpan[] = [];
-    const regex = /[^/]+/g;
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(value)) !== null) {
-        spans.push({ text: match[0], start: match.index, end: match.index + match[0].length });
-    }
-    return spans;
-};
-
-/** The bare member name of a segment: the leading relative `&` sigil stripped. */
-const segmentName = (span: SegmentSpan): string => span.text.replace(/^&/, '');
 
 /** The document range covering a segment's name (excluding any leading `&`). */
 const segmentNameRange = (node: ValueNode, span: SegmentSpan): Range => {

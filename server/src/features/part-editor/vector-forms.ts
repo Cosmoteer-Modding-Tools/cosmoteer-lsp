@@ -18,7 +18,7 @@ import { evaluateExpressionGroup } from '../../semantics/value-evaluator';
  */
 
 /** A read 2D vector with the node it came from, so edits can target the exact source range. */
-export interface ReadVector {
+interface ReadVector {
     readonly x: number;
     readonly y: number;
     /** The vector's own node (the `[x, y]` list or `{X Y}` group). */
@@ -35,7 +35,7 @@ export interface ReadRect {
 }
 
 /** A read map entry (`{ Key = [x, y]; Value = .. }`) with its participating nodes. */
-export interface ReadMapEntry {
+interface ReadMapEntry {
     /** The whole entry group. */
     readonly entry: GroupNode;
     readonly key: ReadVector;

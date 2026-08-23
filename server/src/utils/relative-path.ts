@@ -1,3 +1,4 @@
+import { resolve } from 'path';
 import { foldPathCase } from '../workspace/fs-cache';
 
 /**
@@ -16,4 +17,18 @@ export const workspaceRelativePath = (fsPath: string, folders: readonly string[]
         if (foldPathCase(normalized).startsWith(foldPathCase(prefix))) return normalized.slice(prefix.length);
     }
     return normalized;
+};
+
+/**
+ * Whether a path sits inside a directory, folding case the way the filesystem matches it.
+ *
+ * @param fsPath the path to test.
+ * @param root the directory it may sit in.
+ * @returns true when the path is the directory or lies below it.
+ */
+export const isUnder = (fsPath: string, root: string | undefined): boolean => {
+    if (!root) return false;
+    const key = foldPathCase(resolve(fsPath).replace(/\\/g, '/'));
+    const prefix = foldPathCase(resolve(root).replace(/\\/g, '/').replace(/\/+$/, ''));
+    return key === prefix || key.startsWith(`${prefix}/`);
 };

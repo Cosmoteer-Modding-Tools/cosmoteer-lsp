@@ -9,7 +9,7 @@ import { AbstractNode, GroupNode, isAssignmentNode, isGroupNode, isValueNode, Va
  */
 
 /** A constant a material sets, as either an assignment value or a group, with its name and node. */
-export interface MaterialConstant {
+interface MaterialConstant {
     /** The constant name including its leading underscore. */
     readonly name: string;
     /** The identifier node of the key, used as the diagnostic/hover target. */

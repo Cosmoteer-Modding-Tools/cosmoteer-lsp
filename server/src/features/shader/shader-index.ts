@@ -222,26 +222,10 @@ export const collectIncludeText = async (
     entryPath: string,
     dataDir: string = CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath,
     readOverride?: ReadOverride
-): Promise<string> => {
-    const parts: string[] = [];
-    const visited = new Set<string>();
-    const visit = async (fromPath: string, includes: readonly string[]): Promise<void> => {
-        for (const include of includes) {
-            const target = resolvePath(resolveInclude(fromPath, include, dataDir));
-            if (visited.has(target)) continue;
-            visited.add(target);
-            const text = await readText(target, readOverride);
-            if (text === null) continue;
-            parts.push(text);
-            await visit(target, parseShader(text).includes);
-        }
-    };
-    await visit(resolvePath(entryPath), parseShader(entryText).includes);
-    return parts.join('\n');
-};
+): Promise<string> => (await readIncludeChain(entryText, entryPath, dataDir, readOverride)).text;
 
 /** The concatenated include text plus whether every include in the chain could be read. */
-export interface IncludeChain {
+interface IncludeChain {
     /** The joined raw text of every readable file in the `#include` chain (the entry file excluded). */
     readonly text: string;
     /** True when every include resolved and was readable, so the symbol set is known to be complete. */
@@ -288,7 +272,7 @@ export const readIncludeChain = async (
 };
 
 /** The on-disk location of a uniform or function declaration in a shader or one of its includes. */
-export interface ShaderDeclarationLocation {
+interface ShaderDeclarationLocation {
     /** The absolute path of the file the name is declared in. */
     readonly path: string;
     /** The 0-based line of the name. */

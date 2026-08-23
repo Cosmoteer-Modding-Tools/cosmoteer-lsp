@@ -1,16 +1,10 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
-import {
-    AbstractNode,
-    GroupNode,
-    isAssignmentNode,
-    isGroupNode,
-    isIdentifierNode,
-    isListNode,
-} from '../../core/ast/ast';
+import { AbstractNode, GroupNode, isGroupNode } from '../../core/ast/ast';
 import { basenameOf } from '../../document/document-kind';
 import { InheritedMember, inheritedMembersFor } from '../completion/inherited-members';
 import { globalSettings } from '../../settings';
+import { memberNameAt, namedMembersOf } from '../../utils/ast.utils';
 
 /**
  * Where the declaration under the cursor stands in its group's inheritance chain.
@@ -130,38 +124,11 @@ const chainSummary = async (group: GroupNode, token: CancellationToken): Promise
 };
 
 /**
- * The member name a hovered node belongs to. Resolved the way the schema hover resolves it, since
- * both answer for the field the cursor is in rather than for the node it landed on.
- *
- * @param node the hovered node.
- * @param container the group holding it.
- * @returns the name, or undefined when the node is not a member of the container.
- */
-const memberNameAt = (node: AbstractNode, container: GroupNode): string | undefined => {
-    // A group- or list-form member (`_centerColor { … }`) carries its name on itself, and a bare key
-    // with no value parses to a standalone identifier. Neither has a sibling assignment to match.
-    if ((isGroupNode(node) || isListNode(node)) && node.identifier) return node.identifier.name;
-    if (isIdentifierNode(node)) return node.name;
-    for (const element of container.elements) {
-        if (isAssignmentNode(element) && (element.right === node || element.left === node)) return element.left.name;
-    }
-    return undefined;
-};
-
-/**
  * The member names a group writes itself, lower-cased, because the game matches member names
  * without regard to case.
  *
  * @param group the group to read.
  * @returns its own names.
  */
-const localNames = (group: GroupNode): ReadonlySet<string> => {
-    const names = new Set<string>();
-    for (const element of group.elements) {
-        if (isAssignmentNode(element)) names.add(element.left.name.toLowerCase());
-        else if ((isGroupNode(element) || isListNode(element)) && element.identifier)
-            names.add(element.identifier.name.toLowerCase());
-        else if (isIdentifierNode(element)) names.add(element.name.toLowerCase());
-    }
-    return names;
-};
+const localNames = (group: GroupNode): ReadonlySet<string> =>
+    new Set(namedMembersOf(group).map(([name]) => name.toLowerCase()));

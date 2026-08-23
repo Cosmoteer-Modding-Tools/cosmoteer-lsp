@@ -13,7 +13,9 @@ import {
     isValueNode,
     ValueNode,
 } from '../../../core/ast/ast';
-import { isManifestBasename, isModRules } from '../../../document/document-kind';
+import { lexer } from '../../../core/lexer/lexer';
+import { parser } from '../../../core/parser/parser';
+import { isManifestBasename, isModRules, isRulesFileName } from '../../../document/document-kind';
 import { documentRootClass } from '../../../document/schema/document-root';
 import { ENTITY_FIELDS, identityKeyOf, PART_RULES_CLASS } from '../../../document/schema/entity-schema';
 import { resolveGroupClass } from '../../../document/schema/schema-context';
@@ -39,7 +41,7 @@ export type CloneUnit = 'directory' | 'file' | 'listElement';
 export type CloneTargetRefusal = 'noDeclaration' | 'inheritedIdentity' | 'unreadableBase' | 'severalIdentities';
 
 /** The identity slot a declaration writes. */
-export interface CloneIdentity {
+interface CloneIdentity {
     /** The field's name as the file writes it (`ID`, `ToggleID`, …). */
     readonly key: string;
     /** The id as written. */
@@ -49,7 +51,7 @@ export interface CloneIdentity {
 }
 
 /** One thing in a document that declares an instance of a class, whether or not it writes its own id. */
-export interface CloneShape {
+interface CloneShape {
     /** The class the declaration is an instance of. */
     readonly cls: string;
     /** The group or document being cloned. */
@@ -250,6 +252,53 @@ export const filesUnder = (dir: string): string[] => {
 };
 
 /**
+ * How a file inside a copied unit is treated.
+ *
+ * `rules` is a `.rules` file, which holds rules whatever is written in it. `maybeRules` is a file the
+ * project walks index alongside it, a `.txt`, which mods really do declare whole parts in and just as
+ * often use for a note to the reader, so only reading it says which of the two it is. `other` is
+ * everything else, the sprites and sounds a copy carries byte for byte.
+ */
+export type UnitFileKind = 'rules' | 'maybeRules' | 'other';
+
+/**
+ * How a file of a copied unit is treated, from its name alone.
+ *
+ * @param file the file's path, with either separator.
+ * @returns the kind, which says whether the file has to be read before it can be judged.
+ */
+export const unitFileKindOf = (file: string): UnitFileKind => {
+    if (file.toLowerCase().endsWith('.rules')) return 'rules';
+    // The name alone decides this, so both separators have to be cut off it. A path left whole would
+    // carry its directories into the name test, and `readme.txt` under any folder would stop reading
+    // as the prose it is.
+    const name = file.slice(Math.max(file.lastIndexOf('/'), file.lastIndexOf('\\')) + 1);
+    return isRulesFileName(name) ? 'maybeRules' : 'other';
+};
+
+/**
+ * The document a `maybeRules` file contributes, which is none when the text reads as prose. The game's
+ * loader reads a file the same way and refuses what the parser reports here, so a note left in a part
+ * folder stays a note rather than becoming content the copy rewrites.
+ *
+ * A fragment the parser reports an error in comes back as none too. Nothing in a file that does not
+ * parse can be trusted to say what it declares, and reading it as prose is the price of keeping prose
+ * out.
+ *
+ * @param text the file's text.
+ * @param path the file's on-disk path.
+ * @returns the parsed document, or undefined when the text does not read as rules.
+ */
+export const maybeRulesDocumentOf = (text: string, path: string): AbstractNodeDocument | undefined => {
+    try {
+        const parsed = parser(lexer(text), path);
+        return parsed.parserErrors.length === 0 ? parsed.value : undefined;
+    } catch {
+        return undefined;
+    }
+};
+
+/**
  * How much of the source a clone has to carry.
  *
  * The whole directory when the declaring file is the only thing in it that declares an id: the game
@@ -273,15 +322,25 @@ export const copyUnitOf = async (fsPath: string, cancellationToken: Cancellation
     const own = fsPath.replace(/\\/g, '/').toLowerCase();
     for (const file of files) {
         if (cancellationToken.isCancellationRequested) return 'file';
-        if (!file.toLowerCase().endsWith('.rules') || file.toLowerCase() === own) continue;
+        if (file.toLowerCase() === own) continue;
+        const kind = unitFileKindOf(file);
+        if (kind === 'other') continue;
         const text = await readFile(file, { encoding: 'utf-8' }).catch(() => undefined);
-        if (text === undefined) return 'file';
-        let document: AbstractNodeDocument;
-        try {
-            document = parseText(text, file);
-        } catch {
+        let document: AbstractNodeDocument | undefined;
+        if (kind === 'rules') {
             // An unreadable neighbour could declare anything, so the safe unit is the single file.
-            return 'file';
+            if (text === undefined) return 'file';
+            try {
+                document = parseText(text, file);
+            } catch {
+                return 'file';
+            }
+        } else {
+            // A `.txt` counts only once it reads as rules, which a note does not and which a
+            // fragment holding a parse error cannot be told apart from. Judging the folder on
+            // either would leave a part's art behind for the sake of a note.
+            document = text === undefined ? undefined : maybeRulesDocumentOf(text, file);
+            if (document === undefined) continue;
         }
         if (!modIdDeclarationsOf(document).next().done) return 'file';
     }

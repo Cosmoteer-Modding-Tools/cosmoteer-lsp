@@ -101,20 +101,19 @@ export const plansForDocument = async (
 
     const kept: ExtractionPlan[] = [];
     for (const plan of plans) {
-        let changed = false;
+        // A plan this document appears in nowhere is left alone without rebuilding its participants.
+        if (!plan.participants.some((participant) => normalizeUri(participant.uri) === selfUri)) continue;
         const participants = plan.participants.map((participant) => {
             if (normalizeUri(participant.uri) !== selfUri) return participant;
-            const live = (liveByName.get(participant.groupName.toLowerCase()) ?? []).find(
+            return (liveByName.get(participant.groupName.toLowerCase()) ?? []).find(
                 (candidate) =>
                     candidate.participant.className === participant.className &&
                     plan.fields.every(
                         (key) => candidate.participant.members.get(key)?.norm === participant.members.get(key)?.norm
                     )
-            );
-            changed = true;
-            return live?.participant;
+            )?.participant;
         });
-        if (!changed || participants.some((participant) => participant === undefined)) continue;
+        if (participants.some((participant) => participant === undefined)) continue;
         const resolved = participants as Participant[];
         const donorIndex = plan.participants.indexOf(plan.donor);
         kept.push({

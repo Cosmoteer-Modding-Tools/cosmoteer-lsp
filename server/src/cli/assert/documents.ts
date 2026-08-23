@@ -21,7 +21,7 @@ export interface ParsedFile {
 }
 
 /** What went wrong with a file that could not be used. */
-export interface UnreadableFile {
+interface UnreadableFile {
     file: string;
     reason: string;
 }
@@ -80,7 +80,7 @@ export class DocumentCache {
  * @param text the file's text.
  * @returns the offset of the first character of each line, starting with zero.
  */
-export const lineStartsOf = (text: string): number[] => {
+const lineStartsOf = (text: string): number[] => {
     const starts = [0];
     for (let index = 0; index < text.length; index++) {
         const character = text.charCodeAt(index);

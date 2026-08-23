@@ -17,6 +17,7 @@ import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.servic
 import { onFsInvalidation } from '../../workspace/fs-cache';
 import { DefinitionService, isReferenceValue } from './definition.service';
 import { FullNavigationStrategy } from './full.navigation-strategy';
+import { segmentName, segmentSpans, SegmentSpan } from './navigation-strategy';
 import { ChannelOccurrence, channelOccurrences, channelRangeOf, particleChannelAt } from './particle-channel';
 import { enclosingContainerKey, findReferenceTargetAtPosition, referenceNodesOf } from './reference-index';
 import { definitionLocationOf, definitionNameOf, locationKey, normalizeUri, rangeOf } from './reference-location';
@@ -36,13 +37,6 @@ import { resolveSchemaSiblingReference, stringValueNodesOf, valueTextRange } fro
  * server declines, so an empty list would replace the reader's word highlighting with nothing at all.
  */
 const navigation = new FullNavigationStrategy();
-
-/** A `/`-delimited path segment of a reference value, and where it sits inside that value. */
-interface SegmentSpan {
-    readonly text: string;
-    readonly start: number;
-    readonly end: number;
-}
 
 /** A cross-file id under the cursor: the written id and the class the cursor's site names. */
 interface CrossFileIdCursor {
@@ -90,20 +84,6 @@ const HIGHLIGHT_MEMO_POSITION_CAP = 512;
 // A reference branch answer depends on the files the reference resolves through, so it goes stale
 // when a sibling file changes even though this buffer did not. The fs caches announce exactly that.
 onFsInvalidation(() => highlightMemo.clear());
-
-/** Split a reference value into its `/`-delimited segments with their offsets inside the value. */
-const segmentSpans = (value: string): SegmentSpan[] => {
-    const spans: SegmentSpan[] = [];
-    const regex = /[^/]+/g;
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(value)) !== null) {
-        spans.push({ text: match[0], start: match.index, end: match.index + match[0].length });
-    }
-    return spans;
-};
-
-/** The bare member name of a segment, with the leading relative `&` sigil stripped. */
-const segmentName = (span: SegmentSpan): string => span.text.replace(/^&/, '');
 
 /** A plain member name, the only kind of segment that names something a reader can look for. */
 const MEMBER_NAME = /^[A-Za-z_]\w*$/;

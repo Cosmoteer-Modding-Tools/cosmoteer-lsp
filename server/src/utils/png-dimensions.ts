@@ -10,7 +10,7 @@ import { foldPathCase, onFsInvalidation } from '../workspace/fs-cache';
 // watched alongside the rules files, so an edited sprite drops its entry with the rest.
 
 /** The pixel size of an image file. */
-export interface PixelSize {
+interface PixelSize {
     readonly width: number;
     readonly height: number;
 }

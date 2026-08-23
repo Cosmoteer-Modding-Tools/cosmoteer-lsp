@@ -1,12 +1,6 @@
 import { CompletionItemKind, Position } from 'vscode-languageserver';
-import {
-    AbstractNode,
-    AbstractNodeDocument,
-    isAssignmentNode,
-    isGroupNode,
-    isValueNode,
-    ValueNode,
-} from '../../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, isGroupNode, isValueNode, ValueNode } from '../../core/ast/ast';
+import { assignmentNameOf } from '../../utils/ast.utils';
 import { fieldOf } from '../../document/schema/schema';
 import { memberScopeClassAt, resolveGroupClass } from '../../document/schema/schema-context';
 import { Completion } from '../completion/autocompletion.service';
@@ -44,15 +38,6 @@ export interface ChannelOccurrence {
 const directionOf = (fieldName: string): ChannelDirection =>
     fieldName.endsWith('InOut') ? 'inout' : fieldName.endsWith('Out') ? 'out' : 'in';
 
-/** The field name a value node fills, found via the sibling assignment whose right-hand side it is. */
-const fieldNameOfValue = (group: AbstractNode, node: ValueNode): string | undefined => {
-    if (!isGroupNode(group)) return undefined;
-    for (const element of group.elements) {
-        if (isAssignmentNode(element) && element.right === node) return element.left.name;
-    }
-    return undefined;
-};
-
 /**
  * Recognises a value node as a particle data channel occurrence.
  *
@@ -60,11 +45,11 @@ const fieldNameOfValue = (group: AbstractNode, node: ValueNode): string | undefi
  * @returns the channel occurrence (name, direction, node) when the node fills a `ParticleDataID`
  * field with a non-empty value, otherwise undefined.
  */
-export const particleChannelOf = (node: AbstractNode | null | undefined): ChannelOccurrence | undefined => {
+const particleChannelOf = (node: AbstractNode | null | undefined): ChannelOccurrence | undefined => {
     if (!node || !isValueNode(node) || node.valueType.type !== 'String') return undefined;
     const group = node.parent;
     if (!group || !isGroupNode(group)) return undefined;
-    const fieldName = fieldNameOfValue(group, node);
+    const fieldName = assignmentNameOf(node);
     if (!fieldName) return undefined;
     const cls = resolveGroupClass(group);
     const valueType = cls ? fieldOf(cls, fieldName)?.valueType : undefined;

@@ -1,16 +1,6 @@
-import {
-    EventEmitter,
-    Position,
-    QuickInputButton,
-    QuickPickItem,
-    TextDocumentContentProvider,
-    ThemeIcon,
-    Uri,
-    commands,
-    l10n,
-    window,
-} from 'vscode';
+import { Position, QuickInputButton, QuickPickItem, ThemeIcon, Uri, commands, l10n, window } from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
+import { VirtualContentProvider } from '../virtual-content-provider';
 
 /** The virtual-document scheme the rendered schema documentation is served under. */
 export const SCHEMA_DOC_SCHEME = 'cosmoteer-schema-doc';
@@ -67,22 +57,9 @@ interface CaretContext {
  * Serves the schema documentation of a picked hit as a read-only virtual document, so the built-in
  * markdown preview renders it without writing a file into the user's mod.
  */
-export class SchemaDocContentProvider implements TextDocumentContentProvider {
-    private readonly contentByUri = new Map<string, string>();
-    private readonly changeEmitter = new EventEmitter<Uri>();
-    public readonly onDidChange = this.changeEmitter.event;
-
-    /** Stores (or refreshes) the markdown behind a documentation uri and notifies open previews. */
-    public set(uri: Uri, markdown: string): void {
-        this.contentByUri.set(uri.toString(), markdown);
-        this.changeEmitter.fire(uri);
-    }
-
-    public provideTextDocumentContent(uri: Uri): string {
-        return (
-            this.contentByUri.get(uri.toString()) ??
-            l10n.t('This documentation is no longer available. Run the command again.')
-        );
+export class SchemaDocContentProvider extends VirtualContentProvider {
+    public constructor() {
+        super(() => l10n.t('This documentation is no longer available. Run the command again.'));
     }
 }
 

@@ -19,7 +19,7 @@ import { ensureFragmentRooting } from './fragment-rooting';
 import { sharedBaseHost } from './hosts';
 import { scanSettingsKeyOf } from './scan-epoch';
 import { isOutsideRulesPanel, validationScopeKeys, wholeWorkspaceEnabled } from './validation-scope';
-import { getWorkspaceFoldersCached } from './workspace-folders';
+import { workspaceFolderUris } from './workspace-folders';
 import { currentScanCacheEntries } from './workspace-scan';
 
 /**
@@ -33,8 +33,7 @@ import { currentScanCacheEntries } from './workspace-scan';
  * @returns the report for the invoking client, or null when no workspace folder is open.
  */
 export async function postUpdateReport(): Promise<PostUpdateReportResult | null> {
-    const folders = await getWorkspaceFoldersCached();
-    const folderUris = (folders ?? []).map((folder) => folder.uri);
+    const folderUris = await workspaceFolderUris();
     if (folderUris.length === 0) return null;
     const entries = currentScanCacheEntries();
     const migration = await migrateWorkspace({ dryRun: true }).catch(() => null);
@@ -70,8 +69,7 @@ export async function migrateWorkspace(options: {
     symbol?: string;
     scopeFsPath?: string;
 }): Promise<MigrationSummary | null> {
-    const folders = await getWorkspaceFoldersCached();
-    const folderUris = (folders ?? []).map((folder) => folder.uri);
+    const folderUris = await workspaceFolderUris();
     if (folderUris.length === 0) return null;
     const token = CancellationToken.None;
     const folderPaths = folderUris.map(uriToFsPath);

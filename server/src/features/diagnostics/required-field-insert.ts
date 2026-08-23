@@ -6,7 +6,7 @@ import { memberSpanOf } from '../refactor/shared-base/member-record';
 import type { ValidationErrorData } from './validator';
 
 /** The payload a required-field diagnostic carries for its quick fix, see {@link ValidationErrorData}. */
-export type RequiredFieldInsert = NonNullable<ValidationErrorData['insertRequiredFields']>;
+type RequiredFieldInsert = NonNullable<ValidationErrorData['insertRequiredFields']>;
 
 /**
  * The literal a scaffolded field is written with, neutral enough to read as a placeholder and still a

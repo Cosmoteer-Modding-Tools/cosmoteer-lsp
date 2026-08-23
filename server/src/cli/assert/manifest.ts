@@ -37,7 +37,7 @@ export interface ManifestChoice {
  * @param parsed the parsed manifest.
  * @returns the candidate.
  */
-export const readCandidate = (parsed: ParsedFile): ManifestCandidate => {
+const readCandidate = (parsed: ParsedFile): ManifestCandidate => {
     const members = topLevelMembers(parsed);
     const compatible = members.get('compatiblegameversions');
     return {

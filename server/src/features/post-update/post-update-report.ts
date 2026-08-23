@@ -47,7 +47,7 @@ import { renderPostUpdateReport } from './post-update-report.render';
 export const POST_UPDATE_REPORT_COMMAND = 'cosmoteer.postUpdateReport';
 
 /** Why the report could not compare two generations of findings, or that it could. */
-export type PostUpdateStatus =
+type PostUpdateStatus =
     /** Two generations exist and the report compares them. */
     | 'compared'
     /** No game install is configured, so nothing about versions or the game tree can be read. */
@@ -64,7 +64,7 @@ export type PostUpdateStatus =
     | 'sameGameVersion';
 
 /** How a finding difference is attributed. */
-export type DeltaKind =
+type DeltaKind =
     /** The finding appeared in a file nothing but the game tree changed under. */
     | 'appeared'
     /** The finding is gone from a file nothing but the game tree changed under. */

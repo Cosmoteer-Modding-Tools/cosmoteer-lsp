@@ -2,6 +2,7 @@ import { readFile } from 'fs/promises';
 import { Dirent, readdirSync } from 'fs';
 import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
+import { isRulesFileName } from '../../../document/document-kind';
 import { modIdDeclarationsOf } from '../../diagnostics/validator.duplicate-id';
 import { parseText } from '../../../utils/ast.utils';
 import { ContentKind } from './new-content.types';
@@ -55,6 +56,13 @@ export const contentFileNameOf = (raw: string): string | undefined => {
     return name;
 };
 
+/** The words of a normalized name, each capitalized, ready for whichever separator a name needs. */
+const capitalizedWords = (fileName: string): string[] =>
+    fileName
+        .split('_')
+        .filter((word) => word.length > 0)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1));
+
 /**
  * The label a localization key is built from: the normalized name in Pascal case, which is how the
  * game's own keys are written (`Parts/SuperArmor`, `Resource/Steel`).
@@ -62,12 +70,7 @@ export const contentFileNameOf = (raw: string): string | undefined => {
  * @param fileName the normalized file name.
  * @returns the key label.
  */
-export const localizationLabelOf = (fileName: string): string =>
-    fileName
-        .split('_')
-        .filter((word) => word.length > 0)
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join('');
+export const localizationLabelOf = (fileName: string): string => capitalizedWords(fileName).join('');
 
 /**
  * The readable name written into the language files as the placeholder translation, so the author
@@ -76,12 +79,7 @@ export const localizationLabelOf = (fileName: string): string =>
  * @param fileName the normalized file name.
  * @returns the display name.
  */
-export const displayNameOf = (fileName: string): string =>
-    fileName
-        .split('_')
-        .filter((word) => word.length > 0)
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
+export const displayNameOf = (fileName: string): string => capitalizedWords(fileName).join(' ');
 
 /**
  * The author segment of a manifest id, which every id the mod declares is prefixed with.
@@ -111,7 +109,12 @@ export const contentIdFor = (kind: ContentKind, prefix: string | undefined, file
     return prefix ? `${prefix}.${fileName}` : fileName;
 };
 
-/** Every `.rules` file below a directory, in a deterministic order. */
+/**
+ * Every rules file below a directory, in a deterministic order. The extension the game's loader
+ * accepts is the one `isRulesFileName` names, `.txt` included, because mods really do declare whole
+ * parts in a `.txt` file and an id declared there takes its slot like any other. The readme and
+ * changelog that filter drops are prose a modder wrote for the reader, which declares nothing.
+ */
 const rulesFilesUnder = (root: string): string[] => {
     const files: string[] = [];
     const walk = (dir: string, depth: number): void => {
@@ -125,7 +128,7 @@ const rulesFilesUnder = (root: string): string[] => {
             if (entry.isDirectory()) {
                 if (depth >= MAX_SWEEP_DEPTH || SKIPPED_DIRS.has(entry.name.toLowerCase())) continue;
                 walk(join(dir, entry.name), depth + 1);
-            } else if (entry.name.toLowerCase().endsWith('.rules')) {
+            } else if (isRulesFileName(entry.name)) {
                 files.push(join(dir, entry.name).replace(/\\/g, '/'));
             }
         }

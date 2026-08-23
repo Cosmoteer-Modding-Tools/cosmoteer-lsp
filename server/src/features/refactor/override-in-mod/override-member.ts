@@ -77,7 +77,7 @@ export interface OverrideMember {
 export type OverrideMemberResult = { member: OverrideMember } | { refusal: OverrideRefusal };
 
 /** The indentation the `Overrides` body is written with inside a manifest action entry. */
-export const OVERRIDE_BODY_INDENT = '\t\t\t';
+const OVERRIDE_BODY_INDENT = '\t\t\t';
 
 /**
  * The offset one past a container's body, treating an unclosed container as running to the end of

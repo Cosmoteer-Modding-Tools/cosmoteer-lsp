@@ -55,6 +55,28 @@ const parseAliasPath = (raw: string): ParsedBase | undefined => {
 };
 
 /**
+ * The one type a set of recording sources agrees on, so an ambiguous slot roots to nothing rather
+ * than to a guess. Shared by every index that types a fragment from the sources that read it.
+ *
+ * @param sources the recorded types, keyed by the source that recorded them.
+ * @returns the agreed type, or undefined when the map is empty or the sources disagree.
+ */
+export const agreedValueType = (sources: Map<string, ValueType>): ValueType | undefined => {
+    let chosen: ValueType | undefined;
+    let signature: string | undefined;
+    for (const valueType of sources.values()) {
+        const current = JSON.stringify(valueType);
+        if (signature === undefined) {
+            signature = current;
+            chosen = valueType;
+        } else if (current !== signature) {
+            return undefined;
+        }
+    }
+    return chosen;
+};
+
+/**
  * The deriving group's own class, or, when its own `Type` comes through the inheritance itself, the
  * class of a plain-name sibling base: `Overclock_BeamEmitter : ~/OVERCLOCK/BEAM, BulletEmitter` has
  * no `Type=` of its own, but its second base names the sibling `BulletEmitter` component, whose
@@ -247,18 +269,7 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         const key = `${normalizeUri(document.uri)}|${node.position?.start ?? -1},${node.position?.end ?? -1}`;
         const sources = this.leafByNode.get(key);
         if (!sources || sources.size === 0) return undefined;
-        let chosen: ValueType | undefined;
-        let signature: string | undefined;
-        for (const valueType of sources.values()) {
-            const current = JSON.stringify(valueType);
-            if (signature === undefined) {
-                signature = current;
-                chosen = valueType;
-            } else if (current !== signature) {
-                return undefined;
-            }
-        }
-        return chosen;
+        return agreedValueType(sources);
     }
 
     public static get instance(): ReverseIncludeIndex {
@@ -295,22 +306,10 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         const normalized = normalizeUri(uri);
         const sources = this.byTarget.get(normalized)?.get(member);
         if (sources && sources.size > 0) {
-            let chosen: ValueType | undefined;
-            let signature: string | undefined;
-            let conflict = false;
-            for (const valueType of sources.values()) {
-                const current = JSON.stringify(valueType);
-                if (signature === undefined) {
-                    signature = current;
-                    chosen = valueType;
-                } else if (current !== signature) {
-                    conflict = true;
-                    break;
-                }
-            }
-            // An explicit field include is the authoritative slot; only when the field includes
+            // An explicit field include is the authoritative slot. Only when the field includes
             // disagree (or there are none) does inheritance-base rooting get a say.
-            if (!conflict) return chosen;
+            const agreed = agreedValueType(sources);
+            if (agreed !== undefined) return agreed;
         }
         return this.inheritedMemberType(normalized, member);
     }

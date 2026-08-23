@@ -96,13 +96,13 @@ export interface MigrateSymbolHost {
  *
  * @returns the host the server uses.
  */
-export const defaultMigrateSymbolHost = (): MigrateSymbolHost => ({
+const defaultMigrateSymbolHost = (): MigrateSymbolHost => ({
     candidateFiles: (name, folderPaths, token) => MentionIndex.instance.candidateFiles(name, folderPaths, token),
     editableRootOf: (fsPath) => editableModRootOf(fsPath),
 });
 
 /** Which files a bulk fix may look at: one deprecation, one mod, and the folders in the project. */
-export interface SymbolScope {
+interface SymbolScope {
     /** The deprecation-registry identity being applied. */
     symbol: string;
     /** The on-disk path of the file the offer came from, which names the mod the sweep stays in. */
@@ -176,7 +176,7 @@ export interface MigrationChange {
 }
 
 /** The client-side facilities a migration needs to land its rewrite and refresh the indexes. */
-export interface MigrationApplyHost {
+interface MigrationApplyHost {
     /** The editor's open buffers, whose files have to be edited through the editor. */
     openDocuments(): readonly { uri: string }[];
     /** Hands the client the multi-file edit. */
@@ -186,7 +186,7 @@ export interface MigrationApplyHost {
 }
 
 /** What a migration managed to write. */
-export interface MigrationApplyResult {
+interface MigrationApplyResult {
     /** How many files actually changed. */
     files: number;
     /** The files nothing could be written to, which are unchanged. */

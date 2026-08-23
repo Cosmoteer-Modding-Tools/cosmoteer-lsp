@@ -72,7 +72,7 @@ const soleInheritance = (container: GroupNode): ValueNode | undefined => {
 };
 
 /** Why a container cannot take part, or undefined when it can. */
-export type ContainerRefusal =
+type ContainerRefusal =
     | 'unnamed'
     | 'noClass'
     | 'multipleBases'
@@ -81,7 +81,7 @@ export type ContainerRefusal =
     | 'noSpan';
 
 /** A container accepted for analysis, with the facts the later stages need. */
-export interface ContainerFacts {
+interface ContainerFacts {
     node: GroupNode;
     className: string;
     inheritance?: ValueNode;
@@ -140,6 +140,8 @@ export interface ExtractableMember extends MemberRecord {
  * @param anchorDir the directory every file path is re-expressed relative to, so the same member
  * written in two directories compares equal. The emitted base file re-expresses them once more,
  * against wherever the base file ends up.
+ * @param comments the file's comment spans, so a caller judging several containers of one file scans
+ * its text once rather than once per container.
  * @returns the extractable members, in document order, compared by their anchor-relative form.
  */
 export const extractableMembers = (
@@ -147,11 +149,11 @@ export const extractableMembers = (
     document: AbstractNodeDocument,
     text: string,
     declaringDir: string,
-    anchorDir: string
+    anchorDir: string,
+    comments: ReadonlyArray<{ start: number; end: number }> = commentRanges(text)
 ): ExtractableMember[] => {
     const discriminator = (registryForGroup(facts.node)?.typeField ?? 'Type').toLowerCase();
     const readNames = referencedSegments(document);
-    const comments = commentRanges(text);
     const out: ExtractableMember[] = [];
     // The gap before a member carries its banner comment, so it is judged with the member itself.
     // The first member's gap starts just after the container's `{`.

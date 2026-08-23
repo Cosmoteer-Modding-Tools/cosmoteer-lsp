@@ -5,7 +5,7 @@ import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-worksp
 import { FullNavigationStrategy } from './full.navigation-strategy';
 import { isAssetValue, resolveAssetPath } from './asset-resolver';
 import { filePathToUri, stripReferenceWhitespace } from './navigation-strategy';
-import { definitionLocationOf, locationKey } from './reference-location';
+import { dedupeLocations, definitionLocationOf } from './reference-location';
 import { splitVirtualColon } from '../../utils/reference.utils';
 import { resolveVirtualInheritanceTargets } from '../../semantics/inheritor-resolver';
 import { resolveSchemaSiblingReference } from './schema-reference.navigation';
@@ -62,14 +62,7 @@ export class DefinitionService {
             // (default) declaration `primary` lands on, so go-to-definition reaches the deriving values.
             const overrides = await this.resolveVirtualOverrides(document, node, cancellationToken).catch(() => []);
             if (overrides.length) {
-                const all = primary ? [primary, ...overrides] : overrides;
-                const seen = new Set<string>();
-                return all.filter((location) => {
-                    const key = locationKey(location);
-                    if (seen.has(key)) return false;
-                    seen.add(key);
-                    return true;
-                });
+                return dedupeLocations(primary ? [primary, ...overrides] : overrides);
             }
             return primary;
         }

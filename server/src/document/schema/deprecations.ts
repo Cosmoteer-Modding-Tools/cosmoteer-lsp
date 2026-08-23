@@ -32,8 +32,10 @@
  * successor.
  */
 
+import { registry } from '../../utils/registry';
+
 /** A renamed symbol: the spelling to use now, and a short note on why it changed. */
-export interface Deprecation {
+interface Deprecation {
     /** The current name that replaces the deprecated one. */
     readonly replacement: string;
     /**
@@ -57,14 +59,14 @@ const AMMO_TO_RESOURCE = 'ammo was generalized into the resource system';
  * `Resource*` (ammo is just a resource now). The rename predates the recorded changelogs, so the
  * entries carry no version.
  */
-const DEPRECATED_DISCRIMINATORS: Readonly<Record<string, Deprecation>> = {
+const DEPRECATED_DISCRIMINATORS: Readonly<Record<string, Deprecation>> = registry({
     AmmoChange: { replacement: 'ResourceChange', note: AMMO_TO_RESOURCE },
     AmmoDrain: { replacement: 'ResourceDrain', note: AMMO_TO_RESOURCE },
     ExplosiveAmmoDrain: { replacement: 'ExplosiveResourceDrain', note: AMMO_TO_RESOURCE },
     AmmoStorage: { replacement: 'ResourceStorage', note: AMMO_TO_RESOURCE },
     AmmoConsumer: { replacement: 'ResourceConsumer', note: AMMO_TO_RESOURCE },
     AmmoConverter: { replacement: 'ResourceConverter', note: AMMO_TO_RESOURCE },
-};
+});
 
 /**
  * The deprecation for a `Type=` discriminator value, if it is a known renamed type.
@@ -76,7 +78,7 @@ export const deprecatedDiscriminator = (written: string): Deprecation | undefine
     DEPRECATED_DISCRIMINATORS[written];
 
 /** A field the game deleted outright (no old spelling left in its code): the migration guidance. */
-export interface FieldDeprecation {
+interface FieldDeprecation {
     /** FullName of the class that used to read the field. */
     readonly className: string;
     /** The deleted field's canonical spelling, since the map is keyed by its lower-cased name. */
@@ -105,7 +107,7 @@ export interface FieldDeprecation {
  * member flagged `dead` in the overlay, which keeps old mods parsing and hovering, and the entry here
  * upgrades the dead-field hint with the migration.
  */
-const DEPRECATED_FIELDS: Readonly<Record<string, FieldDeprecation>> = {
+const DEPRECATED_FIELDS: Readonly<Record<string, FieldDeprecation>> = registry({
     // ---- 0.24.1 ----
     penetrationrecttype: {
         className: 'Cosmoteer.Bullets.Hits.BulletPenetratingHitRules',
@@ -142,7 +144,7 @@ const DEPRECATED_FIELDS: Readonly<Record<string, FieldDeprecation>> = {
         note: "fire immunity is now the 'non_flammable' part category: TypeCategories = [non_flammable]",
         version: '0.30.0',
     },
-};
+});
 
 /**
  * The deprecation for a class member, if the named field is a known deleted field of that class.
@@ -159,7 +161,7 @@ export const deprecatedField = (className: string, fieldName: string): FieldDepr
 };
 
 /** A field rename whose old spelling the game still deserializes: the modern spelling to prefer. */
-export interface FieldRename {
+interface FieldRename {
     /** FullNames of the classes that carry the renamed field. */
     readonly classNames: readonly string[];
     /** The old name's canonical spelling, since the map is keyed by its lower-cased form. */
@@ -180,7 +182,7 @@ const SOURCE_TO_FRIENDLY = 'the behavior now also covers all friendly ships, not
  * carries both spellings as aliases of one field, so the old name deserializes fine and no other
  * check ever flags it. This registry is the only source that says "prefer the modern name".
  */
-const RENAMED_FIELD_ALIASES: Readonly<Record<string, FieldRename>> = {
+const RENAMED_FIELD_ALIASES: Readonly<Record<string, FieldRename>> = registry({
     // ---- 0.23.0 ----
     createpartwhendestroyed: {
         classNames: ['Cosmoteer.Ships.Parts.PartRules'],
@@ -232,7 +234,7 @@ const RENAMED_FIELD_ALIASES: Readonly<Record<string, FieldRename>> = {
         note: SOURCE_TO_FRIENDLY,
         version: '0.23.0',
     },
-};
+});
 
 /**
  * The rename for a class member written under its pre-rename spelling, if it is a known renamed
@@ -252,7 +254,7 @@ export const renamedFieldAlias = (className: string, written: string): FieldRena
 };
 
 /** A field that still works but was superseded by a richer field the game now prefers. */
-export interface ObsoleteField {
+interface ObsoleteField {
     /** FullNames of the classes that carry the obsolete field. */
     readonly classNames: readonly string[];
     /** The obsolete field's canonical spelling, since the map is keyed by its lower-cased name. */
@@ -270,7 +272,7 @@ export interface ObsoleteField {
  * separate members in the current DLL (the game keeps reading the old one for backwards
  * compatibility), so unlike {@link RENAMED_FIELD_ALIASES} these are not aliases of one field.
  */
-const OBSOLETE_FIELDS: Readonly<Record<string, ObsoleteField>> = {
+const OBSOLETE_FIELDS: Readonly<Record<string, ObsoleteField>> = registry({
     // ---- 0.24.0 ----
     explosivedamageresistance: {
         name: 'ExplosiveDamageResistance',
@@ -291,7 +293,7 @@ const OBSOLETE_FIELDS: Readonly<Record<string, ObsoleteField>> = {
         note: "ViaBuffs now supports multiple components through a 'ComponentIDs' list",
         version: '0.26.0',
     },
-};
+});
 
 /**
  * The successor for a class member superseded by a richer field, if it is a known obsolete field of
@@ -312,7 +314,7 @@ export const obsoleteField = (className: string, fieldName: string): ObsoleteFie
  * schema-validated (its loader lives outside the serialization system), so these entries are consumed
  * by the workspace migration directly rather than by a validator.
  */
-export const RENAMED_MOD_RULES_FIELDS: Readonly<Record<string, Deprecation>> = {
+export const RENAMED_MOD_RULES_FIELDS: Readonly<Record<string, Deprecation>> = registry({
     // ---- 0.24.0 ----
     modifiesmultiplayer: {
         name: 'ModifiesMultiplayer',
@@ -320,17 +322,17 @@ export const RENAMED_MOD_RULES_FIELDS: Readonly<Record<string, Deprecation>> = {
         note: 'renamed for clarity; the old name is still accepted for backwards-compatibility',
         version: '0.24.0',
     },
-};
+});
 
 /**
  * Which of the registries above a migration symbol names. The registries are keyed by the old name,
  * and one old name can mean different things in different registries, so the kind is part of the
  * identity rather than a detail of it.
  */
-export type MigrationSymbolKind = 'discriminator' | 'deletedField' | 'renamedAlias' | 'obsoleteField' | 'manifestField';
+type MigrationSymbolKind = 'discriminator' | 'deletedField' | 'renamedAlias' | 'obsoleteField' | 'manifestField';
 
 /** What a migration symbol names: the registry entry behind it, in the form a message can read. */
-export interface DeprecationSymbol {
+interface DeprecationSymbol {
     /** The registry the entry came from. */
     readonly kind: MigrationSymbolKind;
     /** The old name's canonical spelling, for messages that name the field the way a file writes it. */
@@ -412,3 +414,4 @@ export const allDeprecationSymbols = (): string[] => [
     ...Object.keys(OBSOLETE_FIELDS).map((key) => migrationSymbolOf('obsoleteField', key)),
     ...Object.keys(RENAMED_MOD_RULES_FIELDS).map((key) => migrationSymbolOf('manifestField', key)),
 ];
+

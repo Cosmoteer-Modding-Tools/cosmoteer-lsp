@@ -28,7 +28,7 @@ const ZERO_RANGE = Range.create(0, 0, 0, 0);
 const navigation = new FullNavigationStrategy();
 
 /** Payload on an unresolved link: where the token sits (to re-find it) and which prefix this segment resolves. */
-export interface DocumentLinkData {
+interface DocumentLinkData {
     uri: string;
     line: number;
     character: number;

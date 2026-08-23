@@ -326,7 +326,7 @@ const findingsInside = async (
  * @param actions every action verdict of the mod.
  * @returns the counts, which always add up to the number of actions.
  */
-export const countActions = (actions: readonly ActionVerdict[]): AssertCounts => {
+const countActions = (actions: readonly ActionVerdict[]): AssertCounts => {
     const counts: AssertCounts = { actions: actions.length, ok: 0, failed: 0, unverifiable: 0 };
     for (const action of actions) counts[action.mark]++;
     return counts;
@@ -348,7 +348,7 @@ export const folderName = (folder: string): string => basename(folder) || folder
  * @param manifests every manifest found under it, absolute.
  * @returns the subfolder names, empty when the folder carries a manifest of its own.
  */
-export const collectionSubfolders = (folder: string, manifests: readonly string[]): string[] => {
+const collectionSubfolders = (folder: string, manifests: readonly string[]): string[] => {
     const names = new Set<string>();
     for (const manifest of manifests) {
         const inside = relative(folder, manifest).replace(/\\/g, '/');

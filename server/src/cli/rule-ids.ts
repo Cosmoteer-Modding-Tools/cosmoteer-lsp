@@ -30,10 +30,8 @@ type PassSettingKey = Exclude<
     'validateWholeWorkspace'
 >;
 
-export type DiagnosticsPassKey = PassSettingKey;
-
 /** One reportable rule: what it checks, how severe its findings usually are, and what gates it. */
-export interface LintRule {
+interface LintRule {
     /** The stable identity that appears in every report. */
     id: string;
     /** A short name for a report header, in the wording the settings use. */

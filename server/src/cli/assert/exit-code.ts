@@ -6,11 +6,11 @@ import type { AssertReport } from './model';
 // gate that cannot tell them apart is the failure this command exists to prevent.
 
 /** Every action was judged and none of them stops the mod loading. */
-export const EXIT_LOADS = 0;
+const EXIT_LOADS = 0;
 /** Something stops the game loading the mod. */
-export const EXIT_DOES_NOT_LOAD = 1;
+const EXIT_DOES_NOT_LOAD = 1;
 /** Nothing failed, and something could not be judged at all. */
-export const EXIT_NOT_FULLY_CHECKED = 6;
+const EXIT_NOT_FULLY_CHECKED = 6;
 
 /**
  * The exit code for a finished load check.

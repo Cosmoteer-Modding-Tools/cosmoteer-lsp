@@ -55,7 +55,7 @@ const languageOf = (document: AbstractNodeDocument): string => {
 };
 
 /** One path a strings file declares, at the node that spells the path's last segment. */
-export interface LocalizationKeyDeclaration {
+interface LocalizationKeyDeclaration {
     /** The path the game looks a string up by (`Misc/Okay`). */
     path: string;
     /** The identifier spelling the last segment, absent when that segment is a list position. */

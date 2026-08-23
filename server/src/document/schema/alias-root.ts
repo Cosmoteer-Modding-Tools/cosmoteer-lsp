@@ -32,7 +32,7 @@ const ROOT_CLASS = 'Cosmoteer.Data.Rules';
 const MAX_DEPTH = 12;
 
 /** Resolve a file-only reference (`<path/to.rules>`) written in `fromUri` to its parsed document. */
-export type FileRefResolver = (fileRef: string, fromUri: string) => Promise<AbstractNodeDocument | undefined>;
+type FileRefResolver = (fileRef: string, fromUri: string) => Promise<AbstractNodeDocument | undefined>;
 
 /** Split `&<path/to.rules>/Member/…` into the file ref and the first member segment (if any). */
 export const parseAlias = (raw: string): { fileRef: string; member?: string } | undefined => {

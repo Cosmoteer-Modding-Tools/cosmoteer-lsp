@@ -3,7 +3,6 @@ import { getStartOfAstNode } from '../../utils/ast.utils';
 import { cachedParseFilePath, cachedReaddir, foldPathCase, onFsInvalidation } from '../../workspace/fs-cache';
 import { getParsedFileDocument } from '../../workspace/parsed-file-cache';
 import {
-    CosmoteerFile,
     CosmoteerWorkspaceService,
     FileTree,
     FileWithPath,
@@ -476,8 +475,9 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
                     currentPath = path.join(currentPath, '..');
                     continue;
                 }
+                const wanted = pathes[i].toLowerCase();
                 for (const dirent of dir) {
-                    if (dirent.name.toLowerCase() === pathes[i].toLowerCase()) {
+                    if (dirent.name.toLowerCase() === wanted) {
                         if (i === lastWorkspacePathIndex && dirent.isFile()) {
                             const parsed = await cachedParseFilePath(createDirentPath(dirent), cancellationToken);
                             if (pathes.length - 1 > lastWorkspacePathIndex) {

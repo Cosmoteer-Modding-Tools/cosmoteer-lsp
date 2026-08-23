@@ -21,7 +21,7 @@
  */
 import { AbstractNode, AbstractNodeDocument, isAssignmentNode, isGroupNode, isValueNode } from '../../core/ast/ast';
 import { namedMembersOf } from '../../utils/ast.utils';
-import { fieldOf, schema } from './schema';
+import { fieldOf, schema, schemaGeneration } from './schema';
 import { SchemaRegistry } from './schema.types';
 
 type RootRule = {
@@ -172,8 +172,8 @@ export const classFitsDocument = (cls: string, document: AbstractNodeDocument): 
  *  (files scanned from disk on Windows carry backslashes, while open-buffer URIs use forward slashes). */
 const normalizedUri = (document: AbstractNodeDocument): string => document.uri.replace(/\\/g, '/');
 
-/** The schema class for a whole-file-root document, or undefined (part files, unknown kinds). */
-export const documentRootClass = (document: AbstractNodeDocument): string | undefined => {
+/** The uncached rooting walk, run once per document per schema generation by {@link documentRootClass}. */
+const rootClassUncached = (document: AbstractNodeDocument): string | undefined => {
     // 1) Content dispatch: a top-level `Type=` naming a whole-file-root registry's member.
     const type = topLevelType(document);
     if (type) {
@@ -197,6 +197,28 @@ export const documentRootClass = (document: AbstractNodeDocument): string | unde
         }
     }
     return undefined;
+};
+
+/**
+ * Per-document memo of the root class. Rooting reads the document and the schema and nothing else,
+ * so a parsed document keyed here answers until a mod merge reshapes the schema. A re-parse produces
+ * a fresh document node, which is a fresh key, so the memo cannot serve a stale answer for edited text.
+ */
+const rootClassCache = new WeakMap<AbstractNodeDocument, { generation: number; value: string | undefined }>();
+
+/**
+ * The schema class for a whole-file-root document, or undefined (part files, unknown kinds).
+ *
+ * @param document the parsed document to root.
+ * @returns the whole-file root class FullName, or undefined when the document is not a whole-file root.
+ */
+export const documentRootClass = (document: AbstractNodeDocument): string | undefined => {
+    const generation = schemaGeneration();
+    const cached = rootClassCache.get(document);
+    if (cached && cached.generation === generation) return cached.value;
+    const value = rootClassUncached(document);
+    rootClassCache.set(document, { generation, value });
+    return value;
 };
 
 /**

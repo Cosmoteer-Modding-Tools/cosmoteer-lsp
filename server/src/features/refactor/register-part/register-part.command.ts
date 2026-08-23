@@ -1,25 +1,22 @@
-import { readFile } from 'fs/promises';
-import { dirname, resolve } from 'path';
+import { dirname } from 'path';
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { AbstractNode, GroupNode, isListNode, isValueNode } from '../../../core/ast/ast';
+import { GroupNode, isListNode, isValueNode } from '../../../core/ast/ast';
 import { basenameOf } from '../../../document/document-kind';
-import { parseModActions } from '../../../mod/action-parser';
-import { normalizeTargetPath } from '../../../mod/action-target-resolver';
 import { findModRoot } from '../../../mod/mod-root';
 import { findMemberThroughInheritance, ResolveReferenceFn } from '../../../semantics/inheritance-resolver';
 import { globalSettings } from '../../../settings';
 import { namedMembersOf, parseText } from '../../../utils/ast.utils';
+import { isUnder } from '../../../utils/relative-path';
 import { FileWithPath, CosmoteerWorkspaceData } from '../../../workspace/cosmoteer-workspace.service';
-import { foldPathCase } from '../../../workspace/fs-cache';
 import { FullNavigationStrategy } from '../../navigation/full.navigation-strategy';
-import { filePathToUri } from '../../navigation/navigation-strategy';
-import { normalizeUri } from '../../navigation/reference-location';
 import { uriToFsPath } from '../../navigation/workspace-files';
 import { appendElementEdit, isError } from '../../part-editor/grid-edit.service';
 import { locatePartGroup } from '../../part-editor/part-grid-data.service';
+import { documentFor, lineEndingOf, openBuffers } from '../command-host';
+import { manifestActionMatches, manifestToWrite } from '../new-content/registration.emitter';
 import { relativeRulesReference } from '../shared-base/base-file.emitter';
-import { dirOf, readRulesFile } from '../shared-base/base-index';
+import { dirOf } from '../shared-base/base-index';
 import { editableModRootOf } from '../shared-base/shared-base.analysis-entry';
 import { addManyActionText, manifestActionInsert, shipPartsTargetPath } from './manifest-action.emitter';
 import {
@@ -63,7 +60,7 @@ export interface RegisterPartArgs {
 }
 
 /** Why a ship cannot take the part, whatever else is true of it. */
-export type ShipBlocker = 'partsInherited' | 'noPartsList' | 'notEditable' | 'noModRoot' | 'unreadable';
+type ShipBlocker = 'partsInherited' | 'noPartsList' | 'notEditable' | 'noModRoot' | 'unreadable';
 
 /** Why a registration did nothing. */
 export type RegisterPartFailure =
@@ -79,7 +76,7 @@ export type RegisterPartFailure =
     | 'editRejected';
 
 /** Something worth saying that did not stop the registration. */
-export type RegisterPartWarning = 'noPartId';
+type RegisterPartWarning = 'noPartId';
 
 /** One ship class the part could be registered in, and what registering would take. */
 export interface ShipCandidate {
@@ -173,39 +170,6 @@ interface ResolvedPart {
     /** The group itself, for the inheritance read. */
     group: GroupNode;
 }
-
-/** The open buffers keyed by normalized uri, so a file open in the editor is read and edited live. */
-const openBuffers = (host: RegisterPartHost): Map<string, TextDocument> => {
-    const map = new Map<string, TextDocument>();
-    for (const document of host.openDocuments()) map.set(normalizeUri(document.uri), document);
-    return map;
-};
-
-/** The open buffer for a path, or a document built from its disk content. */
-const documentFor = async (
-    fsPath: string,
-    open: ReadonlyMap<string, TextDocument>
-): Promise<TextDocument | undefined> => {
-    const canonical = filePathToUri(fsPath);
-    const buffer = open.get(normalizeUri(canonical));
-    if (buffer) return buffer;
-    try {
-        return TextDocument.create(canonical, 'rules', 0, await readFile(fsPath, { encoding: 'utf-8' }));
-    } catch {
-        return undefined;
-    }
-};
-
-/** Whether a path sits inside a directory, folding case the way the filesystem matches it. */
-const isUnder = (fsPath: string, root: string | undefined): boolean => {
-    if (!root) return false;
-    const key = foldPathCase(resolve(fsPath).replace(/\\/g, '/'));
-    const prefix = foldPathCase(resolve(root).replace(/\\/g, '/').replace(/\/+$/, ''));
-    return key === prefix || key.startsWith(`${prefix}/`);
-};
-
-/** The line ending a file already uses, so anything written into it keeps it. */
-const lineEndingOf = (text: string): '\n' | '\r\n' => (text.includes('\r\n') ? '\r\n' : '\n');
 
 /**
  * The part's id, read from its own group and then through its bases. It is only ever reported, never
@@ -327,30 +291,15 @@ const partsBlockerOf = (ship: ShipParts | undefined): ShipBlocker | undefined =>
  * @param partGroupName the part group's name.
  * @returns true when an action already carries that reference.
  */
-const manifestAlreadyRegisters = async (
+const manifestAlreadyRegisters = (
     modRoot: string,
     target: string,
     partFsPath: string,
     partGroupName: string
-): Promise<boolean> => {
-    const wanted = normalizeTargetPath(target).toLowerCase();
-    for (const manifestFsPath of manifestsIn(modRoot)) {
-        const file = await readRulesFile(manifestFsPath);
-        if (!file) continue;
-        const declaringDir = dirOf(manifestFsPath);
-        for (const action of parseModActions(file.document)) {
-            const hits = action.targets.some(
-                (node) => normalizeTargetPath(String(node.valueType.value)).toLowerCase() === wanted
-            );
-            if (!hits) continue;
-            for (const source of action.sources) {
-                const elements: readonly AbstractNode[] = isListNode(source) ? source.elements : [source];
-                if (partsListRegisters(elements, declaringDir, partFsPath, partGroupName)) return true;
-            }
-        }
-    }
-    return false;
-};
+): Promise<boolean> =>
+    manifestActionMatches(modRoot, target, (source, declaringDir) =>
+        partsListRegisters(isListNode(source) ? source.elements : [source], declaringDir, partFsPath, partGroupName)
+    );
 
 /**
  * Report the ship classes the part could be registered in, each with what registering it would take.
@@ -486,8 +435,7 @@ const applyToManifest = async (
     if (manifests.length === 0) return applyFailed('noModRoot', 'modAction', entry.fsPath);
     // A version-split mod (`mod_0.30.rules` beside `mod_0.29.rules`) needs the author to say which
     // variants get the part, so it is refused rather than guessed at.
-    const named = manifests.find((path) => basenameOf(path).toLowerCase() === 'mod.rules');
-    const manifestFsPath = named ?? (manifests.length === 1 ? manifests[0] : undefined);
+    const manifestFsPath = manifestToWrite(manifests);
     if (!manifestFsPath) {
         return applyFailed('ambiguousManifest', 'modAction', entry.fsPath, manifests.map(basenameOf));
     }

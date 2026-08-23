@@ -20,7 +20,7 @@
  */
 import { lexer, Token, TOKEN_TYPES } from '../../core/lexer/lexer';
 
-export interface RulesFormattingOptions {
+interface RulesFormattingOptions {
     tabSize: number;
     insertSpaces: boolean;
 }
