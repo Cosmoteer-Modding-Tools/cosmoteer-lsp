@@ -25,6 +25,6 @@
     "devDependencies": {
         "@types/node": "^24",
         "@types/winreg": "^1.2.36",
-        "vitest": "^4.1.9"
+        "vitest": "^4.1.11"
     }
 }
