@@ -48,7 +48,6 @@ const TOKEN_DISPLAY: Partial<Record<TOKEN_TYPES, string>> = {
     [TOKEN_TYPES.COLON]: ':',
     [TOKEN_TYPES.EQUALS]: '=',
     [TOKEN_TYPES.COMMA]: ',',
-    [TOKEN_TYPES.STRING_DELIMITER]: '"',
     [TOKEN_TYPES.TRUE]: 'true',
     [TOKEN_TYPES.FALSE]: 'false',
 };
@@ -1273,11 +1272,6 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             return right;
         }
 
-        if (token.type === TOKEN_TYPES.SINGLE_COMMENT || token.type === TOKEN_TYPES.MULTI_COMMENT) {
-            current++;
-            return walk(_lastNode, parent);
-        }
-
         if (token.type === TOKEN_TYPES.RIGHT_PAREN && _lastNode?.type !== 'Value') {
             // A `)` reaching here is unmatched. Every paren-group/function-call loop consumes its
             // own closing `)` before calling `walk`, so this is a stray paren. The real OT parser
@@ -1313,15 +1307,6 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             } as ValueNode;
         } else if (token.type === TOKEN_TYPES.RIGHT_PAREN && _lastNode?.type === 'Value') {
             current++;
-            return walk(_lastNode, parent);
-        }
-
-        if (token.type === TOKEN_TYPES.STRING_DELIMITER) {
-            current++;
-            errors.push({
-                message: l10n.t('String delimiters are only allowed after a String'),
-                token,
-            } as ParserError);
             return walk(_lastNode, parent);
         }
 

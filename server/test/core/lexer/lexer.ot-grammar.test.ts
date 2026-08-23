@@ -5,13 +5,14 @@ const BS = String.fromCharCode(92); // backslash
 const NL = String.fromCharCode(10); // newline
 const types = (src: string) => lexer(src).map((t) => t.type);
 const stringValues = (src: string) => lexer(src).filter((t) => t.type === TOKEN_TYPES.STRING).map((t) => t.value);
+const values = (src: string) => lexer(src).map((t) => t.value);
 
 // These encode ObjectText caveats taken from the real parser (`Halfling.ObjectText`); see the
 // `inspect-cosmoteer-ot-format` skill.
 describe('lexer: ObjectText backslash handling', () => {
-    it('treats a stray backslash as whitespace (no delimiter/unexpected token)', () => {
+    it('treats a stray backslash as whitespace, so it produces no token of its own', () => {
         const toks = types('A = foo ' + BS + ' bar' + NL);
-        expect(toks).not.toContain(TOKEN_TYPES.STRING_DELIMITER);
+        expect(toks).toEqual([TOKEN_TYPES.VALUE, TOKEN_TYPES.EQUALS, TOKEN_TYPES.VALUE, TOKEN_TYPES.VALUE]);
         expect(toks).not.toContain(TOKEN_TYPES.UNEXPECTED);
     });
 
@@ -55,5 +56,34 @@ describe('lexer: string escape handling (no desync)', () => {
 
     it('keeps an escaped quote inside the string', () => {
         expect(stringValues('X = "a' + BS + '"b' + BS + BS + '"' + NL)).toEqual(['a' + BS + '"b' + BS + BS]);
+    });
+});
+
+describe('lexer: keywords are whole words', () => {
+    it('reads a value that only begins with `true`/`false` as one value', () => {
+        expect(types('A = truest' + NL)).toEqual([TOKEN_TYPES.VALUE, TOKEN_TYPES.EQUALS, TOKEN_TYPES.VALUE]);
+        expect(values('A = truest' + NL)).toContain('truest');
+        expect(values('A = falsely' + NL)).toContain('falsely');
+    });
+
+    it('still reads the keyword when the value ends there', () => {
+        for (const src of ['A = true' + NL, 'A = false' + NL, 'A = true // note' + NL, 'A = [true, false]' + NL]) {
+            expect(types(src)).toContain(src.includes('false') ? TOKEN_TYPES.FALSE : TOKEN_TYPES.TRUE);
+        }
+    });
+});
+
+describe('lexer: a block comment does not move the column of what follows it', () => {
+    it('counts the opening `/*` like any other text', () => {
+        const tokens = lexer('X = [A/*, B*/]' + NL);
+        const closing = tokens.find((token) => token.type === TOKEN_TYPES.RIGHT_BRACKET);
+        expect(closing?.lineOffset).toBe('X = [A/*, B*/'.length);
+    });
+
+    it('starts the line after a comment newline at column zero', () => {
+        const tokens = lexer('X = 1' + NL + '/* c' + NL + '*/ Y = 2' + NL);
+        const y = tokens.filter((token) => token.value === 'Y');
+        expect(y[0]?.lineOffset).toBe('*/ '.length);
+        expect(y[0]?.lineNumber).toBe(2);
     });
 });

@@ -5,19 +5,33 @@ import { globalSettings } from '../../../settings';
 import { CosmoteerWorkspaceService } from '../../../workspace/cosmoteer-workspace.service';
 import { foldPathCase } from '../../../workspace/fs-cache';
 import { workshopContentDir } from '../../../workspace/workshop-dir';
-import { normalizeUri } from '../../navigation/reference-location';
+import { isCoveredByFolders, normalizeUri } from '../../navigation/reference-location';
 import { uriToFsPath } from '../../navigation/workspace-files';
 import { Candidate, candidatesInFile, MIN_FIELDS } from './duplicate-field.analysis';
 import { modPlans } from './mod-scan';
 import { ExtractionPlan, Participant } from './plan.types';
 
-/** Whether a folder set covers a file, so its siblings are files the user actually has open. */
-export const isCovered = (uri: string, folderPaths: readonly string[]): boolean => {
-    const key = normalizeUri(uri);
-    return folderPaths.some((folder) => {
-        const prefix = normalizeUri(folder).replace(/\/+$/, '');
-        return key === prefix || key.startsWith(`${prefix}/`);
-    });
+/**
+ * The canonical uris of a plan's participants, worked out once per plan rather than once per file
+ * that asks whether it takes part. A whole-workspace scan asks every plan the same question for
+ * every file of the mod, and normalizing each participant's uri again for each of them was the
+ * whole of that question's cost.
+ */
+const participantUriCache = new WeakMap<ExtractionPlan, Set<string>>();
+
+/**
+ * The set of canonical participant uris of a plan.
+ *
+ * @param plan the plan to read.
+ * @returns its participants' uris, normalized, memoized for as long as the plan itself lives.
+ */
+const participantUris = (plan: ExtractionPlan): Set<string> => {
+    let uris = participantUriCache.get(plan);
+    if (!uris) {
+        uris = new Set(plan.participants.map((participant) => normalizeUri(participant.uri)));
+        participantUriCache.set(plan, uris);
+    }
+    return uris;
 };
 
 /**
@@ -71,7 +85,7 @@ export const plansForDocument = async (
     cancellationToken: CancellationToken,
     inScope?: (fsPath: string) => boolean
 ): Promise<ExtractionPlan[]> => {
-    if (!isCovered(document.uri, folderPaths)) return [];
+    if (!isCoveredByFolders(document.uri, folderPaths)) return [];
     const fsPath = uriToFsPath(document.uri);
     const modRoot = editableModRootOf(fsPath);
     if (!modRoot) return [];
@@ -102,7 +116,7 @@ export const plansForDocument = async (
     const kept: ExtractionPlan[] = [];
     for (const plan of plans) {
         // A plan this document appears in nowhere is left alone without rebuilding its participants.
-        if (!plan.participants.some((participant) => normalizeUri(participant.uri) === selfUri)) continue;
+        if (!participantUris(plan).has(selfUri)) continue;
         const participants = plan.participants.map((participant) => {
             if (normalizeUri(participant.uri) !== selfUri) return participant;
             return (liveByName.get(participant.groupName.toLowerCase()) ?? []).find(

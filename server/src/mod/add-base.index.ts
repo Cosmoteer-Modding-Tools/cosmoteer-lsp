@@ -7,7 +7,7 @@ import { WatchedDocumentIndex } from '../features/navigation/watched-document-in
 import { normalizeUri } from '../features/navigation/reference-location';
 import { modFolderPaths } from '../features/navigation/workspace-files';
 import { FileTree, isFile } from '../workspace/cosmoteer-workspace.service';
-import { isActionFragmentDocument, parseModActions } from './action-parser';
+import { isActionFragmentDocument, parseModActions, textCouldCarryActions } from './action-parser';
 import { resolveActionTarget } from './action-target-resolver';
 
 /** One `AddBase`-appended base: the `BaseToAdd` reference and the source document that declared it. */
@@ -105,6 +105,18 @@ export class AddBaseIndex extends WatchedDocumentIndex {
             cancellationToken,
             'Indexing bases'
         );
+    }
+
+    /**
+     * Only a manifest or a file declaring a top-level `Actions` list contributes here, and both
+     * write that name into their text, so the build skips the parse of every other file of the mod.
+     *
+     * @param uri the file's uri.
+     * @param text the file's raw text.
+     * @returns true when the file could carry mod actions.
+     */
+    protected override acceptsText(uri: string, text: string): boolean {
+        return textCouldCarryActions(uri, text);
     }
 
     /**

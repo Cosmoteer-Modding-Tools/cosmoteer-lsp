@@ -204,6 +204,25 @@ export abstract class WatchedDocumentIndex {
     }
 
     /**
+     * Whether a file's raw text leaves it possible that this index has anything to take from it. An
+     * index that can rule a file out from its text alone overrides this, and the one-time build then
+     * skips the parse of every file it rejects. The default takes every file, since most indexes read
+     * something from all of them.
+     *
+     * Only the one-time build consults it. A file the watcher re-reads is handed to `indexDocument`
+     * either way, so a rejected file that later gains content this index wants is picked up normally.
+     *
+     * @param uri the file's uri.
+     * @param text the file's raw text.
+     * @returns true when the file must be parsed and offered to {@link indexDocument}.
+     */
+    protected acceptsText(uri: string, text: string): boolean {
+        void uri;
+        void text;
+        return true;
+    }
+
+    /**
      * The shared one-time build every subclass uses: walk every `.rules` document in the project
      * folders and index it, posting a running file count to the progress reporter. Uses a request-
      * independent token so the build caches even if the triggering query is cancelled.
@@ -213,7 +232,8 @@ export abstract class WatchedDocumentIndex {
      */
     protected async buildFromProject(folderPaths: string[], progress?: WorkDoneProgressReporter): Promise<void> {
         let count = 0;
-        for await (const document of projectDocuments(folderPaths, CancellationToken.None)) {
+        const acceptText = (file: string, text: string): boolean => this.acceptsText(filePathToUri(file), text);
+        for await (const document of projectDocuments(folderPaths, CancellationToken.None, { acceptText })) {
             await this.indexDocument(document, CancellationToken.None);
             progress?.report(`${++count} files`);
         }
@@ -330,7 +350,13 @@ export abstract class WatchedDocumentIndex {
                 const identity = identityByKey.get(normalizeUri(file));
                 if (identity) MentionIndex.instance.ingestDiskText(file, identity.size, identity.mtimeMs, text);
             };
-            for await (const document of projectDocuments(folders, CancellationToken.None, { diskOnly, onDiskText })) {
+            const acceptText = (file: string, text: string): boolean =>
+                pending.some((index) => index.acceptsText(filePathToUri(file), text));
+            for await (const document of projectDocuments(folders, CancellationToken.None, {
+                diskOnly,
+                onDiskText,
+                acceptText,
+            })) {
                 for (const index of pending) await index.indexDocument(document, CancellationToken.None);
                 progress.report(`${++count} files`);
             }

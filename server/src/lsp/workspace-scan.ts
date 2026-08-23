@@ -1,12 +1,15 @@
 import { CancellationToken, CancellationTokenSource, Diagnostic } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { readFile, stat } from 'fs/promises';
+import { pathToFileURL } from 'url';
 import { collectRulesFiles, uriToFsPath } from '../features/navigation/workspace-files';
+import { MentionIndex } from '../features/navigation/mention.index';
 import { filePathToUri } from '../features/navigation/navigation-strategy';
 import { normalizeUri } from '../features/navigation/reference-location';
 import { reachabilityKey } from '../mod/mod-reachability';
 import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
 import { beginFsTrustWindow, endFsTrustWindow, foldPathCase } from '../workspace/fs-cache';
+import { workshopContentDir } from '../workspace/workshop-dir';
 import {
     beginStatSweepWindow,
     endStatSweepWindow,
@@ -219,6 +222,30 @@ export async function validateWorkspaceFile(file: string, openNorms: Set<string>
 }
 
 /**
+ * Brings the mention index's coverage up to every folder the pass will consult before the first
+ * file is validated: the workspace itself, the game tree, and the installed workshop mods, which
+ * the cross-file id checks reach into when an id is declared nowhere nearer.
+ *
+ * The index grows its coverage the first time it is asked about a folder, and every file it takes
+ * in moves the revision each cached scan result is keyed by. Growing it mid-pass therefore leaves
+ * every file validated before that point keyed to a state the next pass no longer has, and the
+ * next pass re-validates them all. The work itself is the same work, only moved in front of the
+ * pass, so nothing is validated against a different index than before.
+ *
+ * @param folderUris the workspace folders being scanned.
+ * @param token cancels the coverage sweep.
+ * @returns once the coverage is grown (or the attempt failed, which only costs the pass its cache).
+ */
+async function coverMentionFolders(folderUris: string[], token: CancellationToken): Promise<void> {
+    const folders = [...folderUris];
+    const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+    if (dataRoot) folders.push(pathToFileURL(dataRoot).href);
+    const workshop = workshopContentDir();
+    if (workshop) folders.push(pathToFileURL(workshop).href);
+    await MentionIndex.instance.ensureBuilt(folders, token).catch(() => undefined);
+}
+
+/**
  * Validate every `.rules` file in the open workspace folder(s) and publish their diagnostics. No-op
  * when the feature is disabled. Scoped to the workspace folders (the mod), not the Cosmoteer game
  * `Data` tree, which would be enormous. Any previous pass is cancelled first.
@@ -272,6 +299,7 @@ export async function runWorkspaceValidation(): Promise<void> {
         // seeded entries carry the converged epoch and revision sum, so the per-file check can
         // serve them for the whole pass instead of re-validating everything after a restart.
         await ensureFragmentRooting(token).catch(() => undefined);
+        await coverMentionFolders(folderUris, token);
         await seedPersistedScanResults(folderUris);
         const startedMs = Date.now();
         const freshBefore = scanFreshValidations;

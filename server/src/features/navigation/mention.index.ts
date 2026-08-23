@@ -11,6 +11,17 @@ import { readFilesAhead, uriToFsPath } from './workspace-files';
 /** The word tokens a file's raw text is split into (contiguous identifier characters). */
 const WORD_RE = /[A-Za-z0-9_]+/g;
 
+/** {@link WORD_RE}'s character class as a lookup, for the scanner that splits a whole file. */
+const WORD_CHAR = new Uint8Array(128);
+for (const range of [
+    [0x30, 0x39],
+    [0x41, 0x5a],
+    [0x61, 0x7a],
+] as const) {
+    for (let code = range[0]; code <= range[1]; code++) WORD_CHAR[code] = 1;
+}
+WORD_CHAR[0x5f] = 1;
+
 /**
  * The spans of every comment in the text, in order, by the lexer's own rules: `//` to end of line
  * and a block comment to its closer, with quoted strings (`"…"` with `\` escapes, verbatim `@"…"`
@@ -127,15 +138,22 @@ const wordTablesOf = (text: string): { words: Set<string>; readWords: Set<string
     const readWords = new Set<string>();
     const comments = commentSpansOf(text);
     let commentIndex = 0;
-    for (const match of text.matchAll(WORD_RE)) {
-        const word = match[0].toLowerCase();
+    // Scanned by char code rather than through a global regex: this runs over the raw text of every
+    // file in the game tree and the project, and a match object per word was a large part of what
+    // indexing them cost.
+    for (let cursor = 0; cursor < text.length; cursor++) {
+        if (WORD_CHAR[text.charCodeAt(cursor)] !== 1) continue;
+        const wordStart = cursor;
+        while (cursor + 1 < text.length && WORD_CHAR[text.charCodeAt(cursor + 1)] === 1) cursor++;
+        const wordEnd = cursor + 1;
+        const word = text.slice(wordStart, wordEnd).toLowerCase();
         words.add(word);
         if (readWords.has(word)) continue;
-        while (commentIndex < comments.length && comments[commentIndex][1] <= match.index) commentIndex++;
-        if (commentIndex < comments.length && comments[commentIndex][0] <= match.index) continue;
-        const before = match.index > 0 ? text[match.index - 1] : '';
-        if (before !== '&' && before !== '/' && !isInheritanceTarget(text, match.index)) {
-            let after = match.index + match[0].length;
+        while (commentIndex < comments.length && comments[commentIndex][1] <= wordStart) commentIndex++;
+        if (commentIndex < comments.length && comments[commentIndex][0] <= wordStart) continue;
+        const before = wordStart > 0 ? text[wordStart - 1] : '';
+        if (before !== '&' && before !== '/' && !isInheritanceTarget(text, wordStart)) {
+            let after = wordEnd;
             while (after < text.length && (text[after] === ' ' || text[after] === '\t' || text[after] === '\r' || text[after] === '\n')) {
                 after++;
             }

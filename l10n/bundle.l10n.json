@@ -523,7 +523,6 @@
   "Expected reference value after reference value but found {0}": "Expected reference value after reference value but found {0}",
   "Expected a \"{\" or \"[\" body after the inheritance": "Expected a \"{\" or \"[\" body after the inheritance",
   "An inheritance names what the body starts from, so the game expects the body that follows it. It fails to load the whole file when there is none.": "An inheritance names what the body starts from, so the game expects the body that follows it. It fails to load the whole file when there is none.",
-  "String delimiters are only allowed after a String": "String delimiters are only allowed after a String",
   "Unknown token type": "Unknown token type",
   "This could be a bug in the parser or lexer, please report this issue, if you think this is a bug": "This could be a bug in the parser or lexer, please report this issue, if you think this is a bug",
   "Unexpected \"{0}\"": "Unexpected \"{0}\"",

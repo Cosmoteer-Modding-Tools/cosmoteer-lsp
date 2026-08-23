@@ -341,7 +341,6 @@
   "Expected reference value after reference value but found {0}": "Erwartet wurde ein Referenzwert nach einem Referenzwert, aber {0} gefunden",
   "Expected a \"{\" or \"[\" body after the inheritance": "Nach der Vererbung wird ein \"{\"- oder \"[\"-Rumpf erwartet",
   "An inheritance names what the body starts from, so the game expects the body that follows it. It fails to load the whole file when there is none.": "Eine Vererbung benennt, wovon der Rumpf ausgeht, deshalb erwartet das Spiel den Rumpf danach. Fehlt er, lädt es die ganze Datei nicht.",
-  "String delimiters are only allowed after a String": "String-Trennzeichen sind nur nach einem String erlaubt",
   "Unknown token type": "Unbekannter Token-Typ",
   "This could be a bug in the parser or lexer, please report this issue, if you think this is a bug": "Dies könnte ein Fehler im Parser oder Lexer sein, bitte melden Sie dieses Problem, wenn Sie denken, dass dies ein Fehler ist",
   "Unexpected \"{0}\"": "Unerwartetes \"{0}\"",

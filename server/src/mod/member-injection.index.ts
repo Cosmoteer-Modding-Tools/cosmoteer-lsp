@@ -12,7 +12,7 @@ import { normalizeUri } from '../features/navigation/reference-location';
 import { modFolderPaths } from '../features/navigation/workspace-files';
 import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
 import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
-import { isActionFragmentDocument, parseModActions } from './action-parser';
+import { isActionFragmentDocument, parseModActions, textCouldCarryActions } from './action-parser';
 import { resolveActionTarget, resolveActionTargetMember } from './action-target-resolver';
 
 /**
@@ -254,6 +254,18 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
             return document ? { node: MemberInjectionIndex.nodeKey(document), member: resolved.member } : undefined;
         }
         return { node: MemberInjectionIndex.nodeKey(container as AbstractNode), member: resolved.member };
+    }
+
+    /**
+     * Only a manifest or a file declaring a top-level `Actions` list contributes here, and both
+     * write that name into their text, so the build skips the parse of every other file of the mod.
+     *
+     * @param uri the file's uri.
+     * @param text the file's raw text.
+     * @returns true when the file could carry mod actions.
+     */
+    protected override acceptsText(uri: string, text: string): boolean {
+        return textCouldCarryActions(uri, text);
     }
 
     /**

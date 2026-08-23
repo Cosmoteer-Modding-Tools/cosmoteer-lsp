@@ -31,7 +31,7 @@ import { modFolderPaths } from '../features/navigation/workspace-files';
 import { cachedParseFilePath } from '../workspace/fs-cache';
 import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { Action } from './action';
-import { isActionFragmentDocument, parseModActions } from './action-parser';
+import { isActionFragmentDocument, parseModActions, textCouldCarryActions } from './action-parser';
 import { normalizeTargetPath, resolveActionTarget } from './action-target-resolver';
 
 const navigation = new FullNavigationStrategy();
@@ -233,6 +233,18 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
             cancellationToken,
             'Indexing action rooting'
         );
+    }
+
+    /**
+     * Only a manifest or a file declaring a top-level `Actions` list contributes here, and both
+     * write that name into their text, so the build skips the parse of every other file of the mod.
+     *
+     * @param uri the file's uri.
+     * @param text the file's raw text.
+     * @returns true when the file could carry mod actions.
+     */
+    protected override acceptsText(uri: string, text: string): boolean {
+        return textCouldCarryActions(uri, text);
     }
 
     /**

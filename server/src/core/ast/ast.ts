@@ -36,7 +36,6 @@ export interface ValueNode extends AbstractNode {
     type: 'Value';
     valueType: ValueNodeTypes;
     delimiter?: ';' | ',';
-    fileType?: string;
     parenthesized?: boolean;
     quoted?: boolean;
 }

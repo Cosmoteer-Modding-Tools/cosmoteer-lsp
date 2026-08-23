@@ -224,11 +224,26 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
      * @returns true when at least one file-harvested declaration of that class exists.
      */
     public hasFileDeclarationsFor(targetClass: string): boolean {
-        for (const [cls, ids] of this.byClass) {
-            if (ids.size > 0 && isSameOrSubclass(cls, targetClass)) return true;
+        if (!this.fileDeclMemo || this.fileDeclMemo.revision !== this.revision) {
+            this.fileDeclMemo = { revision: this.revision, byTarget: new Map() };
         }
-        return false;
+        const memoized = this.fileDeclMemo.byTarget.get(targetClass);
+        if (memoized !== undefined) return memoized;
+        let declared = false;
+        for (const [cls, ids] of this.byClass) {
+            if (ids.size > 0 && isSameOrSubclass(cls, targetClass)) {
+                declared = true;
+                break;
+            }
+        }
+        this.fileDeclMemo.byTarget.set(targetClass, declared);
+        return declared;
     }
+
+    /** The answer of {@link hasFileDeclarationsFor} per target class, dropped whenever the index
+     *  moves. The question is asked once per reference of every file, while the answer only depends
+     *  on what the index holds, and a class the index has nothing for reads the whole of it. */
+    private fileDeclMemo?: { revision: number; byTarget: Map<string, boolean> };
 
     /**
      * Collects every declared id whose class is `targetClass` or a subclass, after making sure the

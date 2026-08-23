@@ -2,12 +2,11 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, isValueNode } from '../core/ast/ast';
-import { namedMembersOf, parseFilePath } from '../utils/ast.utils';
-import { cachedReaddir } from '../workspace/fs-cache';
+import { namedMembersOf } from '../utils/ast.utils';
+import { cachedParseFilePath, cachedReaddir, onFsInvalidation } from '../workspace/fs-cache';
 import { globalSettings } from '../settings';
 import { findModRoot } from './mod-root';
 import { isManifestBasename } from '../document/document-kind';
-import { ParserResultRegistrar } from '../registrar/parser-result-registrar';
 import { CosmoteerWorkspaceData, CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
 
 /**
@@ -60,22 +59,51 @@ const stringsFoldersIn = async (
     baseDir: string,
     cancellationToken: CancellationToken
 ): Promise<string[]> => {
-    const doc =
-        ParserResultRegistrar.instance.getResultByPath(manifestPath) ??
-        (await parseFilePath(manifestPath, cancellationToken).catch(() => null));
+    const doc = await cachedParseFilePath(manifestPath, cancellationToken).catch(() => null);
     if (!doc) return [];
     return foldersFromDoc(doc, baseDir);
 };
+
+/**
+ * The strings folders in play, by game path and mod root. The answer comes from the game's root
+ * file and the mod's own manifests, never from the document being judged, so without this a
+ * whole-workspace pass re-read and re-parsed the same manifests once for every file it validated.
+ */
+const foldersByModRoot = new Map<string, Promise<string[]>>();
+
+onFsInvalidation(() => foldersByModRoot.clear());
 
 /**
  * The absolute string folders that apply when validating the manifest at `documentUri`:
  * the base game's (from the game-root `cosmoteer.rules`) and the editing mod's own (from every
  * manifest in its mod root). `documentUri` may be undefined (then only the base game's apply).
  */
-export const resolveStringsFolders = async (
+export const resolveStringsFolders = (
     documentUri: string | undefined,
     cancellationToken: CancellationToken
 ): Promise<string[]> => {
+    const modRoot = documentUri ? findModRoot(documentUri) : null;
+    const key = `${globalSettings.cosmoteerPath ?? ''}::${modRoot ?? ''}`;
+    const cached = foldersByModRoot.get(key);
+    if (cached) return cached;
+    const running = stringsFoldersFor(modRoot, cancellationToken).then((folders) => {
+        // A cancelled walk answers with what it had, which is not the mod's real set. Pinning that
+        // would leave every later file judged against a folder list that was never finished.
+        if (cancellationToken.isCancellationRequested) foldersByModRoot.delete(key);
+        return folders;
+    });
+    foldersByModRoot.set(key, running);
+    return running;
+};
+
+/**
+ * Works out the strings folders of one mod root, the uncached form behind {@link resolveStringsFolders}.
+ *
+ * @param modRoot the mod's root directory, null when the document belongs to no mod.
+ * @param cancellationToken cancels the manifest reads.
+ * @returns the absolute strings folders, the game's own first.
+ */
+const stringsFoldersFor = async (modRoot: string | null, cancellationToken: CancellationToken): Promise<string[]> => {
     const folders: string[] = [];
 
     const dataRoot = globalSettings.cosmoteerPath;
@@ -93,7 +121,6 @@ export const resolveStringsFolders = async (
         }
     }
 
-    const modRoot = documentUri ? findModRoot(documentUri) : null;
     if (modRoot) {
         const entries = await cachedReaddir(modRoot).catch(() => []);
         for (const entry of entries) {

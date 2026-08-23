@@ -35,9 +35,15 @@ All notable changes to this project will be documented in this file.
 - Problems now appear about twice as fast after you stop typing.
 - Checking a whole mod is faster. A pass reads each folder once instead of once per reference into it, and which ships a part may be drawn on is worked out once for the project instead of once per part file.
 - The language server is started with more room for short-lived data, so the collections a whole-mod check used to trigger are rarer and no longer stall it for up to half a second at a time. It also settles back to less memory once the check is done.
+- A second check of the same mod is now nearly instant, and reopening a project it has already checked no longer redoes the work. The results a pass computes are kept for the next one, which used to be thrown away for a large part of the mod because the word index behind the cross-file checks was still growing while the pass ran.
+- Reading a file is about twice as fast, which shortens startup and every check that follows.
+- Whether a file is a language-strings file is now worked out once for the mod rather than once for every file checked, which used to re-read the mod's manifest thousands of times over a whole-mod check.
+- Starting up in a mod is faster. The indexes that read a mod's actions no longer parse every file of the mod to find the handful that declare any, and whether a class has any declared ids is worked out once per class rather than once per reference.
 
 ### Fixed
 
+- A value that only begins with `true` or `false` is read as the value it is. `Name = truest` used to be read as the boolean `true` followed by a second value `st`, which invented a member the game never sees, and localized prose such as `falsely` broke the same way.
+- Everything written after a `/* … */` comment on the same line is now reported at the column it really stands in. The comment's opening `/*` was not counted, so problems, highlighting and go-to-definition landed two columns early, and a comment running across lines pushed the next line one column late.
 - A file written in the same instant the editor read the folder it sits in is no longer missed until something else changes there.
 - A value is now suggested while its quotes are still open. `Layer = "roo` used to answer with the group's field names rather than the ship render layers, and the accepted suggestion now writes the missing closing quote.
 - `Layer` written on an `IndicatorSprites` component is marked as having no effect, which is what the game does with it.

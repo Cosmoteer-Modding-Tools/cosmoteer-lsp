@@ -135,7 +135,11 @@ export async function* readFilesAhead(files: string[]): AsyncGenerator<{ file: s
 export async function* projectDocuments(
     folderPaths: string[],
     cancellationToken: CancellationToken,
-    options?: { diskOnly?: boolean; onDiskText?: (file: string, text: string) => void }
+    options?: {
+        diskOnly?: boolean;
+        onDiskText?: (file: string, text: string) => void;
+        acceptText?: (file: string, text: string) => boolean;
+    }
 ): AsyncGenerator<AbstractNodeDocument> {
     const seen = new Set<string>();
     const toRead: string[] = [];
@@ -159,6 +163,10 @@ export async function* projectDocuments(
         if (cancellationToken.isCancellationRequested) throw new CancellationError();
         if (text === undefined) continue;
         options?.onDiskText?.(file, text);
+        // A consumer that can rule a file out from its raw text alone never pays for its parse. Only
+        // disk files are gated: the open buffers below are few and their consumer's own check reads
+        // them anyway.
+        if (options?.acceptText && !options.acceptText(file, text)) continue;
         try {
             yield parseText(text, file);
         } catch (e) {

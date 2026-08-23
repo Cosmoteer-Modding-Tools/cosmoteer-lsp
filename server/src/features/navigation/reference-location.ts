@@ -67,6 +67,23 @@ export const normalizeUri = (uriOrPath: string): string => {
 };
 
 /**
+ * Whether a folder set covers a file, so the indexes and analyses built over those folders know
+ * about it and its siblings. A file outside them would be judged against a set that never saw the
+ * files around it.
+ *
+ * @param uri the document uri to test.
+ * @param folderPaths the folders being searched.
+ * @returns true when the file lives under one of the folders.
+ */
+export const isCoveredByFolders = (uri: string, folderPaths: readonly string[]): boolean => {
+    const key = normalizeUri(uri);
+    return folderPaths.some((folder) => {
+        const prefix = normalizeUri(folder).replace(/\/+$/, '');
+        return key === prefix || key.startsWith(`${prefix}/`);
+    });
+};
+
+/**
  * A stable identity string for a {@link Location}: file (spelling-independent) plus
  * range. Two references resolving to the same target produce the same key, which is
  * how the reference index buckets referrers under their shared definition.

@@ -10,7 +10,7 @@ import {
 import { isModRules } from '../../document/document-kind';
 import { declaredFieldNames } from '../../document/schema/schema';
 import { MentionIndex } from '../navigation/mention.index';
-import { normalizeUri } from '../navigation/reference-location';
+import { isCoveredByFolders, normalizeUri } from '../navigation/reference-location';
 import { isStringsFile } from '../../mod/strings-folder';
 import { ParserResultRegistrar } from '../../registrar/parser-result-registrar';
 import { addSegments, walkReferenceReads } from './validator.ignored-field';
@@ -219,22 +219,6 @@ const namesReadBy = (document: AbstractNodeDocument): Set<string> => {
 };
 
 /**
- * Whether a folder set covers a file, so the mention index knows about it and its siblings. A file
- * outside the searched folders would be judged against an index that never saw the files reading it.
- *
- * @param uri the document uri to test.
- * @param folderPaths the folders the mention index covers.
- * @returns true when the file lives under one of the folders.
- */
-const isCovered = (uri: string, folderPaths: string[]): boolean => {
-    const key = normalizeUri(uri);
-    return folderPaths.some((folder) => {
-        const prefix = normalizeUri(folder).replace(/\/+$/, '');
-        return key === prefix || key.startsWith(`${prefix}/`);
-    });
-};
-
-/**
  * Whole-document pass flagging user constants nothing reads. Both shapes are reported, the constant
  * no one reads at all and the constant read only by other unread constants, since a chain that ends
  * nowhere is as dead as its last link. Reported as a hint with a remove quick fix.
@@ -260,7 +244,7 @@ export const validateUnusedConstants = async (
     cancellationToken: CancellationToken
 ): Promise<ValidationError[]> => {
     if (isModRules(document.uri)) return [];
-    if (!isCovered(document.uri, folderPaths)) return [];
+    if (!isCoveredByFolders(document.uri, folderPaths)) return [];
     let unreachable = unreachableConstants(document);
     if (unreachable.length === 0) return [];
     if (await isStringsFile(document.uri, cancellationToken).catch(() => false)) return [];
