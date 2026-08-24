@@ -2,10 +2,11 @@ import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, isAssignmentNode, isValueNode } from '../core/ast/ast';
 import { basenameOf } from '../document/document-kind';
 import { uriToFsPath } from '../features/navigation/workspace-files';
-import { code, linkDestination } from '../features/report/markdown-link';
+import { code, linkDestination, tableCell } from '../features/report/markdown-link';
 import { Action } from './action';
 import { normalizeTargetPath } from './action-target-resolver';
 import { resolveWithModContext } from './mod-context';
+import { HealthPlace, HealthRow, modHealthRows } from './mod-health';
 import { ModReachability, computeModReachability, reachabilityKey, relativeToMod } from './mod-reachability';
 import { findModRoot } from './mod-root';
 import { partTechCoverage } from './part-tech-coverage';
@@ -29,6 +30,39 @@ const headerField = (document: AbstractNodeDocument, name: string): string | und
 /** A markdown link to a file, labeled with its mod-relative path. */
 const fileLink = (modRoot: string, absPath: string): string =>
     `[${relativeToMod(modRoot, absPath)}](vscode://file/${linkDestination(absPath)})`;
+
+/** A markdown link to one line of a file, labeled `path:line`, safe to sit in a table cell. */
+const placeLink = (modRoot: string, place: HealthPlace): string =>
+    `[${tableCell(relativeToMod(modRoot, place.file))}:${place.line}](vscode://file/${linkDestination(place.file)}:${place.line})`;
+
+/**
+ * The health section: one table row per check that is answered about the whole mod rather than
+ * about one open file. Rendered above the actions, since it is the summary the rest of the report
+ * then spells out.
+ *
+ * @param modRoot the mod root directory, for the label of every linked place.
+ * @param rows the rows the checks produced.
+ * @returns the lines, empty when no check could be answered.
+ */
+const healthSection = (modRoot: string, rows: HealthRow[]): string[] => {
+    if (rows.length === 0) return [];
+    const lines = [`## ${l10n.t('Mod health')}`, ''];
+    lines.push(
+        l10n.t(
+            'One row per check the whole mod can be asked, counted over the files the game loads from it. Each row names what to open rather than scoring the mod.'
+        )
+    );
+    lines.push('');
+    lines.push(`| ${l10n.t('Check')} | ${l10n.t('Finding')} | ${l10n.t('Where')} |`);
+    lines.push('| --- | --- | --- |');
+    for (const row of rows) {
+        const mark = row.clear ? '✓' : '⚠';
+        const places = row.places.map((place) => placeLink(modRoot, place)).join('<br>');
+        lines.push(`| ${mark} ${tableCell(row.check)} | ${tableCell(row.finding)} | ${places} |`);
+    }
+    lines.push('');
+    return lines;
+};
 
 /** The display text of an action's first source: a reference's path, or the inline shape. */
 const sourceText = (action: Action): string => {
@@ -88,6 +122,9 @@ export const generateModOverview = async (
         if (value !== undefined) lines.push(`- **${field}**: ${value}`);
     }
     lines.push('');
+    // The health table summarizes sections computed further down, so its place is held here and
+    // filled once every count it reads is known.
+    const healthAt = lines.length;
 
     // ── Actions ────────────────────────────────────────────────────────────────
     lines.push(`## ${l10n.t('Actions')} (${actions.length})`);
@@ -249,6 +286,13 @@ export const generateModOverview = async (
             }
         }
         lines.push('');
+    }
+
+    if (reachability) {
+        const rows = await modHealthRows(reachability, { total: actions.length, broken }, folderPaths, token).catch(
+            () => [] as HealthRow[]
+        );
+        lines.splice(healthAt, 0, ...healthSection(modRoot, rows));
     }
 
     return lines.join('\n');

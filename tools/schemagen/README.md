@@ -60,11 +60,13 @@ dotnet run -c Release -- "<path to Cosmoteer/Bin>" "<output path>.json"
 
 The extractor also reads the compiler-generated XML doc files shipped next to each assembly
 (`Cosmoteer.xml`, `HalflingCore.xml`) and emits every `<summary>` it can match to a serialized field
-into `field-docs.seed.json`, written next to the schema output. This is the prose seed for the field
-documentation the LSP shows on hover/completion. It is a build intermediate (gitignored). The docs
+into `field-docs.seed.json`, written next to the schema output. Each class's own `<summary>` goes in
+under the reserved `T:` key of the same entry, which is the seed for the one-sentence class summary
+the class page opens with. This is the prose seed for the documentation the LSP shows on
+hover/completion and in the schema search. It is a build intermediate (gitignored). The docs
 scaffolder (`tools/docsgen`) turns it into editable `docs/fields/*.md`, which are the committed source
 of truth. Regenerate it on a Cosmoteer update, then re-run the scaffolder to fold in newly-documented
-fields (see `docs/fields/README.md`).
+classes and fields (see `docs/fields/README.md`).
 
 ## Code mods (C# mods)
 
@@ -141,6 +143,19 @@ wrote .../cosmoteer.schema.json (1199 KB)
   scanned assemblies) with `dead: true`, driving the language server's dead-field hint. The flagged
   set is printed per run and pinned by a server test, so a game update that changes it is reviewed
   rather than shipped silently.
+- **Component slot kinds** → every `[Serialize]` member typed `ID<PartComponentRules>` is a slot the
+  schema alone cannot type, since they all map to the registry base. The engine can: the value is
+  resolved through `Part.GetComponent<T>` or `Part.TryGetComponent<T>`, and `T` is the kind. A local
+  per-method dataflow (one operand stack, one local array, tags for the slot a value came from)
+  recovers that `T` and emits it on the field as `expectedComponent: { kind, enforcement }`, an index
+  into the bundle's `componentKinds`. Beside it, `componentCapabilities` records which of those kinds
+  each component class satisfies, read from the single `newobj` in its `CreateComponent` override, so
+  the language server needs no C# type graph of its own. `enforcement` is `throws` when the call site
+  is `GetComponent`, which fails the part load, and `silent` when it is only `TryGetComponent`.
+  Deliberately refused, because the game's own files contradict them: the blueprint and wreck
+  containers, the rules-level `is IBlueprintComponentToggle` shape, a kind stated as a generic
+  instantiation, and the kind `PartComponent`, which every component satisfies. A slot the pass
+  cannot place carries no entry at all, which is what makes the check abstain rather than guess.
 - C# field type → value kind (enum/reference/group/list/number/asset/…). A small curation table
   handles engine value types (assets, `Range<T>`, `Angle`, enum-like structs like `Direction`).
 - Reachability prune from `Cosmoteer.Data.Rules` drops non-`.rules` serialization (multiplayer

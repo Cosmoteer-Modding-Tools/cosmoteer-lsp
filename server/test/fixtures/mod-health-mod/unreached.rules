@@ -1,0 +1,6 @@
+// No action and no include names this file, so the game never opens it.
+Part
+{
+	ID = test.health.unreached
+	Size = [1, 1]
+}

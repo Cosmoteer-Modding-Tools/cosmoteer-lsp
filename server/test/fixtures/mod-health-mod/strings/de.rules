@@ -1,0 +1,7 @@
+// Half translated, and named with a pipe so a table row built from it has to escape the name.
+__Name = "Deutsch | German"
+
+Parts
+{
+	Armor = "Panzerung"
+}

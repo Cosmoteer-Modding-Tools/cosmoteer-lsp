@@ -39,6 +39,18 @@ export const imageDataUri = (fileUri: string | null): string | null => {
 };
 
 /**
+ * The inline script a panel puts ahead of its bundled webview script, carrying the localized text
+ * the page looks its strings up in. The opening angle bracket is escaped so a translated string can
+ * never end the script element early.
+ *
+ * @param nonce the panel's content-security-policy nonce, which admits the inline script.
+ * @param strings the localized text, keyed by its English source.
+ * @returns a script element assigning the strings to the page's `cosmoteerStrings` global.
+ */
+export const stringsScript = (nonce: string, strings: Record<string, string>): string =>
+    `<script nonce="${nonce}">window.cosmoteerStrings = ${JSON.stringify(strings).replace(/</g, '\\u003c')};</script>`;
+
+/**
  * A random nonce for a webview content-security-policy script allowance.
  *
  * @returns a 32-character alphanumeric nonce.

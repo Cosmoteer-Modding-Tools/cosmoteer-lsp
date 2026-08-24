@@ -2,6 +2,8 @@ import { SharedBaseHost } from '../features/refactor/shared-base/shared-base.com
 import { clearSharedBaseScanCache } from '../features/refactor/shared-base/mod-scan';
 import { RegisterPartHost } from '../features/refactor/register-part/register-part.command';
 import { CloneHost } from '../features/refactor/clone-declaration/clone.command';
+import { ExtractGroupHost } from '../features/refactor/extract-group/extract-group.command';
+import { CreateComponentHost } from '../features/refactor/create-component/create-component.command';
 import { NewContentHost } from '../features/refactor/new-content/new-content.command';
 import { SchemaIdIndex } from '../features/completion/schema-id.index';
 import { LocalizationKeyIndex } from '../features/completion/localization-key.index';
@@ -111,6 +113,34 @@ export function cloneHost(): CloneHost {
             // never loads.
             if (paths.some((path) => isManifestBasename(basenameOf(path)))) invalidateModContext();
         },
+    };
+}
+
+/**
+ * The server facilities the "create the component this names" fix runs against: the open buffers it
+ * reads the part from, and the client's edit channel for a client that asked the server to write the
+ * declaration rather than placing it as a snippet itself.
+ *
+ * @returns the host for {@link createComponent}.
+ */
+export function createComponentHost(): CreateComponentHost {
+    const shared = sharedBaseHost(undefined, undefined);
+    return { openDocuments: shared.openDocuments, applyEdit: shared.applyEdit };
+}
+
+/**
+ * The server facilities the "move this block into its own file" refactoring runs against: the open
+ * buffers it reads the block from, the client's edit channel for the reference that replaces it, and
+ * the index refresh the written file needs before anything is validated against it.
+ *
+ * @returns the host for {@link extractGroupToFile}.
+ */
+export function extractGroupHost(): ExtractGroupHost {
+    const shared = sharedBaseHost(undefined, undefined);
+    return {
+        openDocuments: shared.openDocuments,
+        applyEdit: shared.applyEdit,
+        filesChanged: shared.filesChanged,
     };
 }
 

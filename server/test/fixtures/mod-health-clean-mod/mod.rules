@@ -1,0 +1,16 @@
+ID = Test.ModHealthClean
+Name = "Mod health fixture with nothing to report"
+Version = 1.0
+StringsFolder = "strings"
+
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<ships/partship.rules>/PartShip/Parts"
+		ManyToAdd
+		[
+			&<parts/hull.rules>/Part
+		]
+	}
+]

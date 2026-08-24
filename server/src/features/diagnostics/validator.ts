@@ -160,6 +160,12 @@ export type ValidationErrorData = {
         fieldIndex: number;
     };
     /**
+     * A component id a part or bullet references but never declares. Carries the name alone. Which
+     * kind of component the author meant is a choice only they can make, so the quick fix hands the
+     * exchange to the client, which asks and then has the declaration written for it.
+     */
+    createComponent?: { name: string };
+    /**
      * A mod whose ids this file uses without the manifest declaring it as a dependency. Carries only
      * how the mod is named (its published file id or manifest id) and its display name. Finding the
      * manifest and building the edit happens lazily in the code-action handler, since it writes to a

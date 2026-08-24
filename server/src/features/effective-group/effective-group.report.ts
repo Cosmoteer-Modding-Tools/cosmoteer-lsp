@@ -26,7 +26,7 @@ import { navigationDepKey } from '../../utils/navigation-deps';
 import { findEnclosingGroup } from '../../document/schema/schema-context';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { valueAt } from '../completion/inherited-members';
-import { code, linkDestination, plainPathOf } from '../report/markdown-link';
+import { code, linkDestination, plainPathOf, tableCell } from '../report/markdown-link';
 
 /**
  * The "what the game actually loads here" report: the member set a container really deserializes,
@@ -48,14 +48,8 @@ import { code, linkDestination, plainPathOf } from '../report/markdown-link';
 /** How many characters of a written value a row shows before it is cut. */
 const VALUE_WIDTH = 60;
 
-/**
- * One table cell's text. A written value may hold a newline or a `|`, and either one shifts the
- * row apart from the header the reader is matching it against.
- *
- * @param text the cell's rendered text.
- * @returns the text, safe to sit between two pipes.
- */
-const cell = (text: string): string => text.replace(/\s+/g, ' ').replace(/\|/g, '\\|');
+/** One table cell's text, escaped the way every markdown report in this server escapes one. */
+const cell = tableCell;
 
 /**
  * A markdown link to a node's position, labeled `file.rules:line`. Uses the `vscode://file/…` deep

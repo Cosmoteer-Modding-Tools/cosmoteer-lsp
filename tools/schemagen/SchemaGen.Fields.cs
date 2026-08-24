@@ -115,6 +115,14 @@ internal sealed partial class SchemaGen
                 try { wrapperDef = overrideDeserializer.Resolve(); } catch { }
                 if (WrapperReadsScalar(wrapperDef)) fo["scalarStringForm"] = true;
             }
+            // The runtime kind of a component slot, recovered from the game's own lookups (see
+            // SchemaGen.ComponentSlots.cs). Absent means the slot is one the pass refuses to judge.
+            if (componentSlotKinds.TryGetValue(t.FullName + "::" + name, out var slot))
+                fo["expectedComponent"] = new JsonObject
+                {
+                    ["kind"] = slot.Kind,
+                    ["enforcement"] = slot.Throws ? "throws" : "silent",
+                };
             if (aliasNames.Count > 0)
                 fo["aliases"] = new JsonArray(aliasNames.Select(a => (JsonNode)JsonValue.Create(a)).ToArray());
             // `DefaultValue` is an object-typed attribute property, so Cecil boxes the constant in a
@@ -186,6 +194,12 @@ internal sealed partial class SchemaGen
         {
             if (cname == "Type" || !emitted.Add(cname)) continue;
             var co = new JsonObject { ["name"] = cname, ["valueType"] = MapType(ctype), ["optional"] = true };
+            if (componentSlotKinds.TryGetValue(t.FullName + "::" + cname, out var readSlot))
+                co["expectedComponent"] = new JsonObject
+                {
+                    ["kind"] = readSlot.Kind,
+                    ["enforcement"] = readSlot.Throws ? "throws" : "silent",
+                };
             // `TryReadFromPath` only tolerates an absent node. A present-but-void one still throws for a
             // non-nullable generic argument, so the same nullability marking applies.
             if (!VoidAssignable(ctype)) co["nullable"] = false;

@@ -212,12 +212,23 @@ internal sealed partial class SchemaGen
                 ["types"] = pTypes.Count,
                 ["enums"] = pEnums.Count,
                 ["typesBeforePrune"] = types.Count,
-                ["registriesBeforePrune"] = registries.Count
+                ["registriesBeforePrune"] = registries.Count,
+                ["componentSlots"] = componentSlotKinds.Count,
+                ["componentKinds"] = componentKindNames.Count
             },
             ["registries"] = pRegs,
             ["types"] = pTypes,
             ["enums"] = pEnums,
             ["builtinIds"] = builtinIdsJson,
+            // The runtime kinds a component slot can require, and which of them each component
+            // class satisfies. A class with no entry builds no physical component, which is what
+            // makes the slot check abstain rather than report.
+            ["componentKinds"] = new JsonArray(componentKindNames.Select(k => (JsonNode)k).ToArray()),
+            ["componentCapabilities"] = new JsonObject(componentCapabilities
+                .Where(c => pTypes.ContainsKey(c.Key))
+                .OrderBy(c => c.Key, StringComparer.Ordinal)
+                .Select(c => new KeyValuePair<string, JsonNode?>(c.Key,
+                    new JsonArray(c.Value.Select(i => (JsonNode)i).ToArray())))),
             ["unresolved"] = new JsonObject
             {
                 ["types"] = new JsonObject(unkTypes.OrderByDescending(k => k.Value).Select(k => new KeyValuePair<string, JsonNode?>(k.Key, k.Value))),
@@ -244,16 +255,37 @@ internal sealed partial class SchemaGen
         foreach (var pair in deadPairs) Console.WriteLine($"  dead: {pair}");
 
         // ---- emit the field-docs seed (prose descriptions for reachable types only) ----
-        // Alongside the schema, next to it. Keyed by type FullName → serialized field name → XML summary.
-        // Only types that survived the reachability prune are kept, so the seed lines up 1:1 with the shipped
-        // schema. The docs scaffolder reads this to pre-fill Markdown; it is a build intermediate, not shipped.
+        // Alongside the schema, next to it. Keyed by type FullName → serialized field name → XML summary,
+        // with the class's own `<summary>` under the reserved CLASSDOC key. Only types that survived the
+        // reachability prune are kept, so the seed lines up 1:1 with the shipped schema. The docs
+        // scaffolder reads this to pre-fill Markdown, and it is a build intermediate rather than a
+        // shipped file.
+        var seedKeys = new SortedSet<string>(docSeed.Keys, StringComparer.Ordinal);
+        foreach (var fn in reachable) seedKeys.Add(fn);
         var seedRoot = new JsonObject();
-        foreach (var kv in docSeed.OrderBy(k => k.Key, StringComparer.Ordinal))
-            if (reachable.Contains(kv.Key)) seedRoot[kv.Key] = kv.Value;
+        int seedClasses = 0, seedFields = 0;
+        foreach (var fn in seedKeys)
+        {
+            if (!reachable.Contains(fn)) continue;
+            var entry = new JsonObject();
+            // A class doc-ID is `T:Full.Name`, and Cecil spells a nested type with `/` where the XML
+            // file spells it with `.`. The reserved key is the doc-ID prefix so the two read alike.
+            if (xmlDocs.TryGetValue("T:" + fn.Replace('/', '.'), out var classSummary))
+            {
+                entry[CLASSDOC] = classSummary;
+                seedClasses++;
+            }
+            if (docSeed.TryGetValue(fn, out var fieldDocs))
+                foreach (var kv in fieldDocs)
+                {
+                    entry[kv.Key] = kv.Value?.DeepClone();
+                    seedFields++;
+                }
+            if (entry.Count > 0) seedRoot[fn] = entry;
+        }
         var seedPath = Path.Combine(Path.GetDirectoryName(outPath)!, "field-docs.seed.json");
         var seedJson = seedRoot.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(seedPath, seedJson, new UTF8Encoding(false));
-        int seedFields = seedRoot.Sum(t => ((JsonObject)t.Value!).Count);
-        Console.WriteLine($"wrote {seedPath} ({seedRoot.Count} types, {seedFields} documented fields)");
+        Console.WriteLine($"wrote {seedPath} ({seedRoot.Count} types, {seedClasses} class summaries, {seedFields} documented fields)");
     }
 }

@@ -1,0 +1,9 @@
+Part
+{
+	ID = test.healthclean.hull
+	Size = [2, 2]
+	AllowedDoorLocations
+	[
+		[-1, 0]
+	]
+}

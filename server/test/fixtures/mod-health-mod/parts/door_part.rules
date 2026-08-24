@@ -1,0 +1,11 @@
+// A door location the part encloses, and a density the base already sets to the same value.
+Part : <../base_part.rules>/Part
+{
+	ID = test.health.door
+	Size = [3, 3]
+	Density = 1
+	AllowedDoorLocations
+	[
+		[1, 1]
+	]
+}

@@ -8,6 +8,17 @@ Cosmoteer Language server provides a lot of useful features, like:
 
 ### Added
 
+- A number the game also reads as a group can now be rewritten into that form in one step. "Make this modifiable" writes the value the file already had as its `BaseValue` and an empty `Modifiers` list beside it, and the offer runs the other way on a group that carries nothing but its base value.
+- A component a part wires before declaring it can now be declared from the lightbulb. The kind is picked in a dialog, and the declaration is written where the part keeps its components, with every field the game throws without scaffolded.
+- An inline block can now be moved into a file of its own. The file name is asked for in a dialog, the block is written there, and a reference to it takes its place, with every path it carries re-expressed against the new folder.
+- Every class the schema knows now says what it is in one sentence, on the class page in the schema search and on the hover over a `Type =` value.
+- A component wired into a slot that reads another kind of component is now reported, which the game answers with a crash while the part is built. The part's own components of the right kind are offered as the fix.
+- The mod overview now opens with a health table: action targets, how much of the mod the game loads, ids registered twice, part grid values out of reach, language files behind the one they follow, dead fields, repeated field sets and overrides that change nothing.
+
+## 0.8.0 - 2026-08-23
+
+### Added
+
 - A hover now says where the declaration under the cursor stands in its group's chain. A member names the value it replaces and the file and line that one is written in, and a group's own name says how many of its fields its bases supply. The checkbox for it is under Editing in the settings page.
 - A reference can now be replaced with the value it stands for. "Inline the value" appears on a reference resolving to a single written value, and the value is copied the way its own file spells it.
 - The effective-group report now lists what a mod loads in place of the game's own value, with the game's value beside it.
@@ -18,6 +29,25 @@ Cosmoteer Language server provides a lot of useful features, like:
 - A manifest's `Replace` and `Remove` actions are now read the way the game reads them, so a member a mod replaces or removes shows what the game really loads.
 - Render layers are now offered and checked per ship class. Only the layers the part's own ship declares are suggested, and a layer no ship declares, or one belonging to another ship class, is reported with the ship named. Turn it off with `cosmoteerLSPRules.diagnostics.validateRenderLayers`.
 - Quotes, braces, brackets and `<` now close themselves as you type, and `//` and `/* */` comments toggle with the editor's own comment shortcut.
+
+### Changed
+
+- Problems now appear about twice as fast after you stop typing.
+- Checking a whole mod is faster. A pass reads each folder once instead of once per reference into it, and which ships a part may be drawn on is worked out once for the project instead of once per part file.
+- The language server is started with more room for short-lived data, so the collections a whole-mod check used to trigger are rarer and no longer stall it for up to half a second at a time. It also settles back to less memory once the check is done.
+- Semantic highlighting from the language server is on by default and is painted by the plugin itself, so the colors stay on the text while you type instead of dropping out whenever a request is still running.
+
+### Fixed
+
+- A file written in the same instant the editor read the folder it sits in is no longer missed until something else changes there.
+- A value is now suggested while its quotes are still open. `Layer = "roo` used to answer with the group's field names rather than the ship render layers, and the accepted suggestion now writes the missing closing quote.
+- `Layer` written on an `IndicatorSprites` component is marked as having no effect, which is what the game does with it.
+- Turning semantic highlighting on or off now reaches the files you already have open, instead of only the next file you open.
+
+## 0.7.0 - 2026-08-19
+
+### Added
+
 - Seven shapes the game refuses to load are now reported instead of parsing as if they were fine, among them free text where a member name belongs, a number naming a member, a nameless `{` or `[` block outside a list, an inheritance with no body and a `/*` that no `*/` ever ends. Each of these makes the game drop the whole file at load time, so a mod could be shipped broken while the editor showed nothing.
 - A block comment the game does not close is now a warning, with a fix that makes it close. The game closes a block comment only when the run of `*` before the closing `/` is odd, so a banner like `/****** Section ******/` silently swallows everything up to the next `*/` when the mod loads.
 - A member written on a line whose value already runs to the line end is now a warning saying the value before it swallows it. The game accepts that shape and folds the member into the value, so it loses the member rather than failing to load.
@@ -29,18 +59,10 @@ Cosmoteer Language server provides a lot of useful features, like:
 
 ### Changed
 
-- Problems now appear about twice as fast after you stop typing.
-- Checking a whole mod is faster. A pass reads each folder once instead of once per reference into it, and which ships a part may be drawn on is worked out once for the project instead of once per part file.
-- The language server is started with more room for short-lived data, so the collections a whole-mod check used to trigger are rarer and no longer stall it for up to half a second at a time. It also settles back to less memory once the check is done.
 - The dead-field hint now also reads a field written as a bare list, the shape the game's own files use for effect collections. A `MediaEffects [ … ]` block that ended up on the component instead of on its hit or death slot is faded out with a remove quick fix instead of loading silently and doing nothing.
-- Semantic highlighting from the language server is on by default and is painted by the plugin itself, so the colors stay on the text while you type instead of dropping out whenever a request is still running.
 
 ### Fixed
 
-- A file written in the same instant the editor read the folder it sits in is no longer missed until something else changes there.
-- A value is now suggested while its quotes are still open. `Layer = "roo` used to answer with the group's field names rather than the ship render layers, and the accepted suggestion now writes the missing closing quote.
-- `Layer` written on an `IndicatorSprites` component is marked as having no effect, which is what the game does with it.
-- Turning semantic highlighting on or off now reaches the files you already have open, instead of only the next file you open.
 - Values are read the way the game reads them in five shapes that used to shift list positions or invent members: computed values inside a list count as one element each, a list element starting with a minus and continuing with arithmetic stays one element, a stray `)` and an unescaped `"` stay part of their value, and a value written on the line below its `=` belongs to the field above it.
 
 ## 0.6.0 - 2026-08-04

@@ -1,7 +1,8 @@
 import { Disposable, ExtensionContext, Position, Uri, ViewColumn, WebviewPanel, commands, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { WorkspaceEdit as LspWorkspaceEdit } from 'vscode-languageclient';
-import { imageDataUri, webviewShell } from '../webview-util';
+import { imageDataUri, stringsScript, webviewShell } from '../webview-util';
+import { partGridEditorStrings } from '../webview-strings';
 
 /**
  * The payload shape returned by the server's `cosmoteer/partGridData` request (client-side mirror
@@ -123,7 +124,7 @@ export class PartGridEditorPanel {
             return;
         }
         this.anchor = data.anchor;
-        this.panel.title = `Part Grid — ${data.partName}`;
+        this.panel.title = l10n.t('Part Grid: {0}', data.partName);
         const spriteData: Record<string, string | null> = {};
         for (const sprite of data.sprites) spriteData[sprite.id] = imageDataUri(sprite.uri);
         await this.panel.webview.postMessage({ type: 'render', data, spriteData });
@@ -213,6 +214,7 @@ export class PartGridEditorPanel {
 <div id="stage"><canvas id="grid"></canvas><div id="status"></div></div>
 <div id="sidebar"></div>
 </div>
+${stringsScript(nonce, partGridEditorStrings())}
 <script nonce="${nonce}" src="${asset('part-grid-editor.js')}"></script>
 </body>
 </html>`;

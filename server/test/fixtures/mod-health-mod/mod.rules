@@ -1,0 +1,28 @@
+ID = Test.ModHealth
+Name = "Mod health fixture"
+Version = 1.0
+StringsFolder = "strings"
+
+// Registers every part into a real ship Parts list, so the cross-file checks see declarations the
+// game really loads. `unreached.rules` is deliberately left out of the list.
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<ships/partship.rules>/PartShip/Parts"
+		ManyToAdd
+		[
+			&<parts/armor_a.rules>/Part
+			&<parts/armor_b.rules>/Part
+			&<parts/armor_c.rules>/Part
+			&<parts/door_part.rules>/Part
+		]
+	}
+	{
+		Action = Add
+		AddTo = "<effects/effects.rules>"
+		Name = "TestHealthCurve"
+		ToAdd = &<effects/curve.rules>
+		IgnoreIfNotExisting = true
+	}
+]

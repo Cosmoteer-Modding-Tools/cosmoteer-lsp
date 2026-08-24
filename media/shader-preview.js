@@ -7,6 +7,24 @@
 // in the webview, the extension only feeds it data.
 (function () {
     const vscode = acquireVsCodeApi();
+
+    // The host inlines the localized text into the page ahead of this script. A page whose host
+    // inlines none finds no bundle and falls back to the key, which is the English source.
+    const STRINGS = (typeof window !== 'undefined' && window.cosmoteerStrings) || {};
+
+    /**
+     * Looks a user-visible string up by its English source and fills in its numbered placeholders.
+     *
+     * @param message the English source, which is also the bundle key.
+     * @param args the values for the `{0}`-style placeholders, in order.
+     * @returns the localized text with its placeholders filled in.
+     */
+    function t(message, ...args) {
+        const template = STRINGS[message] || message;
+        if (!args.length) return template;
+        return template.replace(/\{(\d+)\}/g, (match, index) => (args[index] === undefined ? match : String(args[index])));
+    }
+
     const canvas = document.getElementById('gl');
     const statusEl = document.getElementById('status');
     const metaEl = document.getElementById('meta');
@@ -714,12 +732,12 @@ void main() {
         const row = document.createElement('div');
         row.className = 'control';
         const label = document.createElement('label');
-        label.textContent = isParticle ? 'Vertex color (anim)' : 'Vertex color';
+        label.textContent = isParticle ? t('Vertex color (anim)') : t('Vertex color');
         label.title = particleRamp
-            ? 'The particle system animates this colour over each particle’s lifetime (ColorRamp). Uncheck anim to hold a colour.'
+            ? t('The particle system animates this colour over each particle’s lifetime (ColorRamp). Uncheck anim to hold a colour.')
             : isParticle
-              ? 'A particle drives its effect with per-vertex colour. Red sweeps the animation, alpha is brightness.'
-              : 'The material vertex-colour tint.';
+              ? t('A particle drives its effect with per-vertex colour. Red sweeps the animation, alpha is brightness.')
+              : t('The material vertex-colour tint.');
         row.appendChild(label);
 
         const color = document.createElement('input');
@@ -740,7 +758,7 @@ void main() {
             box.checked = animateVertex;
             box.onchange = () => (animateVertex = box.checked);
             toggle.appendChild(box);
-            toggle.appendChild(document.createTextNode(' anim'));
+            toggle.appendChild(document.createTextNode(' ' + t('anim')));
             row.appendChild(toggle);
         }
         return row;
@@ -751,8 +769,8 @@ void main() {
         const row = document.createElement('div');
         row.className = 'control';
         const label = document.createElement('label');
-        label.textContent = 'Beam';
-        label.title = 'The per-vertex beam inputs: intensity scales the effect, fade multiplies alpha over the beam’s life.';
+        label.textContent = t('Beam');
+        label.title = t('The per-vertex beam inputs: intensity scales the effect, fade multiplies alpha over the beam’s life.');
         row.appendChild(label);
         row.appendChild(slider(0, 2, beamIntensity, (n) => (beamIntensity = n), true));
         row.appendChild(slider(0, 1, beamFade, (n) => (beamFade = n)));
@@ -764,8 +782,8 @@ void main() {
         const row = document.createElement('div');
         row.className = 'control';
         const label = document.createElement('label');
-        label.textContent = 'Sprite cell';
-        label.title = 'The particle system picks one cell of the sprite sheet (UvSprites). Cycle replays the animation over the lifetime.';
+        label.textContent = t('Sprite cell');
+        label.title = t('The particle system picks one cell of the sprite sheet (UvSprites). Cycle replays the animation over the lifetime.');
         row.appendChild(label);
         const cell = slider(0, spriteSheet.count - 1, sheetCell, (n) => (sheetCell = Math.round(n)), true);
         row.appendChild(cell);
@@ -776,7 +794,7 @@ void main() {
         box.checked = cycleCells;
         box.onchange = () => (cycleCells = box.checked);
         toggle.appendChild(box);
-        toggle.appendChild(document.createTextNode(' cycle'));
+        toggle.appendChild(document.createTextNode(' ' + t('cycle')));
         row.appendChild(toggle);
         return row;
     }
@@ -787,7 +805,7 @@ void main() {
         row.className = 'control';
         const label = document.createElement('label');
         label.textContent = constant.name;
-        label.title = `${constant.hlslType}${constant.default ? ' (default ' + constant.default + ')' : ''}`;
+        label.title = constant.default ? t('{0} (default {1})', constant.hlslType, constant.default) : constant.hlslType;
         row.appendChild(label);
 
         // Prefer the components read structurally from the AST (offset-free, and already normalized
@@ -829,13 +847,13 @@ void main() {
                 clockAuto[constant.name] = true;
                 const toggle = document.createElement('label');
                 toggle.className = 'animate';
-                toggle.title = 'Replay the engine clock driving this constant. Uncheck to set it manually.';
+                toggle.title = t('Replay the engine clock driving this constant. Uncheck to set it manually.');
                 const box = document.createElement('input');
                 box.type = 'checkbox';
                 box.checked = true;
                 box.onchange = () => (clockAuto[constant.name] = box.checked);
                 toggle.appendChild(box);
-                toggle.appendChild(document.createTextNode(' auto'));
+                toggle.appendChild(document.createTextNode(' ' + t('auto')));
                 row.appendChild(toggle);
             }
         } else if (constant.kind === 'vec2') {
@@ -909,12 +927,12 @@ void main() {
         bar.className = 'toolbar';
 
         const bg = document.createElement('select');
-        bg.title = 'Preview backdrop';
+        bg.title = t('Preview backdrop');
         for (const [value, text] of [
-            ['checker', 'Checker'],
-            ['dark', 'Dark'],
-            ['light', 'Light'],
-            ['mid', 'Grey'],
+            ['checker', t('Checker')],
+            ['dark', t('Dark')],
+            ['light', t('Light')],
+            ['mid', t('Grey')],
         ]) {
             const option = document.createElement('option');
             option.value = value;
@@ -924,13 +942,13 @@ void main() {
         }
         bg.onchange = () => setBackdrop(bg.value);
         setBackdrop(initialBackdrop);
-        bar.appendChild(labelled('Backdrop', bg));
+        bar.appendChild(labelled(t('Backdrop'), bg));
 
         const blendSel = document.createElement('select');
-        blendSel.title = 'Blend mode (the material’s resolved mode, overridable)';
+        blendSel.title = t('Blend mode (the material’s resolved mode, overridable)');
         const fromMaterial = document.createElement('option');
         fromMaterial.value = '';
-        fromMaterial.textContent = 'material';
+        fromMaterial.textContent = t('material');
         blendSel.appendChild(fromMaterial);
         for (const mode of Object.keys(BLEND_MODES)) {
             const option = document.createElement('option');
@@ -939,17 +957,17 @@ void main() {
             blendSel.appendChild(option);
         }
         blendSel.onchange = () => (blendOverride = blendSel.value || null);
-        bar.appendChild(labelled('Blend', blendSel));
+        bar.appendChild(labelled(t('Blend'), blendSel));
 
         const pause = document.createElement('button');
-        pause.textContent = 'Pause';
+        pause.textContent = t('Pause');
         pause.onclick = () => {
             paused = !paused;
             if (paused) pauseStartedAt = Date.now();
             else {
                 pausedAccum += Date.now() - pauseStartedAt;
             }
-            pause.textContent = paused ? 'Play' : 'Pause';
+            pause.textContent = paused ? t('Play') : t('Pause');
         };
         bar.appendChild(pause);
         return bar;
@@ -1093,18 +1111,22 @@ void main() {
         // Status and metadata. A rejected translation shows the first GLSL error line so the failure
         // is diagnosable from the panel instead of only from the webview console.
         const failure = data.translationOk
-            ? `shader compile failed${glslError ? ': ' + glslError.split('\n')[0].slice(0, 160) : ''}`
-            : data.reason || 'shader not translatable';
-        const note = usingFallback ? `Approximate render (${failure}) — texture, tint and blend shown.` : 'Live translated shader.';
+            ? glslError
+                ? t('shader compile failed: {0}', glslError.split('\n')[0].slice(0, 160))
+                : t('shader compile failed')
+            : data.reason || t('shader not translatable');
+        const note = usingFallback
+            ? t('Approximate render ({0}). Texture, tint and blend shown.', failure)
+            : t('Live translated shader.');
         const blendLabel = data.blend && data.blend.label !== 'AlphaBlend' ? data.blend.label : null;
         const tags = [
-            usingVertexStage ? `vertex stage (${vertexStage.kind})` : null,
+            usingVertexStage ? t('vertex stage ({0})', vertexStage.kind) : null,
             blendLabel,
-            particleRamp ? 'particle: color ramp animated' : data.isParticle ? 'particle: vertex colour animated' : null,
-            data.isBeam ? 'beam' : null,
-            spriteSheet ? `sprite sheet: ${spriteSheet.count} cells` : null,
-            needsScene ? 'scene stand-in' : null,
-            isGL2 ? null : 'WebGL1 fallback',
+            particleRamp ? t('particle: color ramp animated') : data.isParticle ? t('particle: vertex colour animated') : null,
+            data.isBeam ? t('beam') : null,
+            spriteSheet ? t('sprite sheet: {0} cells', spriteSheet.count) : null,
+            needsScene ? t('scene stand-in') : null,
+            isGL2 ? null : t('WebGL1 fallback'),
         ].filter(Boolean);
         statusEl.textContent = tags.length ? `${note} · ${tags.join(' · ')}` : note;
         metaEl.innerHTML = '';
@@ -1113,7 +1135,7 @@ void main() {
         title.textContent = data.shaderName;
         if (data.shaderUri) {
             const open = document.createElement('button');
-            open.textContent = 'Open .shader';
+            open.textContent = t('Open .shader');
             open.onclick = () => vscode.postMessage({ type: 'openShader', uri: data.shaderUri });
             title.appendChild(open);
         }
@@ -1124,12 +1146,12 @@ void main() {
         const message = event.data;
         if (message.type === 'render') render(message);
         else if (message.type === 'empty') {
-            statusEl.textContent = 'Place the cursor in a material with a Shader to preview it.';
+            statusEl.textContent = t('Place the cursor in a material with a Shader to preview it.');
         }
     });
 
     if (!gl) {
-        statusEl.textContent = 'WebGL is not available in this webview.';
+        statusEl.textContent = t('WebGL is not available in this webview.');
         return;
     }
     const buffer = gl.createBuffer();

@@ -27,6 +27,16 @@ export interface LocalizationText {
     text: string;
 }
 
+/** What one language declares under a folder, merged across the strings files that declare it. */
+export interface LanguageKeyCoverage {
+    /** The language label, from `__Name` or the file basename. */
+    readonly language: string;
+    /** Every key path that language declares. */
+    readonly keys: ReadonlySet<string>;
+    /** One strings file declaring the language, as the index's normalized source key. */
+    readonly source: string;
+}
+
 /** The keys one strings file declares, tagged with its language. */
 interface StringsFileKeys {
     language: string;
@@ -360,6 +370,35 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
             }
         }
         return sources;
+    }
+
+    /**
+     * What each language declares under one folder, for a reader comparing the languages a mod ships
+     * against each other. {@link allKeys} merges every language into one set, which answers whether a
+     * key exists anywhere and says nothing about the language that is missing it.
+     *
+     * @param rootPath the folder the strings files must sit under.
+     * @param folderPaths the project folders the strings index is built from.
+     * @param cancellationToken cancellation for the index build.
+     * @returns one entry per language found under the folder, the fullest key set first.
+     */
+    public async coverageUnder(
+        rootPath: string,
+        folderPaths: string[],
+        cancellationToken: CancellationToken
+    ): Promise<LanguageKeyCoverage[]> {
+        await this.ensureBuilt(folderPaths, cancellationToken);
+        const prefix = `${normalizeUri(rootPath).replace(/\/+$/, '')}/`;
+        const byLanguage = new Map<string, { keys: Set<string>; source: string }>();
+        for (const [source, file] of this.bySource) {
+            if (!source.startsWith(prefix)) continue;
+            const entry = byLanguage.get(file.language) ?? { keys: new Set<string>(), source };
+            for (const key of file.keys.keys()) entry.keys.add(key);
+            byLanguage.set(file.language, entry);
+        }
+        return [...byLanguage]
+            .map(([language, entry]) => ({ language, keys: entry.keys, source: entry.source }))
+            .sort((a, b) => b.keys.size - a.keys.size || a.language.localeCompare(b.language));
     }
 
     /**

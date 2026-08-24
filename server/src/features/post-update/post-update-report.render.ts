@@ -2,7 +2,7 @@ import * as l10n from '@vscode/l10n';
 import { existsSync, realpathSync } from 'fs';
 import { join } from 'path';
 import { foldPathCase } from '../../workspace/fs-cache';
-import { code, linkDestination } from '../report/markdown-link';
+import { code, linkDestination, tableCell } from '../report/markdown-link';
 import { GameVersionInfo } from './game-version';
 import { PostUpdateSnapshot } from './post-update-baseline';
 import {
@@ -485,7 +485,7 @@ const lineLinks = (folderPaths: readonly string[], relativePath: string, lines: 
  * @returns the cell content.
  */
 const cell = (text: string): string => {
-    const flat = text.replace(/\s+/g, ' ').replace(/\|/g, '\\|').trim();
+    const flat = tableCell(text).trim();
     return flat.length > 120 ? `${flat.slice(0, 119)}…` : flat;
 };
 

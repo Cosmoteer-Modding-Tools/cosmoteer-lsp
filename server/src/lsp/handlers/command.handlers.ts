@@ -17,6 +17,16 @@ import {
     extractSharedBase,
 } from '../../features/refactor/shared-base/shared-base.command';
 import {
+    EXTRACT_GROUP_COMMAND,
+    ExtractGroupArgs,
+    extractGroupToFile,
+} from '../../features/refactor/extract-group/extract-group.command';
+import {
+    CREATE_COMPONENT_COMMAND,
+    CreateComponentArgs,
+    createComponent,
+} from '../../features/refactor/create-component/create-component.command';
+import {
     REGISTER_PART_IN_SHIP_COMMAND,
     RegisterPartArgs,
     registerPartInShip,
@@ -55,7 +65,14 @@ import { globalSettings } from '../../settings';
 import { connection, documents } from '../context';
 import { diagnosticsCache } from '../document-caches';
 import { ensureFragmentRooting } from '../fragment-rooting';
-import { cloneHost, newContentHost, registerPartHost, sharedBaseHost } from '../hosts';
+import {
+    cloneHost,
+    createComponentHost,
+    extractGroupHost,
+    newContentHost,
+    registerPartHost,
+    sharedBaseHost,
+} from '../hosts';
 import { migrateWorkspace, postUpdateReport } from '../migration';
 import { rebuildModSchema } from '../mod-schema';
 import { ensureParserResult, openBufferReadOverride } from '../open-documents';
@@ -164,6 +181,26 @@ export function register(): void {
                 endFsTrustWindow();
                 progress?.done();
             }
+        }
+        // Moving an inline block into a file of its own. It runs on the server because it writes a
+        // file and re-expresses every path the block carries against the folder that file lands in.
+        if (params.command === EXTRACT_GROUP_COMMAND) {
+            const args = (params.arguments?.[0] ?? {}) as ExtractGroupArgs;
+            return await extractGroupToFile(args, extractGroupHost(), CancellationToken.None).catch((e) => {
+                if (globalSettings.trace.server === 'messages') console.error(e);
+                return null;
+            });
+        }
+        // Declaring a component a part references but never writes. It runs on the server because
+        // where the declaration goes is a question about the file's shape, which the client cannot ask.
+        if (params.command === CREATE_COMPONENT_COMMAND) {
+            const args = (params.arguments?.[0] ?? {}) as CreateComponentArgs;
+            return await createComponent(args, createComponentHost(), CancellationToken.None).catch(
+                (e) => {
+                    if (globalSettings.trace.server === 'messages') console.error(e);
+                    return null;
+                }
+            );
         }
         if (params.command === REGISTER_PART_IN_SHIP_COMMAND) {
             const args = (params.arguments?.[0] ?? {}) as RegisterPartArgs;

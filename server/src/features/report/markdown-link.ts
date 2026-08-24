@@ -41,3 +41,12 @@ export const plainPathOf = (uri: string): string =>
  * @returns the text as a code span.
  */
 export const code = (text: string): string => '`' + text.replace(/`/g, "'") + '`';
+
+/**
+ * One markdown table cell's text. A rendered value may carry a newline or a `|`, and either one
+ * splits the row or shifts it apart from the header the reader is matching it against.
+ *
+ * @param text the cell's rendered text.
+ * @returns the text, safe to sit between two pipes.
+ */
+export const tableCell = (text: string): string => text.replace(/\s+/g, ' ').replace(/\|/g, '\\|');

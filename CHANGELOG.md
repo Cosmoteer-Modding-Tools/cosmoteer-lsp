@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.9.0 Beta
+
+### Added
+
+- A number the game also reads as a group can now be rewritten into that form in one step. The lightbulb offers "Make this modifiable" on such a field, writes the value the file already had as its `BaseValue` and leaves the caret in an empty `Modifiers` list. The offer runs the other way on a group that carries nothing but its base value.
+- A component a part wires before declaring it can now be declared from the lightbulb. You pick the kind, and the declaration is written where the part keeps its components, with every field the game throws without scaffolded and a tab stop on each one. A part that inherits its components gets a `Components` group written with it.
+- An inline block can now be moved into a file of its own. The lightbulb writes the file, replaces the block with a reference to it, and re-expresses every path the block carries against the folder the new file lands in. A block that reads something outside itself is refused by name rather than moved.
+- Every class the schema knows now says what it is in one sentence, on the class page in `Cosmoteer: Search the Schema` and on the hover over a `Type =` value. The ones a modder actually writes are worded for modders rather than for the game's own developers, and a handful whose game documentation described something else are corrected against what the engine really does.
+- A component wired into a slot that reads another kind of component is now reported. The game resolves such a value through a typed lookup and throws while building the part, so a weapon pointed at an emitter where a toggle belongs used to be a crash with nothing said beforehand. The kinds come from the game's own code, the part's own components of the right kind are offered as the fix, and anything the extraction cannot type is left alone.
+- The mod overview now opens with a health table: whether every manifest action finds its target, how much of the mod the game loads at all, ids registered twice, part grid values out of the part's reach, how far each language file is behind the one it follows, fields the game never reads, field sets repeated across files, and overrides that change nothing. Each row links to the places it found.
+
+### Changed
+
+- The part grid editor and the shader preview now speak the editor's language, so their toolbars, messages and tooltips are translated with the rest of the extension.
+
+### Fixed
+
+- Updating the extension no longer throws away the checks it has already done for a change to documentation alone. The prose shown on hover is no longer part of what the on-disk caches are keyed by, since nothing they hold depends on it.
+
 ## 0.8.0 Beta
 
 ### Added

@@ -15,6 +15,7 @@ import {
     Diagnostic,
     DiagnosticSeverity,
     Range,
+    SnippetString,
 } from 'vscode';
 
 import {
@@ -111,7 +112,11 @@ export async function activate(context: ExtensionContext) {
             // Notify the server about file changes to '.clientrc files contained in the workspace
             fileEvents: workspace.createFileSystemWatcher('**/.clientrc'),
         },
-        progressOnInitialization: true,
+        progressOnInitialization: true,
+        // A code action's edit cannot carry a tab stop, so the server offers a snippet only to a client
+        // that says it registers the command that writes one. The protocol has no field for that, which
+        // is what this option is for.
+        initializationOptions: { snippetCodeActions: true },
         // The server answers open files through the pull model and pushes the whole-mod pass for the
         // rest, so both models write to the Problems panel. One collection for both keeps a file
         // that moves between them from being listed twice.
@@ -497,6 +502,84 @@ export async function activate(context: ExtensionContext) {
         }),
         // The command the server's lightbulb refactoring carries. The server does not declare it, so
         // the editor runs this rather than forwarding it, and the rewrite gets a real diff.
+        // The command the server's "move this block into its own file" refactoring carries. The name is
+        // asked for here, and the server writes the file and re-expresses every path the block carries.
+        commands.registerCommand(EXTRACT_GROUP_LOCAL_COMMAND, async (args?: ExtractGroupArgs) => {
+            if (!args?.uri) return;
+            const run = async (fileName?: string) =>
+                (await client.sendRequest(ExecuteCommandRequest.type, {
+                    command: 'cosmoteer.extractGroupToFile',
+                    arguments: [{ ...args, fileName }],
+                })) as ExtractGroupResult | null;
+            const offered = await run();
+            if (!offered?.offer) {
+                window.showWarningMessage(extractGroupFailureMessage(offered?.failure));
+                return;
+            }
+            const fileName = await window.showInputBox({
+                title: l10n.t("Move '{0}' into its own file", offered.offer.name),
+                prompt: l10n.t('The file to write it to, relative to the folder this file is in.'),
+                value: offered.offer.fileName,
+                valueSelection: [0, offered.offer.fileName.lastIndexOf('.')],
+            });
+            if (!fileName) return;
+            const written = await run(fileName.trim());
+            if (!written?.written) {
+                window.showWarningMessage(extractGroupFailureMessage(written?.failure));
+                return;
+            }
+            const document = await workspace.openTextDocument(Uri.parse(written.written.uri));
+            await window.showTextDocument(document);
+        }),
+        // The command the server's "create the component this names" quick fix carries. The kind is
+        // asked for here, and the server works out where the declaration goes and what it has to carry.
+        commands.registerCommand(CREATE_COMPONENT_LOCAL_COMMAND, async (args?: CreateComponentArgs) => {
+            if (!args?.uri || !args.name) return;
+            const run = async (type?: string) =>
+                (await client.sendRequest(ExecuteCommandRequest.type, {
+                    command: 'cosmoteer.createComponent',
+                    arguments: [{ ...args, type }],
+                })) as CreateComponentResult | null;
+            const offered = await run();
+            if (!offered || offered.failure || !offered.choices?.length) {
+                window.showWarningMessage(createComponentFailureMessage(offered?.failure));
+                return;
+            }
+            const picked = await window.showQuickPick(
+                offered.choices.map((choice) => ({ label: choice.type, detail: choice.detail })),
+                {
+                    title: l10n.t("Create the component '{0}'", args.name),
+                    placeHolder: l10n.t('The kind of component to declare.'),
+                    matchOnDetail: true,
+                }
+            );
+            if (!picked) return;
+            const written = await run(picked.label);
+            if (!written?.insert) {
+                window.showWarningMessage(createComponentFailureMessage(written?.failure));
+                return;
+            }
+            const document = await workspace.openTextDocument(Uri.parse(written.insert.uri));
+            const editor = await window.showTextDocument(document);
+            const range = new Range(
+                new Position(written.insert.range.start.line, written.insert.range.start.character),
+                new Position(written.insert.range.end.line, written.insert.range.end.character)
+            );
+            await editor.insertSnippet(new SnippetString(written.insert.snippet), range);
+        }),
+        // The command the server's snippet-bearing code actions carry, which writes the text and leaves
+        // the caret on the first tab stop. The edit cannot come through the code action itself: the
+        // protocol's edits are plain text.
+        commands.registerCommand(INSERT_SNIPPET_LOCAL_COMMAND, async (args?: InsertSnippetArgs) => {
+            if (!args?.uri || typeof args.snippet !== 'string') return;
+            const document = await workspace.openTextDocument(Uri.parse(args.uri));
+            const editor = await window.showTextDocument(document);
+            const range = new Range(
+                new Position(args.range.start.line, args.range.start.character),
+                new Position(args.range.end.line, args.range.end.character)
+            );
+            await editor.insertSnippet(new SnippetString(args.snippet), range);
+        }),
         commands.registerCommand(EXTRACT_SHARED_BASE_LOCAL_COMMAND, async (plan?: SharedBasePlan) => {
             if (plan) await previewAndApplySharedBase(plan, diffPreviewProvider);
         }),
@@ -837,6 +920,117 @@ const NEW_CONTENT_LOCAL_COMMAND = 'cosmoteer.newContentFile';
  * claim it, so the editor runs this instead and the author picks the mod first.
  */
 const OVERRIDE_IN_MOD_LOCAL_COMMAND = 'cosmoteer.overrideInModFromAction';
+
+/**
+ * The command the server's "move this block into its own file" refactoring carries. The server does
+ * not claim it, so the editor runs this instead: what the new file is called is a name only the
+ * author can give.
+ */
+const EXTRACT_GROUP_LOCAL_COMMAND = 'cosmoteer.extractGroupToFileFromAction';
+
+/** Mirror of the server's extract-group arguments (see server features/refactor/extract-group). */
+interface ExtractGroupArgs {
+    uri: string;
+    offset: number;
+    fileName?: string;
+}
+
+/** Mirror of what the server answers with on either round. */
+interface ExtractGroupResult {
+    offer?: { name: string; fileName: string; members: number };
+    written?: { uri: string; reference: string };
+    failure?: string;
+}
+
+/**
+ * What to say when a block cannot be moved into a file of its own.
+ *
+ * @param failure the reason the server gave, absent when it answered with nothing at all.
+ * @returns the message to show.
+ */
+function extractGroupFailureMessage(failure: string | undefined): string {
+    switch (failure) {
+        case 'notAGroup':
+            return l10n.t('Only a named block can be moved into a file of its own.');
+        case 'notEditable':
+            return l10n.t('Files in the game folder are read-only.');
+        case 'inheritedGroup':
+            return l10n.t('This block derives from another one, whose members a copy would not carry.');
+        case 'multiLineText':
+            return l10n.t('A text in this block runs across lines, so it cannot be moved.');
+        case 'scopeRelativeValue':
+            return l10n.t('This block reads something outside itself, so it would mean something else from another file.');
+        case 'badFileName':
+            return l10n.t('The name has to be a .rules file inside this folder.');
+        case 'fileExists':
+            return l10n.t('A file of that name is already there.');
+        case 'editRejected':
+            return l10n.t('The editor refused the change, so nothing was moved.');
+        default:
+            return l10n.t('The block could not be moved.');
+    }
+}
+
+/**
+ * The command the server's "create the component this names" quick fix carries. The server does not
+ * claim it, so the editor runs this instead: which kind of component the author meant cannot be read
+ * off the reference, and only they know it.
+ */
+const CREATE_COMPONENT_LOCAL_COMMAND = 'cosmoteer.createComponentFromAction';
+
+/** Mirror of the server's create-component arguments (see server features/refactor/create-component). */
+interface CreateComponentArgs {
+    uri: string;
+    offset: number;
+    name: string;
+    type?: string;
+}
+
+/** Mirror of what the server answers with on either round. */
+interface CreateComponentResult {
+    choices?: Array<{ type: string; detail: string }>;
+    insert?: {
+        uri: string;
+        range: { start: { line: number; character: number }; end: { line: number; character: number } };
+        snippet: string;
+    };
+    failure?: string;
+}
+
+/**
+ * What to say when no component can be declared.
+ *
+ * @param failure the reason the server gave, absent when it answered with nothing at all.
+ * @returns the message to show.
+ */
+function createComponentFailureMessage(failure: string | undefined): string {
+    switch (failure) {
+        case 'noOwner':
+            return l10n.t('This file declares no part or bullet to add a component to.');
+        case 'notEditable':
+            return l10n.t('Files in the game folder are read-only.');
+        case 'alreadyDeclared':
+            return l10n.t('A component of that name is already declared here.');
+        case 'unknownType':
+            return l10n.t('That kind of component cannot be declared here.');
+        default:
+            return l10n.t('The component could not be created.');
+    }
+}
+
+/**
+ * The command the server's snippet-bearing code actions carry. The server does not claim it, and it
+ * cannot: a `WorkspaceEdit` has no way to carry a tab stop, so the text is written here, where the
+ * editor can leave the caret where the author has to type next.
+ */
+const INSERT_SNIPPET_LOCAL_COMMAND = 'cosmoteer.insertSnippetFromAction';
+
+/** Mirror of the server's snippet arguments (see server features/refactor/snippet-action.ts). */
+interface InsertSnippetArgs {
+    uri: string;
+    range: { start: { line: number; character: number }; end: { line: number; character: number } };
+    snippet: string;
+}
 
 /**
  * The command the server's "clone this under a new id" refactoring carries. The server does not claim

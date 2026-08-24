@@ -6,7 +6,9 @@
     "types": 851,
     "enums": 101,
     "typesBeforePrune": 1351,
-    "registriesBeforePrune": 62
+    "registriesBeforePrune": 62,
+    "componentSlots": 114,
+    "componentKinds": 20
   },
   "registries": {
     "Cosmoteer.ValueCombination.ValueCombinerRules": {
@@ -11564,7 +11566,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ValuePerSourceResource",
@@ -11592,7 +11598,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ValuePerTargetResource",
@@ -12709,7 +12719,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ReservedResourceLevel",
@@ -13026,7 +13040,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "Categories",
@@ -13161,7 +13179,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "Categories",
@@ -15032,7 +15054,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 1,
+            "enforcement": "throws"
+          }
         }
       ]
     },
@@ -15095,7 +15121,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         }
       ]
     },
@@ -15113,7 +15143,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "InvertOperationalToggle",
@@ -15147,7 +15181,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "InvertOperationalToggle",
@@ -16204,7 +16242,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "EditorIcon",
@@ -17085,7 +17127,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "Duration",
@@ -17216,7 +17262,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ValueScaleFactor",
@@ -17225,7 +17275,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "UpdateScaleFactorsPerEmit",
@@ -17297,7 +17351,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 1,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ColorRed",
@@ -17439,7 +17497,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 15,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "BeamLengthRange",
@@ -17484,7 +17546,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 18,
+            "enforcement": "throws"
+          }
         }
       ]
     },
@@ -17596,7 +17662,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 18,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "RequireWeaponBindingPressed",
@@ -17643,7 +17713,11 @@
             "targetName": "PartComponentRules"
           },
           "optional": true,
-          "absentThrows": true
+          "absentThrows": true,
+          "expectedComponent": {
+            "kind": 18,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "FireDelay",
@@ -17661,7 +17735,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 9,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ResourceUsage",
@@ -17734,7 +17812,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "RevealsShip",
@@ -17754,6 +17836,10 @@
             "targetName": "PartComponentRules"
           },
           "optional": true,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          },
           "nullable": false
         },
         {
@@ -17790,7 +17876,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ResourcesUsed",
@@ -17862,7 +17952,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "silent"
+          }
         },
         {
           "name": "TargetSearchInterval",
@@ -17967,7 +18061,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ToggleOffEmitter",
@@ -17978,7 +18076,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 16,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ToggleOnEmitter",
@@ -17989,7 +18091,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 16,
+            "enforcement": "throws"
+          }
         }
       ]
     },
@@ -18255,7 +18361,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ResetRotationIfNotAllowed",
@@ -18357,7 +18467,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "Overridable",
@@ -18400,7 +18514,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "TargetingEmitter",
@@ -18409,7 +18527,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 16,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ResourceCheckEmitters",
@@ -18421,7 +18543,11 @@
               "targetName": "PartComponentRules"
             }
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 16,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ResourceCheckRequiresAllEmitters",
@@ -18479,7 +18605,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ShowExplicitTarget",
@@ -18518,7 +18648,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "DefaultDirectControlBinding",
@@ -18560,7 +18694,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "AutoFireToggle",
@@ -18569,7 +18707,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "AlwaysShowCoverage",
@@ -18777,6 +18919,10 @@
             "targetName": "PartComponentRules"
           },
           "optional": true,
+          "expectedComponent": {
+            "kind": 16,
+            "enforcement": "throws"
+          },
           "nullable": false
         },
         {
@@ -18787,6 +18933,10 @@
             "targetName": "PartComponentRules"
           },
           "optional": true,
+          "expectedComponent": {
+            "kind": 16,
+            "enforcement": "throws"
+          },
           "nullable": false
         }
       ]
@@ -18807,7 +18957,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "Height",
@@ -19039,6 +19193,10 @@
             "targetName": "PartComponentRules"
           },
           "optional": true,
+          "expectedComponent": {
+            "kind": 18,
+            "enforcement": "throws"
+          },
           "nullable": false
         },
         {
@@ -19051,7 +19209,11 @@
               "targetName": "PartComponentRules"
             }
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 18,
+            "enforcement": "throws"
+          }
         }
       ]
     },
@@ -19140,7 +19302,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 6,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "AutoOnTrigger",
@@ -19320,7 +19486,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "FuelUsage",
@@ -19361,6 +19531,10 @@
             "targetName": "PartComponentRules"
           },
           "optional": true,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          },
           "nullable": false
         },
         {
@@ -19388,7 +19562,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "FuelUsagePerSecond",
@@ -19482,7 +19660,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "AllowManualReceiveToggle",
@@ -19491,7 +19673,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "IsIntermediateStorage",
@@ -19584,7 +19770,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "AnticipateMoreResourcesFrom",
@@ -19596,7 +19786,11 @@
               "targetName": "PartComponentRules"
             }
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ToggleOnResources",
@@ -19862,7 +20056,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "FromQuantity",
@@ -19924,7 +20122,11 @@
               "targetName": "PartComponentRules"
             }
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ViaBuffs",
@@ -20002,7 +20204,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "Trigger",
@@ -20053,7 +20259,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 19,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "DefaultPriority",
@@ -20263,6 +20473,10 @@
             "targetName": "PartComponentRules"
           },
           "optional": true,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          },
           "nullable": false
         },
         {
@@ -20291,6 +20505,10 @@
             "targetName": "PartComponentRules"
           },
           "optional": true,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          },
           "nullable": false
         },
         {
@@ -20335,7 +20553,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "Quantity",
@@ -20546,6 +20768,10 @@
             "targetName": "PartComponentRules"
           },
           "optional": true,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          },
           "nullable": false
         },
         {
@@ -20574,6 +20800,10 @@
             "targetName": "PartComponentRules"
           },
           "optional": true,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          },
           "nullable": false
         },
         {
@@ -20753,7 +20983,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 17,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "TargetSprite",
@@ -20801,7 +21035,11 @@
               "targetName": "PartComponentRules"
             }
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ViaBuffs",
@@ -20928,7 +21166,11 @@
               "targetName": "PartComponentRules"
             }
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 0,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ComponentID",
@@ -20992,7 +21234,11 @@
           },
           "optional": true,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ToggleID",
@@ -21020,7 +21266,11 @@
           },
           "optional": true,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 11,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "TriggerID",
@@ -21048,7 +21298,11 @@
           },
           "optional": true,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ValueID",
@@ -21096,7 +21350,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 7,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "InvertToggle",
@@ -21172,7 +21430,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 18,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "FanComponents",
@@ -21185,7 +21447,11 @@
             }
           },
           "optional": true,
-          "absentThrows": true
+          "absentThrows": true,
+          "expectedComponent": {
+            "kind": 1,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "MinArc",
@@ -21575,7 +21841,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 8,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "Invert",
@@ -21622,7 +21892,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 8,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "TriggerInModes",
@@ -21974,6 +22248,10 @@
           "optional": false,
           "absentThrows": true,
           "nullable": false,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          },
           "aliases": [
             "AmountFrom"
           ]
@@ -22023,7 +22301,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "MinAmount",
@@ -22167,7 +22449,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "MediaIntensity",
@@ -22194,7 +22480,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "BlueprintMaterial",
@@ -22451,7 +22741,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "Invert",
@@ -22510,7 +22804,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "TriggerWhenOn",
@@ -22559,7 +22857,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "BlueprintToggle",
@@ -22579,7 +22881,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ToggleOnValue",
@@ -22590,7 +22896,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "IncludeInPhysical",
@@ -22629,7 +22939,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "StartLocation",
@@ -22715,7 +23029,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "InvertResetTransformWhen",
@@ -22876,7 +23194,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "BaseValue",
@@ -23080,7 +23402,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "InputRange",
@@ -23244,7 +23570,11 @@
             "targetName": "PartComponentRules"
           },
           "optional": true,
-          "absentThrows": true
+          "absentThrows": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "OffValue",
@@ -23311,7 +23641,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "InvertProxyToggle",
@@ -23490,7 +23824,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 14,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "TargetMode",
@@ -23576,7 +23914,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "AnimationSpeedFactor",
@@ -23585,7 +23927,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "AnimationSpeedFactorRenormalize",
@@ -23827,7 +24173,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 5,
+            "enforcement": "throws"
+          }
         }
       ]
     },
@@ -23846,7 +24196,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "AnimationToggle",
@@ -23855,7 +24209,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "AnimationSpeedFactor",
@@ -23864,7 +24222,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "AnimationSpeedFactorRenormalize",
@@ -23893,7 +24255,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 5,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ShowToggledDoodadsWhenNotOperational",
@@ -24126,7 +24492,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ShowWhenToggleOn",
@@ -24194,7 +24564,11 @@
               "targetName": "PartComponentRules"
             }
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 5,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ViaBuffs",
@@ -24327,7 +24701,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "RangeLow",
@@ -24396,7 +24774,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 4,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ContinuousEffects",
@@ -24415,7 +24797,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "FactorRedVertexColorWith",
@@ -24424,7 +24810,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "MimicFadeInStartTime",
@@ -24527,7 +24917,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 5,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "AtlasSprite",
@@ -24597,7 +24991,11 @@
             }
           },
           "optional": true,
-          "absentThrows": true
+          "absentThrows": true,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "Layer",
@@ -24617,7 +25015,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 5,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "AmbiguousSprites",
@@ -24742,7 +25144,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "FuelStorage",
@@ -24751,7 +25157,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "SpinDownDuration",
@@ -24856,7 +25266,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "IntensityTweenDuration",
@@ -24896,7 +25310,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 5,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ParentToShip",
@@ -24995,7 +25413,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "FactorHitEffectsWith",
@@ -25004,7 +25426,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "WhenSalvaged",
@@ -25043,7 +25469,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 10,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ToggledOnMediaEffects",
@@ -25134,7 +25564,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "MinMediaEffectsIntensity",
@@ -25167,7 +25601,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "AnchorMediaEffects",
@@ -25242,7 +25680,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 13,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ResourceDrainPerDamage",
@@ -25657,7 +26099,11 @@
               "targetName": "PartComponentRules"
             }
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 3,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "SwitchLocationInterval",
@@ -25904,7 +26350,11 @@
             "target": "Cosmoteer.Ships.Parts.PartComponentRules",
             "targetName": "PartComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 12,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "BlueprintBuffMultiplier",
@@ -64610,6 +65060,529 @@
     ],
     "Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules": [
       "default_bullet"
+    ]
+  },
+  "componentKinds": [
+    "Cosmoteer.Ships.Parts.Buffs.PartBuffProvider",
+    "Cosmoteer.Ships.Parts.ChainablePartComponent",
+    "Cosmoteer.Ships.Parts.Colliders.BaseCollider",
+    "Cosmoteer.Ships.Parts.Crew.CrewLocation",
+    "Cosmoteer.Ships.Parts.Defenses.ArcShield",
+    "Cosmoteer.Ships.Parts.Graphics.IPartComponentColor",
+    "Cosmoteer.Ships.Parts.Logic.IComponentToggleProvider",
+    "Cosmoteer.Ships.Parts.Logic.IPartComponentDistance",
+    "Cosmoteer.Ships.Parts.Logic.IPartComponentMode",
+    "Cosmoteer.Ships.Parts.Logic.IPartComponentTime",
+    "Cosmoteer.Ships.Parts.Logic.IPartComponentToggle",
+    "Cosmoteer.Ships.Parts.Logic.IPartComponentTrigger",
+    "Cosmoteer.Ships.Parts.Logic.IPartComponentValue",
+    "Cosmoteer.Ships.Parts.Resources.IResourceStorage",
+    "Cosmoteer.Ships.Parts.UI.PartUIToggle",
+    "Cosmoteer.Ships.Parts.Weapons.IBeamEmitter",
+    "Cosmoteer.Ships.Parts.Weapons.IEmitter",
+    "Cosmoteer.Ships.Parts.Weapons.TurretWeapon",
+    "Cosmoteer.Ships.Parts.Weapons.Weapon",
+    "Cosmoteer.Ships.Resources.IResourceConsumerTarget"
+  ],
+  "componentCapabilities": {
+    "Cosmoteer.Ships.Networks.PartNetworkBasicNodeRules": [],
+    "Cosmoteer.Ships.Networks.PartNetworkNodeProxyRules": [],
+    "Cosmoteer.Ships.Networks.PartNetworkPortRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkResourceInputRules": [
+      6,
+      10,
+      11,
+      12,
+      13,
+      19
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkResourceOutputRules": [
+      6,
+      10,
+      11,
+      12,
+      13,
+      19
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkResourceStoreRules": [],
+    "Cosmoteer.Ships.Networks.PartNetworkRouterRules": [],
+    "Cosmoteer.Ships.Networks.PartNetworkToggleReceiverRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkTriggerReceiverRules": [
+      11
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkTriggerRules": [
+      11
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkValueReceiverRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkValueRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Buffs.PartAreaBuffProviderRules": [
+      0
+    ],
+    "Cosmoteer.Ships.Parts.Buffs.PartBuffToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Buffs.PartBuffableValueRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Buffs.PartCircleBuffProviderRules": [
+      0
+    ],
+    "Cosmoteer.Ships.Parts.Buffs.PartFloodBuffProviderRules": [
+      0
+    ],
+    "Cosmoteer.Ships.Parts.Buffs.PartGridBuffProviderRules": [
+      0
+    ],
+    "Cosmoteer.Ships.Parts.Buffs.PartSelfBuffProviderRules": [
+      0
+    ],
+    "Cosmoteer.Ships.Parts.Buffs.WholeShipBuffProviderRules": [
+      0
+    ],
+    "Cosmoteer.Ships.Parts.Colliders.CircleColliderRules": [
+      1,
+      2
+    ],
+    "Cosmoteer.Ships.Parts.Colliders.PolygonColliderRules": [
+      1,
+      2
+    ],
+    "Cosmoteer.Ships.Parts.Commands.CommandConsumerRules": [],
+    "Cosmoteer.Ships.Parts.Commands.CommandProviderRules": [],
+    "Cosmoteer.Ships.Parts.Commands.CommandToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Crew.AirlockRules": [],
+    "Cosmoteer.Ships.Parts.Crew.CrewDestinationProximityToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Crew.CrewLocationRules": [
+      1,
+      3
+    ],
+    "Cosmoteer.Ships.Parts.Crew.CrewSourceRules": [
+      5
+    ],
+    "Cosmoteer.Ships.Parts.Crew.PartCrewRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Defenses.ArcShieldRules": [
+      1,
+      4,
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Effects.PartContinuousEffectsRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Effects.PartDeathEffectsRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Effects.PartToggleEffectsRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Effects.PartTriggeredEffectsRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Ftl.FtlBeaconRules": [],
+    "Cosmoteer.Ships.Parts.Ftl.FtlDriveRules": [
+      6,
+      10,
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.CustomShipIconRules": [],
+    "Cosmoteer.Ships.Parts.Graphics.PartBlendSpriteGridRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartBlendSpriteRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartIndicatorSpritesRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartMultiColorRules": [
+      5
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartOpenCloseSpriteRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartResourceSpritesRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartRoofOpacityValueRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartShieldArcsMimicRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartSpriteGridRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartSpriteRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartToggledBlendSpritesRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartValueColorRules": [
+      5
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartValueSpritesRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Logic.ComponentPresenceToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Logic.DistanceThresholdRules": [
+      6,
+      10,
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.DoorPresenceToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Logic.FanArcControllerRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Logic.JunkToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartBurstTriggerRules": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartChainableProxyRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartDamageTriggerRules": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartDebugModeRules": [
+      8
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartDebugToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartDebugTriggerRules": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartDebugValueRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartDelayTriggerRules": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartDestroyedTriggerRules": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartHealthToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartLazyMultiValueRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartModeCycleRules": [
+      8
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartModeProxyRules": [
+      8
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartModeToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartModeTriggerRules": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartMultiToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartMultiTriggerRules": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartMultiValueRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartPolledValueRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartSmoothedValueRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartStaticToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartStaticValueRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartStopwatchRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartThresholdToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartThresholdTriggerRules": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValueRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartTileScoreValueRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartTimerRules": [
+      6,
+      10,
+      11,
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartToggleProxyRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartToggleTriggerRules": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartToggleValueSelectorRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartToggledComponentsRules": [],
+    "Cosmoteer.Ships.Parts.Logic.PartTransformLerpRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartTransformMatchRules": [
+      1,
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartTriggerProxyRules": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartTriggeredToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartValueAccumulatorRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartValueChangeTriggerRules": [
+      11,
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartValueLerpRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartValueOperationRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartValueProxyRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartValueTweenRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.ShipConstructionToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Logic.TriggeredPartSwapRules": [],
+    "Cosmoteer.Ships.Parts.Logic.UIToggleModeOverrideRules": [],
+    "Cosmoteer.Ships.Parts.Overlays.WeaponTargetOverlayRules": [],
+    "Cosmoteer.Ships.Parts.PartStatProviderRules": [],
+    "Cosmoteer.Ships.Parts.Resources.ExplosiveResourceDrainSinkRules": [],
+    "Cosmoteer.Ships.Parts.Resources.FlexResourceGridRules": [],
+    "Cosmoteer.Ships.Parts.Resources.InlineResourceConverterRules": [
+      6,
+      10,
+      11,
+      12,
+      13,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Resources.IonEnergyStorageRules": [
+      6,
+      10,
+      11,
+      12,
+      13,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Resources.MultiResourceStorageRules": [
+      6,
+      10,
+      11,
+      12,
+      13,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Resources.ResourceChangeRules": [],
+    "Cosmoteer.Ships.Parts.Resources.ResourceConsumerRules": [],
+    "Cosmoteer.Ships.Parts.Resources.ResourceConsumingStorageRules": [
+      6,
+      10,
+      11,
+      12,
+      13,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Resources.ResourceConverterRules": [
+      6,
+      10,
+      11,
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Resources.ResourceStorageProxyRules": [
+      6,
+      10,
+      11,
+      12,
+      13,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Resources.ResourceStorageRules": [
+      6,
+      10,
+      11,
+      12,
+      13,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules": [
+      6,
+      10,
+      11,
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Resources.TypedResourceGridConsumerRules": [],
+    "Cosmoteer.Ships.Parts.Resources.TypedResourceGridRules": [
+      6,
+      10,
+      11,
+      12,
+      13,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Sensors.SensorRules": [],
+    "Cosmoteer.Ships.Parts.Thrusters.ThrusterRules": [
+      1,
+      12
+    ],
+    "Cosmoteer.Ships.Parts.UI.PartProgressBarRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.UI.PartSegmentedProgressBarRules": [],
+    "Cosmoteer.Ships.Parts.UI.PartUIColorRules": [
+      5
+    ],
+    "Cosmoteer.Ships.Parts.UI.PartUITargeterRules": [],
+    "Cosmoteer.Ships.Parts.UI.PartUIToggleRules": [
+      6,
+      8,
+      10,
+      14
+    ],
+    "Cosmoteer.Ships.Parts.UI.PartUITriggerRules": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.BeamEmitterProxyRules": [
+      1,
+      11,
+      12,
+      15,
+      16
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules": [
+      1,
+      6,
+      7,
+      10,
+      11,
+      12,
+      15,
+      16
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.BeamRegulatorRules": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules": [
+      1,
+      11,
+      16
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.DirectControlToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.EmitterProxyRules": [
+      1,
+      11,
+      16
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.FixedWeaponRules": [
+      1,
+      6,
+      10,
+      11,
+      12,
+      18
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.OscillatorRules": [
+      1
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.PartToggleEmitterSelectorRules": [
+      1,
+      11,
+      16
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.RailgunProjectileRules": [
+      1,
+      9,
+      11,
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules": [
+      1,
+      6,
+      7,
+      10,
+      11,
+      12,
+      17,
+      18
+    ],
+    "Cosmoteer.Ships.Statuses.PartStatusToggleRules": [
+      6,
+      10
+    ],
+    "Cosmoteer.Ships.Statuses.StatusValueRegulatorRules": [
+      12
     ]
   },
   "unresolved": {
