@@ -15,7 +15,7 @@ import { overrideInModCodeAction } from '../../features/refactor/override-in-mod
 import { cloneDeclarationCodeAction } from '../../features/refactor/clone-declaration/clone.codeaction';
 import { migrateSymbolCodeAction } from '../../features/migration/migrate-symbol';
 import { ValidationErrorData } from '../../features/diagnostics/validator';
-import { buildInsertLocalizationKeyEdit } from '../../features/diagnostics/localization-key-insert';
+import { buildFillLanguageKeysEdit, buildInsertLocalizationKeyEdit } from '../../features/diagnostics/localization-key-insert';
 import { requiredFieldInsertText } from '../../features/diagnostics/required-field-insert';
 import { addDependencyEdit } from '../../mod/mod-dependencies';
 import { findModRoot } from '../../mod/mod-root';
@@ -24,9 +24,9 @@ import { isShaderDocument } from '../../document/document-kind';
 import { removalRange } from '../../utils/removal-range';
 import { globalSettings } from '../../settings';
 import { connection, documents } from '../context';
-import { ensureParserResult } from '../open-documents';
+import { ensureParserResult, openBufferReadOverride } from '../open-documents';
 import { reachableFileFilter } from '../validation-scope';
-import { searchFolderUris, workspaceFolderPaths } from '../workspace-folders';
+import { searchFolderPaths, searchFolderUris, workspaceFolderPaths } from '../workspace-folders';
 
 /**
  * Registers the code-action request: the refactorings offered on the tree under the caret and the
@@ -245,6 +245,25 @@ export function register(): void {
                 if (edit) {
                     actions.push({
                         title: l10n.t('Add "{0}" to the mod\'s strings files', key),
+                        kind: CodeActionKind.QuickFix,
+                        diagnostics: [diagnostic],
+                        edit,
+                    });
+                }
+            }
+            // A language of the mod that is behind the languages beside it: write every key they
+            // declare into it, each with the English sentence to translate rather than a blank.
+            if (data?.fillLanguageKeys) {
+                const { count } = data.fillLanguageKeys;
+                const edit = await buildFillLanguageKeysEdit(
+                    params.textDocument.uri,
+                    await searchFolderPaths(),
+                    cancellationToken,
+                    openBufferReadOverride()
+                ).catch(() => null);
+                if (edit) {
+                    actions.push({
+                        title: l10n.t('Add the {0} missing key(s) to this language', count),
                         kind: CodeActionKind.QuickFix,
                         diagnostics: [diagnostic],
                         edit,

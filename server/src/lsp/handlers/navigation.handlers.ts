@@ -5,6 +5,11 @@ import { DocumentSymbolService } from '../../features/navigation/document-symbol
 import { computeFoldingRanges } from '../../features/structure/folding-range.service';
 import { computeSelectionRanges } from '../../features/structure/selection-range.service';
 import { prepareTypeHierarchy, subtypesOf, supertypesOf } from '../../features/structure/type-hierarchy.service';
+import {
+    incomingCallsOf,
+    outgoingCallsOf,
+    prepareCallHierarchy,
+} from '../../features/structure/call-hierarchy.service';
 import { ReferenceIndex } from '../../features/navigation/reference-index';
 import { documentHighlightsAt } from '../../features/navigation/document-highlight';
 import { WorkspaceSymbolService } from '../../features/navigation/workspace-symbol.service';
@@ -180,6 +185,46 @@ export function register(): void {
             // The scan's own budget answers with a partial list when it runs long, which is the point.
             // A cancellation from the client is not that: the user moved on, so answer nothing.
             return cancellationToken.isCancellationRequested ? null : items;
+        } catch (e) {
+            traceFailure(e);
+            return null;
+        }
+    });
+
+    // Call hierarchy: who reaches this declaration, and what it reaches in turn. Incoming folds the
+    // three reference shapes (a plain reference, an included member, an inheritance base) into one
+    // search, and adds the manifest actions that name the node as a target, which are written as
+    // paths rather than references. One level per request, like the type hierarchy above.
+    connection.languages.callHierarchy.onPrepare(async (params, cancellationToken) => {
+        // `.shader` files are HLSL and carry no Object Text declaration to build a hierarchy from.
+        if (isShaderDocument(params.textDocument.uri)) return null;
+        const parserResult = ensureParserResult(params.textDocument.uri);
+        if (!parserResult) return null;
+        try {
+            if (cancellationToken.isCancellationRequested) return null;
+            return prepareCallHierarchy(parserResult, params.position, await searchFolderPaths());
+        } catch (e) {
+            traceFailure(e);
+            return null;
+        }
+    });
+
+    connection.languages.callHierarchy.onIncomingCalls(async (params, cancellationToken) => {
+        try {
+            await ensureFragmentRooting(cancellationToken);
+            const calls = await incomingCallsOf(params.item, await searchFolderPaths(), cancellationToken);
+            return cancellationToken.isCancellationRequested ? null : calls;
+        } catch (e) {
+            traceFailure(e);
+            return null;
+        }
+    });
+
+    connection.languages.callHierarchy.onOutgoingCalls(async (params, cancellationToken) => {
+        try {
+            await ensureFragmentRooting(cancellationToken);
+            const calls = await outgoingCallsOf(params.item, await searchFolderPaths(), cancellationToken);
+            return cancellationToken.isCancellationRequested ? null : calls;
         } catch (e) {
             traceFailure(e);
             return null;

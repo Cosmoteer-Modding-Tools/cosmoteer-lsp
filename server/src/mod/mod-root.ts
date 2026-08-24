@@ -42,5 +42,16 @@ export const findModRoot = (uri: string): string | null => {
     return result;
 };
 
+/**
+ * Compares two mod roots. Separators and case are folded, since Windows answers a path in either
+ * spelling and the roots reaching a comparison come from both a document uri and a directory walk.
+ *
+ * @param a one root.
+ * @param b the other root.
+ * @returns whether both name the same folder.
+ */
+export const sameModRoot = (a: string, b: string): boolean =>
+    a.replace(/\\/g, '/').toLowerCase().replace(/\/$/, '') === b.replace(/\\/g, '/').toLowerCase().replace(/\/$/, '');
+
 /** Drop the memoized roots (call when a manifest file is created or deleted). */
 export const clearModRootCache = (): void => rootCache.clear();

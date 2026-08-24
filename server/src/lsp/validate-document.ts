@@ -34,6 +34,11 @@ import { validateRenderLayers } from '../features/diagnostics/validator.render-l
 import { validateUnusedParticleChannels } from '../features/diagnostics/validator.particle-channel';
 import { validateDuplicateModIds } from '../features/diagnostics/validator.duplicate-id';
 import { validateUnreceivableBuffs } from '../features/diagnostics/validator.unreceivable-buff';
+import { validateEffectBuckets } from '../features/diagnostics/validator.effect-bucket';
+import { validateMarkerVocabulary } from '../features/diagnostics/validator.marker-vocabulary';
+import { validateLocalizationCoverage } from '../features/diagnostics/validator.localization-coverage';
+import { validateInertFields } from '../features/diagnostics/validator.inert-field';
+import { validateModConflicts } from '../features/diagnostics/validator.mod-conflict';
 import { validateModActions } from '../features/diagnostics/validator.mod-action';
 import { validateManifestVersion } from '../features/diagnostics/validator.manifest-version';
 import { validateModManifest } from '../features/diagnostics/validator.mod-manifest';
@@ -421,6 +426,40 @@ export async function validateTextDocument(
             );
             validationErrors = validationErrors.concat(tagged(buffErrors, 'validateUnreceivableBuffs'));
         }
+        // Separate pass: a field a sibling switches off, faded with a remove fix. Reads the group
+        // it is written in and nothing else, so it needs neither the game index nor the project.
+        if (settings.diagnostics?.validateInertFields) {
+            const inertFieldErrors = await timedPass('scan.vInertFieldMs', () =>
+                validateInertFields(parserResult.value, cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(tagged(inertFieldErrors, 'validateInertFields'));
+        }
+        // Separate pass: one language strings file of the mod against the languages beside it.
+        // Ungated by the game index: the comparison is between the mod's own files, and the
+        // languages the base game ships are not complete either.
+        if (settings.diagnostics?.validateLocalizationCoverage) {
+            const coverageErrors = await timedPass('scan.vLocalizationCoverageMs', async () =>
+                validateLocalizationCoverage(parserResult.value, await searchFolderPaths(), cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(tagged(coverageErrors, 'validateLocalizationCoverage'));
+        }
+        // Separate pass: a usage-defined category name that reads as a misspelling of one the
+        // project writes everywhere. Needs the game index: the vocabulary a name is judged against
+        // is mostly the game's own, and without it every vanilla category would look invented.
+        if (settings.diagnostics?.validateMarkerVocabulary && gameIndexAvailable()) {
+            const markerErrors = await timedPass('scan.vMarkerVocabularyMs', async () =>
+                validateMarkerVocabulary(parserResult.value, await searchFolderPaths(), cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(tagged(markerErrors, 'validateMarkerVocabulary'));
+        }
+        // Separate pass: the media-effect bucket registry, whose duplicates and per-list caps the
+        // engine throws on while it reads the file. Ungated by the game index: a repeated name and
+        // an over-long list are both decided inside the document, and the one check that needs the
+        // file to be the whole registry asks the rooting indexes itself.
+        if (settings.diagnostics?.validateEffectBuckets) {
+            const effectBucketErrors = await validateEffectBuckets(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(effectBucketErrors, 'validateEffectBuckets'));
+        }
         if (isModRules(textDocument.uri)) {
             // Separate pass: validate the manifest's action verbs/targets against the
             // effective game tree (the AstType-keyed Validator allows only one pass per type).
@@ -435,6 +474,16 @@ export async function validateTextDocument(
                 () => []
             );
             validationErrors = validationErrors.concat(tagged(manifestVersionErrors, 'manifest-version'));
+            // Separate pass: an action aiming at a node an installed mod already takes for
+            // itself, which the game resolves by applying whichever mod's id sorts last.
+            if (settings.diagnostics?.validateModConflicts) {
+                const conflictErrors = await validateModConflicts(
+                    ModRulesRegistrar.instance.getActions(textDocument.uri),
+                    textDocument.uri,
+                    cancelToken
+                ).catch(() => []);
+                validationErrors = validationErrors.concat(tagged(conflictErrors, 'validateModConflicts'));
+            }
             // Separate pass: the manifest own metadata against what `Cosmoteer.Mods.ModInfo`
             // reads (a missing or malformed `ID`/`Name`, a field name that is a near miss of a
             // real one, a declared folder or logo that is not on disk).

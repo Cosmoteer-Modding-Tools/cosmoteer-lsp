@@ -155,6 +155,39 @@ export interface CosmoteerSettings {
         // whose readers cannot all be seen is left alone rather than judged on half of them. Hint
         // severity keeps it out of the Problems panel. Needs the game folder.
         validateUnusedParticleChannels: boolean;
+        // When true (the default), report a manifest action of this mod that aims at a node an
+        // installed mod already takes for itself. The game applies mods in ordinal order of their
+        // manifest ID and the last writer of a node is the one that stands, so with both enabled
+        // one of the two changes is simply not there. Overrides are compared by the members they
+        // write, since an override merges member by member and two mods writing different members
+        // of one group both take effect.
+        validateModConflicts: boolean;
+        // When true (the default), fade a field a sibling switches off, so it reads as the dead
+        // weight it is rather than as a setting that does something. The relations come from the
+        // reader branches in the game's own code (a converter's `MinFromQuantityForConversion` is
+        // read only beside the `FromStorage` shorthand, a sprite grid's `RectType` only while
+        // `GridSize` is unwritten). Carries a remove quick fix. Hint severity keeps it out of the
+        // Problems panel.
+        validateInertFields: boolean;
+        // When true (the default), compare the language strings files of the mod against each
+        // other: a language that declares fewer keys than the languages beside it, which leaves a
+        // player reading it looking at the key path, and a translation that drops or invents one of
+        // the placeholder slots the English text carries. Only the mod's own files are compared,
+        // and only against the languages in the same folder. The game's own translations are not
+        // complete either, and none of that is a mod author's to fix.
+        validateLocalizationCoverage: boolean;
+        // When true (the default), hint at a part category, part feature, ship tag or other
+        // usage-defined name written once in the project that is one slip from a name several
+        // files write. Such a name exists because a file writes it, so nothing rejects a
+        // misspelled one and the list meant to read it silently never matches. Only a difference
+        // shaped like a typing slip counts, since naming a variant one character apart is an
+        // idiom of its own.
+        validateMarkerVocabulary: boolean;
+        // When true (the default), check the media-effect bucket registry against what the engine
+        // reads out of it: a bucket name a second entry repeats, which the game refuses to load,
+        // a list longer than the band the engine gives it, and a registry with no `default_bullet`
+        // in it, which is the bucket every bullet sprite falls back to when it names none.
+        validateEffectBuckets: boolean;
     };
     codeMods: {
         // When true (the default), a mod that ships a `.dll` has its own serializable types, fields
@@ -169,6 +202,13 @@ export interface CosmoteerSettings {
         // the only way to pick up a change. Costs nothing while idle. Each change re-walks the mod
         // folders.
         autoRefresh: boolean;
+    };
+    codeLens: {
+        // When true (the default), the first line of a `.rules` file of a mod carries a lens saying
+        // whether the mod loads the file at all. The game loads the closure of its manifest's action
+        // sources plus their includes, and a file outside that closure is content the game never
+        // sees, which nothing in the file itself says.
+        showFileReachability: boolean;
     };
     inlayHints: {
         // When true (the default), a reference whose target is a group in the game's
@@ -264,10 +304,18 @@ export const defaultSettings: CosmoteerSettings = {
         validateSpriteGeometry: true,
         validateRenderLayers: true,
         validateUnusedParticleChannels: true,
+        validateModConflicts: true,
+        validateInertFields: true,
+        validateLocalizationCoverage: true,
+        validateMarkerVocabulary: true,
+        validateEffectBuckets: true,
     },
     codeMods: {
         enabled: true,
         autoRefresh: true,
+    },
+    codeLens: {
+        showFileReachability: true,
     },
     inlayHints: {
         showBaseValue: true,

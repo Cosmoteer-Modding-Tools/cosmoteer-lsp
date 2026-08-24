@@ -190,6 +190,51 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                     )
             }
             row {
+                checkBox("Report conflicts with installed mods")
+                    .bindSelected(state::validateModConflicts)
+                    .comment(
+                        "Reports a manifest action aiming at a node an installed mod already " +
+                        "replaces, removes or writes. The game applies mods in id order, so with " +
+                        "both enabled only the last writer of the node is the one that stands."
+                    )
+            }
+            row {
+                checkBox("Fade fields a sibling switches off")
+                    .bindSelected(state::validateInertFields)
+                    .comment(
+                        "Marks a field the game stops reading because of what a sibling says, " +
+                        "such as a converter quantity written beside the list form rather than " +
+                        "beside the storage shorthand. Carries a remove fix."
+                    )
+            }
+            row {
+                checkBox("Compare the mod's languages against each other")
+                    .bindSelected(state::validateLocalizationCoverage)
+                    .comment(
+                        "Reports a language that declares fewer keys than the languages beside " +
+                        "it, which leaves a player reading it looking at the key path, and a " +
+                        "translation whose placeholder slots differ from the English text."
+                    )
+            }
+            row {
+                checkBox("Hint at misspelled category names")
+                    .bindSelected(state::validateMarkerVocabulary)
+                    .comment(
+                        "Reports a part category, part feature or ship tag written once in the " +
+                        "project that is one typing slip from a name several files write. Such " +
+                        "a name exists because a file writes it, so nothing rejects a typo."
+                    )
+            }
+            row {
+                checkBox("Check effect buckets")
+                    .bindSelected(state::validateEffectBuckets)
+                    .comment(
+                        "Reports a media-effect bucket declared twice, which the game refuses " +
+                        "to load, a bucket list longer than the band the engine reads out of " +
+                        "it, and a registry with no default_bullet bucket."
+                    )
+            }
+            row {
                 checkBox("Check damage level sprite geometry")
                     .bindSelected(state::validateSpriteGeometry)
                     .comment(
@@ -221,6 +266,15 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
             }
         }
         group("Editing") {
+            row {
+                checkBox("Say whether the mod loads the open file")
+                    .bindSelected(state::codeLensShowFileReachability)
+                    .comment(
+                        "A lens on the first line of a mod file. The game loads the closure of " +
+                        "its manifest actions and their includes, so a file outside it is content " +
+                        "the game never sees."
+                    )
+            }
             row {
                 checkBox("Show the referenced group's BaseValue as an inlay hint")
                     .bindSelected(state::inlayShowBaseValue)

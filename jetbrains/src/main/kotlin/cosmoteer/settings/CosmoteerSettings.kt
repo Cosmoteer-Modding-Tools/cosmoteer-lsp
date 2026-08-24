@@ -51,8 +51,14 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateSpriteGeometry: Boolean = true
         var validateRenderLayers: Boolean = true
         var validateUnusedParticleChannels: Boolean = true
+        var validateModConflicts: Boolean = true
+        var validateInertFields: Boolean = true
+        var validateLocalizationCoverage: Boolean = true
+        var validateMarkerVocabulary: Boolean = true
+        var validateEffectBuckets: Boolean = true
         var codeModsEnabled: Boolean = true
         var codeModsAutoRefresh: Boolean = true
+        var codeLensShowFileReachability: Boolean = true
         var inlayShowBaseValue: Boolean = true
         var inlayShowTargetValue: Boolean = true
         var hoverShowSubstitutions: Boolean = true
@@ -122,10 +128,18 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateSpriteGeometry" to state.validateSpriteGeometry,
             "validateRenderLayers" to state.validateRenderLayers,
             "validateUnusedParticleChannels" to state.validateUnusedParticleChannels,
+            "validateModConflicts" to state.validateModConflicts,
+            "validateInertFields" to state.validateInertFields,
+            "validateLocalizationCoverage" to state.validateLocalizationCoverage,
+            "validateMarkerVocabulary" to state.validateMarkerVocabulary,
+            "validateEffectBuckets" to state.validateEffectBuckets,
         ),
         "codeMods" to mapOf(
             "enabled" to state.codeModsEnabled,
             "autoRefresh" to state.codeModsAutoRefresh,
+        ),
+        "codeLens" to mapOf(
+            "showFileReachability" to state.codeLensShowFileReachability,
         ),
         "inlayHints" to mapOf(
             "showBaseValue" to state.inlayShowBaseValue,

@@ -1,6 +1,6 @@
 import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { CancellationToken, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isGroupNode, GroupNode } from '../../core/ast/ast';
 import { parseText } from '../../utils/ast.utils';
@@ -8,6 +8,8 @@ import { safeReaddir } from '../../utils/fs.utils';
 import { offsetToPosition } from '../../utils/text.utils';
 import { filePathToUri } from '../navigation/navigation-strategy';
 import { findModRoot } from '../../mod/mod-root';
+import { isEnglish, languageOf, LocalizationKeyIndex } from '../completion/localization-key.index';
+import { uriToFsPath } from '../navigation/workspace-files';
 import { resolveStringsFolders, isUnderFolder } from '../../mod/strings-folder';
 
 /**
@@ -226,4 +228,52 @@ export const buildInsertLocalizationKeyEdit = async (
         if (edit) changes[filePathToUri(file)] = [edit];
     }
     return Object.keys(changes).length > 0 ? { changes } : null;
+};
+
+/**
+ * A {@link WorkspaceEdit} that writes into one language file every key the languages beside it in
+ * the same folder declare and it does not. Each inserted key gets the English text as its value, so
+ * the author translates what is already there instead of hunting the sentence down. Returns null
+ * when the file is not a strings file of a mod, or when nothing is missing.
+ *
+ * @param documentUri the strings file to fill in.
+ * @param folderPaths the project folders the strings index is built from.
+ * @param cancellationToken cancellation for the index build and the read.
+ * @param readOverride the unsaved text of an open file, so the edit is measured against the buffer
+ *        the client will apply it to rather than against stale bytes on disk.
+ * @returns the edit, or null when there is nothing to write.
+ */
+export const buildFillLanguageKeysEdit = async (
+    documentUri: string,
+    folderPaths: string[],
+    cancellationToken: CancellationToken,
+    readOverride?: (absPath: string) => string | undefined
+): Promise<WorkspaceEdit | null> => {
+    if (!findModRoot(documentUri)) return null;
+    const file = uriToFsPath(documentUri);
+    const text = readOverride?.(file) ?? (await readFile(file, 'utf-8').catch(() => undefined));
+    if (text === undefined) return null;
+    const document = parseText(text, file);
+    const language = languageOf(document);
+    const folder = dirname(file);
+    const languages = await LocalizationKeyIndex.instance.languageTextsUnder(folder, folderPaths, cancellationToken);
+    const own = languages.find((entry) => entry.language === language);
+    if (!own) return null;
+    const english = languages.find((entry) => isEnglish(entry.language));
+
+    const declared = new Set<string>();
+    for (const key of own.texts.keys()) declared.add(key.toLowerCase());
+    const insertions: LocalizationKeyInsertion[] = [];
+    for (const entry of languages) {
+        if (entry.language === language) continue;
+        for (const [key, translated] of entry.texts) {
+            if (declared.has(key.toLowerCase())) continue;
+            declared.add(key.toLowerCase());
+            const source = english?.texts.get(key) ?? translated;
+            insertions.push({ key, value: JSON.stringify(source) });
+        }
+    }
+    if (insertions.length === 0) return null;
+    const edits = insertEditsForFile(document, text, insertions);
+    return edits.length > 0 ? { changes: { [filePathToUri(file)]: edits } } : null;
 };

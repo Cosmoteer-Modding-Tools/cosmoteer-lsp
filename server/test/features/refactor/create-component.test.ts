@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
+import { TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
     createComponent,
@@ -30,12 +31,31 @@ const WIRED = [
     '',
 ].join('\n');
 
-/** The command run against a buffer the editor has open, which is what the quick fix does. */
-const run = (text: string, name: string, type?: string): Promise<CreateComponentResult> => {
+/** The edits a run handed the client, so the apply round can be read back. */
+let handedToClient: Record<string, TextEdit[]>[] = [];
+
+/**
+ * The command run against a buffer the editor has open, which is what the quick fix does. The host
+ * is the whole seam the command has on the editor: the open buffers it reads, and the edit it hands
+ * back for a client that asked the server to write the declaration rather than place a tab stop.
+ */
+const run = (
+    text: string,
+    name: string,
+    type?: string,
+    apply?: boolean
+): Promise<CreateComponentResult> => {
     const open = TextDocument.create(URI, 'rules', 0, text);
     // The quick fix anchors on the reference that named nothing, wherever the name itself resolves.
     const offset = text.indexOf('trigger', text.indexOf('FireTrigger') + 'FireTrigger'.length);
-    return createComponent({ uri: URI, offset, name, type }, { openDocuments: () => [open] }, token);
+    const host = {
+        openDocuments: (): readonly TextDocument[] => [open],
+        applyEdit: async (changes: Record<string, TextEdit[]>): Promise<boolean> => {
+            handedToClient.push(changes);
+            return true;
+        },
+    };
+    return createComponent({ uri: URI, offset, name, type, apply }, host, token);
 };
 
 /** The document as the declaration would leave it, read through the plain form of the snippet. */
@@ -98,5 +118,18 @@ describe('create a referenced component', () => {
     it('refuses a kind that is not a component of this owner', async () => {
         const result = await run(WIRED, 'trigger', 'NotAComponentKind');
         expect(result).toEqual({ failure: 'unknownType' });
+    });
+
+    it('writes the plain form itself for a client that cannot place a tab stop', async () => {
+        handedToClient = [];
+        const result = await run(WIRED, 'trigger', 'BurstTrigger', true);
+        if (!('insert' in result)) throw new Error('no insert');
+        expect(result.applied).toBe(true);
+        expect(handedToClient).toHaveLength(1);
+        const [edit] = handedToClient[0][URI];
+        // The same declaration either way, with its tab stops resolved rather than placed.
+        expect(edit.newText).toBe(result.insert.text);
+        expect(edit.newText).not.toContain('${1:');
+        expect(edit.range).toEqual(result.insert.range);
     });
 });

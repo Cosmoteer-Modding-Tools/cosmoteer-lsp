@@ -37,6 +37,7 @@ import { componentNameCompletions } from './autocompletion.component-name';
 import { declaringFieldOf, mapEntryKeyTargetOf } from '../navigation/schema-id-reference.navigation';
 import { isIdDeclarationField } from '../../document/schema/entity-schema';
 import { resolveClassThroughInheritance } from './inheritance-resolution';
+import { fieldUsageRank } from './field-usage';
 import { shaderConstantCompletions, shaderConstantGroupClass } from './autocompletion.shader-constants';
 import {
     NO_INHERITED_MEMBERS,
@@ -202,8 +203,10 @@ export const schemaFieldNameCompletions = async (
         // The snippet's stop lands at a value position that has its own completions (a subtype for
         // `Type = `, enum members, `true`/`false`, component ids), so reopen the popup there.
         triggerSuggest: ['polymorphicGroup', 'enum', 'bool', 'reference'].includes(field.valueType.kind),
-        // Required fields sort above optional ones (LSP sorts by sortText lexicographically).
-        sortText: `${field.optional ? '1' : '0'}_${field.name}`,
+        // Required fields sort above optional ones (LSP sorts by sortText lexicographically), and
+        // inside each bucket the fields the game's own files write most come first, so the list
+        // opens on what a part or an effect is actually written with.
+        sortText: `${field.optional ? '1' : '0'}_${fieldUsageRank(owner, field.name)}_${field.name}`,
     }));
 
     // One pick that scaffolds all the still-missing required fields at once (each a numbered tab stop).

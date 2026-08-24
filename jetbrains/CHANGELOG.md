@@ -13,6 +13,14 @@ Cosmoteer Language server provides a lot of useful features, like:
 - An inline block can now be moved into a file of its own. The file name is asked for in a dialog, the block is written there, and a reference to it takes its place, with every path it carries re-expressed against the new folder.
 - Every class the schema knows now says what it is in one sentence, on the class page in the schema search and on the hover over a `Type =` value.
 - A component wired into a slot that reads another kind of component is now reported, which the game answers with a crash while the part is built. The part's own components of the right kind are offered as the fix.
+- A bucket declared twice in the media-effect registry, and a bucket list longer than the band the game reads out of it, are now reported, and a registry with no `default_bullet` bucket is warned about.
+- A part category, part feature or ship tag written once in the project that is one typing slip from a name several files write is now hinted at, with the established name offered as a fix.
+- The language files of a mod are now compared against each other: a language behind the ones beside it, with a fix that writes the missing keys in with the English sentence to translate, and a translation whose placeholder slots differ from the English text.
+- A field a sibling switches off is now faded out with a remove fix, such as a converter quantity written beside the list form rather than beside the storage shorthand.
+- A manifest action aiming at a node an installed mod already replaces, removes or writes is now reported, with the mod named and which of the two the game applies last.
+- The field-name popup now offers the fields the game's own files write most before the ones it never writes.
+- Who reaches a declaration can now be asked for, listing the files that reference it, include it, inherit from it and the manifest actions that name it as a target.
+- A file of a mod now says on its first line whether the mod loads it at all. The checkbox for it is under Editing in the settings page.
 - The mod overview now opens with a health table: action targets, how much of the mod the game loads, ids registered twice, part grid values out of reach, language files behind the one they follow, dead fields, repeated field sets and overrides that change nothing.
 
 ## 0.8.0 - 2026-08-23

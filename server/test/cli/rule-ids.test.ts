@@ -48,6 +48,7 @@ describe('the rule table', () => {
             'validateLocalizationKeys',
             'validateRenderLayers',
             'validateUnusedParticleChannels',
+            'validateMarkerVocabulary',
             'validateDuplicateIds',
             'validateUnreceivableBuffs',
         ]);

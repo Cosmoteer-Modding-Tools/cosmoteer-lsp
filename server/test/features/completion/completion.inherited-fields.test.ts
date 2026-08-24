@@ -83,8 +83,8 @@ describe('field completion inside a group that inherits', () => {
     it('offers the inherited field below the ones nothing has set', async () => {
         const items = await completeAtMarker(CARET_BASE);
         expect(itemNamed(items, 'Mode').sortText).toBe('2_Mode');
-        // A field the chain does not supply keeps the ordering it always had.
-        expect(itemNamed(items, 'Invert').sortText).toBe('1_Invert');
+        // A field the chain does not supply stays in the optional bucket, behind its usage rank.
+        expect(itemNamed(items, 'Invert').sortText).toBe('1_99_Invert');
     });
 
     it('marks the Type discriminator the base supplies, and still offers it', async () => {

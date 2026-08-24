@@ -155,12 +155,18 @@ export function register(): void {
                 // The inheritance graph of a `Foo : Bar` container, one level per request. Declared as a
                 // plain boolean: both clients register the feature from the capability alone.
                 typeHierarchyProvider: true,
+                // Who reaches a declaration, and what it reaches, one level per request. Declared as
+                // a plain boolean, like the type hierarchy above.
+                callHierarchyProvider: true,
                 referencesProvider: true,
                 workspaceSymbolProvider: true,
                 renameProvider: {
                     prepareProvider: true,
                 },
                 inlayHintProvider: true,
+                // One lens per file, saying whether the mod loads it. The sentence is filled in on
+                // resolve, so a file the editor never scrolls to costs nothing.
+                codeLensProvider: { resolveProvider: true },
                 hoverProvider: true,
                 colorProvider: true,
                 signatureHelpProvider: {

@@ -3,7 +3,7 @@ import { AbstractNode, AbstractNodeDocument, isAssignmentNode, isValueNode } fro
 import { documentRootClass } from '../../document/schema/document-root';
 import { typeDef } from '../../document/schema/schema';
 import { BUILTIN_IDS, entityDeclarationsOf, isIdDeclarationField } from '../../document/schema/entity-schema';
-import { markerUsagesOf } from '../../document/schema/category-usage';
+import { MARKER_CLASSES, markerUsagesOf } from '../../document/schema/category-usage';
 import { normalizeUri } from '../navigation/reference-location';
 import { WatchedDocumentIndex } from '../navigation/watched-document-index';
 import { schemaReferenceFieldOf, isSameOrSubclass } from '../navigation/schema-id-reference.navigation';
@@ -20,6 +20,15 @@ const topLevelId = (document: AbstractNodeDocument): string | undefined => {
     }
     return undefined;
 };
+
+/** One name of a usage-defined vocabulary: the spelling a file wrote and how often it is written. */
+export interface MarkerName {
+    written: string;
+    uses: number;
+}
+
+/** Marker class FullName to the folded names written for it, see {@link SchemaIdIndex.markerVocabulary}. */
+export type MarkerVocabulary = ReadonlyMap<string, ReadonlyMap<string, MarkerName>>;
 
 /**
  * Project-wide index of cross-file `ID<X>` declarations by class, the data behind cross-file `ID<X>`
@@ -38,6 +47,8 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
     private readonly byClass = new Map<string, Map<string, string>>();
     /** normalized source uri → the `(class, id)` entries it contributed (for incremental removal). */
     private readonly bySource = new Map<string, Array<{ cls: string; id: string; alias?: boolean }>>();
+    /** The marker vocabulary aggregate, kept until an index change moves the revision past it. */
+    private vocabularyCache: { revision: number; value: MarkerVocabulary } | undefined;
 
     private constructor() {
         super();
@@ -128,6 +139,40 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
             (this.byClass.get(cls) ?? this.byClass.set(cls, new Map()).get(cls)!).set(entryId, source);
         }
         return changed;
+    }
+
+    /**
+     * How often the project writes each marker-class name, keyed by class and by the folded name.
+     * A marker class has no declaration file, so every written usage is a declaration and the
+     * count is what tells a name the project has agreed on apart from one a single file invented.
+     * Memoized on the index revision, since the answer is an aggregate over every indexed file.
+     *
+     * @param folderPaths the project folders to index.
+     * @param cancellationToken cancellation for the index build.
+     * @returns class FullName to folded name to the written spelling and how often it is written.
+     */
+    public async markerVocabulary(
+        folderPaths: string[],
+        cancellationToken: CancellationToken
+    ): Promise<MarkerVocabulary> {
+        await this.ensureFresh(
+            (progress) => this.buildFromProject(folderPaths, progress),
+            cancellationToken,
+            'Indexing references'
+        );
+        if (this.vocabularyCache && this.vocabularyCache.revision === this.revision) return this.vocabularyCache.value;
+        const vocabulary: Map<string, Map<string, MarkerName>> = new Map();
+        for (const entries of this.bySource.values()) {
+            for (const { cls, id } of entries) {
+                if (!MARKER_CLASSES.has(cls)) continue;
+                const names = vocabulary.get(cls) ?? vocabulary.set(cls, new Map()).get(cls)!;
+                const folded = id.toLowerCase();
+                const name = names.get(folded) ?? names.set(folded, { written: id, uses: 0 }).get(folded)!;
+                name.uses++;
+            }
+        }
+        this.vocabularyCache = { revision: this.revision, value: vocabulary };
+        return vocabulary;
     }
 
     /**

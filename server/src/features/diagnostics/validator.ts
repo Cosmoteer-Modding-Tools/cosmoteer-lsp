@@ -146,6 +146,13 @@ export type ValidationErrorData = {
      */
     insertLocalizationKey?: { key: string };
     /**
+     * A language strings file that declares fewer keys than the languages beside it. Carries only
+     * the language and how many keys are missing. Reading the other languages back and building
+     * the insertion happens lazily in the code-action handler, since it touches the index and the
+     * file on disk.
+     */
+    fillLanguageKeys?: { language: string; count: number };
+    /**
      * A group the required-field check found members missing on, and what the quick fix needs to
      * write them: the byte offset the new lines go at, the offset the group's `}` ends at (checked
      * before anything is written, since the buffer can have moved on since the pass), the fields a

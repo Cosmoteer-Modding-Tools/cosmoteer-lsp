@@ -33,7 +33,7 @@ import { childNodesOf, parseText } from '../../utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { workshopContentDir } from '../../workspace/workshop-dir';
 import { workshopModOf } from '../mod-schema/workshop-link';
-import { findModRoot } from '../../mod/mod-root';
+import { findModRoot, sameModRoot } from '../../mod/mod-root';
 import {
     dependencyTokenOf,
     declaredDependenciesOf,
@@ -548,10 +548,6 @@ export const validateCrossFileIdReferences = async (
     return errors;
 };
 
-/** Path comparison for mod roots: separators and case fold, since Windows answers both spellings. */
-const samePath = (a: string, b: string): boolean =>
-    a.replace(/\\/g, '/').toLowerCase().replace(/\/$/, '') === b.replace(/\\/g, '/').toLowerCase().replace(/\/$/, '');
-
 /**
  * The findings for ids this file only resolves because an installed mod declares them, while the
  * manifest does not say the mod is needed. That resolution happens silently, so the file validates
@@ -581,7 +577,7 @@ export const undeclaredDependencyErrors = async (
         if (cancellationToken.isCancellationRequested) return errors;
         // A mod edited in place inside the workshop tree vouches for its own ids, which is not a
         // dependency on anything.
-        if (samePath(root, ownRoot)) continue;
+        if (sameModRoot(root, ownRoot)) continue;
         const identity = await identityOfMod(root).catch(() => null);
         if (!identity || isDeclaredDependency(declared, identity)) continue;
         const token = dependencyTokenOf(identity);

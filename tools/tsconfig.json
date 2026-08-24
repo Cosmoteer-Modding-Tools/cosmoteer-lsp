@@ -1,0 +1,42 @@
+{
+    // Editor-only project for the `tools/` tree. The build's configs cover `client/src` and `server/src`
+    // only, so a tool opened without a config covering it resolves in an inferred project with no
+    // `@types/node` and no view of the server sources it imports. `fs`, `path` and every
+    // `../../server/src/…` import surface as errors.
+    //
+    // This file must live in `tools/` and be named `tsconfig.json`: the editor's TS server only
+    // auto-discovers configs by that name, walking up from the opened file.
+    //
+    // It is not referenced by `tsc -b`, so it has no effect on `check-types` or the emitted build.
+    // `vite-node` compiles the tools with esbuild independently.
+    //
+    // `module`/`moduleResolution` deliberately diverge from the base, for the reason the test project
+    // diverges too. The base says `Node16`, which describes how the built server is loaded. A tool is
+    // only ever loaded by `vite-node` through esbuild, which resolves like a bundler: extensionless
+    // relative imports, `import.meta` available.
+    "extends": "../server/tsconfig.json",
+    "compilerOptions": {
+        "rootDir": "..",
+        "noEmit": true,
+        "incremental": false,
+        "tsBuildInfoFile": null,
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        // The tools sit outside `server/`, where the dependencies are installed, so a bare import such
+        // as `vscode-languageserver` has no `node_modules` to find walking up from here. `vite-node`
+        // runs them from `server/` and resolves them there, and this mapping tells the editor to look
+        // in the same place.
+        "paths": {
+            "vscode-languageserver": [
+                "../server/node_modules/vscode-languageserver/lib/common/api.d.ts"
+            ]
+        },
+        // `Bundler` turns `resolveJsonModule` on by default, which would resolve the real 1.7MB
+        // cosmoteer.schema.json and infer a giant literal type for it, beating the ambient
+        // `declare module '*/cosmoteer.schema.json'` that exists precisely to stop that.
+        "resolveJsonModule": false
+    },
+    // `../server/src` is included so the ambient `declare module '*.json'` files that live there are
+    // part of the program. Following an import into them is not enough to pick a global declaration up.
+    "include": ["../server/src", "."]
+}

@@ -300,6 +300,51 @@ export const RULES: readonly LintRule[] = [
         needsGameData: true,
     },
     {
+        id: 'validateModConflicts',
+        title: 'Mod conflicts',
+        description:
+            'A manifest action aiming at a node an installed mod already replaces, removes or writes, where the game applies only the last of the two.',
+        defaultLevel: 'info',
+        setting: 'validateModConflicts',
+        needsGameData: false,
+    },
+    {
+        id: 'validateInertFields',
+        title: 'Fields a sibling switches off',
+        description:
+            'A field the game stops reading because of what a sibling in the same group says, such as a converter quantity written beside the list form rather than beside the storage shorthand.',
+        defaultLevel: 'hint',
+        setting: 'validateInertFields',
+        needsGameData: false,
+    },
+    {
+        id: 'validateLocalizationCoverage',
+        title: 'Localization coverage',
+        description:
+            'A language of the mod that declares fewer keys than the languages beside it, and a translation whose placeholder slots do not match the English text.',
+        defaultLevel: 'hint',
+        setting: 'validateLocalizationCoverage',
+        needsGameData: false,
+    },
+    {
+        id: 'validateMarkerVocabulary',
+        title: 'Marker vocabulary',
+        description:
+            'A usage-defined name (a part category, a part feature, a ship tag) written once in the project that is one typing slip from a name several files write.',
+        defaultLevel: 'hint',
+        setting: 'validateMarkerVocabulary',
+        needsGameData: true,
+    },
+    {
+        id: 'validateEffectBuckets',
+        title: 'Effect buckets',
+        description:
+            'A media-effect bucket declared twice, a bucket list longer than the band the engine reads out of it, and a registry with no `default_bullet` bucket for bullet sprites to fall back to.',
+        defaultLevel: 'error',
+        setting: 'validateEffectBuckets',
+        needsGameData: false,
+    },
+    {
         id: 'validateModManifest',
         title: 'Mod manifest',
         description:
