@@ -1,10 +1,20 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
 import { readdirSync, statSync } from 'fs';
-import { join } from 'path';
-import { AbstractNode, isAssignmentNode, isGroupNode, isListNode, isValueNode, ValueNode } from '../../core/ast/ast';
+import { dirname, join, resolve } from 'path';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    isAssignmentNode,
+    isGroupNode,
+    isListNode,
+    isDocumentNode,
+    isValueNode,
+    ListNode,
+    ValueNode,
+} from '../../core/ast/ast';
 import { Action, ActionVerb } from '../../mod/action';
-import { parseModActions } from '../../mod/action-parser';
+import { findActionsList, parseActionList, parseModActions } from '../../mod/action-parser';
 import { normalizeTargetPath } from '../../mod/action-target-resolver';
 import { identityOfMod, manifestPathsIn, readManifest, scalarMember } from '../../mod/mod-dependencies';
 import { findModRoot, sameModRoot } from '../../mod/mod-root';
@@ -116,6 +126,74 @@ const installedModRoots = (): string[] => {
     return roots;
 };
 
+/** How many hops of included fragments an `Actions` list is followed through. */
+const MAX_FRAGMENT_DEPTH = 4;
+
+/**
+ * The list a `&<file>/Member/&` reference names, read from the file it points at. Only the shape a
+ * manifest inherits its actions in is followed: a path whose first segment names a file beside the
+ * manifest, and named members below it.
+ *
+ * @param reference the written reference, sigil and angle brackets included.
+ * @param fromDir the directory the reference is resolved against.
+ * @param read parses a file, or answers null when it cannot be read.
+ * @returns the list the reference names, or null when the path does not lead to one.
+ */
+const listBehindReference = async (
+    reference: string,
+    fromDir: string,
+    read: (path: string) => Promise<AbstractNodeDocument | null>
+): Promise<ListNode | null> => {
+    const inner = /<([^>]+)>(.*)$/.exec(reference.trim());
+    if (!inner) return null;
+    const document = await read(resolve(fromDir, inner[1].replace(/\\/g, '/')));
+    if (!document) return null;
+    const segments = inner[2].split('/').filter((segment) => segment.length > 0);
+    let node: AbstractNode = document;
+    for (const segment of segments) {
+        const folded = segment.toLowerCase();
+        const children: AbstractNode[] =
+            isDocumentNode(node) || isGroupNode(node) || isListNode(node) ? node.elements : [];
+        const child = children.find(
+            (element) =>
+                (isGroupNode(element) || isListNode(element)) && element.identifier?.name.toLowerCase() === folded
+        );
+        if (!child) return null;
+        node = child;
+    }
+    // A reference naming the file alone lands on the document, whose own actions list is meant.
+    if (node === document) return findActionsList(document) ?? null;
+    return isListNode(node) ? node : null;
+};
+
+/**
+ * Every action a manifest contributes, its own entries and the entries of the fragments its
+ * `Actions` list inherits from. The game concatenates an inherited list in front of the local one,
+ * so a mod whose whole registration lives in `launcher.rules` claims exactly what that file writes
+ * and a reader of the manifest alone would see it claim nothing.
+ *
+ * @param manifestPath the manifest's on-disk path.
+ * @param document the parsed manifest.
+ * @param read parses a file, or answers null when it cannot be read.
+ * @param depth how many further fragment hops are followed.
+ * @returns the actions, local and inherited.
+ */
+const actionsWithFragments = async (
+    manifestPath: string,
+    document: AbstractNodeDocument,
+    read: (path: string) => Promise<AbstractNodeDocument | null>,
+    depth = MAX_FRAGMENT_DEPTH
+): Promise<Action[]> => {
+    const actions = parseModActions(document);
+    const list = findActionsList(document);
+    if (!list?.inheritance?.length || depth <= 0) return actions;
+    for (const base of list.inheritance) {
+        const inherited = await listBehindReference(String(base.valueType.value), dirname(manifestPath), read);
+        if (inherited) actions.push(...parseActionList(inherited));
+    }
+    return actions;
+};
+
 /**
  * The installed mods that are somebody else's work. A mod is regularly edited in one folder and
  * loaded from another: a dev copy under the user's own `Mods` beside the subscribed copy of the
@@ -151,7 +229,7 @@ const readInstalledClaims = async (): Promise<ModClaims[]> => {
             const manifest = await readManifest(path);
             if (!manifest) continue;
             id ??= scalarMember(manifest, 'ID');
-            for (const action of parseModActions(manifest)) {
+            for (const action of await actionsWithFragments(path, manifest, readManifest)) {
                 for (const claim of claimsOf(action)) if (!claims.has(claim.key)) claims.set(claim.key, claim.verb);
             }
         }
@@ -161,6 +239,30 @@ const readInstalledClaims = async (): Promise<ModClaims[]> => {
     }
     return mods;
 };
+
+/**
+ * Every installed mod's claims, read once per session and shared with the mod overview, which
+ * reports the same collisions as a section rather than one finding at a time.
+ *
+ * @returns one entry per installed mod that claims anything.
+ */
+export const installedModClaims = async (): Promise<ModClaims[]> => {
+    installedClaims ??= readInstalledClaims().catch(() => []);
+    return await installedClaims;
+};
+
+/**
+ * Every action of the mod being edited, read from all of its manifests and from the fragments they
+ * inherit their actions from.
+ *
+ * @param manifestPath the manifest's on-disk path.
+ * @param document the parsed manifest.
+ * @returns the actions, local and inherited.
+ */
+export const manifestActionsWithFragments = (
+    manifestPath: string,
+    document: AbstractNodeDocument
+): Promise<Action[]> => actionsWithFragments(manifestPath, document, readManifest);
 
 /**
  * The sentence naming what the other mod does to the same node.
@@ -213,9 +315,8 @@ export const validateModConflicts = async (
     const workshop = workshopContentDir();
     if (workshop && modRoot.replace(/\\/g, '/').startsWith(workshop.replace(/\\/g, '/'))) return [];
 
-    installedClaims ??= readInstalledClaims().catch(() => []);
     const ownId = (await identityOfMod(modRoot)).manifestId ?? '';
-    const installed = otherMods(await installedClaims, modRoot, ownId);
+    const installed = otherMods(await installedModClaims(), modRoot, ownId);
     if (cancellationToken.isCancellationRequested || installed.length === 0) return [];
 
     const errors: ValidationError[] = [];

@@ -2,7 +2,7 @@ import { CancellationToken, Diagnostic, DiagnosticSeverity, DiagnosticTag } from
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { BlockCommentSpan, lexer } from '../core/lexer/lexer';
 import { parser } from '../core/parser/parser';
-import { ValidationError, Validator } from '../features/diagnostics/validator';
+import { findingSpanOf, ValidationError, Validator } from '../features/diagnostics/validator';
 import { ValidationForDocumentDuplicates } from '../features/diagnostics/validator.duplicate-key';
 import { validateInheritanceCycles } from '../features/diagnostics/validator.inheritance-cycle';
 import { validateAnonymousBlocks } from '../features/diagnostics/validator.anonymous-block';
@@ -509,13 +509,18 @@ export async function validateTextDocument(
     if (!persist) perfCount('scan.validateMs', Date.now() - validateStarted);
 
     for (const error of validationErrors) {
+        // A finding the pass could not place is dropped rather than published at the top of the
+        // file. Reading a missing span as offset zero would put an underline on a line that has
+        // nothing to do with it, and dereferencing one used to end the whole workspace pass.
+        const span = findingSpanOf(error);
+        if (!span) continue;
         problems++;
         if (problems > settings.maxNumberOfProblems) break;
         const diagnostic: Diagnostic = {
             severity: VALIDATION_SEVERITY[error.severity ?? 'error'],
             range: {
-                start: textDocument.positionAt(error.range?.start ?? error.node.position.start),
-                end: textDocument.positionAt(error.range?.end ?? error.node.position.end),
+                start: textDocument.positionAt(span.start),
+                end: textDocument.positionAt(span.end),
             },
             message: error.message,
             source: 'cosmoteer-language-server',

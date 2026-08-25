@@ -21,7 +21,13 @@ Cosmoteer Language server provides a lot of useful features, like:
 - The field-name popup now offers the fields the game's own files write most before the ones it never writes.
 - Who reaches a declaration can now be asked for, listing the files that reference it, include it, inherit from it and the manifest actions that name it as a target.
 - A file of a mod now says on its first line whether the mod loads it at all. The checkbox for it is under Editing in the settings page.
+- A whole mod can now be created from the Tools menu. Cosmoteer: New Mod asks where it goes, what it is called and who wrote it, then writes the manifest and the language file.
+- The mod overview now names the mods on this machine that write what this mod writes, saying what each of them does to the shared node and which of the two the game applies last.
 - The mod overview now opens with a health table: action targets, how much of the mod the game loads, ids registered twice, part grid values out of reach, language files behind the one they follow, dead fields, repeated field sets and overrides that change nothing.
+
+### Changed
+
+- The mod overview now reads the checks the editor has already run instead of walking the mod again, so the report opens without a pause on a large mod.
 
 ## 0.8.0 - 2026-08-23
 

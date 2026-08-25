@@ -9,7 +9,7 @@ import { parser } from '../../../src/core/parser/parser';
 import { validateLocalizationCoverage } from '../../../src/features/diagnostics/validator.localization-coverage';
 import { buildFillLanguageKeysEdit } from '../../../src/features/diagnostics/localization-key-insert';
 import { LocalizationKeyIndex } from '../../../src/features/completion/localization-key.index';
-import { ValidationError } from '../../../src/features/diagnostics/validator';
+import { findingSpanOf, ValidationError } from '../../../src/features/diagnostics/validator';
 
 const token = CancellationToken.None;
 
@@ -91,5 +91,37 @@ describe('a strings file outside a mod', () => {
         const path = join(gameDir, 'strings', 'de.rules');
         const document = parser(lexer(readFileSync(path, 'utf8')), pathToFileURL(path).href).value;
         expect(await validateLocalizationCoverage(document, [gameDir], token)).toEqual([]);
+    });
+});
+
+// The whole-file finding has to land on a node the editor can underline. A strings file is free to
+// declare no `__Name`, and then it opens with an ordinary key, which is an assignment: the one node
+// the parser gives no span of its own. Publishing a finding anchored on one used to end the whole
+// workspace pass with a TypeError.
+describe('a language file that declares no __Name', () => {
+    let modDir: string;
+    let stringsDir: string;
+
+    beforeAll(() => {
+        modDir = mkdtempSync(join(tmpdir(), 'l10nanchor-'));
+        writeFileSync(join(modDir, 'mod.rules'), 'ID = test.anchor\nName = "t"\nActions [ ]\n');
+        stringsDir = join(modDir, 'strings');
+        mkdirSync(stringsDir, { recursive: true });
+        writeFileSync(join(stringsDir, 'en.rules'), 'Greeting = "Hello"\nFarewell = "Bye"\n');
+        writeFileSync(join(stringsDir, 'de.rules'), 'Greeting = "Hallo"\n');
+    });
+
+    afterAll(() => rmSync(modDir, { recursive: true, force: true }));
+
+    beforeEach(() => LocalizationKeyIndex.instance.reset());
+
+    it('anchors the finding on the first key rather than on the member itself', async () => {
+        const path = join(stringsDir, 'de.rules');
+        const document = parser(lexer(readFileSync(path, 'utf8')), pathToFileURL(path).href).value;
+        const [coverage] = await validateLocalizationCoverage(document, [modDir], token);
+        expect(coverage).toBeDefined();
+        expect(coverage.node.type).toBe('Identifier');
+        expect(coverage.node.position).toBeDefined();
+        expect(findingSpanOf(coverage)).not.toBeNull();
     });
 });

@@ -12,6 +12,9 @@ import { ValidationError } from '../features/diagnostics/validator';
 import { uriToFsPath } from '../features/navigation/workspace-files';
 import { parseText } from '../utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
+import { foldPathCase } from '../workspace/fs-cache';
+import { globalSettings } from '../settings';
+import { ModConflict } from './mod-conflicts';
 import { ModReachability, reachabilityKey } from './mod-reachability';
 import * as l10n from '@vscode/l10n';
 
@@ -67,6 +70,70 @@ type PassName = 'duplicateIds' | 'partGeometry' | 'ignoredFields' | 'duplicateFi
 
 /** Everything the file walk collected. */
 type PassResults = Record<PassName, PassResult>;
+
+/** One finding the workspace scan already produced, which is all a row needs to read back from it. */
+export interface ScanFinding {
+    /** The rule the finding came from, the same id the editor tags a diagnostic with. */
+    readonly code: string;
+    /** The one-based line the finding sits on. */
+    readonly line: number;
+}
+
+/** The scan's findings per file, keyed by case-folded absolute path, as the scan keys them. */
+export type ScanFindings = ReadonlyMap<string, readonly ScanFinding[]>;
+
+/** The rule id each pass tags its findings with, which is how they are told apart in the scan. */
+const PASS_RULES: Record<PassName, string> = {
+    duplicateIds: 'validateDuplicateIds',
+    partGeometry: 'validatePartGeometry',
+    ignoredFields: 'validateIgnoredFields',
+    duplicateFields: 'validateDuplicateFields',
+    redundantOverrides: 'validateRedundantOverrides',
+};
+
+/**
+ * The passes whose findings the scan is holding, which are the ones the author has switched on: a
+ * pass that is off produced nothing to read back, and its absence from a file's findings says
+ * nothing about whether that file has any.
+ *
+ * @param withGameIndex whether the game tree is indexed, which the duplicate-id pass needs.
+ * @returns the passes a scanned file can answer without being read again.
+ */
+const scanServedPasses = (withGameIndex: boolean): Set<PassName> => {
+    const diagnostics = globalSettings.diagnostics;
+    const served = new Set<PassName>();
+    if (withGameIndex && diagnostics?.validateDuplicateIds) served.add('duplicateIds');
+    if (diagnostics?.validatePartGeometry) served.add('partGeometry');
+    if (diagnostics?.validateIgnoredFields) served.add('ignoredFields');
+    if (diagnostics?.validateDuplicateFields) served.add('duplicateFields');
+    if (diagnostics?.validateRedundantOverrides) served.add('redundantOverrides');
+    return served;
+};
+
+/**
+ * Folds one file's already-computed findings into the pass results, the way {@link record} folds
+ * freshly computed ones.
+ *
+ * @param results the results to grow.
+ * @param file the absolute path of the file the findings came from.
+ * @param findings that file's findings from the scan.
+ * @param served the passes those findings can answer for.
+ */
+const recordScanned = (
+    results: PassResults,
+    file: string,
+    findings: readonly ScanFinding[],
+    served: Set<PassName>
+): void => {
+    for (const pass of served) {
+        const rule = PASS_RULES[pass];
+        const own = findings.filter((finding) => finding.code === rule);
+        if (own.length === 0) continue;
+        const result = results[pass];
+        result.count += own.length;
+        if (result.places.length < HEALTH_PLACE_LIMIT) result.places.push({ file, line: own[0].line });
+    }
+};
 
 /** The counts of the manifest's own action table, which the overview already computed. */
 export interface ActionTotals {
@@ -138,17 +205,26 @@ const reachedFilesOf = (reachability: ModReachability): string[] =>
  * Runs the per-file passes over the mod once, so every row is read off one walk rather than one
  * walk per row.
  *
+ * A file the workspace scan has already checked is not read again. The scan validates every file of
+ * the mod with the same passes and keeps what it found, so for those files the rows are counted off
+ * findings rather than recomputed, and the report costs nothing on the mod's dominant term. What the
+ * scan cannot answer is filled in file by file: a file it never reached, a file whose findings it
+ * had to cut at the problem limit, and every pass the author has switched off, since a pass that did
+ * not run left no findings to tell an empty file apart from an unchecked one.
+ *
  * @param reachability the computed reachability of the mod.
  * @param folderPaths the project folders the cross-file passes search.
  * @param withGameIndex whether the game tree is indexed, which the duplicate-id pass needs.
  * @param token cancels the walk between files.
+ * @param scanned the findings the workspace scan already holds, keyed by case-folded path.
  * @returns what each pass found.
  */
 const runPasses = async (
     reachability: ModReachability,
     folderPaths: string[],
     withGameIndex: boolean,
-    token: CancellationToken
+    token: CancellationToken,
+    scanned?: ScanFindings
 ): Promise<PassResults> => {
     const results: PassResults = {
         duplicateIds: emptyResult(),
@@ -159,8 +235,20 @@ const runPasses = async (
     };
     const paths = folderPaths.map(uriToFsPath);
     const inScope = (fsPath: string): boolean => reachability.reachable.has(reachabilityKey(fsPath));
+    const served = scanned ? scanServedPasses(withGameIndex) : new Set<PassName>();
+    const needed = (Object.keys(PASS_RULES) as PassName[]).filter(
+        (pass) => pass !== 'duplicateIds' || withGameIndex
+    );
+    // A file is only read back off the scan when the scan can answer for every row, since one pass
+    // recomputed for a file costs the read and the parse the whole fast path exists to skip.
+    const readBack = !!scanned && needed.every((pass) => served.has(pass));
     for (const file of reachedFilesOf(reachability)) {
         if (token.isCancellationRequested) return results;
+        const findings = readBack ? scanned?.get(foldPathCase(file)) : undefined;
+        if (findings) {
+            recordScanned(results, file, findings, served);
+            continue;
+        }
         const text = await readFile(file, { encoding: 'utf-8' }).catch(() => null);
         if (text === null) continue;
         let document: AbstractNodeDocument;
@@ -326,6 +414,47 @@ const countedRow = (
 });
 
 /**
+ * The row about the nodes another installed mod claims too, read off what the report already
+ * computed for its own section rather than by asking a second time.
+ *
+ * @param conflicts the collisions, absent when the installed mods were not read.
+ * @returns the row.
+ */
+const conflictRow = (conflicts: readonly ModConflict[] | undefined): HealthRow => {
+    const found = conflicts ?? [];
+    const mods = new Set(found.map((conflict) => conflict.modId));
+    const lost = found.filter((conflict) => !conflict.ownsLastWord).length;
+    const shared =
+        found.length === 1
+            ? mods.size === 1
+                ? l10n.t('One node is written by another installed mod as well.')
+                : l10n.t('One node is written by other installed mods as well.')
+            : mods.size === 1
+              ? l10n.t('{0} nodes are written by another installed mod as well.', String(found.length))
+              : l10n.t(
+                    '{0} nodes are written by {1} other installed mods as well.',
+                    String(found.length),
+                    String(mods.size)
+                );
+    const order =
+        lost === 0
+            ? l10n.t('The game applies this mod last on every one of them.')
+            : lost === found.length
+              ? l10n.t('The other mod is applied last, so this version is not the one in game.')
+              : l10n.t(
+                    'On {0} of them the other mod is applied last, so this version is not the one in game.',
+                    String(lost)
+                );
+    return {
+        check: l10n.t('Installed mods'),
+        finding:
+            found.length === 0 ? l10n.t('No mod on this machine writes a node this mod writes.') : `${shared} ${order}`,
+        places: found.slice(0, HEALTH_PLACE_LIMIT).map((conflict) => ({ file: conflict.file, line: conflict.line })),
+        clear: found.length === 0,
+    };
+};
+
+/**
  * Every health row of one mod, in reading order.
  *
  * A row is left out entirely when the check could not run at all, which is the same thing the
@@ -336,16 +465,22 @@ const countedRow = (
  * @param actions how many manifest actions there are and how many resolve to nothing.
  * @param folderPaths the project folders the cross-file passes search.
  * @param token cancels the file walk and the index builds.
+ * @param scanned the findings the workspace scan already holds, keyed by case-folded path. Absent
+ *        where there is no scan to read back from, such as the command line.
+ * @param conflicts the nodes an installed mod claims too, which the report computed for its own
+ *        section. Absent where the installed mods were not read.
  * @returns the rows to render.
  */
 export const modHealthRows = async (
     reachability: ModReachability,
     actions: ActionTotals,
     folderPaths: string[],
-    token: CancellationToken
+    token: CancellationToken,
+    scanned?: ScanFindings,
+    conflicts?: readonly ModConflict[]
 ): Promise<HealthRow[]> => {
     const withGameIndex = !!CosmoteerWorkspaceService.instance.dataRootPath;
-    const passes = await runPasses(reachability, folderPaths, withGameIndex, token);
+    const passes = await runPasses(reachability, folderPaths, withGameIndex, token, scanned);
     const rows: HealthRow[] = [actionRow(actions), reachabilityRow(reachability)];
     // Two files of one mod registering the same id is only decidable against the game's own
     // collections, so without the indexed game tree the check has no answer and gets no row.
@@ -392,6 +527,7 @@ export const modHealthRows = async (
                     count
                 )
         ),
+        conflictRow(conflicts),
         countedRow(
             l10n.t('Overrides that change nothing'),
             passes.redundantOverrides,

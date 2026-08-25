@@ -5,6 +5,7 @@ import { buildPartGridEdit } from '../../features/part-editor/grid-edit.service'
 import { PartGridEditParams } from '../../features/part-editor/part-grid.types';
 import { generatePartWiringReport } from '../../features/part-editor/part-wiring.service';
 import { generateModOverview } from '../../mod/mod-overview';
+import { ScanFinding, ScanFindings } from '../../mod/mod-health';
 import { generateEffectiveGroupReport } from '../../features/effective-group/effective-group.report';
 import { generateReferenceTraceReport } from '../../features/navigation/explain-reference/reference-trace.report';
 import {
@@ -20,6 +21,35 @@ import { connection, documents } from '../context';
 import { ensureFragmentRooting } from '../fragment-rooting';
 import { ensureParserResult, openBufferReadOverride } from '../open-documents';
 import { searchFolderUris } from '../workspace-folders';
+import { currentScanCacheEntries } from '../workspace-scan';
+
+/**
+ * What the workspace scan already found, in the shape the mod overview's health table reads. Only
+ * results computed under the state the session is in right now are offered, which is the same gate
+ * the persisted cache is written behind.
+ *
+ * A file whose findings the editor cut at the problem limit is left out: its list stops short of
+ * what the file really holds, and a row counting it would report fewer findings than there are. The
+ * report reads such a file itself.
+ *
+ * @returns the findings per file, or undefined when nothing has been scanned yet.
+ */
+const scanFindings = (): ScanFindings | undefined => {
+    const entries = currentScanCacheEntries();
+    if (entries.length === 0) return undefined;
+    const limit = globalSettings.maxNumberOfProblems;
+    const findings = new Map<string, ScanFinding[]>();
+    for (const [path, , , diagnostics] of entries) {
+        if (diagnostics.length >= limit) continue;
+        findings.set(
+            path,
+            diagnostics
+                .filter((diagnostic) => typeof diagnostic.code === 'string')
+                .map((diagnostic) => ({ code: String(diagnostic.code), line: diagnostic.range.start.line + 1 }))
+        );
+    }
+    return findings;
+};
 
 /**
  * Registers the `cosmoteer/*` requests: the webview payloads (shader preview, part grid editor),
@@ -107,7 +137,14 @@ export function register(): void {
             // Action targets resolve against the effective game tree, so the workspace and the fragment
             // indexes must be ready, exactly as for validation of the manifest itself.
             await ensureFragmentRooting(cancellationToken);
-            return (await generateModOverview(params.textDocument.uri, await searchFolderUris(), cancellationToken)) ?? null;
+            return (
+                (await generateModOverview(
+                    params.textDocument.uri,
+                    await searchFolderUris(),
+                    cancellationToken,
+                    scanFindings()
+                )) ?? null
+            );
         } catch (e) {
             traceFailure(e);
             return null;

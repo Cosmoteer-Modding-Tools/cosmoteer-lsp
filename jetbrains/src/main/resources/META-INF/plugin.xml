@@ -167,6 +167,14 @@
                  from there finds the mod that folder belongs to. -->
             <add-to-group group-id="NewGroup" anchor="last"/>
         </action>
+        <action id="cosmoteer.newMod"
+                class="cosmoteer.actions.NewModAction"
+                text="Cosmoteer: New Mod"
+                description="Create a mod folder with its manifest and language file"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="New Mod"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
         <action id="cosmoteer.extractSharedBaseFiles"
                 class="cosmoteer.actions.ExtractSharedBaseAction"
                 text="Cosmoteer: Extract Shared Base Files"

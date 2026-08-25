@@ -35,6 +35,11 @@ const folderOf = (uri: string): string => uriToFsPath(uri).replace(/[/\\][^/\\]*
  * The node a whole-file finding is anchored on: the `__Name` member that opens every strings file,
  * falling back to whatever the file starts with.
  *
+ * An assignment is never returned as itself. It is the one node the parser gives no span of its
+ * own, so a finding anchored on one has nothing to underline, and the written name stands in for
+ * it. A strings file that declares no `__Name` opens with an ordinary key, which is exactly that
+ * case.
+ *
  * @param document the strings file.
  * @returns the node to underline, or undefined for an empty file.
  */
@@ -42,7 +47,8 @@ const fileAnchor = (document: AbstractNodeDocument): AbstractNode | undefined =>
     for (const element of document.elements) {
         if (isAssignmentNode(element) && element.left.name === '__Name') return element.left;
     }
-    return document.elements[0];
+    const first = document.elements[0];
+    return first && isAssignmentNode(first) ? first.left : first;
 };
 
 /**

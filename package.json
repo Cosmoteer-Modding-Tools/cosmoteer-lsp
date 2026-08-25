@@ -102,6 +102,11 @@
                 "command": "cosmoteer.newContentFile",
                 "title": "Cosmoteer: New Content File",
                 "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.newMod.create",
+                "title": "Cosmoteer: New Mod",
+                "category": "Cosmoteer"
             }
         ],
         "menus": {

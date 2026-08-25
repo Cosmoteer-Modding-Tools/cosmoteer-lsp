@@ -19,10 +19,13 @@ All notable changes to this project will be documented in this file.
 - The field-name popup now offers the fields the game's own files write most before the ones it never writes, inside the required and optional groups the list already had.
 - Who reaches a declaration can now be asked for. Show Call Hierarchy on a group or a member lists the files that reference it, include it, inherit from it and the manifest actions that name it as a target, and expanding a row walks one hop further out. The other direction lists what the declaration reaches.
 - A file of a mod now says on its first line whether the mod loads it at all. A file outside the closure of the manifest's actions is content the game never sees, and the lens names the file that mentions it where one does. Turn it off with `cosmoteerLSPRules.codeLens.showFileReachability`.
+- A whole mod can now be created from the editor. `Cosmoteer: New Mod` asks where it goes, what it is called and who wrote it, then writes the manifest and the language file, with the id derived from your name and the mod's and the game versions taken from the installed build. Nothing is copied out of the game's own example mod.
+- The mod overview now names the mods on this machine that write what this mod writes. Each row says which node both claim, what each of them does to it and which of the two the game applies last, and a health row counts them. An action a mod inherits from an included file counts as its own, which is where a mod that keeps its whole registration in one fragment file writes from.
 - The mod overview now opens with a health table: whether every manifest action finds its target, how much of the mod the game loads at all, ids registered twice, part grid values out of the part's reach, how far each language file is behind the one it follows, fields the game never reads, field sets repeated across files, and overrides that change nothing. Each row links to the places it found.
 
 ### Changed
 
+- The mod overview now reads the checks the editor has already run instead of walking the mod again, so the report opens without a pause on a large mod.
 - The extension's settings are now grouped by area in the settings editor. General, diagnostics, hover, inlay hints, code lens, formatting, code mods and the decompiler each get their own page under the extension instead of one list of every key.
 - The part grid editor and the shader preview now speak the editor's language, so their toolbars, messages and tooltips are translated with the rest of the extension.
 

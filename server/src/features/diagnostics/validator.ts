@@ -120,6 +120,31 @@ export type ValidationError = {
 };
 
 /**
+ * The byte span a finding is underlined at: its own span where it names one, else the span of the
+ * node it is anchored on.
+ *
+ * An assignment is the one node the parser gives no span of its own, so a finding anchored on one
+ * is placed on its written name instead, which is where every pass that anchors on a member points
+ * anyway. A finding that can be placed nowhere at all is answered with null rather than with the
+ * top of the file, so the caller drops it: an underline at line one describes nothing, and reading
+ * a missing span as a zero used to take the whole pass down with it.
+ *
+ * @param error the finding to place.
+ * @returns the span to underline, or null when the finding carries no placeable node.
+ */
+export const findingSpanOf = (error: ValidationError): { start: number; end: number } | null => {
+    if (error.range) return error.range;
+    const node: AbstractNode | undefined = error.node;
+    if (node?.position) return { start: node.position.start, end: node.position.end };
+    if (node && isAssignmentNode(node)) {
+        const start = node.left.position?.start;
+        const end = node.right?.position?.end ?? node.left.position?.end;
+        if (start !== undefined && end !== undefined) return { start, end };
+    }
+    return null;
+};
+
+/**
  * The did-you-mean quick fix a finding carries when a close match was found, meant to be spread into
  * the error so a finding without a match carries no data at all.
  *

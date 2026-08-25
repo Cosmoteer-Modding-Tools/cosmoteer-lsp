@@ -1,8 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { pathToFileURL } from 'url';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { parseModActions } from '../../../src/mod/action-parser';
-import { ModClaims, claimsOf, otherMods } from '../../../src/features/diagnostics/validator.mod-conflict';
+import {
+    ModClaims,
+    claimsOf,
+    manifestActionsWithFragments,
+    otherMods,
+} from '../../../src/features/diagnostics/validator.mod-conflict';
 
 /** The claims one manifest's actions make, which is what two mods are compared by. */
 const claims = (actions: string): string[] => {
@@ -81,5 +90,84 @@ describe('which installed mods a manifest is compared against', () => {
     it("keeps a mod that is somebody else's", () => {
         const installed = [installedMod('C:/workshop/799600/123', 'other.mod')];
         expect(otherMods(installed, 'c:/mods/mine', 'test.mine')).toHaveLength(1);
+    });
+});
+
+// A manifest can keep its whole registration in an included fragment (`Actions : &<launcher.rules>/Actions`),
+// which the game concatenates in front of the local entries. A reader of the manifest alone sees
+// such a mod claim nothing, so it would silently never conflict with anybody.
+describe('an Actions list that comes from an included fragment', () => {
+    let root = '';
+
+    beforeEach(() => {
+        root = mkdtempSync(join(tmpdir(), 'modconflict-')).split('\\').join('/');
+    });
+
+    afterEach(() => {
+        if (root) rmSync(root, { recursive: true, force: true });
+    });
+
+    /** Parses the manifest written into the scratch mod and reads the actions the game would see. */
+    const actionsOf = async (manifest: string, fragments: Record<string, string>): Promise<string[]> => {
+        writeFileSync(join(root, 'mod.rules'), manifest, 'utf8');
+        for (const [name, text] of Object.entries(fragments)) writeFileSync(join(root, name), text, 'utf8');
+        const path = join(root, 'mod.rules');
+        const document = parser(lexer(manifest), pathToFileURL(path).href).value;
+        const actions = await manifestActionsWithFragments(path, document);
+        return actions.flatMap((action) => claimsOf(action).map((claim) => claim.key));
+    };
+
+    it('reads the fragment the list inherits from', async () => {
+        const manifest = ['ID = test.mod', 'Name = "t"', 'Actions : &<launcher.rules>/Actions', '[', ']', ''].join('\n');
+        const fragment = [
+            'Actions',
+            '[',
+            '\t{ Action = Replace; Replace = "<a.rules>/Part/MaxHealth"; With = 200 }',
+            ']',
+            '',
+        ].join('\n');
+        expect(await actionsOf(manifest, { 'launcher.rules': fragment })).toEqual(['<./data/a.rules>/part/maxhealth']);
+    });
+
+    it('keeps the entries the manifest writes itself beside the inherited ones', async () => {
+        const manifest = [
+            'ID = test.mod',
+            'Name = "t"',
+            'Actions : &<launcher.rules>/Actions',
+            '[',
+            '\t{ Action = Remove; Remove = "<b.rules>/Part" }',
+            ']',
+            '',
+        ].join('\n');
+        const fragment = [
+            'Actions',
+            '[',
+            '\t{ Action = Replace; Replace = "<a.rules>/Part/MaxHealth"; With = 200 }',
+            ']',
+            '',
+        ].join('\n');
+        expect((await actionsOf(manifest, { 'launcher.rules': fragment })).sort()).toEqual([
+            '<./data/a.rules>/part/maxhealth',
+            '<./data/b.rules>/part',
+        ]);
+    });
+
+    it('reads a list the reference names by something other than Actions', async () => {
+        const manifest = ['ID = test.mod', 'Name = "t"', 'Actions : &<list.rules>/Extra', '[', ']', ''].join('\n');
+        const fragment = ['Extra', '[', '\t{ Action = Remove; Remove = "<c.rules>/Part" }', ']', ''].join('\n');
+        expect(await actionsOf(manifest, { 'list.rules': fragment })).toEqual(['<./data/c.rules>/part']);
+    });
+
+    it('answers with the local entries when the fragment is not on disk', async () => {
+        const manifest = [
+            'ID = test.mod',
+            'Name = "t"',
+            'Actions : &<missing.rules>/Actions',
+            '[',
+            '\t{ Action = Remove; Remove = "<b.rules>/Part" }',
+            ']',
+            '',
+        ].join('\n');
+        expect(await actionsOf(manifest, {})).toEqual(['<./data/b.rules>/part']);
     });
 });

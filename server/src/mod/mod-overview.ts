@@ -6,8 +6,9 @@ import { code, linkDestination, tableCell } from '../features/report/markdown-li
 import { Action } from './action';
 import { normalizeTargetPath } from './action-target-resolver';
 import { resolveWithModContext } from './mod-context';
-import { HealthPlace, HealthRow, modHealthRows } from './mod-health';
+import { HealthPlace, HealthRow, modHealthRows, ScanFindings } from './mod-health';
 import { ModReachability, computeModReachability, reachabilityKey, relativeToMod } from './mod-reachability';
+import { ModConflict, modConflicts } from './mod-conflicts';
 import { findModRoot } from './mod-root';
 import { partTechCoverage } from './part-tech-coverage';
 import { parseModActions } from './action-parser';
@@ -99,12 +100,15 @@ const targetStatus = async (action: Action, token: CancellationToken): Promise<b
  * @param manifestUri the mod.rules document uri the overview is requested for.
  * @param folderPaths the project folders, for the id index the part-unlock section reads.
  * @param token cancels target resolution and the reachability walk.
+ * @param scanned the findings the workspace scan already holds, which the health table reads back
+ *        rather than recomputing. Absent where nothing has scanned the mod yet.
  * @returns the markdown text, or undefined when the uri is not inside a mod.
  */
 export const generateModOverview = async (
     manifestUri: string,
     folderPaths: string[],
-    token: CancellationToken
+    token: CancellationToken,
+    scanned?: ScanFindings
 ): Promise<string | undefined> => {
     const manifestPath = uriToFsPath(manifestUri);
     const modRoot = findModRoot(manifestUri);
@@ -288,15 +292,50 @@ export const generateModOverview = async (
         lines.push('');
     }
 
-    if (reachability) {
-        const rows = await modHealthRows(reachability, { total: actions.length, broken }, folderPaths, token).catch(
-            () => [] as HealthRow[]
+    // ── Installed mods ─────────────────────────────────────────────────────────
+    const conflicts = await modConflicts(modRoot, token).catch(() => [] as ModConflict[]);
+    if (conflicts.length > 0) {
+        lines.push(`## ${l10n.t('Conflicts with installed mods')} (${conflicts.length})`);
+        lines.push('');
+        lines.push(
+            l10n.t(
+                'Another mod on this machine writes the same node. The game applies mods in id order and the last write stands, so with both switched on one of the two changes is not there. Overriding another mod on purpose is ordinary work: this section says which mods you are in, not that anything is wrong.'
+            )
         );
+        lines.push('');
+        lines.push(`| ${l10n.t('Node')} | ${l10n.t('This mod')} | ${l10n.t('Other mod')} | ${l10n.t('Applied last')} |`);
+        lines.push('| --- | --- | --- | --- |');
+        for (const conflict of conflicts.slice(0, CONFLICT_LIMIT)) {
+            const where = placeLink(modRoot, { file: conflict.file, line: conflict.line });
+            lines.push(
+                `| ${tableCell(code(conflict.key))} | ${conflict.ownVerb}, ${where} | ${conflict.theirVerb}, ${tableCell(conflict.modName)} | ${
+                    conflict.ownsLastWord ? l10n.t('this mod') : tableCell(conflict.modName)
+                } |`
+            );
+        }
+        if (conflicts.length > CONFLICT_LIMIT) {
+            lines.push(`| _(+${conflicts.length - CONFLICT_LIMIT})_ | | | |`);
+        }
+        lines.push('');
+    }
+
+    if (reachability) {
+        const rows = await modHealthRows(
+            reachability,
+            { total: actions.length, broken },
+            folderPaths,
+            token,
+            scanned,
+            conflicts
+        ).catch(() => [] as HealthRow[]);
         lines.splice(healthAt, 0, ...healthSection(modRoot, rows));
     }
 
     return lines.join('\n');
 };
+
+/** How many collisions the report names before the rest are counted in a tail. */
+const CONFLICT_LIMIT = 20;
 
 /** How many ungated parts the report lists before the rest are counted in a tail. */
 const UNCOVERED_PART_LIMIT = 20;

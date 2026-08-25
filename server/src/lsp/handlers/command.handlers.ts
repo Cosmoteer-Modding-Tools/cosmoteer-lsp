@@ -42,6 +42,8 @@ import {
     cloneDeclaration,
 } from '../../features/refactor/clone-declaration/clone.command';
 import { NEW_CONTENT_COMMAND, newContent } from '../../features/refactor/new-content/new-content.command';
+import { NEW_MOD_COMMAND, newMod } from '../../features/refactor/new-mod/new-mod.command';
+import { NewModArgs } from '../../features/refactor/new-mod/new-mod.types';
 import { NewContentArgs } from '../../features/refactor/new-content/new-content.types';
 import { GameLogHost, IMPORT_GAME_LOG_COMMAND, importGameLog } from '../../features/game-log/import-game-log.command';
 import {
@@ -273,6 +275,16 @@ export function register(): void {
             } finally {
                 endFsTrustWindow();
             }
+        }
+        // Creating the mod itself runs on the server too: where the game loads mods from, which ids
+        // are already taken and which game versions the install is at are all answers the server
+        // already has, and both clients would otherwise each need their own.
+        if (params.command === NEW_MOD_COMMAND) {
+            const args = (params.arguments?.[0] ?? {}) as NewModArgs;
+            return await newMod(args, CancellationToken.None).catch((e) => {
+                if (globalSettings.trace.server === 'messages') console.error(e);
+                return null;
+            });
         }
         // What the game itself said the last time it loaded this mod. Read on the server because it
         // walks the user's save folder and re-reads the named files to place each finding, and because

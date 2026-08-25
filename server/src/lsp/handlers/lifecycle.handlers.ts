@@ -29,6 +29,7 @@ import { EXTRACT_GROUP_COMMAND } from '../../features/refactor/extract-group/ext
 import { OVERRIDE_IN_MOD_COMMAND } from '../../features/refactor/override-in-mod/override-in-mod.command';
 import { CLONE_DECLARATION_COMMAND } from '../../features/refactor/clone-declaration/clone.command';
 import { NEW_CONTENT_COMMAND } from '../../features/refactor/new-content/new-content.command';
+import { NEW_MOD_COMMAND } from '../../features/refactor/new-mod/new-mod.command';
 import { INSERT_SCHEMA_FIELD_COMMAND } from '../../features/schema-search/schema-search.insert';
 import { RUN_IN_COSMOTEER_COMMAND } from '../../features/run-game/run-game.command';
 import { IMPORT_GAME_LOG_COMMAND } from '../../features/game-log/import-game-log.command';
@@ -204,6 +205,7 @@ export function register(): void {
                         IMPORT_GAME_LOG_COMMAND,
                         POST_UPDATE_REPORT_COMMAND,
                         NEW_CONTENT_COMMAND,
+                        NEW_MOD_COMMAND,
                     ],
                 },
                 semanticTokensProvider: {
