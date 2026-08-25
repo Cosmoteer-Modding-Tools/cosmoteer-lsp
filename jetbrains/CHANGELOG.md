@@ -57,6 +57,12 @@ Cosmoteer Language server provides a lot of useful features, like:
 - A value is now suggested while its quotes are still open. `Layer = "roo` used to answer with the group's field names rather than the ship render layers, and the accepted suggestion now writes the missing closing quote.
 - `Layer` written on an `IndicatorSprites` component is marked as having no effect, which is what the game does with it.
 - Turning semantic highlighting on or off now reaches the files you already have open, instead of only the next file you open.
+- The part grid editor now shows the whole part. Its sprites are placed from a `Location` written as arithmetic, the components a part gathers from other files through its `Components` bases are drawn with the ones it declares itself, and a single field reaching far outside the part, such as a wide `BuffArea`, no longer frames the canvas around itself and shrinks the part into a corner.
+- Zooming into a large part in the grid editor no longer leaves the canvas blank.
+- A part rect written from references or math is now drawn in the part grid editor. It draws dashed and refuses the corner drag, since replacing the expression with four numbers is not what the drag looks like it does.
+- The part grid editor now opens with the whole part in view instead of scrolled into its top-left corner, and a fit button returns to that view. A wide part is no longer squashed to the panel width.
+- The rect of the layer being edited is now washed with its color, so a rect spanning the whole part is visible against the sprites.
+- A layer whose checkbox is off can no longer be edited in the part grid editor.
 
 ## 0.7.0 - 2026-08-19
 

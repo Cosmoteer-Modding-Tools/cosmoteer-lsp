@@ -8,7 +8,11 @@ import {
     isListNode,
     isValueNode,
 } from '../../core/ast/ast';
-import { evaluateExpressionGroup } from '../../semantics/value-evaluator';
+import {
+    evaluateExpressionGroup,
+    evaluateNumericValue,
+    resolveValueReference,
+} from '../../semantics/value-evaluator';
 
 /**
  * Structural readers for the geometry value forms part fields are written in. ObjectText lets every
@@ -16,6 +20,10 @@ import { evaluateExpressionGroup } from '../../semantics/value-evaluator';
  * GroupNode), and map-typed fields appear as lists of `{ Key = ..; Value = .. }` entry groups. The
  * readers accept both forms so the grid editor sees the same values however a mod authored them.
  */
+
+/** The group-form member names of the two numeric tuples the grid editor reads. */
+const VECTOR_MEMBERS = ['X', 'Y'] as const;
+const RECT_MEMBERS = ['X', 'Y', 'Width', 'Height'] as const;
 
 /** A read 2D vector with the node it came from, so edits can target the exact source range. */
 interface ReadVector {
@@ -204,20 +212,15 @@ export const enumNameOf = (node: AbstractNode | null | undefined): string | null
 };
 
 /**
- * Reads a written 2D vector, additionally evaluating components that are math or references.
- * Lists store math inline-flattened with the commas dropped (`[64/64, 53/64]` parses to
- * `[64, /, 64, 53, /, 64]`), so the elements are re-segmented by the operand-after-operand rule
- * before evaluation, the same way the inlay hints do.
- * @param node the written value.
- * @param token cancels reference resolution.
- * @returns the vector (without a source node when evaluated), or null.
+ * Splits a list whose elements hold inline math into one operand run per component. Lists store
+ * math inline-flattened with the commas dropped (`[64/64, 53/64]` parses to `[64, /, 64, 53, /,
+ * 64]`), so the elements are re-segmented by the operand-after-operand rule before evaluation, the
+ * same way the inlay hints do.
+ * @param node the list to split.
+ * @param count how many components the value type has.
+ * @returns the runs, or null when the list does not split into exactly that many.
  */
-export const readVectorEvaluated = async (
-    node: AbstractNode | null | undefined,
-    token: CancellationToken
-): Promise<{ x: number; y: number } | null> => {
-    const plain = readVector(node);
-    if (plain) return { x: plain.x, y: plain.y };
+const segmentInlineList = (node: AbstractNode, count: number): AbstractNode[][] | null => {
     if (!isListNode(node)) return null;
     const segments: AbstractNode[][] = [];
     let current: AbstractNode[] = [];
@@ -236,8 +239,95 @@ export const readVectorEvaluated = async (
         prevWasOperand = true;
     }
     if (current.length) segments.push(current);
-    if (segments.length !== 2) return null;
-    const x = await evaluateExpressionGroup(segments[0], token).catch(() => null);
-    const y = await evaluateExpressionGroup(segments[1], token).catch(() => null);
-    return x !== null && y !== null ? { x, y } : null;
+    return segments.length === count ? segments : null;
+};
+
+/**
+ * Evaluates the components of a value written in the group form (`{X = .. Y = ..}`), where each
+ * member can itself be math or a reference.
+ * @param node the group.
+ * @param names the member names in component order.
+ * @param token cancels reference resolution.
+ * @returns the numbers in order, or null when any member is missing or does not evaluate.
+ */
+const evaluateNamedMembers = async (
+    node: GroupNode,
+    names: readonly string[],
+    token: CancellationToken
+): Promise<number[] | null> => {
+    const values: number[] = [];
+    for (const name of names) {
+        const member = childNamed(node, name);
+        const value = member ? await evaluateNumericValue(member, token).catch(() => null) : null;
+        if (value === null) return null;
+        values.push(value);
+    }
+    return values;
+};
+
+/**
+ * Reads a value written in any of the numeric-tuple forms, evaluating components that are math or
+ * references. A field written as nothing but a reference (`SaveRect = &PhysicalRect`) is followed
+ * to the value it names.
+ * @param node the written value.
+ * @param names the member names of the group form, in component order.
+ * @param token cancels reference resolution.
+ * @returns the components in order, or null.
+ */
+const readTupleEvaluated = async (
+    node: AbstractNode | null | undefined,
+    names: readonly string[],
+    token: CancellationToken,
+    visited: Set<AbstractNode> = new Set()
+): Promise<number[] | null> => {
+    if (!node || visited.has(node)) return null;
+    visited.add(node);
+    if (isGroupNode(node)) return evaluateNamedMembers(node, names, token);
+    if (isValueNode(node)) {
+        const target = await resolveValueReference(node, token).catch(() => null);
+        return target ? readTupleEvaluated(target, names, token, visited) : null;
+    }
+    const segments = segmentInlineList(node, names.length);
+    if (!segments) return null;
+    const values: number[] = [];
+    for (const segment of segments) {
+        const value = await evaluateExpressionGroup(segment, token).catch(() => null);
+        if (value === null) return null;
+        values.push(value);
+    }
+    return values;
+};
+
+/**
+ * Reads a written 2D vector, additionally evaluating components that are math or references.
+ * @param node the written value.
+ * @param token cancels reference resolution.
+ * @returns the vector (without a source node when evaluated), or null.
+ */
+export const readVectorEvaluated = async (
+    node: AbstractNode | null | undefined,
+    token: CancellationToken
+): Promise<{ x: number; y: number } | null> => {
+    const plain = readVector(node);
+    if (plain) return { x: plain.x, y: plain.y };
+    const values = await readTupleEvaluated(node, VECTOR_MEMBERS, token);
+    return values ? { x: values[0], y: values[1] } : null;
+};
+
+/**
+ * Reads a written rectangle, additionally evaluating components that are math or references. Part
+ * rects are commonly written from the part's own size constants (`PhysicalRect = [0, 0, &~/SIZE/0,
+ * &~/SIZE/1]`), which the plain reader answers null for.
+ * @param node the written value.
+ * @param token cancels reference resolution.
+ * @returns the rect (without a source node when evaluated), or null.
+ */
+export const readRectEvaluated = async (
+    node: AbstractNode | null | undefined,
+    token: CancellationToken
+): Promise<{ x: number; y: number; width: number; height: number } | null> => {
+    const plain = readRect(node);
+    if (plain) return { x: plain.x, y: plain.y, width: plain.width, height: plain.height };
+    const values = await readTupleEvaluated(node, RECT_MEMBERS, token);
+    return values ? { x: values[0], y: values[1], width: values[2], height: values[3] } : null;
 };

@@ -23,6 +23,7 @@ const token = CancellationToken.None;
 const FIXTURE_DIR = join(FIXTURES_DIR, 'part-editor');
 const basePath = join(FIXTURE_DIR, 'base_part.rules');
 const derivedPath = join(FIXTURE_DIR, 'derived_part.rules');
+const mergedPath = join(FIXTURE_DIR, 'merged_part.rules');
 
 const layerOf = <T>(data: PartGridData, id: string): T => {
     const layer = data.layers.find((candidate) => candidate.id === id);
@@ -33,6 +34,7 @@ const layerOf = <T>(data: PartGridData, id: string): T => {
 describe('buildPartGridData', () => {
     let base: PartGridData;
     let derived: PartGridData;
+    let merged: PartGridData;
 
     beforeAll(async () => {
         await initWorkspace();
@@ -41,6 +43,8 @@ describe('buildPartGridData', () => {
         base = (await buildPartGridData(baseDocument, baseOffset, 7, token))!;
         const derivedDocument = await parseFilePath(derivedPath);
         derived = (await buildPartGridData(derivedDocument, 0, 3, token))!;
+        const mergedDocument = await parseFilePath(mergedPath);
+        merged = (await buildPartGridData(mergedDocument, 0, 1, token))!;
     });
 
     it('reads the grid size and echoes the document version', () => {
@@ -132,8 +136,39 @@ describe('buildPartGridData', () => {
         expect(roof.defaultVisible).toBe(false);
     });
 
+    it('reads a rect whose corners are references, and marks it as not draggable', () => {
+        // `SaveRect = [0, 0, &~/SIZE/0, &~/SIZE/1]` is the shape most parts write their rects in.
+        const save = layerOf<RectLayerData>(derived, 'SaveRect');
+        expect(save.rect).toEqual({ x: 0, y: 0, width: 1, height: 2 });
+        expect(save.isRef).toBe(true);
+        // A rect written as four literals stays editable.
+        expect(layerOf<RectLayerData>(base, 'PhysicalRect').isRef).toBe(false);
+    });
+
     it('renders a margin covering the out-of-bounds door and virtual cells', () => {
         expect(base.margin).toBeGreaterThanOrEqual(1);
+    });
+
+    it('caps the margin against the part size, so far-off geometry cannot dwarf the part', () => {
+        // `buff` reaches one cell left of a 1x2 part, and `ProhibitRects` two cells past its right
+        // edge, yet the frame stays within the cap rather than following the widest reach.
+        expect(base.margin).toBeLessThanOrEqual(Math.max(2, Math.ceil(2 / 4)));
+    });
+
+    it('reads a Location written as unspaced math, which the lexer keeps as one token', () => {
+        // `Location = [2-0.5, 1]` is [1.5, 1]; the Size [1, 2] rect centers on it at [1, 0].
+        const extra = merged.sprites.find((sprite) => sprite.id === 'floor:ExtraGraphics')!;
+        expect(extra, 'sprite of the inherited component').toBeTruthy();
+        expect(extra.offset).toEqual([1, 0]);
+    });
+
+    it('merges components the Components group inherits from another file', () => {
+        // The part gathers its components with `Components : ^/0/Components, &<extra_components>`,
+        // so both the base's own graphics and the included file's have to be here.
+        const ids = merged.sprites.map((sprite) => sprite.id);
+        expect(ids).toContain('floor:ExtraGraphics');
+        expect(ids).toContain('floor:Graphics');
+        expect(merged.layers.some((layer) => layer.id === 'Components/crew_a/CrewDestinations')).toBe(true);
     });
 
     it('resolves inherited fields through cross-file inheritance with inherited provenance', () => {

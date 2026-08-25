@@ -1,0 +1,12 @@
+ExtraGraphics
+{
+	Type = Graphics
+	Location = [2-0.5, 1]
+	Floor
+	{
+		DamageLevels
+		[
+			{ File = "floor.png"; Size = [1, 2] }
+		]
+	}
+}

@@ -39,7 +39,8 @@ body {
     background: var(--vscode-editorWidget-background, #252526);
     border: 1px solid var(--vscode-widget-border, #454545);
     border-bottom: none;
-    max-width: 100%;
+    /* No max-width: the canvas carries an explicit width and height, and clamping only one of them
+       would squash the grid. The stage scrolls instead. */
 }
 
 /* The coordinate readout: a CAD-style status strip pinned under the canvas. */
@@ -84,6 +85,11 @@ body {
 .section.layer-panel {
     border-top: 2px solid var(--layer-color, var(--vscode-focusBorder, #007fd4));
     margin-top: -1px;
+}
+
+/* The panel of a layer whose visibility is switched off: shown, but plainly inert. */
+.layer-panel.hidden-layer {
+    opacity: 0.6;
 }
 
 .section.layer-panel h3 {

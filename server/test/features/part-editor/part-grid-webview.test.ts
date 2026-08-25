@@ -17,6 +17,7 @@ const webview = require(join(REPO_ROOT, 'media', 'part-grid-editor.js')) as {
     inverseOf(mutation: object, data: object): { op: string } & Record<string, unknown>;
     doorEdgeFor(cell: { x: number; y: number }, rect: { x: number; y: number; width: number; height: number }): string | null;
     edgeRegionDistanceAt(rect: { x: number; y: number; width: number; height: number }, point: { x: number; y: number }): number;
+    backingRatio(size: { width: number; height: number }, dpr: number): number;
 };
 
 describe('part grid webview geometry', () => {
@@ -168,5 +169,17 @@ describe('part grid webview geometry', () => {
             field: 'Distance',
             value: 5,
         });
+    });
+
+    it('keeps the canvas backing store inside what a browser will allocate', () => {
+        // A modest part backs at the display's own ratio, so nothing renders softer than it must.
+        expect(webview.backingRatio({ width: 800, height: 1200 }, 2)).toBe(2);
+        // A large grid at a high zoom would ask for a store no browser hands out, and a canvas that
+        // fails to allocate draws nothing: the ratio drops instead, within both limits.
+        const huge = { width: 30720, height: 35712 };
+        const ratio = webview.backingRatio(huge, 2);
+        expect(ratio).toBeLessThan(1);
+        expect(Math.max(huge.width, huge.height) * ratio).toBeLessThanOrEqual(8192);
+        expect(huge.width * ratio * (huge.height * ratio)).toBeLessThanOrEqual(1 << 25);
     });
 });

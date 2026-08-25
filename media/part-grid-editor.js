@@ -302,6 +302,25 @@
         return Math.max(dx, dy);
     }
 
+    // What a browser will hand out for one canvas backing store. Asking for more yields a canvas
+    // that draws nothing at all, which is what a dead zoom button on a large part really is.
+    const MAX_CANVAS_DIMENSION = 8192;
+    const MAX_CANVAS_AREA = 1 << 25;
+
+    /**
+     * The device pixel ratio to back the canvas with, lowered until the backing store fits the
+     * browser's allocation limits. A large grid at a high zoom then renders slightly soft instead
+     * of not at all.
+     * @param size the canvas size in CSS pixels.
+     * @param dpr the display's own pixel ratio.
+     * @returns the ratio to multiply the CSS size by, never above `dpr`.
+     */
+    function backingRatio(size, dpr) {
+        const byDimension = MAX_CANVAS_DIMENSION / Math.max(size.width, size.height);
+        const byArea = Math.sqrt(MAX_CANVAS_AREA / (size.width * size.height));
+        return Math.min(dpr, byDimension, byArea);
+    }
+
     if (typeof module !== 'undefined' && typeof acquireVsCodeApi === 'undefined') {
         module.exports = {
             rotateQuarter,
@@ -315,6 +334,7 @@
             inverseOf,
             doorEdgeFor,
             edgeRegionDistanceAt,
+            backingRatio,
         };
         return;
     }
@@ -342,6 +362,11 @@
         return template.replace(/\{(\d+)\}/g, (match, index) => (args[index] === undefined ? match : String(args[index])));
     }
 
+    // The zoom range the buttons step through, in canvas pixels per cell.
+    const MIN_SCALE = 24;
+    const DEFAULT_SCALE = 96;
+    const MAX_SCALE = 384;
+
     const canvas = document.getElementById('grid');
     const ctx = canvas.getContext('2d');
     const statusEl = document.getElementById('status');
@@ -350,7 +375,7 @@
     const state = {
         data: null,
         images: new Map(),
-        view: { rotation: 0, flipH: false, flipV: false, scale: 96 },
+        view: { rotation: 0, flipH: false, flipV: false, scale: DEFAULT_SCALE },
         activeLayerId: null,
         visibleLayers: new Set(),
         visibleSprites: new Set(),
@@ -541,6 +566,28 @@
         };
     }
 
+    /**
+     * The zoom that puts the whole stage inside the panel. A part several times the default 96px
+     * cell would otherwise open scrolled into its own top-left corner, which is not where anyone
+     * wants to start. Never zooms past the default, a one-cell part stays readable rather than
+     * filling the panel.
+     * @returns the scale, within the zoom range the buttons use.
+     */
+    function fitScale() {
+        const stage = document.getElementById('stage');
+        const extent = gridExtent();
+        const swapped = state.view.rotation === 90 || state.view.rotation === 270;
+        const width = swapped ? extent.height : extent.width;
+        const height = swapped ? extent.width : extent.height;
+        const available = {
+            width: (stage ? stage.clientWidth : 0) - 24,
+            height: (stage ? stage.clientHeight : 0) - 64,
+        };
+        if (available.width <= 0 || available.height <= 0) return DEFAULT_SCALE;
+        const scale = Math.min(available.width / width, available.height / height);
+        return Math.max(MIN_SCALE, Math.min(DEFAULT_SCALE, scale));
+    }
+
     /** Converts a mouse event to grid coordinates through the inverse view transform. */
     function eventToGrid(event) {
         const bounds = canvas.getBoundingClientRect();
@@ -604,8 +651,8 @@
 
     function draw() {
         if (!state.data) return;
-        const dpr = window.devicePixelRatio || 1;
         const size = canvasSize();
+        const dpr = backingRatio(size, window.devicePixelRatio || 1);
         canvas.width = size.width * dpr;
         canvas.height = size.height * dpr;
         canvas.style.width = `${size.width}px`;
@@ -885,11 +932,22 @@
     function drawRect(layer, color, active, ghost) {
         const modifier = setGhost(ghost);
         const rect = state.rectDrag && state.rectDrag.layerId === layer.id ? state.rectDrag.rect : layer.rect;
+        // A rect covering most of the part is a thin outline lost among the sprites, so the active
+        // one is washed with its own color. The wash is the whole reason it reads at any zoom.
+        if (active) {
+            ctx.globalAlpha = 0.12 * modifier;
+            ctx.fillStyle = color;
+            ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+        }
+        // A computed rect draws dashed and carries no handles: its value lives in an expression the
+        // editor will not overwrite with numbers.
+        if (layer.isRef) ctx.setLineDash([0.4, 0.2]);
         ctx.globalAlpha = 0.9 * modifier;
         ctx.strokeStyle = color;
         ctx.lineWidth = (active ? 3 : 2) / state.view.scale;
         ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-        if (active) {
+        if (active && !layer.isRef) {
+            ctx.setLineDash([]);
             ctx.fillStyle = color;
             for (const [hx, hy] of rectHandles(rect)) {
                 ctx.fillRect(hx - 0.08, hy - 0.08, 0.16, 0.16);
@@ -1270,6 +1328,11 @@
         if (!state.data) return;
         const layer = activeLayer();
         if (!layer) return;
+        // Editing a layer that is switched off would move geometry nobody can see.
+        if (!state.visibleLayers.has(layer.id)) {
+            setStatus(t('{0} is hidden. Tick its checkbox to edit it.', layer.label));
+            return;
+        }
         const point = eventToGrid(event);
         const cell = { x: Math.floor(point.x), y: Math.floor(point.y) };
         if (layer.kind === 'point') {
@@ -1372,6 +1435,10 @@
                 if (hit) sendMutation({ op: 'removeRectEntry', layerId: layer.id, index: hit.index });
                 return;
             }
+            if (hit && layer.entries[hit.index].isRef) {
+                setStatus(t('This rect is a reference or expression, edit it in the text.'));
+                return;
+            }
             if (hit) {
                 state.rectDrag = {
                     layerId: layer.id,
@@ -1410,6 +1477,10 @@
             sendMutation({ op: 'addPoint', layerId: layer.id, point: snapped });
         } else if (layer.kind === 'rect') {
             if (!layer.rect) return;
+            if (layer.isRef) {
+                setStatus(t('This rect is a reference or expression, edit it in the text.'));
+                return;
+            }
             const handle = rectHandleAt(layer.rect, point);
             if (handle >= 0) {
                 state.rectDrag = {
@@ -1762,13 +1833,19 @@
         );
         row.appendChild(
             button('−', t('Zoom out'), () => {
-                state.view.scale = Math.max(24, state.view.scale / 1.25);
+                state.view.scale = Math.max(MIN_SCALE, state.view.scale / 1.25);
                 draw();
             })
         );
         row.appendChild(
             button('+', t('Zoom in'), () => {
-                state.view.scale = Math.min(384, state.view.scale * 1.25);
+                state.view.scale = Math.min(MAX_SCALE, state.view.scale * 1.25);
+                draw();
+            })
+        );
+        row.appendChild(
+            button('⛶', t('Fit the part in the panel'), () => {
+                state.view.scale = fitScale();
                 draw();
             })
         );
@@ -1900,6 +1977,8 @@
         check.addEventListener('change', () => {
             if (check.checked) state.visibleLayers.add(layer.id);
             else state.visibleLayers.delete(layer.id);
+            // Switching the edited layer off swaps its panel for the reason it is inert.
+            if (layer.id === state.activeLayerId) renderSidebar();
             draw();
         });
         const swatch = element('span', 'swatch');
@@ -1951,6 +2030,11 @@
         heading.appendChild(swatch);
         heading.appendChild(element('span', null, layer.label));
         section.appendChild(heading);
+        if (!state.visibleLayers.has(layer.id)) {
+            section.classList.add('hidden-layer');
+            section.appendChild(element('div', 'hint', t('{0} is hidden. Tick its checkbox to edit it.', layer.label)));
+            return section;
+        }
         if (layer.kind === 'cellSet') {
             const domain =
                 layer.domain === 'outside'
@@ -2035,7 +2119,15 @@
                 )
             );
         } else if (layer.kind === 'rect') {
-            section.appendChild(element('div', 'hint', t('Drag the corner handles to resize.')));
+            section.appendChild(
+                element(
+                    'div',
+                    'hint',
+                    layer.isRef
+                        ? t('This rect is a reference or expression, edit it in the text.')
+                        : t('Drag the corner handles to resize.')
+                )
+            );
             const row = element('div', 'row');
             if (!layer.rect) {
                 row.appendChild(
@@ -2348,6 +2440,7 @@
                 const first = state.data.layers.find((layer) => layer.id === 'AllowedDoorLocations');
                 state.activeLayerId = first ? first.id : state.data.layers[0] && state.data.layers[0].id;
                 if (state.activeLayerId) state.visibleLayers.add(state.activeLayerId);
+                state.view.scale = fitScale();
             }
             // A render is authoritative and carries a fresh dataVersion, so queued clicks (absolute
             // coordinates by design) resume against it instead of being judged stale. Re-apply their

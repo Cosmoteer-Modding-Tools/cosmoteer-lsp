@@ -11,7 +11,12 @@ import { findEnclosingGroup, resolveGroupClass } from '../../document/schema/sch
 import { classAncestry, enumDef } from '../../document/schema/schema';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { findMemberThroughInheritance } from '../../semantics/inheritance-resolver';
-import { EffectiveMember, effectiveMember, resolveReference } from '../../semantics/effective-member';
+import {
+    EffectiveMember,
+    effectiveMember,
+    effectiveSubGroups,
+    resolveReference,
+} from '../../semantics/effective-member';
 import { evaluateNumericValue } from '../../semantics/value-evaluator';
 import { resolveAssetPath } from '../navigation/asset-resolver';
 import { filePathToUri } from '../navigation/navigation-strategy';
@@ -49,6 +54,7 @@ import {
     readIntList,
     readMapEntries,
     readRect,
+    readRectEvaluated,
     readVector,
     readVectorEvaluated,
 } from './vector-forms';
@@ -117,19 +123,12 @@ export const locatePartGroup = (document: AbstractNodeDocument, offset: number):
  * @param cls the component base class FullName.
  * @returns the matching components with their member names.
  */
-const componentsOfClass = (part: GroupNode, cls: string): Array<{ name: string; group: GroupNode }> => {
-    const components = childNamed(part, 'Components');
-    if (!components || !isGroupNode(components)) return [];
-    const matches: Array<{ name: string; group: GroupNode }> = [];
-    for (const element of components.elements) {
-        if (!isGroupNode(element) || !element.identifier) continue;
-        const elementClass = resolveGroupClass(element);
-        if (elementClass && classAncestry(elementClass).includes(cls)) {
-            matches.push({ name: element.identifier.name, group: element });
-        }
-    }
-    return matches;
-};
+const componentsOfClass = async (
+    part: GroupNode,
+    cls: string,
+    token: CancellationToken
+): Promise<Array<{ name: string; group: GroupNode }>> =>
+    (await allComponents(part, token)).filter((entry) => inAncestry(entry.cls, cls));
 
 /**
  * Builds one cell-set layer from a part-root list field.
@@ -219,7 +218,7 @@ const mapLayer = async (
  */
 const crewLayers = async (part: GroupNode, token: CancellationToken): Promise<PointListLayerData[]> => {
     const layers: PointListLayerData[] = [];
-    for (const { name, group } of componentsOfClass(part, CREW_RULES_CLASS)) {
+    for (const { name, group } of await componentsOfClass(part, CREW_RULES_CLASS, token)) {
         const member = await effectiveMember(group, 'CrewDestinations', token);
         const points: Array<{ point: { x: number; y: number }; origin: AstProvenance }> = [];
         if (member && (isListNode(member.node) || isGroupNode(member.node))) {
@@ -297,7 +296,8 @@ const virtualCellsLayer = async (part: GroupNode, token: CancellationToken): Pro
  */
 const rectLayer = async (part: GroupNode, field: string, token: CancellationToken): Promise<RectLayerData> => {
     const member = await effectiveMember(part, field, token);
-    const rect = member ? readRect(member.node) : null;
+    const plain = member ? readRect(member.node) : null;
+    const rect = plain ?? (member ? await readRectEvaluated(member.node, token).catch(() => null) : null);
     return {
         kind: 'rect',
         id: field,
@@ -308,6 +308,7 @@ const rectLayer = async (part: GroupNode, field: string, token: CancellationToke
         origin: member ? provenanceOf(member.node, member.inherited) : null,
         group: 'Part',
         rect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
+        isRef: !plain && !!rect,
     };
 };
 
@@ -380,9 +381,12 @@ const undamagedSprite = (slot: AbstractNode): GroupNode | null => {
  */
 const collectSprites = async (part: GroupNode, token: CancellationToken): Promise<SpriteLayerData[]> => {
     const sprites: SpriteLayerData[] = [];
-    const graphics = componentsOfClass(part, GRAPHICS_RULES_CLASS);
+    const graphics = await componentsOfClass(part, GRAPHICS_RULES_CLASS, token);
     for (const { name, group } of graphics) {
-        const location = readVector(childNamed(group, 'Location'));
+        // Graphics placement is routinely authored as math (`Location = [10-3.4, 16]`), so every
+        // vector here goes through the evaluating reader. The plain one answers null on those and
+        // would silently stack the whole part's art on the top-left corner.
+        const location = await readVectorEvaluated(childNamed(group, 'Location'), token).catch(() => null);
         for (const spec of SPRITE_MEMBERS) {
             const slot = childNamed(group, spec.member);
             if (!slot || !isGroupNode(slot)) continue;
@@ -396,9 +400,9 @@ const collectSprites = async (part: GroupNode, token: CancellationToken): Promis
                 declaringUri.startsWith('file://') ? declaringUri : filePathToUri(declaringUri),
                 token
             ).catch(() => null);
-            const size = readVector(childNamed(sprite, 'Size'));
-            const slotOffset = readVector(childNamed(slot, 'Offset'));
-            const spriteOffset = readVector(childNamed(sprite, 'Offset'));
+            const size = await readVectorEvaluated(childNamed(sprite, 'Size'), token).catch(() => null);
+            const slotOffset = await readVectorEvaluated(childNamed(slot, 'Offset'), token).catch(() => null);
+            const spriteOffset = await readVectorEvaluated(childNamed(sprite, 'Offset'), token).catch(() => null);
             const center = {
                 x: (location?.x ?? 0) + (slotOffset?.x ?? 0) + (spriteOffset?.x ?? 0),
                 y: (location?.y ?? 0) + (slotOffset?.y ?? 0) + (spriteOffset?.y ?? 0),
@@ -481,17 +485,24 @@ const GRAPHICS_OFFSET_SLOTS: readonly string[] = [
     'BlueprintSprite',
 ];
 
-/** All named component groups of a part, whatever their class. */
-const allComponents = (part: GroupNode): Array<{ name: string; group: GroupNode; cls: string | undefined }> => {
-    const components = childNamed(part, 'Components');
-    if (!components || !isGroupNode(components)) return [];
-    const result: Array<{ name: string; group: GroupNode; cls: string | undefined }> = [];
-    for (const element of components.elements) {
-        if (isGroupNode(element) && element.identifier) {
-            result.push({ name: element.identifier.name, group: element, cls: resolveGroupClass(element) });
-        }
-    }
-    return result;
+/**
+ * All named component groups of a part, whatever their class, merged across the `Components`
+ * group's own inheritance chain so components a part gathers from other files are included.
+ * @param part the part group.
+ * @param token cancels reference resolution.
+ * @returns the components with their resolved class, local declarations first.
+ */
+const allComponents = async (
+    part: GroupNode,
+    token: CancellationToken
+): Promise<Array<{ name: string; group: GroupNode; cls: string | undefined }>> => {
+    const components = await effectiveMember(part, 'Components', token);
+    if (!components || !isGroupNode(components.node)) return [];
+    return (await effectiveSubGroups(components.node, token)).map((entry) => ({
+        name: entry.name,
+        group: entry.group,
+        cls: resolveGroupClass(entry.group),
+    }));
 };
 
 /** Whether a component carries a field, by schema class or by a locally written member. */
@@ -541,7 +552,7 @@ const rotateDegrees = (x: number, y: number, degrees: number): [number, number] 
  * @returns the gizmo layer.
  */
 const componentPointsLayer = async (part: GroupNode, token: CancellationToken): Promise<ComponentPointsLayerData> => {
-    const components = allComponents(part);
+    const components = await allComponents(part, token);
     const byName = new Map(components.map((entry) => [entry.name, entry]));
 
     /** The component's own location vector, evaluated when written as math. */
@@ -611,7 +622,7 @@ const componentPointsLayer = async (part: GroupNode, token: CancellationToken): 
  */
 const componentFieldLayers = async (part: GroupNode, token: CancellationToken): Promise<GridLayerData[]> => {
     const layers: GridLayerData[] = [];
-    for (const { name, group, cls } of allComponents(part)) {
+    for (const { name, group, cls } of await allComponents(part, token)) {
         const path = ['Components', name];
         const label = (field: string): string => `${field} (${name})`;
 
@@ -640,12 +651,14 @@ const componentFieldLayers = async (part: GroupNode, token: CancellationToken): 
         for (const spec of COMPONENT_RECT_FIELDS) {
             if (!hasField(group, cls, spec.field)) continue;
             const member = await effectiveMember(group, spec.field, token);
-            const rect = member ? readRect(member.node) : null;
+            const plain = member ? readRect(member.node) : null;
+            const rect = plain ?? (member ? await readRectEvaluated(member.node, token).catch(() => null) : null);
             layers.push({
                 kind: 'rect',
                 ...layerBaseOf(path, spec.field, label(spec.field), spec.group, member),
                 fractional: spec.fractional,
                 rect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
+                isRef: !plain && !!rect,
             } as RectLayerData);
             // Resource grid disable cells are 0-based within GridRect, rendered at that offset.
             if (spec.field === 'GridRect' && hasField(group, cls, 'DisableCells')) {
@@ -878,16 +891,19 @@ const partRootSweepLayers = async (
         tag: string | null;
         rect: { x: number; y: number; width: number; height: number };
         origin: AstProvenance;
+        isRef?: boolean;
     }> = [];
     if (prohibit && (isListNode(prohibit.node) || isGroupNode(prohibit.node))) {
         for (const element of prohibit.node.elements) {
             if (!isListNode(element) || element.elements.length !== 2) continue;
-            const rect = readRect(element.elements[1]);
+            const plain = readRect(element.elements[1]);
+            const rect = plain ?? (await readRectEvaluated(element.elements[1], token).catch(() => null));
             if (!rect) continue;
             entries.push({
                 tag: enumNameOf(element.elements[0]),
                 rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
                 origin: provenanceOf(element, prohibit.inherited),
+                isRef: !plain,
             });
         }
     }
@@ -926,7 +942,7 @@ const partRootSweepLayers = async (
  */
 const graphicsOffsetLayers = async (part: GroupNode, token: CancellationToken): Promise<PointLayerData[]> => {
     const layers: PointLayerData[] = [];
-    for (const { name, group, cls } of allComponents(part)) {
+    for (const { name, group, cls } of await allComponents(part, token)) {
         if (!inAncestry(cls, GRAPHICS_RULES_CLASS)) continue;
         for (const slot of GRAPHICS_OFFSET_SLOTS) {
             const slotNode = childNamed(group, slot);
@@ -1099,6 +1115,11 @@ const readSize = async (
 /**
  * The margin of cells to render around the grid so out-of-bounds geometry (virtual cells, rects,
  * crew points) stays on canvas.
+ *
+ * The reach is capped against the part's own size. A few fields address far outside the part on
+ * purpose, a `BuffArea` of `[-5, -30, 30, 30]` being the common one, and framing the canvas around
+ * those shrinks the part itself to a corner of a stage several times its size. Such geometry is
+ * clipped at the margin ring instead.
  * @param size the effective grid size.
  * @param layers the built layers.
  * @returns the margin, at least one cell.
@@ -1138,7 +1159,7 @@ const marginFor = (size: { width: number; height: number }, layers: readonly Gri
             coverRect(layer.rect);
         }
     }
-    return margin;
+    return Math.min(margin, Math.max(2, Math.ceil(Math.max(size.width, size.height) / 4)));
 };
 
 /**

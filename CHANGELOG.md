@@ -32,6 +32,12 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - Updating the extension no longer throws away the checks it has already done for a change to documentation alone. The prose shown on hover is no longer part of what the on-disk caches are keyed by, since nothing they hold depends on it.
+- The part grid editor now shows the whole part. Its sprites are placed from a `Location` written as arithmetic, the components a part gathers from other files through its `Components` bases are drawn with the ones it declares itself, and a single field reaching far outside the part, such as a wide `BuffArea`, no longer frames the canvas around itself and shrinks the part into a corner.
+- Zooming into a large part in the grid editor no longer leaves the canvas blank.
+- A part rect written from references or math, which is how `PhysicalRect = [0, 0, &~/SIZE/0, &~/SIZE/1]` and `SaveRect = &PhysicalRect` are usually written, is now drawn in the part grid editor. It draws dashed and refuses the corner drag, since replacing the expression with four numbers is not what the drag looks like it does.
+- The part grid editor now opens with the whole part in view instead of scrolled into its top-left corner, and a fit button returns to that view. A wide part is no longer squashed to the panel width.
+- The rect of the layer being edited is now washed with its color, so a rect spanning the whole part is visible against the sprites.
+- A layer whose checkbox is off can no longer be edited in the part grid editor.
 
 ## 0.8.0 Beta
 

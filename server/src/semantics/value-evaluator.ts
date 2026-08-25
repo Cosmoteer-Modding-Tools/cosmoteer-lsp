@@ -122,6 +122,24 @@ export const evaluateExpressionGroup = async (
 };
 
 /**
+ * Follows a value node that is nothing but a reference to the node it names, so a field written as
+ * `SaveRect = &PhysicalRect` can be read from wherever its value really lives.
+ * @param node the value node to follow.
+ * @param token cancellation token of the surrounding request.
+ * @returns the target node, or null when the node is not a reference or names a whole file.
+ */
+export const resolveValueReference = async (
+    node: AbstractNode,
+    token: CancellationToken
+): Promise<AbstractNode | null> => {
+    if (!isValueNode(node) || node.valueType.type !== 'Reference') return null;
+    const target = await navigation
+        .navigate(String(node.valueType.value), node, getStartOfAstNode(node).uri, token)
+        .catch(() => null);
+    return !target || isFile(target as FileWithPath) ? null : (target as AbstractNode);
+};
+
+/**
  * Resolve the `BaseValue` member of the group a reference points at, the game's ModifiableValue
  * shape (`Arc { BaseValue = 160d }`). The member lookup runs through the same navigation as
  * reference evaluation, so a `BaseValue` supplied by an inherited base group is found too, and a
@@ -167,6 +185,67 @@ const PERCENT_LITERAL = /^-?\d*\.?\d+%$/;
 const DEGREES_LITERAL = /^-?\d*\.?\d+d$/;
 const RADIANS_LITERAL = /^-?\d*\.?\d+r$/;
 
+// Number literals with the game's unit suffixes, and the operator spellings that can appear between
+// them, for the unspaced-token path below. Whitespace is stripped before matching, and parentheses
+// are absent by construction: the lexer keeps them as their own nodes.
+const ARITHMETIC_NUMBER = /^\d*\.?\d+(?:[%dr])?/;
+const ARITHMETIC_OPERATOR = /^(?:\^\^|\^|#|\*|\/|\+|-)/;
+
+/**
+ * The value of a numeric literal, converting the game's suffixes the way `ExpressionEvaluator`
+ * rewrites them before mXparser sees the string.
+ * @param literal a token matched by {@link ARITHMETIC_NUMBER}.
+ * @returns the number.
+ */
+const arithmeticLiteral = (literal: string): number => {
+    const value = parseFloat(literal);
+    if (literal.endsWith('%')) return value / 100;
+    if (literal.endsWith('d')) return (value / 360) * (Math.PI * 2);
+    return value;
+};
+
+/**
+ * Evaluates an unquoted value whose whole text is one arithmetic run of literals, such as the
+ * `10-3.4` a mod writes inside a vector. Nothing separates those operators from their operands, so
+ * the lexer hands them over as a single string token where a spaced `10 - 3.4` would have become
+ * three nodes. The game has no such split, it evaluates the token's text either way.
+ * @param text the value's text, whitespace already stripped.
+ * @returns the number, or null when the text is not such a run.
+ */
+const evaluateArithmeticText = (text: string): number | null => {
+    const items: (number | { op: string })[] = [];
+    let rest = text;
+    let expectOperand = true;
+    let sign = 1;
+    while (rest.length > 0) {
+        if (expectOperand) {
+            const literal = ARITHMETIC_NUMBER.exec(rest);
+            if (literal) {
+                items.push(sign * arithmeticLiteral(literal[0]));
+                rest = rest.slice(literal[0].length);
+                expectOperand = false;
+                sign = 1;
+                continue;
+            }
+            // A sign directly in front of an operand belongs to it (`10*-2`), it is not an operator.
+            if ((rest[0] === '-' || rest[0] === '+') && items.length > 0) {
+                if (rest[0] === '-') sign = -sign;
+                rest = rest.slice(1);
+                continue;
+            }
+            return null;
+        }
+        const operator = ARITHMETIC_OPERATOR.exec(rest);
+        if (!operator) return null;
+        items.push({ op: operator[0] });
+        rest = rest.slice(operator[0].length);
+        expectOperand = true;
+    }
+    // A lone literal is the plain-number case the caller already handled, and a trailing operator is
+    // not an expression at all.
+    return expectOperand || items.length < 3 ? null : foldItems(items);
+};
+
 const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<number | null> => {
     if (node.valueType.type === 'Number') return node.valueType.value;
     // A bare mXparser constant (`pi`, `e`) lexes as an unquoted token, sometimes typed `String`,
@@ -184,6 +263,10 @@ const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<num
         if (PERCENT_LITERAL.test(literal)) return parseFloat(literal) / 100;
         if (DEGREES_LITERAL.test(literal)) return (parseFloat(literal) / 360) * (Math.PI * 2);
         if (RADIANS_LITERAL.test(literal)) return parseFloat(literal);
+        if (!REFERENCE_SIGIL.test(literal)) {
+            const arithmetic = evaluateArithmeticText(literal);
+            if (arithmetic !== null) return arithmetic;
+        }
     }
     if (node.valueType.type !== 'Reference') return null;
     // `visited` is the current resolution path, not every node ever seen: a node already on the
@@ -324,6 +407,15 @@ const evaluateSequence = async (parts: AbstractNode[], context: EvalContext): Pr
             items.push(value);
         }
     }
+    return foldItems(items);
+};
+
+/**
+ * Folds a resolved operand/operator stream to its single value, in mXparser's operator order.
+ * @param items the stream, operands as numbers and operators as their spelling.
+ * @returns the value, or null when the stream does not collapse to one finite number.
+ */
+const foldItems = (items: (number | { op: string })[]): number | null => {
     if (items.length === 0) return null;
 
     const isOperand = (item: number | { op: string } | undefined): item is number => typeof item === 'number';

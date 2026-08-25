@@ -180,6 +180,8 @@ export interface RectListLayerData extends GridLayerBase {
         readonly tag: string | null;
         readonly rect: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
         readonly origin: AstProvenance;
+        /** True when the rect was computed rather than read from four literals. */
+        readonly isRef?: boolean;
     }>;
     /** The effective scalar sugar fields (`ProhibitLeft` etc.) rendered as ghost rects. */
     readonly fallbackRects: ReadonlyArray<{
@@ -241,6 +243,12 @@ export interface RectLayerData extends GridLayerBase {
     /** True when the rect takes fractional coordinates (`IdleRect`, `UITileRect`). */
     readonly fractional?: boolean;
     readonly rect: { readonly x: number; readonly y: number; readonly width: number; readonly height: number } | null;
+    /**
+     * True when the rect was computed from references or math rather than read from four literals
+     * (`PhysicalRect = [0, 0, &~/SIZE/0, &~/SIZE/1]`). It draws, but dragging it would replace the
+     * expression with numbers, so the editor shows it and refuses the edit.
+     */
+    readonly isRef?: boolean;
 }
 
 /**

@@ -1,4 +1,6 @@
+SIZE = [1, 2]
 Part : <./base_part.rules>/Part
 {
 	BlockedTravelCells = [ [0, 0] ]
+	SaveRect = [0, 0, &~/SIZE/0, &~/SIZE/1]
 }
