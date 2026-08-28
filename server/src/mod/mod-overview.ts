@@ -2,11 +2,13 @@ import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, isAssignmentNode, isValueNode } from '../core/ast/ast';
 import { basenameOf } from '../document/document-kind';
 import { uriToFsPath } from '../features/navigation/workspace-files';
-import { code, linkDestination } from '../features/report/markdown-link';
+import { code, linkDestination, tableCell } from '../features/report/markdown-link';
 import { Action } from './action';
 import { normalizeTargetPath } from './action-target-resolver';
 import { resolveWithModContext } from './mod-context';
+import { HealthPlace, HealthRow, modHealthRows, ScanFindings } from './mod-health';
 import { ModReachability, computeModReachability, reachabilityKey, relativeToMod } from './mod-reachability';
+import { ModConflict, modConflicts } from './mod-conflicts';
 import { findModRoot } from './mod-root';
 import { partTechCoverage } from './part-tech-coverage';
 import { parseModActions } from './action-parser';
@@ -29,6 +31,39 @@ const headerField = (document: AbstractNodeDocument, name: string): string | und
 /** A markdown link to a file, labeled with its mod-relative path. */
 const fileLink = (modRoot: string, absPath: string): string =>
     `[${relativeToMod(modRoot, absPath)}](vscode://file/${linkDestination(absPath)})`;
+
+/** A markdown link to one line of a file, labeled `path:line`, safe to sit in a table cell. */
+const placeLink = (modRoot: string, place: HealthPlace): string =>
+    `[${tableCell(relativeToMod(modRoot, place.file))}:${place.line}](vscode://file/${linkDestination(place.file)}:${place.line})`;
+
+/**
+ * The health section: one table row per check that is answered about the whole mod rather than
+ * about one open file. Rendered above the actions, since it is the summary the rest of the report
+ * then spells out.
+ *
+ * @param modRoot the mod root directory, for the label of every linked place.
+ * @param rows the rows the checks produced.
+ * @returns the lines, empty when no check could be answered.
+ */
+const healthSection = (modRoot: string, rows: HealthRow[]): string[] => {
+    if (rows.length === 0) return [];
+    const lines = [`## ${l10n.t('Mod health')}`, ''];
+    lines.push(
+        l10n.t(
+            'One row per check the whole mod can be asked, counted over the files the game loads from it. Each row names what to open rather than scoring the mod.'
+        )
+    );
+    lines.push('');
+    lines.push(`| ${l10n.t('Check')} | ${l10n.t('Finding')} | ${l10n.t('Where')} |`);
+    lines.push('| --- | --- | --- |');
+    for (const row of rows) {
+        const mark = row.clear ? '✓' : '⚠';
+        const places = row.places.map((place) => placeLink(modRoot, place)).join('<br>');
+        lines.push(`| ${mark} ${tableCell(row.check)} | ${tableCell(row.finding)} | ${places} |`);
+    }
+    lines.push('');
+    return lines;
+};
 
 /** The display text of an action's first source: a reference's path, or the inline shape. */
 const sourceText = (action: Action): string => {
@@ -65,12 +100,15 @@ const targetStatus = async (action: Action, token: CancellationToken): Promise<b
  * @param manifestUri the mod.rules document uri the overview is requested for.
  * @param folderPaths the project folders, for the id index the part-unlock section reads.
  * @param token cancels target resolution and the reachability walk.
+ * @param scanned the findings the workspace scan already holds, which the health table reads back
+ *        rather than recomputing. Absent where nothing has scanned the mod yet.
  * @returns the markdown text, or undefined when the uri is not inside a mod.
  */
 export const generateModOverview = async (
     manifestUri: string,
     folderPaths: string[],
-    token: CancellationToken
+    token: CancellationToken,
+    scanned?: ScanFindings
 ): Promise<string | undefined> => {
     const manifestPath = uriToFsPath(manifestUri);
     const modRoot = findModRoot(manifestUri);
@@ -88,6 +126,9 @@ export const generateModOverview = async (
         if (value !== undefined) lines.push(`- **${field}**: ${value}`);
     }
     lines.push('');
+    // The health table summarizes sections computed further down, so its place is held here and
+    // filled once every count it reads is known.
+    const healthAt = lines.length;
 
     // ── Actions ────────────────────────────────────────────────────────────────
     lines.push(`## ${l10n.t('Actions')} (${actions.length})`);
@@ -251,8 +292,50 @@ export const generateModOverview = async (
         lines.push('');
     }
 
+    // ── Installed mods ─────────────────────────────────────────────────────────
+    const conflicts = await modConflicts(modRoot, token).catch(() => [] as ModConflict[]);
+    if (conflicts.length > 0) {
+        lines.push(`## ${l10n.t('Conflicts with installed mods')} (${conflicts.length})`);
+        lines.push('');
+        lines.push(
+            l10n.t(
+                'Another mod on this machine writes the same node. The game applies mods in id order and the last write stands, so with both switched on one of the two changes is not there. Overriding another mod on purpose is ordinary work: this section says which mods you are in, not that anything is wrong.'
+            )
+        );
+        lines.push('');
+        lines.push(`| ${l10n.t('Node')} | ${l10n.t('This mod')} | ${l10n.t('Other mod')} | ${l10n.t('Applied last')} |`);
+        lines.push('| --- | --- | --- | --- |');
+        for (const conflict of conflicts.slice(0, CONFLICT_LIMIT)) {
+            const where = placeLink(modRoot, { file: conflict.file, line: conflict.line });
+            lines.push(
+                `| ${tableCell(code(conflict.key))} | ${conflict.ownVerb}, ${where} | ${conflict.theirVerb}, ${tableCell(conflict.modName)} | ${
+                    conflict.ownsLastWord ? l10n.t('this mod') : tableCell(conflict.modName)
+                } |`
+            );
+        }
+        if (conflicts.length > CONFLICT_LIMIT) {
+            lines.push(`| _(+${conflicts.length - CONFLICT_LIMIT})_ | | | |`);
+        }
+        lines.push('');
+    }
+
+    if (reachability) {
+        const rows = await modHealthRows(
+            reachability,
+            { total: actions.length, broken },
+            folderPaths,
+            token,
+            scanned,
+            conflicts
+        ).catch(() => [] as HealthRow[]);
+        lines.splice(healthAt, 0, ...healthSection(modRoot, rows));
+    }
+
     return lines.join('\n');
 };
+
+/** How many collisions the report names before the rest are counted in a tail. */
+const CONFLICT_LIMIT = 20;
 
 /** How many ungated parts the report lists before the rest are counted in a tail. */
 const UNCOVERED_PART_LIMIT = 20;

@@ -27,6 +27,16 @@ export interface LocalizationText {
     text: string;
 }
 
+/** What one language declares under a folder, merged across the strings files that declare it. */
+export interface LanguageKeyCoverage {
+    /** The language label, from `__Name` or the file basename. */
+    readonly language: string;
+    /** Every key path that language declares. */
+    readonly keys: ReadonlySet<string>;
+    /** One strings file declaring the language, as the index's normalized source key. */
+    readonly source: string;
+}
+
 /** The keys one strings file declares, tagged with its language. */
 interface StringsFileKeys {
     language: string;
@@ -47,7 +57,7 @@ export const isStringsDocument = (document: AbstractNodeDocument): boolean =>
     namedMembersOf(document).some(([name]) => name === '__Name');
 
 /** The language label of a strings file: its `__Name` value, else its basename without extension. */
-const languageOf = (document: AbstractNodeDocument): string => {
+export const languageOf = (document: AbstractNodeDocument): string => {
     for (const [name, value] of namedMembersOf(document)) {
         if (name === '__Name' && isValueNode(value)) return String(value.valueType.value);
     }
@@ -55,7 +65,7 @@ const languageOf = (document: AbstractNodeDocument): string => {
 };
 
 /** One path a strings file declares, at the node that spells the path's last segment. */
-interface LocalizationKeyDeclaration {
+export interface LocalizationKeyDeclaration {
     /** The path the game looks a string up by (`Misc/Okay`). */
     path: string;
     /** The identifier spelling the last segment, absent when that segment is a list position. */
@@ -143,7 +153,8 @@ export function keyDeclarationsOf(document: AbstractNodeDocument): Generator<Loc
 }
 
 /** English-ish languages sort first in hover output so the most-read text leads. */
-const isEnglish = (language: string): boolean => /^en\b|english/i.test(language);
+/** Whether a language label names English, the language a mod's other languages are written from. */
+export const isEnglish = (language: string): boolean => /^en\b|english/i.test(language);
 
 /**
  * Project-wide index of localization keys, the data behind strings-key completion, existence
@@ -360,6 +371,64 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
             }
         }
         return sources;
+    }
+
+    /**
+     * What each language declares under one folder, for a reader comparing the languages a mod ships
+     * against each other. {@link allKeys} merges every language into one set, which answers whether a
+     * key exists anywhere and says nothing about the language that is missing it.
+     *
+     * @param rootPath the folder the strings files must sit under.
+     * @param folderPaths the project folders the strings index is built from.
+     * @param cancellationToken cancellation for the index build.
+     * @returns one entry per language found under the folder, the fullest key set first.
+     */
+    public async coverageUnder(
+        rootPath: string,
+        folderPaths: string[],
+        cancellationToken: CancellationToken
+    ): Promise<LanguageKeyCoverage[]> {
+        await this.ensureBuilt(folderPaths, cancellationToken);
+        const prefix = `${normalizeUri(rootPath).replace(/\/+$/, '')}/`;
+        const byLanguage = new Map<string, { keys: Set<string>; source: string }>();
+        for (const [source, file] of this.bySource) {
+            if (!source.startsWith(prefix)) continue;
+            const entry = byLanguage.get(file.language) ?? { keys: new Set<string>(), source };
+            for (const key of file.keys.keys()) entry.keys.add(key);
+            byLanguage.set(file.language, entry);
+        }
+        return [...byLanguage]
+            .map(([language, entry]) => ({ language, keys: entry.keys, source: entry.source }))
+            .sort((a, b) => b.keys.size - a.keys.size || a.language.localeCompare(b.language));
+    }
+
+    /**
+     * What each language declares under one folder, with the translated text of every key. The
+     * coverage view answers which keys a language is missing. Comparing the texts themselves, which
+     * is what a placeholder check does, needs the strings as well.
+     *
+     * A language can be split across several files, and a later file overrides an earlier one the
+     * way the game loads them, so the merged map holds the text the game renders.
+     *
+     * @param rootPath the folder the strings files must sit under.
+     * @param folderPaths the project folders the strings index is built from.
+     * @param cancellationToken cancellation for the index build.
+     * @returns one entry per language found under the folder, in index order.
+     */
+    public async languageTextsUnder(
+        rootPath: string,
+        folderPaths: string[],
+        cancellationToken: CancellationToken
+    ): Promise<Array<{ language: string; texts: ReadonlyMap<string, string> }>> {
+        await this.ensureBuilt(folderPaths, cancellationToken);
+        const prefix = `${normalizeUri(rootPath).replace(/\/+$/, '')}/`;
+        const byLanguage = new Map<string, Map<string, string>>();
+        for (const [source, file] of this.bySource) {
+            if (!source.startsWith(prefix)) continue;
+            const texts = byLanguage.get(file.language) ?? byLanguage.set(file.language, new Map()).get(file.language)!;
+            for (const [key, text] of file.keys) texts.set(key, text);
+        }
+        return [...byLanguage].map(([language, texts]) => ({ language, texts }));
     }
 
     /**

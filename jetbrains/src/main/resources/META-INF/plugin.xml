@@ -167,6 +167,14 @@
                  from there finds the mod that folder belongs to. -->
             <add-to-group group-id="NewGroup" anchor="last"/>
         </action>
+        <action id="cosmoteer.newMod"
+                class="cosmoteer.actions.NewModAction"
+                text="Cosmoteer: New Mod"
+                description="Create a mod folder with its manifest and language file"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="New Mod"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
         <action id="cosmoteer.extractSharedBaseFiles"
                 class="cosmoteer.actions.ExtractSharedBaseAction"
                 text="Cosmoteer: Extract Shared Base Files"
@@ -224,6 +232,22 @@
                 class="cosmoteer.actions.CloneDeclarationCommandAction"
                 text="Cosmoteer: Clone This Under A New ID"
                 description="Copy the declaration at the caret, and the files it needs, under an id of your own"
+                icon="/icons/rules.png"/>
+        <!-- Same arrangement as the entries above: the id is the command the server writes into its
+             "create the component this names" quick fix, and the server leaves that command unclaimed
+             so this runs here and can ask which kind of component. Not in a menu. -->
+        <action id="cosmoteer.createComponentFromAction"
+                class="cosmoteer.actions.CreateComponentCommandAction"
+                text="Cosmoteer: Create The Component This Names"
+                description="Declare the component the reference at the caret names, in the kind you pick"
+                icon="/icons/rules.png"/>
+        <!-- Same arrangement again: the id is the command the server writes into its "move this block
+             into its own file" refactoring, and the server leaves that command unclaimed so this runs
+             here and can ask what the file is called. Not in a menu. -->
+        <action id="cosmoteer.extractGroupToFileFromAction"
+                class="cosmoteer.actions.ExtractGroupCommandAction"
+                text="Cosmoteer: Move This Block Into Its Own File"
+                description="Move the block at the caret into a file of its own and leave a reference to it behind"
                 icon="/icons/rules.png"/>
         <action id="cosmoteer.buildModSchema"
                 class="cosmoteer.actions.BuildModSchemaAction"

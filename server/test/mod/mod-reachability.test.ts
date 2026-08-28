@@ -78,9 +78,16 @@ describe('computeModReachability', () => {
         // dead.rules includes dead (Kopie).rules, but is itself dead, so the chain stays dead.
         const chained = deadReferencers.get(reachabilityKey(join(MOD_DIR, 'orphan/dead (Kopie).rules')));
         expect(chained?.map((file) => relativeToMod(MOD_DIR, file))).toEqual(['orphan/dead.rules']);
-        // dead.rules and vanillaname.rules are referenced by nothing at all.
-        expect(deadReferencers.has(reachabilityKey(join(MOD_DIR, 'orphan/dead.rules')))).toBe(false);
+        // vanillaname.rules is referenced by nothing at all.
         expect(deadReferencers.has(reachabilityKey(join(MOD_DIR, 'vanillaname.rules')))).toBe(false);
+    });
+
+    it('annotates a file whose whole action the manifest has commented out', () => {
+        // A commented-out action is the most common way a mod ships content the game never loads,
+        // and the manifest is not walked with the rest of the files, so it is read for its own
+        // comments too. Without that the file reads as referenced by nothing at all.
+        const referencers = deadReferencers.get(reachabilityKey(join(MOD_DIR, 'orphan/dead.rules')));
+        expect(referencers?.map((file) => relativeToMod(MOD_DIR, file))).toEqual(['mod.rules']);
     });
 
     it('annotates a comment-disabled file with the reachable file holding the commented reference', () => {
@@ -180,7 +187,7 @@ describe('generateModOverview', () => {
     });
 
     it('annotates dead chains with their unreachable referencer', () => {
-        expect(markdown).toContain('3 of these are referenced by nothing at all. 2 are referenced only from');
+        expect(markdown).toContain('2 of these are referenced by nothing at all. 3 are referenced only from');
         // The chained file points back at its dead referencer, linked like every other file.
         expect(markdown).toMatch(/\[orphan\/dead \(Kopie\)\.rules\]\([^)]+\) ← \[orphan\/dead\.rules\]\(/);
         // A comment-disabled file points at the reachable file holding the commented reference.

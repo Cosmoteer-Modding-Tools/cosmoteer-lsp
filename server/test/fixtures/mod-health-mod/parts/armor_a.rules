@@ -1,0 +1,9 @@
+Part : <../base_part.rules>/Part
+{
+	ID = test.health.armor
+	Size = [1, 1]
+	MaxHealth = 4000
+	Density = 3
+	IsRotateable = false
+	CrewSpeedFactor = 0
+}

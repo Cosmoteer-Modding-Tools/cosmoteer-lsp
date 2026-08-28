@@ -11,6 +11,8 @@ using Mono.Cecil;
 //   SchemaGen.TypeMapping.cs C# type reference → schema value type
 //   SchemaGen.Optionality.cs defaults, nullability and custom-deserializer reads
 //   SchemaGen.DeadFields.cs whole-assembly read scan flagging declared-but-never-read members
+//   SchemaGen.ComponentSlots.cs the expected runtime kind of every component slot, and which kinds each component satisfies
+//   SchemaGen.SlotWalk.cs   the per-method dataflow the component-slot pass is built on
 //   SchemaGen.ValueForms.cs  scalar/value/scalar-string form detection from deserializer bodies
 //   SchemaGen.Fields.cs     the per-type field emission
 //   SchemaGen.Emit.cs       graph assembly, reachability prune, builtin-id sweep, output
@@ -22,6 +24,9 @@ internal sealed partial class SchemaGen
     const string DERIVED    = "Halfling.Serialization.SerialDerivedTypeAttribute";
     const string OTCTOR     = "Halfling.Serialization.ObjectText.ObjectTextConstructorAttribute";
     const string ROOT       = "Cosmoteer.Data.Rules";
+    // The reserved seed key a class's own `<summary>` sits under, alongside that class's field prose.
+    // It borrows the XML doc-ID prefix for a type, and no serialized field name can collide with it.
+    const string CLASSDOC   = "T:";
 
     readonly List<string> schemaDlls;
     readonly string outPath;
@@ -53,6 +58,7 @@ internal sealed partial class SchemaGen
     {
         LoadAssemblies();
         ScanMemberReads();
+        AnalyzeComponentSlots();
         LoadXmlDocs();
         SeedCuratedEnums();
         BuildRegistries();

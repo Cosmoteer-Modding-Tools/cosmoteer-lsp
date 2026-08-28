@@ -1,6 +1,7 @@
 import { Disposable, ExtensionContext, Position, Uri, ViewColumn, WebviewPanel, commands, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
-import { imageDataUri, webviewShell } from '../webview-util';
+import { imageDataUri, stringsScript, webviewShell } from '../webview-util';
+import { shaderPreviewStrings } from '../webview-strings';
 
 /** The preview payload shape returned by the server's `cosmoteer/shaderPreview` request. */
 interface ShaderPreviewData {
@@ -151,7 +152,7 @@ export class ShaderPreviewPanel {
             return;
         }
         this.previewedShaderPath = data.shaderUri ? Uri.parse(data.shaderUri).fsPath.toLowerCase() : undefined;
-        this.panel.title = `Shader Preview — ${data.shaderName}`;
+        this.panel.title = l10n.t('Shader Preview: {0}', data.shaderName);
         // Every bound texture is inlined as a data URI keyed by its sampler uniform, so noise and ramp
         // textures load in the webview the same way the base texture does.
         const textureData: Record<string, string | null> = {};
@@ -186,6 +187,7 @@ export class ShaderPreviewPanel {
 <div id="stage"><canvas id="gl" width="320" height="320"></canvas><div id="status"></div></div>
 <div id="meta"></div>
 <div id="controls"></div>
+${stringsScript(nonce, shaderPreviewStrings())}
 <script nonce="${nonce}" src="${asset('shader-preview.js')}"></script>
 </body>
 </html>`;

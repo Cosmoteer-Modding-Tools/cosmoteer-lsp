@@ -1,0 +1,7 @@
+__Name = "English"
+
+Parts
+{
+	Armor = "Armor"
+	Door = "Door"
+}

@@ -15,7 +15,14 @@ import type { ValueType } from '../../document/schema/schema.types';
 import { isModRules } from '../../document/document-kind';
 import { documentRootClass } from '../../document/schema/document-root';
 import { classOfGroup, listSlotType, registryForContainer, resolveGroupClass } from '../../document/schema/schema-context';
-import { fieldOf, registryOf, scalarReferenceTargetOf } from '../../document/schema/schema';
+import {
+    componentKindName,
+    componentSatisfiesKind,
+    fieldOf,
+    registryOf,
+    scalarPayloadFieldOf,
+    scalarReferenceTargetOf,
+} from '../../document/schema/schema';
 import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
 import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
 import { componentReferenceIdOf } from '../navigation/schema-reference.navigation';
@@ -345,7 +352,62 @@ export const validateSchemaSiblingReferences = async (
                 : l10n.t("No component named '{0}' in this part.", written),
             node: value,
             severity: 'warning',
-            ...didYouMeanFix(suggestion),
+            // Beside the rename, the other way out: the component the reference names may simply be
+            // one the part still has to declare, which is what the wire-first way of writing a part
+            // leaves behind.
+            data: { ...didYouMeanFix(suggestion).data, createComponent: { name: written } },
+        });
+    };
+
+    /**
+     * Reports a component of the wrong kind for the slot it is written in, which the engine decides
+     * rather than the schema: the id is resolved through a typed lookup, and a component of another
+     * kind either fails the part load or leaves the wiring doing nothing.
+     *
+     * Everything the answer cannot be certain about is left alone: a component whose declaration the
+     * walk did not reach, one whose class does not resolve, and one whose class the bundle records no
+     * capabilities for, which is every class that builds no physical component and every class a code
+     * mod brings.
+     *
+     * @param value the written value node.
+     * @param written the component id as written.
+     * @param slot the kind the field requires and what a wrong one costs.
+     */
+    const checkKind = (value: ValueNode, written: string, slot: { kind: number; enforcement: string }): void => {
+        const declaration = partComponentIds.declarations.get(written.toLowerCase());
+        if (!declaration || !isGroupNode(declaration)) return;
+        const declaredClass = resolveGroupClass(declaration);
+        if (!declaredClass) return;
+        if (componentSatisfiesKind(declaredClass, slot.kind) !== false) return;
+        const label = kindLabel(slot.kind);
+        if (!label) return;
+        // Only the components of this part that would fit are worth offering, which is also the
+        // cheapest possible answer to "then what should I write here".
+        const fitting: string[] = [];
+        for (const [id, name] of partComponentIds.components) {
+            const candidate = partComponentIds.declarations.get(id);
+            if (!candidate || !isGroupNode(candidate)) continue;
+            const candidateClass = resolveGroupClass(candidate);
+            if (candidateClass && componentSatisfiesKind(candidateClass, slot.kind) === true) fitting.push(name);
+        }
+        errors.push({
+            message:
+                slot.enforcement === 'throws'
+                    ? l10n.t(
+                          "'{0}' is not a {1}, so the game throws while building this part. This field reads the component as a {1}.",
+                          written,
+                          label
+                      )
+                    : l10n.t(
+                          "'{0}' is not a {1}, so this field does nothing. The game reads the component as a {1} and skips one that is not.",
+                          written,
+                          label
+                      ),
+            node: value,
+            severity: 'warning',
+            // With one component of the right kind in the part, that is the answer whatever it is
+            // called. With several, only a name close to the written one is worth offering.
+            ...didYouMeanFix(fitting.length === 1 ? fitting[0] : (closestMatch(written, fitting, true) ?? undefined)),
         });
     };
 
@@ -362,7 +424,11 @@ export const validateSchemaSiblingReferences = async (
             const written = String(value.valueType.value);
             if (!PLAIN_ID.test(written)) continue;
             if (RUNTIME_INJECTED_IDS.has(written.toLowerCase())) continue;
-            if (componentIds.has(written.toLowerCase())) continue;
+            const slot = expectedComponentOf(cls, fieldName);
+            if (componentIds.has(written.toLowerCase())) {
+                if (slot) checkKind(value, written, slot);
+                continue;
+            }
             flag(value, written);
         }
     };
@@ -394,6 +460,36 @@ export const validateSchemaSiblingReferences = async (
 
     for (const element of document.elements) visit(element);
     return errors;
+};
+
+/**
+ * The runtime kind a field's value has to be, whatever shape the field is written in: stated on the
+ * field itself, or on the member a scalar-form group reads the bare value into (`FireTrigger =
+ * Turret` fills `ComponentTriggerReferenceRules.ID`).
+ *
+ * @param cls the declaring class FullName.
+ * @param fieldName the field being written.
+ * @returns the slot expectation, or undefined for a field whose kind the schema does not state.
+ */
+const expectedComponentOf = (cls: string, fieldName: string): { kind: number; enforcement: string } | undefined => {
+    const field = fieldOf(cls, fieldName);
+    if (!field) return undefined;
+    if (field.expectedComponent) return field.expectedComponent;
+    return field.valueType.kind === 'group' ? scalarPayloadFieldOf(field.valueType.ref)?.expectedComponent : undefined;
+};
+
+/**
+ * The name a message calls a runtime kind, which is the engine's own interface without the `I` a C#
+ * reader expects and nobody writing `.rules` does.
+ *
+ * @param kind the kind index.
+ * @returns the short name, or undefined when the bundle knows no such kind.
+ */
+const kindLabel = (kind: number): string | undefined => {
+    const name = componentKindName(kind);
+    if (!name) return undefined;
+    const short = name.slice(name.lastIndexOf('.') + 1);
+    return /^I[A-Z]/.test(short) ? short.slice(1) : short;
 };
 
 /**
@@ -518,7 +614,7 @@ const BULLET_RULES_CLASS = 'Cosmoteer.Bullets.BulletRules';
  * @param document the document to classify.
  * @returns the owned component registry name, or undefined when the document owns no component set.
  */
-const ownerComponentRegistryOf = (document: AbstractNodeDocument): string | undefined => {
+export const ownerComponentRegistryOf = (document: AbstractNodeDocument): string | undefined => {
     if (document.elements.some((element) => isGroupNode(element) && element.identifier?.name === 'Part')) {
         return 'PartComponentRules';
     }

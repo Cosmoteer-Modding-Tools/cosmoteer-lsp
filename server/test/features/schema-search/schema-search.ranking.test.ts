@@ -7,13 +7,15 @@ import {
     searchSchema,
 } from '../../../src/features/schema-search/schema-search';
 import { schemaSearchEntries, schemaSearchEntryById } from '../../../src/features/schema-search/schema-search.index';
+import { registryOf, typeDef } from '../../../src/document/schema/schema';
 
 const hitsFor = (query: string): SchemaSearchHit[] => searchSchema({ query }).hits;
 const labelsFor = (query: string): string[] => hitsFor(query).map((hit) => hit.label);
 
-/** Every word a hit was allowed to match on, so a prose assertion can check the real text. */
+/** Every word a hit was allowed to match on, so a prose assertion can check the real text. The
+ *  prose is a field's description on a field hit and the class summary on a class or registry one. */
 const searchableText = (hit: SchemaSearchHit): string =>
-    `${hit.label} ${hit.owner} ${hit.detail} ${schemaSearchEntryById(hit.id)?.field?.description ?? ''}`.toLowerCase();
+    `${hit.label} ${hit.owner} ${hit.detail} ${schemaSearchEntryById(hit.id)?.prose ?? ''}`.toLowerCase();
 
 // The ranking is the whole feature: a modder types a half-remembered word and the field they meant
 // has to be near the top. These assertions pin the tiers that make that true against the shipped
@@ -155,10 +157,31 @@ describe('searchSchema ranking', () => {
         expect(page).toContain('`Delay`');
     });
 
+    it('opens a class page with the sentence saying what the class is', () => {
+        const EMITTER = 'Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules';
+        const summary = typeDef(EMITTER)?.description ?? '';
+        expect(summary).not.toBe('');
+        const page = schemaSearchDetail(`t:${EMITTER}`) ?? '';
+        // The whole point of the page: the answer to "what is a BulletEmitter?" comes before the
+        // listing, which only means something once the reader has it.
+        expect(page).toContain(summary);
+        expect(page.indexOf(summary)).toBeLessThan(page.indexOf('## '));
+        expect(page.indexOf(summary)).toBeLessThan(page.indexOf('Extends'));
+    });
+
     it('documents a registry with its subtypes', () => {
-        const page = schemaSearchDetail('r:Cosmoteer.Simulation.MediaEffects.MediaEffectRules') ?? '';
+        const MEDIA = 'Cosmoteer.Simulation.MediaEffects.MediaEffectRules';
+        const page = schemaSearchDetail(`r:${MEDIA}`) ?? '';
         expect(page).toContain('# MediaEffectRules');
         expect(page).toContain('- `Beam`');
+        // A registry slot carries its own summary, since a modder picking a `Type=` meets the slot
+        // before any of its members.
+        expect(page).toContain(registryOf(MEDIA)?.description ?? 'no summary');
+    });
+
+    it('offers the class summary as the prose excerpt on a type hit', () => {
+        const top = hitsFor('BulletEmitter').find((hit) => hit.kind === 'type');
+        expect(top?.prose).toBeTruthy();
     });
 
     it('documents an enum member with the whole enum it belongs to', () => {

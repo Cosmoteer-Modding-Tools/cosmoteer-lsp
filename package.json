@@ -4,7 +4,7 @@
     "description": "A complete language server for Cosmoteer rules",
     "author": "Cosmoteer Modding Tools",
     "license": "MIT",
-    "version": "0.8.0",
+    "version": "0.9.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
@@ -101,6 +101,11 @@
             {
                 "command": "cosmoteer.newContentFile",
                 "title": "Cosmoteer: New Content File",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.newMod.create",
+                "title": "Cosmoteer: New Mod",
                 "category": "Cosmoteer"
             }
         ],
@@ -226,292 +231,447 @@
                 }
             }
         ],
-        "configuration": {
-            "type": "object",
-            "title": "Cosmoteer Rules Configurations",
-            "properties": {
-                "cosmoteerLSPRules.maxNumberOfProblems": {
-                    "scope": "resource",
-                    "type": "number",
-                    "default": 100,
-                    "minimum": 1,
-                    "maximum": 100000,
-                    "description": "Controls the maximum number of problems produced by the server."
-                },
-                "cosmoteerLSPRules.trace.server": {
-                    "scope": "window",
-                    "type": "string",
-                    "enum": [
-                        "off",
-                        "messages",
-                        "verbose"
-                    ],
-                    "default": "off",
-                    "description": "Traces the communication between VS Code and the language server."
-                },
-                "cosmoteerLSPRules.cosmoteerPath": {
-                    "scope": "application",
-                    "type": "string",
-                    "default": "",
-                    "description": "The path to the Cosmoteer installation. If not set, the extension cannot validate .rules files correctly. Example: C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer"
-                },
-                "cosmoteerLSPRules.ignorePaths": {
-                    "scope": "application",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
+        "configuration": [
+            {
+                "type": "object",
+                "title": "General",
+                "order": 1,
+                "properties": {
+                    "cosmoteerLSPRules.maxNumberOfProblems": {
+                        "scope": "resource",
+                        "type": "number",
+                        "default": 100,
+                        "minimum": 1,
+                        "maximum": 100000,
+                        "description": "Controls the maximum number of problems produced by the server."
                     },
-                    "default": [],
-                    "description": "Reference paths to exclude from validation. A reference whose written path contains one of these strings is not checked. Example: [\"SW_\"]"
-                },
-                "cosmoteerLSPRules.diagnostics.validateWholeWorkspace": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Validate the whole mod, not just the files open in the editor, so the Problems panel describes the project rather than your tabs. Which files are covered is set by 'workspaceValidationScope'. Results are cached on disk per file, so only the first open of a project pays for the scan. Turn off on a low-memory machine: the pass holds every scanned file's AST while it runs."
-                },
-                "cosmoteerLSPRules.diagnostics.workspaceValidationScope": {
-                    "scope": "resource",
-                    "type": "string",
-                    "enum": [
-                        "allFiles",
-                        "modRulesReachable"
-                    ],
-                    "enumDescriptions": [
-                        "Validate every .rules file under the workspace folder(s).",
-                        "Validate only the files reachable from the mod.rules manifest: its action sources, their includes and inheritance, and the strings folder. Files open in the editor always validate."
-                    ],
-                    "default": "modRulesReachable",
-                    "description": "Which files the whole-workspace validation pass covers (only relevant when 'validateWholeWorkspace' is on). The default follows the mod.rules actions, so backups, templates and other content the game never loads stay out of the Problems panel. A workspace with no manifest is unrestricted either way."
-                },
-                "cosmoteerLSPRules.diagnostics.validateComponentReferences": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Flag a component ID reference (e.g. 'OperationalToggle = IsOperational') whose id names no component in the part, its inherited bases, or its include-valued components blocks. Runs only once the game install is indexed."
-                },
-                "cosmoteerLSPRules.diagnostics.validateCrossFileReferences": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Flag a cross-file ID reference (a GUI toggle/color/targeter/trigger id) whose id names no declaration of that kind in the project or the game data. Runs only once the game install is indexed."
-                },
-                "cosmoteerLSPRules.diagnostics.validateRequiredFields": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Flag a group that is missing a schema-required field. Fields supplied through the inheritance chain count as present."
-                },
-                "cosmoteerLSPRules.diagnostics.validateShaderConstants": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Flag an inline shader constant a material sets (e.g. '_hotColor = ...') that the referenced .shader declares no uniform for, or whose value does not match the uniform's type. Runs only when the shader file resolves on disk."
-                },
-                "cosmoteerLSPRules.diagnostics.validateShaderCode": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Run diagnostics on .shader files: an #include whose target does not exist, a '_'-prefixed uniform that no file in the include chain declares, and a call to a function that is neither an HLSL intrinsic nor defined in scope. The undeclared-symbol checks run only when the whole include chain is readable."
-                },
-                "cosmoteerLSPRules.diagnostics.validateLocalizationKeys": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Flag a localization key (e.g. 'NameKey = \"Parts/Foo\"') that no language strings file declares. Only literal key paths are checked and matching is case-insensitive, like the game. Runs only once the game install is indexed. Offers a 'did you mean' fix and an insert-into-your-strings-files fix."
-                },
-                "cosmoteerLSPRules.diagnostics.validateRedundantSeparators": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Hint at a ',' or ';' separator that a line break already makes redundant. The game ends every field or list element at a line break, so separators are only needed between entries on the same line. Shown as an editor hint, not in the Problems panel."
-                },
-                "cosmoteerLSPRules.diagnostics.validateIgnoredFields": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Hint at a field the game ignores: its group's schema class does not declare the field and no reference in the file reads it, so the value is never loaded. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
-                },
-                "cosmoteerLSPRules.diagnostics.validateUnclosedComments": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Warn about a block comment the game does not close. The game closes a block comment only when the run of '*' before the closing '/' is odd, so a banner such as '/****** Section ******/' swallows everything up to the next '*/' when the mod loads. Offers a fix that drops one '*'."
-                },
-                "cosmoteerLSPRules.diagnostics.validateDefaultValues": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Fade a field that restates the game's own default, so deleting it changes nothing. Only checked inside groups that do not inherit, since an explicitly written default can deliberately override a base's value. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
-                },
-                "cosmoteerLSPRules.diagnostics.validateUnusedConstants": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Fade a SCREAMING_CASE constant that nothing reads, and a chain of constants that only read each other without ever reaching a field. Only judged when no other file in the project spells the name. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
-                },
-                "cosmoteerLSPRules.diagnostics.validateDuplicateFields": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Hint at a group whose fields several other files of the same mod write word for word, which could live in one shared base file all of them inherit, the way the game's own data is written. The hint carries the extract-a-shared-base fix, so turning it off removes both. The 'Cosmoteer: Extract Shared Base Files' command keeps working either way. Costs one read of the mod's other files, kept until they change. Only files of the mod being edited are ever rewritten, never the game's own Data folder. Shown as an editor hint, not in the Problems panel."
-                },
-                "cosmoteerLSPRules.diagnostics.validateRedundantOverrides": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Fade a field whose value the group already inherits from its base, so writing it leaves the game exactly where deleting it would. Offers a remove quick fix. Only judged when the whole inheritance chain could be read and neither copy carries a reference that would mean something else from where it is written. Shown as an editor hint, not in the Problems panel."
-                },
-                "cosmoteerLSPRules.diagnostics.validateModManifest": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Check a mod.rules manifest against the metadata the game reads from it: a missing or malformed ID or Name, without which the mod never loads, a field name that is a near miss of a real one, and a declared StringsFolder, Logo or ship-library folder that is not on disk. Field names are matched ignoring case, the way the game binds them. A name the game does not know but that is nothing like a real field is left alone, since mods keep their own keys in the manifest for loaders that ship a .dll."
-                },
-                "cosmoteerLSPRules.diagnostics.validatePartGeometry": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Fade a part-grid value the part own size puts out of the game reach: a door location that is not a cell beside the part, and a blocked-travel cell or per-cell map key outside it, all of which the game never reads. A PhysicalRect that leaves the part is reported as an error instead, because the game throws while reading such a part and does not load the file. Only values written on a part that declares its own ID are judged, and Size is read through the inheritance chain. Shown as an editor hint, except the PhysicalRect error."
-                },
-                "cosmoteerLSPRules.diagnostics.validateDuplicateIds": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Flag an id two files of the same mod both register for one game collection, which the game resolves by keeping a single entry and dropping the rest, so half the content silently never appears. Only a declaration the mod actually wires in through a manifest action or a game-root alias counts, so an inheritance template carrying a leftover ID is left alone, as is a mod that ships alternative manifests. Built-in ships and techs are out of scope, because a name that could mean either collection cannot decide a collision."
-                },
-                "cosmoteerLSPRules.diagnostics.validateUndeclaredDependencies": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Report an id this project only resolves because another mod is installed on this machine, while the manifest does not list that mod under Dependencies. The editor consults installed mods before reporting an unknown id, so a mod that needs another one looks correct here and breaks for everybody who does not have it. One finding per file and per mod, with a fix that writes the dependency into the manifest."
-                },
-                "cosmoteerLSPRules.diagnostics.validateUnreceivableBuffs": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Report a buff modifier, buff clamp or buff toggle naming a buff its own part never receives, so the value it drives can never move. The game hands a part a buff only while that part is registered as a receiver of it, which happens once per entry of its ReceivableBuffs and never otherwise, so providing the buff from the same part does not help either. The set is folded through the whole inheritance chain, and nothing is judged when any hop of that chain cannot be read. Shown as an editor hint."
-                },
-                "cosmoteerLSPRules.diagnostics.validatePaths": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Report a path-shaped field whose file or folder is not on disk. This covers the values the asset check cannot reach, because that one recognises a path by its extension and these carry one only the game knows: a music track, a markov name file, and the folder fields a ship library or a roof texture set is read from. The path is resolved the way the game resolves it, against the folder of the file it is written in."
-                },
-                "cosmoteerLSPRules.diagnostics.validateSpriteGeometry": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Hint at a damage level whose art is stretched differently from the other levels of its own sprite list. The game draws every level into the quad its Size names, so a level whose art shape disagrees with its siblings squashes or reads rotated the moment the part takes that damage. Only levels whose file and size can both be read are compared, and the first readable level sets the stretch the rest are judged against. Shown as an editor hint, not in the Problems panel."
-                },
-                "cosmoteerLSPRules.diagnostics.validateRenderLayers": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Report a sprite naming a render layer the ship that draws it does not declare. Layers belong to a ship class rather than to one pool, and the game looks the layer up in that ship's own map the first time the part is drawn, throwing when it is not there. A misspelled layer and one borrowed from another ship class are both reported. Layers a mod adds to a ship, and parts a mod registers to one, are taken into account."
-                },
-                "cosmoteerLSPRules.allowEditingVanillaFiles": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Let refactorings read and rewrite the Cosmoteer game Data install. Rename reaches into it, and the shared-base extraction treats it as a project of its own, which it cannot do otherwise because the game tree carries no mod manifest: with this on, the game's own duplicated fields are hinted at and 'Cosmoteer: Extract Shared Base Files' will create base files inside the install and rewrite the files that inherit them. Only turn it on if you are working on the game data itself. Installed workshop mods stay off limits either way."
-                },
-                "cosmoteerLSPRules.codeMods.enabled": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Understand mods that ship a .dll: the types, fields and 'Type=' values the assembly declares are read out of it and merged into the schema, so a modded component completes, hovers and validates like a built-in one. Covers the open workspace, the installed workshop mods and your own Mods folder. Turn off to use the shipped schema only, at the price of every type such a mod adds being reported as unknown."
-                },
-                "cosmoteerLSPRules.codeMods.autoRefresh": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Pick up a code mod that is installed, updated or rebuilt while the editor is open, by watching the assemblies the schema was built from. Costs nothing while nothing changes; each change re-scans the mod folders. Turn off to only update on 'Cosmoteer: Rebuild Schema from Code Mod Assemblies'."
-                },
-                "cosmoteerLSPRules.inlayHints.showBaseValue": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Show the referenced group's BaseValue as an inline hint. A reference like 'Arc = &~/Part/Components/ArcShield/Arc' whose target group has a BaseValue member renders '/BaseValue = 160d' after the reference."
-                },
-                "cosmoteerLSPRules.diagnostics.validateUnusedParticleChannels": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Hint at a particle data channel a file computes that nothing in the effect reads, which is what a misspelled channel name leaves behind. The effect's shared body is folded in first, so a reader in the file the emitter pulls in still counts. Needs the Cosmoteer folder."
-                },
-                "cosmoteerLSPRules.inlayHints.showTargetValue": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Annotate a reference whose target is not a number with what it points at: the written value, a list's entries, a group's fields, or the name of the file it names. Cut short, since the hint sits inside the line."
-                },
-                "cosmoteerLSPRules.hover.showSubstitutions": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "List the references a computed hover value substituted, with the file and line each number was read from. A value like '(&A) / (&B)' shows what &A and &B stood for, and a reference whose target is itself computed nests one level under it."
-                },
-                "cosmoteerLSPRules.hover.showModifiers": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "List what a modifiable value's modifiers do to its base number: what drives each one, the mode it combines with, the clamp it puts on the result, and which part supplies the buff. A modifier driven by a runtime buff shows the interval it is clamped to rather than a number the file cannot prove."
-                },
-                "cosmoteerLSPRules.hover.showProvenance": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Say where a declaration stands in its group's inheritance chain: which value of the chain a member replaces and where that one is written, and for a group how many of its fields its bases supply."
-                },
-                "cosmoteerLSPRules.associateShaderFiles": {
-                    "scope": "window",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Open .shader files with the Cosmoteer Shader language (HLSL) even when another extension, such as the built-in Unity ShaderLab support, also claims the .shader extension. Only reassigns files opened as ShaderLab or plain text, never a language you chose yourself."
-                },
-                "cosmoteerLSPRules.decompiler.showInHover": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Power user: end schema hovers with an 'Open <Class> in decompiler' link that opens the owning C# class from the game's assemblies (Cosmoteer.dll / HalflingCore.dll) in your .NET decompiler. ILSpy and dotPeek installs are found automatically, so 'cosmoteerLSPRules.decompiler.executablePath' is only needed when that fails."
-                },
-                "cosmoteerLSPRules.decompiler.executablePath": {
-                    "scope": "machine-overridable",
-                    "type": "string",
-                    "default": "",
-                    "description": "Path to your .NET decompiler executable, e.g. 'C:\\Tools\\ILSpy\\ILSpy.exe'. Only needed when the automatic search (PATH, winget, Program Files, JetBrains Toolbox, /Applications) does not find your ILSpy or dotPeek install."
-                },
-                "cosmoteerLSPRules.decompiler.tool": {
-                    "scope": "machine-overridable",
-                    "type": "string",
-                    "enum": [
-                        "auto",
-                        "ilspy",
-                        "dotpeek"
-                    ],
-                    "default": "auto",
-                    "enumDescriptions": [
-                        "Infer from the executable's file name.",
-                        "ILSpy: launched as '<assembly> /navigateTo:T:<Class>'.",
-                        "dotPeek: launched as '/select=<assembly>!T:<Class>'."
-                    ],
-                    "description": "Which command-line style the 'Open in decompiler' link uses. 'auto' infers ILSpy or dotPeek from the executable's file name."
-                },
-                "cosmoteerLSPRules.formatting.enabled": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable document formatting (Format Document) for .rules and .shader files. Formatting changes whitespace only; if the result would not lex to the identical token stream, the file is left unchanged."
-                },
-                "cosmoteerLSPRules.formatting.formatOnSave": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Format .rules and .shader files before every save, independent of the editor's own 'editor.formatOnSave'. On-save formatting indents with tabs."
+                    "cosmoteerLSPRules.cosmoteerPath": {
+                        "scope": "application",
+                        "type": "string",
+                        "default": "",
+                        "description": "The path to the Cosmoteer installation. If not set, the extension cannot validate .rules files correctly. Example: C:/Program Files (x86)/Steam/steamapps/common/Cosmoteer"
+                    },
+                    "cosmoteerLSPRules.ignorePaths": {
+                        "scope": "application",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "default": [],
+                        "description": "Reference paths to exclude from validation. A reference whose written path contains one of these strings is not checked. Example: [\"SW_\"]"
+                    },
+                    "cosmoteerLSPRules.allowEditingVanillaFiles": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Let refactorings read and rewrite the Cosmoteer game Data install. Rename reaches into it, and the shared-base extraction treats it as a project of its own, which it cannot do otherwise because the game tree carries no mod manifest: with this on, the game's own duplicated fields are hinted at and 'Cosmoteer: Extract Shared Base Files' will create base files inside the install and rewrite the files that inherit them. Only turn it on if you are working on the game data itself. Installed workshop mods stay off limits either way."
+                    },
+                    "cosmoteerLSPRules.associateShaderFiles": {
+                        "scope": "window",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Open .shader files with the Cosmoteer Shader language (HLSL) even when another extension, such as the built-in Unity ShaderLab support, also claims the .shader extension. Only reassigns files opened as ShaderLab or plain text, never a language you chose yourself."
+                    }
+                }
+            },
+            {
+                "type": "object",
+                "title": "Diagnostics",
+                "order": 2,
+                "properties": {
+                    "cosmoteerLSPRules.diagnostics.validateWholeWorkspace": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Validate the whole mod, not just the files open in the editor, so the Problems panel describes the project rather than your tabs. Which files are covered is set by 'workspaceValidationScope'. Results are cached on disk per file, so only the first open of a project pays for the scan. Turn off on a low-memory machine: the pass holds every scanned file's AST while it runs."
+                    },
+                    "cosmoteerLSPRules.diagnostics.workspaceValidationScope": {
+                        "scope": "resource",
+                        "type": "string",
+                        "enum": [
+                            "allFiles",
+                            "modRulesReachable"
+                        ],
+                        "enumDescriptions": [
+                            "Validate every .rules file under the workspace folder(s).",
+                            "Validate only the files reachable from the mod.rules manifest: its action sources, their includes and inheritance, and the strings folder. Files open in the editor always validate."
+                        ],
+                        "default": "modRulesReachable",
+                        "description": "Which files the whole-workspace validation pass covers (only relevant when 'validateWholeWorkspace' is on). The default follows the mod.rules actions, so backups, templates and other content the game never loads stay out of the Problems panel. A workspace with no manifest is unrestricted either way."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateComponentReferences": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Flag a component ID reference (e.g. 'OperationalToggle = IsOperational') whose id names no component in the part, its inherited bases, or its include-valued components blocks. Runs only once the game install is indexed."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateCrossFileReferences": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Flag a cross-file ID reference (a GUI toggle/color/targeter/trigger id) whose id names no declaration of that kind in the project or the game data. Runs only once the game install is indexed."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateRequiredFields": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Flag a group that is missing a schema-required field. Fields supplied through the inheritance chain count as present."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateShaderConstants": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Flag an inline shader constant a material sets (e.g. '_hotColor = ...') that the referenced .shader declares no uniform for, or whose value does not match the uniform's type. Runs only when the shader file resolves on disk."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateShaderCode": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Run diagnostics on .shader files: an #include whose target does not exist, a '_'-prefixed uniform that no file in the include chain declares, and a call to a function that is neither an HLSL intrinsic nor defined in scope. The undeclared-symbol checks run only when the whole include chain is readable."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateLocalizationKeys": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Flag a localization key (e.g. 'NameKey = \"Parts/Foo\"') that no language strings file declares. Only literal key paths are checked and matching is case-insensitive, like the game. Runs only once the game install is indexed. Offers a 'did you mean' fix and an insert-into-your-strings-files fix."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateRedundantSeparators": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Hint at a ',' or ';' separator that a line break already makes redundant. The game ends every field or list element at a line break, so separators are only needed between entries on the same line. Shown as an editor hint, not in the Problems panel."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateIgnoredFields": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Hint at a field the game ignores: its group's schema class does not declare the field and no reference in the file reads it, so the value is never loaded. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateUnclosedComments": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Warn about a block comment the game does not close. The game closes a block comment only when the run of '*' before the closing '/' is odd, so a banner such as '/****** Section ******/' swallows everything up to the next '*/' when the mod loads. Offers a fix that drops one '*'."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateDefaultValues": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Fade a field that restates the game's own default, so deleting it changes nothing. Only checked inside groups that do not inherit, since an explicitly written default can deliberately override a base's value. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateUnusedConstants": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Fade a SCREAMING_CASE constant that nothing reads, and a chain of constants that only read each other without ever reaching a field. Only judged when no other file in the project spells the name. Offers a remove quick fix. Shown as an editor hint, not in the Problems panel."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateDuplicateFields": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Hint at a group whose fields several other files of the same mod write word for word, which could live in one shared base file all of them inherit, the way the game's own data is written. The hint carries the extract-a-shared-base fix, so turning it off removes both. The 'Cosmoteer: Extract Shared Base Files' command keeps working either way. Costs one read of the mod's other files, kept until they change. Only files of the mod being edited are ever rewritten, never the game's own Data folder. Shown as an editor hint, not in the Problems panel."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateRedundantOverrides": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Fade a field whose value the group already inherits from its base, so writing it leaves the game exactly where deleting it would. Offers a remove quick fix. Only judged when the whole inheritance chain could be read and neither copy carries a reference that would mean something else from where it is written. Shown as an editor hint, not in the Problems panel."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateModManifest": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Check a mod.rules manifest against the metadata the game reads from it: a missing or malformed ID or Name, without which the mod never loads, a field name that is a near miss of a real one, and a declared StringsFolder, Logo or ship-library folder that is not on disk. Field names are matched ignoring case, the way the game binds them. A name the game does not know but that is nothing like a real field is left alone, since mods keep their own keys in the manifest for loaders that ship a .dll."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validatePartGeometry": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Fade a part-grid value the part own size puts out of the game reach: a door location that is not a cell beside the part, and a blocked-travel cell or per-cell map key outside it, all of which the game never reads. Two are reported as errors instead: a PhysicalRect that leaves the part, which the game throws on while reading the part, and a door presence toggle whose cell is inside the part, which the game throws on when the part is created. Only values written on a part that declares its own ID are judged, and Size is read through the inheritance chain. Shown as an editor hint, except the two errors."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateDuplicateIds": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Flag an id two files of the same mod both register for one game collection, which the game resolves by keeping a single entry and dropping the rest, so half the content silently never appears. Only a declaration the mod actually wires in through a manifest action or a game-root alias counts, so an inheritance template carrying a leftover ID is left alone, as is a mod that ships alternative manifests. Built-in ships and techs are out of scope, because a name that could mean either collection cannot decide a collision."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateUndeclaredDependencies": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report an id this project only resolves because another mod is installed on this machine, while the manifest does not list that mod under Dependencies. The editor consults installed mods before reporting an unknown id, so a mod that needs another one looks correct here and breaks for everybody who does not have it. One finding per file and per mod, with a fix that writes the dependency into the manifest."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateUnreceivableBuffs": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a buff modifier, buff clamp or buff toggle naming a buff its own part never receives, so the value it drives can never move. The game hands a part a buff only while that part is registered as a receiver of it, which happens once per entry of its ReceivableBuffs and never otherwise, so providing the buff from the same part does not help either. The set is folded through the whole inheritance chain, and nothing is judged when any hop of that chain cannot be read. Shown as an editor hint."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validatePaths": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a path-shaped field whose file or folder is not on disk. This covers the values the asset check cannot reach, because that one recognises a path by its extension and these carry one only the game knows: a music track, a markov name file, and the folder fields a ship library or a roof texture set is read from. The path is resolved the way the game resolves it, against the folder of the file it is written in."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateSpriteGeometry": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Hint at a damage level whose art is stretched differently from the other levels of its own sprite list. The game draws every level into the quad its Size names, so a level whose art shape disagrees with its siblings squashes or reads rotated the moment the part takes that damage. Only levels whose file and size can both be read are compared, and the first readable level sets the stretch the rest are judged against. Shown as an editor hint, not in the Problems panel."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateRenderLayers": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a sprite naming a render layer the ship that draws it does not declare. Layers belong to a ship class rather than to one pool, and the game looks the layer up in that ship's own map the first time the part is drawn, throwing when it is not there. A misspelled layer and one borrowed from another ship class are both reported. Layers a mod adds to a ship, and parts a mod registers to one, are taken into account."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateUnusedParticleChannels": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Hint at a particle data channel a file computes that nothing in the effect reads, which is what a misspelled channel name leaves behind. The effect's shared body is folded in first, so a reader in the file the emitter pulls in still counts. Needs the Cosmoteer folder."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateModConflicts": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a manifest action of this mod that aims at a node an installed mod already replaces, removes or writes. The game applies mods in id order and the last writer of a node is the one that stands, so with both enabled one of the two changes is simply not there."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateInertFields": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Fade a field a sibling switches off, so it reads as the dead weight it is rather than as a setting that does something. Read from the branches the game reads these fields in, and carries a remove fix."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateLocalizationCoverage": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Compare the language strings files of the mod against each other: a language that declares fewer keys than the languages beside it, and a translation that drops or invents one of the placeholder slots the English text carries. Only the mod's own files are compared."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateMarkerVocabulary": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Hint at a usage-defined name (a part category, a part feature, a ship tag) written once in the project that is one typing slip from a name several files write. Such a name exists because a file writes it, so a misspelled one declares a name of its own instead of naming the one meant. Needs the Cosmoteer folder."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateIndicatorIndexes": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Check an indicator sprite component's HidesIndicators against the list it is written in. An index naming its own indicator makes the game refuse to load the file, and an index past the end of the list fails the load with an index error the game cannot name. Both come from adding or removing an indicator at the head of the list without shifting the numbers underneath."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateBlendSpriteCodes": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Check a blend sprite situation code against what the engine can expand. A character other than 0, 1 or * makes the game throw the first time that sprite is drawn, and a code in an eight-neighbour list that is not eight characters long stops its sprites being generated."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateRefusedEnumValues": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Check an enum value against the class that reads it rather than against its enum alone. A fixed weapon reads only ShipParts as its auto-target type and the game refuses to load anything else, a bullet target search handles four of the seven, and a beam refuses the frame of reference a bullet takes."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateMishandledFields": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a field the game reads and then acts on wrongly. An ExcludeID on a part criteria is added to the list of parts it matches rather than the one it excludes, so it becomes the only part accepted. A toggled blend sprite component takes AllowUndefinedBlendSprites and never reads it. An exponential drag solver with an exponent of 1 collapses its own formula."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateChainedToCycles": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a part component chain that comes back to a component it has already been through. A chainable component takes its position from the component it is chained to and nothing guards against a loop, so a closed chain takes the process down the moment the part is created, with no dialog and nothing in the log."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateTextMarkup": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Check the markup of a mod language file's strings. The game hands every string it draws to a markup reader and answers a failure by drawing the string again with its tags visible as plain text, without logging anything, so an unclosed tag or a bare & turns a whole description into markup on screen."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateValueRanges": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a range written the wrong way round where the class reading it cares. The whole-number roll refuses a high end below its low one and throws where it draws the number, and a compared window the wrong way round is one nothing can ever fall into. Ranges read as interpolation bounds count down on purpose and are never judged."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateChainedBuffReceivable": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a buff provider whose ChainsFromBuffType names a buff absent from its own part ReceivableBuffs. The game checks this while reading the part and throws outright, so the whole data tree fails to load and the game does not start. Kept separate from the buff hints, which are lint-level."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateBulletComponents": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Check a bullet component set against the order the game builds it in. A second physics component throws as it is set, no physics component at all throws once the rest are built, and a hit or a targetable written above the physics component reads a physics body that does not exist yet and throws on the first shot. Member order means nothing anywhere else in the format, which is what makes the last one hard to see."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateUnderlyingParts": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a part naming itself as the part it leaves behind when it is destroyed. Working out what a part costs beyond its replacement, and what it drops, both walk that chain with no guard against a loop, so a part naming itself takes the process down on a ship update or when a deconstruct is queued."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateEffectBuckets": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Check the media-effect bucket registry against what the engine reads out of it: a bucket name declared twice, which the game refuses to load, a bucket list longer than the band the engine gives it, and a registry with no 'default_bullet' bucket for bullet sprites to fall back to."
+                    }
+                }
+            },
+            {
+                "type": "object",
+                "title": "Hover",
+                "order": 3,
+                "properties": {
+                    "cosmoteerLSPRules.hover.showSubstitutions": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "List the references a computed hover value substituted, with the file and line each number was read from. A value like '(&A) / (&B)' shows what &A and &B stood for, and a reference whose target is itself computed nests one level under it."
+                    },
+                    "cosmoteerLSPRules.hover.showModifiers": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "List what a modifiable value's modifiers do to its base number: what drives each one, the mode it combines with, the clamp it puts on the result, and which part supplies the buff. A modifier driven by a runtime buff shows the interval it is clamped to rather than a number the file cannot prove."
+                    },
+                    "cosmoteerLSPRules.hover.showProvenance": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Say where a declaration stands in its group's inheritance chain: which value of the chain a member replaces and where that one is written, and for a group how many of its fields its bases supply."
+                    }
+                }
+            },
+            {
+                "type": "object",
+                "title": "Inlay Hints",
+                "order": 4,
+                "properties": {
+                    "cosmoteerLSPRules.inlayHints.showBaseValue": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Show the referenced group's BaseValue as an inline hint. A reference like 'Arc = &~/Part/Components/ArcShield/Arc' whose target group has a BaseValue member renders '/BaseValue = 160d' after the reference."
+                    },
+                    "cosmoteerLSPRules.inlayHints.showTargetValue": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Annotate a reference whose target is not a number with what it points at: the written value, a list's entries, a group's fields, or the name of the file it names. Cut short, since the hint sits inside the line."
+                    }
+                }
+            },
+            {
+                "type": "object",
+                "title": "Code Lens",
+                "order": 5,
+                "properties": {
+                    "cosmoteerLSPRules.codeLens.showFileReachability": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Show a lens on the first line of a mod file saying whether the mod loads it. The game loads the closure of its manifest actions and their includes, and a file outside that closure is content the game never sees."
+                    }
+                }
+            },
+            {
+                "type": "object",
+                "title": "Formatting",
+                "order": 6,
+                "properties": {
+                    "cosmoteerLSPRules.formatting.enabled": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Enable document formatting (Format Document) for .rules and .shader files. Formatting changes whitespace only; if the result would not lex to the identical token stream, the file is left unchanged."
+                    },
+                    "cosmoteerLSPRules.formatting.formatOnSave": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Format .rules and .shader files before every save, independent of the editor's own 'editor.formatOnSave'. On-save formatting indents with tabs."
+                    }
+                }
+            },
+            {
+                "type": "object",
+                "title": "Code Mods",
+                "order": 7,
+                "properties": {
+                    "cosmoteerLSPRules.codeMods.enabled": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Understand mods that ship a .dll: the types, fields and 'Type=' values the assembly declares are read out of it and merged into the schema, so a modded component completes, hovers and validates like a built-in one. Covers the open workspace, the installed workshop mods and your own Mods folder. Turn off to use the shipped schema only, at the price of every type such a mod adds being reported as unknown."
+                    },
+                    "cosmoteerLSPRules.codeMods.autoRefresh": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Pick up a code mod that is installed, updated or rebuilt while the editor is open, by watching the assemblies the schema was built from. Costs nothing while nothing changes; each change re-scans the mod folders. Turn off to only update on 'Cosmoteer: Rebuild Schema from Code Mod Assemblies'."
+                    }
+                }
+            },
+            {
+                "type": "object",
+                "title": "Decompiler",
+                "order": 8,
+                "properties": {
+                    "cosmoteerLSPRules.decompiler.showInHover": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Power user: end schema hovers with an 'Open <Class> in decompiler' link that opens the owning C# class from the game's assemblies (Cosmoteer.dll / HalflingCore.dll) in your .NET decompiler. ILSpy and dotPeek installs are found automatically, so 'cosmoteerLSPRules.decompiler.executablePath' is only needed when that fails."
+                    },
+                    "cosmoteerLSPRules.decompiler.executablePath": {
+                        "scope": "machine-overridable",
+                        "type": "string",
+                        "default": "",
+                        "description": "Path to your .NET decompiler executable, e.g. 'C:\\Tools\\ILSpy\\ILSpy.exe'. Only needed when the automatic search (PATH, winget, Program Files, JetBrains Toolbox, /Applications) does not find your ILSpy or dotPeek install."
+                    },
+                    "cosmoteerLSPRules.decompiler.tool": {
+                        "scope": "machine-overridable",
+                        "type": "string",
+                        "enum": [
+                            "auto",
+                            "ilspy",
+                            "dotpeek"
+                        ],
+                        "default": "auto",
+                        "enumDescriptions": [
+                            "Infer from the executable's file name.",
+                            "ILSpy: launched as '<assembly> /navigateTo:T:<Class>'.",
+                            "dotPeek: launched as '/select=<assembly>!T:<Class>'."
+                        ],
+                        "description": "Which command-line style the 'Open in decompiler' link uses. 'auto' infers ILSpy or dotPeek from the executable's file name."
+                    }
+                }
+            },
+            {
+                "type": "object",
+                "title": "Advanced",
+                "order": 9,
+                "properties": {
+                    "cosmoteerLSPRules.trace.server": {
+                        "scope": "window",
+                        "type": "string",
+                        "enum": [
+                            "off",
+                            "messages",
+                            "verbose"
+                        ],
+                        "default": "off",
+                        "description": "Traces the communication between VS Code and the language server."
+                    }
                 }
             }
-        }
+        ]
     },
     "scripts": {
         "vscode:prepublish": "npm run package",
@@ -532,6 +692,7 @@
         "test:server": "cd server && npm test",
         "check-types": "tsc -b --noEmit",
         "check-types:test": "cd server && tsc -p test/tsconfig.json",
+        "fieldstats": "cd server && npx vite-node ../tools/fieldstats/fieldstats.ts",
         "docs:scaffold": "node tools/docsgen/docsgen.mjs scaffold",
         "docs:compile": "node tools/docsgen/docsgen.mjs compile",
         "docs:lint": "node tools/docsgen/docsgen.mjs lint",

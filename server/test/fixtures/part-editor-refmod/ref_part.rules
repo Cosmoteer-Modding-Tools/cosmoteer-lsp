@@ -1,0 +1,23 @@
+LOCAL_SIZE = [1, 2]
+Part
+{
+	ID = ref_part
+	Size = &<./constants.rules>/SIZE
+	PhysicalRect = [0, 0, &<./constants.rules>/SIZE/0, &<./constants.rules>/SIZE/1]
+	SaveRect = &<./constants.rules>/SIZE_RECT
+	Components
+	{
+		port
+		{
+			Type = ResourceNetworkPort
+			Location = &<./constants.rules>/PORT_CELL
+			Direction = Top
+		}
+		far
+		{
+			Type = ResourceNetworkPort
+			Location = &<./../part-editor/base_part.rules>/SIZE
+			Direction = Top
+		}
+	}
+}

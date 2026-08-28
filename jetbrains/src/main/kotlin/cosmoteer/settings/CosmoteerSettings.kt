@@ -51,8 +51,24 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateSpriteGeometry: Boolean = true
         var validateRenderLayers: Boolean = true
         var validateUnusedParticleChannels: Boolean = true
+        var validateModConflicts: Boolean = true
+        var validateInertFields: Boolean = true
+        var validateLocalizationCoverage: Boolean = true
+        var validateMarkerVocabulary: Boolean = true
+        var validateEffectBuckets: Boolean = true
+        var validateUnderlyingParts: Boolean = true
+        var validateBulletComponents: Boolean = true
+        var validateChainedBuffReceivable: Boolean = true
+        var validateValueRanges: Boolean = true
+        var validateTextMarkup: Boolean = true
+        var validateChainedToCycles: Boolean = true
+        var validateMishandledFields: Boolean = true
+        var validateRefusedEnumValues: Boolean = true
+        var validateBlendSpriteCodes: Boolean = true
+        var validateIndicatorIndexes: Boolean = true
         var codeModsEnabled: Boolean = true
         var codeModsAutoRefresh: Boolean = true
+        var codeLensShowFileReachability: Boolean = true
         var inlayShowBaseValue: Boolean = true
         var inlayShowTargetValue: Boolean = true
         var hoverShowSubstitutions: Boolean = true
@@ -122,10 +138,28 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateSpriteGeometry" to state.validateSpriteGeometry,
             "validateRenderLayers" to state.validateRenderLayers,
             "validateUnusedParticleChannels" to state.validateUnusedParticleChannels,
+            "validateModConflicts" to state.validateModConflicts,
+            "validateInertFields" to state.validateInertFields,
+            "validateLocalizationCoverage" to state.validateLocalizationCoverage,
+            "validateMarkerVocabulary" to state.validateMarkerVocabulary,
+            "validateEffectBuckets" to state.validateEffectBuckets,
+            "validateUnderlyingParts" to state.validateUnderlyingParts,
+            "validateBulletComponents" to state.validateBulletComponents,
+            "validateChainedBuffReceivable" to state.validateChainedBuffReceivable,
+            "validateValueRanges" to state.validateValueRanges,
+            "validateTextMarkup" to state.validateTextMarkup,
+            "validateChainedToCycles" to state.validateChainedToCycles,
+            "validateMishandledFields" to state.validateMishandledFields,
+            "validateRefusedEnumValues" to state.validateRefusedEnumValues,
+            "validateBlendSpriteCodes" to state.validateBlendSpriteCodes,
+            "validateIndicatorIndexes" to state.validateIndicatorIndexes,
         ),
         "codeMods" to mapOf(
             "enabled" to state.codeModsEnabled,
             "autoRefresh" to state.codeModsAutoRefresh,
+        ),
+        "codeLens" to mapOf(
+            "showFileReachability" to state.codeLensShowFileReachability,
         ),
         "inlayHints" to mapOf(
             "showBaseValue" to state.inlayShowBaseValue,

@@ -302,6 +302,25 @@
         return Math.max(dx, dy);
     }
 
+    // What a browser will hand out for one canvas backing store. Asking for more yields a canvas
+    // that draws nothing at all, which is what a dead zoom button on a large part really is.
+    const MAX_CANVAS_DIMENSION = 8192;
+    const MAX_CANVAS_AREA = 1 << 25;
+
+    /**
+     * The device pixel ratio to back the canvas with, lowered until the backing store fits the
+     * browser's allocation limits. A large grid at a high zoom then renders slightly soft instead
+     * of not at all.
+     * @param size the canvas size in CSS pixels.
+     * @param dpr the display's own pixel ratio.
+     * @returns the ratio to multiply the CSS size by, never above `dpr`.
+     */
+    function backingRatio(size, dpr) {
+        const byDimension = MAX_CANVAS_DIMENSION / Math.max(size.width, size.height);
+        const byArea = Math.sqrt(MAX_CANVAS_AREA / (size.width * size.height));
+        return Math.min(dpr, byDimension, byArea);
+    }
+
     if (typeof module !== 'undefined' && typeof acquireVsCodeApi === 'undefined') {
         module.exports = {
             rotateQuarter,
@@ -315,6 +334,7 @@
             inverseOf,
             doorEdgeFor,
             edgeRegionDistanceAt,
+            backingRatio,
         };
         return;
     }
@@ -324,6 +344,29 @@
     // ---------------------------------------------------------------------------------------------
 
     const vscode = acquireVsCodeApi();
+
+    // The host inlines the localized text into the page ahead of this script. A page whose host
+    // inlines none finds no bundle and falls back to the key, which is the English source.
+    const STRINGS = (typeof window !== 'undefined' && window.cosmoteerStrings) || {};
+
+    /**
+     * Looks a user-visible string up by its English source and fills in its numbered placeholders.
+     *
+     * @param message the English source, which is also the bundle key.
+     * @param args the values for the `{0}`-style placeholders, in order.
+     * @returns the localized text with its placeholders filled in.
+     */
+    function t(message, ...args) {
+        const template = STRINGS[message] || message;
+        if (!args.length) return template;
+        return template.replace(/\{(\d+)\}/g, (match, index) => (args[index] === undefined ? match : String(args[index])));
+    }
+
+    // The zoom range the buttons step through, in canvas pixels per cell.
+    const MIN_SCALE = 24;
+    const DEFAULT_SCALE = 96;
+    const MAX_SCALE = 384;
+
     const canvas = document.getElementById('grid');
     const ctx = canvas.getContext('2d');
     const statusEl = document.getElementById('status');
@@ -332,7 +375,7 @@
     const state = {
         data: null,
         images: new Map(),
-        view: { rotation: 0, flipH: false, flipV: false, scale: 96 },
+        view: { rotation: 0, flipH: false, flipV: false, scale: DEFAULT_SCALE },
         activeLayerId: null,
         visibleLayers: new Set(),
         visibleSprites: new Set(),
@@ -523,6 +566,28 @@
         };
     }
 
+    /**
+     * The zoom that puts the whole stage inside the panel. A part several times the default 96px
+     * cell would otherwise open scrolled into its own top-left corner, which is not where anyone
+     * wants to start. Never zooms past the default, a one-cell part stays readable rather than
+     * filling the panel.
+     * @returns the scale, within the zoom range the buttons use.
+     */
+    function fitScale() {
+        const stage = document.getElementById('stage');
+        const extent = gridExtent();
+        const swapped = state.view.rotation === 90 || state.view.rotation === 270;
+        const width = swapped ? extent.height : extent.width;
+        const height = swapped ? extent.width : extent.height;
+        const available = {
+            width: (stage ? stage.clientWidth : 0) - 24,
+            height: (stage ? stage.clientHeight : 0) - 64,
+        };
+        if (available.width <= 0 || available.height <= 0) return DEFAULT_SCALE;
+        const scale = Math.min(available.width / width, available.height / height);
+        return Math.max(MIN_SCALE, Math.min(DEFAULT_SCALE, scale));
+    }
+
     /** Converts a mouse event to grid coordinates through the inverse view transform. */
     function eventToGrid(event) {
         const bounds = canvas.getBoundingClientRect();
@@ -586,8 +651,8 @@
 
     function draw() {
         if (!state.data) return;
-        const dpr = window.devicePixelRatio || 1;
         const size = canvasSize();
+        const dpr = backingRatio(size, window.devicePixelRatio || 1);
         canvas.width = size.width * dpr;
         canvas.height = size.height * dpr;
         canvas.style.width = `${size.width}px`;
@@ -867,11 +932,22 @@
     function drawRect(layer, color, active, ghost) {
         const modifier = setGhost(ghost);
         const rect = state.rectDrag && state.rectDrag.layerId === layer.id ? state.rectDrag.rect : layer.rect;
+        // A rect covering most of the part is a thin outline lost among the sprites, so the active
+        // one is washed with its own color. The wash is the whole reason it reads at any zoom.
+        if (active) {
+            ctx.globalAlpha = 0.12 * modifier;
+            ctx.fillStyle = color;
+            ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+        }
+        // A computed rect draws dashed: its value lives in a reference, and dragging it writes the
+        // number where that reference points rather than over the reference itself.
+        if (layer.isRef) ctx.setLineDash([0.4, 0.2]);
         ctx.globalAlpha = 0.9 * modifier;
         ctx.strokeStyle = color;
         ctx.lineWidth = (active ? 3 : 2) / state.view.scale;
         ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
         if (active) {
+            ctx.setLineDash([]);
             ctx.fillStyle = color;
             for (const [hx, hy] of rectHandles(rect)) {
                 ctx.fillRect(hx - 0.08, hy - 0.08, 0.16, 0.16);
@@ -1005,7 +1081,8 @@
             for (const { point, isRef } of layer.vertices) {
                 ctx.beginPath();
                 ctx.arc(point.x, point.y, 5 / state.view.scale, 0, Math.PI * 2);
-                // Reference-valued vertices render hollow: visible, but not draggable.
+                // A reference-valued vertex renders hollow: it drags like the rest, but the number
+                // it writes lands in the declaration it names rather than here.
                 if (isRef) ctx.stroke();
                 else ctx.fill();
             }
@@ -1132,7 +1209,7 @@
             // Stacked labels, one line per component, so co-located names never overlap. A large
             // stack collapses to a count, the sidebar list has the full names.
             if (stack.length > 3 && !selectedEntry) {
-                drawLabel(`${stack.length} components (click to cycle)`, anchor.x, anchor.y + 0.12);
+                drawLabel(t('{0} components (click to cycle)', stack.length), anchor.x, anchor.y + 0.12);
                 continue;
             }
             const shown = stack.length > 3 ? [selectedEntry] : stack;
@@ -1252,6 +1329,11 @@
         if (!state.data) return;
         const layer = activeLayer();
         if (!layer) return;
+        // Editing a layer that is switched off would move geometry nobody can see.
+        if (!state.visibleLayers.has(layer.id)) {
+            setStatus(t('{0} is hidden. Tick its checkbox to edit it.', layer.label));
+            return;
+        }
         const point = eventToGrid(event);
         const cell = { x: Math.floor(point.x), y: Math.floor(point.y) };
         if (layer.kind === 'point') {
@@ -1290,10 +1372,6 @@
                 return;
             }
             if (vertexIndex >= 0) {
-                if (layer.vertices[vertexIndex].isRef) {
-                    setStatus('This vertex is a reference or expression, edit it in the text.');
-                    return;
-                }
                 state.dragging = { type: 'vertex', layerId: layer.id, index: vertexIndex, point };
                 return;
             }
@@ -1314,7 +1392,7 @@
                 return;
             }
             if (!layer.centerEditable) {
-                setStatus('The center follows the component. Move it in the Component locations layer.');
+                setStatus(t('The center follows the component. Move it in the Component locations layer.'));
                 return;
             }
             if (layer.center && Math.hypot(center.x - point.x, center.y - point.y) <= 10 / state.view.scale) {
@@ -1373,9 +1451,7 @@
             }
             state.selectedComponent = entry.component;
             renderSidebar();
-            if (!entry.locationIsRef) {
-                state.dragging = { type: 'component', layerId: layer.id, entry, point: entry.location };
-            }
+            state.dragging = { type: 'component', layerId: layer.id, entry, point: entry.location };
             draw();
         } else if (layer.kind === 'pointList') {
             const index = pointIndexAt(layer, point);
@@ -1436,7 +1512,7 @@
             }
             if (!state.pendingExternal) {
                 state.pendingExternal = cell;
-                setStatus('Virtual cell: now click the internal cell (right-click cancels)');
+                setStatus(t('Virtual cell: now click the internal cell (right-click cancels)'));
             } else {
                 sendMutation({
                     op: 'setPair',
@@ -1631,7 +1707,7 @@
         if (state.pendingExternal || state.dragging || state.rectDrag) return;
         const cell = `${Math.floor(point.x)}, ${Math.floor(point.y)}`;
         const exact = `${point.x.toFixed(2)}, ${point.y.toFixed(2)}`;
-        setStatus(`cell [${cell}]  ·  [${exact}]`);
+        setStatus(t('cell [{0}]  ·  [{1}]', cell, exact));
     }
 
     // ------------------------------------------------------------------ sidebar
@@ -1670,7 +1746,7 @@
         const contiguity = state.data.contiguity || { values: null, enumNames: [] };
         const current = new Set(expandAdjacency(contiguity.values || ['Sides']));
         section.appendChild(
-            element('div', 'hint', contiguity.values ? 'Toggling writes the field.' : 'Unset, the game defaults to Sides.')
+            element('div', 'hint', contiguity.values ? t('Toggling writes the field.') : t('Unset, the game defaults to Sides.'))
         );
         const grid = element('div', 'toggles');
         const names = (contiguity.enumNames || []).filter((name) => !['None', 'All', 'Sides', 'Corners'].includes(name));
@@ -1688,11 +1764,11 @@
         const row = element('div', 'row');
         for (const name of ['Sides', 'Corners', 'All']) {
             row.appendChild(
-                button(name, `Set ${name}`, () => sendMutation({ op: 'setFlags', field: 'AllowedContiguity', values: [name] }))
+                button(name, t('Set {0}', name), () => sendMutation({ op: 'setFlags', field: 'AllowedContiguity', values: [name] }))
             );
         }
         row.appendChild(
-            button('Unset', 'Remove the local field', () =>
+            button(t('Unset'), t('Remove the local field'), () =>
                 sendMutation({ op: 'setFlags', field: 'AllowedContiguity', values: null })
             )
         );
@@ -1702,12 +1778,12 @@
 
     function viewControls() {
         const section = element('div', 'section');
-        section.appendChild(element('h3', null, 'View'));
+        section.appendChild(element('h3', null, t('View')));
         const history = element('div', 'row');
-        const undoButton = button('↶ Undo', 'Undo the last grid edit (Ctrl+Z)', undo);
+        const undoButton = button(t('↶ Undo'), t('Undo the last grid edit (Ctrl+Z)'), undo);
         undoButton.id = 'undo-button';
         undoButton.disabled = !state.undoStack.length;
-        const redoButton = button('↷ Redo', 'Redo the last undone grid edit (Ctrl+Y)', redo);
+        const redoButton = button(t('↷ Redo'), t('Redo the last undone grid edit (Ctrl+Y)'), redo);
         redoButton.id = 'redo-button';
         redoButton.disabled = !state.redoStack.length;
         history.appendChild(undoButton);
@@ -1715,42 +1791,48 @@
         section.appendChild(history);
         const row = element('div', 'row');
         row.appendChild(
-            button('⟲', 'Rotate view counter-clockwise', () => {
+            button('⟲', t('Rotate view counter-clockwise'), () => {
                 state.view.rotation = (state.view.rotation + 270) % 360;
                 updateViewLabel();
                 draw();
             })
         );
         row.appendChild(
-            button('⟳', 'Rotate view clockwise', () => {
+            button('⟳', t('Rotate view clockwise'), () => {
                 state.view.rotation = (state.view.rotation + 90) % 360;
                 updateViewLabel();
                 draw();
             })
         );
         row.appendChild(
-            button('↔', 'Flip view horizontally', () => {
+            button('↔', t('Flip view horizontally'), () => {
                 state.view.flipH = !state.view.flipH;
                 updateViewLabel();
                 draw();
             })
         );
         row.appendChild(
-            button('↕', 'Flip view vertically', () => {
+            button('↕', t('Flip view vertically'), () => {
                 state.view.flipV = !state.view.flipV;
                 updateViewLabel();
                 draw();
             })
         );
         row.appendChild(
-            button('−', 'Zoom out', () => {
-                state.view.scale = Math.max(24, state.view.scale / 1.25);
+            button('−', t('Zoom out'), () => {
+                state.view.scale = Math.max(MIN_SCALE, state.view.scale / 1.25);
                 draw();
             })
         );
         row.appendChild(
-            button('+', 'Zoom in', () => {
-                state.view.scale = Math.min(384, state.view.scale * 1.25);
+            button('+', t('Zoom in'), () => {
+                state.view.scale = Math.min(MAX_SCALE, state.view.scale * 1.25);
+                draw();
+            })
+        );
+        row.appendChild(
+            button('⛶', t('Fit the part in the panel'), () => {
+                state.view.scale = fitScale();
                 draw();
             })
         );
@@ -1766,12 +1848,12 @@
         const label = target || document.getElementById('view-label');
         if (!label) return;
         const flips = `${state.view.flipH ? ' flipH' : ''}${state.view.flipV ? ' flipV' : ''}`;
-        label.textContent = `rotation ${state.view.rotation}°${flips} (view only, coordinates stay rotation-0)`;
+        label.textContent = t('rotation {0}°{1} (view only, coordinates stay rotation-0)', state.view.rotation, flips);
     }
 
     function sizeControls() {
         const section = element('div', 'section');
-        section.appendChild(element('h3', null, 'Size'));
+        section.appendChild(element('h3', null, t('Size')));
         const row = element('div', 'row');
         const label = element('span', 'value', `${state.data.size.width} × ${state.data.size.height}`);
         const resize = (dw, dh) => {
@@ -1780,20 +1862,20 @@
             sendMutation({ op: 'setSize', size: { width, height } });
             renderSidebar();
         };
-        row.appendChild(button('W−', 'Shrink width', () => resize(-1, 0)));
-        row.appendChild(button('W+', 'Grow width', () => resize(1, 0)));
-        row.appendChild(button('H−', 'Shrink height', () => resize(0, -1)));
-        row.appendChild(button('H+', 'Grow height', () => resize(0, 1)));
+        row.appendChild(button(t('W−'), t('Shrink width'), () => resize(-1, 0)));
+        row.appendChild(button(t('W+'), t('Grow width'), () => resize(1, 0)));
+        row.appendChild(button(t('H−'), t('Shrink height'), () => resize(0, -1)));
+        row.appendChild(button(t('H+'), t('Grow height'), () => resize(0, 1)));
         row.appendChild(label);
         section.appendChild(row);
-        const hint = element('div', 'hint', 'Resizing does not move existing cell entries.');
+        const hint = element('div', 'hint', t('Resizing does not move existing cell entries.'));
         section.appendChild(hint);
         return section;
     }
 
     function spriteList() {
         const section = element('div', 'section');
-        section.appendChild(element('h3', null, 'Sprites'));
+        section.appendChild(element('h3', null, t('Sprites')));
         for (const sprite of state.data.sprites) {
             const row = element('label', 'row item');
             const check = element('input');
@@ -1805,10 +1887,10 @@
                 draw();
             });
             row.appendChild(check);
-            row.appendChild(element('span', null, sprite.label + (sprite.uri ? '' : ' (missing)')));
+            row.appendChild(element('span', null, sprite.uri ? sprite.label : t('{0} (missing)', sprite.label)));
             section.appendChild(row);
         }
-        if (!state.data.sprites.length) section.appendChild(element('div', 'hint', 'No sprites resolved.'));
+        if (!state.data.sprites.length) section.appendChild(element('div', 'hint', t('No sprites resolved.')));
         return section;
     }
 
@@ -1817,7 +1899,7 @@
 
     function layerList() {
         const section = element('div', 'section');
-        section.appendChild(element('h3', null, 'Layers'));
+        section.appendChild(element('h3', null, t('Layers')));
         const groups = new Map();
         for (const layer of state.data.layers) {
             const key = layer.group || 'Part';
@@ -1873,15 +1955,17 @@
         radio.type = 'radio';
         radio.name = 'active-layer';
         radio.checked = layer.id === state.activeLayerId;
-        radio.title = 'Edit this layer';
+        radio.title = t('Edit this layer');
         radio.addEventListener('change', activate);
         const check = element('input');
         check.type = 'checkbox';
         check.checked = state.visibleLayers.has(layer.id);
-        check.title = 'Show this layer';
+        check.title = t('Show this layer');
         check.addEventListener('change', () => {
             if (check.checked) state.visibleLayers.add(layer.id);
             else state.visibleLayers.delete(layer.id);
+            // Switching the edited layer off swaps its panel for the reason it is inert.
+            if (layer.id === state.activeLayerId) renderSidebar();
             draw();
         });
         const swatch = element('span', 'swatch');
@@ -1894,13 +1978,13 @@
         row.appendChild(label);
         if (count) row.appendChild(element('span', 'count', String(count)));
         if (layer.inherited) {
-            const badge = element('span', 'badge', 'inherited');
-            badge.title = 'Defined on a base part. Editing creates a local override.';
+            const badge = element('span', 'badge', t('inherited'));
+            badge.title = t('Defined on a base part. Editing creates a local override.');
             row.appendChild(badge);
         }
         if (layer.origin) {
             row.appendChild(
-                button('↗', 'Go to source', () =>
+                button('↗', t('Go to source'), () =>
                     vscode.postMessage({ type: 'openLocation', uri: layer.origin.uri, range: layer.origin.range })
                 )
             );
@@ -1933,30 +2017,35 @@
         heading.appendChild(swatch);
         heading.appendChild(element('span', null, layer.label));
         section.appendChild(heading);
+        if (!state.visibleLayers.has(layer.id)) {
+            section.classList.add('hidden-layer');
+            section.appendChild(element('div', 'hint', t('{0} is hidden. Tick its checkbox to edit it.', layer.label)));
+            return section;
+        }
         if (layer.kind === 'cellSet') {
             const domain =
                 layer.domain === 'outside'
-                    ? 'Each strip is a door opening in the wall toward that cell. A dashed cell is not adjacent to the physical rect and never matches a door.'
+                    ? t('Each strip is a door opening in the wall toward that cell. A dashed cell is not adjacent to the physical rect and never matches a door.')
                     : layer.domain === 'inside'
-                      ? 'Cells inside the part.'
+                      ? t('Cells inside the part.')
                       : '';
-            section.appendChild(element('div', 'hint', `Click a cell to toggle it. ${domain}`));
+            section.appendChild(element('div', 'hint', t('Click a cell to toggle it. {0}', domain)));
         } else if (layer.kind === 'cellToValues') {
             section.appendChild(
                 element(
                     'div',
                     'hint',
                     layer.valueModel === 'flags'
-                        ? 'Click near a cell edge/corner to toggle that wall. Right-click clears the cell.'
-                        : 'Select a cell, then toggle directions below. Right-click clears the cell.'
+                        ? t('Click near a cell edge/corner to toggle that wall. Right-click clears the cell.')
+                        : t('Select a cell, then toggle directions below. Right-click clears the cell.')
                 )
             );
             if (layer.fallback) {
-                section.appendChild(element('div', 'hint', `Whole-part fallback: ${layer.fallback.join(', ')}`));
+                section.appendChild(element('div', 'hint', t('Whole-part fallback: {0}', layer.fallback.join(', '))));
             }
             if (state.selectedCell) {
                 section.appendChild(
-                    element('div', 'value', `Cell [${state.selectedCell.x}, ${state.selectedCell.y}]`)
+                    element('div', 'value', t('Cell [{0}, {1}]', state.selectedCell.x, state.selectedCell.y))
                 );
                 const entry = layer.entries.find(({ cell }) => sameCell(cell, state.selectedCell));
                 const values = new Set(
@@ -1978,7 +2067,7 @@
                 if (layer.valueModel === 'flags') {
                     for (const name of ['Sides', 'Corners', 'All']) {
                         shortcuts.appendChild(
-                            button(name, `Set ${name}`, () =>
+                            button(name, t('Set {0}', name), () =>
                                 sendMutation({
                                     op: 'setEntryValues',
                                     layerId: layer.id,
@@ -1990,7 +2079,7 @@
                     }
                 }
                 shortcuts.appendChild(
-                    button('Clear', 'Remove this cell entry', () => {
+                    button(t('Clear'), t('Remove this cell entry'), () => {
                         sendMutation({ op: 'setEntryValues', layerId: layer.id, cell: state.selectedCell, values: [] });
                         renderSidebar();
                     })
@@ -2003,8 +2092,8 @@
                     'div',
                     'hint',
                     layer.fixedCount
-                        ? 'Drag a point to move it. This list has a fixed length.'
-                        : 'Click to place a point, drag to move it, right-click to remove.'
+                        ? t('Drag a point to move it. This list has a fixed length.')
+                        : t('Click to place a point, drag to move it, right-click to remove.')
                 )
             );
             section.appendChild(snapRow());
@@ -2013,15 +2102,23 @@
                 element(
                     'div',
                     'hint',
-                    'Click the external cell, then the internal cell. Right-click a pair to remove it.'
+                    t('Click the external cell, then the internal cell. Right-click a pair to remove it.')
                 )
             );
         } else if (layer.kind === 'rect') {
-            section.appendChild(element('div', 'hint', 'Drag the corner handles to resize.'));
+            section.appendChild(
+                element(
+                    'div',
+                    'hint',
+                    layer.isRef
+                        ? t('Drag the corner handles to resize. This rect is written from references, so the numbers are written where they are declared.')
+                        : t('Drag the corner handles to resize.')
+                )
+            );
             const row = element('div', 'row');
             if (!layer.rect) {
                 row.appendChild(
-                    button('Create', 'Create the rect covering the part', () =>
+                    button(t('Create'), t('Create the rect covering the part'), () =>
                         sendMutation({
                             op: 'setRect',
                             layerId: layer.id,
@@ -2031,24 +2128,24 @@
                 );
             } else {
                 row.appendChild(
-                    button('Remove', 'Remove the local rect field', () =>
+                    button(t('Remove'), t('Remove the local rect field'), () =>
                         sendMutation({ op: 'setRect', layerId: layer.id, rect: null })
                     )
                 );
             }
             section.appendChild(row);
         } else if (layer.kind === 'point') {
-            section.appendChild(element('div', 'hint', 'Click to place the point, drag to move, right-click to remove.'));
+            section.appendChild(element('div', 'hint', t('Click to place the point, drag to move, right-click to remove.')));
             section.appendChild(snapRow());
         } else if (layer.kind === 'cell') {
-            section.appendChild(element('div', 'hint', 'Click a cell to set it, right-click to remove the field.'));
+            section.appendChild(element('div', 'hint', t('Click a cell to set it, right-click to remove the field.')));
         } else if (layer.kind === 'cellDirection' || layer.kind === 'cellRay') {
             section.appendChild(
-                element('div', 'hint', 'Click a cell to move it. Click an edge of the current cell (or a button) to face it.')
+                element('div', 'hint', t('Click a cell to move it. Click an edge of the current cell (or a button) to face it.'))
             );
             const row = element('div', 'row');
             for (const direction of layer.directions) {
-                const toggle = button(direction, `Face ${direction}`, () =>
+                const toggle = button(direction, t('Face {0}', direction), () =>
                     sendMutation({ op: 'setDirection', layerId: layer.id, direction })
                 );
                 if (layer.direction === direction) toggle.classList.add('on');
@@ -2064,10 +2161,10 @@
                 input.value = layer.maxTiles === null ? '' : String(layer.maxTiles);
                 tilesRow.appendChild(input);
                 tilesRow.appendChild(
-                    button('Set', 'Write MaxTiles', () => {
+                    button(t('Set'), t('Write MaxTiles'), () => {
                         const value = Number(input.value);
                         if (!Number.isInteger(value) || value < 1) {
-                            setStatus('MaxTiles: a positive integer');
+                            setStatus(t('MaxTiles: a positive integer'));
                             return;
                         }
                         sendMutation({ op: 'setNumber', layerId: layer.id, field: 'MaxTiles', value });
@@ -2080,7 +2177,7 @@
                 element(
                     'div',
                     'hint',
-                    'Drag a vertex to move it. Click an edge to insert a vertex there, elsewhere to append one. Right-click removes a vertex.'
+                    t('Drag a vertex to move it. Click an edge to insert a vertex there, elsewhere to append one. Right-click removes a vertex.')
                 )
             );
             section.appendChild(snapRow());
@@ -2090,8 +2187,8 @@
                     'div',
                     'hint',
                     layer.centerEditable
-                        ? 'Click to place the center, drag the ring handle to change the radius.'
-                        : 'Drag the ring handle to change the radius. The center follows the component location.'
+                        ? t('Click to place the center, drag the ring handle to change the radius.')
+                        : t('Drag the ring handle to change the radius. The center follows the component location.')
                 )
             );
         } else if (layer.kind === 'edgeRegion') {
@@ -2099,21 +2196,21 @@
                 element(
                     'div',
                     'hint',
-                    'Drag the halo boundary to change how many cells the region reaches beyond the part. Right-click clears the distance.'
+                    t('Drag the halo boundary to change how many cells the region reaches beyond the part. Right-click clears the distance.')
                 )
             );
             const distRow = element('div', 'row');
-            distRow.appendChild(element('span', null, 'Distance:'));
+            distRow.appendChild(element('span', null, t('Distance:')));
             const input = element('input');
             input.type = 'text';
             input.className = 'intlist';
             input.value = layer.distance === null ? '' : String(layer.distance);
             distRow.appendChild(input);
             distRow.appendChild(
-                button('Set', 'Write the region distance', () => {
+                button(t('Set'), t('Write the region distance'), () => {
                     const value = Number(input.value);
                     if (!Number.isInteger(value) || value < 0) {
-                        setStatus('Distance: a non-negative integer');
+                        setStatus(t('Distance: a non-negative integer'));
                         return;
                     }
                     sendMutation({ op: 'setNumber', layerId: layer.id, field: layer.distanceField, value });
@@ -2122,16 +2219,16 @@
             section.appendChild(distRow);
         } else if (layer.kind === 'rectList') {
             section.appendChild(
-                element('div', 'hint', 'Drag a corner handle to resize a rect, right-click one to remove it.')
+                element('div', 'hint', t('Drag a corner handle to resize a rect, right-click one to remove it.'))
             );
             const row = element('div', 'row');
             const tagInput = element('input');
             tagInput.type = 'text';
             tagInput.className = 'intlist';
-            tagInput.placeholder = 'category (e.g. tall)';
+            tagInput.placeholder = t('category (e.g. tall)');
             row.appendChild(tagInput);
             row.appendChild(
-                button('Add rect', 'Append a rect above the part', () =>
+                button(t('Add rect'), t('Append a rect above the part'), () =>
                     sendMutation({
                         op: 'setRectEntry',
                         layerId: layer.id,
@@ -2144,7 +2241,7 @@
             section.appendChild(row);
             if (layer.fallbackRects.length) {
                 section.appendChild(
-                    element('div', 'hint', `Scalar fields also prohibit: ${layer.fallbackRects.map((f) => f.label).join(', ')} (dashed).`)
+                    element('div', 'hint', t('Scalar fields also prohibit: {0} (dashed).', layer.fallbackRects.map((f) => f.label).join(', ')))
                 );
             }
         } else if (layer.kind === 'componentPoints') {
@@ -2152,7 +2249,7 @@
                 element(
                     'div',
                     'hint',
-                    'Click a marker to select (clicking a stack cycles through it), drag to move. Grey markers are chained or reference-valued.'
+                    t('Click a marker to select (clicking a stack cycles through it), drag to move. Grey markers are chained or reference-valued.')
                 )
             );
             section.appendChild(snapRow());
@@ -2172,33 +2269,35 @@
                         element('span', 'count', `[${entry.location.x.toFixed(2)}, ${entry.location.y.toFixed(2)}]`)
                     );
                 } else {
-                    row.appendChild(element('span', 'badge', 'no location'));
+                    row.appendChild(element('span', 'badge', t('no location')));
                 }
                 if (entry.chainedTo) row.appendChild(element('span', 'badge', `⛓ ${entry.chainedTo}`));
-                else if (entry.locationIsRef) row.appendChild(element('span', 'badge', 'ref'));
+                else if (entry.locationIsRef) row.appendChild(element('span', 'badge', t('ref')));
                 section.appendChild(row);
             }
             const selected = layer.entries.find((entry) => entry.component === state.selectedComponent);
             if (selected) {
                 section.appendChild(element('div', 'value', `${selected.label}${selected.typeName ? ` (${selected.typeName})` : ''}`));
                 if (selected.chainedTo) {
-                    section.appendChild(element('div', 'hint', `Chained to ${selected.chainedTo}. Dragging edits its local offset.`));
+                    section.appendChild(element('div', 'hint', t('Chained to {0}. Dragging edits its local offset.', selected.chainedTo)));
                 }
                 if (selected.locationIsRef) {
-                    section.appendChild(element('div', 'hint', 'The location is a reference or expression, edit it in the text.'));
+                    section.appendChild(
+                        element('div', 'hint', t('This location is written from references, so the numbers are written where they are declared.'))
+                    );
                 }
                 const rotationRow = element('div', 'row');
-                rotationRow.appendChild(element('span', null, 'Rotation:'));
+                rotationRow.appendChild(element('span', null, t('Rotation:')));
                 const input = element('input');
                 input.type = 'text';
                 input.className = 'intlist';
                 input.value = selected.rotationDeg === null ? '' : String(selected.rotationDeg);
                 rotationRow.appendChild(input);
                 rotationRow.appendChild(
-                    button('Set', 'Write the rotation in degrees', () => {
+                    button(t('Set'), t('Write the rotation in degrees'), () => {
                         const value = Number(input.value);
                         if (!Number.isFinite(value)) {
-                            setStatus('Rotation: a number in degrees');
+                            setStatus(t('Rotation: a number in degrees'));
                             return;
                         }
                         sendMutation({ op: 'setComponentRotation', component: selected.component, degrees: value });
@@ -2208,7 +2307,7 @@
                 const quickRow = element('div', 'row');
                 for (const degrees of [0, 90, 180, 270]) {
                     quickRow.appendChild(
-                        button(`${degrees}°`, `Rotate to ${degrees} degrees`, () =>
+                        button(`${degrees}°`, t('Rotate to {0} degrees', degrees), () =>
                             sendMutation({ op: 'setComponentRotation', component: selected.component, degrees })
                         )
                     );
@@ -2222,13 +2321,13 @@
     /** The shared snap-step picker row used by the point-editing panels. */
     function snapRow() {
         const row = element('div', 'row');
-        row.appendChild(element('span', null, 'Snap:'));
+        row.appendChild(element('span', null, t('Snap:')));
         for (const [label, step] of [
             ['¼', 0.25],
             ['0.05', 0.05],
-            ['free', 0],
+            [t('free'), 0],
         ]) {
-            const toggle = button(label, `Snap to ${label} cells`, () => {
+            const toggle = button(label, t('Snap to {0} cells', label), () => {
                 state.snapStep = step;
                 renderSidebar();
             });
@@ -2240,7 +2339,7 @@
 
     function rotationPanel() {
         const section = element('div', 'section');
-        section.appendChild(element('h3', null, 'Rotation & flipping'));
+        section.appendChild(element('h3', null, t('Rotation & flipping')));
         const rotation = state.data.rotation;
         for (const [field, entry] of [
             ['IsRotateable', rotation.isRotateable],
@@ -2254,7 +2353,7 @@
             check.addEventListener('change', () => sendMutation({ op: 'setBool', field, value: check.checked }));
             row.appendChild(check);
             row.appendChild(element('span', 'grow', field));
-            if (entry.origin && entry.origin.inherited) row.appendChild(element('span', 'badge', 'inherited'));
+            if (entry.origin && entry.origin.inherited) row.appendChild(element('span', 'badge', t('inherited')));
             section.appendChild(row);
         }
         for (const [field, entry] of [
@@ -2267,17 +2366,17 @@
             const input = element('input');
             input.type = 'text';
             input.className = 'intlist';
-            input.placeholder = 'e.g. 0, 2, 1, 3';
+            input.placeholder = t('e.g. 0, 2, 1, 3');
             input.value = entry ? entry.values.join(', ') : '';
             row.appendChild(input);
             row.appendChild(
-                button('Set', `Write ${field}`, () => {
+                button(t('Set'), t('Write {0}', field), () => {
                     const values = input.value
                         .split(/[,\s]+/)
                         .filter((part) => part.length)
                         .map(Number);
                     if (values.some((value) => !Number.isInteger(value))) {
-                        setStatus(`${field}: only integers`);
+                        setStatus(t('{0}: only integers', field));
                         return;
                     }
                     sendMutation({ op: 'setIntList', field, values: values.length ? values : null });
@@ -2286,7 +2385,7 @@
             section.appendChild(row);
         }
         section.appendChild(
-            element('div', 'hint', 'Use the view rotation above to preview how rotations will look.')
+            element('div', 'hint', t('Use the view rotation above to preview how rotations will look.'))
         );
         return section;
     }
@@ -2330,6 +2429,7 @@
                 const first = state.data.layers.find((layer) => layer.id === 'AllowedDoorLocations');
                 state.activeLayerId = first ? first.id : state.data.layers[0] && state.data.layers[0].id;
                 if (state.activeLayerId) state.visibleLayers.add(state.activeLayerId);
+                state.view.scale = fitScale();
             }
             // A render is authoritative and carries a fresh dataVersion, so queued clicks (absolute
             // coordinates by design) resume against it instead of being judged stale. Re-apply their
@@ -2344,11 +2444,15 @@
         } else if (message.type === 'empty') {
             state.data = null;
             sidebar.textContent = '';
-            setStatus('No part found at this position.');
+            setStatus(t('No part found at this position.'));
         } else if (message.type === 'editDone') {
             if (typeof message.dataVersion === 'number' && state.data) state.data.dataVersion = message.dataVersion;
             state.inFlight = false;
             pump();
+        } else if (message.type === 'note') {
+            // A write that followed a reference says where it landed, since the number it changed is
+            // read somewhere other than the handle that was dragged.
+            setStatus(message.note);
         } else if (message.type === 'editRejected') {
             state.inFlight = false;
             state.queue.length = 0;
@@ -2356,7 +2460,7 @@
             state.undoStack.length = 0;
             state.redoStack.length = 0;
             updateHistoryButtons();
-            setStatus(`Edit rejected (${message.reason}). Resyncing…`);
+            setStatus(t('Edit rejected ({0}). Resyncing…', message.reason));
             vscode.postMessage({ type: 'refresh' });
         }
     });

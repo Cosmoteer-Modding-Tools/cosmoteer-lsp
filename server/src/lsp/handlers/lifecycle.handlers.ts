@@ -24,9 +24,12 @@ import { EXTRACT_SHARED_BASE_COMMAND } from '../../features/refactor/shared-base
 import { clearSharedBaseScanCache } from '../../features/refactor/shared-base/mod-scan';
 import { EXTRACT_LOCALIZATION_KEY_COMMAND } from '../../features/refactor/extract-localization-key';
 import { REGISTER_PART_IN_SHIP_COMMAND } from '../../features/refactor/register-part/register-part.command';
+import { CREATE_COMPONENT_COMMAND } from '../../features/refactor/create-component/create-component.command';
+import { EXTRACT_GROUP_COMMAND } from '../../features/refactor/extract-group/extract-group.command';
 import { OVERRIDE_IN_MOD_COMMAND } from '../../features/refactor/override-in-mod/override-in-mod.command';
 import { CLONE_DECLARATION_COMMAND } from '../../features/refactor/clone-declaration/clone.command';
 import { NEW_CONTENT_COMMAND } from '../../features/refactor/new-content/new-content.command';
+import { NEW_MOD_COMMAND } from '../../features/refactor/new-mod/new-mod.command';
 import { INSERT_SCHEMA_FIELD_COMMAND } from '../../features/schema-search/schema-search.insert';
 import { RUN_IN_COSMOTEER_COMMAND } from '../../features/run-game/run-game.command';
 import { IMPORT_GAME_LOG_COMMAND } from '../../features/game-log/import-game-log.command';
@@ -58,6 +61,7 @@ import {
     hasPullDiagnosticsCapability,
     hasWorkspaceFolderCapability,
     readClientCapabilities,
+    readInitializationOptions,
 } from '../capabilities';
 import { connection, documents } from '../context';
 import { diagnosticsCache, inlayHintCache } from '../document-caches';
@@ -114,6 +118,7 @@ function resetProjectIndexes(): void {
 export function register(): void {
     connection.onInitialize(async (params: InitializeParams) => {
         readClientCapabilities(params.capabilities);
+        readInitializationOptions(params.initializationOptions);
         const result: InitializeResult = {
             capabilities: {
                 // Every position the server hands out is a UTF-16 offset (`TextDocument.positionAt` and
@@ -151,12 +156,18 @@ export function register(): void {
                 // The inheritance graph of a `Foo : Bar` container, one level per request. Declared as a
                 // plain boolean: both clients register the feature from the capability alone.
                 typeHierarchyProvider: true,
+                // Who reaches a declaration, and what it reaches, one level per request. Declared as
+                // a plain boolean, like the type hierarchy above.
+                callHierarchyProvider: true,
                 referencesProvider: true,
                 workspaceSymbolProvider: true,
                 renameProvider: {
                     prepareProvider: true,
                 },
                 inlayHintProvider: true,
+                // One lens per file, saying whether the mod loads it. The sentence is filled in on
+                // resolve, so a file the editor never scrolls to costs nothing.
+                codeLensProvider: { resolveProvider: true },
                 hoverProvider: true,
                 colorProvider: true,
                 signatureHelpProvider: {
@@ -169,6 +180,7 @@ export function register(): void {
                         CodeActionKind.QuickFix,
                         CodeActionKind.RefactorExtract,
                         CodeActionKind.RefactorInline,
+                        CodeActionKind.RefactorRewrite,
                     ],
                 },
                 // The "Open in decompiler" hover link executes on the server (it spawns the user's
@@ -184,6 +196,8 @@ export function register(): void {
                         EXTRACT_SHARED_BASE_COMMAND,
                         EXTRACT_LOCALIZATION_KEY_COMMAND,
                         REGISTER_PART_IN_SHIP_COMMAND,
+                        CREATE_COMPONENT_COMMAND,
+                        EXTRACT_GROUP_COMMAND,
                         OVERRIDE_IN_MOD_COMMAND,
                         CLONE_DECLARATION_COMMAND,
                         INSERT_SCHEMA_FIELD_COMMAND,
@@ -191,6 +205,7 @@ export function register(): void {
                         IMPORT_GAME_LOG_COMMAND,
                         POST_UPDATE_REPORT_COMMAND,
                         NEW_CONTENT_COMMAND,
+                        NEW_MOD_COMMAND,
                     ],
                 },
                 semanticTokensProvider: {

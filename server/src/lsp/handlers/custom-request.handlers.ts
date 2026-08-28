@@ -1,10 +1,14 @@
-import { TextDocumentPositionParams } from 'vscode-languageserver/node';
+import { CancellationToken, CancellationTokenSource, TextDocumentPositionParams } from 'vscode-languageserver/node';
+import { AbstractNode } from '../../core/ast/ast';
+import { countReadersOf } from '../../features/part-editor/reference-writeback';
+import { uriToFsPath } from '../../features/navigation/workspace-files';
 import { buildShaderPreview } from '../../features/shader/shader-preview.service';
 import { buildPartGridData } from '../../features/part-editor/part-grid-data.service';
 import { buildPartGridEdit } from '../../features/part-editor/grid-edit.service';
 import { PartGridEditParams } from '../../features/part-editor/part-grid.types';
 import { generatePartWiringReport } from '../../features/part-editor/part-wiring.service';
 import { generateModOverview } from '../../mod/mod-overview';
+import { ScanFinding, ScanFindings } from '../../mod/mod-health';
 import { generateEffectiveGroupReport } from '../../features/effective-group/effective-group.report';
 import { generateReferenceTraceReport } from '../../features/navigation/explain-reference/reference-trace.report';
 import {
@@ -20,6 +24,77 @@ import { connection, documents } from '../context';
 import { ensureFragmentRooting } from '../fragment-rooting';
 import { ensureParserResult, openBufferReadOverride } from '../open-documents';
 import { searchFolderUris } from '../workspace-folders';
+import { currentScanCacheEntries } from '../workspace-scan';
+
+/** How long a reader count may take before the write is answered without one. */
+const READER_COUNT_BUDGET_MS = 500;
+
+/**
+ * How many places other than the declaration itself read the value a grid write landed in, so the
+ * editor can say that moving one handle moved every one of them.
+ *
+ * The search sweeps the project, which a drag cannot wait on indefinitely, so it runs against a
+ * budget and the note is written without a count when it does not finish. The number is
+ * informational, and a missing one costs nothing but a shorter sentence. The budget cancels the
+ * sweep rather than only stopping the wait for it, so a drag held down does not leave a project
+ * walk running behind every gesture.
+ *
+ * @param declaration the declaration the write landed in.
+ * @param uri the file it is written in.
+ * @param token cancels the search with the request.
+ * @returns the reader count, or null when it was not available in time.
+ */
+const countDeclarationReaders = async (
+    declaration: AbstractNode,
+    uri: string,
+    token: CancellationToken
+): Promise<number | null> => {
+    const source = new CancellationTokenSource();
+    const withRequest = token.onCancellationRequested(() => source.cancel());
+    const search = countReadersOf(declaration, uri, await searchFolderUris(), source.token);
+    let timer: NodeJS.Timeout | undefined;
+    const budget = new Promise<null>((resolve) => {
+        timer = setTimeout(() => {
+            source.cancel();
+            resolve(null);
+        }, READER_COUNT_BUDGET_MS);
+    });
+    try {
+        return await Promise.race([search.catch(() => null), budget]);
+    } finally {
+        if (timer) clearTimeout(timer);
+        withRequest.dispose();
+        source.dispose();
+    }
+};
+
+/**
+ * What the workspace scan already found, in the shape the mod overview's health table reads. Only
+ * results computed under the state the session is in right now are offered, which is the same gate
+ * the persisted cache is written behind.
+ *
+ * A file whose findings the editor cut at the problem limit is left out: its list stops short of
+ * what the file really holds, and a row counting it would report fewer findings than there are. The
+ * report reads such a file itself.
+ *
+ * @returns the findings per file, or undefined when nothing has been scanned yet.
+ */
+const scanFindings = (): ScanFindings | undefined => {
+    const entries = currentScanCacheEntries();
+    if (entries.length === 0) return undefined;
+    const limit = globalSettings.maxNumberOfProblems;
+    const findings = new Map<string, ScanFinding[]>();
+    for (const [path, , , diagnostics] of entries) {
+        if (diagnostics.length >= limit) continue;
+        findings.set(
+            path,
+            diagnostics
+                .filter((diagnostic) => typeof diagnostic.code === 'string')
+                .map((diagnostic) => ({ code: String(diagnostic.code), line: diagnostic.range.start.line + 1 }))
+        );
+    }
+    return findings;
+};
 
 /**
  * Registers the `cosmoteer/*` requests: the webview payloads (shader preview, part grid editor),
@@ -86,13 +161,18 @@ export function register(): void {
         if (params.dataVersion !== document.version) return { status: 'stale' };
         try {
             await ensureFragmentRooting(cancellationToken);
+            const openText = openBufferReadOverride();
             return await buildPartGridEdit(
                 parserResult,
                 document.getText(),
                 params.textDocument.uri,
                 document.offsetAt(params.anchor),
                 params.mutation,
-                cancellationToken
+                cancellationToken,
+                {
+                    openText: (uri) => openText(uriToFsPath(uri)),
+                    countReaders: countDeclarationReaders,
+                }
             );
         } catch (e) {
             traceFailure(e);
@@ -107,7 +187,14 @@ export function register(): void {
             // Action targets resolve against the effective game tree, so the workspace and the fragment
             // indexes must be ready, exactly as for validation of the manifest itself.
             await ensureFragmentRooting(cancellationToken);
-            return (await generateModOverview(params.textDocument.uri, await searchFolderUris(), cancellationToken)) ?? null;
+            return (
+                (await generateModOverview(
+                    params.textDocument.uri,
+                    await searchFolderUris(),
+                    cancellationToken,
+                    scanFindings()
+                )) ?? null
+            );
         } catch (e) {
             traceFailure(e);
             return null;

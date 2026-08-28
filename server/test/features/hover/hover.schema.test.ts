@@ -11,6 +11,7 @@ import {
     ValueNode,
 } from '../../../src/core/ast/ast';
 import { schemaDiscriminatorHover, schemaFieldHover } from '../../../src/features/hover/schema-hover';
+import { typeDef } from '../../../src/document/schema/schema';
 
 const parse = (src: string) => parser(lexer(src), 'file:///t.rules').value;
 
@@ -204,6 +205,16 @@ describe('schemaDiscriminatorHover', () => {
         const hover = schemaDiscriminatorHover(type!);
         expect(hover).toContain('TurretWeapon');
         expect(hover).toContain('TurretWeaponRules');
+    });
+
+    it('says what the selected class is, under the class name it resolved', () => {
+        const doc = parse(PART);
+        const type = doc.elements.map((n) => findValue(n, 'Type')).find(Boolean);
+        const summary = typeDef('Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules')?.description ?? '';
+        expect(summary).not.toBe('');
+        const hover = schemaDiscriminatorHover(type!) ?? '';
+        expect(hover).toContain(summary);
+        expect(hover.indexOf(summary)).toBeGreaterThan(hover.indexOf('TurretWeaponRules'));
     });
 
     it('returns null for a non-discriminator value', () => {

@@ -84,6 +84,13 @@ export const RULES: readonly LintRule[] = [
         needsGameData: false,
     },
     {
+        id: 'reference-cycle',
+        title: 'Circular reference',
+        description: 'A reference whose chain leads back to itself, so the value it stands for can never be computed.',
+        defaultLevel: 'error',
+        needsGameData: false,
+    },
+    {
         id: 'anonymous-block',
         title: 'Block without a name',
         description: 'A `{` or `[` block opened with no name in front of it outside a list.',
@@ -268,7 +275,7 @@ export const RULES: readonly LintRule[] = [
         id: 'validatePartGeometry',
         title: 'Part geometry',
         description:
-            'A part-grid value the part own size puts out of reach, such as a door location that is not a cell beside the part.',
+            'A part-grid value the part own size puts out of reach, such as a door location that is not a cell beside the part, or a door presence toggle whose cell is inside the part.',
         defaultLevel: 'hint',
         setting: 'validatePartGeometry',
         needsGameData: false,
@@ -298,6 +305,141 @@ export const RULES: readonly LintRule[] = [
         defaultLevel: 'hint',
         setting: 'validateUnusedParticleChannels',
         needsGameData: true,
+    },
+    {
+        id: 'validateModConflicts',
+        title: 'Mod conflicts',
+        description:
+            'A manifest action aiming at a node an installed mod already replaces, removes or writes, where the game applies only the last of the two.',
+        defaultLevel: 'info',
+        setting: 'validateModConflicts',
+        needsGameData: false,
+    },
+    {
+        id: 'validateInertFields',
+        title: 'Fields a sibling switches off',
+        description:
+            'A field the game stops reading because of what a sibling in the same group says, such as a converter quantity written beside the list form rather than beside the storage shorthand.',
+        defaultLevel: 'hint',
+        setting: 'validateInertFields',
+        needsGameData: false,
+    },
+    {
+        id: 'validateLocalizationCoverage',
+        title: 'Localization coverage',
+        description:
+            'A language of the mod that declares fewer keys than the languages beside it, and a translation whose placeholder slots do not match the English text.',
+        defaultLevel: 'hint',
+        setting: 'validateLocalizationCoverage',
+        needsGameData: false,
+    },
+    {
+        id: 'validateMarkerVocabulary',
+        title: 'Marker vocabulary',
+        description:
+            'A usage-defined name (a part category, a part feature, a ship tag) written once in the project that is one typing slip from a name several files write.',
+        defaultLevel: 'hint',
+        setting: 'validateMarkerVocabulary',
+        needsGameData: true,
+    },
+    {
+        id: 'validateEffectBuckets',
+        title: 'Effect buckets',
+        description:
+            'A media-effect bucket declared twice, a bucket list longer than the band the engine reads out of it, and a registry with no `default_bullet` bucket for bullet sprites to fall back to.',
+        defaultLevel: 'error',
+        setting: 'validateEffectBuckets',
+        needsGameData: false,
+    },
+    {
+        id: 'validateIndicatorIndexes',
+        title: 'Indicator indexes',
+        description:
+            'An indicator sprite component hiding its own index, which the game refuses to load, or an index its list does not have, which fails the load with an index error the game cannot name.',
+        defaultLevel: 'error',
+        setting: 'validateIndicatorIndexes',
+        needsGameData: false,
+    },
+    {
+        id: 'validateBlendSpriteCodes',
+        title: 'Blend sprite codes',
+        description:
+            'A blend sprite situation code carrying a character the engine cannot expand, which throws the first time the sprite is drawn, or a code whose length its slot does not allow.',
+        defaultLevel: 'error',
+        setting: 'validateBlendSpriteCodes',
+        needsGameData: false,
+    },
+    {
+        id: 'validateRefusedEnumValues',
+        title: 'Refused enum values',
+        description:
+            'An enum member the field type allows and the class reading it refuses, such as a fixed weapon auto-targeting anything but ship parts.',
+        defaultLevel: 'warning',
+        setting: 'validateRefusedEnumValues',
+        needsGameData: false,
+    },
+    {
+        id: 'validateMishandledFields',
+        title: 'Mishandled fields',
+        description:
+            'A field the game reads and then acts on wrongly, such as an `ExcludeID` the engine adds to the list of parts a criteria matches rather than the one it excludes.',
+        defaultLevel: 'warning',
+        setting: 'validateMishandledFields',
+        needsGameData: false,
+    },
+    {
+        id: 'validateChainedToCycles',
+        title: 'Circular component chain',
+        description:
+            'A part component chain that leads back to itself, which takes the process down the moment the part is created.',
+        defaultLevel: 'error',
+        setting: 'validateChainedToCycles',
+        needsGameData: false,
+    },
+    {
+        id: 'validateTextMarkup',
+        title: 'Text markup',
+        description:
+            'A localization string whose markup the game cannot read, which it answers by drawing the string with its tags visible as plain text.',
+        defaultLevel: 'warning',
+        setting: 'validateTextMarkup',
+        needsGameData: false,
+    },
+    {
+        id: 'validateValueRanges',
+        title: 'Value ranges',
+        description:
+            'A range written the wrong way round where its consumer cares, such as one the game rolls a whole number out of, which throws on a high end below its low one.',
+        defaultLevel: 'error',
+        setting: 'validateValueRanges',
+        needsGameData: false,
+    },
+    {
+        id: 'validateChainedBuffReceivable',
+        title: 'Chained buff not receivable',
+        description:
+            'A buff provider chaining from a buff its own part cannot receive, which the game refuses to load the data tree over.',
+        defaultLevel: 'error',
+        setting: 'validateChainedBuffReceivable',
+        needsGameData: false,
+    },
+    {
+        id: 'validateBulletComponents',
+        title: 'Bullet components',
+        description:
+            'A bullet with two physics components, with none at all, or with a hit written above its physics component, which reads a physics body that does not exist yet.',
+        defaultLevel: 'error',
+        setting: 'validateBulletComponents',
+        needsGameData: false,
+    },
+    {
+        id: 'validateUnderlyingParts',
+        title: 'Underlying parts',
+        description:
+            'A part naming itself as the part it leaves behind when destroyed, which the engine walks with no guard against a loop.',
+        defaultLevel: 'error',
+        setting: 'validateUnderlyingParts',
+        needsGameData: false,
     },
     {
         id: 'validateModManifest',

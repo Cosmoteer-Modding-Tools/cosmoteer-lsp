@@ -2,7 +2,7 @@ import { CancellationToken, Diagnostic, DiagnosticSeverity, DiagnosticTag } from
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { BlockCommentSpan, lexer } from '../core/lexer/lexer';
 import { parser } from '../core/parser/parser';
-import { ValidationError, Validator } from '../features/diagnostics/validator';
+import { findingSpanOf, ValidationError, Validator } from '../features/diagnostics/validator';
 import { ValidationForDocumentDuplicates } from '../features/diagnostics/validator.duplicate-key';
 import { validateInheritanceCycles } from '../features/diagnostics/validator.inheritance-cycle';
 import { validateAnonymousBlocks } from '../features/diagnostics/validator.anonymous-block';
@@ -34,6 +34,21 @@ import { validateRenderLayers } from '../features/diagnostics/validator.render-l
 import { validateUnusedParticleChannels } from '../features/diagnostics/validator.particle-channel';
 import { validateDuplicateModIds } from '../features/diagnostics/validator.duplicate-id';
 import { validateUnreceivableBuffs } from '../features/diagnostics/validator.unreceivable-buff';
+import { validateEffectBuckets } from '../features/diagnostics/validator.effect-bucket';
+import { validateUnderlyingParts } from '../features/diagnostics/validator.underlying-part';
+import { validateBulletComponents } from '../features/diagnostics/validator.bullet-components';
+import { validateChainedBuffReceivable } from '../features/diagnostics/validator.unreceivable-buff';
+import { validateValueRanges } from '../features/diagnostics/validator.value-range';
+import { validateTextMarkup } from '../features/diagnostics/validator.text-markup';
+import { validateChainedToCycles } from '../features/diagnostics/validator.chained-to-cycle';
+import { validateMishandledFields } from '../features/diagnostics/validator.mishandled-field';
+import { validateRefusedEnumValues } from '../features/diagnostics/validator.refused-enum-value';
+import { validateBlendSpriteCodes } from '../features/diagnostics/validator.blend-sprite';
+import { validateIndicatorIndexes } from '../features/diagnostics/validator.indicator-index';
+import { validateMarkerVocabulary } from '../features/diagnostics/validator.marker-vocabulary';
+import { validateLocalizationCoverage } from '../features/diagnostics/validator.localization-coverage';
+import { validateInertFields } from '../features/diagnostics/validator.inert-field';
+import { validateModConflicts } from '../features/diagnostics/validator.mod-conflict';
 import { validateModActions } from '../features/diagnostics/validator.mod-action';
 import { validateManifestVersion } from '../features/diagnostics/validator.manifest-version';
 import { validateModManifest } from '../features/diagnostics/validator.mod-manifest';
@@ -421,6 +436,110 @@ export async function validateTextDocument(
             );
             validationErrors = validationErrors.concat(tagged(buffErrors, 'validateUnreceivableBuffs'));
         }
+        // Separate pass: a field a sibling switches off, faded with a remove fix. Reads the group
+        // it is written in and nothing else, so it needs neither the game index nor the project.
+        if (settings.diagnostics?.validateInertFields) {
+            const inertFieldErrors = await timedPass('scan.vInertFieldMs', () =>
+                validateInertFields(parserResult.value, cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(tagged(inertFieldErrors, 'validateInertFields'));
+        }
+        // Separate pass: one language strings file of the mod against the languages beside it.
+        // Ungated by the game index: the comparison is between the mod's own files, and the
+        // languages the base game ships are not complete either.
+        if (settings.diagnostics?.validateLocalizationCoverage) {
+            const coverageErrors = await timedPass('scan.vLocalizationCoverageMs', async () =>
+                validateLocalizationCoverage(parserResult.value, await searchFolderPaths(), cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(tagged(coverageErrors, 'validateLocalizationCoverage'));
+        }
+        // Separate pass: a usage-defined category name that reads as a misspelling of one the
+        // project writes everywhere. Needs the game index: the vocabulary a name is judged against
+        // is mostly the game's own, and without it every vanilla category would look invented.
+        if (settings.diagnostics?.validateMarkerVocabulary && gameIndexAvailable()) {
+            const markerErrors = await timedPass('scan.vMarkerVocabularyMs', async () =>
+                validateMarkerVocabulary(parserResult.value, await searchFolderPaths(), cancelToken).catch(() => [])
+            );
+            validationErrors = validationErrors.concat(tagged(markerErrors, 'validateMarkerVocabulary'));
+        }
+        // Separate pass: the media-effect bucket registry, whose duplicates and per-list caps the
+        // engine throws on while it reads the file. Ungated by the game index: a repeated name and
+        // an over-long list are both decided inside the document, and the one check that needs the
+        // file to be the whole registry asks the rooting indexes itself.
+        // Separate pass: an indicator hiding an index its own list does not have, which the game answers
+        // at load time with a message that names no indicator, or with no message at all. Decided inside
+        // the document, so it needs neither the game index nor the rooting indexes.
+        if (settings.diagnostics?.validateIndicatorIndexes) {
+            const passErrors = await validateIndicatorIndexes(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateIndicatorIndexes'));
+        }
+        // Separate pass: a situation code the blend sprite expander refuses. The character rule needs only
+        // the text, so it covers the template groups the codes are shared through, and the length rule asks
+        // the schema for the list it is written in.
+        if (settings.diagnostics?.validateBlendSpriteCodes) {
+            const passErrors = await validateBlendSpriteCodes(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateBlendSpriteCodes'));
+        }
+        // Separate pass: an enum member the consuming class refuses, which the schema cannot express since
+        // it types the field by its enum. Decided from the group class and the written member, so it needs
+        // nothing outside the document.
+        if (settings.diagnostics?.validateRefusedEnumValues) {
+            const passErrors = await validateRefusedEnumValues(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateRefusedEnumValues'));
+        }
+        // Separate pass: a field the reader takes and acts on wrongly, which loads without a word and
+        // leaves the game doing something other than what the file says. Keyed by the exact class, since
+        // each of these fields has a sibling class that reads it correctly.
+        if (settings.diagnostics?.validateMishandledFields) {
+            const passErrors = await validateMishandledFields(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateMishandledFields'));
+        }
+        // Separate pass: a component chain that closes, read off the part component dictionary the engine
+        // resolves a chain against. Folds the group through its bases, so it stays silent on a part whose
+        // components it could not read in full.
+        if (settings.diagnostics?.validateChainedToCycles) {
+            const passErrors = await validateChainedToCycles(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateChainedToCycles'));
+        }
+        // Separate pass: a language file string the markup reader refuses, which the game answers silently
+        // by drawing the tags themselves. Judged on a mod's own language files only, since the game's
+        // translations are not the author's to correct.
+        if (settings.diagnostics?.validateTextMarkup) {
+            const passErrors = await validateTextMarkup(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateTextMarkup'));
+        }
+        // Separate pass: a range whose direction its consumer refuses. Kept out of the schema pass, which
+        // sees the field but not the class reading it, and ordering is only a mistake where the consumer
+        // rolls or compares rather than interpolates.
+        if (settings.diagnostics?.validateValueRanges) {
+            const passErrors = await validateValueRanges(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateValueRanges'));
+        }
+        // Separate pass: a provider chaining from a buff the part cannot receive, which the game answers by
+        // refusing the whole data tree. Kept apart from the buff hints above, which are lint-level, so a
+        // reader turning those down does not lose a load failure.
+        if (settings.diagnostics?.validateChainedBuffReceivable) {
+            const passErrors = await validateChainedBuffReceivable(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateChainedBuffReceivable'));
+        }
+        // Separate pass: a bullet component set the game cannot build. Judged on the merged order, since a
+        // base contributes its members first and a derived file re-declaring the physics component moves it
+        // behind everything written above it.
+        if (settings.diagnostics?.validateBulletComponents) {
+            const passErrors = await validateBulletComponents(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateBulletComponents'));
+        }
+        // Separate pass: a part naming itself as its own underlying replacement. Only the self-naming shape
+        // is judged, since the part table the game walks is built per ship and joining two parts by name
+        // alone could invent an edge between ships that never share one.
+        if (settings.diagnostics?.validateUnderlyingParts) {
+            const passErrors = await validateUnderlyingParts(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateUnderlyingParts'));
+        }
+        if (settings.diagnostics?.validateEffectBuckets) {
+            const effectBucketErrors = await validateEffectBuckets(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(effectBucketErrors, 'validateEffectBuckets'));
+        }
         if (isModRules(textDocument.uri)) {
             // Separate pass: validate the manifest's action verbs/targets against the
             // effective game tree (the AstType-keyed Validator allows only one pass per type).
@@ -435,6 +554,16 @@ export async function validateTextDocument(
                 () => []
             );
             validationErrors = validationErrors.concat(tagged(manifestVersionErrors, 'manifest-version'));
+            // Separate pass: an action aiming at a node an installed mod already takes for
+            // itself, which the game resolves by applying whichever mod's id sorts last.
+            if (settings.diagnostics?.validateModConflicts) {
+                const conflictErrors = await validateModConflicts(
+                    ModRulesRegistrar.instance.getActions(textDocument.uri),
+                    textDocument.uri,
+                    cancelToken
+                ).catch(() => []);
+                validationErrors = validationErrors.concat(tagged(conflictErrors, 'validateModConflicts'));
+            }
             // Separate pass: the manifest own metadata against what `Cosmoteer.Mods.ModInfo`
             // reads (a missing or malformed `ID`/`Name`, a field name that is a near miss of a
             // real one, a declared folder or logo that is not on disk).
@@ -460,13 +589,18 @@ export async function validateTextDocument(
     if (!persist) perfCount('scan.validateMs', Date.now() - validateStarted);
 
     for (const error of validationErrors) {
+        // A finding the pass could not place is dropped rather than published at the top of the
+        // file. Reading a missing span as offset zero would put an underline on a line that has
+        // nothing to do with it, and dereferencing one used to end the whole workspace pass.
+        const span = findingSpanOf(error);
+        if (!span) continue;
         problems++;
         if (problems > settings.maxNumberOfProblems) break;
         const diagnostic: Diagnostic = {
             severity: VALIDATION_SEVERITY[error.severity ?? 'error'],
             range: {
-                start: textDocument.positionAt(error.range?.start ?? error.node.position.start),
-                end: textDocument.positionAt(error.range?.end ?? error.node.position.end),
+                start: textDocument.positionAt(span.start),
+                end: textDocument.positionAt(span.end),
             },
             message: error.message,
             source: 'cosmoteer-language-server',

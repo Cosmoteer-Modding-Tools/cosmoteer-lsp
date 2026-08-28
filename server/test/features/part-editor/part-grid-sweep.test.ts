@@ -359,10 +359,12 @@ describe('sweep-round mutations', () => {
         expect(removed.edited).not.toContain('AllowedContiguity');
     });
 
-    it('refuses to drag a reference-valued vertex but resizes a circle collider', async () => {
+    it('drags a reference-valued vertex through its declaration and resizes a circle collider', async () => {
+        // Vertex 0 is `[&~/SIZE/0, 0]`: the moved component is written in `SIZE`, and the component
+        // the drag left alone is not touched at all, so the file keeps saying what it said.
         const text = readFileSync(basePath, 'utf-8');
         const document = parseText(text, basePath);
-        const refused = await buildPartGridEdit(
+        const moved = await buildPartGridEdit(
             document,
             text,
             basePath,
@@ -370,7 +372,11 @@ describe('sweep-round mutations', () => {
             { op: 'moveVertex', layerId: 'Components/refcollider/Vertices', index: 0, point: { x: 2, y: 0 } },
             token
         );
-        expect(refused.status).toBe('error');
+        expect(moved.status, moved.message).toBe('ok');
+        const edited = applyEdits(text, moved.edit!.changes![basePath]);
+        expect(edited).toContain('SIZE = [2, 2]');
+        expect(edited).toContain('[&~/SIZE/0, 0]');
+        expect(moved.note).toBeTruthy();
 
         const resized = await mutate({ op: 'setNumber', layerId: 'Components/ccol/Radius', field: 'Radius', value: 0.75 });
         expect(resized.edited).toContain('Radius = 0.75');

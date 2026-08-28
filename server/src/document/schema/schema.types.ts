@@ -64,6 +64,14 @@ export interface SchemaField {
      * Absent means null-tolerant (reference type, `Nullable<T>`, or curated without the flag).
      */
     nullable?: boolean;
+    /**
+     * For a member the game reads as a component id, the runtime kind that component has to be,
+     * as an index into {@link SchemaBundle.componentKinds}. Recovered from the lookup the engine
+     * resolves the id through, so `enforcement` says what a wrong kind costs: `throws` fails the
+     * part load, `silent` leaves the wiring doing nothing. Absent for every slot whose kind the
+     * extraction refuses to state, which is the honest default.
+     */
+    expectedComponent?: { kind: number; enforcement: 'throws' | 'silent' };
     default?: string | number | boolean;
     /**
      * Where {@link default} came from, which decides how far it can be trusted. Absent when the field
@@ -149,6 +157,12 @@ export interface SchemaTypeDef {
      * what the ignored-field validator gates on. Absent means the member list may be incomplete.
      */
     purelyReflective?: boolean;
+    /**
+     * One sentence saying what this class is, shown above its field listing on the class page and on
+     * a `Type=` hover. Not extracted into the bundle: it is merged at load from the community docs
+     * tree (see `applyFieldDocs` and `docs/fields`), seeded from the game's own class notes.
+     */
+    description?: string;
     fields: SchemaField[];
 }
 
@@ -159,6 +173,12 @@ export interface SchemaRegistry {
     valueField: string;
     /** discriminator value -> member class FullName. */
     members: Record<string, string>;
+    /**
+     * One sentence saying what a group in this slot is, merged at load the same way a class
+     * description is. A registry backed by an interface has no type entry to carry it, so the
+     * registry keeps its own.
+     */
+    description?: string;
 }
 
 export interface SchemaEnum {
@@ -175,5 +195,10 @@ export interface SchemaBundle {
     /** Class FullName → ids the engine hardcodes in C# (schemagen sweeps every literal
      *  `new ID<T>("…")` construction), so no `.rules` file declares them. */
     builtinIds?: Record<string, string[]>;
+    /** The runtime kinds a component slot can require, indexed by {@link SchemaField.expectedComponent}. */
+    componentKinds?: string[];
+    /** Component class FullName → the kinds the component it builds satisfies. A class with no entry
+     *  builds no physical component, which is what makes the slot check abstain rather than report. */
+    componentCapabilities?: Record<string, number[]>;
     unresolved: { types: Record<string, number>; generics: Record<string, number> };
 }

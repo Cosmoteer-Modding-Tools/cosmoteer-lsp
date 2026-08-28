@@ -144,6 +144,7 @@ describe.skipIf(!existsSync(CLI_BUNDLE) || !existsSync(SERVER_BUNDLE))('the lint
             'validateLocalizationKeys',
             'validateRenderLayers',
             'validateUnusedParticleChannels',
+            'validateMarkerVocabulary',
             'validateDuplicateIds',
             'validateUnreceivableBuffs',
         ]);

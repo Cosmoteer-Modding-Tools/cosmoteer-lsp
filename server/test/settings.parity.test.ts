@@ -11,15 +11,22 @@ import { defaultSettings, mergeSettings } from '../src/settings';
 const ROOT = join(__dirname, '..', '..');
 
 const packageJson = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
-    contributes: { configuration: { properties: Record<string, { default?: unknown }> } };
+    contributes: { configuration: { title: string; properties: Record<string, { default?: unknown }> }[] };
 };
+
+// The contribution is a list of categories, which is what makes the settings UI group them under the
+// extension instead of listing all of them flat. Every check here reads the keys of all of them.
+const contributedProperties: Record<string, { default?: unknown }> = Object.assign(
+    {},
+    ...packageJson.contributes.configuration.map((category) => category.properties)
+);
 
 const kotlinSettings = readFileSync(
     join(ROOT, 'jetbrains', 'src', 'main', 'kotlin', 'cosmoteer', 'settings', 'CosmoteerSettings.kt'),
     'utf8'
 );
 
-const contributedDiagnostics = Object.keys(packageJson.contributes.configuration.properties)
+const contributedDiagnostics = Object.keys(contributedProperties)
     .filter((key) => key.startsWith('cosmoteerLSPRules.diagnostics.'))
     .map((key) => key.slice('cosmoteerLSPRules.diagnostics.'.length))
     .sort();
@@ -45,9 +52,14 @@ describe('settings parity across the clients', () => {
         expect(jetbrainsDiagnostics()).toEqual(contributedDiagnostics);
     });
 
+    it('lists every setting in exactly one category', () => {
+        const keys = packageJson.contributes.configuration.flatMap((category) => Object.keys(category.properties));
+        expect(keys.length).toBe(new Set(keys).size);
+    });
+
     it('agrees with package.json on every default', () => {
         const mismatched: string[] = [];
-        for (const [key, contributed] of Object.entries(packageJson.contributes.configuration.properties)) {
+        for (const [key, contributed] of Object.entries(contributedProperties)) {
             const path = key.replace('cosmoteerLSPRules.', '').split('.');
             let value: unknown = defaultSettings;
             for (const segment of path) value = (value as Record<string, unknown>)?.[segment];

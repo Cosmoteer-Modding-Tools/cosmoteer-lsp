@@ -158,7 +158,8 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                     .comment(
                         "Fades a door location that is not a cell beside the part, and a blocked cell " +
                         "or per-cell map key outside it, none of which the game reads. A PhysicalRect " +
-                        "leaving the part is an error, since the game refuses to load such a part."
+                        "leaving the part and a door presence toggle whose cell is inside the part " +
+                        "are errors, since the game throws on both."
                     )
             }
             row {
@@ -187,6 +188,140 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                         "Reports a particle channel a file computes that nothing in the effect " +
                         "reads, which is what a channel name misspelled on one side leaves " +
                         "behind. The shared body an emitter pulls in is folded in first."
+                    )
+            }
+            row {
+                checkBox("Report conflicts with installed mods")
+                    .bindSelected(state::validateModConflicts)
+                    .comment(
+                        "Reports a manifest action aiming at a node an installed mod already " +
+                        "replaces, removes or writes. The game applies mods in id order, so with " +
+                        "both enabled only the last writer of the node is the one that stands."
+                    )
+            }
+            row {
+                checkBox("Fade fields a sibling switches off")
+                    .bindSelected(state::validateInertFields)
+                    .comment(
+                        "Marks a field the game stops reading because of what a sibling says, " +
+                        "such as a converter quantity written beside the list form rather than " +
+                        "beside the storage shorthand. Carries a remove fix."
+                    )
+            }
+            row {
+                checkBox("Compare the mod's languages against each other")
+                    .bindSelected(state::validateLocalizationCoverage)
+                    .comment(
+                        "Reports a language that declares fewer keys than the languages beside " +
+                        "it, which leaves a player reading it looking at the key path, and a " +
+                        "translation whose placeholder slots differ from the English text."
+                    )
+            }
+            row {
+                checkBox("Hint at misspelled category names")
+                    .bindSelected(state::validateMarkerVocabulary)
+                    .comment(
+                        "Reports a part category, part feature or ship tag written once in the " +
+                        "project that is one typing slip from a name several files write. Such " +
+                        "a name exists because a file writes it, so nothing rejects a typo."
+                    )
+            }
+            row {
+                checkBox("Check indicator indexes")
+                    .bindSelected(state::validateIndicatorIndexes)
+                    .comment(
+                        "Reports an indicator sprite component whose HidesIndicators names its own " +
+                        "index, which the game refuses to load, or an index the list does not have, " +
+                        "which fails the load with an index error the game cannot name."
+                    )
+            }
+            row {
+                checkBox("Check blend sprite codes")
+                    .bindSelected(state::validateBlendSpriteCodes)
+                    .comment(
+                        "Reports a blend sprite situation code carrying a character other than 0, 1 " +
+                        "or *, which the game throws on the first time the sprite is drawn, and a " +
+                        "code whose length the slot it is written in does not allow."
+                    )
+            }
+            row {
+                checkBox("Check refused enum values")
+                    .bindSelected(state::validateRefusedEnumValues)
+                    .comment(
+                        "Reports an enum value the field type allows and the class reading it refuses, " +
+                        "such as a fixed weapon auto-targeting anything but ship parts, which stops the " +
+                        "game loading."
+                    )
+            }
+            row {
+                checkBox("Check mishandled fields")
+                    .bindSelected(state::validateMishandledFields)
+                    .comment(
+                        "Reports a field the game reads and then acts on wrongly, such as an ExcludeID " +
+                        "on a part criteria, which the engine adds to the list of parts the criteria " +
+                        "matches rather than the one it excludes."
+                    )
+            }
+            row {
+                checkBox("Check component chains")
+                    .bindSelected(state::validateChainedToCycles)
+                    .comment(
+                        "Reports a part component chain that leads back to itself, which takes the " +
+                        "process down the moment the part is created, with no dialog and nothing in " +
+                        "the log."
+                    )
+            }
+            row {
+                checkBox("Check text markup")
+                    .bindSelected(state::validateTextMarkup)
+                    .comment(
+                        "Reports a localization string whose markup the game cannot read, which it " +
+                        "answers by drawing the string with its tags visible as plain text and saying " +
+                        "nothing about it."
+                    )
+            }
+            row {
+                checkBox("Check value ranges")
+                    .bindSelected(state::validateValueRanges)
+                    .comment(
+                        "Reports a range written the wrong way round where the class reading it cares, " +
+                        "such as one the game rolls a whole number out of, which throws on a high end " +
+                        "below its low one."
+                    )
+            }
+            row {
+                checkBox("Check chained buffs")
+                    .bindSelected(state::validateChainedBuffReceivable)
+                    .comment(
+                        "Reports a buff provider chaining from a buff its own part cannot receive, " +
+                        "which the game refuses to load the data tree over, so the game does not " +
+                        "start at all."
+                    )
+            }
+            row {
+                checkBox("Check bullet components")
+                    .bindSelected(state::validateBulletComponents)
+                    .comment(
+                        "Reports a bullet with two physics components, with none, or with a hit " +
+                        "written above its physics component, which reads a physics body that is not " +
+                        "there yet and throws on the first shot."
+                    )
+            }
+            row {
+                checkBox("Check underlying parts")
+                    .bindSelected(state::validateUnderlyingParts)
+                    .comment(
+                        "Reports a part naming itself as the part it leaves behind when destroyed, " +
+                        "which the engine walks with no guard against a loop, taking the process down."
+                    )
+            }
+            row {
+                checkBox("Check effect buckets")
+                    .bindSelected(state::validateEffectBuckets)
+                    .comment(
+                        "Reports a media-effect bucket declared twice, which the game refuses " +
+                        "to load, a bucket list longer than the band the engine reads out of " +
+                        "it, and a registry with no default_bullet bucket."
                     )
             }
             row {
@@ -221,6 +356,15 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
             }
         }
         group("Editing") {
+            row {
+                checkBox("Say whether the mod loads the open file")
+                    .bindSelected(state::codeLensShowFileReachability)
+                    .comment(
+                        "A lens on the first line of a mod file. The game loads the closure of " +
+                        "its manifest actions and their includes, so a file outside it is content " +
+                        "the game never sees."
+                    )
+            }
             row {
                 checkBox("Show the referenced group's BaseValue as an inlay hint")
                     .bindSelected(state::inlayShowBaseValue)

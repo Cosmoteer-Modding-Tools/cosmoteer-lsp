@@ -216,6 +216,51 @@ export const scalarReferenceTargetOf = (cls: string): string | undefined => {
     return undefined;
 };
 
+/**
+ * The field a plain scalar written for group class `cls` reads into, following a scalar-form chain
+ * to the member that really holds the value. Its slot expectations are the ones that apply to the
+ * bare value, since that is the member the engine ends up filling.
+ *
+ * @param cls the group class FullName.
+ * @returns the payload field, or undefined when `cls` reads no scalar.
+ */
+export const scalarPayloadFieldOf = (cls: string): SchemaField | undefined => {
+    let payload: SchemaField | undefined;
+    for (let depth = 0; depth < 4; depth++) {
+        const def = typeDef(cls);
+        if (!def?.scalarForm) return payload;
+        payload = def.scalarField ? fieldOf(cls, def.scalarField) : fieldOf(cls, '0');
+        if (payload?.valueType.kind !== 'group') return payload;
+        cls = payload.valueType.ref;
+    }
+    return payload;
+};
+
+/**
+ * The name of a runtime component kind, for a message that has to say what the slot wanted.
+ *
+ * @param kind the kind index carried by a field's `expectedComponent`.
+ * @returns the kind's class FullName, or undefined when the bundle knows no such kind.
+ */
+export const componentKindName = (kind: number): string | undefined => schema.componentKinds?.[kind];
+
+/**
+ * Whether the component a rules class builds satisfies a slot's required kind.
+ *
+ * Three answers, and the third is the important one: a class the bundle has no capability entry for
+ * builds no physical component the engine can type, or is not a component class the extraction saw
+ * at all (a code mod's own class), and neither can be judged. The check must say nothing there
+ * rather than report a component the game accepts.
+ *
+ * @param rulesClass the FullName of the component's rules class.
+ * @param kind the kind index the slot requires.
+ * @returns true when it satisfies the kind, false when it does not, undefined when it cannot be judged.
+ */
+export const componentSatisfiesKind = (rulesClass: string, kind: number): boolean | undefined => {
+    const satisfied = schema.componentCapabilities?.[rulesClass];
+    return satisfied ? satisfied.includes(kind) : undefined;
+};
+
 /** A registry by FullName, or by its short `name`. */
 export const registryOf = (fullNameOrName: string): SchemaRegistry | undefined =>
     schema.registries[fullNameOrName] ?? registryByShortName.get(fullNameOrName);

@@ -1,10 +1,51 @@
 # Changelog
 
-Cosmoteer Language server provides a lot of useful features, like:
-- Autocompletion
-- Diagnostics
-
 ## [Unreleased]
+
+### Added
+
+- A number the game also reads as a group can now be rewritten into that form in one step. "Make this modifiable" writes the value the file already had as its `BaseValue` and an empty `Modifiers` list beside it, and the offer runs the other way on a group that carries nothing but its base value.
+- A component a part wires before declaring it can now be declared from the lightbulb. The kind is picked in a dialog, and the declaration is written where the part keeps its components, with every field the game throws without scaffolded.
+- An inline block can now be moved into a file of its own. The file name is asked for in a dialog, the block is written there, and a reference to it takes its place, with every path it carries re-expressed against the new folder.
+- Every class the schema knows now says what it is in one sentence, on the class page in the schema search and on the hover over a `Type =` value.
+- A component wired into a slot that reads another kind of component is now reported, which the game answers with a crash while the part is built. The part's own components of the right kind are offered as the fix.
+- A bucket declared twice in the media-effect registry, and a bucket list longer than the band the game reads out of it, are now reported, and a registry with no `default_bullet` bucket is warned about.
+- A part category, part feature or ship tag written once in the project that is one typing slip from a name several files write is now hinted at, with the established name offered as a fix.
+- The language files of a mod are now compared against each other: a language behind the ones beside it, with a fix that writes the missing keys in with the English sentence to translate, and a translation whose placeholder slots differ from the English text.
+- A field a sibling switches off is now faded out with a remove fix, such as a converter quantity written beside the list form rather than beside the storage shorthand.
+- A manifest action aiming at a node an installed mod already replaces, removes or writes is now reported, with the mod named and which of the two the game applies last.
+- The field-name popup now offers the fields the game's own files write most before the ones it never writes.
+- Who reaches a declaration can now be asked for, listing the files that reference it, include it, inherit from it and the manifest actions that name it as a target.
+- A file of a mod now says on its first line whether the mod loads it at all. The checkbox for it is under Editing in the settings page.
+- A whole mod can now be created from the Tools menu. Cosmoteer: New Mod asks where it goes, what it is called and who wrote it, then writes the manifest and the language file.
+- The mod overview now names the mods on this machine that write what this mod writes, saying what each of them does to the shared node and which of the two the game applies last.
+- The mod overview now opens with a health table: action targets, how much of the mod the game loads, ids registered twice, part grid values out of reach, language files behind the one they follow, dead fields, repeated field sets and overrides that change nothing.
+- An indicator sprite component whose `HidesIndicators` names its own indicator, or an index its list does not have, is now reported. Both stop the game loading, and both come from adding an indicator at the head of the list without shifting the numbers underneath.
+- A buff provider chaining from a buff its own part cannot receive is now reported. The game checks this while reading the part and throws outright, so the game does not start at all.
+- A language file string whose markup the game cannot read is now reported, with the tag, the attribute or the bare `&` that broke it named. The game answers such a string by drawing its tags as plain text and logging nothing.
+- A part component chain that leads back to itself is now reported. Nothing guards the chain at either end, so a closed one takes the process down the moment the part is created.
+- A bullet whose components the game cannot build is now reported: a second physics component, none at all, and a hit or a targetable written above the physics component.
+- An enum value the field's type allows and the class reading it refuses is now reported, and the value popup stops offering such a member whether or not the report is on.
+- A range written the wrong way round is now reported where its consumer rolls or compares rather than interpolates.
+- A blend sprite situation code the game cannot expand is now reported, both a character outside `0`, `1` and `*` and a code whose length its slot does not allow.
+- A field the game reads and then acts on wrongly is now reported, such as an `ExcludeID` the engine adds to the list of parts a criteria matches rather than the one it excludes.
+- A part naming itself as the part it leaves behind when destroyed is now reported. Working out what it costs and what it drops both walk that chain with no guard against a loop.
+- A door presence toggle whose cell lies inside its own part is now reported, with the rest of the part grid checks.
+- A bullet component wired into a slot that reads another kind of component is now reported, the way a part's components already were.
+- A value the part grid editor edits that is written as a reference is now followed to its declaration and changed there, instead of a literal being pasted over the reference. A rect, a point, a cell, a component location, a polygon vertex and a radius all write through, and the editor says where the write landed and how many other places read it.
+
+### Changed
+
+- The mod overview now reads the checks the editor has already run instead of walking the mod again, so the report opens without a pause on a large mod.
+
+### Fixed
+
+- A range written with the wrong number of list elements is now reported as an error saying the game refuses to load the file, instead of a cosmetic warning claiming the game never reads the extra element.
+- A reference whose chain leads back to itself now says so, instead of reporting the same thing a misspelled name reports.
+- A part whose `Size` is written as a reference is now drawn at that size instead of as a single cell, and the same goes for a component location, a port cell, a tile line start and a graphics slot offset.
+- The part grid editor now re-renders when a file it reads changes, not only when the part's own file does.
+
+## 0.8.0 - 2026-08-23
 
 ### Added
 
@@ -18,6 +59,31 @@ Cosmoteer Language server provides a lot of useful features, like:
 - A manifest's `Replace` and `Remove` actions are now read the way the game reads them, so a member a mod replaces or removes shows what the game really loads.
 - Render layers are now offered and checked per ship class. Only the layers the part's own ship declares are suggested, and a layer no ship declares, or one belonging to another ship class, is reported with the ship named. Turn it off with `cosmoteerLSPRules.diagnostics.validateRenderLayers`.
 - Quotes, braces, brackets and `<` now close themselves as you type, and `//` and `/* */` comments toggle with the editor's own comment shortcut.
+
+### Changed
+
+- Problems now appear about twice as fast after you stop typing.
+- Checking a whole mod is faster. A pass reads each folder once instead of once per reference into it, and which ships a part may be drawn on is worked out once for the project instead of once per part file.
+- The language server is started with more room for short-lived data, so the collections a whole-mod check used to trigger are rarer and no longer stall it for up to half a second at a time. It also settles back to less memory once the check is done.
+- Semantic highlighting from the language server is on by default and is painted by the plugin itself, so the colors stay on the text while you type instead of dropping out whenever a request is still running.
+
+### Fixed
+
+- A file written in the same instant the editor read the folder it sits in is no longer missed until something else changes there.
+- A value is now suggested while its quotes are still open. `Layer = "roo` used to answer with the group's field names rather than the ship render layers, and the accepted suggestion now writes the missing closing quote.
+- `Layer` written on an `IndicatorSprites` component is marked as having no effect, which is what the game does with it.
+- Turning semantic highlighting on or off now reaches the files you already have open, instead of only the next file you open.
+- The part grid editor now shows the whole part. Its sprites are placed from a `Location` written as arithmetic, the components a part gathers from other files through its `Components` bases are drawn with the ones it declares itself, and a single field reaching far outside the part, such as a wide `BuffArea`, no longer frames the canvas around itself and shrinks the part into a corner.
+- Zooming into a large part in the grid editor no longer leaves the canvas blank.
+- A part rect written from references or math is now drawn in the part grid editor. It draws dashed and refuses the corner drag, since replacing the expression with four numbers is not what the drag looks like it does.
+- The part grid editor now opens with the whole part in view instead of scrolled into its top-left corner, and a fit button returns to that view. A wide part is no longer squashed to the panel width.
+- The rect of the layer being edited is now washed with its color, so a rect spanning the whole part is visible against the sprites.
+- A layer whose checkbox is off can no longer be edited in the part grid editor.
+
+## 0.7.0 - 2026-08-19
+
+### Added
+
 - Seven shapes the game refuses to load are now reported instead of parsing as if they were fine, among them free text where a member name belongs, a number naming a member, a nameless `{` or `[` block outside a list, an inheritance with no body and a `/*` that no `*/` ever ends. Each of these makes the game drop the whole file at load time, so a mod could be shipped broken while the editor showed nothing.
 - A block comment the game does not close is now a warning, with a fix that makes it close. The game closes a block comment only when the run of `*` before the closing `/` is odd, so a banner like `/****** Section ******/` silently swallows everything up to the next `*/` when the mod loads.
 - A member written on a line whose value already runs to the line end is now a warning saying the value before it swallows it. The game accepts that shape and folds the member into the value, so it loses the member rather than failing to load.
@@ -29,18 +95,10 @@ Cosmoteer Language server provides a lot of useful features, like:
 
 ### Changed
 
-- Problems now appear about twice as fast after you stop typing.
-- Checking a whole mod is faster. A pass reads each folder once instead of once per reference into it, and which ships a part may be drawn on is worked out once for the project instead of once per part file.
-- The language server is started with more room for short-lived data, so the collections a whole-mod check used to trigger are rarer and no longer stall it for up to half a second at a time. It also settles back to less memory once the check is done.
 - The dead-field hint now also reads a field written as a bare list, the shape the game's own files use for effect collections. A `MediaEffects [ … ]` block that ended up on the component instead of on its hit or death slot is faded out with a remove quick fix instead of loading silently and doing nothing.
-- Semantic highlighting from the language server is on by default and is painted by the plugin itself, so the colors stay on the text while you type instead of dropping out whenever a request is still running.
 
 ### Fixed
 
-- A file written in the same instant the editor read the folder it sits in is no longer missed until something else changes there.
-- A value is now suggested while its quotes are still open. `Layer = "roo` used to answer with the group's field names rather than the ship render layers, and the accepted suggestion now writes the missing closing quote.
-- `Layer` written on an `IndicatorSprites` component is marked as having no effect, which is what the game does with it.
-- Turning semantic highlighting on or off now reaches the files you already have open, instead of only the next file you open.
 - Values are read the way the game reads them in five shapes that used to shift list positions or invent members: computed values inside a list count as one element each, a list element starting with a minus and continuing with arithmetic stays one element, a stray `)` and an unescaped `"` stay part of their value, and a value written on the line below its `=` belongs to the field above it.
 
 ## 0.6.0 - 2026-08-04

@@ -37,6 +37,14 @@ const SEED_DIRS = [
     'server/src/features/navigation',
 ];
 
+/**
+ * Files the closure reaches through an import but whose content decides nothing a cache holds.
+ * The field and class prose is rendered on hover, in completion and in the schema search, and no
+ * validator reads it, so a documentation edit would otherwise discard every user's caches on
+ * upgrade for a change no cached answer depends on.
+ */
+const EXCLUDED_FROM_HASH = ['server/src/document/schema/field-docs.json'];
+
 /** A persisted index sets a string `cacheId`, so such a file seeds the closure wherever it lives
  *  (two are under features/completion, which is otherwise excluded). */
 const CACHE_ID_MARKER = /cacheId\s*=\s*['"]/;
@@ -133,7 +141,9 @@ export function computeCacheBuildId(repoRoot = process.cwd()) {
 
     // Hash the closure's contents (path-keyed, sorted for determinism) plus dependency versions.
     const hash = createHash('sha1');
+    const excluded = new Set(EXCLUDED_FROM_HASH.map((p) => norm(join(repoRoot, p))));
     for (const file of [...closure].sort()) {
+        if (excluded.has(file)) continue;
         hash.update(relative(repoRoot, file).replace(/\\/g, '/'));
         hash.update('\0');
         hash.update(readFileSync(file));

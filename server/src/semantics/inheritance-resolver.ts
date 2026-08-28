@@ -21,28 +21,21 @@ export type ResolveReferenceFn = (
 ) => Promise<AbstractNode | null | { readonly type: string } | undefined>;
 
 /**
- * Resolve a named member of `node` by walking its inheritance chain, without
- * mutating the AST.
- *
- * This replaces the previous approach (`addInhertinaceToNode`) which flattened
- * inherited members into `node.elements` in place. That mutation persisted across
- * calls (causing duplicated/injected nodes) and guarded cycles only with a depth
- * counter. Here nothing is mutated and the matching member is returned directly,
- * cycles are detected with an explicit `visited` set (no arbitrary depth limit),
- * and per-node lookup reuses the canonical {@link stepIntoNode}, so a found member
- * has exactly the same shape as a direct lookup would.
+ * Resolves a node's own inheritance list to the containers the bases name, in declaration order.
+ * @param node the inheriting group or list.
+ * @param resolveReference the reference resolver to reach a base with.
+ * @param cancellationToken cancels reference resolution.
+ * @param visited the shared inheritance-cycle guard.
+ * @returns the base containers in order, skipping references that resolve to nothing readable.
+ * Yielded one at a time so a caller that stops early never pays for the rest of the list.
  */
-export const findMemberThroughInheritance = async (
+export async function* inheritanceBasesOf(
     node: GroupNode | ListNode,
-    segment: string,
     resolveReference: ResolveReferenceFn,
     cancellationToken: CancellationToken,
-    visited: Set<AbstractNode> = new Set()
-): Promise<AbstractNode | null | undefined> => {
-    if (visited.has(node)) return null;
-    visited.add(node);
-    if (!node.inheritance) return null;
-
+    visited: Set<AbstractNode>
+): AsyncGenerator<AbstractNode> {
+    if (!node.inheritance) return;
     for (const inheritance of node.inheritance) {
         if (inheritance.valueType.type !== 'Reference') continue;
         // Resolve the inheritance reference from the value node's own scope, not the
@@ -64,13 +57,38 @@ export const findMemberThroughInheritance = async (
         // Its inherited members are the file's root-level fields (`HitInterval`, `Range`, …), so
         // descend into the parsed document and look the segment up there, rather than skipping the
         // base, which left every `&<file>`-inherited member unresolvable (false "unknown reference").
-        let parent = resolved as AbstractNode;
         if (isFile(resolved as unknown as FileTree)) {
             const document = await getParsedFileDocument(resolved as unknown as FileWithPath).catch(() => null);
-            if (!document) continue;
-            parent = document;
+            if (document) yield document;
+            continue;
         }
+        yield resolved as AbstractNode;
+    }
+}
 
+/**
+ * Resolve a named member of `node` by walking its inheritance chain, without
+ * mutating the AST.
+ *
+ * This replaces the previous approach (`addInhertinaceToNode`) which flattened
+ * inherited members into `node.elements` in place. That mutation persisted across
+ * calls (causing duplicated/injected nodes) and guarded cycles only with a depth
+ * counter. Here nothing is mutated and the matching member is returned directly,
+ * cycles are detected with an explicit `visited` set (no arbitrary depth limit),
+ * and per-node lookup reuses the canonical {@link stepIntoNode}, so a found member
+ * has exactly the same shape as a direct lookup would.
+ */
+export const findMemberThroughInheritance = async (
+    node: GroupNode | ListNode,
+    segment: string,
+    resolveReference: ResolveReferenceFn,
+    cancellationToken: CancellationToken,
+    visited: Set<AbstractNode> = new Set()
+): Promise<AbstractNode | null | undefined> => {
+    if (visited.has(node)) return null;
+    visited.add(node);
+
+    for await (const parent of inheritanceBasesOf(node, resolveReference, cancellationToken, visited)) {
         const direct = stepIntoNode(parent, segment);
         if (direct) return direct;
 

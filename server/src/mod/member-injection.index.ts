@@ -23,9 +23,11 @@ import { resolveActionTarget, resolveActionTargetMember } from './action-target-
  * twice, so a colliding `Add` names no winner at all. `Remove` and `RemoveMany` delete the child from
  * its parent, and what the game then reads under that name is whatever a base supplies, or nothing.
  * `Replace` swaps the child like an `Overrides` but creates nothing: it names a member that already
- * exists, so where the target writes none there is nothing here for it to rewrite.
+ * exists, so where the target writes none there is nothing here for it to rewrite. Aimed at a list,
+ * `Add` and `AddMany` append instead: the game adds the child at the end, under the `Name` when one
+ * is written, and a list is read by position, which is `appends`.
  */
-type InjectionPrecedence = 'replaces' | 'adds' | 'removes' | 'rewrites';
+type InjectionPrecedence = 'replaces' | 'adds' | 'removes' | 'rewrites' | 'appends';
 
 /** One member a mod action merges into a node. */
 interface InjectedMember {
@@ -115,11 +117,13 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
         // A removal declares nothing, so its record must never be handed back as a member: the node
         // it carries is the action's own target, which is a path in a manifest rather than a value.
         // A `Replace` names a member that already exists and creates none, so it adds nothing here
-        // either. The last action written is the one the game leaves in place.
+        // either, and an append carries no name to be asked for. The last action written is the one
+        // the game leaves in place.
         return members.findLast(
             (member) =>
                 member.precedence !== 'removes' &&
                 member.precedence !== 'rewrites' &&
+                member.precedence !== 'appends' &&
                 member.name.toLowerCase() === lower
         )?.node;
     }
@@ -160,6 +164,8 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
         for (const member of this.byNode.get(MemberInjectionIndex.nodeKey(node)) ?? []) {
             // A `Replace` names a member the node already has, so it adds no name of its own, and a
             // `Remove` takes one away. Both are applied in written order, like the game applies them.
+            // An append has no name to offer at all.
+            if (member.precedence === 'appends') continue;
             if (member.precedence === 'removes' || member.precedence === 'rewrites') names.delete(member.name);
             else names.add(member.name);
         }
@@ -325,6 +331,15 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
             } else if (action.type === 'Add' && action.nameNode && action.sources[0]) {
                 members = [[String(action.nameNode.valueType.value), action.sources[0]]];
                 precedence = 'adds';
+            } else if ((action.type === 'Add' || action.type === 'AddMany') && action.sources.length > 0) {
+                // A nameless form belongs to a list, so this arm carries the sources and the target
+                // decides below whether they are appended or dropped. An action
+                // declaring an `Index` is left out: it puts its value at a written position, which
+                // renumbers everything after it, and an index the game reads differently is worse
+                // than one it does not read here at all.
+                if (action.presentFields.has('index')) continue;
+                members = action.sources.map((node): [string, AbstractNode] => ['', node]);
+                precedence = 'appends';
             } else {
                 continue;
             }
@@ -335,9 +350,20 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
             // Whole-file targets are owned by mod-context, so only a node target is indexed here.
             if (!resolved || isFile(resolved as unknown as FileTree) || isDocumentNode(resolved as AbstractNode))
                 continue;
-            // A list target ignores the `Name` outright and appends an anonymous element, so a named
-            // member recorded there is a record nothing can ever read.
-            if (precedence === 'adds' && isListNode(resolved as AbstractNode)) continue;
+            const targetsList = isListNode(resolved as AbstractNode);
+            // An `Add` carrying a `Name` is a named member on a group and an appended element on a
+            // list: the game adds the child under that name either way, and a list is read by
+            // position, so what a reader of the list has to see is one more element. Recording it
+            // by name instead would leave the list a member short, which reads as a part that
+            // cannot receive a buff its mod's manifest added. An action placing its value at a
+            // written `Index` stays out for the reason the nameless form does: it renumbers
+            // everything after it.
+            if (targetsList && precedence === 'adds' && action.type === 'Add') {
+                if (action.presentFields.has('index')) continue;
+                precedence = 'appends';
+            }
+            // A group takes nothing from the nameless form, which is the one a list appends.
+            if (targetsList !== (precedence === 'appends')) continue;
             const key = MemberInjectionIndex.nodeKey(resolved as AbstractNode);
             const bucket = this.byNode.get(key) ?? this.byNode.set(key, []).get(key)!;
             for (const [name, node] of members) bucket.push({ source, name, node, precedence });

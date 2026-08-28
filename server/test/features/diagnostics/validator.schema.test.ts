@@ -514,18 +514,18 @@ describe('validateSchema: structural form mismatches (value shape the deserializ
         ).toHaveLength(0);
     });
 
-    it('flags the extra endpoint of a range written with three elements', async () => {
+    it('reports a range written with three elements as a file the game will not load', async () => {
         const errors = await validateSchema(parse(airlock('\t\t\tNuggetEjectVelocity = [1, 2, 3]')), token);
         expect(errors).toHaveLength(1);
-        expect(errors[0].message).toContain('only 2');
+        expect(errors[0].message).toContain('refuses to load the file');
     });
 
     it('flags the extra endpoint even when an element is computed', async () => {
         // A computed element is one element to the game, so it counts once and the third endpoint is
-        // still one too many.
+        // still one too many. The reader refuses any count but one or two outright.
         const errors = await validateSchema(parse(airlock('\t\t\tNuggetEjectVelocity = [1, (7 / 2), 3]')), token);
         expect(errors).toHaveLength(1);
-        expect(errors[0].message).toContain('only 2');
+        expect(errors[0].message).toContain('refuses to load the file');
     });
 
     it('leaves a two-element range with a computed endpoint alone', async () => {

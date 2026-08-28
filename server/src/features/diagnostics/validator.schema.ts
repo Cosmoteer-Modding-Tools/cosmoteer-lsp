@@ -663,8 +663,24 @@ export const validateSchema = async (
             });
         };
         if (isListNode(value) && !value.inheritance?.length) {
-            const arity = vt.kind === 'range' ? 2 : vt.kind === 'tuple' ? vt.elements.length : undefined;
-            if (arity !== undefined && value.elements.every(isAtomicListElement)) {
+            const arity = vt.kind === 'tuple' ? vt.elements.length : undefined;
+            // A range is the one shape where a wrong element count is not a value the game quietly
+            // drops. Its reader takes elements "0" and "1" positionally and refuses anything else
+            // outright, so a list of none or of three is a file the game will not load.
+            if (vt.kind === 'range' && value.elements.every(isAtomicListElement)) {
+                const written = value.elements.length;
+                if (written !== 1 && written !== 2) {
+                    errors.push({
+                        message: l10n.t(
+                            "'{0}' is a range, which reads one or two list elements. This list has {1}, so the game refuses to load the file.",
+                            writtenName,
+                            String(written)
+                        ),
+                        node: value,
+                        severity: 'error',
+                    });
+                }
+            } else if (arity !== undefined && value.elements.every(isAtomicListElement)) {
                 for (const extra of value.elements.slice(arity)) {
                     errors.push({
                         message: l10n.t(

@@ -12,6 +12,12 @@ Actions
 		ToAdd = &<wired/a.rules>
 		CreateIfNotExisting = true
 	}
+	/*{
+		Action = Add
+		AddTo = <cosmoteer.rules>
+		Name = PARKED
+		ToAdd = &<orphan/dead.rules>
+	}*/
 	{
 		Action = Overrides
 		OverrideIn = <vanillaname.rules>

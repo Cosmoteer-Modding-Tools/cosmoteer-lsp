@@ -128,11 +128,19 @@ const parseAction = (group: GroupNode): ModAction => {
 };
 
 /**
+ * Parse the entries of an actions list into structured {@link Action}s. The list is a manifest's own
+ * `Actions`, or the list an included fragment contributes to one.
+ *
+ * @param list the list whose entries are actions.
+ * @returns one action per entry group.
+ */
+export const parseActionList = (list: ListNode): Action[] => list.elements.filter(isGroupNode).map(parseAction);
+
+/**
  * Parse the `Actions` list of a `mod.rules` manifest into structured {@link Action}s.
  * Returns `[]` when the document has no `Actions` list.
  */
 export const parseModActions = (document: AbstractNodeDocument): Action[] => {
     const actions = findActionsList(document);
-    if (!actions) return [];
-    return actions.elements.filter(isGroupNode).map(parseAction);
+    return actions ? parseActionList(actions) : [];
 };

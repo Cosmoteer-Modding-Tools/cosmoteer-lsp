@@ -57,6 +57,8 @@ export interface SchemaSearchEntry {
     readonly acr: string;
     readonly ownerLower: string;
     readonly typeLower: string;
+    /** The entry's own prose: a field's description, or a class or registry summary. */
+    readonly prose?: string;
     readonly proseLower?: string;
 }
 
@@ -146,6 +148,7 @@ const toEntry = (seed: EntrySeed): SchemaSearchEntry => {
         acr: acronymOf(seed.label, humps),
         ownerLower: seed.ownerSearch.toLowerCase(),
         typeLower: seed.typeLabel.toLowerCase(),
+        prose: seed.prose,
         proseLower: seed.prose?.toLowerCase(),
     };
 };
@@ -191,6 +194,7 @@ const buildEntries = (): SchemaSearchEntry[] => {
                 ownerFullName: fullName,
                 typeLabel: ['type', ...details.filter((part): part is string => !!part)].join(' · '),
                 ownerSearch: `${type.derivedType ?? ''} ${fullName}`,
+                prose: type.description,
                 modContributed,
             });
         }
@@ -246,6 +250,7 @@ const buildEntries = (): SchemaSearchEntry[] => {
             ownerFullName: fullName,
             typeLabel: `${registry.typeField}= registry · ${subtypes} subtypes`,
             ownerSearch: fullName,
+            prose: registry.description,
             modContributed: isModContributedClass(fullName) || undefined,
         });
     }

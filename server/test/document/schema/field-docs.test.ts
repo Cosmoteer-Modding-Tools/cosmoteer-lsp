@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { applyFieldDocs } from '../../../src/document/schema/field-docs';
+import { CLASS_DOC_KEY, applyFieldDocs } from '../../../src/document/schema/field-docs';
 import { SchemaBundle } from '../../../src/document/schema/schema.types';
-import { fieldOf, fieldSignatureMarkdown, wikiUrlForType } from '../../../src/document/schema/schema';
+import { fieldOf, fieldSignatureMarkdown, registryOf, typeDef, wikiUrlForType } from '../../../src/document/schema/schema';
 
 const bundleWith = (fields: { name: string; aliases?: string[] }[]): SchemaBundle => ({
     meta: {},
@@ -38,6 +38,30 @@ describe('applyFieldDocs', () => {
         const bundle = bundleWith([{ name: 'Foo' }]);
         expect(() => applyFieldDocs(bundle, { 'No.Such': { Bar: 'x' }, 'X.Y': { Nope: 'y' } })).not.toThrow();
         expect(bundle.types['X.Y'].fields[0].description).toBeUndefined();
+    });
+});
+
+describe('applyFieldDocs class summaries', () => {
+    it('attaches a class summary to the type it names', () => {
+        const bundle = bundleWith([{ name: 'Foo' }]);
+        applyFieldDocs(bundle, { 'X.Y': { [CLASS_DOC_KEY]: 'what a Y is' } });
+        expect(bundle.types['X.Y'].description).toBe('what a Y is');
+        // The reserved key is not a field name, so no field may pick it up.
+        expect(bundle.types['X.Y'].fields[0].description).toBeUndefined();
+    });
+
+    it('attaches the same summary to a registry of that name, which may have no type entry', () => {
+        const bundle = bundleWith([{ name: 'Foo' }]);
+        bundle.registries['X.Slot'] = { name: 'Slot', typeField: 'Type', valueField: 'Value', members: {} };
+        applyFieldDocs(bundle, { 'X.Slot': { [CLASS_DOC_KEY]: 'what goes in the slot' } });
+        expect(bundle.registries['X.Slot'].description).toBe('what goes in the slot');
+    });
+
+    it('leaves a class with no documented summary undescribed rather than borrowing its base one', () => {
+        const bundle = bundleWith([{ name: 'Foo' }]);
+        bundle.types['X.Derived'] = { name: 'Derived', extends: 'X.Y', fields: [] };
+        applyFieldDocs(bundle, { 'X.Y': { [CLASS_DOC_KEY]: 'what a Y is' } });
+        expect(bundle.types['X.Derived'].description).toBeUndefined();
     });
 });
 
@@ -109,5 +133,28 @@ describe('bundled field-docs.json seed', () => {
         expect(fieldOf('Cosmoteer.Data.Rules', 'IndicatorMaterial')?.description).toBe(
             'The material used to render indicator sprites.'
         );
+    });
+
+    it('carries a class summary through the pipeline onto the shipped bundle', () => {
+        // The classes a modder meets first. An empty class page is worse than no page, so these are
+        // the ones the summary has to survive for.
+        for (const cls of [
+            'Cosmoteer.Bullets.BulletRules',
+            'Cosmoteer.Ships.Parts.PartRules',
+            'Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules',
+            'Cosmoteer.Resources.ResourceRules',
+        ]) {
+            const summary = typeDef(cls)?.description;
+            expect(summary, cls).toBeTruthy();
+            expect(summary, cls).toMatch(/\.$/);
+        }
+    });
+
+    it('summarizes a registry slot, which has no type entry of its own to carry it', () => {
+        expect(registryOf('Cosmoteer.Ships.Parts.PartComponentRules')?.description).toBeTruthy();
+    });
+
+    it('reads no class summary out of the reserved key as if it were a field', () => {
+        expect(fieldOf('Cosmoteer.Bullets.BulletRules', CLASS_DOC_KEY)).toBeUndefined();
     });
 });

@@ -230,9 +230,29 @@ export const computeModReachability = async (
         queue.push(path);
     };
 
+    // Refs a file writes only inside a comment, remembered per target so an unreachable file can be
+    // annotated with the file whose commented-out line disables it.
+    const commentedReferencers = new Map<string, string[]>();
+    const recordCommented = (text: string, fromFile: string, fromDir: string): void => {
+        const live = new Set<string>();
+        for (const match of stripComments(text).matchAll(FILE_REF_RE)) live.add(match[1]);
+        for (const match of text.matchAll(FILE_REF_RE)) {
+            if (live.has(match[1])) continue;
+            const target = resolveRef(match[1], fromDir, root, knownFiles);
+            if (!target) continue;
+            const targetKey = reachabilityKey(target);
+            const referencers =
+                commentedReferencers.get(targetKey) ?? commentedReferencers.set(targetKey, []).get(targetKey)!;
+            if (!referencers.includes(fromFile)) referencers.push(fromFile);
+        }
+    };
+
     for (const manifest of manifests) {
         reachable.add(reachabilityKey(manifest));
         const manifestDir = dirname(manifest);
+        // A whole action commented out is the most common way a mod ships content the game never
+        // loads, and the manifest is not walked with the rest, so its own comments are read here.
+        recordCommented(await readFile(manifest, 'utf8').catch(() => ''), manifest, manifestDir);
         const document = await parseFilePath(manifest).catch(() => null);
         if (!document) continue;
         for (const action of parseModActions(document)) {
@@ -273,28 +293,16 @@ export const computeModReachability = async (
     // Only refs surviving the comment strip expand, since a commented-out include is disabled
     // content the game never follows. Those stripped-away refs are still remembered per target,
     // so an unreachable file can be annotated with the reachable file whose comment disables it.
-    const commentedReferencers = new Map<string, string[]>();
     while (queue.length > 0) {
         if (token.isCancellationRequested) break;
         const wave = queue.splice(0);
         const texts = await Promise.all(wave.map((file) => readFile(file, 'utf8').catch(() => '')));
         for (const [index, text] of texts.entries()) {
             const fromDir = dirname(wave[index]);
-            const stripped = stripComments(text);
-            const liveRefs = new Set<string>();
-            for (const match of stripped.matchAll(FILE_REF_RE)) {
-                liveRefs.add(match[1]);
+            for (const match of stripComments(text).matchAll(FILE_REF_RE)) {
                 enqueue(resolveRef(match[1], fromDir, root, knownFiles));
             }
-            for (const match of text.matchAll(FILE_REF_RE)) {
-                if (liveRefs.has(match[1])) continue;
-                const target = resolveRef(match[1], fromDir, root, knownFiles);
-                if (!target) continue;
-                const targetKey = reachabilityKey(target);
-                const referencers =
-                    commentedReferencers.get(targetKey) ?? commentedReferencers.set(targetKey, []).get(targetKey)!;
-                if (!referencers.includes(wave[index])) referencers.push(wave[index]);
-            }
+            recordCommented(text, wave[index], fromDir);
         }
     }
 

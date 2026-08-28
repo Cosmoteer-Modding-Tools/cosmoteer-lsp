@@ -17,6 +17,16 @@ import {
     extractSharedBase,
 } from '../../features/refactor/shared-base/shared-base.command';
 import {
+    EXTRACT_GROUP_COMMAND,
+    ExtractGroupArgs,
+    extractGroupToFile,
+} from '../../features/refactor/extract-group/extract-group.command';
+import {
+    CREATE_COMPONENT_COMMAND,
+    CreateComponentArgs,
+    createComponent,
+} from '../../features/refactor/create-component/create-component.command';
+import {
     REGISTER_PART_IN_SHIP_COMMAND,
     RegisterPartArgs,
     registerPartInShip,
@@ -32,6 +42,8 @@ import {
     cloneDeclaration,
 } from '../../features/refactor/clone-declaration/clone.command';
 import { NEW_CONTENT_COMMAND, newContent } from '../../features/refactor/new-content/new-content.command';
+import { NEW_MOD_COMMAND, newMod } from '../../features/refactor/new-mod/new-mod.command';
+import { NewModArgs } from '../../features/refactor/new-mod/new-mod.types';
 import { NewContentArgs } from '../../features/refactor/new-content/new-content.types';
 import { GameLogHost, IMPORT_GAME_LOG_COMMAND, importGameLog } from '../../features/game-log/import-game-log.command';
 import {
@@ -55,7 +67,14 @@ import { globalSettings } from '../../settings';
 import { connection, documents } from '../context';
 import { diagnosticsCache } from '../document-caches';
 import { ensureFragmentRooting } from '../fragment-rooting';
-import { cloneHost, newContentHost, registerPartHost, sharedBaseHost } from '../hosts';
+import {
+    cloneHost,
+    createComponentHost,
+    extractGroupHost,
+    newContentHost,
+    registerPartHost,
+    sharedBaseHost,
+} from '../hosts';
 import { migrateWorkspace, postUpdateReport } from '../migration';
 import { rebuildModSchema } from '../mod-schema';
 import { ensureParserResult, openBufferReadOverride } from '../open-documents';
@@ -165,6 +184,26 @@ export function register(): void {
                 progress?.done();
             }
         }
+        // Moving an inline block into a file of its own. It runs on the server because it writes a
+        // file and re-expresses every path the block carries against the folder that file lands in.
+        if (params.command === EXTRACT_GROUP_COMMAND) {
+            const args = (params.arguments?.[0] ?? {}) as ExtractGroupArgs;
+            return await extractGroupToFile(args, extractGroupHost(), CancellationToken.None).catch((e) => {
+                if (globalSettings.trace.server === 'messages') console.error(e);
+                return null;
+            });
+        }
+        // Declaring a component a part references but never writes. It runs on the server because
+        // where the declaration goes is a question about the file's shape, which the client cannot ask.
+        if (params.command === CREATE_COMPONENT_COMMAND) {
+            const args = (params.arguments?.[0] ?? {}) as CreateComponentArgs;
+            return await createComponent(args, createComponentHost(), CancellationToken.None).catch(
+                (e) => {
+                    if (globalSettings.trace.server === 'messages') console.error(e);
+                    return null;
+                }
+            );
+        }
         if (params.command === REGISTER_PART_IN_SHIP_COMMAND) {
             const args = (params.arguments?.[0] ?? {}) as RegisterPartArgs;
             // The ship walk resolves references, which needs the fragment-rooting indexes built. The code
@@ -236,6 +275,16 @@ export function register(): void {
             } finally {
                 endFsTrustWindow();
             }
+        }
+        // Creating the mod itself runs on the server too: where the game loads mods from, which ids
+        // are already taken and which game versions the install is at are all answers the server
+        // already has, and both clients would otherwise each need their own.
+        if (params.command === NEW_MOD_COMMAND) {
+            const args = (params.arguments?.[0] ?? {}) as NewModArgs;
+            return await newMod(args, CancellationToken.None).catch((e) => {
+                if (globalSettings.trace.server === 'messages') console.error(e);
+                return null;
+            });
         }
         // What the game itself said the last time it loaded this mod. Read on the server because it
         // walks the user's save folder and re-reads the named files to place each finding, and because

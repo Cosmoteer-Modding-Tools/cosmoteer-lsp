@@ -1,4 +1,4 @@
-import { CancellationToken, Range, TextEdit } from 'vscode-languageserver';
+import { CancellationToken, Range, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import * as l10n from '@vscode/l10n';
 import {
     AbstractNode,
@@ -19,7 +19,18 @@ import {
     inheritedMemberHasValues,
     locatePartGroup,
 } from './part-grid-data.service';
-import { childNamed, enumNameOf, readMapEntries, readRect, readVector, readVectorEvaluated } from './vector-forms';
+import { childNamed, enumNameOf, numberOf, readMapEntries, readRect, readVector, readVectorEvaluated } from './vector-forms';
+import {
+    GridEditOptions,
+    WriteSite,
+    declarationOf,
+    followToDeclaration,
+    holdsReference,
+    isRefusal,
+} from './reference-writeback';
+import { isReferenceValue } from '../navigation/definition.service';
+import { evaluateNumericValue } from '../../semantics/value-evaluator';
+import { normalizeUri } from '../navigation/reference-location';
 import { offsetToPosition } from '../../utils/text.utils';
 
 /**
@@ -37,8 +48,37 @@ interface EditError {
     readonly error: string;
 }
 
+/**
+ * A text edit plus the file it belongs in. An edit with no uri lands in the part's own document,
+ * which is every edit that does not follow a reference out of it.
+ */
+interface TargetedEdit extends TextEdit {
+    /** The file the edit applies to, when it is not the document being edited. */
+    readonly uri?: string;
+    /** What to tell the author about a write that followed a reference somewhere else. */
+    readonly note?: string;
+}
+
 /** An edit outcome: LSP text edits, or a localized refusal. */
-type EditOutcome = TextEdit[] | EditError;
+type EditOutcome = TargetedEdit[] | EditError;
+
+/**
+ * The file a write is currently landing in. Following a reference produces a new scope over the
+ * declaring file, so the same writers serve a value written here and one written three files away.
+ */
+interface WriteScope {
+    /** The uri of the file being written. */
+    readonly uri: string;
+    /** That file's text, which every offset in the produced edits is measured against. */
+    readonly text: string;
+    readonly options: GridEditOptions;
+    readonly token: CancellationToken;
+}
+
+/** Everything an edit builder needs: the part it edits, its file, and the hooks to reach others. */
+interface EditContext extends WriteScope {
+    readonly part: GroupNode;
+}
 
 /**
  * Whether an edit builder refused instead of producing edits.
@@ -225,6 +265,203 @@ const replaceVectorEdit = (text: string, node: AbstractNode, x: number, y: numbe
     return [replaceSpan(text, node.position.start, node.position.end, vectorText(x, y))];
 };
 
+/** The group-form member names of the two numeric tuples the grid editor writes. */
+const VECTOR_MEMBERS = ['X', 'Y'] as const;
+const RECT_MEMBERS = ['X', 'Y', 'Width', 'Height'] as const;
+
+/** Names the file every edit that does not already name one belongs to. */
+const inFile = (uri: string, edits: readonly TargetedEdit[]): TargetedEdit[] =>
+    edits.map((edit) => (edit.uri ? edit : { ...edit, uri }));
+
+/**
+ * What to say when two numbers a gesture has to move apart are written from one declaration. Read
+ * at the moment of the refusal rather than once, so the sentence follows the editor's language.
+ *
+ * @returns the localized refusal.
+ */
+const SAME_DECLARATION = (): string =>
+    l10n.t('Two of these numbers are the same declaration and cannot differ, edit them in the text.');
+
+/**
+ * Collapses the edits that landed on one span, which is what happens when two components of a tuple
+ * are written from the same declaration. A square part sized `[&~/S, &~/S]` dragged to 3 by 3 asks
+ * for the same number twice and is one edit. Asked for two different numbers, the gesture has no
+ * meaning the file can hold, and it is refused rather than half applied.
+ *
+ * @param edits the edits the components produced.
+ * @param scope the file the untagged edits belong to.
+ * @returns the edits with duplicates collapsed, or null when two of them disagree.
+ */
+const collapseSameSpan = (edits: readonly TargetedEdit[], scope: WriteScope): TargetedEdit[] | null => {
+    const bySpan = new Map<string, TargetedEdit>();
+    for (const edit of edits) {
+        const key = `${normalizeUri(edit.uri ?? scope.uri)}#${edit.range.start.line}:${edit.range.start.character}`;
+        const seen = bySpan.get(key);
+        if (!seen) {
+            bySpan.set(key, edit);
+            continue;
+        }
+        if (seen.newText !== edit.newText) return null;
+    }
+    return [...bySpan.values()];
+};
+
+/**
+ * What to tell the author after a write followed a reference: where the value really lives, and how
+ * many other places read it, since moving one handle moved every one of them.
+ *
+ * @param scope the file the write started from.
+ * @param site the declaration the write landed in.
+ * @returns the note for the editor's status line.
+ */
+const noteFor = async (scope: WriteScope, site: WriteSite): Promise<string> => {
+    const path = site.uri.replace(/\\/g, '/');
+    const file = path.slice(path.lastIndexOf('/') + 1);
+    const readers = await (
+        scope.options.countReaders?.(declarationOf(site.node), site.uri, scope.token) ?? Promise.resolve(null)
+    ).catch(() => null);
+    if (readers === null || readers <= 0) return l10n.t('Wrote through {0} in {1}.', site.through ?? '', file);
+    return l10n.t('Wrote through {0} in {1}, which {2} other places read.', site.through ?? '', file, String(readers));
+};
+
+/**
+ * Replaces one written value, following it to its declaration when the value is a reference. This
+ * is what keeps `Location = &~/PORT_CELL` a sentence about `PORT_CELL` after a drag instead of
+ * pasting a literal over the name.
+ *
+ * @param scope the file the value is written in.
+ * @param node the value node the handle sits on.
+ * @param newText the value as it should be written.
+ * @returns the edits, or a refusal naming why the reference cannot be written through.
+ */
+const writeValue = async (scope: WriteScope, node: AbstractNode, newText: string): Promise<EditOutcome> => {
+    if (!isReferenceValue(node)) {
+        return [replaceSpan(scope.text, node.position.start, node.position.end, newText)];
+    }
+    const site = await followToDeclaration(node, scope.uri, scope.text, scope.options, scope.token);
+    if (isRefusal(site)) return { error: site.error };
+    const edit = replaceSpan(site.text, site.node.position.start, site.node.position.end, newText);
+    return [{ ...edit, uri: site.uri, note: await noteFor(scope, site) }];
+};
+
+/**
+ * {@link writeValue} for a value that has to stay a single one. A reference naming a whole group or
+ * list is refused rather than written over, since a number pasted across a container's span would
+ * delete every member it holds.
+ *
+ * @param scope the file the value is written in.
+ * @param node the value node the handle sits on.
+ * @param newText the value as it should be written.
+ * @returns the edits, or a refusal.
+ */
+const writeScalar = async (scope: WriteScope, node: AbstractNode, newText: string): Promise<EditOutcome> => {
+    if (!isReferenceValue(node)) {
+        return [replaceSpan(scope.text, node.position.start, node.position.end, newText)];
+    }
+    const site = await followToDeclaration(node, scope.uri, scope.text, scope.options, scope.token);
+    if (isRefusal(site)) return { error: site.error };
+    if (isGroupNode(site.node) || isListNode(site.node)) {
+        return { error: l10n.t('{0} names a group rather than a value, edit it in the text.', site.through ?? '') };
+    }
+    const edit = replaceSpan(site.text, site.node.position.start, site.node.position.end, newText);
+    return [{ ...edit, uri: site.uri, note: await noteFor(scope, site) }];
+};
+
+/** The number a component currently holds, following references and math so a no-op is recognized. */
+const currentNumber = async (node: AbstractNode, token: CancellationToken): Promise<number | null> => {
+    const written = numberOf(node);
+    if (written !== null) return written;
+    return evaluateNumericValue(node, token).catch(() => null);
+};
+
+/** Writes one numeric component, and writes nothing when the file already says that number. */
+const writeNumber = async (scope: WriteScope, node: AbstractNode, value: number): Promise<EditOutcome> => {
+    const current = await currentNumber(node, scope.token);
+    if (current !== null && current === value) return [];
+    return writeScalar(scope, node, formatNumber(value));
+};
+
+/**
+ * Writes a numeric tuple component by component, so only the numbers the gesture changed are
+ * touched and each one lands wherever it is declared. A tuple that is itself a reference is
+ * followed first, and the components are then written inside the file that declares it.
+ *
+ * @param scope the file the tuple is written in.
+ * @param node the tuple's value node.
+ * @param members the group-form member names, in positional order.
+ * @param values the new numbers, in the same order.
+ * @returns the edits, or a refusal when the target is not the shape the handle edits.
+ */
+const writeTuple = async (
+    scope: WriteScope,
+    node: AbstractNode,
+    members: readonly string[],
+    values: readonly number[]
+): Promise<EditOutcome> => {
+    if (isReferenceValue(node)) {
+        const site = await followToDeclaration(node, scope.uri, scope.text, scope.options, scope.token);
+        if (isRefusal(site)) return { error: site.error };
+        const inner = { ...scope, uri: site.uri, text: site.text };
+        const written = await writeTuple(inner, site.node, members, values);
+        if (isError(written)) return written;
+        if (!written.length) return [];
+        const tagged = inFile(site.uri, written);
+        return [{ ...tagged[0], note: tagged[0].note ?? (await noteFor(scope, site)) }, ...tagged.slice(1)];
+    }
+
+    const components: AbstractNode[] = [];
+    if (isListNode(node) && node.elements.length === members.length) {
+        components.push(...node.elements);
+    } else if (isGroupNode(node)) {
+        for (const name of members) {
+            const child = childNamed(node, name);
+            if (!child) return { error: l10n.t('The value is not written as a full {0} tuple.', String(members.length)) };
+            components.push(child);
+        }
+    } else {
+        return { error: l10n.t('The value is not written as a full {0} tuple.', String(members.length)) };
+    }
+
+    const edits: TargetedEdit[] = [];
+    for (let index = 0; index < components.length; index++) {
+        const written = await writeNumber(scope, components[index], values[index]);
+        if (isError(written)) return written;
+        edits.push(...written);
+    }
+    const collapsed = collapseSameSpan(edits, scope);
+    if (!collapsed) return { error: SAME_DECLARATION() };
+    return collapsed;
+};
+
+/**
+ * Rewrites a vector: in one span when it is written out here, component by component through the
+ * declarations when any part of it is a reference.
+ */
+const writeVector = async (scope: WriteScope, node: AbstractNode, x: number, y: number): Promise<EditOutcome> => {
+    if (!holdsReference(node)) return replaceVectorEdit(scope.text, node, x, y);
+    return writeTuple(scope, node, VECTOR_MEMBERS, [x, y]);
+};
+
+/** Rewrites a rect, following references the same way {@link writeVector} does. */
+const writeRect = async (
+    scope: WriteScope,
+    node: AbstractNode,
+    rect: { x: number; y: number; width: number; height: number }
+): Promise<EditOutcome> => {
+    if (!holdsReference(node)) {
+        if (isGroupNode(node) && readRect(node)) {
+            const groupText = `{X = ${formatNumber(rect.x)}; Y = ${formatNumber(rect.y)}; Width = ${formatNumber(rect.width)}; Height = ${formatNumber(rect.height)}}`;
+            return [replaceSpan(scope.text, node.position.start, node.position.end, groupText)];
+        }
+        return [replaceSpan(scope.text, node.position.start, node.position.end, rectText(rect))];
+    }
+    return writeTuple(scope, node, RECT_MEMBERS, [rect.x, rect.y, rect.width, rect.height]);
+};
+
+/** Formats a rect in the positional form new fields are written with. */
+const rectText = (rect: { x: number; y: number; width: number; height: number }): string =>
+    `[${formatNumber(rect.x)}, ${formatNumber(rect.y)}, ${formatNumber(rect.width)}, ${formatNumber(rect.height)}]`;
+
 /** Inserts a new `Name = value` member on its own line just before a container's closing brace. */
 const insertMemberEdit = (text: string, container: GroupNode, memberText: string): EditOutcome => {
     const brace = closerOffset(text, container);
@@ -321,6 +558,7 @@ const splitLayerId = (layerId: string): { fieldPath: string[]; fieldName: string
  * @param anchorOffset the byte offset of the part group anchor the payload reported.
  * @param mutation the webview mutation.
  * @param token cancels inheritance resolution when materializing an override.
+ * @param options the hooks a write that follows a reference into another file needs.
  * @returns the edit result (`ok` with a WorkspaceEdit, or a refusal status).
  */
 export const buildPartGridEdit = async (
@@ -329,44 +567,69 @@ export const buildPartGridEdit = async (
     uri: string,
     anchorOffset: number,
     mutation: GridMutation,
-    token: CancellationToken
+    token: CancellationToken,
+    options: GridEditOptions = {}
 ): Promise<PartGridEditResult> => {
     const part = locatePartGroup(document, anchorOffset);
     if (!part) return { status: 'notFound', message: l10n.t('No part was found in this document.') };
 
-    const outcome = await mutationEdits(part, text, mutation, token);
+    const outcome = await mutationEdits({ part, text, uri, options, token }, mutation);
     if (isError(outcome)) return { status: 'error', message: outcome.error };
-    const edits: TextEdit[] = outcome;
-    return { status: 'ok', edit: { changes: { [uri]: edits } } };
+    return { status: 'ok', ...groupByFile(outcome, uri) };
+};
+
+/**
+ * Groups the built edits by the file each one lands in, and collects the notes a write that
+ * followed a reference left behind.
+ *
+ * @param edits the built edits, each naming its file when it is not the edited document.
+ * @param uri the document being edited, which the untagged edits belong to.
+ * @returns the WorkspaceEdit and the status note, if any.
+ */
+const groupByFile = (edits: readonly TargetedEdit[], uri: string): { edit: WorkspaceEdit; note?: string } => {
+    const changes: Record<string, TextEdit[]> = {};
+    const spellings = new Map<string, string>([[normalizeUri(uri), uri]]);
+    const notes: string[] = [];
+    for (const edit of edits) {
+        // A reference resolving inside this same file answers with the uri its parse carries, which
+        // need not be spelled the way the request spelled it. Two spellings of one file would be two
+        // change lists, and a client applying the second against the text the first already moved
+        // writes over the wrong span, so one spelling wins here.
+        const written = edit.uri ?? uri;
+        const folded = normalizeUri(written);
+        const target = spellings.get(folded) ?? (spellings.set(folded, written), written);
+        (changes[target] ??= []).push({ range: edit.range, newText: edit.newText });
+        if (edit.note && !notes.includes(edit.note)) notes.push(edit.note);
+    }
+    // A gesture that changed nothing still answers `ok`, so the webview clears its queued click
+    // rather than treating an empty edit as a failure.
+    if (!Object.keys(changes).length) changes[uri] = [];
+    return { edit: { changes }, note: notes.length ? notes.join(' ') : undefined };
 };
 
 /** Dispatches a mutation to its edit builder. */
-const mutationEdits = async (
-    part: GroupNode,
-    text: string,
-    mutation: GridMutation,
-    token: CancellationToken
-): Promise<EditOutcome> => {
+const mutationEdits = async (ctx: EditContext, mutation: GridMutation): Promise<EditOutcome> => {
+    const { part, text, token } = ctx;
     switch (mutation.op) {
         case 'addCell':
         case 'removeCell':
-            return cellSetEdit(part, text, mutation.layerId, mutation.cell, mutation.op === 'addCell', token);
+            return cellSetEdit(ctx, mutation.layerId, mutation.cell, mutation.op === 'addCell');
         case 'setEntryValues':
-            return mapEntryEdit(part, text, mutation.layerId, mutation.cell, mutation.values, token);
+            return mapEntryEdit(ctx, mutation.layerId, mutation.cell, mutation.values);
         case 'addPoint':
-            return pointAddEdit(part, text, mutation.layerId, mutation.point, token);
+            return pointAddEdit(ctx, mutation.layerId, mutation.point);
         case 'movePoint':
-            return pointMoveEdit(part, text, mutation.layerId, mutation.index, mutation.point);
+            return pointMoveEdit(ctx, mutation.layerId, mutation.index, mutation.point);
         case 'removePoint':
-            return pointRemoveEdit(part, text, mutation.layerId, mutation.index, token);
+            return pointRemoveEdit(ctx, mutation.layerId, mutation.index);
         case 'setPair':
-            return pairSetEdit(part, text, mutation.layerId, mutation.index, mutation.external, mutation.internal, token);
+            return pairSetEdit(ctx, mutation.layerId, mutation.index, mutation.external, mutation.internal);
         case 'removePair':
-            return pairRemoveEdit(part, text, mutation.layerId, mutation.index, token);
+            return pairRemoveEdit(ctx, mutation.layerId, mutation.index);
         case 'setRect':
-            return rectEdit(part, text, mutation.layerId, mutation.rect);
+            return rectEdit(ctx, mutation.layerId, mutation.rect);
         case 'setSize':
-            return sizeEdit(part, text, mutation.size);
+            return sizeEdit(ctx, mutation.size);
         case 'setBool': {
             if (mutation.value === null) {
                 const member = localMember(part, mutation.field);
@@ -377,7 +640,7 @@ const mutationEdits = async (
                 const member = localMember(part, mutation.field);
                 return member ? removeMemberEdit(text, member) : [];
             }
-            return scalarEdit(part, text, mutation.field, mutation.value ? 'true' : 'false');
+            return scalarEdit(ctx, mutation.field, mutation.value ? 'true' : 'false');
         }
         case 'setIntList': {
             if (mutation.values) {
@@ -391,32 +654,32 @@ const mutationEdits = async (
                     return member ? removeMemberEdit(text, member) : [];
                 }
             }
-            return intListEdit(part, text, mutation.field, mutation.values);
+            return intListEdit(ctx, mutation.field, mutation.values);
         }
         case 'setPoint':
-            return pointFieldEdit(part, text, mutation.layerId, mutation.point);
+            return pointFieldEdit(ctx, mutation.layerId, mutation.point);
         case 'setCell':
-            return cellFieldEdit(part, text, mutation.layerId, mutation.cell);
+            return cellFieldEdit(ctx, mutation.layerId, mutation.cell);
         case 'setDirection':
-            return directionEdit(part, text, mutation.layerId, mutation.direction);
+            return directionEdit(ctx, mutation.layerId, mutation.direction);
         case 'setNumber':
-            return numberFieldEdit(part, text, mutation.layerId, mutation.field, mutation.value);
+            return numberFieldEdit(ctx, mutation.layerId, mutation.field, mutation.value);
         case 'moveVertex':
-            return vertexMoveEdit(part, text, mutation.layerId, mutation.index, mutation.point, token);
+            return vertexMoveEdit(ctx, mutation.layerId, mutation.index, mutation.point);
         case 'insertVertex':
-            return vertexInsertEdit(part, text, mutation.layerId, mutation.index, mutation.point, token);
+            return vertexInsertEdit(ctx, mutation.layerId, mutation.index, mutation.point);
         case 'removeVertex':
-            return vertexRemoveEdit(part, text, mutation.layerId, mutation.index, token);
+            return vertexRemoveEdit(ctx, mutation.layerId, mutation.index);
         case 'setRectEntry':
-            return rectEntryEdit(part, text, mutation.layerId, mutation.index, mutation.tag, mutation.rect);
+            return rectEntryEdit(ctx, mutation.layerId, mutation.index, mutation.tag, mutation.rect);
         case 'removeRectEntry':
-            return rectEntryRemoveEdit(part, text, mutation.layerId, mutation.index, token);
+            return rectEntryRemoveEdit(ctx, mutation.layerId, mutation.index);
         case 'moveComponentLocation':
-            return componentLocationEdit(part, text, mutation.component, mutation.point);
+            return componentLocationEdit(ctx, mutation.component, mutation.point);
         case 'setComponentRotation':
-            return componentRotationEdit(part, text, mutation.component, mutation.degrees);
+            return componentRotationEdit(ctx, mutation.component, mutation.degrees);
         case 'setFlags':
-            return flagsEdit(part, text, mutation.field, mutation.values, token);
+            return flagsEdit(ctx, mutation.field, mutation.values);
         default:
             return { error: l10n.t('Unknown grid mutation.') };
     }
@@ -442,13 +705,12 @@ const resolveLayerMember = (
 
 /** Toggle edits for the cell-set layers (door locations, blocked travel cells). */
 const cellSetEdit = async (
-    part: GroupNode,
-    text: string,
+    ctx: EditContext,
     layerId: string,
     cell: GridCell,
-    add: boolean,
-    token: CancellationToken
+    add: boolean
 ): Promise<EditOutcome> => {
+    const { part, text, token } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
@@ -477,13 +739,12 @@ const cellSetEdit = async (
 
 /** Set/replace/remove edits for a map layer entry (walls by cell, travel directions). */
 const mapEntryEdit = async (
-    part: GroupNode,
-    text: string,
+    ctx: EditContext,
     layerId: string,
     cell: GridCell,
-    values: readonly string[],
-    token: CancellationToken
+    values: readonly string[]
 ): Promise<EditOutcome> => {
+    const { part, text, token } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
@@ -491,7 +752,7 @@ const mapEntryEdit = async (
         const entry = readMapEntries(member.value).find(({ key }) => cellEquals(key, cell));
         if (entry) {
             if (!values.length) return removeElementOrMemberEdit(text, container, fieldName, member, entry.entry, token);
-            return [replaceSpan(text, entry.value.position.start, entry.value.position.end, enumListText(values))];
+            return writeValue(ctx, entry.value, enumListText(values));
         }
         if (!values.length) return { error: l10n.t('The cell has no entry to remove.') };
         return appendElementEdit(text, member.value as ListNode, mapEntryText(cell, values));
@@ -511,13 +772,8 @@ const mapEntryEdit = async (
 };
 
 /** Append edit for a fractional point layer. */
-const pointAddEdit = async (
-    part: GroupNode,
-    text: string,
-    layerId: string,
-    point: GridPoint,
-    token: CancellationToken
-): Promise<EditOutcome> => {
+const pointAddEdit = async (ctx: EditContext, layerId: string, point: GridPoint): Promise<EditOutcome> => {
+    const { part, text, token } = ctx;
     if (splitLayerId(layerId).entryMember) {
         return { error: l10n.t('This list has a fixed length, points can only be moved.') };
     }
@@ -550,29 +806,29 @@ const entryMemberVectorAt = (member: AbstractNode, entryMember: string, index: n
 };
 
 /** In-place move edit for a fractional point (form-preserving, entry-member lists supported). */
-const pointMoveEdit = (part: GroupNode, text: string, layerId: string, index: number, point: GridPoint): EditOutcome => {
-    const resolved = resolveLayerMember(part, layerId);
+const pointMoveEdit = async (
+    ctx: EditContext,
+    layerId: string,
+    index: number,
+    point: GridPoint
+): Promise<EditOutcome> => {
+    const resolved = resolveLayerMember(ctx.part, layerId);
     if ('error' in resolved) return resolved;
     const { member } = resolved;
     const { entryMember } = splitLayerId(layerId);
     if (entryMember) {
         const node = member && entryMemberVectorAt(member.value, entryMember, index);
         if (!node) return { error: l10n.t('The point is not present in the local field.') };
-        return replaceVectorEdit(text, node, point.x, point.y);
+        return writeVector(ctx, node, point.x, point.y);
     }
     const target = member && vectorElementAt(member.value, index);
     if (!target) return { error: l10n.t('The point is not present in the local field.') };
-    return replaceVectorEdit(text, target.node, point.x, point.y);
+    return writeVector(ctx, target.node, point.x, point.y);
 };
 
 /** Removal edit for a fractional point. */
-const pointRemoveEdit = async (
-    part: GroupNode,
-    text: string,
-    layerId: string,
-    index: number,
-    token: CancellationToken
-): Promise<EditOutcome> => {
+const pointRemoveEdit = async (ctx: EditContext, layerId: string, index: number): Promise<EditOutcome> => {
+    const { part, text, token } = ctx;
     if (splitLayerId(layerId).entryMember) {
         return { error: l10n.t('This list has a fixed length, points can only be moved.') };
     }
@@ -586,14 +842,13 @@ const pointRemoveEdit = async (
 
 /** Set (append or replace) edit for a virtual-cell pair. */
 const pairSetEdit = async (
-    part: GroupNode,
-    text: string,
+    ctx: EditContext,
     layerId: string,
     index: number | null,
     external: GridCell,
-    internal: GridCell,
-    token: CancellationToken
+    internal: GridCell
 ): Promise<EditOutcome> => {
+    const { part, text, token } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
@@ -601,6 +856,21 @@ const pairSetEdit = async (
         if (index === null) return appendElementEdit(text, member.value as ListNode, pairEntryText(external, internal));
         const entry = pairElementAt(member.value, index);
         if (!entry) return { error: l10n.t('The pair is not present in the local field.') };
+        // A pair whose cells are written as references keeps them: each cell goes through its own
+        // declaration instead of the whole entry being replaced with two literals.
+        const externalNode = childNamed(entry as GroupNode, 'ExternalCell');
+        const internalNode = childNamed(entry as GroupNode, 'InternalCell');
+        if (externalNode && internalNode && (holdsReference(externalNode) || holdsReference(internalNode))) {
+            const first = await writeVector(ctx, externalNode, external.x, external.y);
+            if (isError(first)) return first;
+            const second = await writeVector(ctx, internalNode, internal.x, internal.y);
+            if (isError(second)) return second;
+            // Both cells can name one declaration, and a pair whose two ends are the same number is
+            // a pair the file cannot hold once they have to differ.
+            const collapsed = collapseSameSpan([...first, ...second], ctx);
+            if (!collapsed) return { error: SAME_DECLARATION() };
+            return collapsed;
+        }
         return [replaceSpan(text, entry.position.start, entry.position.end, pairEntryText(external, internal))];
     }
     const inherited = await buildEffectiveFieldState(container, fieldName, token);
@@ -614,13 +884,8 @@ const pairSetEdit = async (
 };
 
 /** Removal edit for a virtual-cell pair. */
-const pairRemoveEdit = async (
-    part: GroupNode,
-    text: string,
-    layerId: string,
-    index: number,
-    token: CancellationToken
-): Promise<EditOutcome> => {
+const pairRemoveEdit = async (ctx: EditContext, layerId: string, index: number): Promise<EditOutcome> => {
+    const { part, text, token } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
@@ -630,12 +895,12 @@ const pairRemoveEdit = async (
 };
 
 /** Set/remove edit for a rect layer (`PhysicalRect`, `SaveRect`). */
-const rectEdit = (
-    part: GroupNode,
-    text: string,
+const rectEdit = async (
+    ctx: EditContext,
     layerId: string,
     rect: { x: number; y: number; width: number; height: number } | null
-): EditOutcome => {
+): Promise<EditOutcome> => {
+    const { part, text } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
@@ -643,45 +908,40 @@ const rectEdit = (
         if (!member) return { error: l10n.t('There is no local rect field to remove.') };
         return removeMemberEdit(text, member);
     }
-    const rectText = `[${formatNumber(rect.x)}, ${formatNumber(rect.y)}, ${formatNumber(rect.width)}, ${formatNumber(rect.height)}]`;
-    if (member) {
-        if (isGroupNode(member.value) && readRect(member.value)) {
-            const groupText = `{X = ${formatNumber(rect.x)}; Y = ${formatNumber(rect.y)}; Width = ${formatNumber(rect.width)}; Height = ${formatNumber(rect.height)}}`;
-            return [replaceSpan(text, member.value.position.start, member.value.position.end, groupText)];
-        }
-        return [replaceSpan(text, member.value.position.start, member.value.position.end, rectText)];
-    }
-    return insertMemberEdit(text, container, `${fieldName} = ${rectText}`);
+    if (member) return writeRect(ctx, member.value, rect);
+    return insertMemberEdit(text, container, `${fieldName} = ${rectText(rect)}`);
 };
 
 /** Replace-or-insert edit for the part's `Size`. */
-const sizeEdit = (part: GroupNode, text: string, size: { width: number; height: number }): EditOutcome => {
+const sizeEdit = async (ctx: EditContext, size: { width: number; height: number }): Promise<EditOutcome> => {
+    const { part, text } = ctx;
     const member = localMember(part, 'Size');
-    if (member) return replaceVectorEdit(text, member.value, size.width, size.height);
+    if (member) return writeVector(ctx, member.value, size.width, size.height);
     return insertMemberEdit(text, part, `Size = ${vectorText(size.width, size.height)}`);
 };
 
 /** Replace-or-insert edit for a scalar part-root field (the rotation booleans). */
-const scalarEdit = (part: GroupNode, text: string, fieldName: string, valueText: string): EditOutcome => {
+const scalarEdit = async (ctx: EditContext, fieldName: string, valueText: string): Promise<EditOutcome> => {
+    const { part, text } = ctx;
     const member = localMember(part, fieldName);
-    if (member) return [replaceSpan(text, member.value.position.start, member.value.position.end, valueText)];
+    if (member) return writeValue(ctx, member.value, valueText);
     return insertMemberEdit(text, part, `${fieldName} = ${valueText}`);
 };
 
 /** Replace, insert, or remove edit for an int-list rotation field. */
-const intListEdit = (
-    part: GroupNode,
-    text: string,
+const intListEdit = async (
+    ctx: EditContext,
     fieldName: string,
     values: readonly number[] | null
-): EditOutcome => {
+): Promise<EditOutcome> => {
+    const { part, text } = ctx;
     const member = localMember(part, fieldName);
     if (!values) {
         if (!member) return [];
         return removeMemberEdit(text, member);
     }
     const listText = `[${values.map(formatNumber).join(', ')}]`;
-    if (member) return [replaceSpan(text, member.value.position.start, member.value.position.end, listText)];
+    if (member) return writeValue(ctx, member.value, listText);
     return insertMemberEdit(text, part, `${fieldName} = ${listText}`);
 };
 
@@ -692,36 +952,74 @@ const SCALAR_PAIR_FIELDS: Readonly<Record<string, { x: string; y: string }>> = {
 };
 
 /** Replace-or-insert edit for a single scalar member of a container. */
-const scalarMemberEdit = (text: string, container: GroupNode, field: string, valueText: string): EditOutcome => {
+const scalarMemberEdit = async (
+    scope: WriteScope,
+    container: GroupNode,
+    field: string,
+    valueText: string
+): Promise<EditOutcome> => {
     const member = localMember(container, field);
-    if (member) return [replaceSpan(text, member.value.position.start, member.value.position.end, valueText)];
-    return insertMemberEdit(text, container, `${field} = ${valueText}`);
+    if (member) return writeValue(scope, member.value, valueText);
+    return insertMemberEdit(scope.text, container, `${field} = ${valueText}`);
+};
+
+/** Replace-or-insert edit for a numeric member, written through a reference and skipped when equal. */
+const numberMemberEdit = async (
+    scope: WriteScope,
+    container: GroupNode,
+    field: string,
+    value: number
+): Promise<EditOutcome> => {
+    const member = localMember(container, field);
+    if (member) return writeNumber(scope, member.value, value);
+    return insertMemberEdit(scope.text, container, `${field} = ${formatNumber(value)}`);
+};
+
+/** Replace-or-insert edit for a vector member, written through any reference it is spelled with. */
+const vectorMemberEdit = async (
+    scope: WriteScope,
+    container: GroupNode,
+    field: string,
+    x: number,
+    y: number
+): Promise<EditOutcome> => {
+    const member = localMember(container, field);
+    if (member) return writeVector(scope, member.value, x, y);
+    return insertMemberEdit(scope.text, container, `${field} = ${vectorText(x, y)}`);
 };
 
 /** Set/remove edit for a single-point layer (also the railgun scalar-pair synthetics). */
-const pointFieldEdit = (part: GroupNode, text: string, layerId: string, point: GridPoint | null): EditOutcome => {
+const pointFieldEdit = async (
+    ctx: EditContext,
+    layerId: string,
+    point: GridPoint | null
+): Promise<EditOutcome> => {
+    const { part, text } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
     const pair = SCALAR_PAIR_FIELDS[fieldName];
     if (pair) {
         if (!point) return { error: l10n.t('The segment endpoints cannot be removed here.') };
-        const x = scalarMemberEdit(text, container, pair.x, formatNumber(point.x));
-        const y = scalarMemberEdit(text, container, pair.y, formatNumber(point.y));
+        const x = await numberMemberEdit(ctx, container, pair.x, point.x);
+        const y = await numberMemberEdit(ctx, container, pair.y, point.y);
         if (isError(x)) return x;
         if (isError(y)) return y;
-        return [...x, ...y];
+        const collapsed = collapseSameSpan([...x, ...y], ctx);
+        if (!collapsed) return { error: SAME_DECLARATION() };
+        return collapsed;
     }
     if (!point) {
         if (!member) return [];
         return removeMemberEdit(text, member);
     }
-    if (member) return replaceVectorEdit(text, member.value, point.x, point.y);
+    if (member) return writeVector(ctx, member.value, point.x, point.y);
     return insertMemberEdit(text, container, `${fieldName} = ${vectorText(point.x, point.y)}`);
 };
 
 /** Set/remove edit for a single-cell layer. */
-const cellFieldEdit = (part: GroupNode, text: string, layerId: string, cell: GridCell | null): EditOutcome => {
+const cellFieldEdit = async (ctx: EditContext, layerId: string, cell: GridCell | null): Promise<EditOutcome> => {
+    const { part, text } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
@@ -732,9 +1030,9 @@ const cellFieldEdit = (part: GroupNode, text: string, layerId: string, cell: Gri
     if (member) {
         // A `Line { Location Direction MaxTiles }` group: the cell lands on its inner Location.
         if (isGroupNode(member.value) && !readVector(member.value)) {
-            return scalarMemberEdit(text, member.value, 'Location', vectorText(cell.x, cell.y));
+            return vectorMemberEdit(ctx, member.value, 'Location', cell.x, cell.y);
         }
-        return replaceVectorEdit(text, member.value, cell.x, cell.y);
+        return writeVector(ctx, member.value, cell.x, cell.y);
     }
     return insertMemberEdit(text, container, `${fieldName} = ${vectorText(cell.x, cell.y)}`);
 };
@@ -744,24 +1042,24 @@ const cellFieldEdit = (part: GroupNode, text: string, layerId: string, cell: Gri
  * written inside it, otherwise the `Direction` sibling of the layer's field on the container (the
  * network port form).
  */
-const directionEdit = (part: GroupNode, text: string, layerId: string, direction: string): EditOutcome => {
-    const resolved = resolveLayerMember(part, layerId);
+const directionEdit = async (ctx: EditContext, layerId: string, direction: string): Promise<EditOutcome> => {
+    const resolved = resolveLayerMember(ctx.part, layerId);
     if ('error' in resolved) return resolved;
     const { container, member } = resolved;
     if (member && isGroupNode(member.value) && !readVector(member.value)) {
-        return scalarMemberEdit(text, member.value, 'Direction', direction);
+        return scalarMemberEdit(ctx, member.value, 'Direction', direction);
     }
-    return scalarMemberEdit(text, container, 'Direction', direction);
+    return scalarMemberEdit(ctx, container, 'Direction', direction);
 };
 
 /** Sets a numeric sibling of a layer (`MaxTiles` inside `Line`, `BuffRadius` on the container). */
-const numberFieldEdit = (
-    part: GroupNode,
-    text: string,
+const numberFieldEdit = async (
+    ctx: EditContext,
     layerId: string,
     field: string,
     value: number | null
-): EditOutcome => {
+): Promise<EditOutcome> => {
+    const { part, text } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, member } = resolved;
@@ -771,26 +1069,25 @@ const numberFieldEdit = (
         if (!existing) return [];
         return removeMemberEdit(text, existing);
     }
-    return scalarMemberEdit(text, target, field, formatNumber(value));
+    return numberMemberEdit(ctx, target, field, value);
 };
 
 /**
  * The nth polygon vertex element, counting the same elements the payload builder shows: plain
- * vectors and reference/math vectors that evaluate. The flag tells editing apart from removal,
- * a reference vertex may be deleted but not rewritten to literals.
+ * vectors and reference or math vectors that evaluate. A vertex written as a reference is moved
+ * through its declaration rather than being rewritten to literals here.
  */
 const polygonVertexAt = async (
     member: AbstractNode,
     index: number,
     token: CancellationToken
-): Promise<{ node: AbstractNode; plain: boolean } | null> => {
+): Promise<AbstractNode | null> => {
     if (!isListNode(member) && !isGroupNode(member)) return null;
     let seen = 0;
     for (const element of member.elements) {
-        const plain = readVector(element);
-        const readable = plain ?? (await readVectorEvaluated(element, token).catch(() => null));
+        const readable = readVector(element) ?? (await readVectorEvaluated(element, token).catch(() => null));
         if (!readable) continue;
-        if (seen === index) return { node: element, plain: !!plain };
+        if (seen === index) return element;
         seen++;
     }
     return null;
@@ -798,30 +1095,26 @@ const polygonVertexAt = async (
 
 /** In-place move edit for a polygon vertex. */
 const vertexMoveEdit = async (
-    part: GroupNode,
-    text: string,
+    ctx: EditContext,
     layerId: string,
     index: number,
-    point: GridPoint,
-    token: CancellationToken
+    point: GridPoint
 ): Promise<EditOutcome> => {
-    const resolved = resolveLayerMember(part, layerId);
+    const resolved = resolveLayerMember(ctx.part, layerId);
     if ('error' in resolved) return resolved;
-    const target = resolved.member && (await polygonVertexAt(resolved.member.value, index, token));
+    const target = resolved.member && (await polygonVertexAt(resolved.member.value, index, ctx.token));
     if (!target) return { error: l10n.t('The vertex is not present in the local field.') };
-    if (!target.plain) return { error: l10n.t('The vertex is a reference or expression, edit it in the text.') };
-    return replaceVectorEdit(text, target.node, point.x, point.y);
+    return writeVector(ctx, target, point.x, point.y);
 };
 
 /** Insert edit for a polygon vertex before `index` (appends when index equals the vertex count). */
 const vertexInsertEdit = async (
-    part: GroupNode,
-    text: string,
+    ctx: EditContext,
     layerId: string,
     index: number,
-    point: GridPoint,
-    token: CancellationToken
+    point: GridPoint
 ): Promise<EditOutcome> => {
+    const { part, text, token } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
@@ -836,27 +1129,22 @@ const vertexInsertEdit = async (
     const close = closerOffset(text, member.value as ListNode);
     if (open < 0 || close < 0) return { error: l10n.t('The list could not be edited safely.') };
     const singleLine = !text.slice(open, close).includes('\n');
-    if (singleLine) return [insertAt(text, target.node.position.start, `${vectorText(point.x, point.y)}, `)];
-    const lineStart = text.lastIndexOf('\n', target.node.position.start) + 1;
-    const prefix = text.slice(lineStart, target.node.position.start);
+    if (singleLine) return [insertAt(text, target.position.start, `${vectorText(point.x, point.y)}, `)];
+    const lineStart = text.lastIndexOf('\n', target.position.start) + 1;
+    const prefix = text.slice(lineStart, target.position.start);
     const indent = /^\s*$/.test(prefix) ? prefix : tabs(childIndentOf(member.value));
-    return [insertAt(text, target.node.position.start, `${vectorText(point.x, point.y)}\n${indent}`)];
+    return [insertAt(text, target.position.start, `${vectorText(point.x, point.y)}\n${indent}`)];
 };
 
 /** Removal edit for a polygon vertex. */
-const vertexRemoveEdit = async (
-    part: GroupNode,
-    text: string,
-    layerId: string,
-    index: number,
-    token: CancellationToken
-): Promise<EditOutcome> => {
+const vertexRemoveEdit = async (ctx: EditContext, layerId: string, index: number): Promise<EditOutcome> => {
+    const { part, text, token } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
     const target = member && (await polygonVertexAt(member.value, index, token));
     if (!target) return { error: l10n.t('The vertex is not present in the local field.') };
-    return removeElementOrMemberEdit(text, container, fieldName, member!, target.node, token);
+    return removeElementOrMemberEdit(text, container, fieldName, member!, target, token);
 };
 
 /** The nth tagged rect row (`[category, [x, y, w, h]]`) of a prohibit list. */
@@ -876,14 +1164,14 @@ const rectEntryText = (tag: string, rect: { x: number; y: number; width: number;
     `[${tag}, [${formatNumber(rect.x)}, ${formatNumber(rect.y)}, ${formatNumber(rect.width)}, ${formatNumber(rect.height)}]]`;
 
 /** Set (append or replace) edit for a tagged rect entry. */
-const rectEntryEdit = (
-    part: GroupNode,
-    text: string,
+const rectEntryEdit = async (
+    ctx: EditContext,
     layerId: string,
     index: number | null,
     tag: string | null,
     rect: { x: number; y: number; width: number; height: number }
-): EditOutcome => {
+): Promise<EditOutcome> => {
+    const { part, text } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
@@ -898,15 +1186,7 @@ const rectEntryEdit = (
         const entry = rectEntryAt(member.value, index);
         if (!entry) return { error: l10n.t('The rect is not present in the local field.') };
         if (tag) return [replaceSpan(text, entry.position.start, entry.position.end, rectEntryText(effectiveTag, rect))];
-        const rectNode = entry.elements[1];
-        return [
-            replaceSpan(
-                text,
-                rectNode.position.start,
-                rectNode.position.end,
-                `[${formatNumber(rect.x)}, ${formatNumber(rect.y)}, ${formatNumber(rect.width)}, ${formatNumber(rect.height)}]`
-            ),
-        ];
+        return writeRect(ctx, entry.elements[1], rect);
     }
     if (member) return appendElementEdit(text, member.value as ListNode, rectEntryText(effectiveTag, rect));
     const indent = childIndentOf(container);
@@ -918,13 +1198,8 @@ const rectEntryEdit = (
 };
 
 /** Removal edit for a tagged rect entry. */
-const rectEntryRemoveEdit = async (
-    part: GroupNode,
-    text: string,
-    layerId: string,
-    index: number,
-    token: CancellationToken
-): Promise<EditOutcome> => {
+const rectEntryRemoveEdit = async (ctx: EditContext, layerId: string, index: number): Promise<EditOutcome> => {
+    const { part, text, token } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
@@ -933,28 +1208,31 @@ const rectEntryRemoveEdit = async (
     return removeElementOrMemberEdit(text, container, fieldName, member!, entry, token);
 };
 
-/** Moves a component's own `Location`. Reference-valued locations stay read-only. */
-const componentLocationEdit = (part: GroupNode, text: string, component: string, point: GridPoint): EditOutcome => {
-    const container = containerForPath(part, ['Components', component]);
+/** Moves a component's own `Location`, through the declaration when it is written as a reference. */
+const componentLocationEdit = async (
+    ctx: EditContext,
+    component: string,
+    point: GridPoint
+): Promise<EditOutcome> => {
+    const container = containerForPath(ctx.part, ['Components', component]);
     if (!container) return { error: l10n.t('The component is inherited from a base part. Declare it locally first.') };
-    const member = localMember(container, 'Location');
-    if (member && !readVector(member.value)) {
-        return { error: l10n.t('The location is a reference or expression, edit it in the text.') };
-    }
-    if (member) return replaceVectorEdit(text, member.value, point.x, point.y);
-    return insertMemberEdit(text, container, `Location = ${vectorText(point.x, point.y)}`);
+    return vectorMemberEdit(ctx, container, 'Location', point.x, point.y);
 };
 
 /** Sets a component's `Rotation` in the degree-suffixed form, null removes the local field. */
-const componentRotationEdit = (part: GroupNode, text: string, component: string, degrees: number | null): EditOutcome => {
-    const container = containerForPath(part, ['Components', component]);
+const componentRotationEdit = async (
+    ctx: EditContext,
+    component: string,
+    degrees: number | null
+): Promise<EditOutcome> => {
+    const container = containerForPath(ctx.part, ['Components', component]);
     if (!container) return { error: l10n.t('The component is inherited from a base part. Declare it locally first.') };
     if (degrees === null) {
         const member = localMember(container, 'Rotation');
         if (!member) return [];
-        return removeMemberEdit(text, member);
+        return removeMemberEdit(ctx.text, member);
     }
-    return scalarMemberEdit(text, container, 'Rotation', `${formatNumber(degrees)}d`);
+    return scalarMemberEdit(ctx, container, 'Rotation', `${formatNumber(degrees)}d`);
 };
 
 /** The AdjacencyFlags composites expanded to their edge/corner members, for set comparison. */
@@ -982,12 +1260,11 @@ const FLAG_FIELD_DEFAULTS: Readonly<Record<string, readonly string[]>> = {
  * the local field instead, so toggling away and back leaves no redundant override behind.
  */
 const flagsEdit = async (
-    part: GroupNode,
-    text: string,
+    ctx: EditContext,
     field: string,
-    values: readonly string[] | null,
-    token: CancellationToken
+    values: readonly string[] | null
 ): Promise<EditOutcome> => {
+    const { part, text, token } = ctx;
     if (!values) {
         const member = localMember(part, field);
         if (!member) return [];
@@ -1002,5 +1279,5 @@ const flagsEdit = async (
         return member ? removeMemberEdit(text, member) : [];
     }
     const valueText = values.length === 1 ? values[0] : enumListText(values);
-    return scalarMemberEdit(text, part, field, valueText);
+    return scalarMemberEdit(ctx, part, field, valueText);
 };

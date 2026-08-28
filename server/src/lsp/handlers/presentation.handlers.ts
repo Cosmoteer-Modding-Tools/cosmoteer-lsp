@@ -10,6 +10,7 @@ import { formatShaderDocument } from '../../features/formatting/shader-formatter
 import { minimalReplacementEdits } from '../../features/formatting/formatting.service';
 import { shaderDocumentHover } from '../../features/shader/shader-document-features';
 import { shaderSignatureHelp } from '../../features/shader/shader-signature';
+import { codeLensesFor, resolveCodeLens } from '../../features/structure/code-lens.service';
 import { isShaderDocument } from '../../document/document-kind';
 import { globalSettings } from '../../settings';
 import { traceFailure } from '../../utils/cancellation';
@@ -157,6 +158,27 @@ export function register(): void {
         } catch (e) {
             traceFailure(e);
             return null;
+        }
+    });
+
+    // Code lenses: whether the mod loads this file at all. Emitted as a range and resolved into a
+    // sentence only for a lens the editor shows, so opening a file never walks the mod.
+    connection.onCodeLens(async (params, cancellationToken) => {
+        if (isShaderDocument(params.textDocument.uri) || !globalSettings.codeLens?.showFileReachability) return [];
+        try {
+            return await codeLensesFor(params.textDocument.uri, cancellationToken);
+        } catch (e) {
+            traceFailure(e);
+            return [];
+        }
+    });
+
+    connection.onCodeLensResolve(async (lens, cancellationToken) => {
+        try {
+            return await resolveCodeLens(lens, cancellationToken);
+        } catch (e) {
+            traceFailure(e);
+            return lens;
         }
     });
 

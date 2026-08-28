@@ -1,8 +1,9 @@
 /**
  * Ranked lexical search over the whole schema: every class, field, enum, enum member and `Type=`
- * registry, plus the community-written prose on the fields. This is what a modder reaches for when
- * they know what they want the game to do but not what the field is called, which is exactly the
- * question completion cannot answer (completion needs the class, and the class needs the field).
+ * registry, plus the community-written prose on the classes and their fields. This is what a modder
+ * reaches for when they know what they want the game to do but not what the field is called, which
+ * is exactly the question completion cannot answer (completion needs the class, and the class needs
+ * the field).
  *
  * The two request bodies live here so the wiring in `server.ts` stays a call: the search itself is
  * pure in-memory work over {@link schemaSearchEntries} and never touches the workspace, and only
@@ -52,7 +53,7 @@ export interface SchemaSearchHit {
     owner: string;
     /** The value type of a field, or the kind of a type, enum or registry. */
     detail: string;
-    /** A one-line excerpt of the field's prose documentation. */
+    /** A one-line excerpt of the prose documentation: a field's description, a class's summary. */
     prose?: string;
     /** True when the field may be scaffolded at the caret the picker was opened from. */
     insertable?: boolean;
@@ -258,7 +259,7 @@ const toHit = (entry: SchemaSearchEntry, ancestry: readonly string[]): SchemaSea
     label: entry.label,
     owner: entry.ownerLabel,
     detail: entry.typeLabel,
-    prose: entry.field?.description ? proseSnippet(entry.field.description) : undefined,
+    prose: entry.prose ? proseSnippet(entry.prose) : undefined,
     insertable: entry.kind === 'field' && ancestry.includes(entry.ownerFullName) ? true : undefined,
     dead: entry.dead,
     deprecated: entry.deprecated,
@@ -361,10 +362,21 @@ const fieldDetail = (entry: SchemaSearchEntry): string[] => [
     fieldSignatureMarkdown(entry.field as SchemaField, entry.ownerFullName),
 ];
 
-/** The documentation page of a class: what it is written as, what it extends, and every field. */
+/**
+ * The class summary line, the sentence that answers "what is this?" before the listing below it
+ * means anything. Authored cross-references render down to the name a modder types, the same way a
+ * field's prose does.
+ *
+ * @param description the class or registry summary, when one is documented.
+ * @returns the summary line and its blank line, or nothing.
+ */
+const summaryLines = (description?: string): string[] =>
+    description ? [renderCrefs(description), ''] : [];
+
+/** The documentation page of a class: what it is, what it is written as, what it extends, and every field. */
 const typeDetail = (entry: SchemaSearchEntry): string[] => {
     const def = typeDef(entry.ownerFullName);
-    const lines = [`# ${entry.label}`, '', `\`${entry.ownerFullName}\``, ''];
+    const lines = [`# ${entry.label}`, '', `\`${entry.ownerFullName}\``, '', ...summaryLines(def?.description)];
     if (def?.derivedType && def.registry) {
         lines.push(
             l10n.t('Written as `{0} = {1}` in a `{2}` slot.', registryOf(def.registry)?.typeField ?? 'Type', def.derivedType, registryOf(def.registry)?.name ?? def.registry),
@@ -389,7 +401,7 @@ const enumDetail = (entry: SchemaSearchEntry): string[] => {
     return lines;
 };
 
-/** The documentation page of a `Type=` registry: its subtypes, and the base class's own fields. */
+/** The documentation page of a `Type=` registry: what the slot is, its subtypes, and the base class's own fields. */
 const registryDetail = (entry: SchemaSearchEntry): string[] => {
     const registry = registryOf(entry.ownerFullName);
     const members = Object.entries(registry?.members ?? {});
@@ -398,6 +410,7 @@ const registryDetail = (entry: SchemaSearchEntry): string[] => {
         '',
         `\`${entry.ownerFullName}\``,
         '',
+        ...summaryLines(registry?.description ?? typeDef(entry.ownerFullName)?.description),
         l10n.t('A group in this slot picks its class with `{0} = …`.', registry?.typeField ?? 'Type'),
         '',
         `## ${l10n.t('Subtypes')} (${members.length})`,

@@ -11,9 +11,17 @@ import { findEnclosingGroup, resolveGroupClass } from '../../document/schema/sch
 import { classAncestry, enumDef } from '../../document/schema/schema';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { findMemberThroughInheritance } from '../../semantics/inheritance-resolver';
-import { EffectiveMember, effectiveMember, resolveReference } from '../../semantics/effective-member';
-import { evaluateNumericValue } from '../../semantics/value-evaluator';
+import {
+    EffectiveMember,
+    effectiveMember,
+    effectiveSubGroups,
+    resolveReference,
+} from '../../semantics/effective-member';
 import { resolveAssetPath } from '../navigation/asset-resolver';
+import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
+import { referenceNodesOf } from '../navigation/reference-index';
+import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
+import { normalizeUri } from '../navigation/reference-location';
 import { filePathToUri } from '../navigation/navigation-strategy';
 import {
     AstProvenance,
@@ -49,6 +57,7 @@ import {
     readIntList,
     readMapEntries,
     readRect,
+    readRectEvaluated,
     readVector,
     readVectorEvaluated,
 } from './vector-forms';
@@ -72,9 +81,39 @@ const CREW_RULES_CLASS = 'Cosmoteer.Ships.Parts.Crew.PartCrewRules';
 const GRAPHICS_RULES_CLASS = 'Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules';
 
 /**
+ * The other files this view is read from: every file a reference or a base written inside the part
+ * resolves into. A value the part states as `&<constants.rules>/SIZE` is drawn from that file, and a
+ * change there changes the picture without touching the part's own file, so the editor has to know
+ * to look again.
+ *
+ * @param part the part group.
+ * @param ownUri the uri of the document the part is written in, which is never listed.
+ * @param token cancels the resolution.
+ * @returns the uris, in the payload's own `file://` spelling.
+ */
+const filesRead = async (part: GroupNode, ownUri: string, token: CancellationToken): Promise<string[]> => {
+    const own = normalizeUri(ownUri);
+    const uris = new Set<string>();
+    for (const reference of referenceNodesOf(part)) {
+        const from = getStartOfAstNode(reference).uri;
+        const target = await new FullNavigationStrategy()
+            .navigate(String(reference.valueType.value ?? ''), reference, from, token)
+            .catch(() => null);
+        if (!target) continue;
+        const path = isFile(target as FileWithPath)
+            ? (target as FileWithPath).path
+            : getStartOfAstNode(target as AbstractNode).uri;
+        if (normalizeUri(path) === own) continue;
+        uris.add(path.startsWith('file://') ? path : filePathToUri(path));
+    }
+    return [...uris];
+};
+
+/**
  * The provenance of a read node: its owning file and an anchor range. Container nodes carry a
  * same-line opener/closer span (see the parser position invariants), so their anchor collapses to
  * the opener when the recorded span is not a forward range.
+ *
  * @param node the node the value was read from.
  * @param inherited whether the value came through inheritance.
  * @returns the provenance record.
@@ -117,19 +156,12 @@ export const locatePartGroup = (document: AbstractNodeDocument, offset: number):
  * @param cls the component base class FullName.
  * @returns the matching components with their member names.
  */
-const componentsOfClass = (part: GroupNode, cls: string): Array<{ name: string; group: GroupNode }> => {
-    const components = childNamed(part, 'Components');
-    if (!components || !isGroupNode(components)) return [];
-    const matches: Array<{ name: string; group: GroupNode }> = [];
-    for (const element of components.elements) {
-        if (!isGroupNode(element) || !element.identifier) continue;
-        const elementClass = resolveGroupClass(element);
-        if (elementClass && classAncestry(elementClass).includes(cls)) {
-            matches.push({ name: element.identifier.name, group: element });
-        }
-    }
-    return matches;
-};
+const componentsOfClass = async (
+    part: GroupNode,
+    cls: string,
+    token: CancellationToken
+): Promise<Array<{ name: string; group: GroupNode }>> =>
+    (await allComponents(part, token)).filter((entry) => inAncestry(entry.cls, cls));
 
 /**
  * Builds one cell-set layer from a part-root list field.
@@ -219,7 +251,7 @@ const mapLayer = async (
  */
 const crewLayers = async (part: GroupNode, token: CancellationToken): Promise<PointListLayerData[]> => {
     const layers: PointListLayerData[] = [];
-    for (const { name, group } of componentsOfClass(part, CREW_RULES_CLASS)) {
+    for (const { name, group } of await componentsOfClass(part, CREW_RULES_CLASS, token)) {
         const member = await effectiveMember(group, 'CrewDestinations', token);
         const points: Array<{ point: { x: number; y: number }; origin: AstProvenance }> = [];
         if (member && (isListNode(member.node) || isGroupNode(member.node))) {
@@ -297,7 +329,8 @@ const virtualCellsLayer = async (part: GroupNode, token: CancellationToken): Pro
  */
 const rectLayer = async (part: GroupNode, field: string, token: CancellationToken): Promise<RectLayerData> => {
     const member = await effectiveMember(part, field, token);
-    const rect = member ? readRect(member.node) : null;
+    const plain = member ? readRect(member.node) : null;
+    const rect = plain ?? (member ? await readRectEvaluated(member.node, token).catch(() => null) : null);
     return {
         kind: 'rect',
         id: field,
@@ -308,6 +341,7 @@ const rectLayer = async (part: GroupNode, field: string, token: CancellationToke
         origin: member ? provenanceOf(member.node, member.inherited) : null,
         group: 'Part',
         rect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
+        isRef: !plain && !!rect,
     };
 };
 
@@ -380,9 +414,12 @@ const undamagedSprite = (slot: AbstractNode): GroupNode | null => {
  */
 const collectSprites = async (part: GroupNode, token: CancellationToken): Promise<SpriteLayerData[]> => {
     const sprites: SpriteLayerData[] = [];
-    const graphics = componentsOfClass(part, GRAPHICS_RULES_CLASS);
+    const graphics = await componentsOfClass(part, GRAPHICS_RULES_CLASS, token);
     for (const { name, group } of graphics) {
-        const location = readVector(childNamed(group, 'Location'));
+        // Graphics placement is routinely authored as math (`Location = [10-3.4, 16]`), so every
+        // vector here goes through the evaluating reader. The plain one answers null on those and
+        // would silently stack the whole part's art on the top-left corner.
+        const location = await readVectorEvaluated(childNamed(group, 'Location'), token).catch(() => null);
         for (const spec of SPRITE_MEMBERS) {
             const slot = childNamed(group, spec.member);
             if (!slot || !isGroupNode(slot)) continue;
@@ -396,9 +433,9 @@ const collectSprites = async (part: GroupNode, token: CancellationToken): Promis
                 declaringUri.startsWith('file://') ? declaringUri : filePathToUri(declaringUri),
                 token
             ).catch(() => null);
-            const size = readVector(childNamed(sprite, 'Size'));
-            const slotOffset = readVector(childNamed(slot, 'Offset'));
-            const spriteOffset = readVector(childNamed(sprite, 'Offset'));
+            const size = await readVectorEvaluated(childNamed(sprite, 'Size'), token).catch(() => null);
+            const slotOffset = await readVectorEvaluated(childNamed(slot, 'Offset'), token).catch(() => null);
+            const spriteOffset = await readVectorEvaluated(childNamed(sprite, 'Offset'), token).catch(() => null);
             const center = {
                 x: (location?.x ?? 0) + (slotOffset?.x ?? 0) + (spriteOffset?.x ?? 0),
                 y: (location?.y ?? 0) + (slotOffset?.y ?? 0) + (spriteOffset?.y ?? 0),
@@ -481,17 +518,24 @@ const GRAPHICS_OFFSET_SLOTS: readonly string[] = [
     'BlueprintSprite',
 ];
 
-/** All named component groups of a part, whatever their class. */
-const allComponents = (part: GroupNode): Array<{ name: string; group: GroupNode; cls: string | undefined }> => {
-    const components = childNamed(part, 'Components');
-    if (!components || !isGroupNode(components)) return [];
-    const result: Array<{ name: string; group: GroupNode; cls: string | undefined }> = [];
-    for (const element of components.elements) {
-        if (isGroupNode(element) && element.identifier) {
-            result.push({ name: element.identifier.name, group: element, cls: resolveGroupClass(element) });
-        }
-    }
-    return result;
+/**
+ * All named component groups of a part, whatever their class, merged across the `Components`
+ * group's own inheritance chain so components a part gathers from other files are included.
+ * @param part the part group.
+ * @param token cancels reference resolution.
+ * @returns the components with their resolved class, local declarations first.
+ */
+const allComponents = async (
+    part: GroupNode,
+    token: CancellationToken
+): Promise<Array<{ name: string; group: GroupNode; cls: string | undefined }>> => {
+    const components = await effectiveMember(part, 'Components', token);
+    if (!components || !isGroupNode(components.node)) return [];
+    return (await effectiveSubGroups(components.node, token)).map((entry) => ({
+        name: entry.name,
+        group: entry.group,
+        cls: resolveGroupClass(entry.group),
+    }));
 };
 
 /** Whether a component carries a field, by schema class or by a locally written member. */
@@ -541,7 +585,7 @@ const rotateDegrees = (x: number, y: number, degrees: number): [number, number] 
  * @returns the gizmo layer.
  */
 const componentPointsLayer = async (part: GroupNode, token: CancellationToken): Promise<ComponentPointsLayerData> => {
-    const components = allComponents(part);
+    const components = await allComponents(part, token);
     const byName = new Map(components.map((entry) => [entry.name, entry]));
 
     /** The component's own location vector, evaluated when written as math. */
@@ -611,7 +655,7 @@ const componentPointsLayer = async (part: GroupNode, token: CancellationToken): 
  */
 const componentFieldLayers = async (part: GroupNode, token: CancellationToken): Promise<GridLayerData[]> => {
     const layers: GridLayerData[] = [];
-    for (const { name, group, cls } of allComponents(part)) {
+    for (const { name, group, cls } of await allComponents(part, token)) {
         const path = ['Components', name];
         const label = (field: string): string => `${field} (${name})`;
 
@@ -629,7 +673,7 @@ const componentFieldLayers = async (part: GroupNode, token: CancellationToken): 
         for (const spec of COMPONENT_CELL_FIELDS) {
             if (!hasField(group, cls, spec.field)) continue;
             const member = await effectiveMember(group, spec.field, token);
-            const cell = member ? readVector(member.node) : null;
+            const cell = member ? await readVectorEvaluated(member.node, token).catch(() => null) : null;
             layers.push({
                 kind: 'cell',
                 ...layerBaseOf(path, spec.field, label(spec.field), spec.group, member),
@@ -640,12 +684,14 @@ const componentFieldLayers = async (part: GroupNode, token: CancellationToken): 
         for (const spec of COMPONENT_RECT_FIELDS) {
             if (!hasField(group, cls, spec.field)) continue;
             const member = await effectiveMember(group, spec.field, token);
-            const rect = member ? readRect(member.node) : null;
+            const plain = member ? readRect(member.node) : null;
+            const rect = plain ?? (member ? await readRectEvaluated(member.node, token).catch(() => null) : null);
             layers.push({
                 kind: 'rect',
                 ...layerBaseOf(path, spec.field, label(spec.field), spec.group, member),
                 fractional: spec.fractional,
                 rect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
+                isRef: !plain && !!rect,
             } as RectLayerData);
             // Resource grid disable cells are 0-based within GridRect, rendered at that offset.
             if (spec.field === 'GridRect' && hasField(group, cls, 'DisableCells')) {
@@ -674,7 +720,7 @@ const componentFieldLayers = async (part: GroupNode, token: CancellationToken): 
 
         if (inAncestry(cls, NETWORK_PORT_CLASS) || (childNamed(group, 'Direction') && childNamed(group, 'Location'))) {
             const member = await effectiveMember(group, 'Location', token);
-            const cell = member ? readVector(member.node) : null;
+            const cell = member ? await readVectorEvaluated(member.node, token).catch(() => null) : null;
             const direction = await effectiveMember(group, 'Direction', token);
             layers.push({
                 kind: 'cellDirection',
@@ -688,7 +734,7 @@ const componentFieldLayers = async (part: GroupNode, token: CancellationToken): 
         if (inAncestry(cls, TILE_LINE_CLASS) || isGroupNode(childNamed(group, 'Line'))) {
             const member = await effectiveMember(group, 'Line', token);
             const line = member && isGroupNode(member.node) ? member.node : null;
-            const cell = line ? readVector(childNamed(line, 'Location')) : null;
+            const cell = line ? await readVectorEvaluated(childNamed(line, 'Location'), token).catch(() => null) : null;
             layers.push({
                 kind: 'cellRay',
                 ...layerBaseOf(path, 'Line', label('Line'), 'Regions', member),
@@ -878,16 +924,19 @@ const partRootSweepLayers = async (
         tag: string | null;
         rect: { x: number; y: number; width: number; height: number };
         origin: AstProvenance;
+        isRef?: boolean;
     }> = [];
     if (prohibit && (isListNode(prohibit.node) || isGroupNode(prohibit.node))) {
         for (const element of prohibit.node.elements) {
             if (!isListNode(element) || element.elements.length !== 2) continue;
-            const rect = readRect(element.elements[1]);
+            const plain = readRect(element.elements[1]);
+            const rect = plain ?? (await readRectEvaluated(element.elements[1], token).catch(() => null));
             if (!rect) continue;
             entries.push({
                 tag: enumNameOf(element.elements[0]),
                 rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
                 origin: provenanceOf(element, prohibit.inherited),
+                isRef: !plain,
             });
         }
     }
@@ -926,13 +975,13 @@ const partRootSweepLayers = async (
  */
 const graphicsOffsetLayers = async (part: GroupNode, token: CancellationToken): Promise<PointLayerData[]> => {
     const layers: PointLayerData[] = [];
-    for (const { name, group, cls } of allComponents(part)) {
+    for (const { name, group, cls } of await allComponents(part, token)) {
         if (!inAncestry(cls, GRAPHICS_RULES_CLASS)) continue;
         for (const slot of GRAPHICS_OFFSET_SLOTS) {
             const slotNode = childNamed(group, slot);
             if (!slotNode || !isGroupNode(slotNode)) continue;
             const offsetNode = childNamed(slotNode, 'Offset');
-            const offset = readVector(offsetNode);
+            const offset = await readVectorEvaluated(offsetNode, token).catch(() => null);
             const member: EffectiveMember | null = offsetNode ? { node: offsetNode, inherited: false } : null;
             layers.push({
                 kind: 'point',
@@ -1071,8 +1120,8 @@ export const buildEffectiveFieldState = async (
 };
 
 /**
- * Reads the part's effective `Size`, evaluating each component through references and math when it
- * is not a plain number.
+ * Reads the part's effective `Size` in any form it is written in, following a whole-value reference
+ * and evaluating components that are math or references.
  * @param part the part group.
  * @param token cancels resolution.
  * @returns the size with provenance, falling back to 1x1 with a null origin when unreadable.
@@ -1083,15 +1132,8 @@ const readSize = async (
 ): Promise<{ width: number; height: number; origin: AstProvenance | null }> => {
     const member = await effectiveMember(part, 'Size', token);
     if (member) {
-        const plain = readVector(member.node);
-        if (plain) return { width: plain.x, height: plain.y, origin: provenanceOf(member.node, member.inherited) };
-        if (isListNode(member.node) && member.node.elements.length === 2) {
-            const width = await evaluateNumericValue(member.node.elements[0], token).catch(() => null);
-            const height = await evaluateNumericValue(member.node.elements[1], token).catch(() => null);
-            if (width !== null && height !== null) {
-                return { width, height, origin: provenanceOf(member.node, member.inherited) };
-            }
-        }
+        const size = await readVectorEvaluated(member.node, token).catch(() => null);
+        if (size) return { width: size.x, height: size.y, origin: provenanceOf(member.node, member.inherited) };
     }
     return { width: 1, height: 1, origin: null };
 };
@@ -1099,6 +1141,11 @@ const readSize = async (
 /**
  * The margin of cells to render around the grid so out-of-bounds geometry (virtual cells, rects,
  * crew points) stays on canvas.
+ *
+ * The reach is capped against the part's own size. A few fields address far outside the part on
+ * purpose, a `BuffArea` of `[-5, -30, 30, 30]` being the common one, and framing the canvas around
+ * those shrinks the part itself to a corner of a stage several times its size. Such geometry is
+ * clipped at the margin ring instead.
  * @param size the effective grid size.
  * @param layers the built layers.
  * @returns the margin, at least one cell.
@@ -1138,7 +1185,7 @@ const marginFor = (size: { width: number; height: number }, layers: readonly Gri
             coverRect(layer.rect);
         }
     }
-    return margin;
+    return Math.min(margin, Math.max(2, Math.ceil(Math.max(size.width, size.height) / 4)));
 };
 
 /**
@@ -1179,6 +1226,7 @@ export const buildPartGridData = async (
     ]);
 
     const contiguityMember = await effectiveMember(part, 'AllowedContiguity', token);
+    const dependsOn = await filesRead(part, document.uri, token);
     const fileName = decodeURIComponent(document.uri.replace(/\\/g, '/').split('/').pop() ?? 'Part');
     const anchorPosition = part.identifier?.position ?? part.position;
     return {
@@ -1189,6 +1237,7 @@ export const buildPartGridData = async (
         margin: marginFor(size, layers),
         sprites: await collectSprites(part, token),
         layers,
+        dependsOn,
         rotation: { isRotateable, isFlippable, flipHRotate, flipVRotate, selectionTypeRotations },
         contiguity: {
             values: contiguityMember ? readEnumNames(contiguityMember.node) : null,

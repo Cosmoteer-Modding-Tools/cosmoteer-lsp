@@ -1,0 +1,5 @@
+Part
+{
+	ID = square_part
+	Size = [&<./constants.rules>/SQUARE, &<./constants.rules>/SQUARE]
+}

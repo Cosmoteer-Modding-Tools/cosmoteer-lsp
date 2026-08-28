@@ -1,0 +1,10 @@
+// Carries the id armor_a already registers, which is the collision the game resolves by keeping one.
+Part : <../base_part.rules>/Part
+{
+	ID = test.health.armor
+	Size = [1, 2]
+	MaxHealth = 8000
+	Density = 3
+	IsRotateable = false
+	CrewSpeedFactor = 0
+}

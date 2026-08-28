@@ -7,7 +7,8 @@ internal sealed partial class SchemaGen
     // ---- XML documentation (prose field descriptions) ----
     // The game ships compiler-generated XML doc files next to each assembly (Cosmoteer.xml,
     // HalflingCore.xml). Index every member's <summary> by its XML doc-ID (`F:Type.Field` for a field,
-    // `P:Type.Prop` for a property) so OwnFields can attach the prose to the matching serialized field.
+    // `P:Type.Prop` for a property) so OwnFields can attach the prose to the matching serialized field,
+    // and `T:Type` for the class itself, which PruneAndEmit seeds as the class summary.
     // The descriptions are emitted to a separate `field-docs.seed.json`, never into the schema itself.
     // The docs scaffolder turns that seed into editable Markdown (see docs/fields and field-docs.ts). The
     // separation keeps a schemagen regen from clobbering hand-written community docs.
@@ -56,6 +57,10 @@ internal sealed partial class SchemaGen
                     case "typeparamref":
                         sb.Append(ce.Attribute("name")?.Value ?? "");
                         break;
+                    case "inheritdoc":
+                        // The compiler leaves the tag unexpanded, so there is nothing to pull in. The
+                        // game writes it inside parentheses, which the empty-paren cleanup below removes.
+                        break;
                     default:
                         Walk(ce);   // c / para / list / etc. (keep their inner text)
                         break;
@@ -64,6 +69,10 @@ internal sealed partial class SchemaGen
         }
         Walk(el);
         var text = Regex.Replace(sb.ToString(), @"\s+", " ").Trim();
+        // A tag that contributed no text can leave its wrapper punctuation behind, most often an
+        // `(<inheritdoc/>)` the compiler never expanded. Only a free-standing pair is dropped, so a
+        // method mentioned as `EmitOneShot()` keeps its parentheses.
+        text = Regex.Replace(text, @"\s+\(\s*\)", "");
         // The XML docs are written for engine developers. Two mechanical rewrites make them read as modder
         // field docs: drop the C# copy-plumbing boilerplate (meaningless in a .rules file), and turn the
         // C# property phrasing (`Gets or sets whether …`) into a direct description (`Whether …`).

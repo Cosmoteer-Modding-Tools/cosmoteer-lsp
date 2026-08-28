@@ -1,0 +1,16 @@
+// A particle updater carrying the dev-editor `Filename` field, which no schema class declares and
+// no reference in the file reads.
+Type = Particles
+Def
+{
+	Updaters
+	[
+		{
+			Type = ValueCurve
+			Enabled = true
+			Filename = SmoothFalloffRamp.png
+			MinValue = 9
+			Points [ 1, 0.5 ]
+		}
+	]
+}

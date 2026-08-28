@@ -120,6 +120,31 @@ export type ValidationError = {
 };
 
 /**
+ * The byte span a finding is underlined at: its own span where it names one, else the span of the
+ * node it is anchored on.
+ *
+ * An assignment is the one node the parser gives no span of its own, so a finding anchored on one
+ * is placed on its written name instead, which is where every pass that anchors on a member points
+ * anyway. A finding that can be placed nowhere at all is answered with null rather than with the
+ * top of the file, so the caller drops it: an underline at line one describes nothing, and reading
+ * a missing span as a zero used to take the whole pass down with it.
+ *
+ * @param error the finding to place.
+ * @returns the span to underline, or null when the finding carries no placeable node.
+ */
+export const findingSpanOf = (error: ValidationError): { start: number; end: number } | null => {
+    if (error.range) return error.range;
+    const node: AbstractNode | undefined = error.node;
+    if (node?.position) return { start: node.position.start, end: node.position.end };
+    if (node && isAssignmentNode(node)) {
+        const start = node.left.position?.start;
+        const end = node.right?.position?.end ?? node.left.position?.end;
+        if (start !== undefined && end !== undefined) return { start, end };
+    }
+    return null;
+};
+
+/**
  * The did-you-mean quick fix a finding carries when a close match was found, meant to be spread into
  * the error so a finding without a match carries no data at all.
  *
@@ -146,6 +171,13 @@ export type ValidationErrorData = {
      */
     insertLocalizationKey?: { key: string };
     /**
+     * A language strings file that declares fewer keys than the languages beside it. Carries only
+     * the language and how many keys are missing. Reading the other languages back and building
+     * the insertion happens lazily in the code-action handler, since it touches the index and the
+     * file on disk.
+     */
+    fillLanguageKeys?: { language: string; count: number };
+    /**
      * A group the required-field check found members missing on, and what the quick fix needs to
      * write them: the byte offset the new lines go at, the offset the group's `}` ends at (checked
      * before anything is written, since the buffer can have moved on since the pass), the fields a
@@ -159,6 +191,12 @@ export type ValidationErrorData = {
         fields: Array<{ name: string; text: string }>;
         fieldIndex: number;
     };
+    /**
+     * A component id a part or bullet references but never declares. Carries the name alone. Which
+     * kind of component the author meant is a choice only they can make, so the quick fix hands the
+     * exchange to the client, which asks and then has the declaration written for it.
+     */
+    createComponent?: { name: string };
     /**
      * A mod whose ids this file uses without the manifest declaring it as a dependency. Carries only
      * how the mod is named (its published file id or manifest id) and its display name. Finding the

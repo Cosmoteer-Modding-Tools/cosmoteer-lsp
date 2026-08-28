@@ -15,6 +15,7 @@ import {
     Diagnostic,
     DiagnosticSeverity,
     Range,
+    SnippetString,
 } from 'vscode';
 
 import {
@@ -112,6 +113,13 @@ export async function activate(context: ExtensionContext) {
             fileEvents: workspace.createFileSystemWatcher('**/.clientrc'),
         },
         progressOnInitialization: true,
+
+        // A code action's edit cannot carry a tab stop, so the server offers a snippet only to a client
+        // that says it registers the command that writes one. The protocol has no field for that, which
+        // is what this option is for.
+
+        initializationOptions: { snippetCodeActions: true },
+
         // The server answers open files through the pull model and pushes the whole-mod pass for the
         // rest, so both models write to the Problems panel. One collection for both keeps a file
         // that moves between them from being listed twice.
@@ -249,6 +257,14 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(
         commands.registerCommand(NEW_CONTENT_LOCAL_COMMAND, async () => {
             await createNewContent(client);
+        })
+    );
+
+    // Creating the mod itself is the step before that one: the server writes the manifest and the
+    // language file, and this wrapper asks where the mod goes, what it is called and who wrote it.
+    context.subscriptions.push(
+        commands.registerCommand(NEW_MOD_LOCAL_COMMAND, async () => {
+            await createNewMod(client);
         })
     );
 
@@ -497,6 +513,84 @@ export async function activate(context: ExtensionContext) {
         }),
         // The command the server's lightbulb refactoring carries. The server does not declare it, so
         // the editor runs this rather than forwarding it, and the rewrite gets a real diff.
+        // The command the server's "move this block into its own file" refactoring carries. The name is
+        // asked for here, and the server writes the file and re-expresses every path the block carries.
+        commands.registerCommand(EXTRACT_GROUP_LOCAL_COMMAND, async (args?: ExtractGroupArgs) => {
+            if (!args?.uri) return;
+            const run = async (fileName?: string) =>
+                (await client.sendRequest(ExecuteCommandRequest.type, {
+                    command: 'cosmoteer.extractGroupToFile',
+                    arguments: [{ ...args, fileName }],
+                })) as ExtractGroupResult | null;
+            const offered = await run();
+            if (!offered?.offer) {
+                window.showWarningMessage(extractGroupFailureMessage(offered?.failure));
+                return;
+            }
+            const fileName = await window.showInputBox({
+                title: l10n.t("Move '{0}' into its own file", offered.offer.name),
+                prompt: l10n.t('The file to write it to, relative to the folder this file is in.'),
+                value: offered.offer.fileName,
+                valueSelection: [0, offered.offer.fileName.lastIndexOf('.')],
+            });
+            if (!fileName) return;
+            const written = await run(fileName.trim());
+            if (!written?.written) {
+                window.showWarningMessage(extractGroupFailureMessage(written?.failure));
+                return;
+            }
+            const document = await workspace.openTextDocument(Uri.parse(written.written.uri));
+            await window.showTextDocument(document);
+        }),
+        // The command the server's "create the component this names" quick fix carries. The kind is
+        // asked for here, and the server works out where the declaration goes and what it has to carry.
+        commands.registerCommand(CREATE_COMPONENT_LOCAL_COMMAND, async (args?: CreateComponentArgs) => {
+            if (!args?.uri || !args.name) return;
+            const run = async (type?: string) =>
+                (await client.sendRequest(ExecuteCommandRequest.type, {
+                    command: 'cosmoteer.createComponent',
+                    arguments: [{ ...args, type }],
+                })) as CreateComponentResult | null;
+            const offered = await run();
+            if (!offered || offered.failure || !offered.choices?.length) {
+                window.showWarningMessage(createComponentFailureMessage(offered?.failure));
+                return;
+            }
+            const picked = await window.showQuickPick(
+                offered.choices.map((choice) => ({ label: choice.type, detail: choice.detail })),
+                {
+                    title: l10n.t("Create the component '{0}'", args.name),
+                    placeHolder: l10n.t('The kind of component to declare.'),
+                    matchOnDetail: true,
+                }
+            );
+            if (!picked) return;
+            const written = await run(picked.label);
+            if (!written?.insert) {
+                window.showWarningMessage(createComponentFailureMessage(written?.failure));
+                return;
+            }
+            const document = await workspace.openTextDocument(Uri.parse(written.insert.uri));
+            const editor = await window.showTextDocument(document);
+            const range = new Range(
+                new Position(written.insert.range.start.line, written.insert.range.start.character),
+                new Position(written.insert.range.end.line, written.insert.range.end.character)
+            );
+            await editor.insertSnippet(new SnippetString(written.insert.snippet), range);
+        }),
+        // The command the server's snippet-bearing code actions carry, which writes the text and leaves
+        // the caret on the first tab stop. The edit cannot come through the code action itself: the
+        // protocol's edits are plain text.
+        commands.registerCommand(INSERT_SNIPPET_LOCAL_COMMAND, async (args?: InsertSnippetArgs) => {
+            if (!args?.uri || typeof args.snippet !== 'string') return;
+            const document = await workspace.openTextDocument(Uri.parse(args.uri));
+            const editor = await window.showTextDocument(document);
+            const range = new Range(
+                new Position(args.range.start.line, args.range.start.character),
+                new Position(args.range.end.line, args.range.end.character)
+            );
+            await editor.insertSnippet(new SnippetString(args.snippet), range);
+        }),
         commands.registerCommand(EXTRACT_SHARED_BASE_LOCAL_COMMAND, async (plan?: SharedBasePlan) => {
             if (plan) await previewAndApplySharedBase(plan, diffPreviewProvider);
         }),
@@ -833,10 +927,128 @@ interface MigrateSymbolArgs {
 const NEW_CONTENT_LOCAL_COMMAND = 'cosmoteer.newContentFile';
 
 /**
+ * The palette command that creates a whole mod. Like the content command it is a distinct id from
+ * the server's `cosmoteer.newMod`, since where the mod goes and what it is called are questions only
+ * the editor can ask.
+ */
+const NEW_MOD_LOCAL_COMMAND = 'cosmoteer.newMod.create';
+
+/**
  * The command the server's "override this in my mod" refactoring carries. The server does not
  * claim it, so the editor runs this instead and the author picks the mod first.
  */
 const OVERRIDE_IN_MOD_LOCAL_COMMAND = 'cosmoteer.overrideInModFromAction';
+
+/**
+ * The command the server's "move this block into its own file" refactoring carries. The server does
+ * not claim it, so the editor runs this instead: what the new file is called is a name only the
+ * author can give.
+ */
+const EXTRACT_GROUP_LOCAL_COMMAND = 'cosmoteer.extractGroupToFileFromAction';
+
+/** Mirror of the server's extract-group arguments (see server features/refactor/extract-group). */
+interface ExtractGroupArgs {
+    uri: string;
+    offset: number;
+    fileName?: string;
+}
+
+/** Mirror of what the server answers with on either round. */
+interface ExtractGroupResult {
+    offer?: { name: string; fileName: string; members: number };
+    written?: { uri: string; reference: string };
+    failure?: string;
+}
+
+/**
+ * What to say when a block cannot be moved into a file of its own.
+ *
+ * @param failure the reason the server gave, absent when it answered with nothing at all.
+ * @returns the message to show.
+ */
+function extractGroupFailureMessage(failure: string | undefined): string {
+    switch (failure) {
+        case 'notAGroup':
+            return l10n.t('Only a named block can be moved into a file of its own.');
+        case 'notEditable':
+            return l10n.t('Files in the game folder are read-only.');
+        case 'inheritedGroup':
+            return l10n.t('This block derives from another one, whose members a copy would not carry.');
+        case 'multiLineText':
+            return l10n.t('A text in this block runs across lines, so it cannot be moved.');
+        case 'scopeRelativeValue':
+            return l10n.t('This block reads something outside itself, so it would mean something else from another file.');
+        case 'badFileName':
+            return l10n.t('The name has to be a .rules file inside this folder.');
+        case 'fileExists':
+            return l10n.t('A file of that name is already there.');
+        case 'editRejected':
+            return l10n.t('The editor refused the change, so nothing was moved.');
+        default:
+            return l10n.t('The block could not be moved.');
+    }
+}
+
+/**
+ * The command the server's "create the component this names" quick fix carries. The server does not
+ * claim it, so the editor runs this instead: which kind of component the author meant cannot be read
+ * off the reference, and only they know it.
+ */
+const CREATE_COMPONENT_LOCAL_COMMAND = 'cosmoteer.createComponentFromAction';
+
+/** Mirror of the server's create-component arguments (see server features/refactor/create-component). */
+interface CreateComponentArgs {
+    uri: string;
+    offset: number;
+    name: string;
+    type?: string;
+}
+
+/** Mirror of what the server answers with on either round. */
+interface CreateComponentResult {
+    choices?: Array<{ type: string; detail: string }>;
+    insert?: {
+        uri: string;
+        range: { start: { line: number; character: number }; end: { line: number; character: number } };
+        snippet: string;
+    };
+    failure?: string;
+}
+
+/**
+ * What to say when no component can be declared.
+ *
+ * @param failure the reason the server gave, absent when it answered with nothing at all.
+ * @returns the message to show.
+ */
+function createComponentFailureMessage(failure: string | undefined): string {
+    switch (failure) {
+        case 'noOwner':
+            return l10n.t('This file declares no part or bullet to add a component to.');
+        case 'notEditable':
+            return l10n.t('Files in the game folder are read-only.');
+        case 'alreadyDeclared':
+            return l10n.t('A component of that name is already declared here.');
+        case 'unknownType':
+            return l10n.t('That kind of component cannot be declared here.');
+        default:
+            return l10n.t('The component could not be created.');
+    }
+}
+
+/**
+ * The command the server's snippet-bearing code actions carry. The server does not claim it, and it
+ * cannot: a `WorkspaceEdit` has no way to carry a tab stop, so the text is written here, where the
+ * editor can leave the caret where the author has to type next.
+ */
+const INSERT_SNIPPET_LOCAL_COMMAND = 'cosmoteer.insertSnippetFromAction';
+
+/** Mirror of the server's snippet arguments (see server features/refactor/snippet-action.ts). */
+interface InsertSnippetArgs {
+    uri: string;
+    range: { start: { line: number; character: number }; end: { line: number; character: number } };
+    snippet: string;
+}
 
 /**
  * The command the server's "clone this under a new id" refactoring carries. The server does not claim
@@ -1643,6 +1855,154 @@ function registerPartFailureMessage(failure: RegisterPartFailure, manifests?: st
             return l10n.t('Cosmoteer: the file could not be edited, so nothing was changed.');
         case 'editRejected':
             return l10n.t('Cosmoteer: the editor turned down the edit, so nothing was changed.');
+    }
+}
+
+/** Mirror of one folder the server offers to create a mod in. */
+interface NewModDestination {
+    path: string;
+    loadedByGame: boolean;
+}
+
+/** Mirror of the server's new-mod scan round (see server features/refactor/new-mod). */
+interface NewModScanResult {
+    kind: 'scan';
+    destinations: NewModDestination[];
+    gameVersions: string;
+    knownAuthors: string[];
+}
+
+/** Mirror of the server's new-mod apply round. */
+interface NewModApplyResult {
+    kind: 'apply';
+    modRoot: string;
+    manifest: string;
+    id: string;
+    createdFiles: string[];
+    loadedByGame: boolean;
+    failure?: NewModFailure;
+}
+
+/** Mirror of why the server created no mod. */
+type NewModFailure = 'noDestination' | 'invalidName' | 'invalidAuthor' | 'pathTaken' | 'idTaken' | 'writeFailed';
+
+/**
+ * Create a whole mod: ask where it goes, what it is called and who wrote it, let the server write
+ * the manifest and the language file, then open the manifest and offer to open the mod itself.
+ *
+ * The folders the game loads mods from are offered first, since a mod written anywhere else has to
+ * be linked into one of them before the game sees it at all.
+ *
+ * @param client the language client the command runs through.
+ */
+async function createNewMod(client: LanguageClient): Promise<void> {
+    const scan = (await client.sendRequest(ExecuteCommandRequest.type, {
+        command: 'cosmoteer.newMod',
+        arguments: [{}],
+    })) as NewModScanResult | null;
+    if (!scan) {
+        window.showWarningMessage(l10n.t('Cosmoteer: the mod folders could not be read, so nothing was created.'));
+        return;
+    }
+    const destination = await pickNewModDestination(scan);
+    if (!destination) return;
+    const name = await window.showInputBox({
+        title: l10n.t('Cosmoteer: New Mod'),
+        prompt: l10n.t('Name your mod. The folder and the mod id are derived from this.'),
+        validateInput: (value) =>
+            /^[A-Za-z][A-Za-z0-9 _-]*$/.test(value.trim())
+                ? undefined
+                : l10n.t('Use letters, digits, spaces, underscores and dashes, starting with a letter.'),
+    });
+    if (!name) return;
+    const author = await window.showInputBox({
+        title: l10n.t('Cosmoteer: New Mod'),
+        prompt: l10n.t('Your name as the game shows it. It also becomes the first half of the mod id.'),
+        value: scan.knownAuthors[0],
+        validateInput: (value) =>
+            /[A-Za-z0-9]/.test(value) ? undefined : l10n.t('Use at least one letter or digit.'),
+    });
+    if (!author) return;
+
+    const result = (await client.sendRequest(ExecuteCommandRequest.type, {
+        command: 'cosmoteer.newMod',
+        arguments: [{ destination, name, author }],
+    })) as NewModApplyResult | null;
+    if (!result) {
+        window.showWarningMessage(l10n.t('Cosmoteer: nothing was created.'));
+        return;
+    }
+    if (result.failure) {
+        window.showWarningMessage(newModFailureMessage(result.failure));
+        return;
+    }
+    const document = await workspace.openTextDocument(Uri.file(result.manifest));
+    await window.showTextDocument(document, { preview: false });
+    const openIt = l10n.t('Open the mod folder');
+    const notes = [l10n.t('Cosmoteer: created {0} as {1}.', result.modRoot, result.id)];
+    notes.push(
+        result.loadedByGame
+            ? l10n.t('The game reads mods from that folder, so it will find this one.')
+            : l10n.t('The game does not read mods from that folder. Cosmoteer: Run in Cosmoteer links it in for you.')
+    );
+    notes.push(l10n.t('Cosmoteer: New Content File adds your first part and the action that loads it.'));
+    const picked = await window.showInformationMessage(notes.join(' '), openIt);
+    if (picked === openIt) await commands.executeCommand('vscode.openFolder', Uri.file(result.modRoot), true);
+}
+
+/**
+ * Offer the folders the game loads mods from, plus picking any folder by hand.
+ *
+ * @param scan the server's report.
+ * @returns the chosen folder, or undefined when the author backed out.
+ */
+async function pickNewModDestination(scan: NewModScanResult): Promise<string | undefined> {
+    const BROWSE = '__browse__';
+    const items = [
+        ...scan.destinations.map((destination) => ({
+            label: destination.path,
+            description: l10n.t('The game loads mods from here'),
+            path: destination.path,
+        })),
+        ...(workspace.workspaceFolders ?? []).map((folder) => ({
+            label: folder.uri.fsPath,
+            description: l10n.t('This workspace folder'),
+            path: folder.uri.fsPath,
+        })),
+        { label: l10n.t('Choose a folder…'), description: '', path: BROWSE },
+    ];
+    const picked = await window.showQuickPick(items, { placeHolder: l10n.t('Where should the mod folder be created?') });
+    if (!picked) return undefined;
+    if (picked.path !== BROWSE) return picked.path;
+    const chosen = await window.showOpenDialog({
+        canSelectFiles: false,
+        canSelectFolders: true,
+        canSelectMany: false,
+        openLabel: l10n.t('Create the mod here'),
+    });
+    return chosen?.[0]?.fsPath;
+}
+
+/**
+ * Say why no mod was created, one message per reason the server reports.
+ *
+ * @param failure the server's reason.
+ * @returns the message to show.
+ */
+function newModFailureMessage(failure: NewModFailure): string {
+    switch (failure) {
+        case 'noDestination':
+            return l10n.t('Cosmoteer: that folder is not there, so nothing was created.');
+        case 'invalidName':
+            return l10n.t('Cosmoteer: that name leaves no folder name behind. Use letters and digits.');
+        case 'invalidAuthor':
+            return l10n.t('Cosmoteer: that author name leaves nothing for the mod id. Use letters and digits.');
+        case 'pathTaken':
+            return l10n.t('Cosmoteer: a folder of that name is already there, and it was left alone.');
+        case 'idTaken':
+            return l10n.t('Cosmoteer: another mod on this machine already carries that id, and the game tells mods apart by it.');
+        case 'writeFailed':
+            return l10n.t('Cosmoteer: the mod folder could not be written, so nothing was created.');
     }
 }
 

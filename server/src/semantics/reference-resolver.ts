@@ -71,9 +71,11 @@ type MemberEnumerationSource = (
  * an injection never wins. `removes` deletes the node's own child, and what the game reads under
  * that name afterwards is whatever a base supplies, or nothing. `rewrites` is a `Replace`, which
  * names an existing member rather than merging one in: where the node writes no such member the
- * action rewrites something else, or nothing, and it must not invent one here.
+ * action rewrites something else, or nothing, and it must not invent one here. `appends` is the one
+ * a member lookup ignores: aimed at a list, an `Add` or an `AddMany` puts its value at the end, so it
+ * extends the list rather than deciding anything about a member of it.
  */
-export type InjectionPrecedence = 'replaces' | 'adds' | 'removes' | 'rewrites';
+export type InjectionPrecedence = 'replaces' | 'adds' | 'removes' | 'rewrites' | 'appends';
 
 let memberEnumerationSource: MemberEnumerationSource | undefined;
 

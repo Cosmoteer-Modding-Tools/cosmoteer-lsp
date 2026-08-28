@@ -1,0 +1,6 @@
+Part : <./base_part.rules>/Part
+{
+	Components : ^/0/Components, &<extra_components.rules>
+	{
+	}
+}

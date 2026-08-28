@@ -397,6 +397,8 @@ const localMembersOf = (container: FlattenableContainer, hop: number): MutableMe
         current.set(key, member);
     }
     for (const injected of injectedMembersOf(container)) {
+        // An append carries no name and belongs to a list, so it decides nothing about a member.
+        if (injected.precedence === 'appends') continue;
         const key = injected.name.toLowerCase();
         const held = current.get(key);
         if (injected.precedence === 'removes') {
@@ -452,10 +454,15 @@ const flattenListAt = async (
     visited: Set<AbstractNode>
 ): Promise<EffectiveList> => {
     const inherits = inheritanceEntriesOf(list).length > 0;
-    const local: EffectiveListEntry[] = list.elements.map((element) => ({
-        value: element,
-        origin: originOf(element, hop),
-    }));
+    // An `Add` or an `AddMany` aimed at a list puts its value at the end, so a mod extends a list
+    // the same way the file's own last element does.
+    const appended: EffectiveListEntry[] = injectedMembersOf(list)
+        .filter((injected) => injected.precedence === 'appends')
+        .map((injected) => ({ value: injected.value, origin: { ...originOf(injected.value, hop), injected: true } }));
+    const local: EffectiveListEntry[] = [
+        ...list.elements.map((element) => ({ value: element, origin: originOf(element, hop) })),
+        ...appended,
+    ];
     if (!inherits) {
         return { entries: local, bases: [], unreadable: [], complete: true, inherits: false };
     }

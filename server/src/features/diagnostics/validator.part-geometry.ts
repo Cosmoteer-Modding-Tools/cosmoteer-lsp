@@ -256,6 +256,42 @@ const judgePhysicalRect = (part: GroupNode, size: PartSize, errors: ValidationEr
     });
 };
 
+/** The component class whose cell the game turns into a door location beside the part. */
+const DOOR_PRESENCE_TOGGLE_CLASS = 'Cosmoteer.Ships.Parts.Logic.DoorPresenceToggleRules';
+
+/**
+ * Flags a door presence toggle whose cell lies inside the part it belongs to.
+ *
+ * The engine turns the cell into a door location by asking which side of the part rect it is past,
+ * and its four tests are the whole method. A cell inside the rect is past none of them and falls
+ * through to a bare internal error, which happens when the part materialises rather than while the
+ * blueprint is being drawn, since a blueprint part builds no toggle at all. A cell outside the rect
+ * is the point of the field and is left alone wherever it sits, because the door it names is looked
+ * up across the whole ship rather than around the part.
+ * @param part the part group.
+ * @param size the part's effective size.
+ * @param errors collects the findings.
+ */
+const judgeDoorToggles = (part: GroupNode, size: PartSize, errors: ValidationError[]): void => {
+    const visit = (node: AbstractNode): void => {
+        if (isGroupNode(node) && resolveGroupClass(node) === DOOR_PRESENCE_TOGGLE_CLASS) {
+            const written = childNamed(node, 'AdjacentCell');
+            const cell = wholeCell(written);
+            if (written && cell && occupies(cell, size)) {
+                errors.push({
+                    message: l10n.t(
+                        'This cell is inside the part, so the game cannot read it as a door beside it and stops when the part is created.'
+                    ),
+                    node: written,
+                    severity: 'error',
+                });
+            }
+        }
+        if (isGroupNode(node) || isListNode(node)) for (const child of node.elements) visit(child);
+    };
+    for (const element of part.elements) visit(element);
+};
+
 /**
  * Runs the part-geometry checks over a document.
  * @param document the parsed document to validate.
@@ -275,6 +311,7 @@ export const validatePartGeometry = async (
         for (const spec of CELL_SET_FIELDS) judgeCellSet(part, spec, size, errors);
         for (const spec of MAP_FIELDS) judgeMapKeys(part, spec.field, size, errors);
         judgePhysicalRect(part, size, errors);
+        judgeDoorToggles(part, size, errors);
     }
     return errors;
 };

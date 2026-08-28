@@ -19,6 +19,7 @@ import {
     isGroupNode,
     isListNode,
     isValueNode,
+    ValueNode,
 } from '../../core/ast/ast';
 import { childNodesOf } from '../../utils/ast.utils';
 import { schema } from './schema';
@@ -97,15 +98,17 @@ const MARKER_FIELD_TARGETS: ReadonlyMap<string, ReadonlySet<string>> = (() => {
 interface MarkerUsage {
     readonly cls: string;
     readonly id: string;
+    /** The value node the name is written in, for a finding that has to underline it. */
+    readonly node: ValueNode;
 }
 
 /** Collects the bare string values written for a marker field (a direct value or list elements). */
-function* markerValuesOf(value: AbstractNode): Generator<string> {
+function* markerValuesOf(value: AbstractNode): Generator<ValueNode> {
     if (isValueNode(value) && value.valueType.type === 'String') {
-        yield String(value.valueType.value);
+        yield value;
     } else if (isListNode(value)) {
         for (const element of value.elements) {
-            if (isValueNode(element) && element.valueType.type === 'String') yield String(element.valueType.value);
+            if (isValueNode(element) && element.valueType.type === 'String') yield element;
         }
     }
 }
@@ -122,8 +125,8 @@ export function* markerUsagesOf(document: AbstractNodeDocument): Generator<Marke
     function* usagesAt(fieldName: string, value: AbstractNode): Generator<MarkerUsage> {
         const targets = MARKER_FIELD_TARGETS.get(fieldName);
         if (!targets) return;
-        for (const id of markerValuesOf(value)) {
-            for (const cls of targets) yield { cls, id };
+        for (const node of markerValuesOf(value)) {
+            for (const cls of targets) yield { cls, id: String(node.valueType.value), node };
         }
     }
     function* visit(node: AbstractNode): Generator<MarkerUsage> {

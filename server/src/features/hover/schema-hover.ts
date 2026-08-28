@@ -14,6 +14,7 @@ import {
     fieldOf,
     fieldSignatureMarkdown,
     isShaderConstantField,
+    typeDef,
 } from '../../document/schema/schema';
 import { deprecatedDiscriminator } from '../../document/schema/deprecations';
 import { memberNameAt } from '../../utils/ast.utils';
@@ -74,9 +75,10 @@ const positionalElementHover = (node: AbstractNode, list: ListNode): string | nu
 };
 
 /**
- * Markdown for a `Type = <disc>` discriminator value: the concrete schema class it selects. `Type` is
- * not a `[Serialize]` field (the serializer dispatches on it), so {@link schemaFieldHover} shows
- * nothing for it. This fills that gap, e.g. hovering `Type = TurretWeapon` → `→ TurretWeaponRules`.
+ * Markdown for a `Type = <disc>` discriminator value: the concrete schema class it selects, and the
+ * one sentence saying what that class is when the docs tree carries one. `Type` is not a
+ * `[Serialize]` field (the serializer dispatches on it), so {@link schemaFieldHover} shows nothing
+ * for it. This fills that gap, e.g. hovering `Type = TurretWeapon` → `→ TurretWeaponRules`.
  */
 export const schemaDiscriminatorHover = (node: AbstractNode): string | null => {
     if (!isValueNode(node) || node.valueType.type !== 'String') return null;
@@ -101,6 +103,8 @@ export const schemaDiscriminatorHover = (node: AbstractNode): string | null => {
         return `**${registry.typeField} = ${written}** — renamed to \`${deprecation.replacement}\` (${deprecation.note})`;
     }
     const cls = classByDiscriminator(written, registry.name);
-    if (cls) return `**${registry.typeField} = ${written}** → \`${cls.split('.').pop()}\``;
-    return null;
+    if (!cls) return null;
+    const head = `**${registry.typeField} = ${written}** → \`${cls.split('.').pop()}\``;
+    const summary = typeDef(cls)?.description;
+    return summary ? `${head}\n\n${summary}` : head;
 };
