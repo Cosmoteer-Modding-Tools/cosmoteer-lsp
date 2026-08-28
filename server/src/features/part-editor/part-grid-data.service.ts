@@ -17,8 +17,11 @@ import {
     effectiveSubGroups,
     resolveReference,
 } from '../../semantics/effective-member';
-import { evaluateNumericValue } from '../../semantics/value-evaluator';
 import { resolveAssetPath } from '../navigation/asset-resolver';
+import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
+import { referenceNodesOf } from '../navigation/reference-index';
+import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
+import { normalizeUri } from '../navigation/reference-location';
 import { filePathToUri } from '../navigation/navigation-strategy';
 import {
     AstProvenance,
@@ -78,9 +81,39 @@ const CREW_RULES_CLASS = 'Cosmoteer.Ships.Parts.Crew.PartCrewRules';
 const GRAPHICS_RULES_CLASS = 'Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules';
 
 /**
+ * The other files this view is read from: every file a reference or a base written inside the part
+ * resolves into. A value the part states as `&<constants.rules>/SIZE` is drawn from that file, and a
+ * change there changes the picture without touching the part's own file, so the editor has to know
+ * to look again.
+ *
+ * @param part the part group.
+ * @param ownUri the uri of the document the part is written in, which is never listed.
+ * @param token cancels the resolution.
+ * @returns the uris, in the payload's own `file://` spelling.
+ */
+const filesRead = async (part: GroupNode, ownUri: string, token: CancellationToken): Promise<string[]> => {
+    const own = normalizeUri(ownUri);
+    const uris = new Set<string>();
+    for (const reference of referenceNodesOf(part)) {
+        const from = getStartOfAstNode(reference).uri;
+        const target = await new FullNavigationStrategy()
+            .navigate(String(reference.valueType.value ?? ''), reference, from, token)
+            .catch(() => null);
+        if (!target) continue;
+        const path = isFile(target as FileWithPath)
+            ? (target as FileWithPath).path
+            : getStartOfAstNode(target as AbstractNode).uri;
+        if (normalizeUri(path) === own) continue;
+        uris.add(path.startsWith('file://') ? path : filePathToUri(path));
+    }
+    return [...uris];
+};
+
+/**
  * The provenance of a read node: its owning file and an anchor range. Container nodes carry a
  * same-line opener/closer span (see the parser position invariants), so their anchor collapses to
  * the opener when the recorded span is not a forward range.
+ *
  * @param node the node the value was read from.
  * @param inherited whether the value came through inheritance.
  * @returns the provenance record.
@@ -640,7 +673,7 @@ const componentFieldLayers = async (part: GroupNode, token: CancellationToken): 
         for (const spec of COMPONENT_CELL_FIELDS) {
             if (!hasField(group, cls, spec.field)) continue;
             const member = await effectiveMember(group, spec.field, token);
-            const cell = member ? readVector(member.node) : null;
+            const cell = member ? await readVectorEvaluated(member.node, token).catch(() => null) : null;
             layers.push({
                 kind: 'cell',
                 ...layerBaseOf(path, spec.field, label(spec.field), spec.group, member),
@@ -687,7 +720,7 @@ const componentFieldLayers = async (part: GroupNode, token: CancellationToken): 
 
         if (inAncestry(cls, NETWORK_PORT_CLASS) || (childNamed(group, 'Direction') && childNamed(group, 'Location'))) {
             const member = await effectiveMember(group, 'Location', token);
-            const cell = member ? readVector(member.node) : null;
+            const cell = member ? await readVectorEvaluated(member.node, token).catch(() => null) : null;
             const direction = await effectiveMember(group, 'Direction', token);
             layers.push({
                 kind: 'cellDirection',
@@ -701,7 +734,7 @@ const componentFieldLayers = async (part: GroupNode, token: CancellationToken): 
         if (inAncestry(cls, TILE_LINE_CLASS) || isGroupNode(childNamed(group, 'Line'))) {
             const member = await effectiveMember(group, 'Line', token);
             const line = member && isGroupNode(member.node) ? member.node : null;
-            const cell = line ? readVector(childNamed(line, 'Location')) : null;
+            const cell = line ? await readVectorEvaluated(childNamed(line, 'Location'), token).catch(() => null) : null;
             layers.push({
                 kind: 'cellRay',
                 ...layerBaseOf(path, 'Line', label('Line'), 'Regions', member),
@@ -948,7 +981,7 @@ const graphicsOffsetLayers = async (part: GroupNode, token: CancellationToken): 
             const slotNode = childNamed(group, slot);
             if (!slotNode || !isGroupNode(slotNode)) continue;
             const offsetNode = childNamed(slotNode, 'Offset');
-            const offset = readVector(offsetNode);
+            const offset = await readVectorEvaluated(offsetNode, token).catch(() => null);
             const member: EffectiveMember | null = offsetNode ? { node: offsetNode, inherited: false } : null;
             layers.push({
                 kind: 'point',
@@ -1087,8 +1120,8 @@ export const buildEffectiveFieldState = async (
 };
 
 /**
- * Reads the part's effective `Size`, evaluating each component through references and math when it
- * is not a plain number.
+ * Reads the part's effective `Size` in any form it is written in, following a whole-value reference
+ * and evaluating components that are math or references.
  * @param part the part group.
  * @param token cancels resolution.
  * @returns the size with provenance, falling back to 1x1 with a null origin when unreadable.
@@ -1099,15 +1132,8 @@ const readSize = async (
 ): Promise<{ width: number; height: number; origin: AstProvenance | null }> => {
     const member = await effectiveMember(part, 'Size', token);
     if (member) {
-        const plain = readVector(member.node);
-        if (plain) return { width: plain.x, height: plain.y, origin: provenanceOf(member.node, member.inherited) };
-        if (isListNode(member.node) && member.node.elements.length === 2) {
-            const width = await evaluateNumericValue(member.node.elements[0], token).catch(() => null);
-            const height = await evaluateNumericValue(member.node.elements[1], token).catch(() => null);
-            if (width !== null && height !== null) {
-                return { width, height, origin: provenanceOf(member.node, member.inherited) };
-            }
-        }
+        const size = await readVectorEvaluated(member.node, token).catch(() => null);
+        if (size) return { width: size.x, height: size.y, origin: provenanceOf(member.node, member.inherited) };
     }
     return { width: 1, height: 1, origin: null };
 };
@@ -1200,6 +1226,7 @@ export const buildPartGridData = async (
     ]);
 
     const contiguityMember = await effectiveMember(part, 'AllowedContiguity', token);
+    const dependsOn = await filesRead(part, document.uri, token);
     const fileName = decodeURIComponent(document.uri.replace(/\\/g, '/').split('/').pop() ?? 'Part');
     const anchorPosition = part.identifier?.position ?? part.position;
     return {
@@ -1210,6 +1237,7 @@ export const buildPartGridData = async (
         margin: marginFor(size, layers),
         sprites: await collectSprites(part, token),
         layers,
+        dependsOn,
         rotation: { isRotateable, isFlippable, flipHRotate, flipVRotate, selectionTypeRotations },
         contiguity: {
             values: contiguityMember ? readEnumNames(contiguityMember.node) : null,

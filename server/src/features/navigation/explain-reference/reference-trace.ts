@@ -416,7 +416,7 @@ const rawTargetOf = async (ref: ValueNode, token: CancellationToken): Promise<Ab
  * @param token cancels the walk.
  * @returns true when the chain closes on itself.
  */
-const aliasChainCycles = async (start: ValueNode, token: CancellationToken): Promise<boolean> => {
+export const aliasChainCycles = async (start: ValueNode, token: CancellationToken): Promise<boolean> => {
     const seen = new Set<AbstractNode>([start]);
     let current: ValueNode = start;
     for (let link = 0; link < MAX_ALIAS_LINKS; link++) {

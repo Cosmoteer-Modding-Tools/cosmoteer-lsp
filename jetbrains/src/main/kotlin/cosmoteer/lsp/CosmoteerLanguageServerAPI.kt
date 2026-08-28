@@ -28,6 +28,8 @@ class PartGridEditResult(
     var status: String? = null,
     var message: String? = null,
     var edit: WorkspaceEdit? = null,
+    /** Where a write that followed a reference landed, shown in the page's status line. */
+    var note: String? = null,
 )
 
 /** Parameters of the `cosmoteer/schemaSearch` request. */

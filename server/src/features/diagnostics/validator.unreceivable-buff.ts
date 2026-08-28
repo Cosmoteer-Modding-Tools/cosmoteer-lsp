@@ -1,9 +1,12 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode } from '../../core/ast/ast';
+import { getStartOfAstNode } from '../../utils/ast.utils';
 import { classAncestry } from '../../document/schema/schema';
 import { resolveGroupClass } from '../../document/schema/schema-context';
-import { flattenListMember } from '../../semantics/effective-group';
+import { flattenGroup, flattenListMember } from '../../semantics/effective-group';
+import { findMemberThroughInheritance } from '../../semantics/inheritance-resolver';
+import { resolveReference } from '../../semantics/effective-member';
 import { PART_RULES_CLASS } from '../part-editor/part-fields';
 import { memberNameOf } from '../../semantics/reference-resolver';
 import { booleanOf, childNamed, enumNameOf } from '../part-editor/vector-forms';
@@ -32,9 +35,10 @@ import { ValidationError } from './validator';
  *   - Only a part group writing its own `ID` is judged. A template completed by deriving files
  *     declares the modifier while the derivers declare the buff set, and judging it in isolation
  *     would blame a file for what its derivers supply.
- *   - Only consumer fields are judged. The six `BasePartBuffProviderRules` subclasses and their
- *     `ChainsFromBuffType` name a buff the part *supplies* to others, which has nothing to do with
- *     what it receives, and `NebulaBuffRules` is not a part at all.
+ *   - Only consumer fields are judged here. The `BuffType` of the six `BasePartBuffProviderRules`
+ *     subclasses names a buff the part supplies to others, which has nothing to do with what it
+ *     receives, and `NebulaBuffRules` is not a part at all. Their `ChainsFromBuffType` is the one
+ *     exception and has a pass of its own below, since the game demands the opposite of it.
  *   - `BuffMultiProxyRules.IncomingBuffTypes` is deliberately not judged. It reads like a consumer,
  *     but the runtime class behind it could not be decompiled, so the requirement is unproven.
  *   - A part a mod's action injects members into is skipped when the injection touches the buff set.
@@ -43,6 +47,7 @@ import { ValidationError } from './validator';
 const BUFF_MODIFIER_CLASS = 'Cosmoteer.Ships.BuffModifier';
 const MODIFIABLE_VALUE_CLASS = 'Cosmoteer.Ships.ModifiableValue';
 const BUFF_TOGGLE_CLASS = 'Cosmoteer.Ships.Parts.Buffs.PartBuffToggleRules';
+const BUFF_PROVIDER_CLASS = 'Cosmoteer.Ships.Parts.Buffs.BasePartBuffProviderRules';
 const RECEIVABLE_BUFFS = 'ReceivableBuffs';
 
 /** The part-root maps keyed by buff, whose keys are consumers of the same set. */
@@ -249,6 +254,78 @@ export const validateUnreceivableBuffs = async (
                           },
                       }
                     : undefined,
+            });
+        }
+    }
+    return errors;
+};
+
+/**
+ * Flags a buff provider chaining from a buff its own part cannot receive, which stops the game
+ * loading at all.
+ *
+ * This is the opposite demand from the one above, and it is the game's: `BasePartBuffProviderRules`
+ * reads `ChainsFromBuffType`, looks the owning part up and throws outright when the part's
+ * `ReceivableBuffs` does not carry that buff. Nothing catches it, so the whole data tree fails to
+ * load and the game does not start.
+ *
+ * The providers are read off the part's own `Components` folded through its bases, since the game
+ * reads that member with the inheritance context in place. A part deriving a chained component from
+ * elsewhere and then writing a `ReceivableBuffs` of its own, rather than one prepending its base's,
+ * is the shape that breaks, and the provider lives in the other file.
+ *
+ * Anchored on the part's own text: the naming site when this file writes it, and the part's own
+ * `ReceivableBuffs` when the provider is inherited, because that is the line the author can change.
+ *
+ * @param document the parsed document.
+ * @param token cancels the cross-file chain walks.
+ * @returns one finding per provider whose chained buff the part never receives.
+ */
+export const validateChainedBuffReceivable = async (
+    document: AbstractNodeDocument,
+    token: CancellationToken
+): Promise<ValidationError[]> => {
+    const errors: ValidationError[] = [];
+    for (const part of instantiatedParts(document)) {
+        if (token.isCancellationRequested) return errors;
+        const components =
+            childNamed(part, 'Components') ??
+            (await findMemberThroughInheritance(part, 'Components', resolveReference, token).catch(() => null));
+        if (!components || !isGroupNode(components)) continue;
+        const flattened = await flattenGroup(components, token).catch(() => null);
+        if (!flattened || !flattened.complete) continue;
+
+        const chained: BuffUse[] = [];
+        for (const member of flattened.members) {
+            const value = member.value;
+            if (!value || !isGroupNode(value)) continue;
+            const cls = resolveGroupClass(value);
+            if (!cls || !classAncestry(cls).includes(BUFF_PROVIDER_CLASS)) continue;
+            const node = childNamed(value, 'ChainsFromBuffType');
+            const buff = plainBuffName(node);
+            if (node && buff) chained.push({ buff, node, kind: 'modifier' });
+        }
+        if (chained.length === 0) continue;
+
+        const receivable = await receivableBuffs(part, token);
+        if (receivable === null) continue;
+        const localBuffList = childNamed(part, RECEIVABLE_BUFFS);
+        for (const use of chained) {
+            if (receivable.has(use.buff.toLowerCase())) continue;
+            const local = getStartOfAstNode(use.node).uri === document.uri;
+            const anchor = local ? use.node : localBuffList;
+            if (!anchor) continue;
+            errors.push({
+                message: l10n.t(
+                    "'{0}' is not in this part's ReceivableBuffs, so the game refuses to load the data tree.",
+                    use.buff
+                ),
+                node: anchor,
+                severity: 'error',
+                additionalInfo: l10n.t(
+                    "Add '{0}' to the part's ReceivableBuffs. A provider chaining from a buff reads that buff on its own part first, and the game checks it while reading the part.",
+                    use.buff
+                ),
             });
         }
     }

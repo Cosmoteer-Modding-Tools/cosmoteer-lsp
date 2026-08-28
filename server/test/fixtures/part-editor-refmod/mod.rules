@@ -1,0 +1,13 @@
+ID = test.partgridrefs
+Name = "Part grid reference write-back fixture"
+
+// A mod whose part reads its geometry from a constants file, so a grid edit has to follow the
+// reference into that file instead of pasting literals over the part's own references.
+Actions
+[
+	{
+		Action = Add
+		AddTo = "<parts/parts.rules>/Parts"
+		ToAdd = &<ref_part.rules>/Part
+	}
+]

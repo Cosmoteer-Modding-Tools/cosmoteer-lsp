@@ -3,6 +3,7 @@ import {
     AbstractNode,
     AbstractNodeDocument,
     ListNode,
+    isAssignmentNode,
     isGroupNode,
     isIdentifierNode,
     isListNode,
@@ -108,7 +109,13 @@ const listElementCompletions = (list: ListNode): Completion[] => {
             },
         ];
     }
-    return enumOrBoolCompletions(element);
+    // The list's own owner and name type the element, so a slot whose reading class takes fewer
+    // members than its enum declares is offered only those here too.
+    const owner = list.parent;
+    if (!owner || !isGroupNode(owner)) return enumOrBoolCompletions(element);
+    const assigned = owner.elements.find((member) => isAssignmentNode(member) && member.right === list);
+    const name = list.identifier?.name ?? (assigned && isAssignmentNode(assigned) ? assigned.left.name : undefined);
+    return enumOrBoolCompletions(element, name ? { group: owner, field: name } : undefined);
 };
 
 /**

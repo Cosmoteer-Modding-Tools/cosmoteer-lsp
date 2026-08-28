@@ -56,6 +56,16 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateLocalizationCoverage: Boolean = true
         var validateMarkerVocabulary: Boolean = true
         var validateEffectBuckets: Boolean = true
+        var validateUnderlyingParts: Boolean = true
+        var validateBulletComponents: Boolean = true
+        var validateChainedBuffReceivable: Boolean = true
+        var validateValueRanges: Boolean = true
+        var validateTextMarkup: Boolean = true
+        var validateChainedToCycles: Boolean = true
+        var validateMishandledFields: Boolean = true
+        var validateRefusedEnumValues: Boolean = true
+        var validateBlendSpriteCodes: Boolean = true
+        var validateIndicatorIndexes: Boolean = true
         var codeModsEnabled: Boolean = true
         var codeModsAutoRefresh: Boolean = true
         var codeLensShowFileReachability: Boolean = true
@@ -133,6 +143,16 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateLocalizationCoverage" to state.validateLocalizationCoverage,
             "validateMarkerVocabulary" to state.validateMarkerVocabulary,
             "validateEffectBuckets" to state.validateEffectBuckets,
+            "validateUnderlyingParts" to state.validateUnderlyingParts,
+            "validateBulletComponents" to state.validateBulletComponents,
+            "validateChainedBuffReceivable" to state.validateChainedBuffReceivable,
+            "validateValueRanges" to state.validateValueRanges,
+            "validateTextMarkup" to state.validateTextMarkup,
+            "validateChainedToCycles" to state.validateChainedToCycles,
+            "validateMishandledFields" to state.validateMishandledFields,
+            "validateRefusedEnumValues" to state.validateRefusedEnumValues,
+            "validateBlendSpriteCodes" to state.validateBlendSpriteCodes,
+            "validateIndicatorIndexes" to state.validateIndicatorIndexes,
         ),
         "codeMods" to mapOf(
             "enabled" to state.codeModsEnabled,

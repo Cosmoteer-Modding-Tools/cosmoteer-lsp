@@ -7,8 +7,8 @@
     "enums": 101,
     "typesBeforePrune": 1351,
     "registriesBeforePrune": 62,
-    "componentSlots": 114,
-    "componentKinds": 20
+    "componentSlots": 126,
+    "componentKinds": 23
   },
   "registries": {
     "Cosmoteer.ValueCombination.ValueCombinerRules": {
@@ -6109,7 +6109,11 @@
             "target": "Cosmoteer.Bullets.BulletComponentRules",
             "targetName": "BulletComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 0,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "DamagePoolFactor",
@@ -11568,7 +11572,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           }
         },
@@ -11600,7 +11604,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           }
         },
@@ -12721,7 +12725,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           }
         },
@@ -13042,7 +13046,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -13181,7 +13185,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -15056,7 +15060,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 1,
+            "kind": 4,
             "enforcement": "throws"
           }
         }
@@ -15123,7 +15127,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         }
@@ -15145,7 +15149,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -15183,7 +15187,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -16244,7 +16248,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -17129,7 +17133,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -17264,7 +17268,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -17277,7 +17281,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -17353,7 +17357,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 1,
+            "kind": 4,
             "enforcement": "throws"
           }
         },
@@ -17499,7 +17503,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 15,
+            "kind": 18,
             "enforcement": "throws"
           }
         },
@@ -17548,7 +17552,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 18,
+            "kind": 21,
             "enforcement": "throws"
           }
         }
@@ -17664,7 +17668,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 18,
+            "kind": 21,
             "enforcement": "throws"
           }
         },
@@ -17715,7 +17719,7 @@
           "optional": true,
           "absentThrows": true,
           "expectedComponent": {
-            "kind": 18,
+            "kind": 21,
             "enforcement": "throws"
           }
         },
@@ -17737,7 +17741,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 9,
+            "kind": 12,
             "enforcement": "throws"
           }
         },
@@ -17814,7 +17818,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -17837,7 +17841,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           },
           "nullable": false
@@ -17878,7 +17882,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           }
         },
@@ -17954,7 +17958,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "silent"
           }
         },
@@ -18063,7 +18067,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -18078,7 +18082,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 16,
+            "kind": 19,
             "enforcement": "throws"
           }
         },
@@ -18093,7 +18097,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 16,
+            "kind": 19,
             "enforcement": "throws"
           }
         }
@@ -18363,7 +18367,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -18469,7 +18473,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -18516,7 +18520,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -18529,7 +18533,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 16,
+            "kind": 19,
             "enforcement": "throws"
           }
         },
@@ -18545,7 +18549,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 16,
+            "kind": 19,
             "enforcement": "throws"
           }
         },
@@ -18607,7 +18611,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -18650,7 +18654,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -18696,7 +18700,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -18709,7 +18713,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -18920,7 +18924,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 16,
+            "kind": 19,
             "enforcement": "throws"
           },
           "nullable": false
@@ -18934,7 +18938,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 16,
+            "kind": 19,
             "enforcement": "throws"
           },
           "nullable": false
@@ -18959,7 +18963,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -19194,7 +19198,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 18,
+            "kind": 21,
             "enforcement": "throws"
           },
           "nullable": false
@@ -19211,7 +19215,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 18,
+            "kind": 21,
             "enforcement": "throws"
           }
         }
@@ -19304,7 +19308,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 6,
+            "kind": 9,
             "enforcement": "throws"
           }
         },
@@ -19488,7 +19492,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -19532,7 +19536,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           },
           "nullable": false
@@ -19564,7 +19568,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           }
         },
@@ -19662,7 +19666,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -19675,7 +19679,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -19772,7 +19776,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -19788,7 +19792,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           }
         },
@@ -20058,7 +20062,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           }
         },
@@ -20124,7 +20128,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           }
         },
@@ -20206,7 +20210,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           }
         },
@@ -20261,7 +20265,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 19,
+            "kind": 22,
             "enforcement": "throws"
           }
         },
@@ -20474,7 +20478,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           },
           "nullable": false
@@ -20506,7 +20510,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           },
           "nullable": false
@@ -20555,7 +20559,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           }
         },
@@ -20769,7 +20773,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           },
           "nullable": false
@@ -20801,7 +20805,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           },
           "nullable": false
@@ -20985,7 +20989,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 17,
+            "kind": 20,
             "enforcement": "throws"
           }
         },
@@ -21037,7 +21041,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -21168,7 +21172,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 0,
+            "kind": 3,
             "enforcement": "throws"
           }
         },
@@ -21236,7 +21240,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -21268,7 +21272,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 11,
+            "kind": 14,
             "enforcement": "throws"
           }
         },
@@ -21300,7 +21304,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -21352,7 +21356,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 7,
+            "kind": 10,
             "enforcement": "throws"
           }
         },
@@ -21432,7 +21436,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 18,
+            "kind": 21,
             "enforcement": "throws"
           }
         },
@@ -21449,7 +21453,7 @@
           "optional": true,
           "absentThrows": true,
           "expectedComponent": {
-            "kind": 1,
+            "kind": 4,
             "enforcement": "throws"
           }
         },
@@ -21843,7 +21847,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 8,
+            "kind": 11,
             "enforcement": "throws"
           }
         },
@@ -21894,7 +21898,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 8,
+            "kind": 11,
             "enforcement": "throws"
           }
         },
@@ -22249,7 +22253,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           },
           "aliases": [
@@ -22303,7 +22307,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -22451,7 +22455,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -22482,7 +22486,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -22743,7 +22747,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -22806,7 +22810,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -22859,7 +22863,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -22883,7 +22887,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -22898,7 +22902,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -22941,7 +22945,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -23031,7 +23035,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -23196,7 +23200,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -23404,7 +23408,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -23572,7 +23576,7 @@
           "optional": true,
           "absentThrows": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -23643,7 +23647,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -23826,7 +23830,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 14,
+            "kind": 17,
             "enforcement": "throws"
           }
         },
@@ -23916,7 +23920,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -23929,7 +23933,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -24175,7 +24179,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 5,
+            "kind": 8,
             "enforcement": "throws"
           }
         }
@@ -24198,7 +24202,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -24211,7 +24215,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -24224,7 +24228,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -24257,7 +24261,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 5,
+            "kind": 8,
             "enforcement": "throws"
           }
         },
@@ -24494,7 +24498,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -24566,7 +24570,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 5,
+            "kind": 8,
             "enforcement": "throws"
           }
         },
@@ -24703,7 +24707,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           }
         },
@@ -24776,7 +24780,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 4,
+            "kind": 7,
             "enforcement": "throws"
           }
         },
@@ -24799,7 +24803,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -24812,7 +24816,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -24919,7 +24923,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 5,
+            "kind": 8,
             "enforcement": "throws"
           }
         },
@@ -24993,7 +24997,7 @@
           "optional": true,
           "absentThrows": true,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -25017,7 +25021,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 5,
+            "kind": 8,
             "enforcement": "throws"
           }
         },
@@ -25146,7 +25150,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           }
         },
@@ -25159,7 +25163,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           }
         },
@@ -25268,7 +25272,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -25312,7 +25316,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 5,
+            "kind": 8,
             "enforcement": "throws"
           }
         },
@@ -25415,7 +25419,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -25428,7 +25432,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -25471,7 +25475,7 @@
           "absentThrows": true,
           "nullable": false,
           "expectedComponent": {
-            "kind": 10,
+            "kind": 13,
             "enforcement": "throws"
           }
         },
@@ -25566,7 +25570,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -25603,7 +25607,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -25682,7 +25686,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 13,
+            "kind": 16,
             "enforcement": "throws"
           }
         },
@@ -26101,7 +26105,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 3,
+            "kind": 6,
             "enforcement": "throws"
           }
         },
@@ -26352,7 +26356,7 @@
           },
           "optional": true,
           "expectedComponent": {
-            "kind": 12,
+            "kind": 15,
             "enforcement": "throws"
           }
         },
@@ -54326,7 +54330,11 @@
             "target": "Cosmoteer.Bullets.BulletComponentRules",
             "targetName": "BulletComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 1,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "HitOperational",
@@ -54549,7 +54557,11 @@
             "target": "Cosmoteer.Bullets.BulletComponentRules",
             "targetName": "BulletComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 1,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "HitOperational",
@@ -54659,7 +54671,11 @@
             "target": "Cosmoteer.Bullets.BulletComponentRules",
             "targetName": "BulletComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 0,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "FactorEffectsByDistance",
@@ -54706,7 +54722,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 0,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "DamagePerSplit",
@@ -54920,7 +54940,11 @@
             "target": "Cosmoteer.Bullets.BulletComponentRules",
             "targetName": "BulletComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 1,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ReduceScaleExponent",
@@ -54958,7 +54982,11 @@
             "target": "Cosmoteer.Bullets.BulletComponentRules",
             "targetName": "BulletComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 1,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "IntervalLerp",
@@ -55065,7 +55093,11 @@
             "target": "Cosmoteer.Bullets.BulletComponentRules",
             "targetName": "BulletComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 1,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "FactorEffectsExponent",
@@ -55184,7 +55216,11 @@
             "target": "Cosmoteer.Bullets.BulletComponentRules",
             "targetName": "BulletComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 1,
+            "enforcement": "throws"
+          }
         },
         {
           "name": "ReduceScaleExponent",
@@ -55268,7 +55304,11 @@
             "target": "Cosmoteer.Bullets.BulletComponentRules",
             "targetName": "BulletComponentRules"
           },
-          "optional": true
+          "optional": true,
+          "expectedComponent": {
+            "kind": 1,
+            "enforcement": "throws"
+          }
         }
       ]
     },
@@ -55289,7 +55329,11 @@
           },
           "optional": false,
           "absentThrows": true,
-          "nullable": false
+          "nullable": false,
+          "expectedComponent": {
+            "kind": 0,
+            "enforcement": "throws"
+          }
         }
       ]
     },
@@ -65063,6 +65107,9 @@
     ]
   },
   "componentKinds": [
+    "Cosmoteer.Bullets.Hits.BulletDamagePool",
+    "Cosmoteer.Bullets.IBulletComponentFactor",
+    "Cosmoteer.Bullets.Targeting.BulletTargetable",
     "Cosmoteer.Ships.Parts.Buffs.PartBuffProvider",
     "Cosmoteer.Ships.Parts.ChainablePartComponent",
     "Cosmoteer.Ships.Parts.Colliders.BaseCollider",
@@ -65085,332 +65132,366 @@
     "Cosmoteer.Ships.Resources.IResourceConsumerTarget"
   ],
   "componentCapabilities": {
+    "Cosmoteer.Bullets.Death.BulletDeathByDamagePoolRules": [],
+    "Cosmoteer.Bullets.Death.BulletDeathByDistanceTraveledRules": [],
+    "Cosmoteer.Bullets.Death.BulletDeathByEnemyProximityRules": [
+      1
+    ],
+    "Cosmoteer.Bullets.Death.BulletDeathByLifetimeRules": [],
+    "Cosmoteer.Bullets.Death.BulletDeathByPredictedTargetDistanceRules": [],
+    "Cosmoteer.Bullets.Death.BulletDeathBySpeedRules": [],
+    "Cosmoteer.Bullets.Death.BulletDeathByTargetProximityRules": [],
+    "Cosmoteer.Bullets.Graphics.BulletAnimatedSpriteRules": [],
+    "Cosmoteer.Bullets.Graphics.BulletMediaEffectsRules": [],
+    "Cosmoteer.Bullets.Graphics.BulletSpriteRules": [],
+    "Cosmoteer.Bullets.Hits.BulletDamagePoolRules": [
+      0,
+      1
+    ],
+    "Cosmoteer.Bullets.Hits.BulletPenetratingHitRules": [
+      1
+    ],
+    "Cosmoteer.Bullets.Hits.BulletSimpleHitRules": [
+      1
+    ],
+    "Cosmoteer.Bullets.Hits.BulletVolumeHitRules": [],
+    "Cosmoteer.Bullets.Physics.BulletAccelerationRules": [],
+    "Cosmoteer.Bullets.Physics.BulletBoxPhysicsRules": [],
+    "Cosmoteer.Bullets.Physics.BulletCirclePhysicsRules": [],
+    "Cosmoteer.Bullets.Physics.BulletProximityAccelerationRules": [],
+    "Cosmoteer.Bullets.Physics.BulletTargetHomingRules": [],
+    "Cosmoteer.Bullets.Targeting.BulletSameShipRetargetRules": [],
+    "Cosmoteer.Bullets.Targeting.BulletTargetSearchRules": [],
+    "Cosmoteer.Bullets.Targeting.BulletTargetableRules": [
+      1,
+      2
+    ],
     "Cosmoteer.Ships.Networks.PartNetworkBasicNodeRules": [],
     "Cosmoteer.Ships.Networks.PartNetworkNodeProxyRules": [],
     "Cosmoteer.Ships.Networks.PartNetworkPortRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Networks.PartNetworkResourceInputRules": [
-      6,
-      10,
-      11,
-      12,
+      9,
       13,
-      19
+      14,
+      15,
+      16,
+      22
     ],
     "Cosmoteer.Ships.Networks.PartNetworkResourceOutputRules": [
-      6,
-      10,
-      11,
-      12,
+      9,
       13,
-      19
+      14,
+      15,
+      16,
+      22
     ],
     "Cosmoteer.Ships.Networks.PartNetworkResourceStoreRules": [],
     "Cosmoteer.Ships.Networks.PartNetworkRouterRules": [],
     "Cosmoteer.Ships.Networks.PartNetworkToggleReceiverRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Networks.PartNetworkToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Networks.PartNetworkTriggerReceiverRules": [
-      11
+      14
     ],
     "Cosmoteer.Ships.Networks.PartNetworkTriggerRules": [
-      11
+      14
     ],
     "Cosmoteer.Ships.Networks.PartNetworkValueReceiverRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Networks.PartNetworkValueRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Buffs.PartAreaBuffProviderRules": [
-      0
+      3
     ],
     "Cosmoteer.Ships.Parts.Buffs.PartBuffToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Buffs.PartBuffableValueRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Buffs.PartCircleBuffProviderRules": [
-      0
+      3
     ],
     "Cosmoteer.Ships.Parts.Buffs.PartFloodBuffProviderRules": [
-      0
+      3
     ],
     "Cosmoteer.Ships.Parts.Buffs.PartGridBuffProviderRules": [
-      0
+      3
     ],
     "Cosmoteer.Ships.Parts.Buffs.PartSelfBuffProviderRules": [
-      0
+      3
     ],
     "Cosmoteer.Ships.Parts.Buffs.WholeShipBuffProviderRules": [
-      0
+      3
     ],
     "Cosmoteer.Ships.Parts.Colliders.CircleColliderRules": [
-      1,
-      2
+      4,
+      5
     ],
     "Cosmoteer.Ships.Parts.Colliders.PolygonColliderRules": [
-      1,
-      2
+      4,
+      5
     ],
     "Cosmoteer.Ships.Parts.Commands.CommandConsumerRules": [],
     "Cosmoteer.Ships.Parts.Commands.CommandProviderRules": [],
     "Cosmoteer.Ships.Parts.Commands.CommandToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Crew.AirlockRules": [],
     "Cosmoteer.Ships.Parts.Crew.CrewDestinationProximityToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Crew.CrewLocationRules": [
-      1,
-      3
+      4,
+      6
     ],
     "Cosmoteer.Ships.Parts.Crew.CrewSourceRules": [
-      5
+      8
     ],
     "Cosmoteer.Ships.Parts.Crew.PartCrewRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Defenses.ArcShieldRules": [
-      1,
       4,
-      11
+      7,
+      14
     ],
     "Cosmoteer.Ships.Parts.Effects.PartContinuousEffectsRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Effects.PartDeathEffectsRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Effects.PartToggleEffectsRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Effects.PartTriggeredEffectsRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Ftl.FtlBeaconRules": [],
     "Cosmoteer.Ships.Parts.Ftl.FtlDriveRules": [
-      6,
-      10,
-      12
+      9,
+      13,
+      15
     ],
     "Cosmoteer.Ships.Parts.Graphics.CustomShipIconRules": [],
     "Cosmoteer.Ships.Parts.Graphics.PartBlendSpriteGridRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Graphics.PartBlendSpriteRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Graphics.PartGraphicsRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Graphics.PartIndicatorSpritesRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Graphics.PartMultiColorRules": [
-      5
+      8
     ],
     "Cosmoteer.Ships.Parts.Graphics.PartOpenCloseSpriteRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Graphics.PartResourceSpritesRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Graphics.PartRoofOpacityValueRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Graphics.PartShieldArcsMimicRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Graphics.PartSpriteGridRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Graphics.PartSpriteRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Graphics.PartToggledBlendSpritesRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Graphics.PartValueColorRules": [
-      5
+      8
     ],
     "Cosmoteer.Ships.Parts.Graphics.PartValueSpritesRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Logic.ComponentPresenceToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Logic.DistanceThresholdRules": [
-      6,
-      10,
-      12
+      9,
+      13,
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.DoorPresenceToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Logic.FanArcControllerRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Logic.JunkToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Logic.PartBurstTriggerRules": [
-      11
+      14
     ],
     "Cosmoteer.Ships.Parts.Logic.PartChainableProxyRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Logic.PartDamageTriggerRules": [
-      11
+      14
     ],
     "Cosmoteer.Ships.Parts.Logic.PartDebugModeRules": [
-      8
+      11
     ],
     "Cosmoteer.Ships.Parts.Logic.PartDebugToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Logic.PartDebugTriggerRules": [
-      11
+      14
     ],
     "Cosmoteer.Ships.Parts.Logic.PartDebugValueRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartDelayTriggerRules": [
-      11
+      14
     ],
     "Cosmoteer.Ships.Parts.Logic.PartDestroyedTriggerRules": [
-      11
+      14
     ],
     "Cosmoteer.Ships.Parts.Logic.PartHealthToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Logic.PartLazyMultiValueRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartModeCycleRules": [
-      8
+      11
     ],
     "Cosmoteer.Ships.Parts.Logic.PartModeProxyRules": [
-      8
+      11
     ],
     "Cosmoteer.Ships.Parts.Logic.PartModeToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Logic.PartModeTriggerRules": [
-      11
+      14
     ],
     "Cosmoteer.Ships.Parts.Logic.PartMultiToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Logic.PartMultiTriggerRules": [
-      11
+      14
     ],
     "Cosmoteer.Ships.Parts.Logic.PartMultiValueRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartPolledValueRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartSmoothedValueRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartStaticToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Logic.PartStaticValueRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartStopwatchRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartThresholdToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Logic.PartThresholdTriggerRules": [
-      11
+      14
     ],
     "Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValueRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartTileScoreValueRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartTimerRules": [
-      6,
-      10,
-      11,
-      12
+      9,
+      13,
+      14,
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartToggleProxyRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Logic.PartToggleTriggerRules": [
-      11
+      14
     ],
     "Cosmoteer.Ships.Parts.Logic.PartToggleValueSelectorRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartToggledComponentsRules": [],
     "Cosmoteer.Ships.Parts.Logic.PartTransformLerpRules": [
-      1
+      4
     ],
     "Cosmoteer.Ships.Parts.Logic.PartTransformMatchRules": [
-      1,
-      6,
-      10
+      4,
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Logic.PartTriggerProxyRules": [
-      11
+      14
     ],
     "Cosmoteer.Ships.Parts.Logic.PartTriggeredToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Logic.PartValueAccumulatorRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartValueChangeTriggerRules": [
-      11,
-      12
+      14,
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartValueLerpRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartValueOperationRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartValueProxyRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.PartValueTweenRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.Logic.ShipConstructionToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Parts.Logic.TriggeredPartSwapRules": [],
     "Cosmoteer.Ships.Parts.Logic.UIToggleModeOverrideRules": [],
@@ -65419,170 +65500,170 @@
     "Cosmoteer.Ships.Parts.Resources.ExplosiveResourceDrainSinkRules": [],
     "Cosmoteer.Ships.Parts.Resources.FlexResourceGridRules": [],
     "Cosmoteer.Ships.Parts.Resources.InlineResourceConverterRules": [
-      6,
-      10,
-      11,
-      12,
+      9,
       13,
-      19
+      14,
+      15,
+      16,
+      22
     ],
     "Cosmoteer.Ships.Parts.Resources.IonEnergyStorageRules": [
-      6,
-      10,
-      11,
-      12,
+      9,
       13,
-      19
+      14,
+      15,
+      16,
+      22
     ],
     "Cosmoteer.Ships.Parts.Resources.MultiResourceStorageRules": [
-      6,
-      10,
-      11,
-      12,
+      9,
       13,
-      19
+      14,
+      15,
+      16,
+      22
     ],
     "Cosmoteer.Ships.Parts.Resources.ResourceChangeRules": [],
     "Cosmoteer.Ships.Parts.Resources.ResourceConsumerRules": [],
     "Cosmoteer.Ships.Parts.Resources.ResourceConsumingStorageRules": [
-      6,
-      10,
-      11,
-      12,
+      9,
       13,
-      19
+      14,
+      15,
+      16,
+      22
     ],
     "Cosmoteer.Ships.Parts.Resources.ResourceConverterRules": [
-      6,
-      10,
-      11,
-      12
+      9,
+      13,
+      14,
+      15
     ],
     "Cosmoteer.Ships.Parts.Resources.ResourceStorageProxyRules": [
-      6,
-      10,
-      11,
-      12,
+      9,
       13,
-      19
+      14,
+      15,
+      16,
+      22
     ],
     "Cosmoteer.Ships.Parts.Resources.ResourceStorageRules": [
-      6,
-      10,
-      11,
-      12,
+      9,
       13,
-      19
+      14,
+      15,
+      16,
+      22
     ],
     "Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverterRules": [
-      6,
-      10,
-      11,
-      12
+      9,
+      13,
+      14,
+      15
     ],
     "Cosmoteer.Ships.Parts.Resources.TypedResourceGridConsumerRules": [],
     "Cosmoteer.Ships.Parts.Resources.TypedResourceGridRules": [
-      6,
-      10,
-      11,
-      12,
+      9,
       13,
-      19
+      14,
+      15,
+      16,
+      22
     ],
     "Cosmoteer.Ships.Parts.Sensors.SensorRules": [],
     "Cosmoteer.Ships.Parts.Thrusters.ThrusterRules": [
-      1,
-      12
+      4,
+      15
     ],
     "Cosmoteer.Ships.Parts.UI.PartProgressBarRules": [
-      12
+      15
     ],
     "Cosmoteer.Ships.Parts.UI.PartSegmentedProgressBarRules": [],
     "Cosmoteer.Ships.Parts.UI.PartUIColorRules": [
-      5
+      8
     ],
     "Cosmoteer.Ships.Parts.UI.PartUITargeterRules": [],
     "Cosmoteer.Ships.Parts.UI.PartUIToggleRules": [
-      6,
-      8,
-      10,
-      14
-    ],
-    "Cosmoteer.Ships.Parts.UI.PartUITriggerRules": [
-      11
-    ],
-    "Cosmoteer.Ships.Parts.Weapons.BeamEmitterProxyRules": [
-      1,
-      11,
-      12,
-      15,
-      16
-    ],
-    "Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules": [
-      1,
-      6,
-      7,
-      10,
-      11,
-      12,
-      15,
-      16
-    ],
-    "Cosmoteer.Ships.Parts.Weapons.BeamRegulatorRules": [
-      12
-    ],
-    "Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules": [
-      1,
-      11,
-      16
-    ],
-    "Cosmoteer.Ships.Parts.Weapons.DirectControlToggleRules": [
-      6,
-      10
-    ],
-    "Cosmoteer.Ships.Parts.Weapons.EmitterProxyRules": [
-      1,
-      11,
-      16
-    ],
-    "Cosmoteer.Ships.Parts.Weapons.FixedWeaponRules": [
-      1,
-      6,
-      10,
-      11,
-      12,
-      18
-    ],
-    "Cosmoteer.Ships.Parts.Weapons.OscillatorRules": [
-      1
-    ],
-    "Cosmoteer.Ships.Parts.Weapons.PartToggleEmitterSelectorRules": [
-      1,
-      11,
-      16
-    ],
-    "Cosmoteer.Ships.Parts.Weapons.RailgunProjectileRules": [
-      1,
       9,
       11,
-      12
+      13,
+      17
+    ],
+    "Cosmoteer.Ships.Parts.UI.PartUITriggerRules": [
+      14
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.BeamEmitterProxyRules": [
+      4,
+      14,
+      15,
+      18,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules": [
+      4,
+      9,
+      10,
+      13,
+      14,
+      15,
+      18,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.BeamRegulatorRules": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules": [
+      4,
+      14,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.DirectControlToggleRules": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.EmitterProxyRules": [
+      4,
+      14,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.FixedWeaponRules": [
+      4,
+      9,
+      13,
+      14,
+      15,
+      21
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.OscillatorRules": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.PartToggleEmitterSelectorRules": [
+      4,
+      14,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.RailgunProjectileRules": [
+      4,
+      12,
+      14,
+      15
     ],
     "Cosmoteer.Ships.Parts.Weapons.TurretWeaponRules": [
-      1,
-      6,
-      7,
+      4,
+      9,
       10,
-      11,
-      12,
-      17,
-      18
+      13,
+      14,
+      15,
+      20,
+      21
     ],
     "Cosmoteer.Ships.Statuses.PartStatusToggleRules": [
-      6,
-      10
+      9,
+      13
     ],
     "Cosmoteer.Ships.Statuses.StatusValueRegulatorRules": [
-      12
+      15
     ]
   },
   "unresolved": {

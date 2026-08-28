@@ -86,6 +86,16 @@ All settings live under the `cosmoteerLSPRules.` prefix.
 | `diagnostics.validateMarkerVocabulary` | on | Hint at a part category, part feature or ship tag written once in the project that is one typing slip from a name several files write, offering the established name as a fix. Needs the Cosmoteer folder |
 | `diagnostics.validateLocalizationCoverage` | on | Compare the mod's language files against each other: a language behind the ones beside it, with a fix that writes the missing keys in, and a translation whose placeholder slots differ from the English text |
 | `diagnostics.validateInertFields` | on | Fade a field a sibling switches off, such as a converter quantity written beside the list form rather than beside the storage shorthand, with a remove quick fix |
+| `diagnostics.validateIndicatorIndexes` | on | Report an indicator sprite component whose `HidesIndicators` names its own indicator or an index the list does not have, both of which stop the game loading |
+| `diagnostics.validateChainedBuffReceivable` | on | Report a buff provider whose `ChainsFromBuffType` names a buff missing from its own part's `ReceivableBuffs`, which the game refuses to load the data tree over |
+| `diagnostics.validateTextMarkup` | on | Report a language file string whose markup the game cannot read, which it answers by drawing the tags themselves as plain text |
+| `diagnostics.validateChainedToCycles` | on | Report a part component chain that leads back to itself, which takes the process down the moment the part is created |
+| `diagnostics.validateBulletComponents` | on | Report a bullet with two physics components, with none, or with a hit written above its physics component |
+| `diagnostics.validateRefusedEnumValues` | on | Report an enum value the field type allows and the class reading it refuses, such as a fixed weapon auto-targeting anything but ship parts. The value popup leaves such a member out either way |
+| `diagnostics.validateValueRanges` | on | Report a range written the wrong way round where its consumer rolls or compares rather than interpolates |
+| `diagnostics.validateBlendSpriteCodes` | on | Report a blend sprite situation code carrying a character the expander cannot read, or one whose length its slot does not allow |
+| `diagnostics.validateMishandledFields` | on | Report a field the game reads and then acts on wrongly, such as an `ExcludeID` the engine adds to the list of parts a criteria matches |
+| `diagnostics.validateUnderlyingParts` | on | Report a part naming itself as the part it leaves behind when destroyed, which the engine walks with no guard against a loop |
 | `diagnostics.validateModConflicts` | on | Report a manifest action aiming at a node an installed mod already replaces, removes or writes, naming the mod and which of the two the game applies last |
 | `codeLens.showFileReachability` | on | Say on a mod file's first line whether the mod loads it at all, naming the file that mentions it where one does |
 | `diagnostics.validateUnreceivableBuffs` | on | Flag a buff modifier, clamp or toggle naming a buff the part never receives, since a part is handed a buff only through its own `ReceivableBuffs` |
@@ -275,7 +285,7 @@ Most of them come with a quick fix.
 
 ![Live WebGL shader preview next to the material's rules](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/shader_preview.png?raw=true)
 
-**Part grid editor.** Cells, doors, walls and component locations edited on the part itself.
+**Part grid editor.** Cells, doors, walls and component locations edited on the part itself. A value written as a reference keeps its reference: the number is written where it is declared.
 
 ![The part grid editor next to the part's rules](https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp/blob/master/showcase/part_grid.png?raw=true)
 

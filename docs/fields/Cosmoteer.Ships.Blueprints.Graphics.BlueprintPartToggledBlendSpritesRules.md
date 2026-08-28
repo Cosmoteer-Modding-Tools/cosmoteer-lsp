@@ -28,4 +28,4 @@ Blend sprites keyed by situation code, expanded to cover the toggle-state combin
 ## AllowUndefinedBlendSprites
 `bool` · optional
 
-When true, toggle-state combinations with no matching sprite draw nothing instead of throwing during generation. When false, every combination must be defined.
+Accepted for this component but has no effect in the current game code. The generator takes this flag and never reads it, so the toggled variant still throws when [[#AmbiguousSprites]] does not cover every combination of toggle states.

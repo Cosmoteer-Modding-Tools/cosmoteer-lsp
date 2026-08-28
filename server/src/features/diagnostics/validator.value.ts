@@ -2,6 +2,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
 import { resolveAssetPath, suggestAssetFilename } from '../navigation/asset-resolver';
 import { suggestReferenceName } from '../navigation/reference-suggestion';
+import { aliasChainCycles } from '../navigation/explain-reference/reference-trace';
 import {
     AbstractNode,
     IdentifierNode,
@@ -293,6 +294,20 @@ const checkReference = async (
                             rewrite
                         ),
                         data: { quickFix: { title: l10n.t('Change to "{0}"', rewrite), newText: rewrite } },
+                    };
+                }
+                // A chain that comes back to a link it has already been through resolves to nothing
+                // in exactly the way a misspelled name does, so the two are indistinguishable from
+                // the resolver's answer alone. They are not the same mistake: no spelling change
+                // fixes a loop, and the value it stands for can never be computed at all. Asked
+                // only once the reference has already failed, so the walk costs nothing on a file
+                // whose references resolve.
+                if (await aliasChainCycles(node, cancellationToken).catch(() => false)) {
+                    return {
+                        message: l10n.t('This reference leads back to itself, so its value can never be computed.'),
+                        node: node,
+                        code: 'reference-cycle',
+                        severity: 'error',
                     };
                 }
                 const suggestion = await suggestReferenceName(

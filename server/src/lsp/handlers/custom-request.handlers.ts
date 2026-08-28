@@ -1,4 +1,7 @@
-import { TextDocumentPositionParams } from 'vscode-languageserver/node';
+import { CancellationToken, CancellationTokenSource, TextDocumentPositionParams } from 'vscode-languageserver/node';
+import { AbstractNode } from '../../core/ast/ast';
+import { countReadersOf } from '../../features/part-editor/reference-writeback';
+import { uriToFsPath } from '../../features/navigation/workspace-files';
 import { buildShaderPreview } from '../../features/shader/shader-preview.service';
 import { buildPartGridData } from '../../features/part-editor/part-grid-data.service';
 import { buildPartGridEdit } from '../../features/part-editor/grid-edit.service';
@@ -22,6 +25,48 @@ import { ensureFragmentRooting } from '../fragment-rooting';
 import { ensureParserResult, openBufferReadOverride } from '../open-documents';
 import { searchFolderUris } from '../workspace-folders';
 import { currentScanCacheEntries } from '../workspace-scan';
+
+/** How long a reader count may take before the write is answered without one. */
+const READER_COUNT_BUDGET_MS = 500;
+
+/**
+ * How many places other than the declaration itself read the value a grid write landed in, so the
+ * editor can say that moving one handle moved every one of them.
+ *
+ * The search sweeps the project, which a drag cannot wait on indefinitely, so it runs against a
+ * budget and the note is written without a count when it does not finish. The number is
+ * informational, and a missing one costs nothing but a shorter sentence. The budget cancels the
+ * sweep rather than only stopping the wait for it, so a drag held down does not leave a project
+ * walk running behind every gesture.
+ *
+ * @param declaration the declaration the write landed in.
+ * @param uri the file it is written in.
+ * @param token cancels the search with the request.
+ * @returns the reader count, or null when it was not available in time.
+ */
+const countDeclarationReaders = async (
+    declaration: AbstractNode,
+    uri: string,
+    token: CancellationToken
+): Promise<number | null> => {
+    const source = new CancellationTokenSource();
+    const withRequest = token.onCancellationRequested(() => source.cancel());
+    const search = countReadersOf(declaration, uri, await searchFolderUris(), source.token);
+    let timer: NodeJS.Timeout | undefined;
+    const budget = new Promise<null>((resolve) => {
+        timer = setTimeout(() => {
+            source.cancel();
+            resolve(null);
+        }, READER_COUNT_BUDGET_MS);
+    });
+    try {
+        return await Promise.race([search.catch(() => null), budget]);
+    } finally {
+        if (timer) clearTimeout(timer);
+        withRequest.dispose();
+        source.dispose();
+    }
+};
 
 /**
  * What the workspace scan already found, in the shape the mod overview's health table reads. Only
@@ -116,13 +161,18 @@ export function register(): void {
         if (params.dataVersion !== document.version) return { status: 'stale' };
         try {
             await ensureFragmentRooting(cancellationToken);
+            const openText = openBufferReadOverride();
             return await buildPartGridEdit(
                 parserResult,
                 document.getText(),
                 params.textDocument.uri,
                 document.offsetAt(params.anchor),
                 params.mutation,
-                cancellationToken
+                cancellationToken,
+                {
+                    openText: (uri) => openText(uriToFsPath(uri)),
+                    countReaders: countDeclarationReaders,
+                }
             );
         } catch (e) {
             traceFailure(e);

@@ -1,9 +1,5 @@
 # Changelog
 
-Cosmoteer Language server provides a lot of useful features, like:
-- Autocompletion
-- Diagnostics
-
 ## [Unreleased]
 
 ### Added
@@ -24,10 +20,30 @@ Cosmoteer Language server provides a lot of useful features, like:
 - A whole mod can now be created from the Tools menu. Cosmoteer: New Mod asks where it goes, what it is called and who wrote it, then writes the manifest and the language file.
 - The mod overview now names the mods on this machine that write what this mod writes, saying what each of them does to the shared node and which of the two the game applies last.
 - The mod overview now opens with a health table: action targets, how much of the mod the game loads, ids registered twice, part grid values out of reach, language files behind the one they follow, dead fields, repeated field sets and overrides that change nothing.
+- An indicator sprite component whose `HidesIndicators` names its own indicator, or an index its list does not have, is now reported. Both stop the game loading, and both come from adding an indicator at the head of the list without shifting the numbers underneath.
+- A buff provider chaining from a buff its own part cannot receive is now reported. The game checks this while reading the part and throws outright, so the game does not start at all.
+- A language file string whose markup the game cannot read is now reported, with the tag, the attribute or the bare `&` that broke it named. The game answers such a string by drawing its tags as plain text and logging nothing.
+- A part component chain that leads back to itself is now reported. Nothing guards the chain at either end, so a closed one takes the process down the moment the part is created.
+- A bullet whose components the game cannot build is now reported: a second physics component, none at all, and a hit or a targetable written above the physics component.
+- An enum value the field's type allows and the class reading it refuses is now reported, and the value popup stops offering such a member whether or not the report is on.
+- A range written the wrong way round is now reported where its consumer rolls or compares rather than interpolates.
+- A blend sprite situation code the game cannot expand is now reported, both a character outside `0`, `1` and `*` and a code whose length its slot does not allow.
+- A field the game reads and then acts on wrongly is now reported, such as an `ExcludeID` the engine adds to the list of parts a criteria matches rather than the one it excludes.
+- A part naming itself as the part it leaves behind when destroyed is now reported. Working out what it costs and what it drops both walk that chain with no guard against a loop.
+- A door presence toggle whose cell lies inside its own part is now reported, with the rest of the part grid checks.
+- A bullet component wired into a slot that reads another kind of component is now reported, the way a part's components already were.
+- A value the part grid editor edits that is written as a reference is now followed to its declaration and changed there, instead of a literal being pasted over the reference. A rect, a point, a cell, a component location, a polygon vertex and a radius all write through, and the editor says where the write landed and how many other places read it.
 
 ### Changed
 
 - The mod overview now reads the checks the editor has already run instead of walking the mod again, so the report opens without a pause on a large mod.
+
+### Fixed
+
+- A range written with the wrong number of list elements is now reported as an error saying the game refuses to load the file, instead of a cosmetic warning claiming the game never reads the extra element.
+- A reference whose chain leads back to itself now says so, instead of reporting the same thing a misspelled name reports.
+- A part whose `Size` is written as a reference is now drawn at that size instead of as a single cell, and the same goes for a component location, a port cell, a tile line start and a graphics slot offset.
+- The part grid editor now re-renders when a file it reads changes, not only when the part's own file does.
 
 ## 0.8.0 - 2026-08-23
 

@@ -35,6 +35,16 @@ import { validateUnusedParticleChannels } from '../features/diagnostics/validato
 import { validateDuplicateModIds } from '../features/diagnostics/validator.duplicate-id';
 import { validateUnreceivableBuffs } from '../features/diagnostics/validator.unreceivable-buff';
 import { validateEffectBuckets } from '../features/diagnostics/validator.effect-bucket';
+import { validateUnderlyingParts } from '../features/diagnostics/validator.underlying-part';
+import { validateBulletComponents } from '../features/diagnostics/validator.bullet-components';
+import { validateChainedBuffReceivable } from '../features/diagnostics/validator.unreceivable-buff';
+import { validateValueRanges } from '../features/diagnostics/validator.value-range';
+import { validateTextMarkup } from '../features/diagnostics/validator.text-markup';
+import { validateChainedToCycles } from '../features/diagnostics/validator.chained-to-cycle';
+import { validateMishandledFields } from '../features/diagnostics/validator.mishandled-field';
+import { validateRefusedEnumValues } from '../features/diagnostics/validator.refused-enum-value';
+import { validateBlendSpriteCodes } from '../features/diagnostics/validator.blend-sprite';
+import { validateIndicatorIndexes } from '../features/diagnostics/validator.indicator-index';
 import { validateMarkerVocabulary } from '../features/diagnostics/validator.marker-vocabulary';
 import { validateLocalizationCoverage } from '../features/diagnostics/validator.localization-coverage';
 import { validateInertFields } from '../features/diagnostics/validator.inert-field';
@@ -456,6 +466,76 @@ export async function validateTextDocument(
         // engine throws on while it reads the file. Ungated by the game index: a repeated name and
         // an over-long list are both decided inside the document, and the one check that needs the
         // file to be the whole registry asks the rooting indexes itself.
+        // Separate pass: an indicator hiding an index its own list does not have, which the game answers
+        // at load time with a message that names no indicator, or with no message at all. Decided inside
+        // the document, so it needs neither the game index nor the rooting indexes.
+        if (settings.diagnostics?.validateIndicatorIndexes) {
+            const passErrors = await validateIndicatorIndexes(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateIndicatorIndexes'));
+        }
+        // Separate pass: a situation code the blend sprite expander refuses. The character rule needs only
+        // the text, so it covers the template groups the codes are shared through, and the length rule asks
+        // the schema for the list it is written in.
+        if (settings.diagnostics?.validateBlendSpriteCodes) {
+            const passErrors = await validateBlendSpriteCodes(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateBlendSpriteCodes'));
+        }
+        // Separate pass: an enum member the consuming class refuses, which the schema cannot express since
+        // it types the field by its enum. Decided from the group class and the written member, so it needs
+        // nothing outside the document.
+        if (settings.diagnostics?.validateRefusedEnumValues) {
+            const passErrors = await validateRefusedEnumValues(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateRefusedEnumValues'));
+        }
+        // Separate pass: a field the reader takes and acts on wrongly, which loads without a word and
+        // leaves the game doing something other than what the file says. Keyed by the exact class, since
+        // each of these fields has a sibling class that reads it correctly.
+        if (settings.diagnostics?.validateMishandledFields) {
+            const passErrors = await validateMishandledFields(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateMishandledFields'));
+        }
+        // Separate pass: a component chain that closes, read off the part component dictionary the engine
+        // resolves a chain against. Folds the group through its bases, so it stays silent on a part whose
+        // components it could not read in full.
+        if (settings.diagnostics?.validateChainedToCycles) {
+            const passErrors = await validateChainedToCycles(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateChainedToCycles'));
+        }
+        // Separate pass: a language file string the markup reader refuses, which the game answers silently
+        // by drawing the tags themselves. Judged on a mod's own language files only, since the game's
+        // translations are not the author's to correct.
+        if (settings.diagnostics?.validateTextMarkup) {
+            const passErrors = await validateTextMarkup(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateTextMarkup'));
+        }
+        // Separate pass: a range whose direction its consumer refuses. Kept out of the schema pass, which
+        // sees the field but not the class reading it, and ordering is only a mistake where the consumer
+        // rolls or compares rather than interpolates.
+        if (settings.diagnostics?.validateValueRanges) {
+            const passErrors = await validateValueRanges(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateValueRanges'));
+        }
+        // Separate pass: a provider chaining from a buff the part cannot receive, which the game answers by
+        // refusing the whole data tree. Kept apart from the buff hints above, which are lint-level, so a
+        // reader turning those down does not lose a load failure.
+        if (settings.diagnostics?.validateChainedBuffReceivable) {
+            const passErrors = await validateChainedBuffReceivable(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateChainedBuffReceivable'));
+        }
+        // Separate pass: a bullet component set the game cannot build. Judged on the merged order, since a
+        // base contributes its members first and a derived file re-declaring the physics component moves it
+        // behind everything written above it.
+        if (settings.diagnostics?.validateBulletComponents) {
+            const passErrors = await validateBulletComponents(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateBulletComponents'));
+        }
+        // Separate pass: a part naming itself as its own underlying replacement. Only the self-naming shape
+        // is judged, since the part table the game walks is built per ship and joining two parts by name
+        // alone could invent an edge between ships that never share one.
+        if (settings.diagnostics?.validateUnderlyingParts) {
+            const passErrors = await validateUnderlyingParts(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateUnderlyingParts'));
+        }
         if (settings.diagnostics?.validateEffectBuckets) {
             const effectBucketErrors = await validateEffectBuckets(parserResult.value, cancelToken).catch(() => []);
             validationErrors = validationErrors.concat(tagged(effectBucketErrors, 'validateEffectBuckets'));

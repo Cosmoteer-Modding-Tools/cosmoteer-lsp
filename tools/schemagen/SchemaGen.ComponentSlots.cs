@@ -51,6 +51,22 @@ internal sealed partial class SchemaGen
     const string PART_COMPONENT_RULES = "Cosmoteer.Ships.Parts.PartComponentRules";
     const string LIVE_PART = "Cosmoteer.Ships.Parts.Part";
     const string PART_COMPONENT = "Cosmoteer.Ships.Parts.PartComponent";
+    const string BULLET_COMPONENT_RULES = "Cosmoteer.Bullets.BulletComponentRules";
+    const string BULLET_COMPONENT = "Cosmoteer.Bullets.IBulletComponent";
+
+    /// <summary>
+    /// Whether a call is made on the dictionary a bullet holds its own components in. Read from the
+    /// key type rather than from the value, since the dictionary's members are declared in terms of
+    /// its type parameters and the instantiated value type never appears on the call itself.
+    /// </summary>
+    /// <param name="declaring">The type the call is made on.</param>
+    /// <returns>True for the bullet's component dictionary.</returns>
+    static bool IsBulletComponentMap(TypeReference declaring) =>
+        declaring is GenericInstanceType map
+        && map.GenericArguments.Count >= 1
+        && map.GenericArguments[0] is GenericInstanceType key
+        && key.Name.StartsWith("ID`", StringComparison.Ordinal)
+        && key.GenericArguments[0].FullName == BULLET_COMPONENT_RULES;
 
     /// <summary>A slot member: the class that declares it, and what the OT calls it.</summary>
     sealed record SlotMember(string Declaring, string Serialized);
@@ -98,7 +114,9 @@ internal sealed partial class SchemaGen
     }
 
     /// <summary>
-    /// Whether a type reference is an `ID&lt;PartComponentRules&gt;`, directly or wrapped.
+    /// Whether a type reference is an `ID<PartComponentRules>;` or an `ID<BulletComponentRules>`,
+    /// directly or wrapped. A bullet owns its components the way a part does, and the slots on both
+    /// sides are resolved through a typed lookup, so both are walked as the same shape.
     /// </summary>
     /// <param name="tr">The type to test.</param>
     /// <returns>1 for a single id, 2 for a collection or tuple carrying one, 0 for anything else.</returns>
@@ -114,7 +132,8 @@ internal sealed partial class SchemaGen
                 return ComponentIdShape(array.ElementType) != 0 ? 2 : 0;
             case GenericInstanceType generic:
                 if (generic.Name.StartsWith("ID`", StringComparison.Ordinal)
-                    && generic.GenericArguments[0].FullName == PART_COMPONENT_RULES) return 1;
+                    && (generic.GenericArguments[0].FullName == PART_COMPONENT_RULES
+                        || generic.GenericArguments[0].FullName == BULLET_COMPONENT_RULES)) return 1;
                 if (generic.Name.StartsWith("Nullable`", StringComparison.Ordinal))
                     return ComponentIdShape(generic.GenericArguments[0]) == 1 ? 1 : 0;
                 foreach (var argument in generic.GenericArguments)
@@ -251,7 +270,8 @@ internal sealed partial class SchemaGen
             var kinds = lookups.Select(l => l.Kind).Distinct().ToList();
             if (kinds.Count != 1) continue;
             var kind = kinds[0];
-            if (kind == PART_COMPONENT) continue;
+            // The base of each side satisfies every slot on that side, so it separates nothing.
+            if (kind == PART_COMPONENT || kind == BULLET_COMPONENT) continue;
             // A kind stated as a generic instantiation cannot be matched against a component's
             // ancestry, which is read from the resolved definitions and so names the open type. The
             // only slots it covers are the network route endpoints, whose value is a dictionary key
@@ -336,15 +356,58 @@ internal sealed partial class SchemaGen
         foreach (var type in allTypes)
         {
             if (type.IsInterface || type.IsAbstract) continue;
-            if (!InheritsFrom(type, PART_COMPONENT_RULES)) continue;
-            var produced = ProducedComponent(type);
-            if (produced == null) continue;
-            var ancestry = Ancestry(produced);
+            var isBullet = InheritsFrom(type, BULLET_COMPONENT_RULES);
+            if (!isBullet && !InheritsFrom(type, PART_COMPONENT_RULES)) continue;
+            var produced = isBullet ? RegisteredBulletComponent(type) : ProducedComponent(type);
+            // A bullet component class that registers nothing is answered with an empty list rather
+            // than with no entry at all: it satisfies no kind, which is a fact worth stating, while
+            // no entry means the walk could not tell and the check abstains.
+            if (produced == null && !isBullet) continue;
+            var ancestry = produced == null ? new HashSet<string>(StringComparer.Ordinal) : Ancestry(produced);
             var satisfied = new List<int>();
             for (var index = 0; index < componentKindNames.Count; index++)
                 if (ancestry.Contains(componentKindNames[index])) satisfied.Add(index);
             componentCapabilities[type.FullName] = satisfied;
         }
+    }
+
+    /// <summary>
+    /// The runtime component a bullet component rules class puts into the bullet's dictionary. A
+    /// bullet component has no `CreateComponent` factory: it builds itself inside `AddComponents`
+    /// and registers under its own id, so the class is read off the one component that method makes.
+    /// A class making none registers nothing, and a class making several is left undecided rather
+    /// than guessed at.
+    /// </summary>
+    /// <param name="type">The bullet component rules class.</param>
+    /// <returns>The registered type, or null when the class registers none or more than one.</returns>
+    static TypeDefinition? RegisteredBulletComponent(TypeDefinition type)
+    {
+        var current = type;
+        while (current != null)
+        {
+            var builder = current.Methods.FirstOrDefault(m => m.Name == "AddComponents" && m.HasBody);
+            if (builder != null)
+            {
+                var made = new List<TypeDefinition>();
+                foreach (var ins in builder.Body.Instructions)
+                {
+                    if (ins.OpCode.Code != Code.Newobj || ins.Operand is not MethodReference ctor) continue;
+                    TypeDefinition? built = null;
+                    try { built = ctor.DeclaringType.Resolve(); } catch { built = null; }
+                    if (built == null || !Ancestry(built).Contains(BULLET_COMPONENT)) continue;
+                    if (!made.Any(m => m.FullName == built.FullName)) made.Add(built);
+                }
+                if (made.Count > 1) return null;
+                if (made.Count == 1) return made[0];
+                // An override that builds nothing still answers for the class: the base's own
+                // implementation is the one that throws, not one that registers a component.
+                return null;
+            }
+            TypeDefinition? next = null;
+            try { next = current.BaseType?.Resolve(); } catch { }
+            current = next;
+        }
+        return null;
     }
 
     /// <summary>Whether a type derives from a named class.</summary>

@@ -24,6 +24,13 @@ internal sealed partial class SchemaGen
         /// <summary>The local this value is the address of, so an `out` write can be followed.</summary>
         public int LocalAddress = -1;
 
+        /// <summary>
+        /// True for a component a bullet's own dictionary handed back for a tagged id. A bullet has
+        /// no typed lookup to read a kind from: the id goes through a plain indexer and the kind is
+        /// the cast that follows, so the walk carries the value until it meets that cast.
+        /// </summary>
+        public bool FromComponentLookup;
+
         /// <summary>One value carrying one slot tag.</summary>
         /// <param name="tag">The slot key.</param>
         /// <returns>The tagged value.</returns>
@@ -331,6 +338,23 @@ internal sealed partial class SchemaGen
                 state.Push(value);
                 return;
             }
+            case Code.Castclass or Code.Unbox_Any or Code.Isinst:
+            {
+                var value = state.Pop();
+                // The cast on a component a bullet's dictionary handed back is where the kind the
+                // slot is read as finally appears. `castclass` and `unbox.any` throw when the
+                // component is of another kind, while `isinst` answers null and carries on.
+                // A cast to a type parameter names no kind: the walk is reading one method body at
+                // a time and has no instantiation to read it through.
+                if (value.FromComponentLookup && value.Tags != null && ins.Operand is TypeReference cast
+                    && cast is not GenericParameter && !cast.ContainsGenericParameter)
+                {
+                    var throws = ins.OpCode.Code != Code.Isinst;
+                    foreach (var tag in value.Tags) RecordLookup(tag, new SlotLookup(cast.FullName, throws));
+                }
+                state.Push(SlotValue.None);
+                return;
+            }
             case Code.Ldelem_Any or Code.Ldelem_Ref or Code.Ldelema:
             {
                 state.Pop();
@@ -430,6 +454,26 @@ internal sealed partial class SchemaGen
                     return;
                 }
             }
+        }
+
+        // A bullet resolves a slot through its own dictionary rather than through a typed lookup, so
+        // the component comes back as the interface every bullet component implements and the kind
+        // is whatever the caller casts it to. Both spellings are covered: the indexer, which throws
+        // on a name the bullet does not hold, and the try-get, which writes through an `out` local.
+        if (name == "get_Item" && IsBulletComponentMap(called.DeclaringType))
+        {
+            var key = arguments.LastOrDefault(a => a.Tags != null);
+            state.Push(key?.Tags != null ? new SlotValue { Tags = key.Tags, FromComponentLookup = true } : SlotValue.None);
+            return;
+        }
+        if (name == "TryGetValue" && called.Parameters.Count == 2 && IsBulletComponentMap(called.DeclaringType))
+        {
+            var key = arguments.FirstOrDefault(a => a.Tags != null);
+            var target = arguments.FirstOrDefault(a => a.LocalAddress >= 0);
+            if (key?.Tags != null && target != null)
+                state.SetLocal(target.LocalAddress, new SlotValue { Tags = key.Tags, FromComponentLookup = true });
+            state.Push(SlotValue.None);
+            return;
         }
 
         // A call that hands the value straight back, so the tag rides through it.

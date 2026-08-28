@@ -939,14 +939,14 @@
             ctx.fillStyle = color;
             ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
         }
-        // A computed rect draws dashed and carries no handles: its value lives in an expression the
-        // editor will not overwrite with numbers.
+        // A computed rect draws dashed: its value lives in a reference, and dragging it writes the
+        // number where that reference points rather than over the reference itself.
         if (layer.isRef) ctx.setLineDash([0.4, 0.2]);
         ctx.globalAlpha = 0.9 * modifier;
         ctx.strokeStyle = color;
         ctx.lineWidth = (active ? 3 : 2) / state.view.scale;
         ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-        if (active && !layer.isRef) {
+        if (active) {
             ctx.setLineDash([]);
             ctx.fillStyle = color;
             for (const [hx, hy] of rectHandles(rect)) {
@@ -1081,7 +1081,8 @@
             for (const { point, isRef } of layer.vertices) {
                 ctx.beginPath();
                 ctx.arc(point.x, point.y, 5 / state.view.scale, 0, Math.PI * 2);
-                // Reference-valued vertices render hollow: visible, but not draggable.
+                // A reference-valued vertex renders hollow: it drags like the rest, but the number
+                // it writes lands in the declaration it names rather than here.
                 if (isRef) ctx.stroke();
                 else ctx.fill();
             }
@@ -1371,10 +1372,6 @@
                 return;
             }
             if (vertexIndex >= 0) {
-                if (layer.vertices[vertexIndex].isRef) {
-                    setStatus(t('This vertex is a reference or expression, edit it in the text.'));
-                    return;
-                }
                 state.dragging = { type: 'vertex', layerId: layer.id, index: vertexIndex, point };
                 return;
             }
@@ -1435,10 +1432,6 @@
                 if (hit) sendMutation({ op: 'removeRectEntry', layerId: layer.id, index: hit.index });
                 return;
             }
-            if (hit && layer.entries[hit.index].isRef) {
-                setStatus(t('This rect is a reference or expression, edit it in the text.'));
-                return;
-            }
             if (hit) {
                 state.rectDrag = {
                     layerId: layer.id,
@@ -1458,9 +1451,7 @@
             }
             state.selectedComponent = entry.component;
             renderSidebar();
-            if (!entry.locationIsRef) {
-                state.dragging = { type: 'component', layerId: layer.id, entry, point: entry.location };
-            }
+            state.dragging = { type: 'component', layerId: layer.id, entry, point: entry.location };
             draw();
         } else if (layer.kind === 'pointList') {
             const index = pointIndexAt(layer, point);
@@ -1477,10 +1468,6 @@
             sendMutation({ op: 'addPoint', layerId: layer.id, point: snapped });
         } else if (layer.kind === 'rect') {
             if (!layer.rect) return;
-            if (layer.isRef) {
-                setStatus(t('This rect is a reference or expression, edit it in the text.'));
-                return;
-            }
             const handle = rectHandleAt(layer.rect, point);
             if (handle >= 0) {
                 state.rectDrag = {
@@ -2124,7 +2111,7 @@
                     'div',
                     'hint',
                     layer.isRef
-                        ? t('This rect is a reference or expression, edit it in the text.')
+                        ? t('Drag the corner handles to resize. This rect is written from references, so the numbers are written where they are declared.')
                         : t('Drag the corner handles to resize.')
                 )
             );
@@ -2295,7 +2282,9 @@
                     section.appendChild(element('div', 'hint', t('Chained to {0}. Dragging edits its local offset.', selected.chainedTo)));
                 }
                 if (selected.locationIsRef) {
-                    section.appendChild(element('div', 'hint', t('The location is a reference or expression, edit it in the text.')));
+                    section.appendChild(
+                        element('div', 'hint', t('This location is written from references, so the numbers are written where they are declared.'))
+                    );
                 }
                 const rotationRow = element('div', 'row');
                 rotationRow.appendChild(element('span', null, t('Rotation:')));
@@ -2460,6 +2449,10 @@
             if (typeof message.dataVersion === 'number' && state.data) state.data.dataVersion = message.dataVersion;
             state.inFlight = false;
             pump();
+        } else if (message.type === 'note') {
+            // A write that followed a reference says where it landed, since the number it changed is
+            // read somewhere other than the handle that was dragged.
+            setStatus(message.note);
         } else if (message.type === 'editRejected') {
             state.inFlight = false;
             state.queue.length = 0;

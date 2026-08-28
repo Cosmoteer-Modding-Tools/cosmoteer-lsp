@@ -61,6 +61,7 @@ describe('the rule table', () => {
             'syntax-and-references',
             'document-duplicate',
             'inheritance-cycle',
+            'reference-cycle',
             'anonymous-block',
             'schema',
             'missing-separator',

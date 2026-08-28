@@ -13,6 +13,7 @@ import { AutoCompletion, Completion } from './autocompletion.service';
 import { registryForGroup, resolveGroupClass } from '../../document/schema/schema-context';
 import { documentRootClass, documentRootRegistry } from '../../document/schema/document-root';
 import { enumDef, fieldOf } from '../../document/schema/schema';
+import { acceptedMembersAt } from '../../document/schema/refused-enum-values';
 import { SchemaField, SchemaRegistry, ValueType } from '../../document/schema/schema.types';
 import { componentIdCompletions } from './autocompletion.component-id';
 import { resolveClassThroughInheritance } from './inheritance-resolution';
@@ -86,7 +87,7 @@ export const completeFieldValue = (group: GroupNode, fieldName: string, cls: str
     if (!cls) return [];
     const field = fieldOf(cls, fieldName);
     if (!field) return [];
-    return enumOrBoolCompletions(field.valueType);
+    return enumOrBoolCompletions(field.valueType, { group, field: fieldName });
 };
 
 /**
@@ -147,7 +148,7 @@ const completeListElementValue = (list: ListNode): Completion[] => {
     if (!valueType) return [];
     // Unwrap one list level when the field itself is a list of the element type.
     const element = valueType.kind === 'list' ? valueType.element : valueType;
-    return enumOrBoolCompletions(element);
+    return enumOrBoolCompletions(element, { group: owner, field: name });
 };
 
 /**
@@ -183,16 +184,28 @@ const enclosingMapType = (entry: GroupNode): (ValueType & { kind: 'map' }) | und
  * scalar slot may legally hold. Every value path shares it: a value node, a list element, and the
  * offset-based completion at an empty `Key = ` position.
  *
+ * A slot whose reading class takes fewer members than its enum declares is offered only those, so
+ * the popup never hands back a value the game refuses to load. The limits are the ones the check
+ * reports on, read from the same table.
+ *
  * @param valueType the schema type of the slot being filled.
+ * @param at the group and field being written, where the caller knows them.
  * @returns the legal value completions for that slot, empty for every other kind.
  */
-export const enumOrBoolCompletions = (valueType: ValueType): Completion[] => {
+export const enumOrBoolCompletions = (
+    valueType: ValueType,
+    at?: { group: GroupNode; field: string }
+): Completion[] => {
     if (valueType.kind === 'enum') {
-        return (enumDef(valueType.ref)?.members ?? []).map((member) => ({
-            label: member,
-            kind: CompletionItemKind.EnumMember,
-            detail: valueType.name,
-        }));
+        const accepted = at ? acceptedMembersAt(at.group, at.field) : undefined;
+        const allowed = accepted ? new Set(accepted.map((member) => member.toLowerCase())) : undefined;
+        return (enumDef(valueType.ref)?.members ?? [])
+            .filter((member) => !allowed || allowed.has(member.toLowerCase()))
+            .map((member) => ({
+                label: member,
+                kind: CompletionItemKind.EnumMember,
+                detail: valueType.name,
+            }));
     }
     if (valueType.kind === 'bool') {
         return [

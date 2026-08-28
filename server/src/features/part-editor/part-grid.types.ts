@@ -157,7 +157,7 @@ export interface PolygonLayerData extends GridLayerBase {
     readonly vertices: ReadonlyArray<{
         readonly point: GridPoint;
         readonly origin: AstProvenance;
-        /** True when the vertex is written as references or math (evaluated for display, not draggable). */
+        /** True when the vertex is written as references or math, so it is drawn from the value it evaluates to. */
         readonly isRef?: boolean;
     }>;
 }
@@ -180,7 +180,7 @@ export interface RectListLayerData extends GridLayerBase {
         readonly tag: string | null;
         readonly rect: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
         readonly origin: AstProvenance;
-        /** True when the rect was computed rather than read from four literals. */
+        /** True when the rect was computed from references or math rather than read from four literals. */
         readonly isRef?: boolean;
     }>;
     /** The effective scalar sugar fields (`ProhibitLeft` etc.) rendered as ghost rects. */
@@ -203,7 +203,7 @@ export interface ComponentPointEntry {
     readonly rotationDeg: number | null;
     /** The `ChainedTo` target when the transform rides another component. */
     readonly chainedTo: string | null;
-    /** True when `Location` is a reference or expression, so dragging is disabled. */
+    /** True when `Location` is written from references, so a drag writes each number where it is declared. */
     readonly locationIsRef: boolean;
     readonly origin: AstProvenance | null;
 }
@@ -245,8 +245,8 @@ export interface RectLayerData extends GridLayerBase {
     readonly rect: { readonly x: number; readonly y: number; readonly width: number; readonly height: number } | null;
     /**
      * True when the rect was computed from references or math rather than read from four literals
-     * (`PhysicalRect = [0, 0, &~/SIZE/0, &~/SIZE/1]`). It draws, but dragging it would replace the
-     * expression with numbers, so the editor shows it and refuses the edit.
+     * (`PhysicalRect = [0, 0, &~/SIZE/0, &~/SIZE/1]`). It draws dashed, and a drag writes each
+     * changed number where its reference declares it instead of over the reference.
      */
     readonly isRef?: boolean;
 }
@@ -308,6 +308,12 @@ export interface PartGridData {
     };
     /** Extra cells rendered around the grid, grown to fit out-of-bounds entries (virtual cells, rects). */
     readonly margin: number;
+    /**
+     * The other files this payload was read from: every file a reference or a base written in the
+     * part resolves into. A change in one of them changes the picture without touching the part's
+     * own file, so the host re-renders on those too.
+     */
+    readonly dependsOn: readonly string[];
     readonly sprites: readonly SpriteLayerData[];
     readonly layers: readonly GridLayerData[];
     readonly rotation: RotationFieldData;
@@ -396,6 +402,14 @@ export interface PartGridEditResult {
     readonly status: 'ok' | 'stale' | 'notFound' | 'error';
     /** A localized message for a status toast, on non-ok results. */
     readonly message?: string;
-    /** The edit to apply, present on `ok`. Its changes always target the part's own file. */
+    /**
+     * The edit to apply, present on `ok`. It targets the part's own file, plus the file declaring
+     * any value the write followed a reference into.
+     */
     readonly edit?: WorkspaceEdit;
+    /**
+     * A localized line for the editor's status bar on `ok`, saying where a write that followed a
+     * reference landed and how many other places read the declaration it changed.
+     */
+    readonly note?: string;
 }

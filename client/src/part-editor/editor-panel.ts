@@ -14,6 +14,8 @@ interface PartGridData {
     dataVersion: number;
     anchor: { line: number; character: number };
     sprites: Array<{ id: string; uri: string | null }>;
+    /** The other files the payload was read from, watched for changes alongside the part's own. */
+    dependsOn?: string[];
 }
 
 /** The result shape of the server's `cosmoteer/partGridEdit` request. */
@@ -21,6 +23,8 @@ interface PartGridEditResult {
     status: 'ok' | 'stale' | 'notFound' | 'error';
     message?: string;
     edit?: LspWorkspaceEdit;
+    /** Where a write that followed a reference landed, for the page's status line. */
+    note?: string;
 }
 
 /** A mutation message posted by the webview (forwarded to the server verbatim). */
@@ -45,6 +49,8 @@ export class PartGridEditorPanel {
     private tracked: { uri: Uri; position: Position } | undefined;
     /** The anchor of the part group in the last payload, echoed by edit requests. */
     private anchor: { line: number; character: number } | undefined;
+    /** The files the last payload was read from, lower-cased paths, the part's own included. */
+    private watched = new Set<string>();
     /** Debounce timer so a burst of edits coalesces into one re-render. */
     private refreshTimer: ReturnType<typeof setTimeout> | undefined;
     /** True while an edit request is in flight, serializing webview mutations. */
@@ -78,10 +84,14 @@ export class PartGridEditorPanel {
         PartGridEditorPanel.current = undefined;
     }
 
-    /** Re-render (debounced) when the changed document is the tracked part file. */
+    /**
+     * Re-render (debounced) when the changed document is one the view was built from. A value the
+     * part states as a reference is drawn from the file that declares it, and an edit through that
+     * reference does not touch the part's own file at all.
+     */
     private onDocumentChanged(changed: Uri): void {
         if (!this.tracked) return;
-        if (changed.fsPath.toLowerCase() !== this.tracked.uri.fsPath.toLowerCase()) return;
+        if (!this.watched.has(changed.fsPath.toLowerCase())) return;
         if (this.refreshTimer) clearTimeout(this.refreshTimer);
         this.refreshTimer = setTimeout(() => {
             if (this.tracked) void this.render(this.tracked.uri, this.tracked.position);
@@ -120,10 +130,13 @@ export class PartGridEditorPanel {
         });
         if (!data) {
             this.anchor = undefined;
+            this.watched = new Set([uri.fsPath.toLowerCase()]);
             await this.panel.webview.postMessage({ type: 'empty' });
             return;
         }
         this.anchor = data.anchor;
+        this.watched = new Set([uri.fsPath.toLowerCase()]);
+        for (const dependency of data.dependsOn ?? []) this.watched.add(Uri.parse(dependency).fsPath.toLowerCase());
         this.panel.title = l10n.t('Part Grid: {0}', data.partName);
         const spriteData: Record<string, string | null> = {};
         for (const sprite of data.sprites) spriteData[sprite.id] = imageDataUri(sprite.uri);
@@ -183,6 +196,7 @@ export class PartGridEditorPanel {
                 const version = workspace.textDocuments.find(
                     (candidate) => candidate.uri.toString() === this.tracked?.uri.toString()
                 )?.version;
+                if (result.note) await this.panel.webview.postMessage({ type: 'note', note: result.note });
                 await this.panel.webview.postMessage({ type: 'editDone', dataVersion: version });
             } else {
                 await this.panel.webview.postMessage({ type: 'editRejected', reason: result?.status ?? 'error' });

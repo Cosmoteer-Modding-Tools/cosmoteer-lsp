@@ -3613,7 +3613,7 @@
         "Location": "Offset in tiles of the sprite from the part's origin, transformed by the part's placement.",
         "SituationToggles": "Ordered list of toggle component IDs whose on/off states form the situation code. Each toggle contributes one bit, so the code length equals the list length and the shown sprite depends on the combined toggle states. Although marked optional here, the deserializer requires it.",
         "AmbiguousSprites": "Blend sprites keyed by situation code, expanded to cover the toggle-state combinations. Every combination of the [[#SituationToggles]] bits must be covered unless [[#AllowUndefinedBlendSprites]] is set. Although marked optional here, the deserializer requires it.",
-        "AllowUndefinedBlendSprites": "When true, toggle-state combinations with no matching sprite draw nothing instead of throwing during generation. When false, every combination must be defined."
+        "AllowUndefinedBlendSprites": "Accepted for this component but has no effect in the current game code. The generator takes this flag and never reads it, so the toggled variant still throws when [[#AmbiguousSprites]] does not cover every combination of toggle states."
     },
     "Cosmoteer.Ships.Blueprints.Graphics.PartNetworkRouteCappedLine": {
         "T:": "Draws a network route as one straight line with a cap at each end, with the line's sprite and thickness fields written inline."

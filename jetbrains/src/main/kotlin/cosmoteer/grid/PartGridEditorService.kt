@@ -58,6 +58,8 @@ class PartGridEditorService(private val project: Project) : Disposable {
     @Volatile private var tracked: Pair<VirtualFile, Int>? = null
     /** The part group anchor of the last payload, echoed by edit requests. */
     @Volatile private var anchor: Position? = null
+    /** The files the last payload was read from, as lower-cased paths, the part's own included. */
+    @Volatile private var watched: Set<String> = emptySet()
     private val refreshAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
 
     init {
@@ -133,6 +135,10 @@ class PartGridEditorService(private val project: Project) : Disposable {
         }
         anchor = data.getAsJsonObject("anchor")?.let { position ->
             Position(position.get("line")?.asInt ?: 0, position.get("character")?.asInt ?: 0)
+        }
+        watched = buildSet {
+            tracked?.first?.let { add(normalizedPath(it.path)) }
+            data.getAsJsonArray("dependsOn")?.forEach { entry -> add(normalizedPath(VfsUtil.urlToPath(entry.asString))) }
         }
         val spriteData = JsonObject()
         val sprites = data.getAsJsonArray("sprites") ?: com.google.gson.JsonArray()
@@ -237,6 +243,13 @@ class PartGridEditorService(private val project: Project) : Disposable {
                             LSPIJUtils.applyWorkspaceEdit(edit)
                         })
                     }
+                    result.note?.let { note ->
+                        val message = JsonObject().apply {
+                            addProperty("type", "note")
+                            addProperty("note", note)
+                        }
+                        postMessage(gson.toJson(message))
+                    }
                 } else {
                     val reason = result?.status ?: "error"
                     postMessage("""{"type":"editRejected","reason":"$reason"}""")
@@ -262,13 +275,21 @@ class PartGridEditorService(private val project: Project) : Disposable {
         }
     }
 
-    /** Re-render (debounced) when the changed document is the tracked part file. */
+    /**
+     * Re-render (debounced) when the changed document is one the view was built from. A value the
+     * part states as a reference is drawn from the file that declares it, and an edit through that
+     * reference does not touch the part's own file at all.
+     */
     private fun onDocumentChanged(changed: VirtualFile) {
         val (file, _) = tracked ?: return
-        if (changed.path.replace('\\', '/').lowercase() != file.path.replace('\\', '/').lowercase()) return
+        val path = normalizedPath(changed.path)
+        if (path != normalizedPath(file.path) && path !in watched) return
         refreshAlarm.cancelAllRequests()
         refreshAlarm.addRequest({ render() }, 250)
     }
+
+    /** One spelling for a path, since a uri, a virtual file and Windows each answer with their own. */
+    private fun normalizedPath(path: String): String = path.replace('\\', '/').lowercase()
 
     /** The page shell: the bundled stylesheet and editor script inlined, plus the VS Code API shim. */
     private fun pageHtml(query: JBCefJSQuery): String {

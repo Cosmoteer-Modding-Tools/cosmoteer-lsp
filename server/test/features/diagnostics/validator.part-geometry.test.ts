@@ -9,6 +9,8 @@ import { validatePartGeometry } from '../../../src/features/diagnostics/validato
 import { initWorkspace, workspaceFile } from '../../workspace-helper';
 
 const token = CancellationToken.None;
+const TAB = String.fromCharCode(9);
+const NEWLINE = String.fromCharCode(10);
 
 /** A part file written at the fixture workspace, with the geometry findings it produces. */
 const check = async (body: string) => {
@@ -44,6 +46,31 @@ describe('validatePartGeometry', () => {
 
     it('flags a diagonal corner, which the engine ring excludes', async () => {
         expect(await messages('\tSize = [2, 2]\n\tAllowedDoorLocations\n\t[\n\t\t[-1, -1]\n\t]')).toHaveLength(1);
+    });
+
+    // A cell outside the part is what the field is for, and a cell inside it is past none of the
+    // four boundary tests the engine turns it into a door location with.
+    const doorToggle = (size: string, cell: string): string =>
+        [
+            TAB + 'Size = ' + size,
+            TAB + 'Components',
+            TAB + '{',
+            TAB + TAB + 'DoorLeft',
+            TAB + TAB + '{',
+            TAB + TAB + TAB + 'Type = DoorPresenceToggle',
+            TAB + TAB + TAB + 'AdjacentCell = ' + cell,
+            TAB + TAB + '}',
+            TAB + '}',
+        ].join(NEWLINE);
+
+    it('accepts a door presence toggle beside the part', async () => {
+        expect(await messages(doorToggle('[1, 2]', '[-1, 0]'))).toEqual([]);
+    });
+
+    it('flags a door presence toggle whose cell is inside the part', async () => {
+        const found = await messages(doorToggle('[2, 2]', '[1, 1]'));
+        expect(found).toHaveLength(1);
+        expect(found[0]).toContain('inside the part');
     });
 
     it('flags a blocked travel cell outside the part and accepts one inside', async () => {

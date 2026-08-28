@@ -107,9 +107,11 @@ export interface CosmoteerSettings {
         validateModManifest: boolean;
         // When true (the default), fade a part-grid value the part own size puts out of the game
         // reach: a door location that is not a cell beside the part, a blocked-travel cell or a
-        // per-cell map key outside it. A PhysicalRect that leaves the part is an error instead,
-        // since the game throws while reading such a part. Only values written on a part that
-        // declares its own ID are judged, and Size is read through the inheritance chain.
+        // per-cell map key outside it. A PhysicalRect that leaves the part and a door presence
+        // toggle whose cell is inside the part are errors instead, since the game throws on the
+        // first while reading the part and on the second when the part is created. Only values
+        // written on a part that declares its own ID are judged, and Size is read through the
+        // inheritance chain.
         validatePartGeometry: boolean;
         // When true (the default), flag an id two files of one mod both register for the same game
         // collection, which the game resolves by keeping one entry and dropping the rest. Only a
@@ -188,6 +190,46 @@ export interface CosmoteerSettings {
         // a list longer than the band the engine gives it, and a registry with no `default_bullet`
         // in it, which is the bucket every bullet sprite falls back to when it names none.
         validateEffectBuckets: boolean;
+        // When true (the default), report a part naming itself as the part it leaves behind when it is
+        // destroyed. The engine asks that replacement what it costs and drops with no guard against coming
+        // back to where it started, so such a part takes the process down.
+        validateUnderlyingParts: boolean;
+        // When true (the default), check a bullet component set against the order the game builds it in: a
+        // second physics component, no physics component at all, and a hit or a targetable written above
+        // the physics component, which reads a physics body that is not there yet.
+        validateBulletComponents: boolean;
+        // When true (the default), report a buff provider chaining from a buff its own part cannot receive.
+        // The game checks this while reading the part and throws outright, so the whole data tree fails to
+        // load and the game does not start.
+        validateChainedBuffReceivable: boolean;
+        // When true (the default), report a range written the wrong way round where the class reading it
+        // cares: the whole-number roll refuses a high end below its low one rather than swapping them, and
+        // a compared window the wrong way round is one nothing can fall into.
+        validateValueRanges: boolean;
+        // When true (the default), check the markup of a language file's strings. The game hands every
+        // string it draws to a markup reader and answers a failure by drawing the string again with its
+        // tags as plain text, saying nothing, so a single unclosed tag reaches the player as markup.
+        validateTextMarkup: boolean;
+        // When true (the default), report a part component chain that comes back to a component it has
+        // already been through. Neither the reading side nor the running side carries a visited set, so a
+        // closed chain takes the process down the moment the part is created.
+        validateChainedToCycles: boolean;
+        // When true (the default), report a field the game reads and then acts on wrongly: an `ExcludeID`
+        // the engine adds to the list of parts a criteria matches rather than the one it excludes, a flag
+        // the toggled blend sprite generator never reads, and a drag exponent that collapses its formula.
+        validateMishandledFields: boolean;
+        // When true (the default), check an enum value against the class that reads it rather than against
+        // its enum: a fixed weapon reads one of the seven target types, a bullet target search four, and a
+        // beam refuses the frame of reference a bullet takes. The rest throw where the game reads them.
+        validateRefusedEnumValues: boolean;
+        // When true (the default), check a blend sprite situation code against what the engine can expand:
+        // a character other than `0`, `1` or `*`, which throws the first time the sprite is drawn, and a
+        // code whose length does not match the slot it is written in.
+        validateBlendSpriteCodes: boolean;
+        // When true (the default), check an indicator sprite component's `HidesIndicators` against the
+        // list it is written in: an index naming its own indicator, which the game refuses to load, and an
+        // index past the end of the list, which fails the load with an index error carrying no message.
+        validateIndicatorIndexes: boolean;
     };
     codeMods: {
         // When true (the default), a mod that ships a `.dll` has its own serializable types, fields
@@ -309,6 +351,16 @@ export const defaultSettings: CosmoteerSettings = {
         validateLocalizationCoverage: true,
         validateMarkerVocabulary: true,
         validateEffectBuckets: true,
+        validateUnderlyingParts: true,
+        validateBulletComponents: true,
+        validateChainedBuffReceivable: true,
+        validateValueRanges: true,
+        validateTextMarkup: true,
+        validateChainedToCycles: true,
+        validateMishandledFields: true,
+        validateRefusedEnumValues: true,
+        validateBlendSpriteCodes: true,
+        validateIndicatorIndexes: true,
     },
     codeMods: {
         enabled: true,

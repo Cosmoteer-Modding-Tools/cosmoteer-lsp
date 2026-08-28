@@ -4,7 +4,7 @@
     "description": "A complete language server for Cosmoteer rules",
     "author": "Cosmoteer Modding Tools",
     "license": "MIT",
-    "version": "0.8.0",
+    "version": "0.9.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
@@ -387,7 +387,7 @@
                         "scope": "resource",
                         "type": "boolean",
                         "default": true,
-                        "description": "Fade a part-grid value the part own size puts out of the game reach: a door location that is not a cell beside the part, and a blocked-travel cell or per-cell map key outside it, all of which the game never reads. A PhysicalRect that leaves the part is reported as an error instead, because the game throws while reading such a part and does not load the file. Only values written on a part that declares its own ID are judged, and Size is read through the inheritance chain. Shown as an editor hint, except the PhysicalRect error."
+                        "description": "Fade a part-grid value the part own size puts out of the game reach: a door location that is not a cell beside the part, and a blocked-travel cell or per-cell map key outside it, all of which the game never reads. Two are reported as errors instead: a PhysicalRect that leaves the part, which the game throws on while reading the part, and a door presence toggle whose cell is inside the part, which the game throws on when the part is created. Only values written on a part that declares its own ID are judged, and Size is read through the inheritance chain. Shown as an editor hint, except the two errors."
                     },
                     "cosmoteerLSPRules.diagnostics.validateDuplicateIds": {
                         "scope": "resource",
@@ -454,6 +454,66 @@
                         "type": "boolean",
                         "default": true,
                         "description": "Hint at a usage-defined name (a part category, a part feature, a ship tag) written once in the project that is one typing slip from a name several files write. Such a name exists because a file writes it, so a misspelled one declares a name of its own instead of naming the one meant. Needs the Cosmoteer folder."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateIndicatorIndexes": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Check an indicator sprite component's HidesIndicators against the list it is written in. An index naming its own indicator makes the game refuse to load the file, and an index past the end of the list fails the load with an index error the game cannot name. Both come from adding or removing an indicator at the head of the list without shifting the numbers underneath."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateBlendSpriteCodes": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Check a blend sprite situation code against what the engine can expand. A character other than 0, 1 or * makes the game throw the first time that sprite is drawn, and a code in an eight-neighbour list that is not eight characters long stops its sprites being generated."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateRefusedEnumValues": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Check an enum value against the class that reads it rather than against its enum alone. A fixed weapon reads only ShipParts as its auto-target type and the game refuses to load anything else, a bullet target search handles four of the seven, and a beam refuses the frame of reference a bullet takes."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateMishandledFields": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a field the game reads and then acts on wrongly. An ExcludeID on a part criteria is added to the list of parts it matches rather than the one it excludes, so it becomes the only part accepted. A toggled blend sprite component takes AllowUndefinedBlendSprites and never reads it. An exponential drag solver with an exponent of 1 collapses its own formula."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateChainedToCycles": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a part component chain that comes back to a component it has already been through. A chainable component takes its position from the component it is chained to and nothing guards against a loop, so a closed chain takes the process down the moment the part is created, with no dialog and nothing in the log."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateTextMarkup": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Check the markup of a mod language file's strings. The game hands every string it draws to a markup reader and answers a failure by drawing the string again with its tags visible as plain text, without logging anything, so an unclosed tag or a bare & turns a whole description into markup on screen."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateValueRanges": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a range written the wrong way round where the class reading it cares. The whole-number roll refuses a high end below its low one and throws where it draws the number, and a compared window the wrong way round is one nothing can ever fall into. Ranges read as interpolation bounds count down on purpose and are never judged."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateChainedBuffReceivable": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a buff provider whose ChainsFromBuffType names a buff absent from its own part ReceivableBuffs. The game checks this while reading the part and throws outright, so the whole data tree fails to load and the game does not start. Kept separate from the buff hints, which are lint-level."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateBulletComponents": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Check a bullet component set against the order the game builds it in. A second physics component throws as it is set, no physics component at all throws once the rest are built, and a hit or a targetable written above the physics component reads a physics body that does not exist yet and throws on the first shot. Member order means nothing anywhere else in the format, which is what makes the last one hard to see."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateUnderlyingParts": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a part naming itself as the part it leaves behind when it is destroyed. Working out what a part costs beyond its replacement, and what it drops, both walk that chain with no guard against a loop, so a part naming itself takes the process down on a ship update or when a deconstruct is queued."
                     },
                     "cosmoteerLSPRules.diagnostics.validateEffectBuckets": {
                         "scope": "resource",
