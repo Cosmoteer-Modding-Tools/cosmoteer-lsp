@@ -1,0 +1,3 @@
+// The members the manifest's override inherits into its source group.
+FromBase = 1
+AlsoFromBase = 3

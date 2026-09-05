@@ -1,0 +1,14 @@
+Type = None
+SubSpawners
+[
+	{
+		Type = Doodads
+		Count = 30
+		DoodadTypes
+		[
+			{ Type=cosmoteer.ftl_beacon_fringe; Faction=fringe; }
+			{ Type=cosmoteer.ftl_beacon_cabal; Faction=cabal; }
+		]
+		Tags = [ftl_beacon]
+	}
+]

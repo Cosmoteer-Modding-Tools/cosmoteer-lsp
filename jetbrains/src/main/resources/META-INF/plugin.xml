@@ -51,6 +51,18 @@
                     doNotActivateOnStart="true"
                     icon="/icons/rules.png"
                     factoryClass="cosmoteer.preview.ShaderPreviewToolWindowFactory"/>
+        <toolWindow id="Cosmoteer Diagram"
+                    anchor="right"
+                    canCloseContents="false"
+                    doNotActivateOnStart="true"
+                    icon="/icons/rules.png"
+                    factoryClass="cosmoteer.diagram.DiagramToolWindowFactory"/>
+        <toolWindow id="Cosmoteer Part Table"
+                    anchor="bottom"
+                    canCloseContents="false"
+                    doNotActivateOnStart="true"
+                    icon="/icons/rules.png"
+                    factoryClass="cosmoteer.table.PartTableToolWindowFactory"/>
         <toolWindow id="Cosmoteer Part Grid Editor"
                     anchor="right"
                     canCloseContents="false"
@@ -96,6 +108,110 @@
                 icon="/icons/rules.png">
             <override-text place="MainMenu" text="Edit Part Grid"/>
             <override-text place="EditorPopup" text="Edit Part Grid"/>
+            <add-to-group group-id="cosmoteer.EditorPopupGroup" anchor="last"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.showShipBlueprint"
+                class="cosmoteer.actions.ShowShipBlueprintAction"
+                text="Cosmoteer: Show Ship Blueprint"
+                description="Read what a saved ship places, out of the low bits of its picture"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="Show Ship Blueprint"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.addShipToFaction"
+                class="cosmoteer.actions.AddShipToFactionAction"
+                text="Cosmoteer: Add Ships to a Faction"
+                description="Put saved ships into a faction's spawn pool, rated the way the game rates them"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="Add Ships to a Faction"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+            <!-- Also on the project view, where the saved ships and their folders are selected. -->
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </action>
+        <action id="cosmoteer.newFaction"
+                class="cosmoteer.actions.NewFactionAction"
+                text="Cosmoteer: New Faction"
+                description="Create a faction with its territory, its tiers, its FTL beacon and its name"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="New Faction"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.newNebula"
+                class="cosmoteer.actions.NewNebulaAction"
+                text="Cosmoteer: New Nebula"
+                description="Create a nebula from one of the game's looks, with your colours and spawn settings"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="New Nebula"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.newGalaxySize"
+                class="cosmoteer.actions.NewGalaxySizeAction"
+                text="Cosmoteer: New Galaxy Size"
+                description="Create a galaxy size with its own number of systems, offered when a new game begins"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="New Galaxy Size"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.newAsteroidType"
+                class="cosmoteer.actions.NewAsteroidTypeAction"
+                text="Cosmoteer: New Asteroid Type"
+                description="Create a mineable asteroid type yielding a resource, with a look borrowed from the game's own deposits"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="New Asteroid Type"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.newPlanet"
+                class="cosmoteer.actions.NewPlanetAction"
+                text="Cosmoteer: New Planet"
+                description="Create a planet from one of the game's own, with a name, a size and a place in career sectors"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="New Planet"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.tradeGood"
+                class="cosmoteer.actions.TradeGoodAction"
+                text="Cosmoteer: Resource in Trade"
+                description="Make trade ships carry a resource and stations stock it"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="Resource in Trade"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.newTech"
+                class="cosmoteer.actions.NewTechAction"
+                text="Cosmoteer: New Tech"
+                description="Create a tech that puts one of your parts behind a purchase at a station"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="New Tech"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.showResourceFlow"
+                class="cosmoteer.actions.ShowResourceFlowAction"
+                text="Cosmoteer: Show Resource Flow"
+                description="Draw which storage feeds which converter in this part, and what each of them holds"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="Show Resource Flow"/>
+            <override-text place="EditorPopup" text="Show Resource Flow"/>
+            <add-to-group group-id="cosmoteer.EditorPopupGroup" anchor="last"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.showEffectChain"
+                class="cosmoteer.actions.ShowEffectChainAction"
+                text="Cosmoteer: Show Firing Chain"
+                description="Draw what this part fires, in what order, and what each link waits"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="Show Firing Chain"/>
+            <override-text place="EditorPopup" text="Show Firing Chain"/>
+            <add-to-group group-id="cosmoteer.EditorPopupGroup" anchor="last"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.diffAgainstBase"
+                class="cosmoteer.actions.DiffAgainstBaseAction"
+                text="Cosmoteer: Diff This Group Against the Game's Version"
+                description="Compare the group at the caret against the nearest base of it the game ships"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="Diff Against the Game's Version"/>
+            <override-text place="EditorPopup" text="Diff Against the Game's Version"/>
             <add-to-group group-id="cosmoteer.EditorPopupGroup" anchor="last"/>
             <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
         </action>
@@ -147,14 +263,6 @@
             <override-text place="MainMenu" text="Migrate Mod to Current Game Version"/>
             <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
         </action>
-        <action id="cosmoteer.showPostUpdateReport"
-                class="cosmoteer.actions.PostUpdateReportAction"
-                text="Cosmoteer: Show What The Game Update Changed"
-                description="Compare what the project reports now with what it reported under the previous game version, and judge the manifest against the installed game"
-                icon="/icons/rules.png">
-            <override-text place="MainMenu" text="Show What The Game Update Changed"/>
-            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
-        </action>
         <action id="cosmoteer.newContentFile"
                 class="cosmoteer.actions.NewContentAction"
                 text="Cosmoteer: New Content File"
@@ -162,11 +270,58 @@
                 icon="/icons/rules.png">
             <override-text place="MainMenu" text="New Content File"/>
             <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
-            <!-- Also under the New submenu of the project view, which is where somebody looks
-                 for a way to create a file. The action reads the selected folder, so creating
-                 from there finds the mod that folder belongs to. -->
-            <add-to-group group-id="NewGroup" anchor="last"/>
         </action>
+        <!-- Everything the wizards can create, as one Cosmoteer submenu of the New menu: the
+             project view's right-click New and File > New both show it, which is where somebody
+             looks for a way to create a file. Each entry reads the selected folder, so creating
+             from there finds the mod that folder belongs to. The same classes serve the Tools
+             menu under their long names; here the names are short because the submenu says the
+             rest. -->
+        <group id="cosmoteer.NewGroup" text="Cosmoteer" popup="true" icon="/icons/rules.png">
+            <add-to-group group-id="NewGroup" anchor="last"/>
+            <action id="cosmoteer.new.mod" class="cosmoteer.actions.NewModAction" text="Mod"
+                    description="A mod folder with its manifest and language file"/>
+            <separator/>
+            <action id="cosmoteer.new.part" class="cosmoteer.actions.NewPartAction" text="Part"
+                    description="A part, registered in a ship class you pick"/>
+            <action id="cosmoteer.new.resource" class="cosmoteer.actions.NewResourceAction" text="Resource"
+                    description="A resource, added to the game's resource list"/>
+            <action id="cosmoteer.new.shot" class="cosmoteer.actions.NewShotAction" text="Shot"
+                    description="A projectile for a weapon to fire"/>
+            <action id="cosmoteer.new.mediaEffect" class="cosmoteer.actions.NewMediaEffectAction" text="Media Effect"
+                    description="A sound or particle effect for a part to reference"/>
+            <action id="cosmoteer.new.logoShip" class="cosmoteer.actions.NewLogoShipAction" text="Title Screen Ship"
+                    description="A saved ship of yours, copied in and flown on the menu"/>
+            <action id="cosmoteer.new.decalFolder" class="cosmoteer.actions.NewDecalFolderAction" text="Roof Decal Folder"
+                    description="A folder whose PNGs the paint tool offers as decals"/>
+            <action id="cosmoteer.new.editorGroup" class="cosmoteer.actions.NewEditorGroupAction" text="Build Toolbar Category"
+                    description="A category of the build toolbar for your parts to sit in"/>
+            <action id="cosmoteer.new.partStat" class="cosmoteer.actions.NewPartStatAction" text="Part Stat Line"
+                    description="A line of a part tooltip, shown once a part writes a value under it"/>
+            <action id="cosmoteer.new.partToggle" class="cosmoteer.actions.NewPartToggleAction" text="Part Toggle"
+                    description="An on/off switch a part component can carry, with its buttons and hotkeys"/>
+            <action id="cosmoteer.new.buff" class="cosmoteer.actions.NewBuffAction" text="Buff"
+                    description="A buff parts can provide and receive, merged into the game's buff map"/>
+            <action id="cosmoteer.new.codexPage" class="cosmoteer.actions.NewCodexPageAction" text="Codex Page"
+                    description="A help page under the Tutorials tab of the codex, with its texts as language keys"/>
+            <separator/>
+            <action id="cosmoteer.new.faction" class="cosmoteer.actions.NewFactionAction" text="Faction"
+                    description="A faction with its territory, tiers, beacon and lore page"/>
+            <action id="cosmoteer.new.shipsInFaction" class="cosmoteer.actions.AddShipToFactionAction" text="Ships in a Faction"
+                    description="Saved ships put into a faction's spawn pool"/>
+            <action id="cosmoteer.new.nebula" class="cosmoteer.actions.NewNebulaAction" text="Nebula"
+                    description="A nebula built on one of the game's own, in your colours"/>
+            <action id="cosmoteer.new.galaxySize" class="cosmoteer.actions.NewGalaxySizeAction" text="Galaxy Size"
+                    description="A galaxy size offered when a new game begins"/>
+            <action id="cosmoteer.new.tech" class="cosmoteer.actions.NewTechAction" text="Tech"
+                    description="A tech that puts one of your parts behind a purchase at a station"/>
+            <action id="cosmoteer.new.asteroidType" class="cosmoteer.actions.NewAsteroidTypeAction" text="Asteroid Type"
+                    description="A mineable asteroid yielding a resource, with a look borrowed from the game's own"/>
+            <action id="cosmoteer.new.planet" class="cosmoteer.actions.NewPlanetAction" text="Planet"
+                    description="A planet built on one of the game's own, spawning in career sectors"/>
+            <action id="cosmoteer.new.tradeGood" class="cosmoteer.actions.TradeGoodAction" text="Resource in Trade"
+                    description="A resource that trade ships carry and stations stock"/>
+        </group>
         <action id="cosmoteer.newMod"
                 class="cosmoteer.actions.NewModAction"
                 text="Cosmoteer: New Mod"
@@ -272,6 +427,16 @@
                 icon="/icons/rules.png">
             <override-text place="MainMenu" text="Import Problems from the Game Log"/>
             <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+        </action>
+        <action id="cosmoteer.compareParts"
+                class="cosmoteer.actions.ComparePartsAction"
+                text="Cosmoteer: Compare Parts in a Table"
+                description="Put every part of the game and of this mod side by side, with the fields they carry resolved to the numbers the game computes"
+                icon="/icons/rules.png">
+            <override-text place="MainMenu" text="Compare Parts in a Table"/>
+            <override-text place="EditorPopup" text="Compare Parts in a Table"/>
+            <add-to-group group-id="cosmoteer.ToolsGroup" anchor="last"/>
+            <add-to-group group-id="cosmoteer.EditorPopupGroup" anchor="last"/>
         </action>
         <action id="cosmoteer.searchSchema"
                 class="cosmoteer.actions.SearchSchemaAction"

@@ -10,6 +10,7 @@ import { FIXTURES_DIR, walkAst } from '../../helpers';
 const token = CancellationToken.None;
 const DEPENDENCY_MOD = join(FIXTURES_DIR, 'dependency-mod');
 const UNDECLARED_MOD = join(FIXTURES_DIR, 'undeclared-dep-mod');
+const UNDECLARED_COPY = join(FIXTURES_DIR, 'undeclared-dep-mod-copy');
 const DECLARED_MOD = join(FIXTURES_DIR, 'declared-dep-mod');
 const RESOURCE_ID = 'test.dependency_resource';
 
@@ -59,6 +60,13 @@ describe('undeclared dependency findings', () => {
     it('never reports a mod as depending on itself', async () => {
         // A mod edited in place inside the installed-mods tree vouches for its own ids.
         expect(await findingsFor(UNDECLARED_MOD, UNDECLARED_MOD)).toEqual([]);
+    });
+
+    it('never reports a mod as depending on its own second copy', async () => {
+        // A mod worked on in the mods folder is usually installed from the workshop as well, and an
+        // id it declares itself resolves into whichever copy the walk reached first. Two folders
+        // writing one manifest id are one mod, so this is not a dependency on anything.
+        expect(await findingsFor(UNDECLARED_MOD, UNDECLARED_COPY)).toEqual([]);
     });
 
     it('is silent when the setting is off', async () => {

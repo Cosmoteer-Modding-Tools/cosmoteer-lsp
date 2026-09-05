@@ -32,7 +32,7 @@ import {
 } from './schema';
 import { SchemaField, SchemaRegistry, ValueType } from './schema.types';
 import { documentRootClass } from './document-root';
-import { aliasedMemberType, inheritanceBaseCandidates } from './alias-root';
+import { aliasedMemberType, aliasedRootClass, inheritanceBaseCandidates } from './alias-root';
 import { SHADER_GROUP_CLASS, TEXTURE_GROUP_CLASS } from './schema-overlay';
 import { stepIntoNode } from '../../semantics/reference-resolver';
 import { perfCount } from '../../utils/perf-counters';
@@ -893,6 +893,20 @@ export const findEnclosingContainer = (
 export const listSlotType = (list: ListNode): ValueType | undefined => expectedValueType(list, 0);
 
 /**
+ * The class a document's top-level members are read through: its own root class when its content
+ * or its path names one, else the class the file is pulled in as a whole (a lore page a manifest
+ * appends to the codex, a doodad appended to the doodad list, an `AddBase` fragment). Everything that
+ * hovers, completes or types a top-level field reads through this rather than
+ * {@link documentRootClass} alone, since a fragment wired in only by a manifest action has no root of
+ * its own and its top-level leaves were otherwise the one place the schema went blind.
+ *
+ * @param document the parsed document.
+ * @returns the class FullName, or undefined when nothing roots the file.
+ */
+export const documentScopeClass = (document: AbstractNodeDocument): string | undefined =>
+    documentRootClass(document) ?? aliasedRootClass(document);
+
+/**
  * The class whose members are in scope at a byte offset, which is what field-name lookup, value
  * completion and channel completion must resolve names against. Usually this is the innermost
  * group's class (or the document root class at the top level). When the innermost container is a
@@ -907,7 +921,7 @@ export const listSlotType = (list: ListNode): ValueType | undefined => expectedV
  */
 export const memberScopeClassAt = (document: AbstractNodeDocument, offset: number): string | undefined => {
     const container = findEnclosingContainer(document, offset);
-    if (!container) return documentRootClass(document);
+    if (!container) return documentScopeClass(document);
     if (isListNode(container)) {
         const slot = listSlotType(container);
         return slot?.kind === 'group' ? slot.ref : undefined;
@@ -942,7 +956,7 @@ export const listElementReferenceTarget = (list: ListNode, offset?: number): str
     }
     if (fieldName) {
         const ownerClass = isDocumentNode(owner)
-            ? documentRootClass(owner)
+            ? documentScopeClass(owner)
             : isGroupNode(owner)
               ? resolveGroupClass(owner)
               : undefined;

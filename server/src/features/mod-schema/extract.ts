@@ -21,6 +21,8 @@
  * one field and never invents a rule that flags a valid file.
  */
 import { SchemaBundle, SchemaEnum, SchemaField, SchemaRegistry, SchemaTypeDef, ValueType } from '../../document/schema/schema.types';
+import { analyzeComponentSlots, ComponentSlotAnalysis } from './component-slots';
+import { OPCODES, shortNameOf } from './dotnet-assembly';
 import {
     AttrValue,
     CustomAttr,
@@ -28,11 +30,10 @@ import {
     FieldInfo,
     Instruction,
     MethodInfo,
-    OPCODES,
     PropertyInfo,
     TypeInfo,
     TypeSig,
-} from './dotnet-assembly';
+} from './dotnet-assembly.types';
 
 const SERIALIZE = 'Halfling.Serialization.SerializeAttribute';
 const REFLECTIVE = 'Halfling.Serialization.ReflectiveSerializationAttribute';
@@ -74,6 +75,17 @@ export interface ModSchemaExtension {
      * instead of the game's wiki. Absent for an assembly outside the workshop tree.
      */
     modLinks: Record<string, { url: string; name?: string }>;
+    /**
+     * The runtime kinds the mod's component slots require beyond the game's own, continuing the
+     * bundle's `componentKinds` list: the first entry here has the index the game's list ends at.
+     * Absent when the mod requires only kinds the game already names.
+     */
+    componentKinds?: string[];
+    /**
+     * Which kinds each of the mod's component rules classes satisfies, as indices into the game's
+     * list continued by {@link componentKinds}. A class with no entry builds no physical component.
+     */
+    componentCapabilities?: Record<string, number[]>;
 }
 
 /**
@@ -87,6 +99,12 @@ interface GameSchemaView {
     registry(fullName: string): SchemaRegistry | undefined;
     /** A game enum by FullName. */
     enumeration(fullName: string): SchemaEnum | undefined;
+    /** The runtime kinds the game's component slots require, in bundle order. */
+    componentKinds(): readonly string[];
+    /** The kinds a game component rules class satisfies, as indices into `componentKinds`. */
+    componentCapabilities(fullName: string): readonly number[] | undefined;
+    /** The kinds a game class or interface satisfies through its ancestry, as indices into `componentKinds`. */
+    componentAncestry(fullName: string): readonly number[] | undefined;
 }
 
 /**
@@ -98,6 +116,9 @@ interface GameSchemaView {
 export const gameSchemaView = (bundle: SchemaBundle): GameSchemaView => ({
     type: (fullName) => bundle.types[fullName],
     registry: (fullName) => bundle.registries[fullName],
+    componentKinds: () => bundle.componentKinds ?? [],
+    componentCapabilities: (fullName) => bundle.componentCapabilities?.[fullName],
+    componentAncestry: (fullName) => bundle.componentAncestry?.[fullName],
     enumeration: (fullName) => bundle.enums[fullName],
 });
 
@@ -151,6 +172,10 @@ class ModSchemaExtractor {
     };
     /** Memo of the custom-read participation probe, which walks method bodies. */
     private readonly customReadMemo = new Map<string, boolean>();
+    /** The component slots and capabilities recovered from the mod's method bodies. */
+    private slots: ComponentSlotAnalysis = { slots: new Map(), capabilities: new Map() };
+    /** The kinds the mod requires beyond the game's, in the order they are numbered. */
+    private extraKinds: string[] = [];
 
     constructor(
         assemblies: readonly DotNetAssembly[],
@@ -171,10 +196,74 @@ class ModSchemaExtractor {
      * @returns the extension.
      */
     run(): ModSchemaExtension {
+        this.analyzeSlots();
         this.buildRegistries();
         this.buildTypes();
         this.prune();
+        this.emitCapabilities();
         return this.out;
+    }
+
+    /**
+     * Run the component-slot pass over the mod's bodies and number the kinds it needs that the
+     * game's list lacks, continuing that list so an index stays meaningful in the merged schema.
+     */
+    private analyzeSlots(): void {
+        const game = this.game;
+        this.slots = analyzeComponentSlots(this.modTypes, this.ownerOf, {
+            extendsOf: (fullName) => game.type(fullName)?.extends,
+            capabilitiesOf: (fullName) => game.componentCapabilities(fullName),
+            ancestryOf: (fullName) => game.componentAncestry(fullName),
+            kindNames: game.componentKinds(),
+        });
+        const known = new Set(game.componentKinds());
+        const extra = new Set<string>();
+        for (const slot of this.slots.slots.values()) if (!known.has(slot.kind)) extra.add(slot.kind);
+        for (const kinds of this.slots.capabilities.values()) for (const kind of kinds) if (!known.has(kind)) extra.add(kind);
+        this.extraKinds = [...extra].sort();
+        if (this.extraKinds.length > 0) this.out.componentKinds = [...this.extraKinds];
+    }
+
+    /**
+     * The index a kind name is written as, into the game's list continued by the mod's own.
+     *
+     * @param kind the kind FullName.
+     * @returns the index, or undefined for a kind neither list names.
+     */
+    private kindIndexOf(kind: string): number | undefined {
+        const gameKinds = this.game.componentKinds();
+        const inGame = gameKinds.indexOf(kind);
+        if (inGame >= 0) return inGame;
+        const inMod = this.extraKinds.indexOf(kind);
+        return inMod >= 0 ? gameKinds.length + inMod : undefined;
+    }
+
+    /**
+     * The runtime kind a slot has to hold, as the field records it.
+     *
+     * @param type the declaring type.
+     * @param name the field's serialized name.
+     * @returns the field's `expectedComponent`, or undefined when the pass has no answer.
+     */
+    private expectedComponentOf(type: TypeInfo, name: string): SchemaField['expectedComponent'] {
+        const slot = this.slots.slots.get(`${type.fullName}::${name}`);
+        if (!slot) return undefined;
+        const kind = this.kindIndexOf(slot.kind);
+        return kind === undefined ? undefined : { kind, enforcement: slot.throws ? 'throws' : 'silent' };
+    }
+
+    /**
+     * Write the capabilities of the component classes that survived the prune, the way schemagen
+     * scopes its own table to the types it emits.
+     */
+    private emitCapabilities(): void {
+        const out: Record<string, number[]> = {};
+        for (const fullName of Object.keys(this.out.types).sort()) {
+            const kinds = this.slots.capabilities.get(fullName);
+            if (!kinds) continue;
+            out[fullName] = kinds.map((kind) => this.kindIndexOf(kind)).filter((index): index is number => index !== undefined);
+        }
+        if (Object.keys(out).length > 0) this.out.componentCapabilities = out;
     }
 
     /**
@@ -594,6 +683,10 @@ class ModSchemaExtractor {
             };
             if (!explicitlyOptional) field.absentThrows = true;
             if (!this.voidAssignable(member.type)) field.nullable = false;
+            // The runtime kind of a component slot, recovered from the mod's own lookups (see
+            // component-slots.ts). Absent means the slot is one the pass refuses to judge.
+            const expectedComponent = this.expectedComponentOf(type, name);
+            if (expectedComponent) field.expectedComponent = expectedComponent;
             const aliases = named(serialize, 'AlternateAliases');
             if (Array.isArray(aliases) && aliases.length > 0) {
                 field.aliases = aliases.map((a) => String(a ?? ''));
@@ -624,6 +717,8 @@ class ModSchemaExtractor {
             if (read.name === 'Type' || emitted.has(read.name)) continue;
             emitted.add(read.name);
             const field: SchemaField = { name: read.name, valueType: this.mapType(read.type), optional: true };
+            const expectedComponent = this.expectedComponentOf(type, read.name);
+            if (expectedComponent) field.expectedComponent = expectedComponent;
             if (!this.voidAssignable(read.type)) field.nullable = false;
             out.push(field);
         }
@@ -841,7 +936,7 @@ class ModSchemaExtractor {
             (m) =>
                 m.isStatic &&
                 (m.name === 'op_Implicit' || m.name === 'op_Explicit') &&
-                NUMERIC_NAMES.has(shortOf(baseName(m.returnType) ?? ''))
+                NUMERIC_NAMES.has(shortNameOf(baseName(m.returnType) ?? ''))
         );
         if (constants.length >= 2 && !hasNumericConversion && type.name !== 'Angle') {
             this.registerEnum(fullName, type, constants.map((f) => f.name), true);
@@ -851,7 +946,7 @@ class ModSchemaExtractor {
             (m) =>
                 m.isConstructor &&
                 attrOf(m.attributes, OTCTOR) !== undefined &&
-                !m.parameters.some((p) => PLUMBING.has(shortOf(baseName(p.type) ?? '')))
+                !m.parameters.some((p) => PLUMBING.has(shortNameOf(baseName(p.type) ?? '')))
         );
         if (constructor) {
             return {
@@ -930,14 +1025,6 @@ const CURATED_VALUE_TYPES: Record<string, ValueType> = {
     IInputButton: { kind: 'list', element: { kind: 'enum', ref: 'Halfling.Input.ViKey', name: 'ViKey' } },
 };
 
-/** The short name of a FullName. */
-const shortOf = (fullName: string): string => {
-    const slash = fullName.lastIndexOf('/');
-    const tail = slash >= 0 ? fullName.slice(slash + 1) : fullName;
-    const dot = tail.lastIndexOf('.');
-    return dot >= 0 ? tail.slice(dot + 1) : tail;
-};
-
 /** The value kind of a .NET primitive. */
 const mapPrimitive = (fullName: string): ValueType => {
     switch (fullName) {
@@ -958,7 +1045,7 @@ const mapPrimitive = (fullName: string): ValueType => {
         case 'System.Double':
             return { kind: 'float' };
         default:
-            return { kind: 'opaque', type: shortOf(fullName) };
+            return { kind: 'opaque', type: shortNameOf(fullName) };
     }
 };
 
@@ -1010,7 +1097,7 @@ const nearestPrecedingString = (body: readonly Instruction[], from: number): str
 
 /** Whether a member carries the compiler's nullable-reference annotation for its own type. */
 const isNullableReference = (attributes: readonly CustomAttr[]): boolean => {
-    const nullable = attributes.find((a) => shortOf(a.typeFullName) === 'NullableAttribute');
+    const nullable = attributes.find((a) => shortNameOf(a.typeFullName) === 'NullableAttribute');
     const first = nullable?.ctorArgs[0];
     if (typeof first === 'number') return first === 2;
     if (Array.isArray(first)) return first[0] === 2;

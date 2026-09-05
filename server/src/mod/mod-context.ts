@@ -18,10 +18,12 @@ import { ActionSource } from './action';
 import { parseModActions } from './action-parser';
 import { normalizeTargetPath, resolveActionTarget } from './action-target-resolver';
 import { findModRoot } from './mod-root';
+import { overrideMembersOf } from './override-members';
 import { safeReaddir } from '../utils/fs.utils';
 import { isManifestBasename, isRulesPathSegment } from '../document/document-kind';
 import { ParserResultRegistrar } from '../registrar/parser-result-registrar';
 import { recordNavigationDep } from '../utils/navigation-deps';
+import { uriToFsPath } from '../features/navigation/workspace-files';
 
 const navigation = new FullNavigationStrategy();
 
@@ -291,16 +293,18 @@ const mergeAwareGlobals = (doc: { elements: AbstractNode[] }): [string, ActionSo
     return out;
 };
 
-/** The top-level members a whole-file Override merges in: an inline `{}` group's members, or (the
- *  dominant real-mod form) the top-level members of the file a `&<modfile>` source dereferences to. */
-const overrideMembers = async (source: ActionSource): Promise<[string, AbstractNode][]> => {
-    if (isGroupNode(source)) return namedMembersOf(source);
-    if (isValueNode(source) && source.valueType.type === 'Reference') {
-        const doc = await dereferenceSourceToDocument(source);
-        if (doc) return namedMembersOf(doc);
-    }
-    return [];
-};
+/**
+ * The top-level members a whole-file Override merges in: an inline `{}` group's members, or (the
+ * dominant real-mod form) the top-level members of the file a `&<modfile>` source dereferences to.
+ *
+ * @param source the action's source value.
+ * @returns the merged members as `[name, node]` pairs, nearest declaration first.
+ */
+const overrideMembers = (source: ActionSource): Promise<[string, AbstractNode][]> =>
+    overrideMembersOf(source, async (reference) => {
+        const doc = await dereferenceSourceToDocument(reference);
+        return doc ? namedMembersOf(doc) : [];
+    });
 
 /** Dereference a `&<file>` source value to that file's parsed document (or null). */
 const dereferenceSourceToDocument = async (source: ActionSource): Promise<AbstractNodeDocument | null> => {
@@ -335,7 +339,9 @@ const normFileKey = (p: string): string => p.replace(/\\/g, '/').toLowerCase();
 const fileKeyOfResolved = (resolved: AbstractNode | null | FileWithPath | undefined): string | null => {
     if (!resolved) return null;
     if (isFile(resolved as unknown as FileTree)) return normFileKey((resolved as FileWithPath).path);
-    if (isDocumentNode(resolved as AbstractNode)) return normFileKey((resolved as AbstractNodeDocument).uri);
+    // A document node carries a uri while the file form carries an OS path, and the same file has to
+    // key the same either way or a lookup answers nothing for a store the other form filled.
+    if (isDocumentNode(resolved as AbstractNode)) return normFileKey(uriToFsPath((resolved as AbstractNodeDocument).uri));
     return null;
 };
 

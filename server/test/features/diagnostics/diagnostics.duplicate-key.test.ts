@@ -20,7 +20,7 @@ describe('duplicate field diagnostics', () => {
     it('flags a field assigned twice in the same group', async () => {
         const error = await ValidationForGroupDuplicates.callback(firstGroup(parse('G\n{\n\tX = 1\n\tX = 2\n}\n')), token);
         expect(error?.message).toBe('Duplicate field "X"');
-        expect(error?.additionalInfo).toContain('only the last definition takes effect');
+        expect(error?.additionalInfo).toContain('the whole file fails to load');
     });
 
     it('flags two identified sub-groups with the same name', async () => {
@@ -40,8 +40,9 @@ describe('duplicate field diagnostics', () => {
         expect(await ValidationForGroupDuplicates.callback(firstGroup(parse('G\n{\n\tX = 1\n\tY = 2\n}\n')), token)).toBeUndefined();
     });
 
-    it('treats names case-sensitively (Foo and foo are distinct)', async () => {
-        expect(await ValidationForGroupDuplicates.callback(firstGroup(parse('G\n{\n\tFoo = 1\n\tfoo = 2\n}\n')), token)).toBeUndefined();
+    it('flags two names that differ only in case, which the game reads as one member', async () => {
+        const error = await ValidationForGroupDuplicates.callback(firstGroup(parse('G\n{\n\tFoo = 1\n\tfoo = 2\n}\n')), token);
+        expect(error?.message).toBe('Duplicate field "foo"');
     });
 
     it('does not flag repeated positional values in a list', async () => {

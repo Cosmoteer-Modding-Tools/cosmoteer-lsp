@@ -1,18 +1,17 @@
-import { CancellationToken, Range, TextEdit } from 'vscode-languageserver';
-import { TextDocument } from 'vscode-languageserver-textdocument';
+import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode } from '../../../core/ast/ast';
-import { enumDef, registryOf, requiredFieldsOf } from '../../../document/schema/schema';
-import { ValueType } from '../../../document/schema/schema.types';
+import { registryOf, requiredFieldsOf } from '../../../document/schema/schema';
 import { findModRoot } from '../../../mod/mod-root';
 import { globalSettings } from '../../../settings';
 import { parseText } from '../../../utils/ast.utils';
 import { fieldSnippet } from '../../completion/autocompletion.schema-fields';
-import { memberIndentAt } from '../../diagnostics/required-field-insert';
+import { memberIndentAt, placeholderValue } from '../../diagnostics/required-field-insert';
 import { ownerComponentRegistryOf } from '../../diagnostics/validator.schema-sibling';
 import { uriToFsPath } from '../../navigation/workspace-files';
 import { documentFor, openBuffers } from '../command-host';
 import { memberSpanOf } from '../shared-base/member-record';
 import { plainTextOf } from '../snippet-action';
+import { CreateComponentArgs, CreateComponentHost, CreateComponentResult } from './create-component.types';
 
 /**
  * The `workspace/executeCommand` id that declares a component a part or bullet references but does
@@ -34,95 +33,6 @@ const COMPONENTS = 'Components';
 
 /** The indentation one level deeper, which is what the game's own files are written with. */
 const INDENT = '\t';
-
-/** What the client sends: the reference that names nothing, and on the second round the kind it picked. */
-export interface CreateComponentArgs {
-    /** The file the reference is written in. */
-    uri: string;
-    /** The byte offset of the reference value in that file. */
-    offset: number;
-    /** The name the reference writes, which the declaration is keyed by. */
-    name: string;
-    /** The `Type` discriminator of the chosen kind. Absent means "report the kinds". */
-    type?: string;
-    /**
-     * Whether the server writes the declaration itself, in the plain form. A client that can place a
-     * tab stop leaves this off and writes the snippet the answer carries.
-     */
-    apply?: boolean;
-}
-
-/** Why nothing can be declared. */
-export type CreateComponentFailure =
-    /** The file cannot be read, or the offset no longer names anything. */
-    | 'stale'
-    /** The file declares no part or bullet whose components this would join. */
-    | 'noOwner'
-    /** The file belongs to the game's own install rather than to a mod. */
-    | 'notEditable'
-    /** The chosen kind is not one this owner declares components of. */
-    | 'unknownType'
-    /** A component of that name is already written in this file. */
-    | 'alreadyDeclared';
-
-/** One component kind the author may pick. */
-export interface ComponentTypeChoice {
-    /** The `Type` discriminator, which is what the declaration writes. */
-    type: string;
-    /** The class the discriminator selects, shown beside it. */
-    detail: string;
-}
-
-/** The text to write and the span it replaces, which the client turns into an edit or a snippet. */
-export interface CreateComponentInsert {
-    /** The file to write into. */
-    uri: string;
-    /** The span the text replaces, empty for a pure insertion. */
-    range: Range;
-    /** The declaration, with a tab stop on every value the author has to fill in. */
-    snippet: string;
-    /** The same declaration with its tab stops resolved, for a client that cannot place one. */
-    text: string;
-}
-
-/** What the command answers with, on either round. */
-export type CreateComponentResult =
-    | { choices: ComponentTypeChoice[] }
-    | { insert: CreateComponentInsert; applied?: boolean }
-    | { failure: CreateComponentFailure };
-
-/** The facilities the command reads the editor's buffers through. */
-export interface CreateComponentHost {
-    /** The editor's open buffers, whose unsaved text wins over disk. */
-    openDocuments(): readonly TextDocument[];
-    /** Hands the client the edit, for a client that asked the server to write the declaration. */
-    applyEdit(changes: Record<string, TextEdit[]>): Promise<boolean>;
-}
-
-/**
- * The literal a scaffolded field is written with, kept to the kinds that have one the game loads. A
- * group, a reference or an asset names something that has to exist, so those are written as an empty
- * tab stop for the author rather than guessed at.
- *
- * @param valueType the schema type of the field being scaffolded.
- * @returns the literal, or an empty string when the kind has none.
- */
-const placeholderValue = (valueType: ValueType): string => {
-    switch (valueType.kind) {
-        case 'bool':
-            return 'false';
-        case 'int':
-        case 'float':
-        case 'number':
-            return '0';
-        case 'string':
-            return '""';
-        case 'enum':
-            return enumDef(valueType.ref)?.members[0] ?? '';
-        default:
-            return '';
-    }
-};
 
 /**
  * The groups enclosing an offset, outermost first, so the walk can ask each level what it holds.
@@ -246,7 +156,8 @@ const declarationSnippet = (
     let stop = 0;
     for (const field of requiredFieldsOf(cls)) {
         if (field.name === 'Type') continue;
-        const value = `\${${++stop}:${placeholderValue(field.valueType)}}`;
+        // A kind with no literal the fix may invent is written as an empty tab stop for the author.
+        const value = `\${${++stop}:${placeholderValue(field.valueType) ?? ''}}`;
         for (const line of fieldSnippet(field.name, field.valueType, value).split('\n')) {
             lines.push(`${indent}${INDENT}${line}`);
         }

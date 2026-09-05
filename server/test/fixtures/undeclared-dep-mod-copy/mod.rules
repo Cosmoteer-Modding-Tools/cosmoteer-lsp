@@ -1,0 +1,14 @@
+// The same mod as `undeclared-dep-mod` in a second folder, the way a mod worked on in the mods
+// folder is also installed from the workshop. Same manifest id, so it is one mod, not a dependency.
+ID = "Test.UndeclaredDep"
+Name = "Undeclared Dependency Fixture"
+Version = 1.0
+
+Actions
+[
+	{ Action = Add
+	  AddTo = <cosmoteer.rules>
+	  Name = UNDECLARED_USES
+	  ToAdd = &<uses.rules>
+	  CreateIfNotExisting = true }
+]

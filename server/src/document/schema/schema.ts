@@ -63,6 +63,10 @@ interface AppliedModKeys {
     registries: string[];
     /** Discriminators added to a game registry, as `[registry, discriminator]`. */
     members: Array<[string, string]>;
+    /** How many kinds the mod appended to the game's `componentKinds`. */
+    kinds: number;
+    /** The component classes whose capabilities the mod added. */
+    capabilities: string[];
 }
 let appliedModKeys: AppliedModKeys | undefined;
 
@@ -90,11 +94,13 @@ export const extendSchemaWithMods = (extension: ModSchemaExtension | undefined):
         for (const fullName of appliedModKeys.enums) delete schema.enums[fullName];
         for (const fullName of appliedModKeys.registries) delete schema.registries[fullName];
         for (const [registryName, disc] of appliedModKeys.members) delete schema.registries[registryName]?.members[disc];
+        if (appliedModKeys.kinds > 0 && schema.componentKinds) schema.componentKinds.length -= appliedModKeys.kinds;
+        for (const fullName of appliedModKeys.capabilities) delete schema.componentCapabilities?.[fullName];
     }
     appliedModExtension = extension;
     appliedModKeys = undefined;
     if (extension) {
-        const applied: AppliedModKeys = { types: new Set(), enums: [], registries: [], members: [] };
+        const applied: AppliedModKeys = { types: new Set(), enums: [], registries: [], members: [], kinds: 0, capabilities: [] };
         for (const [fullName, type] of Object.entries(extension.types)) {
             if (schema.types[fullName]) continue;
             schema.types[fullName] = type;
@@ -118,6 +124,18 @@ export const extendSchemaWithMods = (extension: ModSchemaExtension | undefined):
                 registry.members[disc] = cls;
                 applied.members.push([registryName, disc]);
             }
+        }
+        // The mod's kinds continue the game's list, which is what its indices were numbered
+        // against, so they can only ever be appended in order and cut off again as a block.
+        const extraKinds = extension.componentKinds ?? [];
+        if (extraKinds.length > 0) {
+            schema.componentKinds = [...(schema.componentKinds ?? []), ...extraKinds];
+            applied.kinds = extraKinds.length;
+        }
+        for (const [fullName, kinds] of Object.entries(extension.componentCapabilities ?? {})) {
+            if (schema.componentCapabilities?.[fullName]) continue;
+            (schema.componentCapabilities ??= {})[fullName] = kinds;
+            applied.capabilities.push(fullName);
         }
         appliedModKeys = applied;
     }
@@ -153,6 +171,10 @@ export const modSchemaSignature = (): string => {
     }
     for (const [name, members] of Object.entries(extension.registryMembers)) {
         parts.push(`M ${name} ${Object.keys(members).join(',')}`);
+    }
+    if (extension.componentKinds?.length) parts.push(`K ${extension.componentKinds.join(',')}`);
+    for (const [name, kinds] of Object.entries(extension.componentCapabilities ?? {})) {
+        parts.push(`C ${name} ${kinds.join(',')}`);
     }
     return parts.sort().join('|');
 };

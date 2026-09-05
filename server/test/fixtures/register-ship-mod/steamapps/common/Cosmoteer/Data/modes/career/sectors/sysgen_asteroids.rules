@@ -1,0 +1,29 @@
+// Stands in for the game's asteroid spawner: the size ladder and the two type lists a mod's entries
+// are added to.
+Type = None
+SubSpawners
+[
+	{
+		Type = Doodads
+		Count = [125, 150]
+		Distance = [0, 19000]
+		Tags = [asteroid]
+		DoodadTypes = &~/CommonAsteroidTypes
+	}
+]
+
+CommonChance = 1
+RareChance = 1/16
+SChance = 1
+MChance = 1/2
+LChance = 1/4
+XLChance = 1/8
+XXLChance = 1/16
+CommonAsteroidTypes
+[
+	{ Type=cosmoteer.asteroid_iron_s;       ChanceWeight=(&~/CommonChance)*(&~/SChance); }
+]
+
+RareAsteroidTypes
+[
+]

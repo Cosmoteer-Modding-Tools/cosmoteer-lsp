@@ -1,0 +1,62 @@
+// Stands in for the game's planet spawner: the lists a mod's planet is offered to.
+Type = None
+SubSpawners
+[
+	: ~/InnerPlanet
+	{
+		Count = [1, 2]
+		Distance = [0, 6000]
+	}
+	: ~/OuterPlanet
+	{
+		Count = [3, 4]
+		Distance = [15000, 30000]
+	}
+]
+
+InnerPlanet
+{
+	Type = Doodads
+	Tags = [planet]
+	ScaleFactor = .75
+	DoodadTypes
+	[
+		cosmoteer.planet_rocky
+	]
+	SubSpawners
+	[
+		{
+			Type = Doodads
+			Count = [0, 1]
+			Distance = [1000, 2000]
+			ScaleFactor = .25
+			DoodadTypes
+			[
+				cosmoteer.planet_rocky
+			]
+		}
+	]
+}
+
+OuterPlanet
+{
+	Type = Doodads
+	Tags = [planet]
+	DoodadTypes
+	[
+		cosmoteer.planet_gas
+	]
+	SubSpawners
+	[
+		{
+			Type = Doodads
+			Count = [0, 3]
+			Distance = [1000, 4000]
+			ScaleFactor = .5
+			DoodadTypes
+			[
+				cosmoteer.planet_rocky
+			]
+		}
+	]
+}

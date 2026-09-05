@@ -96,17 +96,38 @@ export const authorPrefixOf = (manifestId: string | undefined): string | undefin
 /**
  * The id a created file declares.
  *
+ * The gui registry kinds carry ids of their own shape. A toolbar category and a stat line are named
+ * by the Pascal-case label the game's own files use (`Structure`, `CrewRequired`), and neither is
+ * author-prefixed anywhere in the corpus. A toggle id and its choice ids share one global table with
+ * every other mod's, so that one carries the author segment joined by an underscore, the way the
+ * installed mods write theirs (`cd_combat_mode`).
+ *
+ * A buff is the Pascal-case member name of the buff map, which is how the game (`Engine`,
+ * `Overclock`) and the mods that add buffs write theirs, with no author segment. A codex page id is
+ * the plain lower-case name, the spelling of the game's own `nebulas` and the mods' `merchant_raiders`.
+ *
  * @param kind the content kind, which decides whether the id is dotted.
  * @param prefix the mod's author segment, absent when the manifest declares no dotted id.
  * @param fileName the normalized file name.
  * @returns the id, or the empty string for a kind that declares none.
  */
 export const contentIdFor = (kind: ContentKind, prefix: string | undefined, fileName: string): string => {
-    if (!ID_CLASS_OF_KIND[kind]) return '';
-    // A resource is named by a bare word everywhere the game reads one, `Resources [ [steel, 24] ]`
-    // included, so prefixing it would name a resource that no part can ask for.
-    if (kind === 'resource') return fileName;
-    return prefix ? `${prefix}.${fileName}` : fileName;
+    switch (kind) {
+        case 'editorGroup':
+        case 'partStat':
+        case 'buff':
+            return localizationLabelOf(fileName);
+        case 'partToggle':
+            return prefix ? `${prefix}_${fileName}` : fileName;
+        // A resource is named by a bare word everywhere the game reads one, `Resources [ [steel, 24] ]`
+        // included, so prefixing it would name a resource that no part can ask for.
+        case 'resource':
+        case 'codexPage':
+            return fileName;
+        default:
+            if (!ID_CLASS_OF_KIND[kind]) return '';
+            return prefix ? `${prefix}.${fileName}` : fileName;
+    }
 };
 
 /**
@@ -114,8 +135,11 @@ export const contentIdFor = (kind: ContentKind, prefix: string | undefined, file
  * accepts is the one `isRulesFileName` names, `.txt` included, because mods really do declare whole
  * parts in a `.txt` file and an id declared there takes its slot like any other. The readme and
  * changelog that filter drops are prose a modder wrote for the reader, which declares nothing.
+ *
+ * @param root the directory to walk.
+ * @returns the files' on-disk paths, forward slashes.
  */
-const rulesFilesUnder = (root: string): string[] => {
+export const rulesFilesUnder = (root: string): string[] => {
     const files: string[] = [];
     const walk = (dir: string, depth: number): void => {
         let entries: Dirent[];

@@ -189,6 +189,18 @@ describe('localization key insertion edit', () => {
         const text = `Misc\n{\n\tOkay = "Okay"\n}\n`;
         expect(insertEditForFile(parse(text, uri), text, 'Misc/Okay')).toBeNull();
     });
+
+    it('adds a leaf to a nested group in front of its indented closing brace', () => {
+        const text = `Lore\n{\n\tX\n\t{\n\t\tTitle = "T"\n\t}\n}\n`;
+        const edit = insertEditForFile(parse(text, uri), text, 'Lore/X/Lore1')!;
+        expect(applyInsert(text, edit)).toBe(`Lore\n{\n\tX\n\t{\n\t\tTitle = "T"\n\t\tLore1 = ""\n\t}\n}\n`);
+    });
+
+    it('gives a nested group whose brace shares a line with its members a line of its own', () => {
+        const text = `Lore\n{\n\tX { Title = "T" }\n}\n`;
+        const edit = insertEditForFile(parse(text, uri), text, 'Lore/X/Lore1')!;
+        expect(applyInsert(text, edit)).toBe(`Lore\n{\n\tX { Title = "T" \n\t\tLore1 = ""\n\t}\n}\n`);
+    });
 });
 
 describe('insert into all the mod’s language files', () => {

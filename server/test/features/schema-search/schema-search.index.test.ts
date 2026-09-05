@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { extendSchemaWithMods, schema } from '../../../src/document/schema/schema';
 import { ModSchemaExtension } from '../../../src/features/mod-schema/extract';
 import {
-    SchemaSearchEntry,
     fieldEntryId,
     schemaSearchEntries,
     schemaSearchEntryById,
 } from '../../../src/features/schema-search/schema-search.index';
+import { SchemaSearchEntry } from '../../../src/features/schema-search/schema-search.types';
 
 const isPositional = (name: string): boolean => /^\d+$/.test(name);
 

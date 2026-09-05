@@ -3,10 +3,10 @@ import { CodeAction, CodeActionKind } from 'vscode-languageserver/node';
 import { extractValueCodeAction } from '../../features/refactor/extract-value';
 import { inlineValueCodeAction } from '../../features/refactor/inline-value';
 import { makeModifiableCodeActions } from '../../features/refactor/make-modifiable';
-import {
-    CREATE_COMPONENT_ACTION_COMMAND,
-    CreateComponentArgs,
-} from '../../features/refactor/create-component/create-component.command';
+import { selfRootReferenceCodeAction } from '../../features/refactor/self-root-reference';
+import { sortMembersCodeAction } from '../../features/refactor/sort-members';
+import { CREATE_COMPONENT_ACTION_COMMAND } from '../../features/refactor/create-component/create-component.command';
+import { CreateComponentArgs } from '../../features/refactor/create-component/create-component.types';
 import { extractGroupCodeAction } from '../../features/refactor/extract-group/extract-group.codeaction';
 import { extractLocalizationKeyCodeAction } from '../../features/refactor/extract-localization-key';
 import { extractSharedBaseCodeActions } from '../../features/refactor/shared-base/extract-shared-base.codeaction';
@@ -96,6 +96,29 @@ export function register(): void {
                             params.textDocument.uri
                         )
                     );
+                // A reference naming its own file: offer the `~` form, which says the same thing and
+                // keeps saying it after the file is renamed.
+                if (document) {
+                    const selfRooted = await selfRootReferenceCodeAction(
+                        parserResult,
+                        document,
+                        params.range.start,
+                        params.textDocument.uri,
+                        cancellationToken
+                    ).catch(() => undefined);
+                    if (selfRooted) actions.push(selfRooted);
+                }
+                // A group whose every member the schema knows: offer to write them in the order the
+                // class declares, so a mod file reads next to the game's own.
+                if (document) {
+                    const sorted = sortMembersCodeAction(
+                        parserResult,
+                        document,
+                        document.offsetAt(params.range.start),
+                        params.textDocument.uri
+                    );
+                    if (sorted) actions.push(sorted);
+                }
             }
             // The shared-base extraction creates a file and rewrites every file that will inherit it, so
             // it is offered as a command rather than an edit (see extract-shared-base.codeaction.ts).

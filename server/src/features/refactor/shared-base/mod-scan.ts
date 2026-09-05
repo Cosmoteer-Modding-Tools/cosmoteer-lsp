@@ -1,4 +1,5 @@
 import { readFile } from 'fs/promises';
+import { resolve } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { parseText } from '../../../utils/ast.utils';
 import { foldPathCase, onFsInvalidation } from '../../../workspace/fs-cache';
@@ -69,10 +70,55 @@ const clearAll = (): void => {
     plansInFlight.clear();
 };
 
-onFsInvalidation(clearAll);
+/**
+ * The cache key of a path, in one spelling whatever the caller wrote: the watcher hands over a
+ * path decoded from a uri, the walk hands over what the directory listing produced, and the two
+ * differ in slashes and case on Windows.
+ *
+ * @param fsPath the path to key.
+ * @returns the resolved, forward-slashed, case-folded key.
+ */
+const pathKey = (fsPath: string): string => foldPathCase(resolve(fsPath).replace(/\\/g, '/'));
+
+/**
+ * Forgets what one changed file contributed, and nothing else. Its own facts are dropped, so the
+ * next walk re-reads that file alone. The merged sets and plans of every mod the file lies in are
+ * dropped too, since they were summed from it, but the re-merge is a pass over the memoized facts
+ * of the mod's other files, not a re-read of them. The listing of every directory above it is
+ * dropped as well, because a created or deleted file changes what the walk finds there.
+ *
+ * The base files are still forgotten wholesale: they are few, and a changed base changes what
+ * every plan landing on it would say.
+ *
+ * @param fsPath the on-disk path of the file that changed.
+ */
+const invalidatePath = (fsPath: string): void => {
+    epoch++;
+    clearBaseFileCache();
+    const key = pathKey(fsPath);
+    const under = (candidate: string): boolean => key === candidate || key.startsWith(`${candidate}/`);
+    for (const entry of [...candidateCache.keys()]) {
+        if (entry.startsWith(`${key}|`)) candidateCache.delete(entry);
+    }
+    for (const cache of [listingCache, scopeCandidateCache, modPlanCache, candidatesInFlight, plansInFlight]) {
+        for (const entry of [...cache.keys()]) {
+            if (under(entry)) cache.delete(entry);
+        }
+    }
+};
+
+onFsInvalidation((fsPath) => (fsPath === undefined ? clearAll() : invalidatePath(fsPath)));
 
 /** Drop every memoized file, so a test or a settings change starts from a clean slate. */
 export const clearSharedBaseScanCache = (): void => clearAll();
+
+/**
+ * The mod's plans when they are already computed, without starting the walk that computes them.
+ *
+ * @param modRoot the mod's root directory.
+ * @returns the memoized plans, or undefined when no finished walk has produced them yet.
+ */
+export const modPlansIfBuilt = (modRoot: string): ExtractionPlan[] | undefined => modPlanCache.get(pathKey(modRoot));
 
 /**
  * Everything one file on disk contributes to the analysis, read in a single pass and memoized for as
@@ -91,7 +137,7 @@ export const fileFactsForPath = async (
 ): Promise<FileFacts> => {
     const empty: FileFacts = { candidates: [], baseIdentities: [], baseLocations: new Map() };
     if (cancellationToken.isCancellationRequested) return empty;
-    const key = `${foldPathCase(fsPath)}|${foldPathCase(anchorDir)}`;
+    const key = `${pathKey(fsPath)}|${pathKey(anchorDir)}`;
     const cached = candidateCache.get(key);
     if (cached) return cached;
     let facts: FileFacts;
@@ -118,7 +164,7 @@ export const fileFactsForPath = async (
  * @returns the paths, ascending.
  */
 export const rulesFilesUnder = async (dir: string, cancellationToken: CancellationToken): Promise<string[]> => {
-    const key = foldPathCase(dir);
+    const key = pathKey(dir);
     const cached = listingCache.get(key);
     if (cached) return cached;
     const files: string[] = [];
@@ -151,7 +197,7 @@ export const modFacts = (
     inScope: ((fsPath: string) => boolean) | undefined,
     cancellationToken: CancellationToken
 ): Promise<ModFacts> => {
-    const key = foldPathCase(modRoot);
+    const key = pathKey(modRoot);
     const cached = scopeCandidateCache.get(key);
     if (cached) return Promise.resolve(cached);
     const running = candidatesInFlight.get(key);
@@ -211,7 +257,7 @@ export const modPlans = (
     inScope: ((fsPath: string) => boolean) | undefined,
     cancellationToken: CancellationToken
 ): Promise<ExtractionPlan[]> => {
-    const key = foldPathCase(modRoot);
+    const key = pathKey(modRoot);
     const cached = modPlanCache.get(key);
     if (cached) return Promise.resolve(cached);
     const running = plansInFlight.get(key);

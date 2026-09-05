@@ -1,0 +1,17 @@
+TradeShips
+{
+	fringe_3a : ~/BaseTradeShip { ShipID="Courier"; Faction=fringe; TierRange=[1, 9]; StasisSpeed=50; StasisTradeTime=40; }
+}
+
+BaseTradeShip
+{
+	AI = TradeShip
+	RandomWeight = 1
+	EmptyTileChance = 40%
+	ResourcesCarried
+	[
+		{ ResourceType=steel;                 RandomWeight=40; RandomQuantity=[75%, 100%]; }
+	]
+}
+
+Techs = &<techs.rules>/Techs

@@ -1,0 +1,7 @@
+// Stands in for the game's buff map, a group keyed by buff id that a mod merges into with an Overrides.
+Engine
+{
+	CombineMode = Max
+	BaseValue = 100%
+}
+Overclock {}

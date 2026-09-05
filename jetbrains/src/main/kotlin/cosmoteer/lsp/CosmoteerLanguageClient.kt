@@ -11,6 +11,7 @@ import com.intellij.openapi.project.Project
 import com.redhat.devtools.lsp4ij.client.LanguageClientImpl
 import cosmoteer.settings.CosmoteerSettings
 import cosmoteer.settings.CosmoteerSettingsConfigurable
+import cosmoteer.table.PartTableService
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest
 import java.util.concurrent.CompletableFuture
@@ -18,7 +19,9 @@ import java.util.concurrent.CompletableFuture
 /**
  * Answers the server's `workspace/configuration` pulls from the plugin settings and handles the
  * custom requests and notifications the server sends: `cosmoteer/openSettings` when the game path
- * is missing, and `cosmoteer/workspaceValidated` after a whole-mod validation pass.
+ * is missing, `cosmoteer/workspaceValidated` after a whole-mod validation pass,
+ * `cosmoteer/partTableChanged` when a file change made the last part table stale, and
+ * `cosmoteer/partTableProgress` while a part table is being read.
  */
 class CosmoteerLanguageClient(private val ijProject: Project) : LanguageClientImpl(ijProject) {
     private val gson = Gson()
@@ -86,5 +89,27 @@ class CosmoteerLanguageClient(private val ijProject: Project) : LanguageClientIm
                 })
                 .notify(ijProject)
         }
+    }
+
+    /**
+     * Passes on that a file change made the last part table stale. The server sends it after such
+     * a change, and the page asks for the table again when it hears it.
+     *
+     * @param params the server's notice, carrying nothing the page needs.
+     */
+    @JsonNotification("cosmoteer/partTableChanged")
+    fun partTableChanged(params: Any?) {
+        PartTableService.getInstance(ijProject).notifyChanged()
+    }
+
+    /**
+     * Passes on how far the server's walk over the parts has come, so the page can say which part
+     * it is reading while a large mod takes its seconds.
+     *
+     * @param params the parts read and the parts in all.
+     */
+    @JsonNotification("cosmoteer/partTableProgress")
+    fun partTableProgress(params: PartTableProgress) {
+        PartTableService.getInstance(ijProject).notifyProgress(params.done, params.total)
     }
 }

@@ -1,0 +1,19 @@
+Terran
+{
+	ID = cosmoteer.terran
+
+	Parts
+	[
+		&<corridor/corridor.rules>/Part
+		&<laser/laser.rules>/Part
+		&<thruster/thruster.rules>/Part
+		&<storage/storage.rules>/Part
+		&<crew_quarters/crew_quarters.rules>/Part
+		&<armor/armor.rules>/Part
+	]
+
+	Doors
+	[
+		&<door/door.rules>
+	]
+}

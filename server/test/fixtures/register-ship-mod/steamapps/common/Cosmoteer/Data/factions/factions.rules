@@ -1,0 +1,17 @@
+Factions
+[
+	{
+		ID = fringe
+		NameKey = "Factions/Fringe"
+		BorderColor = [127, 127, 127, 127]
+		MilitaryPlayerIndex = 400
+		CivilianPlayerIndex = 401
+	}
+	{
+		ID = cabal
+		NameKey = "Factions/Cabal"
+		BorderColor = [255, 237, 102]
+		MilitaryPlayerIndex = 200
+		CivilianPlayerIndex = 201
+	}
+]

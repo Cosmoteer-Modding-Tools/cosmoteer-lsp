@@ -9,10 +9,13 @@ import {
     endStatSweepWindow,
     saveIndexCache,
     saveProjectCache,
+    saveTextGate,
     statProjectFiles,
     sweepRulesFiles,
+    TextGateEntry,
     tryLoadIndexCache,
     tryLoadProjectCache,
+    tryLoadTextGate,
 } from '../../workspace/index-cache';
 import { MentionIndex } from './mention.index';
 import { filePathToUri } from './navigation-strategy';
@@ -51,6 +54,11 @@ export abstract class WatchedDocumentIndex {
     /** This index's slot name in the persistent game-tree cache, or undefined when it doesn't
      *  participate (an index whose scope excludes the game tree must not, see {@link buildTogether}). */
     public readonly cacheId: string | undefined = undefined;
+
+    /** The persisted text gate this index's {@link acceptsText} answers belong to, or undefined when
+     *  it takes every file. Indexes sharing one id must reject exactly the same texts, since a file
+     *  one of them rejected in an earlier session is not read for any of them in the next. */
+    public readonly textGateId: string | undefined = undefined;
 
     /**
      * Serializes this index's current state for the persistent game-tree cache. Called only while
@@ -232,13 +240,73 @@ export abstract class WatchedDocumentIndex {
      */
     protected async buildFromProject(folderPaths: string[], progress?: WorkDoneProgressReporter): Promise<void> {
         let count = 0;
-        const acceptText = (file: string, text: string): boolean => this.acceptsText(filePathToUri(file), text);
-        for await (const document of projectDocuments(folderPaths, CancellationToken.None, { acceptText })) {
+        const gate = await WatchedDocumentIndex.textGateFor([this], folderPaths);
+        const acceptText = (file: string, text: string): boolean => {
+            const accepted = this.acceptsText(filePathToUri(file), text);
+            if (!accepted) gate?.noteRejected(file);
+            return accepted;
+        };
+        const options = { acceptText, skipFile: gate?.skipFile };
+        for await (const document of projectDocuments(folderPaths, CancellationToken.None, options)) {
             await this.indexDocument(document, CancellationToken.None);
             progress?.report(`${++count} files`);
         }
         await this.finishBuild(progress);
         this.buildCompleted();
+        await gate?.save();
+    }
+
+    /**
+     * The persisted text gate of a build, when every index of it answers the same gate. The files
+     * an earlier session's gate rejected are skipped before they are read as long as their on-disk
+     * identity is unchanged, and the rejections of this build are written back afterwards.
+     *
+     * @param indexes the indexes the build walks for.
+     * @param folderPaths the folders the build walks.
+     * @returns the gate's three hooks, or undefined when the build has no shared gate to use.
+     */
+    private static async textGateFor(
+        indexes: WatchedDocumentIndex[],
+        folderPaths: string[]
+    ): Promise<
+        | { skipFile: (file: string) => boolean; noteRejected: (file: string) => void; save: () => Promise<void> }
+        | undefined
+    > {
+        const gateIds = new Set(indexes.map((index) => index.textGateId));
+        const gateId = gateIds.size === 1 ? [...gateIds][0] : undefined;
+        const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+        if (!gateId || !dataRoot) return undefined;
+        const rejected = new Map<string, { size: number; mtimeMs: number }>();
+        for (const [path, size, mtimeMs] of await tryLoadTextGate(dataRoot, gateId)) {
+            rejected.set(normalizeUri(path), { size, mtimeMs });
+        }
+        const current = new Map<string, { path: string; size: number; mtimeMs: number }>();
+        for (const folder of folderPaths) {
+            for (const { path, size, mtimeMs } of await sweepRulesFiles(uriToFsPath(folder))) {
+                current.set(normalizeUri(path), { path, size, mtimeMs });
+            }
+        }
+        const next = new Map<string, TextGateEntry>();
+        let changed = false;
+        return {
+            skipFile: (file) => {
+                const key = normalizeUri(file);
+                const stamp = current.get(key);
+                const known = rejected.get(key);
+                if (!stamp || !known || known.size !== stamp.size || known.mtimeMs !== stamp.mtimeMs) return false;
+                next.set(key, [stamp.path, stamp.size, stamp.mtimeMs]);
+                return true;
+            },
+            noteRejected: (file) => {
+                const stamp = current.get(normalizeUri(file));
+                if (!stamp) return;
+                next.set(normalizeUri(file), [stamp.path, stamp.size, stamp.mtimeMs]);
+                changed = true;
+            },
+            save: async () => {
+                if (changed || next.size !== rejected.size) await saveTextGate(dataRoot, gateId, [...next.values()]);
+            },
+        };
     }
 
     /**
@@ -335,6 +403,7 @@ export abstract class WatchedDocumentIndex {
         const liveFolders = folderPaths.filter((folder) => !isDataRoot(folder));
         const liveFolderPaths = liveFolders.map((folder) => uriToFsPath(folder));
         let count = 0;
+        const gate = await WatchedDocumentIndex.textGateFor(pending, folderPaths);
         const indexAll = async (folders: string[], diskOnly: boolean): Promise<void> => {
             if (folders.length === 0 && diskOnly) return;
             // The walk has every disk file's raw text in hand anyway. Feeding it to the mention
@@ -350,12 +419,16 @@ export abstract class WatchedDocumentIndex {
                 const identity = identityByKey.get(normalizeUri(file));
                 if (identity) MentionIndex.instance.ingestDiskText(file, identity.size, identity.mtimeMs, text);
             };
-            const acceptText = (file: string, text: string): boolean =>
-                pending.some((index) => index.acceptsText(filePathToUri(file), text));
+            const acceptText = (file: string, text: string): boolean => {
+                const accepted = pending.some((index) => index.acceptsText(filePathToUri(file), text));
+                if (!accepted) gate?.noteRejected(file);
+                return accepted;
+            };
             for await (const document of projectDocuments(folders, CancellationToken.None, {
                 diskOnly,
                 onDiskText,
                 acceptText,
+                skipFile: gate?.skipFile,
             })) {
                 for (const index of pending) await index.indexDocument(document, CancellationToken.None);
                 progress.report(`${++count} files`);
@@ -435,6 +508,7 @@ export abstract class WatchedDocumentIndex {
             await saveProjectCache(dataRoot!, liveFolderPaths, stamps, states);
         }
         for (const index of pending) index.buildCompleted();
+        await gate?.save();
     }
 
     /**

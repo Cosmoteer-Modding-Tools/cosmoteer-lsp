@@ -1,6 +1,7 @@
 import { AbstractNodeDocument, ListNode } from '../../../core/ast/ast';
 import { findActionsList } from '../../../mod/action-parser';
 import { namedMembersOf } from '../../../utils/ast.utils';
+import { indentOfLineAt } from '../../../utils/text.utils';
 import { relativeRulesReference } from '../shared-base/base-file.emitter';
 
 /**
@@ -17,7 +18,7 @@ const ACTIONS_MEMBER = 'actions';
 const DEFAULT_INDENT = '\t';
 
 /** Where a new action entry goes in a manifest, and what is written around it. */
-type ManifestInsert =
+export type ManifestInsert =
     | {
           /** `append` puts the entry in the existing `Actions` list, `createList` writes a fresh one. */
           readonly kind: 'append' | 'createList';
@@ -48,7 +49,13 @@ export const shipPartsTargetPath = (dataRoot: string, shipFsPath: string, groupN
     relativeRulesReference(dataRoot, shipFsPath, `${groupName}/Parts`);
 
 /**
- * One `AddMany` action entry, adding a single reference to a list.
+ * One `AddMany` action entry, adding a reference to a list.
+ *
+ * The game reads `ManyToAdd` as an array and appends each of its elements as it is. A reference to
+ * one entry (`&<file>/Part`, or a whole file that is one entry) is therefore listed, `ManyToAdd [ … ]`,
+ * while a reference to a list of entries (`&<file>/Ships`) is assigned, `ManyToAdd = …`, so the list
+ * itself is the array and its entries are what get appended. Listing a list-valued reference would
+ * append the list as one entry, which the game cannot read as the entry type.
  *
  * `CreateIfNotExisting` and `IgnoreIfNotExisting` are left out: both default to false, which is what
  * this action wants, and a target the ship does not have is a mistake worth an error rather than a
@@ -58,9 +65,42 @@ export const shipPartsTargetPath = (dataRoot: string, shipFsPath: string, groupN
  * @param sourceRef the reference to add, sigil included, resolved against the manifest's directory.
  * @param indent the indentation the entry's own lines carry.
  * @param lineEnding the ending the manifest already uses, so the entry matches it.
+ * @param wholeList true when the reference names a list whose entries are all added.
  * @returns the entry's text, with no trailing line ending.
  */
 export const addManyActionText = (
+    target: string,
+    sourceRef: string,
+    indent: string,
+    lineEnding: '\n' | '\r\n' = '\n',
+    wholeList = false
+): string =>
+    [
+        `${indent}{`,
+        `${indent}\tAction = AddMany`,
+        `${indent}\tAddTo = "${target}"`,
+        wholeList ? `${indent}\tManyToAdd = ${sourceRef}` : `${indent}\tManyToAdd [ ${sourceRef} ]`,
+        `${indent}}`,
+    ].join(lineEnding);
+
+/**
+ * One `Overrides` action entry, merging the members of a referenced group into a target group.
+ *
+ * This is the verb a map-shaped registry takes, the buff map being one: `AddMany` and a nameless
+ * `Add` both throw at load on anything but a `[]` list, and `Overrides` is what every mod in the
+ * corpus writes to add buffs. The game walks the source's members by name, replacing a member the
+ * target already has and appending the rest, so a file holding one new member adds exactly that
+ * member. The replacement half is why a caller checks the source's names against the registry
+ * first, since a member named like a vanilla one would silently take its place.
+ *
+ * @param target the game-root path of the group the members are merged into.
+ * @param sourceRef the reference to the group holding them, sigil included, resolved against the
+ * manifest's directory.
+ * @param indent the indentation the entry's own lines carry.
+ * @param lineEnding the ending the manifest already uses, so the entry matches it.
+ * @returns the entry's text, with no trailing line ending.
+ */
+export const overridesActionText = (
     target: string,
     sourceRef: string,
     indent: string,
@@ -68,30 +108,21 @@ export const addManyActionText = (
 ): string =>
     [
         `${indent}{`,
-        `${indent}\tAction = AddMany`,
-        `${indent}\tAddTo = "${target}"`,
-        `${indent}\tManyToAdd [ ${sourceRef} ]`,
+        `${indent}\tAction = Overrides`,
+        `${indent}\tOverrideIn = "${target}"`,
+        `${indent}\tOverrides = ${sourceRef}`,
         `${indent}}`,
     ].join(lineEnding);
 
-/** The whitespace the line holding an offset begins with. */
-const indentOfLineAt = (text: string, offset: number): string => {
-    let start = offset;
-    while (start > 0 && text[start - 1] !== '\n') start--;
-    let end = start;
-    while (end < text.length && (text[end] === ' ' || text[end] === '\t')) end++;
-    return text.slice(start, end);
-};
-
 /** The byte offset of a list's opening bracket, or -1 when the text does not hold one. */
-const openerOffset = (text: string, list: ListNode): number => {
+export const openerOffset = (text: string, list: ListNode): number => {
     if (text[list.position.start] === '[') return list.position.start;
     const from = list.identifier ? list.identifier.position.end : list.position.start;
     return text.indexOf('[', from);
 };
 
 /** The byte offset of a list's closing bracket, or -1 when the span is not as recorded. */
-const closerOffset = (text: string, list: ListNode): number =>
+export const closerOffset = (text: string, list: ListNode): number =>
     text[list.position.end - 1] === ']' ? list.position.end - 1 : -1;
 
 /**

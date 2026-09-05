@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, stat, writeFile } from 'fs/promises';
 import { dirname } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { CancellationError } from '../../utils/cancellation';
+import { stringLiteralEnd } from '../../utils/text.utils';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { cacheArtifactPath, currentServerBuildId, sweepRulesFiles } from '../../workspace/index-cache';
 import { normalizeUri } from './reference-location';
@@ -36,34 +37,9 @@ const commentSpansOf = (text: string): Array<[number, number]> => {
     let i = 0;
     while (i < text.length) {
         const char = text[i];
-        if (char === '@' && text[i + 1] === '"') {
-            i += 2;
-            while (i < text.length) {
-                if (text[i] === '"') {
-                    if (text[i + 1] === '"') {
-                        i += 2;
-                        continue;
-                    }
-                    i++;
-                    break;
-                }
-                i++;
-            }
-            continue;
-        }
-        if (char === '"') {
-            i++;
-            while (i < text.length) {
-                if (text[i] === '\\') {
-                    i += 2;
-                    continue;
-                }
-                if (text[i] === '"') {
-                    i++;
-                    break;
-                }
-                i++;
-            }
+        const literalEnd = stringLiteralEnd(text, i);
+        if (literalEnd !== undefined) {
+            i = literalEnd;
             continue;
         }
         if (char === '/' && text[i + 1] === '/') {
@@ -173,6 +149,9 @@ const prefixOf = (folder: string): string => normalizeUri(uriToFsPath(folder)).r
  *  edits) can get. One sweep per interval is far cheaper than the per-query sweep it replaced. */
 const FULL_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 
+/** How many distinct tokens the candidate memo remembers before starting over. */
+const MENTION_MEMO_CAP = 4096;
+
 /** One indexed file: its on-disk identity (to detect changes) and its distinct lower-cased words. */
 interface IndexedFile {
     path: string;
@@ -266,6 +245,12 @@ export class MentionIndex {
     /** Bumped whenever an indexed file's words change, so a consumer can key a memo of its own
      *  derived answers on it and drop them the moment any file's content moved. */
     private contentRevision = 0;
+
+    /** The candidate key sets answered per token, valid for one content revision. */
+    private mentionMemo: { revision: number; byNeedle: Map<string, Set<string>> } = {
+        revision: -1,
+        byNeedle: new Map(),
+    };
 
     private constructor() {}
 
@@ -372,11 +357,8 @@ export class MentionIndex {
         for (const token of tokens) {
             const needle = token.toLowerCase();
             const tokenKeys = new Set<string>();
-            for (const [word, sources] of this.byWord) {
-                if (!word.includes(needle)) continue;
-                for (const key of sources) {
-                    if (!keys || keys.has(key)) tokenKeys.add(key);
-                }
+            for (const key of this.keysMentioning(needle)) {
+                if (!keys || keys.has(key)) tokenKeys.add(key);
             }
             keys = tokenKeys;
             if (keys.size === 0) break;
@@ -392,6 +374,32 @@ export class MentionIndex {
             paths.push(file.path);
         }
         return paths;
+    }
+
+    /**
+     * The keys of every file whose word table holds a word containing `needle`. The word table is
+     * scanned in full for it, one substring test per distinct word of the whole game and workspace,
+     * and a scan asks the same question once per file that names an id, so the answer is kept
+     * until the index changes. The memo holds the union sets themselves, which the caller only
+     * reads.
+     *
+     * @param needle the lower-cased token to look for.
+     * @returns the keys of the files mentioning it.
+     */
+    private keysMentioning(needle: string): Set<string> {
+        if (this.mentionMemo.revision !== this.contentRevision) {
+            this.mentionMemo = { revision: this.contentRevision, byNeedle: new Map() };
+        }
+        const remembered = this.mentionMemo.byNeedle.get(needle);
+        if (remembered) return remembered;
+        const keys = new Set<string>();
+        for (const [word, sources] of this.byWord) {
+            if (!word.includes(needle)) continue;
+            for (const key of sources) keys.add(key);
+        }
+        if (this.mentionMemo.byNeedle.size >= MENTION_MEMO_CAP) this.mentionMemo.byNeedle.clear();
+        this.mentionMemo.byNeedle.set(needle, keys);
+        return keys;
     }
 
     /**
@@ -490,16 +498,7 @@ export class MentionIndex {
         // up within the interval instead of never.
         const fullSweepDue = Date.now() - this.lastFullSweepMs > FULL_SWEEP_INTERVAL_MS;
         if (this.watcherDriven && this.fullSyncDone && !fullSweepDue) {
-            // A running sync empties the dirty set before its updates are applied, so an empty
-            // set alone does not mean the index is current: wait out the in-flight sync first.
-            if (this.syncPromise) await this.syncPromise.catch(() => undefined);
-            if (this.dirty.size === 0) return;
-            if (!this.syncPromise) {
-                this.syncPromise = this.syncDirtyFiles(cancellationToken).finally(() => {
-                    this.syncPromise = undefined;
-                });
-            }
-            await this.syncPromise;
+            await this.syncDirty(cancellationToken);
             return;
         }
         if (!this.syncPromise) {
@@ -592,8 +591,15 @@ export class MentionIndex {
                     onDisk.push({ key, path, size, mtimeMs });
                 }
             }
+            // A file the sweep did not see has vanished only if the sweep looked where it lives. The
+            // persisted seed holds every folder the last session covered, workshop included, while
+            // the first sweep of a session covers the folders bound so far. Dropping the rest here
+            // made every start re-read the whole workshop once the scan grew coverage to it.
+            const sweptPrefixes = folderPaths.map(prefixOf);
+            const swept = (key: string): boolean =>
+                sweptPrefixes.some((prefix) => key === prefix || key.startsWith(`${prefix}/`));
             for (const key of [...this.files.keys()]) {
-                if (!seen.has(key)) this.removeSource(key);
+                if (!seen.has(key) && swept(key)) this.removeSource(key);
             }
             const changed = onDisk.filter(({ key, size, mtimeMs }) => {
                 const known = this.files.get(key);
@@ -679,12 +685,8 @@ export class MentionIndex {
                     if (word !== undefined) readWords.push(word);
                 }
                 this.files.set(key, { path, size, mtimeMs, words, readWords });
-                for (const word of words) {
-                    (this.byWord.get(word) ?? this.byWord.set(word, new Set()).get(word)!).add(key);
-                }
-                for (const word of readWords) {
-                    (this.byReadWord.get(word) ?? this.byReadWord.set(word, new Set()).get(word)!).add(key);
-                }
+                MentionIndex.addSources(this.byWord, words, key);
+                MentionIndex.addSources(this.byReadWord, readWords, key);
             }
         } catch {
             /* no cache or unreadable, the full read builds it fresh */
@@ -752,14 +754,29 @@ export class MentionIndex {
             path: meta.path,
             size: meta.size,
             mtimeMs: meta.mtimeMs,
-            words: [...words],
-            readWords: [...readWords],
+            words: Array.from(words),
+            readWords: Array.from(readWords),
         });
+        MentionIndex.addSources(this.byWord, words, meta.key);
+        MentionIndex.addSources(this.byReadWord, readWords, meta.key);
+    }
+
+    /**
+     * Records one file under each of its words. One lookup per word: a first-ever build inserts
+     * millions of pairs, and the look-up-then-insert-then-look-up-again form did three.
+     *
+     * @param table the word table to add to.
+     * @param words the file's words.
+     * @param key the file's normalized key.
+     */
+    private static addSources(table: Map<string, Set<string>>, words: Iterable<string>, key: string): void {
         for (const word of words) {
-            (this.byWord.get(word) ?? this.byWord.set(word, new Set()).get(word)!).add(meta.key);
-        }
-        for (const word of readWords) {
-            (this.byReadWord.get(word) ?? this.byReadWord.set(word, new Set()).get(word)!).add(meta.key);
+            let sources = table.get(word);
+            if (!sources) {
+                sources = new Set();
+                table.set(word, sources);
+            }
+            sources.add(key);
         }
     }
 

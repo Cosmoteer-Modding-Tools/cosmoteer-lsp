@@ -1,0 +1,12 @@
+// A file naming itself by name, which the `~` rewrite is offered on.
+Root
+{
+	Leaf = 5
+}
+User
+{
+	Value = &<self.rules>/Root/Leaf
+	Elsewhere = &<other.rules>/Other/Leaf
+	Whole = &<self.rules>
+	Missing = &<self.rules>/NoSuchThing
+}

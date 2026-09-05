@@ -129,6 +129,26 @@ export const isDeclaredDependency = (declared: ReadonlySet<string>, identity: Mo
 export const dependencyTokenOf = (identity: ModIdentity): string | undefined =>
     identity.publishedFileId ?? identity.manifestId;
 
+/**
+ * Whether two mod roots are the same mod, which two folders can be: a mod worked on in the mods
+ * folder is usually installed from the workshop as well, and an id it declares itself resolves into
+ * whichever copy the walk reached first. The manifest id is what the game binds a mod by, so two
+ * roots writing the same one are one mod, and the published file id says the same thing for two
+ * copies of one workshop item. The display name decides only where neither id is written, since a
+ * name is the one thing every manifest carries.
+ *
+ * @param a one mod's identity.
+ * @param b the other mod's identity.
+ * @returns true when both identities name the same mod.
+ */
+export const isSameMod = (a: ModIdentity, b: ModIdentity): boolean => {
+    const same = (left?: string, right?: string) =>
+        left !== undefined && right !== undefined && left.toLowerCase() === right.toLowerCase();
+    if (same(a.manifestId, b.manifestId) || same(a.publishedFileId, b.publishedFileId)) return true;
+    const neitherHasAnId = !a.manifestId && !b.manifestId && !a.publishedFileId && !b.publishedFileId;
+    return neitherHasAnId && same(a.name, b.name);
+};
+
 /** The manifest a dependency is written into: plain `mod.rules` when there is one, else the first. */
 const primaryManifestOf = (modRoot: string): string | undefined => {
     const paths = manifestPathsIn(modRoot);

@@ -1,0 +1,12 @@
+Part : <../base_part_terran.rules>/Part
+{
+	ID = cosmoteer.laser
+	NameKey = "Parts/Laser"
+	Size = [2, 2]
+	MaxHealth = 800
+	TypeCategories = [weapon, uses_power]
+	Resources
+	[
+		[steel, 40]
+	]
+}

@@ -150,7 +150,10 @@ wrote .../cosmoteer.schema.json (1199 KB)
   recovers that `T` and emits it on the field as `expectedComponent: { kind, enforcement }`, an index
   into the bundle's `componentKinds`. Beside it, `componentCapabilities` records which of those kinds
   each component class satisfies, read from the single `newobj` in its `CreateComponent` override, so
-  the language server needs no C# type graph of its own. `enforcement` is `throws` when the call site
+  the language server needs no C# type graph of its own. `componentAncestry` records, for every game
+  class and interface that satisfies at least one kind, which kinds its ancestry satisfies, so the
+  server's own extraction of a code mod can judge a mod component that derives from a game class or
+  interface without reading the game's assemblies. `enforcement` is `throws` when the call site
   is `GetComponent`, which fails the part load, and `silent` when it is only `TryGetComponent`.
   Deliberately refused, because the game's own files contradict them: the blueprint and wreck
   containers, the rules-level `is IBlueprintComponentToggle` shape, a kind stated as a generic

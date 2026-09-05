@@ -1,0 +1,4 @@
+ID = relic
+NameKey = "Resource/Relic"
+BuyPrice = 500
+MaxStackSize = 0

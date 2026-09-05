@@ -21,123 +21,20 @@ import {
     readUserString,
     shortestFloat32,
 } from './dotnet-metadata';
-
-/** A type as a signature names it. Named types carry the FullName the schema keys types by. */
-export type TypeSig =
-    | { kind: 'primitive'; fullName: string; name: string }
-    | { kind: 'named'; fullName: string; name: string; valueType: boolean; localRow?: number }
-    | { kind: 'generic'; fullName: string; name: string; args: TypeSig[]; localRow?: number }
-    | { kind: 'array'; element: TypeSig }
-    | { kind: 'typeParam'; name: string }
-    | { kind: 'unknown'; name: string };
-
-/** A decoded custom-attribute argument. A `Type`-valued argument keeps the referenced type's name. */
-export type AttrValue = boolean | number | string | AttrValue[] | { typeName: string } | null | undefined;
-
-/** One custom attribute applied to a type or member. */
-export interface CustomAttr {
-    /** FullName of the attribute class. */
-    readonly typeFullName: string;
-    /** Positional constructor arguments, in declaration order. */
-    readonly ctorArgs: AttrValue[];
-    /** Named field and property arguments. */
-    readonly named: ReadonlyMap<string, AttrValue>;
-}
-
-/** A field declared by a type. */
-export interface FieldInfo {
-    readonly name: string;
-    readonly isStatic: boolean;
-    /** True for a compile-time constant, which is how enum members are stored. */
-    readonly isLiteral: boolean;
-    readonly isPublic: boolean;
-    readonly type: TypeSig;
-    readonly attributes: readonly CustomAttr[];
-    /** The compile-time constant value, present on literal fields (an enum member's number). */
-    readonly constant?: number | string | boolean;
-}
-
-/** A property declared by a type. */
-export interface PropertyInfo {
-    readonly name: string;
-    readonly type: TypeSig;
-    readonly attributes: readonly CustomAttr[];
-}
-
-/** One decoded IL instruction, limited to the operand shapes the extraction reads. */
-export interface Instruction {
-    /** The opcode, with a two-byte `0xfe` prefix folded into the high byte. */
-    readonly opcode: number;
-    /** The inline operand, decoded per opcode: a number, a metadata token, or a string literal. */
-    readonly operand?: number | string;
-}
-
-/** A method declared by a type. */
-export interface MethodInfo {
-    readonly name: string;
-    readonly isConstructor: boolean;
-    readonly isStatic: boolean;
-    readonly attributes: readonly CustomAttr[];
-    readonly parameters: readonly { readonly name: string; readonly type: TypeSig }[];
-    readonly returnType: TypeSig;
-    /** The method's IL, decoded lazily because most methods are never inspected. */
-    body(): readonly Instruction[];
-}
-
-/** A type defined in the assembly. */
-export interface TypeInfo {
-    /** The `TypeDef` row, which is this type's identity within the assembly. */
-    readonly row: number;
-    /** Cecil-style FullName: `Namespace.Name`, with a nested type joined to its declarer by `/`. */
-    readonly fullName: string;
-    readonly name: string;
-    readonly namespace: string;
-    readonly isAbstract: boolean;
-    readonly isInterface: boolean;
-    readonly isEnum: boolean;
-    readonly isValueType: boolean;
-    /** The base class as a signature, absent for interfaces and `System.Object`. */
-    readonly baseType?: TypeSig;
-    readonly interfaces: readonly TypeSig[];
-    readonly attributes: readonly CustomAttr[];
-    readonly fields: readonly FieldInfo[];
-    readonly properties: readonly PropertyInfo[];
-    readonly methods: readonly MethodInfo[];
-}
-
-/** A parsed mod assembly. */
-export interface DotNetAssembly {
-    /** The file it was read from. */
-    readonly path: string;
-    /** The assembly's simple name, as its manifest declares it. */
-    readonly name: string;
-    readonly types: readonly TypeInfo[];
-    /** Every declared type by FullName, so a base reference inside the assembly resolves. */
-    readonly typeByFullName: ReadonlyMap<string, TypeInfo>;
-    /**
-     * The field name a field-access instruction's token points at.
-     *
-     * @param token the instruction's metadata token.
-     * @returns the field's name, or undefined when the token names something else.
-     */
-    fieldNameOfToken(token: number): string | undefined;
-    /**
-     * The method a call instruction's token points at.
-     *
-     * @param token the instruction's metadata token.
-     * @returns the method's name, its declaring type's FullName when known, and the generic
-     *          arguments a generic call was instantiated with, or undefined for an unreadable token.
-     */
-    callTargetOfToken(token: number): CallTarget | undefined;
-}
-
-/** What a `call` or `callvirt` instruction targets. */
-interface CallTarget {
-    readonly name: string;
-    readonly declaringType?: string;
-    /** The instantiation of a generic method call, empty for a non-generic one. */
-    readonly genericArgs: readonly TypeSig[];
-}
+import {
+    AttrValue,
+    CallTarget,
+    CustomAttr,
+    DotNetAssembly,
+    FieldInfo,
+    FieldRef,
+    Instruction,
+    MethodFrame,
+    MethodInfo,
+    PropertyInfo,
+    TypeInfo,
+    TypeSig,
+} from './dotnet-assembly.types';
 
 /** Element type codes of ECMA-335 II.23.1.16 that map to a .NET primitive. */
 const PRIMITIVES: Record<number, string> = {
@@ -176,7 +73,7 @@ const ELEMENT_CMOD_OPT = 0x20;
 const ELEMENT_PINNED = 0x45;
 
 /** The short name of a FullName: the segment after the last `.`, or after a nested-type `/`. */
-const shortNameOf = (fullName: string): string => {
+export const shortNameOf = (fullName: string): string => {
     const slash = fullName.lastIndexOf('/');
     const tail = slash >= 0 ? fullName.slice(slash + 1) : fullName;
     const dot = tail.lastIndexOf('.');
@@ -245,6 +142,8 @@ class AssemblyReader {
             types,
             typeByFullName,
             fieldNameOfToken: (token) => this.fieldNameOfToken(token),
+            fieldOfToken: (token) => this.fieldOfToken(token),
+            typeOfToken: (token) => this.typeOfToken(token),
             callTargetOfToken: (token) => this.callTargetOfToken(token),
         };
     }
@@ -260,6 +159,44 @@ class AssemblyReader {
         if (table === TABLE.Field) return readString(this.image, readColumn(this.image, TABLE.Field, row, 1));
         if (table === TABLE.MemberRef) return readString(this.image, readColumn(this.image, TABLE.MemberRef, row, 1));
         return undefined;
+    }
+
+    /**
+     * Resolve a field-access instruction's target together with the type declaring it, whether the
+     * field is declared here or imported.
+     *
+     * @param token the instruction's metadata token.
+     * @returns the field, or undefined when the token names no field.
+     */
+    private fieldOfToken(token: number): FieldRef | undefined {
+        const { table, row } = tokenParts(token);
+        if (table === TABLE.Field) {
+            return {
+                name: readString(this.image, readColumn(this.image, TABLE.Field, row, 1)),
+                declaringType: this.typeDefNames.get(this.ownerOfMember(row, 4)),
+            };
+        }
+        if (table === TABLE.MemberRef) {
+            const parent = decodeCodedIndex('MemberRefParent', readColumn(this.image, TABLE.MemberRef, row, 0));
+            const declaring = parent ? this.typeRefSig(parent.table, parent.row) : undefined;
+            return {
+                name: readString(this.image, readColumn(this.image, TABLE.MemberRef, row, 1)),
+                declaringType: declaring && 'fullName' in declaring ? declaring.fullName : undefined,
+            };
+        }
+        return undefined;
+    }
+
+    /**
+     * Resolve the type a token names, as a cast or an array construction carries one.
+     *
+     * @param token the instruction's metadata token.
+     * @returns the type signature, or undefined when the token names no type.
+     */
+    private typeOfToken(token: number): TypeSig | undefined {
+        const { table, row } = tokenParts(token);
+        if (table !== TABLE.TypeDef && table !== TABLE.TypeRef && table !== TABLE.TypeSpec) return undefined;
+        return this.typeRefSig(table, row);
     }
 
     /**
@@ -284,19 +221,29 @@ class AssemblyReader {
             row = method.row;
         }
         if (table === TABLE.MethodDef) {
+            const signature = this.readMethodSig(readBlob(this.image, readColumn(this.image, TABLE.MethodDef, row, 4)));
             return {
                 name: readString(this.image, readColumn(this.image, TABLE.MethodDef, row, 3)),
-                declaringType: this.typeDefNames.get(this.declaringTypeOf(row)),
+                declaringType: this.typeDefNames.get(this.ownerOfMember(row, 5)),
+                declaringArgs: [],
                 genericArgs,
+                hasThis: signature.hasThis,
+                parameters: signature.params,
+                returnType: signature.returnType,
             };
         }
         if (table === TABLE.MemberRef) {
             const parent = decodeCodedIndex('MemberRefParent', readColumn(this.image, TABLE.MemberRef, row, 0));
             const declaring = parent ? this.typeRefSig(parent.table, parent.row) : undefined;
+            const signature = this.readMethodSig(readBlob(this.image, readColumn(this.image, TABLE.MemberRef, row, 2)));
             return {
                 name: readString(this.image, readColumn(this.image, TABLE.MemberRef, row, 1)),
                 declaringType: declaring && 'fullName' in declaring ? declaring.fullName : undefined,
+                declaringArgs: declaring?.kind === 'generic' ? declaring.args : [],
                 genericArgs,
+                hasThis: signature.hasThis,
+                parameters: signature.params,
+                returnType: signature.returnType,
             };
         }
         return undefined;
@@ -550,7 +497,8 @@ class AssemblyReader {
             const blob = readBlob(image, readColumn(image, TABLE.MethodDef, row, 4));
             const signature = this.readMethodSig(blob);
             const paramNames = this.readParamNames(row);
-            let decoded: readonly Instruction[] | undefined;
+            let decoded: DecodedBody | undefined;
+            const decode = (): DecodedBody => (decoded ??= this.readBody(rva));
             return {
                 name,
                 isConstructor: name === '.ctor' || name === '.cctor',
@@ -561,7 +509,8 @@ class AssemblyReader {
                     type,
                 })),
                 returnType: signature.returnType,
-                body: () => (decoded ??= this.readBody(rva)),
+                body: () => decode().instructions,
+                frame: () => decode().frame,
             };
         });
     }
@@ -584,9 +533,9 @@ class AssemblyReader {
      * Parse a method signature blob into its parameter and return types.
      *
      * @param blob the signature.
-     * @returns the return type and positional parameter types.
+     * @returns the return type, the positional parameter types and whether an instance is passed.
      */
-    private readMethodSig(blob: Buffer): { params: TypeSig[]; returnType: TypeSig } {
+    private readMethodSig(blob: Buffer): { params: TypeSig[]; returnType: TypeSig; hasThis: boolean } {
         const reader = new BlobReader(blob, 0, blob.length);
         const convention = reader.byte();
         // A generic method's signature declares its arity before the parameter count.
@@ -595,7 +544,7 @@ class AssemblyReader {
         const returnType = this.readTypeSig(reader);
         const params: TypeSig[] = [];
         for (let i = 0; i < count && reader.hasMore; i++) params.push(this.readTypeSig(reader));
-        return { params, returnType };
+        return { params, returnType, hasThis: (convention & 0x20) !== 0 };
     }
 
     /**
@@ -651,8 +600,10 @@ class AssemblyReader {
                 };
             }
             case ELEMENT_VAR:
-            case ELEMENT_MVAR:
-                return { kind: 'typeParam', name: `T${reader.compressedUInt()}` };
+            case ELEMENT_MVAR: {
+                const position = reader.compressedUInt();
+                return { kind: 'typeParam', name: `T${position}`, position, ofMethod: code === ELEMENT_MVAR };
+            }
             case ELEMENT_FNPTR:
                 return { kind: 'unknown', name: 'fnptr' };
             default:
@@ -729,9 +680,21 @@ class AssemblyReader {
      * @returns the declaring TypeDef row, or 0 when none owns it.
      */
     private declaringTypeOf(methodRow: number): number {
+        return this.ownerOfMember(methodRow, 5);
+    }
+
+    /**
+     * The TypeDef row owning a member row, read from the TypeDef list column that starts each type's
+     * run of that member kind.
+     *
+     * @param memberRow the Field or MethodDef row.
+     * @param listColumn the TypeDef column holding the first row of the run, 4 for fields and 5 for methods.
+     * @returns the owning TypeDef row, 0 when none starts at or before the member.
+     */
+    private ownerOfMember(memberRow: number, listColumn: number): number {
         const typeCount = this.image.rowCounts[TABLE.TypeDef];
         for (let row = typeCount; row >= 1; row--) {
-            if (readColumn(this.image, TABLE.TypeDef, row, 5) <= methodRow) return row;
+            if (readColumn(this.image, TABLE.TypeDef, row, listColumn) <= memberRow) return row;
         }
         return 0;
     }
@@ -886,33 +849,97 @@ class AssemblyReader {
     }
 
     /**
-     * Decode a method body's instruction stream.
+     * Decode a method body: its instruction stream, how many locals its header declares, and where
+     * its exception handlers begin.
      *
      * @param rva the method's relative virtual address, 0 for an abstract or external method.
-     * @returns the instructions, empty when the method has no readable body.
+     * @returns the decoded body, empty when the method has no readable body.
      */
-    private readBody(rva: number): Instruction[] {
-        if (rva === 0) return [];
+    private readBody(rva: number): DecodedBody {
+        const empty: DecodedBody = { instructions: [], frame: { locals: 0, handlerStarts: [] } };
+        if (rva === 0) return empty;
         const start = this.image.rvaToOffset(rva);
-        if (start === undefined) return [];
+        if (start === undefined) return empty;
         const buffer = this.image.buffer;
         const first = buffer[start];
         let codeStart: number;
         let codeSize: number;
+        let locals = 0;
+        let moreSections = false;
         if ((first & 0x03) === 0x02) {
             codeStart = start + 1;
             codeSize = first >> 2;
         } else if ((first & 0x03) === 0x03) {
-            const headerSize = (buffer.readUInt16LE(start) >> 12) * 4;
+            const flags = buffer.readUInt16LE(start);
+            const headerSize = (flags >> 12) * 4;
             codeSize = buffer.readUInt32LE(start + 4);
             codeStart = start + headerSize;
+            locals = this.localCountOf(buffer.readUInt32LE(start + 8));
+            moreSections = (flags & 0x08) !== 0;
         } else {
-            return [];
+            return empty;
         }
         const end = Math.min(codeStart + codeSize, buffer.length);
-        return decodeInstructions(this.image, buffer, codeStart, end);
+        const instructions = decodeInstructions(this.image, buffer, codeStart, end);
+        const handlerStarts = moreSections ? readHandlerStarts(buffer, end) : [];
+        return { instructions, frame: { locals, handlerStarts } };
+    }
+
+    /**
+     * How many locals a body's local signature declares.
+     *
+     * @param token the header's local variable signature token, 0 when the body declares none.
+     * @returns the count.
+     */
+    private localCountOf(token: number): number {
+        if (token === 0) return 0;
+        const { table, row } = tokenParts(token);
+        if (table !== TABLE.StandAloneSig || row < 1 || row > this.image.rowCounts[TABLE.StandAloneSig]) return 0;
+        const blob = readBlob(this.image, readColumn(this.image, TABLE.StandAloneSig, row, 0));
+        if (blob.length === 0 || blob[0] !== 0x07) return 0;
+        const reader = new BlobReader(blob, 1, blob.length);
+        return reader.compressedUInt();
     }
 }
+
+/** A decoded method body, the instructions and the frame around them. */
+interface DecodedBody {
+    readonly instructions: readonly Instruction[];
+    readonly frame: MethodFrame;
+}
+
+/**
+ * Read the exception-handling sections that follow a fat body's code, collecting where each
+ * handler and filter begins. A section is either small, twelve bytes per clause, or fat, twenty-four.
+ *
+ * @param buffer the file.
+ * @param codeEnd one past the last byte of the code.
+ * @returns the handler and filter start offsets, relative to the code.
+ */
+const readHandlerStarts = (buffer: Buffer, codeEnd: number): number[] => {
+    const starts: number[] = [];
+    let at = (codeEnd + 3) & ~3;
+    for (;;) {
+        if (at + 4 > buffer.length) break;
+        const kind = buffer[at];
+        if ((kind & 0x01) === 0) break;
+        const fat = (kind & 0x40) !== 0;
+        const size = fat ? buffer.readUInt32LE(at) >>> 8 : buffer[at + 1];
+        const clauseSize = fat ? 24 : 12;
+        const count = Math.floor((size - 4) / clauseSize);
+        for (let index = 0; index < count; index++) {
+            const clause = at + 4 + index * clauseSize;
+            if (clause + clauseSize > buffer.length) break;
+            const flags = fat ? buffer.readUInt32LE(clause) : buffer.readUInt16LE(clause);
+            const handler = fat ? buffer.readUInt32LE(clause + 12) : buffer.readUInt16LE(clause + 7);
+            starts.push(handler);
+            if ((flags & 0x01) !== 0) starts.push(buffer.readUInt32LE(clause + (fat ? 20 : 8)));
+        }
+        if ((kind & 0x80) === 0) break;
+        at += size;
+    }
+    return starts;
+};
 
 /** Operand widths of the single-byte opcodes, by opcode. A `-1` marks the variable-width switch. */
 const OPERAND_SIZE = new Int8Array(256).fill(0);
@@ -980,6 +1007,7 @@ const decodeInstructions = (image: MetadataImage, buffer: Buffer, start: number,
     const out: Instruction[] = [];
     let at = start;
     while (at < end) {
+        const offset = at - start;
         let opcode = buffer[at++];
         let size: number;
         if (opcode === 0xfe) {
@@ -993,8 +1021,13 @@ const decodeInstructions = (image: MetadataImage, buffer: Buffer, start: number,
         if (size === -1) {
             if (at + 4 > end) break;
             const cases = buffer.readUInt32LE(at);
+            const next = at + 4 + cases * 4 - start;
+            const targets: number[] = [];
+            for (let index = 0; index < cases && at + 8 + index * 4 <= end; index++) {
+                targets.push(next + buffer.readInt32LE(at + 4 + index * 4));
+            }
             at += 4 + cases * 4;
-            out.push({ opcode });
+            out.push({ opcode, offset, targets });
             continue;
         }
         let operand: number | string | undefined;
@@ -1005,17 +1038,27 @@ const decodeInstructions = (image: MetadataImage, buffer: Buffer, start: number,
             if (opcode === OPCODE_LDSTR) operand = readUserString(image, raw & 0x00ffffff);
             else if (opcode === OPCODE_LDC_R4) operand = shortestFloat32(at + 4 <= end ? buffer.readFloatLE(at) : 0);
             else if (opcode === OPCODE_LDC_I4) operand = raw | 0;
+            else if (LONG_BRANCH_OPCODES.has(opcode)) operand = at + 4 - start + (raw | 0);
             else operand = raw;
         } else if (size === 8) {
             if (opcode === OPCODE_LDC_R8) operand = at + 8 <= end ? buffer.readDoubleLE(at) : 0;
             else if (opcode === OPCODE_LDC_I8) operand = at + 8 <= end ? Number(buffer.readBigInt64LE(at)) : 0;
         }
         if (opcode === OPCODE_LDC_I4_S && typeof operand === 'number') operand = operand > 0x7f ? operand - 0x100 : operand;
-        out.push(size === 0 ? { opcode } : { opcode, operand });
+        // A short branch names its target by a signed byte relative to the next instruction.
+        if (SHORT_BRANCH_OPCODES.has(opcode) && typeof operand === 'number') {
+            operand = at + 1 - start + (operand > 0x7f ? operand - 0x100 : operand);
+        }
+        out.push(size === 0 ? { opcode, offset } : { opcode, offset, operand });
         at += Math.max(0, size);
     }
     return out;
 };
+
+/** The short branches, `br.s` through `blt.un.s` and `leave.s`, whose operand is a signed byte. */
+const SHORT_BRANCH_OPCODES = new Set([...Array.from({ length: 13 }, (_unused, index) => 0x2b + index), 0xde]);
+/** The long branches, `br` through `blt.un` and `leave`, whose operand is a signed 32-bit offset. */
+const LONG_BRANCH_OPCODES = new Set([...Array.from({ length: 13 }, (_unused, index) => 0x38 + index), 0xdd]);
 
 /** The opcodes the extraction matches on, exported so callers do not repeat the numbers. */
 export const OPCODES = {

@@ -10,8 +10,8 @@ import {
     isValueNode,
 } from '../../core/ast/ast';
 import { AutoCompletion, Completion } from './autocompletion.service';
-import { registryForGroup, resolveGroupClass } from '../../document/schema/schema-context';
-import { documentRootClass, documentRootRegistry } from '../../document/schema/document-root';
+import { documentScopeClass, registryForGroup, resolveGroupClass } from '../../document/schema/schema-context';
+import { documentRootRegistry } from '../../document/schema/document-root';
 import { enumDef, fieldOf } from '../../document/schema/schema';
 import { acceptedMembersAt } from '../../document/schema/refused-enum-values';
 import { SchemaField, SchemaRegistry, ValueType } from '../../document/schema/schema.types';
@@ -107,7 +107,7 @@ export const fieldOfAssignedNode = async (
     const parent = node.parent;
     if (!parent) return undefined;
     if (isDocumentNode(parent)) {
-        const cls = documentRootClass(parent);
+        const cls = documentScopeClass(parent);
         const fieldName = fieldNameOf(parent.elements, node);
         return cls && fieldName ? fieldOf(cls, fieldName) : undefined;
     }

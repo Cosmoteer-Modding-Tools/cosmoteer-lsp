@@ -1,53 +1,29 @@
 package cosmoteer.actions
 
 import com.google.gson.JsonArray
-import com.google.gson.JsonElement
 import com.google.gson.JsonObject
-import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
-import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
-import com.redhat.devtools.lsp4ij.LanguageServerManager
 import com.redhat.devtools.lsp4ij.commands.LSPCommand
-import com.redhat.devtools.lsp4ij.commands.LSPCommandAction
 import cosmoteer.lsp.commandResultOf
-import cosmoteer.preview.ShaderPreviewService
-import org.eclipse.lsp4j.ExecuteCommandParams
-import java.util.concurrent.CompletableFuture
+import cosmoteer.lsp.failureCode
 
 /**
  * Handles the command the server's "override this in my mod" refactoring carries, so the offer in the
  * editor runs here rather than on the server.
  *
- * LSP4IJ resolves a command against the language server first and only looks for an action of the same
- * id when the server does not claim it, which is why the server deliberately leaves this one out of its
- * `executeCommandProvider`. It has to run here because which mod the override belongs in is a choice
- * only the author can make. The action id in `plugin.xml` must stay exactly the command id the server
- * writes into the code action.
+ * It has to run here because which mod the override belongs in is a choice only the author can make.
  */
-class OverrideInModCommandAction : LSPCommandAction() {
-    override fun getCommandPerformedThread(): ActionUpdateThread = ActionUpdateThread.EDT
-
+class OverrideInModCommandAction : CosmoteerCommandAction("cosmoteer.overrideInMod", "Cosmoteer override in mod") {
     override fun commandPerformed(command: LSPCommand, event: AnActionEvent) {
         val project = event.project ?: return
         val args = argumentsOf(command) ?: return
         // No mod in the arguments is what tells the server to report the candidates rather than to
         // write anything.
-        executeCommand(project, args).thenAccept { result -> offerMods(project, args, result) }
-    }
-
-    /**
-     * The refactoring arguments the code action carried, as a tree this action can add the chosen mod to.
-     *
-     * @param command the command as it arrived.
-     * @returns a mutable copy of the argument object, or null when the command carried none.
-     */
-    private fun argumentsOf(command: LSPCommand): JsonObject? {
-        val raw = command.originalArguments?.firstOrNull() ?: command.arguments.firstOrNull()
-        return (raw as? JsonElement)?.takeIf { it.isJsonObject }?.asJsonObject?.deepCopy()
+        execute(project, args).thenAccept { result -> offerMods(project, args, result) }
     }
 
     /**
@@ -70,7 +46,7 @@ class OverrideInModCommandAction : LSPCommandAction() {
                 )
                 return@invokeLater
             }
-            val failure = scan.get("failure")?.takeIf { !it.isJsonNull }?.asString
+            val failure = scan.failureCode()
             if (failure != null) {
                 notify(project, failureMessage(failure), NotificationType.WARNING)
                 return@invokeLater
@@ -112,7 +88,7 @@ class OverrideInModCommandAction : LSPCommandAction() {
             } else {
                 args.addProperty("shape", "inline")
             }
-            executeCommand(project, args).thenAccept { applied -> report(project, applied) }
+            execute(project, args).thenAccept { applied -> report(project, applied) }
         }
     }
 
@@ -128,23 +104,6 @@ class OverrideInModCommandAction : LSPCommandAction() {
         val already = if (candidate.get("alreadyOverridden")?.asBoolean == true) " (already overridden)" else ""
         return "$name  ->  $manifest$already"
     }
-
-    /**
-     * Runs the command on the project's language server, which owns the edit so that both clients
-     * share one implementation.
-     *
-     * @param project the project whose server is asked.
-     * @param arguments the single argument object the command takes.
-     * @returns the raw `workspace/executeCommand` result, null when no server is running.
-     */
-    private fun executeCommand(project: Project, arguments: JsonObject): CompletableFuture<Any?> =
-        LanguageServerManager.getInstance(project)
-            .getLanguageServer(ShaderPreviewService.SERVER_ID)
-            .thenCompose { item ->
-                item?.server?.workspaceService
-                    ?.executeCommand(ExecuteCommandParams(COMMAND, listOf(arguments)))
-                    ?: CompletableFuture.completedFuture<Any?>(null)
-            }
 
     /**
      * Says what the override did, or why it did nothing. The edit arrives as a workspace edit, so the
@@ -166,7 +125,7 @@ class OverrideInModCommandAction : LSPCommandAction() {
                 )
                 return@invokeLater
             }
-            val failure = answer.get("failure")?.takeIf { !it.isJsonNull }?.asString
+            val failure = answer.failureCode()
             if (failure != null) {
                 val manifests = answer.getAsJsonArray("manifests")?.joinToString(", ") { it.asString }.orEmpty()
                 val detail = if (manifests.isNotEmpty()) " Candidates: $manifests." else ""
@@ -234,24 +193,5 @@ class OverrideInModCommandAction : LSPCommandAction() {
         "editRejected" -> "The editor turned down the edit, so nothing was changed."
         "writeFailed" -> "The file holding the override could not be written, so nothing was changed."
         else -> "The override could not be written ($failure)."
-    }
-
-    /**
-     * Shows one outcome notification.
-     *
-     * @param project the project the notification belongs to.
-     * @param content the message body.
-     * @param type the notification severity.
-     */
-    private fun notify(project: Project, content: String, type: NotificationType) {
-        NotificationGroupManager.getInstance()
-            .getNotificationGroup("Cosmoteer Language Server")
-            .createNotification("Cosmoteer override in mod", content, type)
-            .notify(project)
-    }
-
-    companion object {
-        /** The server's own command id, the one it declares and answers. */
-        const val COMMAND = "cosmoteer.overrideInMod"
     }
 }

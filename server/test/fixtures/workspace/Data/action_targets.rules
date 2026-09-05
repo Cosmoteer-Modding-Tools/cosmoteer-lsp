@@ -12,3 +12,20 @@ List
 ]
 
 Value = 5
+
+// A list of entries, a second list of the same kind of entries, and a list of lists, so the
+// check for a list appended as one entry can be exercised in both directions.
+Entries
+[
+	{ A = 1 }
+]
+
+MoreEntries
+[
+	{ B = 2 }
+]
+
+Nested
+[
+	[1]
+]

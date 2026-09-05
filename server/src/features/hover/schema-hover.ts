@@ -7,8 +7,7 @@ import {
     isValueNode,
     ListNode,
 } from '../../core/ast/ast';
-import { positionalElementField, registryForGroup, resolveGroupClass } from '../../document/schema/schema-context';
-import { documentRootClass } from '../../document/schema/document-root';
+import { documentScopeClass, positionalElementField, registryForGroup, resolveGroupClass } from '../../document/schema/schema-context';
 import {
     classByDiscriminator,
     fieldOf,
@@ -43,7 +42,7 @@ export const schemaFieldHover = (node: AbstractNode, containerClass?: string): s
     if (!fieldName) return null;
 
     const cls =
-        containerClass ?? (isDocumentNode(container) ? documentRootClass(container) : resolveGroupClass(container));
+        containerClass ?? (isDocumentNode(container) ? documentScopeClass(container) : resolveGroupClass(container));
     if (!cls) return null;
     const field = fieldOf(cls, fieldName);
     if (!field) {

@@ -6,7 +6,7 @@ import { tmpdir } from 'os';
 import { pathToFileURL } from 'url';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
-import { gameAssemblyPathFor, readGameVersionInfo } from '../../../src/features/post-update/game-version';
+import { gameAssemblyPathFor, readGameVersionInfo } from '../../../src/features/game-version';
 import {
     clearGameVersionsCache,
     currentGameVersionsLiteral,

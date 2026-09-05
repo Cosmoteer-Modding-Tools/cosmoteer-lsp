@@ -37,10 +37,10 @@ type PathRebase = { newText: string } | { refusal: PathRefusal };
 type FileRebase = { rebases: UnitRebase[] } | { refusal: PathRefusal; path: string };
 
 /** A path with forward slashes, so every comparison and every emitted path reads the same on every OS. */
-const slashed = (path: string): string => path.replace(/\\/g, '/');
+export const slashed = (path: string): string => path.replace(/\\/g, '/');
 
 /** Whether a path sits inside a directory, folding case the way the filesystem matches it. */
-const isUnder = (path: string, root: string): boolean => {
+export const isUnder = (path: string, root: string): boolean => {
     const folded = foldPathCase(slashed(path));
     const prefix = foldPathCase(slashed(root).replace(/\/+$/, ''));
     return folded === prefix || folded.startsWith(`${prefix}/`);

@@ -3,6 +3,7 @@ import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
 import { resolveAssetPath, suggestAssetFilename } from '../navigation/asset-resolver';
 import { suggestReferenceName } from '../navigation/reference-suggestion';
 import { aliasChainCycles } from '../navigation/explain-reference/reference-trace';
+import { standaloneReferenceValue } from '../navigation/reference-index';
 import {
     AbstractNode,
     IdentifierNode,
@@ -98,27 +99,18 @@ const checkListNameJoinedWithBody = (node: ValueNode | IdentifierNode, name: str
  * Validates a bare `&…` reference standing alone as a list element (`&/PARTICLES/Foo` inside
  * `MediaEffects [ … ]`). The parser produces an IdentifierNode for such an element rather than
  * a ValueNode whenever the preceding sibling is not a value (e.g. right after a `}`), so the
- * regular value check never sees it. Wraps the identifier in a synthetic reference ValueNode
- * with the same parent and position and runs it through the shared reference check, then
- * re-anchors any finding on the real node. Group and document positions are not checked here:
- * the game rejects a bare reference there outright, which the parser reports as a parse error.
+ * regular value check never sees it. Runs the reference value it stands for through the shared
+ * reference check, then re-anchors any finding on the real node. Group and document positions are
+ * not checked here: the game rejects a bare reference there outright, which the parser reports as a
+ * parse error.
  *
  * @param node the identifier to inspect.
  * @param cancellationToken cancels the cross file navigation.
  * @returns the reference finding, or undefined when the identifier is not a bare list reference or it resolves.
  */
 const checkStandaloneReference = async (node: IdentifierNode, cancellationToken: CancellationToken) => {
-    if (typeof node.name !== 'string' || !node.name.startsWith('&')) return undefined;
-    const parent = node.parent;
-    if (!parent || !isListNode(parent) || !parent.elements.includes(node)) {
-        return undefined;
-    }
-    const wrapped: ValueNode = {
-        type: 'Value',
-        valueType: { type: 'Reference', value: node.name },
-        parent,
-        position: node.position,
-    };
+    const wrapped = standaloneReferenceValue(node);
+    if (!wrapped) return undefined;
     const error = await checkReference(wrapped, cancellationToken);
     return error ? { ...error, node } : undefined;
 };

@@ -2,6 +2,7 @@ import { Diagnostic } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { traceFailure } from '../utils/cancellation';
 import { connection, documents, tokenSourceManager } from './context';
+import { hasPullDiagnosticsCapability } from './capabilities';
 import { diagnosticsCache } from './document-caches';
 import { validateTextDocument } from './validate-document';
 
@@ -79,6 +80,24 @@ export function schedulePushValidation(document: TextDocument): void {
         uri,
         setTimeout(() => void run(), VALIDATION_DEBOUNCE_MS)
     );
+}
+
+/**
+ * Validates an open document again, at its current version, because something it was judged
+ * against has arrived since: a pull client is asked to pull once more, a push client gets a fresh
+ * publish without the typing debounce. A document no longer open is left alone.
+ *
+ * @param uri the open document's uri.
+ */
+export function refreshOpenDocumentDiagnostics(uri: string): void {
+    const current = documents.get(uri);
+    if (!current) return;
+    diagnosticsCache.delete(uri);
+    if (hasPullDiagnosticsCapability) {
+        connection.languages.diagnostics.refresh();
+        return;
+    }
+    schedulePushValidation(current);
 }
 
 /**

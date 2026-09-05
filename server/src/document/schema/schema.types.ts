@@ -200,5 +200,12 @@ export interface SchemaBundle {
     /** Component class FullName → the kinds the component it builds satisfies. A class with no entry
      *  builds no physical component, which is what makes the slot check abstain rather than report. */
     componentCapabilities?: Record<string, number[]>;
+    /**
+     * Game class or interface FullName → the kinds its own ancestry satisfies, for every game type
+     * that satisfies at least one (a kind interface satisfies itself). The game's type graph reduced
+     * to what the slot check needs, so a mod component deriving from a game class or interface is
+     * judged from the bundle alone.
+     */
+    componentAncestry?: Record<string, number[]>;
     unresolved: { types: Record<string, number>; generics: Record<string, number> };
 }

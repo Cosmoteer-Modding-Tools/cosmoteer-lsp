@@ -27,6 +27,8 @@ import * as l10n from '@vscode/l10n';
  * @param cancellationToken cancels the sibling walk.
  * @param inScope tells whether a file is one the game actually loads, so a backup copy or an unused
  * template never takes part in an extraction.
+ * @param whenPlansArrive when given, a mod whose plans are not computed yet answers no hints now
+ * and this is called once they are, so the document can be validated again. See `plansForDocument`.
  * @returns one hint per container that could inherit a generated base instead.
  */
 export const validateDuplicateFields = async (
@@ -34,10 +36,11 @@ export const validateDuplicateFields = async (
     text: string,
     folderPaths: string[],
     cancellationToken: CancellationToken,
-    inScope?: (fsPath: string) => boolean
+    inScope?: (fsPath: string) => boolean,
+    whenPlansArrive?: () => void
 ): Promise<ValidationError[]> => {
     if (isModRules(document.uri)) return [];
-    const plans = await plansForDocument(document, text, folderPaths, cancellationToken, inScope);
+    const plans = await plansForDocument(document, text, folderPaths, cancellationToken, inScope, whenPlansArrive);
     if (plans.length === 0) return [];
 
     // One hint per container, carrying its largest plan: a container can appear in several plans

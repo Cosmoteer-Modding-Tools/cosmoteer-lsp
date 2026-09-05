@@ -19,7 +19,7 @@ type RequiredFieldInsert = NonNullable<ValidationErrorData['insertRequiredFields
  * @param valueType the schema type of the field being scaffolded.
  * @returns the literal to write, or null when the kind has no value the fix may invent.
  */
-const placeholderValue = (valueType: ValueType): string | null => {
+export const placeholderValue = (valueType: ValueType): string | null => {
     switch (valueType.kind) {
         case 'bool':
             return 'false';

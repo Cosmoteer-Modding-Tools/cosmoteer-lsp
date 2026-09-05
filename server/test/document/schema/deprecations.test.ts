@@ -6,11 +6,14 @@ import {
     allDeprecationSymbols,
     deprecatedDiscriminator,
     deprecatedField,
+    deprecatedEnumValue,
+    DEPRECATED_ENUM_VALUES,
     deprecationBySymbol,
     obsoleteField,
     RENAMED_MOD_RULES_FIELDS,
     renamedFieldAlias,
 } from '../../../src/document/schema/deprecations';
+import { enumDef } from '../../../src/document/schema/schema';
 import { validateSchema } from '../../../src/features/diagnostics/validator.schema';
 
 // Every deprecation lookup is keyed by a name the modder wrote, so the key can be anything a file
@@ -21,7 +24,7 @@ import { validateSchema } from '../../../src/features/diagnostics/validator.sche
 const token = CancellationToken.None;
 const parse = (src: string) => parser(lexer(src), 'file:///t.rules').value;
 const PROTOTYPE_NAMES = ['constructor', '__proto__', 'toString', 'valueOf', 'hasOwnProperty', 'isPrototypeOf'];
-const KINDS = ['discriminator', 'deletedField', 'renamedAlias', 'obsoleteField', 'manifestField'];
+const KINDS = ['discriminator', 'deletedField', 'renamedAlias', 'obsoleteField', 'manifestField', 'enumValue'];
 const PART_RULES = 'Cosmoteer.Ships.Parts.PartRules';
 
 describe('deprecation registries', () => {
@@ -58,6 +61,22 @@ describe('deprecation registries', () => {
         expect(allDeprecationSymbols()).toContain('deletedField:flammable');
         expect(allDeprecationSymbols()).toContain('discriminator:ammodrain');
         expect(allDeprecationSymbols().every((symbol) => deprecationBySymbol(symbol))).toBe(true);
+    });
+
+    // The enum-rename registry is empty, so this guards whatever is added to it rather than what it
+    // holds today: an entry naming a member the enum still has, or a replacement it does not, would
+    // report a rename the game never made.
+    it('keeps every recorded enum rename pointing from a gone member to a real one', () => {
+        for (const [key, entry] of Object.entries(DEPRECATED_ENUM_VALUES)) {
+            expect(key, key).toBe(entry.name.toLowerCase());
+            for (const enumName of entry.enumNames) {
+                const members = enumDef(enumName)?.members ?? [];
+                expect(members, enumName).not.toHaveLength(0);
+                expect(members, `${enumName}.${entry.name}`).not.toContain(entry.name);
+                expect(members, `${enumName}.${entry.replacement}`).toContain(entry.replacement);
+            }
+            expect(deprecatedEnumValue(entry.enumNames[0], entry.name)?.replacement).toBe(entry.replacement);
+        }
     });
 
     it('validates a part that assigns fields named after inherited members', async () => {

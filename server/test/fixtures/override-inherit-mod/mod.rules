@@ -1,0 +1,16 @@
+ID = author.overrideinherit
+Name = "Override Inherit Fixture"
+
+// An `Overrides` whose source inherits from a file of the mod. The game merges the base into the
+// group before it reads the pairs, so the target carries both halves.
+Actions
+[
+	{
+		Action = Overrides
+		OverrideIn = <action_targets.rules>/Group
+		Overrides : &<shared.rules>
+		{
+			Inline = 2
+		}
+	}
+]

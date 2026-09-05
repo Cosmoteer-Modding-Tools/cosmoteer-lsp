@@ -9,7 +9,7 @@ import {
     clearGameVersionInfoCache,
     declaredCompatibleVersions,
     readGameVersionInfo,
-} from '../post-update/game-version';
+} from '../game-version';
 import { collectRulesFiles, uriToFsPath } from '../navigation/workspace-files';
 import { foldPathCase } from '../../workspace/fs-cache';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';

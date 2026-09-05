@@ -18,8 +18,8 @@
  *     the game's code),
  *   - {@link RENAMED_FIELD_ALIASES}: fields the game renamed but still deserializes under the old
  *     spelling (the schema carries both names, so without this registry the old spelling is silent),
- *   - {@link OBSOLETE_FIELDS}: fields that still work but were superseded by a richer field.
- * To add an enum-value rename later, add a `DEPRECATED_ENUM_VALUES` map and a matching lookup.
+ *   - {@link OBSOLETE_FIELDS}: fields that still work but were superseded by a richer field,
+ *   - {@link DEPRECATED_ENUM_VALUES}: members of an enum the game renamed.
  *
  * Every entry also has an identity, its {@link migrationSymbolOf} symbol, which the diagnostics carry
  * and {@link deprecationBySymbol} reads back. That is what lets a fix say "apply this one rename to
@@ -329,7 +329,13 @@ export const RENAMED_MOD_RULES_FIELDS: Readonly<Record<string, Deprecation>> = r
  * and one old name can mean different things in different registries, so the kind is part of the
  * identity rather than a detail of it.
  */
-type MigrationSymbolKind = 'discriminator' | 'deletedField' | 'renamedAlias' | 'obsoleteField' | 'manifestField';
+type MigrationSymbolKind =
+    | 'discriminator'
+    | 'deletedField'
+    | 'renamedAlias'
+    | 'obsoleteField'
+    | 'manifestField'
+    | 'enumValue';
 
 /** What a migration symbol names: the registry entry behind it, in the form a message can read. */
 interface DeprecationSymbol {
@@ -342,6 +348,44 @@ interface DeprecationSymbol {
     /** The game version that made the change, when the changelog records it. */
     readonly version?: string;
 }
+
+/** A member of an enum the game renamed, keyed by the old spelling folded to lower case. */
+interface EnumValueRename extends Deprecation {
+    /** The `FullName`s of the enums that carried the old member. */
+    readonly enumNames: readonly string[];
+    /** The old member's canonical spelling, since the map is keyed by its lower-cased name. */
+    readonly name: string;
+}
+
+/**
+ * Enum members the game renamed, by their old spelling.
+ *
+ * A field's own type names the enum, so an old member is already reported as a value the enum does
+ * not have, with the nearest current member offered. What this registry adds is certainty: it says
+ * the value was that member and is now this one, rather than guessing from spelling, and it carries
+ * the version so the migration command can group the change with the rest of that update.
+ *
+ * It is deliberately empty. Every entry has to come from a changelog naming the rename, checked
+ * against the extracted schema, the way every other registry in this file was built. Inventing a
+ * pair from two names that look alike is exactly the guess the levenshtein suggestion already makes,
+ * and dressing it as a recorded rename would give it an authority it has not earned.
+ */
+export const DEPRECATED_ENUM_VALUES: Readonly<Record<string, EnumValueRename>> = registry({});
+
+/**
+ * The recorded rename of an enum member, when the value written is one.
+ *
+ * @param enumName the `FullName` of the enum the field is typed with.
+ * @param written the value as written in the file.
+ * @returns the rename, or undefined when nothing records this value.
+ */
+export const deprecatedEnumValue = (enumName: string, written: string): EnumValueRename | undefined => {
+    const entry = DEPRECATED_ENUM_VALUES[written.toLowerCase()];
+    if (!entry || !entry.enumNames.includes(enumName)) return undefined;
+    // Only the old spelling is deprecated: the map is keyed by it, but guard against a future entry
+    // accidentally keying the modern name.
+    return entry.replacement.toLowerCase() === written.toLowerCase() ? undefined : entry;
+};
 
 /**
  * The identity of one deprecation-registry entry, which a diagnostic carries so a bulk fix can
@@ -395,6 +439,11 @@ export const deprecationBySymbol = (symbol: string): DeprecationSymbol | undefin
             if (!entry) return undefined;
             return { kind, name: entry.name ?? key, replacement: entry.replacement, version: entry.version };
         }
+        case 'enumValue': {
+            const entry = DEPRECATED_ENUM_VALUES[key];
+            if (!entry) return undefined;
+            return { kind, name: entry.name, replacement: entry.replacement, version: entry.version };
+        }
         default:
             return undefined;
     }
@@ -413,5 +462,6 @@ export const allDeprecationSymbols = (): string[] => [
     ...Object.keys(RENAMED_FIELD_ALIASES).map((key) => migrationSymbolOf('renamedAlias', key)),
     ...Object.keys(OBSOLETE_FIELDS).map((key) => migrationSymbolOf('obsoleteField', key)),
     ...Object.keys(RENAMED_MOD_RULES_FIELDS).map((key) => migrationSymbolOf('manifestField', key)),
+    ...Object.keys(DEPRECATED_ENUM_VALUES).map((key) => migrationSymbolOf('enumValue', key)),
 ];
 

@@ -3,7 +3,7 @@ import { Connection, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { gameAssemblyPathFor, readGameVersionInfo } from '../../../src/features/post-update/game-version';
+import { gameAssemblyPathFor, readGameVersionInfo } from '../../../src/features/game-version';
 import { loadedModKeyOf } from '../../../src/features/run-game/mod-identity';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 

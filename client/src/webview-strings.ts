@@ -160,3 +160,124 @@ export const shaderPreviewStrings = (): Record<string, string> => ({
     'Place the cursor in a material with a Shader to preview it.': l10n.t('Place the cursor in a material with a Shader to preview it.'),
     'WebGL is not available in this webview.': l10n.t('WebGL is not available in this webview.'),
 });
+
+/**
+ * The text the diagram page shows.
+ *
+ * @returns every string the page looks up, keyed by its English source.
+ */
+export const diagramViewStrings = (): Record<string, string> => ({
+    'Fit the whole diagram into the panel': l10n.t('Fit the whole diagram into the panel'),
+    'Filter boxes': l10n.t('Filter boxes'),
+    'Nothing to draw here.': l10n.t('Nothing to draw here.'),
+});
+
+/**
+ * The text the part table page shows.
+ *
+ * @returns every string the page looks up, keyed by its English source.
+ */
+export const partTableStrings = (): Record<string, string> => ({
+    'Filter parts': l10n.t('Filter parts'),
+    'Search columns': l10n.t('Search columns'),
+    'Column name': l10n.t('Column name'),
+    '[MaxHealth] / [@Tiles]': l10n.t('[MaxHealth] / [@Tiles]'),
+    'Following your edit…': l10n.t('Following your edit…'),
+    'No group': l10n.t('No group'),
+    'No grouping': l10n.t('No grouping'),
+    'By build menu group': l10n.t('By build menu group'),
+    'By ship class, then build menu group': l10n.t('By ship class, then build menu group'),
+    'By ship class': l10n.t('By ship class'),
+    'No ship class': l10n.t('No ship class'),
+    'No category': l10n.t('No category'),
+    'No mod': l10n.t('No mod'),
+    'Ship class': l10n.t('Ship class'),
+    Category: l10n.t('Category'),
+    Mod: l10n.t('Mod'),
+    'All parts': l10n.t('All parts'),
+    'The game and {0}': l10n.t('The game and {0}'),
+    'The game alone. Open a file of your mod to add it.': l10n.t('The game alone. Open a file of your mod to add it.'),
+    'Show tree': l10n.t('Show tree'),
+    'Hide tree': l10n.t('Hide tree'),
+    'By category': l10n.t('By category'),
+    'By mod': l10n.t('By mod'),
+    Group: l10n.t('Group'),
+    'Show these parts': l10n.t('Show these parts'),
+    'Hide these parts': l10n.t('Hide these parts'),
+    Average: l10n.t('Average'),
+    Least: l10n.t('Least'),
+    Most: l10n.t('Most'),
+    'Every number is per tile.': l10n.t('Every number is per tile.'),
+    computed: l10n.t('computed'),
+    'Formula: {0}': l10n.t('Formula: {0}'),
+    'Write 1 change to the files': l10n.t('Write 1 change to the files'),
+    'Write {0} changes to the files': l10n.t('Write {0} changes to the files'),
+    'Discard typed values': l10n.t('Discard typed values'),
+    'Write a number, with the % d or r suffix the value already has.': l10n.t(
+        'Write a number, with the % d or r suffix the value already has.'
+    ),
+    'Typed over {0}. Write the changes to put it in the file.': l10n.t(
+        'Typed over {0}. Write the changes to put it in the file.'
+    ),
+    'Typed over. Write the changes to put it in the file.': l10n.t('Typed over. Write the changes to put it in the file.'),
+    'Inherited. Click to open the declaration, double-click to try a value.': l10n.t(
+        'Inherited. Click to open the declaration, double-click to try a value.'
+    ),
+    'Click to open the declaration, double-click to try a value.': l10n.t(
+        'Click to open the declaration, double-click to try a value.'
+    ),
+    'Credits paid for every point of health': l10n.t('Credits paid for every point of health'),
+    'Damage per second for every credit': l10n.t('Damage per second for every credit'),
+    'Damage per shot times fire rate, times the barrels where a part counts them': l10n.t(
+        'Damage per shot times fire rate, times the barrels where a part counts them'
+    ),
+    'Steel and coils added up, for the parts that take only one of them too': l10n.t(
+        'Steel and coils added up, for the parts that take only one of them too'
+    ),
+    'Every resource the part takes, added up': l10n.t('Every resource the part takes, added up'),
+    'Percent of the average of the parts on screen': l10n.t('Percent of the average of the parts on screen'),
+    'Rank by health, 1 for the highest': l10n.t('Rank by health, 1 for the highest'),
+    'Reading the parts…': l10n.t('Reading the parts…'),
+    'Reading the picked columns…': l10n.t('Reading the picked columns…'),
+    'Narrowing to the parts you picked…': l10n.t('Narrowing to the parts you picked…'),
+    'Putting the view back…': l10n.t('Putting the view back…'),
+    'No view saved yet.': l10n.t('No view saved yet.'),
+    'Insert a column on screen:': l10n.t('Insert a column on screen:'),
+    'No column is on screen to insert.': l10n.t('No column is on screen to insert.'),
+    Delete: l10n.t('Delete'),
+    '{0} of {1} columns shown': l10n.t('{0} of {1} columns shown'),
+    'Freeze this column at the left edge': l10n.t('Freeze this column at the left edge'),
+    'Drag to set the width, double-click to let the column size itself': l10n.t(
+        'Drag to set the width, double-click to let the column size itself'
+    ),
+    'Unfreeze this column': l10n.t('Unfreeze this column'),
+    'Every number is shown as its percentage of the compared part, so 200% is twice as much.': l10n.t(
+        'Every number is shown as its percentage of the compared part, so 200% is twice as much.'
+    ),
+    'Pick a part to compare against first.': l10n.t('Pick a part to compare against first.'),
+    'Blue is below the compared part, grey within half a percent of it, red above it. The deeper shade is past twice or under half. The colour says where the number stands, not whether that is better.':
+        l10n.t(
+            'Blue is below the compared part, grey within half a percent of it, red above it. The deeper shade is past twice or under half. The colour says where the number stands, not whether that is better.'
+        ),
+    'Health for every cell the part takes up': l10n.t('Health for every cell the part takes up'),
+    'Rounded to one decimal': l10n.t('Rounded to one decimal'),
+    'Percent of the compared part': l10n.t('Percent of the compared part'),
+    '1 for the parts above ten thousand health, 0 for the rest': l10n.t(
+        '1 for the parts above ten thousand health, 0 for the rest'
+    ),
+    'The larger of two columns': l10n.t('The larger of two columns'),
+    Part: l10n.t('Part'),
+    From: l10n.t('From'),
+    'Every category': l10n.t('Every category'),
+    'Every component': l10n.t('Every component'),
+    Everywhere: l10n.t('Everywhere'),
+    'Compare with nothing': l10n.t('Compare with nothing'),
+    'No parts found.': l10n.t('No parts found.'),
+    'No part matches the filter.': l10n.t('No part matches the filter.'),
+    'No column matches.': l10n.t('No column matches.'),
+    'Click to open the declaration.': l10n.t('Click to open the declaration.'),
+    'Inherited. Click to open the declaration.': l10n.t('Inherited. Click to open the declaration.'),
+    '{0} of {1} parts': l10n.t('{0} of {1} parts'),
+    '{0} parts': l10n.t('{0} parts'),
+    'The project holds more parts than the table reads.': l10n.t('The project holds more parts than the table reads.'),
+});

@@ -1,6 +1,5 @@
 package cosmoteer.actions
 
-import com.google.gson.JsonObject
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -8,9 +7,7 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
-import com.redhat.devtools.lsp4ij.LanguageServerManager
-import cosmoteer.preview.ShaderPreviewService
-import org.eclipse.lsp4j.ExecuteCommandParams
+import cosmoteer.lsp.executeServerCommand
 import cosmoteer.lsp.commandResultOf
 
 /**
@@ -29,13 +26,7 @@ class BuildModSchemaAction : AnAction() {
 
     override fun actionPerformed(event: AnActionEvent) {
         val project = event.project ?: return
-        LanguageServerManager.getInstance(project)
-            .getLanguageServer(ShaderPreviewService.SERVER_ID)
-            .thenCompose { item ->
-                item?.server?.workspaceService
-                    ?.executeCommand(ExecuteCommandParams(COMMAND, emptyList()))
-                    ?: java.util.concurrent.CompletableFuture.completedFuture<Any?>(null)
-            }
+        executeServerCommand(project, COMMAND, emptyList())
             .thenAccept { result -> showSummary(project, result) }
     }
 

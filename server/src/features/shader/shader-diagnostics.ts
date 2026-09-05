@@ -1,7 +1,8 @@
 import { existsSync } from 'fs';
 import { Diagnostic, DiagnosticSeverity, Position, Range } from 'vscode-languageserver';
 import * as l10n from '@vscode/l10n';
-import { parseShader, parseShaderSignatures, ShaderFunctionSignature } from './shader-parser';
+import { parseShader, parseShaderSignatures } from './shader-parser';
+import { ShaderFunctionSignature } from './shader-parser.types';
 import { resolveInclude } from './shader-source';
 import { readIncludeChain, ReadOverride, ENGINE_BOUND_NAMES } from './shader-index';
 import { HLSL_INTRINSIC_NAMES, ENGINE_UNIFORMS, TEXTURE_METHODS } from './shader-intrinsics';

@@ -167,17 +167,30 @@ const translateCasts = (src: string): string => {
  * masked out first, keeping loop indices integer the way {@link intLiteralsToFloat} expects.
  */
 const intDeclsToFloat = (src: string): string => {
-    const masked: string[] = [];
-    const mask = (s: string): string => {
-        const token = String.fromCharCode(0xe000 + masked.length);
-        masked.push(s);
-        return token;
-    };
+    const { mask, restore } = spanMasker();
     const out = src
         .replace(/\bfor\s*\([^)]*\)/g, (m) => (/\bint\b/.test(m) ? mask(m) : m))
         .replace(/\bint(\s+[A-Za-z_]\w*\s*;)/g, 'float$1')
         .replace(/\bint\s+([A-Za-z_]\w*)\s*=\s*([^;]+);/g, 'float $1 = floor($2);');
-    return out.replace(/[\uE000-\uF8FF]/g, (c) => masked[c.charCodeAt(0) - 0xe000]);
+    return restore(out);
+};
+
+/**
+ * A masker that swaps spans out for private-use placeholder characters (which carry no digits and
+ * no words) so a rewrite can skip them, and puts them back afterwards.
+ *
+ * @returns the mask and restore halves.
+ */
+const spanMasker = (): { mask: (span: string) => string; restore: (text: string) => string } => {
+    const masked: string[] = [];
+    return {
+        mask: (span) => {
+            const token = String.fromCharCode(0xe000 + masked.length);
+            masked.push(span);
+            return token;
+        },
+        restore: (text) => text.replace(/[\uE000-\uF8FF]/g, (c) => masked[c.charCodeAt(0) - 0xe000]),
+    };
 };
 
 /**
@@ -252,17 +265,12 @@ const stripFloatSuffix = (src: string): string => src.replace(/(\d*\.\d+|\d+\.\d
  * coercion and restored afterwards.
  */
 const intLiteralsToFloat = (src: string): string => {
-    const masked: string[] = [];
-    const mask = (s: string): string => {
-        const token = String.fromCharCode(0xe000 + masked.length);
-        masked.push(s);
-        return token;
-    };
+    const { mask, restore } = spanMasker();
     const out = src
         .replace(/\bfor\s*\([^)]*\)/g, (m) => (/\bint\b/.test(m) ? mask(m) : m))
         .replace(/\[[^\]]*\]/g, mask)
         .replace(/(?<![\w.])\d+(?![\w.])/g, '$&.0');
-    return out.replace(/[\uE000-\uF8FF]/g, (c) => masked[c.charCodeAt(0) - 0xe000]);
+    return restore(out);
 };
 
 /** Translates HLSL intrinsics that differ by name from their GLSL equivalents. */

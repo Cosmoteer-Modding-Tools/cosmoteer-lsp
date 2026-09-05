@@ -1,0 +1,6 @@
+// Stands in for the creative mode: the map sizes it offers, which a mod's own size is added to.
+MapSizes
+[
+	&<./Data/galaxy_map/map_generators/map_sizes.rules>/None
+	&<./Data/galaxy_map/map_generators/map_sizes.rules>/Standard
+]

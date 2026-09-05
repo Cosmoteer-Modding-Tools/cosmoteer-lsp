@@ -771,13 +771,25 @@ const mapEntryEdit = async (
     );
 };
 
-/** Append edit for a fractional point layer. */
-const pointAddEdit = async (ctx: EditContext, layerId: string, point: GridPoint): Promise<EditOutcome> => {
-    const { part, text, token } = ctx;
+/**
+ * The local member of a point layer whose length may change. An entry-member list (`ResourceLevels [
+ * { Offset } ]`) has one point per entry, so its points can only be moved.
+ *
+ * @param part the part group.
+ * @param layerId the layer id.
+ * @returns the resolved member, or the reason it cannot grow or shrink.
+ */
+const resolveGrowablePointLayer = (part: GroupNode, layerId: string): ReturnType<typeof resolveLayerMember> => {
     if (splitLayerId(layerId).entryMember) {
         return { error: l10n.t('This list has a fixed length, points can only be moved.') };
     }
-    const resolved = resolveLayerMember(part, layerId);
+    return resolveLayerMember(part, layerId);
+};
+
+/** Append edit for a fractional point layer. */
+const pointAddEdit = async (ctx: EditContext, layerId: string, point: GridPoint): Promise<EditOutcome> => {
+    const { part, text, token } = ctx;
+    const resolved = resolveGrowablePointLayer(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
     if (member) return appendElementEdit(text, member.value as ListNode, vectorText(point.x, point.y));
@@ -829,10 +841,7 @@ const pointMoveEdit = async (
 /** Removal edit for a fractional point. */
 const pointRemoveEdit = async (ctx: EditContext, layerId: string, index: number): Promise<EditOutcome> => {
     const { part, text, token } = ctx;
-    if (splitLayerId(layerId).entryMember) {
-        return { error: l10n.t('This list has a fixed length, points can only be moved.') };
-    }
-    const resolved = resolveLayerMember(part, layerId);
+    const resolved = resolveGrowablePointLayer(part, layerId);
     if ('error' in resolved) return resolved;
     const { container, fieldName, member } = resolved;
     const target = member && vectorElementAt(member.value, index);

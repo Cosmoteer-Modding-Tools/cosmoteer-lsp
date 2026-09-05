@@ -49,6 +49,16 @@ describe('summarize', () => {
         expect(summarize('the radius. This property is not copied by CopySettingsFrom().')).toBe('The radius.');
     });
 
+    it('drops the empty parentheses an unexpanded inheritdoc leaves behind', () => {
+        expect(
+            summarize(
+                'Rules for <see cref="T:Cosmoteer.Ships.Networks.PartNetworkRouter"/> components.\n' +
+                    '            <para /> (<inheritdoc cref="T:Cosmoteer.Ships.Networks.PartNetworkRouter"/>)'
+            )
+        ).toBe('Rules for PartNetworkRouter components.');
+        expect(summarize('Fired by <see cref="M:Cosmoteer.Bullets.Bullet.EmitOneShot"/>().')).toBe('Fired by EmitOneShot().');
+    });
+
     it('returns nothing for an empty summary', () => {
         expect(summarize('   ')).toBe('');
     });

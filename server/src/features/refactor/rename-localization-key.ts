@@ -4,17 +4,16 @@ import { AbstractNode, AbstractNodeDocument, IdentifierNode, isValueNode, ValueN
 import { isLocalizationKeyType, localizationKeyFieldNames } from '../../document/schema/schema';
 import { assignmentNameOf, findNodeAtPosition, getStartOfAstNode, parseText } from '../../utils/ast.utils';
 import { CancellationError } from '../../utils/cancellation';
-import { ParserResultRegistrar } from '../../registrar/parser-result-registrar';
 import { fieldOfValueNode } from '../completion/autocompletion.schema';
 import { isStringsDocument, keyDeclarationsOf, LocalizationKeyIndex } from '../completion/localization-key.index';
 import { modStringsFiles } from '../diagnostics/localization-key-insert';
 import { findModRoot } from '../../mod/mod-root';
 import { isUnderFolder } from '../../mod/strings-folder';
-import { MentionIndex } from '../navigation/mention.index';
 import { filePathToUri } from '../navigation/navigation-strategy';
 import { normalizeUri } from '../navigation/reference-location';
 import { stringValueNodesOf } from '../navigation/schema-reference.navigation';
-import { collectRulesFiles, modFolderPaths, readFilesAhead, uriToFsPath } from '../navigation/workspace-files';
+import { documentsMentioningWhere, modFolderPaths } from '../navigation/workspace-files';
+import { dedupeEdits } from '../../utils/text-edit.utils';
 import * as l10n from '@vscode/l10n';
 
 /**
@@ -230,63 +229,28 @@ export const localizationKeyRenameTargetAt = async (
  * @param cancellationToken cancels the search.
  * @returns each parsed document that may write the key.
  */
-async function* documentsMentioningFolded(
+function documentsMentioningFolded(
     folderPaths: string[],
     needle: string,
     cancellationToken: CancellationToken
 ): AsyncGenerator<AbstractNodeDocument> {
-    const seen = new Set<string>();
-    for (const document of ParserResultRegistrar.instance.allResults()) {
-        const norm = normalizeUri(document.uri);
-        if (seen.has(norm)) continue;
-        seen.add(norm);
-        yield document;
-    }
-    const candidates = await MentionIndex.instance
-        .candidateFiles(needle, folderPaths, cancellationToken)
-        .catch(() => undefined);
-    let toRead: string[];
-    if (candidates) {
-        toRead = candidates.filter((file) => !seen.has(normalizeUri(file)));
-    } else {
-        // Not a pure-word needle (or the index failed): fall back to walking every folder file.
-        toRead = [];
-        for (const folder of folderPaths) {
-            for await (const file of collectRulesFiles(uriToFsPath(folder))) {
-                if (cancellationToken.isCancellationRequested) throw new CancellationError();
-                const norm = normalizeUri(file);
-                if (seen.has(norm)) continue;
-                seen.add(norm);
-                toRead.push(file);
-            }
-        }
-    }
     const folded = needle.toLowerCase();
-    for await (const { file, text } of readFilesAhead(toRead)) {
-        if (cancellationToken.isCancellationRequested) throw new CancellationError();
-        if (text === undefined || !text.toLowerCase().includes(folded)) continue;
+    return documentsMentioningWhere(
+        folderPaths,
+        needle,
+        cancellationToken,
+        (text) => text.toLowerCase().includes(folded),
         // One unparseable file must not abort the whole sweep, the same way find-all-references
         // skips it rather than losing every other hit in the project.
-        try {
-            yield parseText(text, file);
-        } catch {
-            /* unparseable, skip */
+        (file, text) => {
+            try {
+                return parseText(text, file);
+            } catch {
+                return undefined;
+            }
         }
-    }
+    );
 }
-
-/** Drop duplicate edits within each file, so a document reached twice contributes one rewrite. */
-const dedupeEdits = (changes: { [uri: string]: TextEdit[] }): void => {
-    for (const uri of Object.keys(changes)) {
-        const seen = new Set<string>();
-        changes[uri] = changes[uri].filter((edit) => {
-            const key = `${edit.range.start.line}:${edit.range.start.character}-${edit.range.end.line}:${edit.range.end.character}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-    }
-};
 
 /** The path a key ends up at once its `segmentIndex`th segment is called `newName`. */
 const renamedPath = (target: LocalizationKeyRenameTarget, newName: string): string => {

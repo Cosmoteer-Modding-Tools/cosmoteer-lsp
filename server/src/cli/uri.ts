@@ -1,28 +1,11 @@
-import { relative, resolve, sep } from 'path';
+import { relative, resolve } from 'path';
 
-// Path conversion for the lint CLI. The server has equivalents, but they sit in modules that pull
-// in the parse caches, the registrars and the workspace service, and the CLI is a separate bundle
-// that only talks to a spawned server over stdio. Keeping these four lines local is what keeps the
-// CLI bundle small enough to start in well under a second.
+// Path conversion for the lint CLI. The server's path helpers mostly sit in modules that pull in
+// the parse caches, the registrars and the workspace service, and the CLI is a separate bundle
+// that only talks to a spawned server over stdio. Only the dependency-free `uri-path` module is
+// shared, which is what keeps the CLI bundle small enough to start in well under a second.
 
-/**
- * Convert a `file://` URI published by the server back to an on-disk path.
- *
- * @param uri the URI as it arrived on the wire.
- * @returns the on-disk path, or `uri` unchanged when it is not a `file://` URI.
- */
-export const uriToFsPath = (uri: string): string => {
-    if (!uri.startsWith('file://')) return uri;
-    let path = uri.slice('file://'.length);
-    try {
-        path = decodeURIComponent(path);
-    } catch {
-        // A malformed escape is not worth failing a whole run over, so the raw form is used.
-    }
-    // `file:///C:/x` decodes to `/C:/x`, so the slash in front of a drive letter has to go.
-    if (/^\/[a-zA-Z]:\//.test(path)) path = path.slice(1);
-    return path.replace(/\//g, sep);
-};
+export { uriToFsPath } from '../utils/uri-path';
 
 /**
  * Convert an on-disk path to the `file://` URI form the server and both editors use.

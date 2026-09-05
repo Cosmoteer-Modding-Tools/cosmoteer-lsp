@@ -1,0 +1,16 @@
+// Stands in for the game's sun spawner: the type list placed inside a sun's damage zone.
+Type = None
+SubSpawners
+[
+	{
+		Type = Doodads
+		Count = [25, 50]
+		Distance = [1875, 3375]
+		Tags = [rare_asteroid]
+		DoodadTypes = &~/SunAsteroidTypes
+	}
+]
+
+SunAsteroidTypes
+[
+]

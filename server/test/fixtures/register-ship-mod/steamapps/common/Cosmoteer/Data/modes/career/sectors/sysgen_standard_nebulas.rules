@@ -1,0 +1,12 @@
+// Stands in for the game's nebula spawner: the list a mod's nebula spawner entries are added to.
+Type = None
+Conditions { ProhibitSpawnFlags = [no_standard_nebulas, disable_nebulas] }
+
+SubSpawners
+[
+	{
+		Type = Nebula
+		NebulaType = cloudy
+		NebulaRadius = 25000
+	}
+]

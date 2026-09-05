@@ -4,11 +4,10 @@ import {
     AbstractNode,
     AbstractNodeDocument,
     GroupNode,
-    isAssignmentNode,
     isGroupNode,
     isListNode,
 } from '../../core/ast/ast';
-import { childNodesOf } from '../../utils/ast.utils';
+import { childNodesOf, memberValueNamed } from '../../utils/ast.utils';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { classAncestry } from '../../document/schema/schema';
 import { evaluateNumericValue } from '../../semantics/value-evaluator';
@@ -18,23 +17,6 @@ import { ValidationError } from './validator';
 /** The two members a range written as a group carries. */
 const MIN_MEMBER = 'min';
 const MAX_MEMBER = 'max';
-
-/**
- * The member written under `name` in a group, in both spellings the format allows.
- *
- * @param group the group to read.
- * @param name the folded member name.
- * @returns the member's value, or undefined when the group does not write it.
- */
-const memberOf = (group: GroupNode, name: string): AbstractNode | undefined => {
-    for (const element of group.elements) {
-        if (isAssignmentNode(element) && element.left.name.toLowerCase() === name) return element.right ?? undefined;
-        if ((isGroupNode(element) || isListNode(element)) && element.identifier?.name.toLowerCase() === name) {
-            return element;
-        }
-    }
-    return undefined;
-};
 
 /** The two ends of a range, and the node to underline when they are the wrong way round. */
 interface Endpoints {
@@ -60,8 +42,8 @@ const endpointsOf = (node: AbstractNode | undefined): Endpoints | undefined => {
     }
     if (isGroupNode(node)) {
         if (node.inheritance?.length) return undefined;
-        const low = memberOf(node, MIN_MEMBER);
-        const high = memberOf(node, MAX_MEMBER);
+        const low = memberValueNamed(node, MIN_MEMBER);
+        const high = memberValueNamed(node, MAX_MEMBER);
         return low && high ? { low, high, anchor: node } : undefined;
     }
     return undefined;
@@ -126,11 +108,11 @@ export const validateValueRanges = async (
         const ancestry = new Set(classAncestry(cls));
         for (const rule of RANGE_DIRECTION_RULES) {
             if (!ancestry.has(rule.owner)) continue;
-            const written = memberOf(group, rule.field.toLowerCase());
+            const written = memberValueNamed(group, rule.field.toLowerCase());
             if (!written) continue;
             const endpoints = rule.upperField
                 ? ((): Endpoints | undefined => {
-                      const high = memberOf(group, rule.upperField.toLowerCase());
+                      const high = memberValueNamed(group, rule.upperField.toLowerCase());
                       return high ? { low: written, high, anchor: high } : undefined;
                   })()
                 : endpointsOf(written);

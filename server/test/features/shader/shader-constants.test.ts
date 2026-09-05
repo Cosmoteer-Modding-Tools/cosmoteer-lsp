@@ -18,7 +18,7 @@ import { resolveGroupClass } from '../../../src/document/schema/schema-context';
 import { globalSettings } from '../../../src/settings';
 import { constantSnippet, shaderConstantCompletions, shaderConstantGroupClass } from '../../../src/features/completion/autocompletion.shader-constants';
 import { schemaFieldNameCompletions } from '../../../src/features/completion/autocompletion.schema-fields';
-import { ShaderConstant } from '../../../src/features/shader/shader-parser';
+import { ShaderConstant } from '../../../src/features/shader/shader-parser.types';
 import { shaderConstantHover } from '../../../src/features/shader/shader-hover';
 import { clearShaderCache } from '../../../src/features/shader/shader-index';
 import { shaderVariantSiblings, validateShaderConstants } from '../../../src/features/diagnostics/validator.shader-constants';

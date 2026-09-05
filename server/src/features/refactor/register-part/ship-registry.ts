@@ -10,12 +10,13 @@ import {
     isListNode,
     isValueNode,
 } from '../../../core/ast/ast';
-import { isManifestBasename } from '../../../document/document-kind';
+import { basenameOf, isManifestBasename } from '../../../document/document-kind';
 import { ActionSource } from '../../../mod/action';
 import { parseModActions } from '../../../mod/action-parser';
 import { normalizeTargetPath } from '../../../mod/action-target-resolver';
 import { namedMembersOf } from '../../../utils/ast.utils';
-import { foldPathCase } from '../../../workspace/fs-cache';
+import { CosmoteerWorkspaceData, FileWithPath } from '../../../workspace/cosmoteer-workspace.service';
+import { foldPathCase, onFsInvalidation } from '../../../workspace/fs-cache';
 import { dirOf, locationOf, readRulesFile } from '../shared-base/base-index';
 
 /** The game root's member holding the registry, matched case-insensitively like the game's lookup. */
@@ -32,6 +33,30 @@ const MAX_MOD_DEPTH = 4;
 
 /** Directories the mod walk never enters, none of which a mod keeps its manifest in. */
 const SKIPPED_DIRS = new Set(['.git', '.hg', '.svn', '.vscode', '.idea', 'node_modules', 'out', 'dist', 'bin', 'obj']);
+
+/** What a command needs of its host to list the ship classes: the game root and the project folders. */
+export interface ShipClassesHost {
+    /** The game's own root rules file, when the game path is set. */
+    gameRoot(): Promise<FileWithPath | undefined>;
+    /** The workspace folders, whose mods' manifests may add ships. */
+    folderPaths(): Promise<string[]>;
+}
+
+/**
+ * The ship classes the game loads, from the game's own registry and from the workspace mods' manifests.
+ *
+ * @param host the server facilities.
+ * @param cancellationToken cancels the manifest reads.
+ * @returns the ship classes, empty when the game path is unset and no mod adds one.
+ */
+export const shipClassesFor = async (host: ShipClassesHost, cancellationToken: CancellationToken): Promise<ShipClassEntry[]> => {
+    const root = await host.gameRoot().catch(() => undefined);
+    const rootDocument = (root?.content as CosmoteerWorkspaceData | undefined)?.parsedDocument;
+    const folders = await host.folderPaths().catch(() => []);
+    const modRoots = new Set<string>();
+    for (const folder of folders) for (const modRoot of modRootsUnder(folder)) modRoots.add(modRoot);
+    return await collectShipClasses(rootDocument, root?.path, [...modRoots], cancellationToken);
+};
 
 /** One ship class the game loads, and where its declaration was reached from. */
 export interface ShipClassEntry {
@@ -98,6 +123,9 @@ export const manifestsIn = (modRoot: string): string[] =>
  * @returns the mod roots, with forward slashes, empty when the folder holds no mod.
  */
 export const modRootsUnder = (folder: string): string[] => {
+    const key = foldPathCase(resolve(folder).replace(/\\/g, '/'));
+    const remembered = modRootsMemo.get(key);
+    if (remembered) return remembered;
     const roots: string[] = [];
     const walk = (dir: string, depth: number): void => {
         if (manifestsIn(dir).length > 0) {
@@ -111,8 +139,21 @@ export const modRootsUnder = (folder: string): string[] => {
         }
     };
     walk(folder, 0);
+    modRootsMemo.set(key, roots);
     return roots;
 };
+
+/**
+ * The mod roots found below each folder asked about. The walk lists every directory of the game
+ * `Data` tree to four levels when that tree is one of the folders, which it is for every question
+ * the ship-layer index asks, and the answer only moves when a manifest appears or disappears. So
+ * the memo lives until a manifest path is invalidated, or until every path is.
+ */
+const modRootsMemo = new Map<string, string[]>();
+
+onFsInvalidation((fsPath) => {
+    if (fsPath === undefined || isManifestBasename(basenameOf(fsPath))) modRootsMemo.clear();
+});
 
 /** A directory's entry names, empty when it cannot be read. */
 const safeNames = (dir: string): string[] => {

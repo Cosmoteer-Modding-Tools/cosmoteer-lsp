@@ -1,0 +1,30 @@
+// Stands in for the game's build toolbar categories: the member name is the id a part writes as its
+// EditorGroup, and a mod adds one with an Add action carrying a Name.
+Utilities
+{
+	NameKey = "EditorGroups/Utilities"
+	Icon
+	{
+		Texture
+		{
+			File = "group_utilities.png"
+			MipLevels = 2
+			SampleMode = Linear
+		}
+	}
+	SortOrder = 900
+}
+Structure
+{
+	NameKey = "EditorGroups/Structure"
+	Icon
+	{
+		Texture
+		{
+			File = "group_utilities.png"
+			MipLevels = 2
+			SampleMode = Linear
+		}
+	}
+	SortOrder = 1000
+}

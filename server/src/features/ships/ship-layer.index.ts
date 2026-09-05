@@ -140,8 +140,18 @@ const layerKeysOf = (node: AbstractNode | undefined, into: Set<string>): void =>
     }
 };
 
-/** Whether an action target names this ship's `RenderLayers` (or the ship group holding it). */
-const targetsMember = (target: string, shipFsPath: string, groupName: string, member: string): boolean => {
+/**
+ * Whether an action target names a given member of a given group in a given file, the question
+ * "does this action add to that ship's `RenderLayers`" is asked as. Shared with the part table,
+ * which asks the same question about a ship's `Parts`.
+ *
+ * @param target the action's target path, as written.
+ * @param shipFsPath the file the group is written in.
+ * @param groupName the group's name inside it.
+ * @param member the member the target has to name.
+ * @returns true when the target names that member.
+ */
+export const targetsMember = (target: string, shipFsPath: string, groupName: string, member: string): boolean => {
     // The member names are compared folded, the way the game matches them, but the file part keeps
     // the case it was written in. Lower casing that too would compare a lower cased path against a
     // real one, and where the filesystem is case sensitive `foldPathCase` leaves the real path
@@ -159,13 +169,17 @@ const targetsMember = (target: string, shipFsPath: string, groupName: string, me
 };
 
 /**
- * The nodes a manifest action supplies, each with the directory ITS own references resolve against.
+ * The nodes a manifest action supplies, each with the directory its own references resolve against.
  * That directory is the point: an inline payload is written in the manifest, but a payload reached
  * through `ManyToAdd = &<ships/terran/terran.rules>/Terran/Parts` lives in that file, and its entries
  * (`&<Crew/bed.rules>`) are relative to it. Resolving those against the manifest instead silently
  * matches nothing, which is how a mod's whole part list can look unregistered.
+ *
+ * @param sources the action's sources.
+ * @param declaringDir the directory the action itself is written in.
+ * @returns the supplied nodes, each with the directory its references resolve against.
  */
-const sourceNodesOf = async (
+export const sourceNodesOf = async (
     sources: readonly ActionSource[],
     declaringDir: string
 ): Promise<Array<{ node: AbstractNode; dir: string }>> => {

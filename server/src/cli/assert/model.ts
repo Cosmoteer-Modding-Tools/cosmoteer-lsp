@@ -174,6 +174,9 @@ export const ACTION_FINDING_EFFECTS: ReadonlyMap<string, LoadEffect | 'editor-li
     // never reaches the patching stage at all.
     ['Unknown mod action verb', 'mod-dropped'],
     ['Mod action is missing a required field', 'mod-dropped'],
+    // Each entry of the list supplies one action, whose verb the reader takes from the entry's own
+    // members, so an entry that is not a group fails while the manifest is read.
+    ['Mod action entry is not a group', 'mod-dropped'],
     // The source of an AddMany is an `OTNode[]` and of an Overrides a name to node map, so the wrong
     // shape fails while the manifest is read rather than while it is applied.
     ['Mod action source has the wrong shape', 'mod-dropped'],
@@ -185,6 +188,7 @@ export const ACTION_FINDING_EFFECTS: ReadonlyMap<string, LoadEffect | 'editor-li
     ['Add action is missing the Name field', 'game-stops'],
     ['Mod action cannot target a whole .rules file', 'game-stops'],
     ['Mod action target has the wrong shape', 'game-stops'],
+    ['Mod action adds a whole list as one entry', 'game-stops'],
     // Not a failure. The game inserts the base and moves the others on, which the editor does not
     // follow, so this one says the check is limited rather than that the mod is broken.
     ['This AddBase inserts at an index, which the editor does not follow', 'editor-limit'],

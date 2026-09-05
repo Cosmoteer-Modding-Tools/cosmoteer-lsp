@@ -7,13 +7,13 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { uriToFsPath } from '../../../../src/features/navigation/workspace-files';
 import { filePathToUri } from '../../../../src/features/navigation/navigation-strategy';
 import { clearSharedBaseScanCache } from '../../../../src/features/refactor/shared-base/mod-scan';
+import { extractSharedBase } from '../../../../src/features/refactor/shared-base/shared-base.command';
 import {
-    extractSharedBase,
     SharedBaseApplyResult,
     SharedBaseHost,
     SharedBasePreviewResult,
     SharedBaseScanResult,
-} from '../../../../src/features/refactor/shared-base/shared-base.command';
+} from '../../../../src/features/refactor/shared-base/shared-base.types';
 import { SerializedPlan } from '../../../../src/features/refactor/shared-base/plan.types';
 import { FIXTURES_DIR } from '../../../helpers';
 

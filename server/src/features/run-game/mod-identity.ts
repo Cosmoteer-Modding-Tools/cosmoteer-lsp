@@ -6,7 +6,7 @@ import {
     declaredCompatibleVersions,
     modVersionVerdict,
     readGameVersionInfo,
-} from '../post-update/game-version';
+} from '../game-version';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 
 /**

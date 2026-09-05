@@ -17,6 +17,7 @@ import {
     contentFolderPathOf,
     emitContent,
     pointedAtByFor,
+    usageFor,
 } from '../../../../src/features/refactor/new-content/content-templates';
 import { CONTENT_KINDS, ContentKind } from '../../../../src/features/refactor/new-content/new-content.types';
 import { globalSettings } from '../../../../src/settings';
@@ -24,7 +25,7 @@ import { namedMembersOf, parseText } from '../../../../src/utils/ast.utils';
 import { CosmoteerWorkspaceService } from '../../../../src/workspace/cosmoteer-workspace.service';
 import { FIXTURES_DIR } from '../../../helpers';
 
-// The four templates, judged the way a file the author wrote by hand would be judged: parsed by the
+// The five templates, judged the way a file the author wrote by hand would be judged: parsed by the
 // real parser, then run through every default-on check that has anything to say about a file's
 // fields. A template our own editor immediately fades or flags is a template nobody would keep.
 const FIXTURE = join(FIXTURES_DIR, 'new-content-mod').replace(/\\/g, '/');
@@ -35,8 +36,32 @@ const token = CancellationToken.None;
 /** The file a template would be written to, so the path rules that type it apply in the test too. */
 const pathFor = (kind: ContentKind): string => contentFilePathOf(MOD_DIR, kind, 'test_thing');
 
-/** The id a template would carry, empty for the kind that declares none. */
-const idFor = (kind: ContentKind): string => (kind === 'mediaEffect' ? '' : kind === 'resource' ? 'test_thing' : 'test.test_thing');
+/** The id a template would carry, empty for the kinds that declare none. */
+const idFor = (kind: ContentKind): string => {
+    switch (kind) {
+        case 'mediaEffect':
+        case 'decalFolder':
+        case 'logoShip':
+            return '';
+        case 'resource':
+        case 'codexPage':
+            return 'test_thing';
+        case 'editorGroup':
+        case 'partStat':
+        case 'buff':
+            return 'TestThing';
+        case 'partToggle':
+            return 'test_test_thing';
+        default:
+            return 'test.test_thing';
+    }
+};
+
+/** The kinds whose template borrows no game asset: a stat line, a buff and a codex page are text through and through. */
+const ASSETLESS_KINDS: readonly ContentKind[] = ['partStat', 'buff', 'codexPage'];
+
+// A logo ship is a saved ship the command copies, so it has no template to judge here.
+const TEMPLATED_KINDS = CONTENT_KINDS.filter((kind) => kind !== 'logoShip');
 
 /** Every `<…>` reference the text carries. */
 const referencesIn = (text: string): string[] => [...text.matchAll(/<[^>]*>/g)].map((match) => match[0]);
@@ -53,7 +78,7 @@ beforeAll(async () => {
 });
 
 describe('the content templates', () => {
-    for (const kind of CONTENT_KINDS) {
+    for (const kind of TEMPLATED_KINDS) {
         it(`emits a ${kind} file the real parser reads without complaint`, () => {
             const fsPath = pathFor(kind);
             const emitted = emitContent(kind, 'test_thing', idFor(kind));
@@ -78,7 +103,7 @@ describe('the content templates', () => {
 
         it(`points the ${kind} template only at install assets that exist`, () => {
             const emitted = emitContent(kind, 'test_thing', idFor(kind));
-            expect(emitted.placeholderAssets.length).toBeGreaterThan(0);
+            if (!ASSETLESS_KINDS.includes(kind)) expect(emitted.placeholderAssets.length).toBeGreaterThan(0);
             for (const asset of emitted.placeholderAssets) {
                 expect(asset.startsWith('./Data/'), `${asset} is not an install-root path`).toBe(true);
                 expect(existsSync(join(DATA_DIR, asset.slice('./Data/'.length))), `${asset} is missing`).toBe(true);
@@ -128,7 +153,7 @@ describe('the content templates', () => {
         // The obvious template source is the game's own example mod, which still writes `Flammable`.
         // It was removed in 0.30 and our own dead-field check fades it on sight, so copying vanilla
         // verbatim would ship a template the editor greys out the moment it is created.
-        for (const kind of CONTENT_KINDS) {
+        for (const kind of TEMPLATED_KINDS) {
             expect(emitContent(kind, 'test_thing', idFor(kind)).text).not.toContain('Flammable');
         }
     });
@@ -159,6 +184,26 @@ describe('the content templates', () => {
         expect(pointedAtByFor('mediaEffect')).toContain('Nothing reaches this effect yet');
         expect(pointedAtByFor('part')).toBeUndefined();
         expect(pointedAtByFor('resource')).toBeUndefined();
+        expect(pointedAtByFor('logoShip')).toBeUndefined();
+        expect(pointedAtByFor('decalFolder')).toBeUndefined();
+        expect(pointedAtByFor('editorGroup')).toBeUndefined();
+        expect(pointedAtByFor('partStat')).toBeUndefined();
+        expect(pointedAtByFor('partToggle')).toBeUndefined();
+        expect(pointedAtByFor('buff')).toBeUndefined();
+        expect(pointedAtByFor('codexPage')).toBeUndefined();
+    });
+
+    it('says how a part uses a registry entry, and says nothing of the kind for the rest', () => {
+        expect(usageFor('editorGroup', 'Experimental')).toBe('Write EditorGroup = "Experimental" in a part to put it in this group.');
+        expect(usageFor('partStat', 'BulletVolley')).toContain('BulletVolley = <value>');
+        expect(usageFor('partToggle', 'evans_thrust')).toContain('ToggleID = "evans_thrust"');
+        expect(usageFor('partToggle', 'evans_thrust')).toContain('OperationalToggle');
+        expect(usageFor('buff', 'PhaseEngine')).toContain('ReceivableBuffs');
+        expect(usageFor('buff', 'PhaseEngine')).toContain('{ Type = Buff; BuffType = PhaseEngine }');
+        expect(usageFor('codexPage', 'mining')).toContain('TempShowCondition');
+        for (const kind of ['part', 'resource', 'bullet', 'mediaEffect', 'logoShip', 'decalFolder'] as ContentKind[]) {
+            expect(usageFor(kind, 'x'), `${kind} carries a usage note`).toBeUndefined();
+        }
     });
 
     it('puts each kind where the editor can find it, and gives the asset-owning kinds a folder', () => {
@@ -166,8 +211,113 @@ describe('the content templates', () => {
         expect(contentFilePathOf(MOD_DIR, 'resource', 'x')).toBe(`${MOD_DIR}/resources/x/x.rules`);
         expect(contentFilePathOf(MOD_DIR, 'bullet', 'x')).toBe(`${MOD_DIR}/shots/x/x.rules`);
         expect(contentFilePathOf(MOD_DIR, 'mediaEffect', 'x')).toBe(`${MOD_DIR}/effects/x.rules`);
+        expect(contentFilePathOf(MOD_DIR, 'logoShip', 'x')).toBe(`${MOD_DIR}/gui/x.ship.png`);
+        expect(contentFilePathOf(MOD_DIR, 'decalFolder', 'x')).toBe(`${MOD_DIR}/roof_decals/x/decal_group_x.rules`);
         expect(contentFolderPathOf(MOD_DIR, 'part', 'x')).toBe(`${MOD_DIR}/parts/x`);
         expect(contentFolderPathOf(MOD_DIR, 'mediaEffect', 'x')).toBeUndefined();
+        expect(contentFolderPathOf(MOD_DIR, 'logoShip', 'x')).toBeUndefined();
+        // The folder is the content for a decal group, so it has to be free as well as the file.
+        expect(contentFolderPathOf(MOD_DIR, 'decalFolder', 'x')).toBe(`${MOD_DIR}/roof_decals/x`);
+        // A registry entry borrows the game's icons and owns no asset, so it gets no folder.
+        expect(contentFilePathOf(MOD_DIR, 'editorGroup', 'x')).toBe(`${MOD_DIR}/gui/editor_groups/x.rules`);
+        expect(contentFilePathOf(MOD_DIR, 'partStat', 'x')).toBe(`${MOD_DIR}/gui/stats/x.rules`);
+        expect(contentFilePathOf(MOD_DIR, 'partToggle', 'x')).toBe(`${MOD_DIR}/gui/toggles/x.rules`);
+        expect(contentFolderPathOf(MOD_DIR, 'editorGroup', 'x')).toBeUndefined();
+        expect(contentFolderPathOf(MOD_DIR, 'partStat', 'x')).toBeUndefined();
+        expect(contentFolderPathOf(MOD_DIR, 'partToggle', 'x')).toBeUndefined();
+        // A buff owns nothing, while a codex page reads its entry images from its own directory.
+        expect(contentFilePathOf(MOD_DIR, 'buff', 'x')).toBe(`${MOD_DIR}/buffs/x.rules`);
+        expect(contentFolderPathOf(MOD_DIR, 'buff', 'x')).toBeUndefined();
+        expect(contentFilePathOf(MOD_DIR, 'codexPage', 'x')).toBe(`${MOD_DIR}/codex/x/x.rules`);
+        expect(contentFolderPathOf(MOD_DIR, 'codexPage', 'x')).toBe(`${MOD_DIR}/codex/x`);
+    });
+
+    it('writes a buff as a map with one member named by the id, declaring no key', () => {
+        const emitted = emitContent('buff', 'phase_engine', 'PhaseEngine');
+        const document = parseText(emitted.text, pathFor('buff'));
+        const groups = document.elements.filter(isGroupNode);
+        expect(groups.map((group) => group.identifier?.name)).toEqual(['PhaseEngine']);
+        const names = [...namedMembersOf(groups[0])].map(([name]) => name);
+        expect(names).toEqual([
+            'CombineMode',
+            'BaseValue',
+            'IconTextFormatKey',
+            'IconTextMultiply',
+            'IconTextAdd',
+            'ShowIconTextForZeroValue',
+            'RectBorderColor',
+            'RectFillColor',
+        ]);
+        expect(emitted.text).toContain('BuffType = PhaseEngine');
+        expect(emitted.localization).toEqual([]);
+        expect(emitted.placeholderAssets).toEqual([]);
+    });
+
+    it('writes a codex page under the tutorials tab with a title and two paragraph keys', () => {
+        const emitted = emitContent('codexPage', 'mining_guide', 'mining_guide');
+        const document = parseText(emitted.text, pathFor('codexPage'));
+        const names = [...namedMembersOf(document)].map(([name]) => name);
+        expect(names).toEqual(['ID', 'TitleKey', 'TabNameKey', 'Entries']);
+        expect(emitted.text).toContain('ID = mining_guide');
+        expect(emitted.text).toContain('TabNameKey = "Codex/Tutorials"');
+        expect(emitted.localization).toEqual([
+            { key: 'Tutorials/MiningGuide/Title', value: '"Mining Guide"' },
+            { key: 'Tutorials/MiningGuide/Text1', value: '"Write this part of the help here."' },
+            { key: 'Tutorials/MiningGuide/Text2', value: '"Write this part of the help here."' },
+        ]);
+        expect(emitted.placeholderAssets).toEqual([]);
+    });
+
+    it('writes a toolbar category as a named member whose name is the id, sorted before Structure', () => {
+        const emitted = emitContent('editorGroup', 'tri_weapons', 'TriWeapons');
+        const document = parseText(emitted.text, pathFor('editorGroup'));
+        const group = document.elements.find(isGroupNode);
+        expect(group?.identifier?.name).toBe('TriWeapons');
+        expect(emitted.text).toContain('SortOrder = 950');
+        expect(emitted.localization).toEqual([{ key: 'EditorGroups/TriWeapons', value: '"Tri Weapons"' }]);
+        expect(emitted.placeholderAssets).toEqual(['./Data/gui/game/designer/group_utilities.png']);
+    });
+
+    it('writes a stat line with its id and the format key the tooltip reads', () => {
+        const emitted = emitContent('partStat', 'tri_volley', 'TriVolley');
+        const document = parseText(emitted.text, pathFor('partStat'));
+        const group = document.elements.find(isGroupNode);
+        expect(group?.identifier?.name).toBe('Stat');
+        expect(emitted.text).toContain('ID = TriVolley');
+        expect(emitted.localization).toEqual([
+            { key: 'Stats/TriVolleyFmt', value: '"<white>Tri Volley:</white> <good>{0:0.##}</good>"' },
+        ]);
+    });
+
+    it('writes a toggle whose choice ids and hotkey tooltips carry the prefixed toggle id', () => {
+        const emitted = emitContent('partToggle', 'thrust_mode', 'evans_thrust_mode');
+        const document = parseText(emitted.text, pathFor('partToggle'));
+        const group = document.elements.find(isGroupNode);
+        expect(group?.identifier?.name).toBe('Toggle');
+        expect(emitted.text).toContain('ToggleID = "evans_thrust_mode"');
+        expect(emitted.text).toContain('ChoiceID = "evans_thrust_mode_off"');
+        expect(emitted.text).toContain('ChoiceID = "evans_thrust_mode_on"');
+        expect(emitted.localization.map((entry) => entry.key)).toEqual(['PartToggles/ThrustMode_Off', 'PartToggles/ThrustMode_On']);
+        expect(emitted.localization[1].value).toBe(
+            '"<b>Thrust Mode: <good>On</good></b>\\n\\nHotkey: <btn id=\'PartToggles.evans_thrust_mode_on\'/>"'
+        );
+    });
+
+    it('writes a decal group that names its own folder, its key and the game icon it borrows', () => {
+        const emitted = emitContent('decalFolder', 'tri_shapes', '');
+        const document = parseText(emitted.text, pathFor('decalFolder'));
+        const group = document.elements.find(isGroupNode);
+        expect(group?.identifier?.name).toBe('Group');
+        expect(emitted.text).toContain('Folders = ["."]');
+        expect(emitted.localization).toEqual([{ key: 'DecalGroups/TriShapes', value: '"Tri Shapes"' }]);
+        expect(emitted.placeholderAssets).toEqual(['./Data/roof_decals/shapes.png']);
+    });
+
+    it('emits nothing for a logo ship, which is copied rather than written', () => {
+        const emitted = emitContent('logoShip', 'flagship', '');
+        expect(emitted.text).toBe('');
+        expect(emitted.localization).toEqual([]);
+        expect(emitted.placeholderAssets).toEqual([]);
     });
 
     it('gives the media effect a type the registry knows, since that is all that types the file', () => {

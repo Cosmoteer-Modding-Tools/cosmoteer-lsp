@@ -15,24 +15,11 @@ import { ValidationForFunctionCall } from '../../features/diagnostics/validator.
 import { ValidationForAssignment } from '../../features/diagnostics/validator.assignment';
 import { ValidationForMath } from '../../features/diagnostics/validator.math';
 import { ValidationForGroupDuplicates } from '../../features/diagnostics/validator.duplicate-key';
-import { OPEN_IN_DECOMPILER_COMMAND } from '../../features/hover/decompiler-link';
-import { MIGRATE_WORKSPACE_COMMAND } from '../../features/migration/migrate-workspace';
-import { MIGRATE_SYMBOL_COMMAND } from '../../features/migration/migrate-symbol';
-import { POST_UPDATE_REPORT_COMMAND } from '../../features/post-update/post-update-report';
-import { BUILD_MOD_SCHEMA_COMMAND } from '../../features/mod-schema/mod-schema';
-import { EXTRACT_SHARED_BASE_COMMAND } from '../../features/refactor/shared-base/shared-base.command';
 import { clearSharedBaseScanCache } from '../../features/refactor/shared-base/mod-scan';
-import { EXTRACT_LOCALIZATION_KEY_COMMAND } from '../../features/refactor/extract-localization-key';
-import { REGISTER_PART_IN_SHIP_COMMAND } from '../../features/refactor/register-part/register-part.command';
-import { CREATE_COMPONENT_COMMAND } from '../../features/refactor/create-component/create-component.command';
-import { EXTRACT_GROUP_COMMAND } from '../../features/refactor/extract-group/extract-group.command';
-import { OVERRIDE_IN_MOD_COMMAND } from '../../features/refactor/override-in-mod/override-in-mod.command';
-import { CLONE_DECLARATION_COMMAND } from '../../features/refactor/clone-declaration/clone.command';
-import { NEW_CONTENT_COMMAND } from '../../features/refactor/new-content/new-content.command';
-import { NEW_MOD_COMMAND } from '../../features/refactor/new-mod/new-mod.command';
-import { INSERT_SCHEMA_FIELD_COMMAND } from '../../features/schema-search/schema-search.insert';
-import { RUN_IN_COSMOTEER_COMMAND } from '../../features/run-game/run-game.command';
-import { IMPORT_GAME_LOG_COMMAND } from '../../features/game-log/import-game-log.command';
+import { referenceRepairEdit } from '../../features/refactor/rename-file-references';
+import { uriToFsPath } from '../../features/navigation/workspace-files';
+import { traceFailure } from '../../utils/cancellation';
+import { SERVER_COMMANDS } from '../server-commands';
 import { semanticTokensLegend } from '../../features/semantic/legend';
 import { WorkspaceSymbolService } from '../../features/navigation/workspace-symbol.service';
 import { SchemaIdIndex } from '../../features/completion/schema-id.index';
@@ -139,7 +126,7 @@ export function register(): void {
                     // keys, assets, references) the moment a quote opens. '#' pops `.shader` preprocessor
                     // directives. ':' pops inheritance-base completion after `Child :`. The rest are
                     // `.rules` reference sigils.
-                    triggerCharacters: ['<', '&', '/', '^', '~', '=', '.', '"', '#', ':'],
+                    triggerCharacters: ['<', '&', '/', '^', '~', '=', '.', '"', '#', ':', "'"],
                 },
                 diagnosticProvider: {
                     interFileDependencies: true,
@@ -188,25 +175,7 @@ export function register(): void {
                 // The workspace migration also runs server-side for the same reason: one implementation
                 // computes the WorkspaceEdit, both clients only trigger it and show the summary.
                 executeCommandProvider: {
-                    commands: [
-                        OPEN_IN_DECOMPILER_COMMAND,
-                        MIGRATE_WORKSPACE_COMMAND,
-                        MIGRATE_SYMBOL_COMMAND,
-                        BUILD_MOD_SCHEMA_COMMAND,
-                        EXTRACT_SHARED_BASE_COMMAND,
-                        EXTRACT_LOCALIZATION_KEY_COMMAND,
-                        REGISTER_PART_IN_SHIP_COMMAND,
-                        CREATE_COMPONENT_COMMAND,
-                        EXTRACT_GROUP_COMMAND,
-                        OVERRIDE_IN_MOD_COMMAND,
-                        CLONE_DECLARATION_COMMAND,
-                        INSERT_SCHEMA_FIELD_COMMAND,
-                        RUN_IN_COSMOTEER_COMMAND,
-                        IMPORT_GAME_LOG_COMMAND,
-                        POST_UPDATE_REPORT_COMMAND,
-                        NEW_CONTENT_COMMAND,
-                        NEW_MOD_COMMAND,
-                    ],
+                    commands: [...SERVER_COMMANDS],
                 },
                 semanticTokensProvider: {
                     legend: semanticTokensLegend,
@@ -217,15 +186,34 @@ export function register(): void {
                 },
             },
         };
-        if (hasWorkspaceFolderCapability) {
-            result.capabilities.workspace = {
-                workspaceFolders: {
-                    supported: true,
+        result.capabilities.workspace = {
+            ...(hasWorkspaceFolderCapability ? { workspaceFolders: { supported: true } } : {}),
+            // A `<…>` reference names a file by a path written against the folder of the file writing
+            // it, so moving either end breaks it. The edits that keep them working are computed while
+            // the rename is still pending, which is the only moment both paths are known.
+            fileOperations: {
+                willRename: {
+                    filters: [{ pattern: { glob: '**/*.rules', matches: 'file' } }],
                 },
-            };
-        }
+            },
+        };
 
         return result;
+    });
+
+    // Moving or renaming a `.rules` file: rewrite every reference that names it, and every reference
+    // the moved file itself writes, so the file lands with its wiring intact.
+    connection.workspace.onWillRenameFiles(async (params, cancellationToken) => {
+        try {
+            const renames = params.files.map((file) => ({
+                oldPath: uriToFsPath(file.oldUri),
+                newPath: uriToFsPath(file.newUri),
+            }));
+            return (await referenceRepairEdit(renames, await searchFolderUris(), cancellationToken)) ?? null;
+        } catch (e) {
+            traceFailure(e);
+            return null;
+        }
     });
 
     connection.onInitialized(async (_params) => {

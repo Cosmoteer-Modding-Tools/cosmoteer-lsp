@@ -1,6 +1,5 @@
 import { dirname } from 'path';
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import { GroupNode, isListNode, isValueNode } from '../../../core/ast/ast';
 import { basenameOf } from '../../../document/document-kind';
 import { findModRoot } from '../../../mod/mod-root';
@@ -8,7 +7,6 @@ import { findMemberThroughInheritance, ResolveReferenceFn } from '../../../seman
 import { globalSettings } from '../../../settings';
 import { namedMembersOf, parseText } from '../../../utils/ast.utils';
 import { isUnder } from '../../../utils/relative-path';
-import { FileWithPath, CosmoteerWorkspaceData } from '../../../workspace/cosmoteer-workspace.service';
 import { FullNavigationStrategy } from '../../navigation/full.navigation-strategy';
 import { uriToFsPath } from '../../navigation/workspace-files';
 import { appendElementEdit, isError } from '../../part-editor/grid-edit.service';
@@ -20,15 +18,23 @@ import { dirOf } from '../shared-base/base-index';
 import { editableModRootOf } from '../shared-base/shared-base.analysis-entry';
 import { addManyActionText, manifestActionInsert, shipPartsTargetPath } from './manifest-action.emitter';
 import {
-    collectShipClasses,
     manifestsIn,
-    modRootsUnder,
     partsListRegisters,
     ShipClassEntry,
+    shipClassesFor,
     ShipParts,
     shipPartsIn,
     shipPartsListOf,
 } from './ship-registry';
+import {
+    RegisterPartApplyResult,
+    RegisterPartArgs,
+    RegisterPartFailure,
+    RegisterPartHost,
+    RegisterPartScanResult,
+    ShipBlocker,
+    ShipCandidate,
+} from './register-part.types';
 
 /**
  * The `workspace/executeCommand` id that registers a part in a ship class. Both clients invoke it
@@ -48,103 +54,6 @@ export const REGISTER_PART_IN_SHIP_COMMAND = 'cosmoteer.registerPartInShip';
  * the answer.
  */
 export const REGISTER_PART_IN_SHIP_ACTION_COMMAND = 'cosmoteer.registerPartInShipFromAction';
-
-/** What the client sends: the part, and on the second round the ship it picked. */
-export interface RegisterPartArgs {
-    /** The file the part group lives in. */
-    uri: string;
-    /** The byte offset of the part group's name in that file. */
-    offset: number;
-    /** The {@link ShipCandidate.key} of the chosen ship. Absent means "report the candidates". */
-    ship?: string;
-}
-
-/** Why a ship cannot take the part, whatever else is true of it. */
-type ShipBlocker = 'partsInherited' | 'noPartsList' | 'notEditable' | 'noModRoot' | 'unreadable';
-
-/** Why a registration did nothing. */
-export type RegisterPartFailure =
-    | 'stale'
-    | 'noShipClasses'
-    | 'unknownShip'
-    | 'alreadyRegistered'
-    | 'partsInherited'
-    | 'noPartsList'
-    | 'noModRoot'
-    | 'ambiguousManifest'
-    | 'notEditable'
-    | 'editRejected';
-
-/** Something worth saying that did not stop the registration. */
-type RegisterPartWarning = 'noPartId';
-
-/** One ship class the part could be registered in, and what registering would take. */
-export interface ShipCandidate {
-    /** The identity the client sends back to pick this ship. */
-    key: string;
-    /** The ship group's name in its own file. */
-    groupName: string;
-    /** The ship's written `ID`, absent when it declares none. */
-    id?: string;
-    /** The ship file's on-disk path. */
-    fsPath: string;
-    /** Whether the ship belongs to the workspace or to the game's own install. */
-    target: 'workspace' | 'vanilla';
-    /** Whether registering writes into the ship's own file or into the mod's manifest. */
-    via: 'shipFile' | 'modAction';
-    /** True when the part is already in that ship's parts, so registering would duplicate it. */
-    alreadyRegistered: boolean;
-    /** Why this ship cannot take the part, absent when it can. */
-    blocked?: ShipBlocker;
-}
-
-/** The ship classes the part could be registered in. */
-export interface RegisterPartScanResult {
-    kind: 'scan';
-    /** The part's own id, read locally or through its bases, absent when it declares none anywhere. */
-    partId?: string;
-    /** The part group's name, which is what a registration reference names. */
-    partGroupName: string;
-    /** The candidates in registry order, mod-added ships last. */
-    candidates: ShipCandidate[];
-    /** Why the candidates could not be worked out, absent on success. */
-    failure?: RegisterPartFailure;
-}
-
-/** What a registration did, or why it did nothing. */
-export interface RegisterPartApplyResult {
-    kind: 'apply';
-    /** The ship file the part was registered in, empty when nothing was written. */
-    shipFsPath: string;
-    /** Whether the registration went into the ship's own file or into the mod's manifest. */
-    via: 'shipFile' | 'modAction';
-    /** Every file the edit changed, so the client can save and tidy them. */
-    changedFiles: string[];
-    /** The reference that was written, sigil included, empty when nothing was written. */
-    reference: string;
-    /** Something worth saying that did not stop the registration. */
-    warning?: RegisterPartWarning;
-    /** Why nothing was written, absent on success. */
-    failure?: RegisterPartFailure;
-    /** The manifest names to choose between, only set for `ambiguousManifest`. */
-    manifests?: string[];
-}
-
-/** The server-side facilities the command needs, injected so the module stays testable. */
-export interface RegisterPartHost {
-    /** The workspace folders whose mods may declare ships, as on-disk paths. */
-    folderPaths(): Promise<string[]>;
-    /** The editor's open buffers, whose unsaved text wins over disk. */
-    openDocuments(): readonly TextDocument[];
-    /** The game's own root `cosmoteer.rules`, which holds the ship registry. */
-    gameRoot(): Promise<FileWithPath | undefined>;
-    /** The game's `Data` directory, which decides whether a ship is the install's or the mod's. */
-    dataRoot(): string | undefined;
-    /** Hands the client the edit. */
-    applyEdit(changes: Record<string, TextEdit[]>): Promise<boolean>;
-    /** Announces the files the command wrote, so the indexes pick them up without waiting for a watcher. */
-    filesChanged(paths: readonly string[]): void;
-}
 
 /** How many ships a scan reports, so a workspace full of ship mods still answers with a readable list. */
 const MAX_REPORTED_SHIPS = 40;
@@ -222,25 +131,6 @@ const resolvePart = async (
         id: await partIdOf(group, cancellationToken),
         group,
     };
-};
-
-/**
- * The ship classes the game loads, from the game's own registry and from the workspace mods' manifests.
- *
- * @param host the server facilities.
- * @param cancellationToken cancels the manifest reads.
- * @returns the ship classes, empty when the game path is unset and no mod adds one.
- */
-const shipEntries = async (
-    host: RegisterPartHost,
-    cancellationToken: CancellationToken
-): Promise<ShipClassEntry[]> => {
-    const root = await host.gameRoot().catch(() => undefined);
-    const rootDocument = (root?.content as CosmoteerWorkspaceData | undefined)?.parsedDocument;
-    const folders = await host.folderPaths().catch(() => []);
-    const modRoots = new Set<string>();
-    for (const folder of folders) for (const modRoot of modRootsUnder(folder)) modRoots.add(modRoot);
-    return await collectShipClasses(rootDocument, root?.path, [...modRoots], cancellationToken);
 };
 
 /** How a registration would be written, and what stands in the way of it. */
@@ -505,7 +395,7 @@ export const registerPartInShip = async (
             ? applyFailed('stale')
             : { kind: 'scan', partGroupName: '', candidates: [], failure: 'stale' };
     }
-    const entries = await shipEntries(host, cancellationToken);
+    const entries = await shipClassesFor(host, cancellationToken);
     if (!args.ship) return await scanRound(part, entries, host);
 
     // The registry is rebuilt rather than trusted from the scan: the files it was read from may have

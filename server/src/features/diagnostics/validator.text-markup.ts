@@ -4,6 +4,15 @@ import { AbstractNodeDocument, isValueNode } from '../../core/ast/ast';
 import { normalizeUri } from '../navigation/reference-location';
 import { keyDeclarationsOf } from '../completion/localization-key.index';
 import { findModRoot } from '../../mod/mod-root';
+import { markupTextOf, scanMarkup, tagIssues } from '../text-markup/text-markup';
+import {
+    AttributeValueKind,
+    MarkupAttribute,
+    MarkupFault,
+    MarkupIssue,
+    MarkupTag,
+} from '../text-markup/text-markup.types';
+import { textImageNames } from '../text-markup/text-image.names';
 import { ValidationError } from './validator';
 
 /**
@@ -13,141 +22,13 @@ import { ValidationError } from './validator';
  */
 const STRINGS_PATH_SEGMENT = /(^|\/)strings\//;
 
-/** A name an element or an attribute can carry, in the shape XML allows. */
-const NAME = /^[A-Za-z_:][A-Za-z0-9_.:-]*/;
-
-/** A character reference, which is the one thing an `&` is allowed to start. */
-const ENTITY = /^&(#\d+|#x[0-9A-Fa-f]+|[A-Za-z_:][A-Za-z0-9_.:-]*);/;
-
-/** What is wrong with a string's markup, which decides the sentence the finding writes. */
-type MarkupFault =
-    | { readonly kind: 'ampersand' }
-    | { readonly kind: 'lessThan' }
-    | { readonly kind: 'attribute'; readonly detail: string }
-    | { readonly kind: 'duplicateAttribute'; readonly detail: string }
-    | { readonly kind: 'unclosed'; readonly detail: string }
-    | { readonly kind: 'mismatched'; readonly detail: string }
-    | { readonly kind: 'stray'; readonly detail: string };
-
-/** Anything tag-shaped, which is what makes a string one the markup reader's verdict is felt on. */
-const TAG_SHAPED = /<\/?[A-Za-z_:]/;
-
-/** How far the scanner got and what it is holding. */
-interface ScanState {
-    /** The elements opened and not yet closed, innermost last. */
-    readonly open: string[];
-}
-
-/**
- * Puts back the characters the lexer keeps as they were written. The game's own reader unescapes a
- * value before anything reads it, so a `\"` inside an attribute is a quote to the markup parser and
- * has to be one here too.
- *
- * @param text the value as the lexer kept it.
- * @returns the text the game would hand to its markup parser.
- */
-const unescaped = (text: string): string =>
-    text.replace(/\\(.)/g, (_, character: string) =>
-        character === 'n' ? '\n' : character === 't' ? '\t' : character === 'r' ? '\r' : character
-    );
-
-/**
- * Reads one tag, starting at its `<`.
- *
- * @param text the whole string.
- * @param start the offset of the `<`.
- * @param state the elements opened so far, which this updates.
- * @returns the offset past the tag, or the fault that stopped it.
- */
-const readTag = (text: string, start: number, state: ScanState): number | MarkupFault => {
-    let index = start + 1;
-    const closing = text[index] === '/';
-    if (closing) index++;
-    const name = NAME.exec(text.slice(index))?.[0];
-    if (!name) return { kind: 'lessThan' };
-    index += name.length;
-    if (closing) {
-        while (index < text.length && /\s/.test(text[index])) index++;
-        if (text[index] !== '>') return { kind: 'stray', detail: name };
-        const expected = state.open.pop();
-        if (expected === undefined) return { kind: 'stray', detail: name };
-        if (expected.toLowerCase() !== name.toLowerCase()) return { kind: 'mismatched', detail: expected };
-        return index + 1;
-    }
-    const seen = new Set<string>();
-    for (;;) {
-        while (index < text.length && /\s/.test(text[index])) index++;
-        if (index >= text.length) return { kind: 'unclosed', detail: name };
-        if (text.startsWith('/>', index)) return index + 2;
-        if (text[index] === '>') {
-            state.open.push(name);
-            return index + 1;
-        }
-        const attribute = NAME.exec(text.slice(index))?.[0];
-        if (!attribute) return { kind: 'attribute', detail: name };
-        if (seen.has(attribute.toLowerCase())) return { kind: 'duplicateAttribute', detail: attribute };
-        seen.add(attribute.toLowerCase());
-        index += attribute.length;
-        while (index < text.length && /\s/.test(text[index])) index++;
-        if (text[index] !== '=') return { kind: 'attribute', detail: attribute };
-        index++;
-        while (index < text.length && /\s/.test(text[index])) index++;
-        const quote = text[index];
-        if (quote !== '"' && quote !== "'") return { kind: 'attribute', detail: attribute };
-        const end = text.indexOf(quote, index + 1);
-        if (end < 0) return { kind: 'attribute', detail: attribute };
-        index = end + 1;
-    }
-};
-
-/**
- * The first thing about a string that stops it being a well-formed markup fragment.
- *
- * The game hands every string it draws to a fragment reader and catches whatever that throws,
- * falling back to drawing the string exactly as written. A string carrying nothing tag-shaped is
- * therefore never judged: it renders the same whether the reader accepted it or not, so a `<` used
- * as a less-than sign in plain prose costs the author nothing and is not worth a word.
- *
- * @param text the unescaped string.
- * @returns the fault, or undefined when the fragment is well formed.
- */
-const markupFault = (text: string): MarkupFault | undefined => {
-    if (!TAG_SHAPED.test(text)) return undefined;
-    const state: ScanState = { open: [] };
-    let index = 0;
-    while (index < text.length) {
-        const character = text[index];
-        if (character === '&') {
-            const entity = ENTITY.exec(text.slice(index));
-            if (!entity) return { kind: 'ampersand' };
-            index += entity[0].length;
-            continue;
-        }
-        if (character === '<') {
-            if (text.startsWith('<!--', index)) {
-                const end = text.indexOf('-->', index + 4);
-                if (end < 0) return { kind: 'stray', detail: '<!--' };
-                index = end + 3;
-                continue;
-            }
-            const next = readTag(text, index, state);
-            if (typeof next !== 'number') return next;
-            index = next;
-            continue;
-        }
-        index++;
-    }
-    if (state.open.length > 0) return { kind: 'unclosed', detail: state.open[state.open.length - 1] };
-    return undefined;
-};
-
 /**
  * What the fault says to the author, in the wording of the thing that went wrong.
  *
  * @param fault the fault the scan stopped on.
  * @returns the diagnostic message.
  */
-const messageFor = (fault: MarkupFault): string => {
+const messageForFault = (fault: MarkupFault): string => {
     switch (fault.kind) {
         case 'ampersand':
             return l10n.t(
@@ -186,12 +67,114 @@ const messageFor = (fault: MarkupFault): string => {
 };
 
 /**
+ * How a value of this kind has to be written, as the half sentence that names it.
+ *
+ * @param kind the way the engine reads the value.
+ * @returns the shape the value has to have.
+ */
+const shapeOf = (kind: AttributeValueKind): string => {
+    switch (kind) {
+        case 'integer':
+            return l10n.t('a whole number');
+        case 'number':
+            return l10n.t('a number');
+        case 'character':
+            return l10n.t('a single character');
+        case 'hexColor':
+            return l10n.t('six or eight hex digits, written without a leading #');
+        default:
+            return l10n.t('a value the game can read');
+    }
+};
+
+/**
+ * What a wrong tag says to the author, in the wording of the thing that went wrong.
+ *
+ * @param issue the issue found on the tag.
+ * @returns the diagnostic message.
+ */
+const messageForIssue = (issue: MarkupIssue): string => {
+    switch (issue.kind) {
+        case 'unusableTag':
+            // One tag is in this state and its reason is its own sentence, so the wording says what
+            // is really the matter rather than pasting a clause into a frame.
+            return l10n.t(
+                "Nothing in the game registers a font, so a '{0}' tag always makes it give up on this string and draw its tags as plain text.",
+                issue.name
+            );
+        case 'unknownTag':
+            return issue.suggestion
+                ? l10n.t(
+                      "The game draws no '{0}' tag, so it gives up on this string and draws its tags as plain text. Tag names are case-sensitive here, write '{1}'.",
+                      issue.name,
+                      issue.suggestion
+                  )
+                : l10n.t(
+                      "The game draws no '{0}' tag, so it gives up on this string and draws its tags as plain text.",
+                      issue.name
+                  );
+        case 'missingAttribute':
+            return l10n.t(
+                "The '{0}' tag needs a '{1}' attribute. Without it the game gives up on this string and draws its tags as plain text.",
+                issue.name,
+                issue.attribute
+            );
+        case 'badValue':
+            return issue.allowed
+                ? l10n.t(
+                      "'{0}' takes one of {1} here, so the game gives up on this string and draws its tags as plain text.",
+                      issue.attribute,
+                      issue.allowed.join(', ')
+                  )
+                : l10n.t(
+                      "'{0}' takes {1} here, so the game gives up on this string and draws its tags as plain text.",
+                      issue.attribute,
+                      shapeOf(issue.expected)
+                  );
+        case 'unknownAttribute':
+            return issue.suggestion
+                ? l10n.t(
+                      "The '{0}' tag reads no '{1}' attribute. Attribute names are case-sensitive here, write '{2}'.",
+                      issue.name,
+                      issue.attribute,
+                      issue.suggestion
+                  )
+                : l10n.t("The '{0}' tag reads no '{1}' attribute, so this has no effect.", issue.name, issue.attribute);
+        case 'ignoredAttribute':
+            return l10n.t("'{0}' already sets the colour of this tag, so '{1}' has no effect.", issue.winner, issue.attribute);
+    }
+};
+
+/**
+ * The `name` attribute of an image tag, which is the one value only the project can judge.
+ *
+ * @param tag the tag as written.
+ * @returns the attribute, or undefined when this is no image tag or it names nothing.
+ */
+const imageNameOf = (tag: MarkupTag): MarkupAttribute | undefined => {
+    const name = tag.name.toLowerCase();
+    if (tag.closing || (name !== 'img' && name !== 'image')) return undefined;
+    const written = tag.attributes.find((attribute) => attribute.name === 'name');
+    return written && written.value.trim() ? written : undefined;
+};
+
+/** Whether an issue keeps the game from reading the string at all, rather than being ignored. */
+const isRefusal = (issue: MarkupIssue): boolean =>
+    issue.kind === 'unknownTag' ||
+    issue.kind === 'unusableTag' ||
+    issue.kind === 'missingAttribute' ||
+    issue.kind === 'badValue';
+
+/**
  * Flags a localization string whose markup the game cannot read.
  *
  * Text the game draws goes through a markup reader first, and everything that reader throws is
  * caught and answered by drawing the string again with no markup at all. Nothing is logged. The
  * player sees the tags themselves, so a single unclosed tag turns a whole description into markup
- * on screen.
+ * on screen. Beside the shape of the fragment, each tag is judged against the element the reader
+ * would run for it: an element it knows nothing about, an attribute it throws without, and a value
+ * it cannot parse all end the same way. An attribute the element never reads is reported too, as
+ * dead weight rather than as a refusal, since the game simply ignores it.
  *
  * Judged only on the language files of a mod, in the folder the game reads them from, and only on
  * a string carrying markup in the first place. A string with no tags renders the same whether the
@@ -199,10 +182,11 @@ const messageFor = (fault: MarkupFault): string => {
  *
  * @param document the parsed document to validate.
  * @param cancellationToken cancels the walk when the document changed under us.
- * @returns one finding per string the markup reader would refuse.
+ * @returns one finding per string the markup reader would refuse, plus the ignored attributes.
  */
 export const validateTextMarkup = async (
     document: AbstractNodeDocument,
+    folderPaths: string[],
     cancellationToken: CancellationToken
 ): Promise<ValidationError[]> => {
     if (!STRINGS_PATH_SEGMENT.test(normalizeUri(document.uri))) return [];
@@ -216,9 +200,51 @@ export const validateTextMarkup = async (
         const node = declaration.node;
         if (declaration.text === undefined || !isValueNode(node)) continue;
         if (node.valueType.type === 'Reference') continue;
-        const fault = markupFault(unescaped(declaration.text));
-        if (!fault) continue;
-        errors.push({ message: messageFor(fault), node, severity: 'warning' });
+        const span = markupTextOf(node);
+        if (!span) continue;
+        const scan = scanMarkup(span.text);
+        if (!scan.hasMarkup) continue;
+        const at = (start: number, end: number) => ({ start: span.offset + start, end: span.offset + end });
+        if (scan.fault) {
+            errors.push({
+                message: messageForFault(scan.fault),
+                node,
+                range: at(scan.fault.start, scan.fault.end),
+                severity: 'warning',
+            });
+        }
+        for (const tag of scan.tags) {
+            // An image name is the one value the tag tables cannot judge on their own: the library it
+            // is looked up in is filled from the project's own data, the game's text sprites plus one
+            // per resource and per faction. Judged only where the project registers any, so a
+            // workspace without the game tree says nothing rather than everything.
+            const image = imageNameOf(tag);
+            if (image) {
+                const registered = await textImageNames(folderPaths, cancellationToken, document.uri).catch(
+                    () => new Set<string>()
+                );
+                if (registered.size > 0 && !registered.has(image.value)) {
+                    errors.push({
+                        message: l10n.t(
+                            "Nothing in this project registers an image named '{0}', so the game gives up on this string and draws its tags as plain text.",
+                            image.value
+                        ),
+                        node,
+                        range: at(image.valueStart, image.valueEnd),
+                        severity: 'warning',
+                    });
+                }
+            }
+            for (const issue of tagIssues(tag)) {
+                errors.push({
+                    message: messageForIssue(issue),
+                    node,
+                    range: at(issue.start, issue.end),
+                    severity: isRefusal(issue) ? 'warning' : 'hint',
+                    unnecessary: !isRefusal(issue),
+                });
+            }
+        }
     }
     return errors;
 };

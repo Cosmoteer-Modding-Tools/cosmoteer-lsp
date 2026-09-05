@@ -1,19 +1,27 @@
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, isDocumentNode, isGroupNode, isListNode, isValueNode } from '../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    GroupNode,
+    isDocumentNode,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+    ValueNode,
+} from '../core/ast/ast';
 import { getStartOfAstNode, namedMembersOf, parseFilePath } from '../utils/ast.utils';
-import { isModRules } from '../document/document-kind';
 import {
     registerMemberEnumerationSource,
     registerMemberExtensionSource,
     registerMemberReplacementSource,
 } from '../semantics/reference-resolver';
-import { WatchedDocumentIndex } from '../features/navigation/watched-document-index';
-import { normalizeUri } from '../features/navigation/reference-location';
 import { modFolderPaths } from '../features/navigation/workspace-files';
 import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
 import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
-import { isActionFragmentDocument, parseModActions, textCouldCarryActions } from './action-parser';
+import { ModAction } from './action';
 import { resolveActionTarget, resolveActionTargetMember } from './action-target-resolver';
+import { ModActionNodeIndex } from './mod-action-node.index';
+import { overrideMembersOf } from './override-members';
 
 /**
  * What an action does to a name the target node already writes itself, read from the verbs in
@@ -71,13 +79,8 @@ const navigation = new FullNavigationStrategy();
  * other mod's files at the author of the removal. What the removal is worth saying is said where the
  * member set is shown.
  */
-export class MemberInjectionIndex extends WatchedDocumentIndex {
+export class MemberInjectionIndex extends ModActionNodeIndex<InjectedMember> {
     private static _instance: MemberInjectionIndex;
-
-    /** Target node key → the members injected into it. */
-    private readonly byNode = new Map<string, InjectedMember[]>();
-    /** Source document uri → the target node keys it contributed to, so a re-index can drop them. */
-    private readonly bySource = new Map<string, string[]>();
 
     private constructor() {
         super();
@@ -89,17 +92,6 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
     public static get instance(): MemberInjectionIndex {
         if (!MemberInjectionIndex._instance) MemberInjectionIndex._instance = new MemberInjectionIndex();
         return MemberInjectionIndex._instance;
-    }
-
-    /**
-     * A stable identity key for a game-tree node, matching another resolution of the same cached node.
-     *
-     * @param node the node to key.
-     * @returns the node's identity key.
-     */
-    private static nodeKey(node: AbstractNode): string {
-        const document = getStartOfAstNode(node);
-        return `${normalizeUri(document.uri)}|${node.position?.start ?? -1},${node.position?.end ?? -1}`;
     }
 
     /**
@@ -207,25 +199,42 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
     }
 
     /**
-     * The members an `Overrides` source merges in: an inline `{}` group's members, or the top-level
-     * members of the file a `&<modfile>` source dereferences to.
+     * The members an `Overrides` source merges in: an inline `{}` group's members, or the members of
+     * whatever a `&<modfile>[/Group]` source dereferences to.
+     *
+     * The game deserializes the `Overrides` field as a map of name to node and walks its pairs, so
+     * what supplies those pairs is the source's own children whether it is written inline, names a
+     * whole file, or names a group inside one. A reference landing on a group is the same map as the
+     * inline form. A group that names a base is merged with what the base supplies first, the way the
+     * game merges it, so an override written as `Overrides : &<my_file.rules> { one more }` carries
+     * the whole file and the one member beside it.
      *
      * @param source the action's source value node.
-     * @returns the merged members as `[name, node]` pairs, empty when the source names none.
+     * @param depth how many bases have been followed already.
+     * @returns the merged members as `[name, node]` pairs, nearest declaration first.
      */
-    private async overrideMembers(source: AbstractNode): Promise<[string, AbstractNode][]> {
-        if (isGroupNode(source)) return namedMembersOf(source);
-        if (isValueNode(source) && source.valueType.type === 'Reference') {
-            const resolved = await navigation
-                .navigate(String(source.valueType.value), source, getStartOfAstNode(source).uri, CancellationToken.None)
-                .catch(() => null);
-            if (!resolved) return [];
-            if (isFile(resolved as unknown as FileTree)) {
-                const document = await parseFilePath((resolved as FileWithPath).path).catch(() => null);
-                return document ? namedMembersOf(document) : [];
-            }
-            if (isDocumentNode(resolved as AbstractNode)) return namedMembersOf(resolved as AbstractNodeDocument);
+    private overrideMembers(source: AbstractNode): Promise<[string, AbstractNode][]> {
+        return overrideMembersOf(source, (reference) => this.referencedOverrideMembers(reference));
+    }
+
+    /**
+     * The members a `&<file>[/Group]` override source dereferences to.
+     *
+     * @param source the reference value node.
+     * @returns the members of the file or group it lands on, empty when it lands nowhere usable.
+     */
+    private async referencedOverrideMembers(source: ValueNode): Promise<[string, AbstractNode][]> {
+        const resolved = await navigation
+            .navigate(String(source.valueType.value), source, getStartOfAstNode(source).uri, CancellationToken.None)
+            .catch(() => null);
+        if (!resolved) return [];
+        if (isFile(resolved as unknown as FileTree)) {
+            const document = await parseFilePath((resolved as FileWithPath).path).catch(() => null);
+            return document ? namedMembersOf(document) : [];
         }
+        if (isDocumentNode(resolved as AbstractNode)) return namedMembersOf(resolved as AbstractNodeDocument);
+        // A list carries no names, and the game throws on an `Overrides` map it cannot key.
+        if (isGroupNode(resolved as AbstractNode)) return namedMembersOf(resolved as GroupNode);
         return [];
     }
 
@@ -263,131 +272,82 @@ export class MemberInjectionIndex extends WatchedDocumentIndex {
     }
 
     /**
-     * Only a manifest or a file declaring a top-level `Actions` list contributes here, and both
-     * write that name into their text, so the build skips the parse of every other file of the mod.
+     * Records the members one action merges into its target node, by name. `Overrides` merges the
+     * members of its `Overrides` source, replacing what the target writes under each name. `Add`
+     * with a `Name` merges the single member `Name = ToAdd` (the game keys it under `Name`) beside
+     * what is already there. `AddMany` and a nameless `Add` append list elements. `AddBase` extends
+     * the inheritance list, which the AddBase index handles. `Replace` and `Remove` name an existing
+     * member instead of merging one in, so their target is resolved without following that member,
+     * the way the game reads them.
      *
-     * @param uri the file's uri.
-     * @param text the file's raw text.
-     * @returns true when the file could carry mod actions.
+     * @param action the parsed action.
+     * @param source the normalized uri of the document declaring it.
+     * @param cancellationToken cancels the target resolution.
+     * @returns the target node keys the action contributed to.
      */
-    protected override acceptsText(uri: string, text: string): boolean {
-        return textCouldCarryActions(uri, text);
-    }
-
-    /**
-     * Re-indexes one document, replacing whatever it contributed before with the members its actions
-     * merge into their target nodes. Only manifests and included action fragments carry mod actions,
-     * so any other document contributes nothing.
-     *
-     * @param document the parsed document to index.
-     * @param cancellationToken cancels the action walk.
-     * @returns true when this source's contribution differs from the one it replaced.
-     */
-    protected async indexDocument(
-        document: AbstractNodeDocument,
-        cancellationToken: CancellationToken
-    ): Promise<boolean> {
-        const source = normalizeUri(document.uri);
-        const previous = this.bySource.get(source) ?? [];
-        this.removeSource(source);
-        if (!isModRules(document.uri) && !isActionFragmentDocument(document)) return previous.length > 0;
-
-        const contributedKeys: string[] = [];
-        for (const action of parseModActions(document)) {
-            if (cancellationToken.isCancellationRequested) break;
-            // The members an action merges into its target node, by name. `Overrides` merges the
-            // members of its `Overrides` source, replacing what the target writes under each name.
-            // `Add` with a `Name` merges the single member `Name = ToAdd` (the game keys it under
-            // `Name`) beside what is already there. Other verbs inject no named member: `AddMany`
-            // appends list elements, `AddBase` extends the inheritance list (handled by the AddBase
-            // index), and `Replace`/`Remove` name an existing member rather than merging one in,
-            // which needs a target resolved without dereferencing its final node.
-            // `Replace` and `Remove` name an existing member instead of merging one in, so their
-            // target is resolved without following that member, the way the game reads them.
-            if (action.type === 'Replace' || action.type === 'Remove' || action.type === 'RemoveMany') {
-                for (const target of action.targets) {
-                    // A removal declares nothing new, so the action's own target node is what a
-                    // reader is pointed at when it asks where the change came from.
-                    const declaration = action.type === 'Replace' ? action.sources[0] : target;
-                    if (!declaration) continue;
-                    const key = await this.rewrittenMemberKey(target, cancellationToken);
-                    if (!key) continue;
-                    const bucket = this.byNode.get(key.node) ?? this.byNode.set(key.node, []).get(key.node)!;
-                    bucket.push({
-                        source,
-                        name: key.member,
-                        node: declaration,
-                        precedence: action.type === 'Replace' ? 'rewrites' : 'removes',
-                    });
-                    contributedKeys.push(key.node);
-                }
-                continue;
+    protected async indexAction(action: ModAction, source: string, cancellationToken: CancellationToken): Promise<string[]> {
+        if (action.type === 'Replace' || action.type === 'Remove' || action.type === 'RemoveMany') {
+            const keys: string[] = [];
+            for (const target of action.targets) {
+                // A removal declares nothing new, so the action's own target node is what a
+                // reader is pointed at when it asks where the change came from.
+                const declaration = action.type === 'Replace' ? action.sources[0] : target;
+                if (!declaration) continue;
+                const key = await this.rewrittenMemberKey(target, cancellationToken);
+                if (!key) continue;
+                this.bucketFor(key.node).push({
+                    source,
+                    name: key.member,
+                    node: declaration,
+                    precedence: action.type === 'Replace' ? 'rewrites' : 'removes',
+                });
+                keys.push(key.node);
             }
-            let members: [string, AbstractNode][];
-            let precedence: InjectionPrecedence;
-            if (action.type === 'Overrides' && action.sources[0]) {
-                members = await this.overrideMembers(action.sources[0]);
-                precedence = 'replaces';
-            } else if (action.type === 'Add' && action.nameNode && action.sources[0]) {
-                members = [[String(action.nameNode.valueType.value), action.sources[0]]];
-                precedence = 'adds';
-            } else if ((action.type === 'Add' || action.type === 'AddMany') && action.sources.length > 0) {
-                // A nameless form belongs to a list, so this arm carries the sources and the target
-                // decides below whether they are appended or dropped. An action
-                // declaring an `Index` is left out: it puts its value at a written position, which
-                // renumbers everything after it, and an index the game reads differently is worse
-                // than one it does not read here at all.
-                if (action.presentFields.has('index')) continue;
-                members = action.sources.map((node): [string, AbstractNode] => ['', node]);
-                precedence = 'appends';
-            } else {
-                continue;
-            }
-            if (members.length === 0) continue;
-            const target = action.targets[0];
-            if (!target) continue;
-            const resolved = await resolveActionTarget(target, cancellationToken).catch(() => null);
-            // Whole-file targets are owned by mod-context, so only a node target is indexed here.
-            if (!resolved || isFile(resolved as unknown as FileTree) || isDocumentNode(resolved as AbstractNode))
-                continue;
-            const targetsList = isListNode(resolved as AbstractNode);
-            // An `Add` carrying a `Name` is a named member on a group and an appended element on a
-            // list: the game adds the child under that name either way, and a list is read by
-            // position, so what a reader of the list has to see is one more element. Recording it
-            // by name instead would leave the list a member short, which reads as a part that
-            // cannot receive a buff its mod's manifest added. An action placing its value at a
-            // written `Index` stays out for the reason the nameless form does: it renumbers
-            // everything after it.
-            if (targetsList && precedence === 'adds' && action.type === 'Add') {
-                if (action.presentFields.has('index')) continue;
-                precedence = 'appends';
-            }
-            // A group takes nothing from the nameless form, which is the one a list appends.
-            if (targetsList !== (precedence === 'appends')) continue;
-            const key = MemberInjectionIndex.nodeKey(resolved as AbstractNode);
-            const bucket = this.byNode.get(key) ?? this.byNode.set(key, []).get(key)!;
-            for (const [name, node] of members) bucket.push({ source, name, node, precedence });
-            contributedKeys.push(key);
+            return keys;
         }
-        if (contributedKeys.length) this.bySource.set(source, contributedKeys);
-        return contributedKeys.length > 0 || previous.length > 0;
-    }
-
-    protected removeSource(source: string): void {
-        const keys = this.bySource.get(source);
-        if (!keys) return;
-        for (const key of keys) {
-            const members = this.byNode.get(key);
-            if (!members) continue;
-            const kept = members.filter((member) => member.source !== source);
-            if (kept.length) this.byNode.set(key, kept);
-            else this.byNode.delete(key);
+        let members: [string, AbstractNode][];
+        let precedence: InjectionPrecedence;
+        if (action.type === 'Overrides' && action.sources[0]) {
+            members = await this.overrideMembers(action.sources[0]);
+            precedence = 'replaces';
+        } else if (action.type === 'Add' && action.nameNode && action.sources[0]) {
+            members = [[String(action.nameNode.valueType.value), action.sources[0]]];
+            precedence = 'adds';
+        } else if ((action.type === 'Add' || action.type === 'AddMany') && action.sources.length > 0) {
+            // A nameless form belongs to a list, so this arm carries the sources and the target
+            // decides below whether they are appended or dropped. An action
+            // declaring an `Index` is left out: it puts its value at a written position, which
+            // renumbers everything after it, and an index the game reads differently is worse
+            // than one it does not read here at all.
+            if (action.presentFields.has('index')) return [];
+            members = action.sources.map((node): [string, AbstractNode] => ['', node]);
+            precedence = 'appends';
+        } else {
+            return [];
         }
-        this.bySource.delete(source);
-    }
-
-    protected clear(): void {
-        this.byNode.clear();
-        this.bySource.clear();
+        if (members.length === 0) return [];
+        const target = action.targets[0];
+        if (!target) return [];
+        const resolved = await resolveActionTarget(target, cancellationToken).catch(() => null);
+        // Whole-file targets are owned by mod-context, so only a node target is indexed here.
+        if (!resolved || isFile(resolved as unknown as FileTree) || isDocumentNode(resolved as AbstractNode)) return [];
+        const targetsList = isListNode(resolved as AbstractNode);
+        // An `Add` carrying a `Name` is a named member on a group and an appended element on a
+        // list: the game adds the child under that name either way, and a list is read by
+        // position, so what a reader of the list has to see is one more element. Recording it
+        // by name instead would leave the list a member short, which reads as a part that
+        // cannot receive a buff its mod's manifest added. An action placing its value at a
+        // written `Index` stays out for the reason the nameless form does: it renumbers
+        // everything after it.
+        if (targetsList && precedence === 'adds' && action.type === 'Add') {
+            if (action.presentFields.has('index')) return [];
+            precedence = 'appends';
+        }
+        // A group takes nothing from the nameless form, which is the one a list appends.
+        if (targetsList !== (precedence === 'appends')) return [];
+        const key = MemberInjectionIndex.nodeKey(resolved as AbstractNode);
+        const bucket = this.bucketFor(key);
+        for (const [name, node] of members) bucket.push({ source, name, node, precedence });
+        return [key];
     }
 }

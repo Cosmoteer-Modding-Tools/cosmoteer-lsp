@@ -53,6 +53,7 @@ export const TABLE = {
     MemberRef: 0x0a,
     Constant: 0x0b,
     CustomAttribute: 0x0c,
+    StandAloneSig: 0x11,
     Property: 0x17,
     PropertyMap: 0x15,
     MethodSemantics: 0x18,

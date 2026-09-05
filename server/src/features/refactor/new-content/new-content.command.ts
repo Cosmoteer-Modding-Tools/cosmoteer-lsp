@@ -1,6 +1,6 @@
-import { existsSync, statSync } from 'fs';
-import { mkdir, readFile, writeFile } from 'fs/promises';
-import { dirname } from 'path';
+import { constants, existsSync, statSync } from 'fs';
+import { copyFile, mkdir, readFile, writeFile } from 'fs/promises';
+import { dirname, join, relative } from 'path';
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AbstractNodeDocument } from '../../../core/ast/ast';
@@ -13,18 +13,20 @@ import { insertEditForFile, modStringsFiles } from '../../diagnostics/localizati
 import { filePathToUri } from '../../navigation/navigation-strategy';
 import { normalizeUri } from '../../navigation/reference-location';
 import { uriToFsPath } from '../../navigation/workspace-files';
+import { actionEntryText } from '../../ships/builtin-ships.emitter';
+import { LineEnding } from '../../ships/builtin-ships.types';
 import { documentFor, lineEndingOf, openBuffers } from '../command-host';
 import { relativeRulesReference } from '../shared-base/base-file.emitter';
 import { dirOf, readRulesFile } from '../shared-base/base-index';
 import { editableModRootOf } from '../shared-base/shared-base.analysis-entry';
-import { addManyActionText, manifestActionInsert } from '../register-part/manifest-action.emitter';
-import { RegisterPartHost, registerPartInShip } from '../register-part/register-part.command';
 import {
-    collectShipClasses,
-    modRootsUnder,
-    ShipClassEntry,
-    shipPartsListOf,
-} from '../register-part/ship-registry';
+    addManyActionText,
+    manifestActionInsert,
+    overridesActionText,
+} from '../register-part/manifest-action.emitter';
+import { registerPartInShip } from '../register-part/register-part.command';
+import { RegisterPartHost } from '../register-part/register-part.types';
+import { ShipClassEntry, shipClassesFor, shipPartsListOf } from '../register-part/ship-registry';
 import {
     authorPrefixOf,
     contentFileNameOf,
@@ -39,11 +41,26 @@ import {
     emitContent,
     LocalizationEntry,
     pointedAtByFor,
+    STAT_MEMBER,
+    TOGGLE_MEMBER,
 } from './content-templates';
 import {
+    BUFF_REGISTRY,
+    EDITOR_GROUP_REGISTRY,
+    PART_STAT_REGISTRY,
+    PART_TOGGLE_REGISTRY,
+    registeredIds,
+    RegistrySpec,
+} from './registry-ids';
+import {
     gameRootListTarget,
+    gameRootMemberTarget,
     manifestAlreadyAdds,
+    manifestAlreadyOverridesWith,
+    manifestAlreadyReplacesWith,
     manifestForRegistration,
+    ManifestReplaceAction,
+    manifestReplaceActionFor,
 } from './registration.emitter';
 import {
     CONTENT_KINDS,
@@ -76,6 +93,67 @@ const MAX_REPORTED_SHIPS = 40;
 
 /** The game root member holding the resource registry, which the resource route registers into. */
 const RESOURCES_MEMBER = 'Resources';
+
+/** The game root member naming the menu rules, and the value inside them the title screen flies in. */
+const MENUS_MEMBER = 'Menus';
+const LOGO_SHIP_MEMBER = 'LogoShip';
+
+/** Where the menu rules live below the data root, for a game root that does not name them. */
+const MENUS_FILE = 'gui/menus.rules';
+
+/** The extension a saved ship carries, which is the only file a logo ship can be copied from. */
+const SAVED_SHIP_EXTENSION = '.ship.png';
+
+/**
+ * The game's decal file and the list inside it a decal group is added to. The game root never names
+ * this file, the paint tool reads it directly, so the target is spelled out rather than derived.
+ */
+const DECAL_GROUPS_FILE = 'roof_decals/roof_decals.rules';
+const DECAL_GROUPS_MEMBER = 'Groups';
+
+/** The group a created decal file declares, which the registration and the reference both name. */
+const DECAL_GROUP_MEMBER = 'Group';
+
+/** The game root member naming the buff map, which the buff route merges into. */
+const BUFFS_MEMBER = 'Buffs';
+
+/**
+ * The game's tutorial pages and the list inside them a codex page is appended to. The game root
+ * names `codex/codex.rules`, whose own `CodexPages` is the concatenation of the tutorial, lore and
+ * tip lists, so the tutorial list is the one to append to, which is what the mods that add pages
+ * do. Like the decal file it is named outright rather than derived.
+ */
+const CODEX_TUTORIALS_FILE = 'codex/tutorials/tutorials.rules';
+const CODEX_PAGES_MEMBER = 'CodexPages';
+
+/**
+ * The gui registry each of the three registry kinds is added to. The game root reaches these files
+ * only through nested references (`Game/GameGui`, then the gui's own `Build`, then its
+ * `EditorGroups`), which the root walk does not follow, so like the decal file each is named
+ * outright and its presence on disk is the proof that the install is really there. The buff map is
+ * here for its id check alone, since a new buff named like a vanilla one would replace it.
+ */
+const REGISTRY_OF_KIND: Readonly<Partial<Record<ContentKind, RegistrySpec>>> = {
+    editorGroup: EDITOR_GROUP_REGISTRY,
+    partStat: PART_STAT_REGISTRY,
+    partToggle: PART_TOGGLE_REGISTRY,
+    buff: BUFF_REGISTRY,
+};
+
+/** How each kind is wired into the game, decided by the kind alone. */
+const REGISTRATION_ROUTE_OF_KIND: Readonly<Record<ContentKind, RegistrationRoute>> = {
+    part: 'ship',
+    resource: 'manifest',
+    bullet: 'none',
+    mediaEffect: 'none',
+    logoShip: 'manifest',
+    decalFolder: 'manifest',
+    editorGroup: 'manifest',
+    partStat: 'manifest',
+    partToggle: 'manifest',
+    buff: 'manifest',
+    codexPage: 'manifest',
+};
 
 /** The server-side facilities the command needs, injected so the module stays testable. */
 export interface NewContentHost extends RegisterPartHost {
@@ -199,25 +277,6 @@ const modRootFor = (
 };
 
 /**
- * The ship classes the game loads, from its own registry and from the workspace mods' manifests.
- *
- * @param host the server facilities.
- * @param cancellationToken cancels the manifest reads.
- * @returns the ship classes, empty when the game path is unset and no mod adds one.
- */
-const shipEntries = async (
-    host: NewContentHost,
-    cancellationToken: CancellationToken
-): Promise<ShipClassEntry[]> => {
-    const root = await host.gameRoot().catch(() => undefined);
-    const rootDocument = (root?.content as CosmoteerWorkspaceData | undefined)?.parsedDocument;
-    const folders = await host.folderPaths().catch(() => []);
-    const modRoots = new Set<string>();
-    for (const folder of folders) for (const modRoot of modRootsUnder(folder)) modRoots.add(modRoot);
-    return await collectShipClasses(rootDocument, root?.path, [...modRoots], cancellationToken);
-};
-
-/**
  * The ships a new part of this mod could be registered in, each with what stands in the way.
  *
  * The part does not exist yet, so only what the ship and the mod decide is reported. Whether the
@@ -303,8 +362,7 @@ const kindInfos = (
     pointedAtBy: (kind: ContentKind) => string | undefined
 ): ContentKindInfo[] =>
     CONTENT_KINDS.map((kind) => {
-        const registration: RegistrationRoute =
-            kind === 'part' ? 'ship' : kind === 'resource' ? 'manifest' : 'none';
+        const registration = REGISTRATION_ROUTE_OF_KIND[kind];
         let blocked: RegistrationFailure | undefined;
         if (registration === 'ship') blocked = hasShips ? undefined : 'noShipClasses';
         else if (registration === 'manifest') blocked = manifestRouteBlocker(modRoot);
@@ -325,7 +383,7 @@ const scanRound = async (
     cancellationToken: CancellationToken
 ): Promise<NewContentScanResult> => {
     const identity = await identityOfMod(modRoot).catch((): ModIdentity => ({ root: modRoot }));
-    const entries = await shipEntries(host, cancellationToken);
+    const entries = await shipClassesFor(host, cancellationToken);
     const ships = await shipCandidates(entries, modRoot, host.dataRoot());
     return {
         kind: 'scan',
@@ -360,6 +418,22 @@ const takenIds = async (
 };
 
 /**
+ * Whether a path names a saved ship on disk. The extension is the game's own for a ship image, and
+ * a folder or a missing file is refused rather than copied into an empty logo.
+ *
+ * @param fsPath the path the client sent, absent when it sent none.
+ * @returns true when there is a saved ship to copy.
+ */
+const isSavedShip = (fsPath: string | undefined): boolean => {
+    if (!fsPath || !fsPath.toLowerCase().endsWith(SAVED_SHIP_EXTENSION)) return false;
+    try {
+        return statSync(fsPath).isFile();
+    } catch {
+        return false;
+    }
+};
+
+/**
  * Work out the target of an apply round, refusing rather than writing when the name, the path or the
  * id is not free.
  *
@@ -382,6 +456,9 @@ const targetFor = async (
 ): Promise<Target | NewContentFailure> => {
     const fileName = contentFileNameOf(args.name ?? '');
     if (!fileName) return 'invalidName';
+    // A logo ship is copied rather than written, so the ship to copy has to be there before the
+    // target is worth working out.
+    if (kind === 'logoShip' && !isSavedShip(args.source)) return 'noSource';
     const fsPath = contentFilePathOf(modRoot, kind, fileName);
     const folder = contentFolderPathOf(modRoot, kind, fileName);
     if (existsSync(fsPath) || (folder && existsSync(folder))) return 'pathTaken';
@@ -391,6 +468,14 @@ const targetFor = async (
     const cls = ID_CLASS_OF_KIND[kind];
     if (id && cls) {
         const taken = await takenIds(cls, modRoot, host, cancellationToken);
+        if (taken.has(id.toLowerCase())) return 'idTaken';
+    }
+    // A registry entry's id is matched against the game's own file and the mod's manifests rather
+    // than against the schema id index, which never sees these registries. The game compares the
+    // ids ignoring case, and a duplicate throws the moment it loads.
+    const registry = REGISTRY_OF_KIND[kind];
+    if (id && registry) {
+        const taken = await registeredIds(registry, modRoot, host.dataRoot());
         if (taken.has(id.toLowerCase())) return 'idTaken';
     }
     return { modRoot, fileName, fsPath, folder, id };
@@ -446,16 +531,18 @@ const insertKeysInto = (fsPath: string, source: string, entries: readonly Locali
  * they can reach it, and the rest are written straight to disk, which is what keeps a mod with a
  * dozen languages from filling the workspace with unsaved buffers.
  *
+ * Shared with the faction command, which declares a faction's name the same way.
+ *
  * @param createdUri the created file's uri, which the mod's strings folders are resolved from.
  * @param entries the keys and their placeholder values.
  * @param host the server facilities.
  * @param cancellationToken cancels the folder resolution.
  * @returns the keys that were added and the files they were added to.
  */
-const writeLocalizationKeys = async (
+export const writeLocalizationKeys = async (
     createdUri: string,
     entries: readonly LocalizationEntry[],
-    host: NewContentHost,
+    host: Pick<NewContentHost, 'openDocuments' | 'applyEdit' | 'filesChanged'>,
     cancellationToken: CancellationToken
 ): Promise<{ keys: string[]; files: string[] }> => {
     if (entries.length === 0) return { keys: [], files: [] };
@@ -496,6 +583,8 @@ interface RegistrationOutcome {
     changedFiles: string[];
     failure?: RegistrationFailure;
     manifests?: string[];
+    /** The path a `Replace` already named before it was re-pointed at the created file. */
+    previousLogo?: string;
 }
 
 /**
@@ -538,6 +627,57 @@ const registerPart = async (
     };
 };
 
+/** A manifest route that wrote nothing, and why. */
+const manifestFailed = (failure: RegistrationFailure, manifests?: string[]): RegistrationOutcome => ({
+    route: 'manifest',
+    registeredIn: '',
+    changedFiles: [],
+    failure,
+    manifests,
+});
+
+/**
+ * Write one action entry into the mod's manifest, which is how every manifest route ends: the
+ * manifest is chosen, an entry that is already there is refused, and the new one is appended where
+ * the manifest's own `Actions` list ends.
+ *
+ * @param modRoot the mod being written to.
+ * @param host the server facilities.
+ * @param alreadyThere whether one of the mod's manifests already carries the entry.
+ * @param entryTextOf the entry's text, built once the manifest's directory, indentation and line
+ * ending are known, since its source paths resolve against that directory.
+ * @returns what the registration did.
+ */
+const writeManifestAction = async (
+    modRoot: string,
+    host: NewContentHost,
+    alreadyThere: () => Promise<boolean>,
+    entryTextOf: (manifestDir: string, indent: string, lineEnding: LineEnding) => string
+): Promise<RegistrationOutcome> => {
+    const choice = manifestForRegistration(modRoot);
+    if (choice.kind === 'none') return manifestFailed('noModRoot');
+    if (choice.kind === 'ambiguous') return manifestFailed('ambiguousManifest', choice.manifests);
+    const manifestFsPath = choice.fsPath;
+    if (await alreadyThere()) return manifestFailed('alreadyRegistered');
+
+    const document = await documentFor(manifestFsPath, openBuffers(host));
+    if (!document) return manifestFailed('notEditable');
+    const text = document.getText();
+    const lineEnding = lineEndingOf(text);
+    const insert = manifestActionInsert(text, parseText(text, manifestFsPath), lineEnding);
+    if (insert.kind === 'unusable') return manifestFailed('manifestUnusable');
+
+    const entryText = entryTextOf(dirOf(manifestFsPath), insert.indent, lineEnding);
+    const at = document.positionAt(insert.offset);
+    const edits: TextEdit[] = [
+        { range: { start: at, end: at }, newText: `${insert.before}${entryText}${insert.after}` },
+    ];
+    const applied = await host.applyEdit({ [document.uri]: edits }).catch(() => false);
+    if (!applied) return manifestFailed('editRejected');
+    host.filesChanged([manifestFsPath]);
+    return { route: 'manifest', registeredIn: manifestFsPath, changedFiles: [manifestFsPath] };
+};
+
 /**
  * Register a created file in one of the game root's own lists, with an `AddMany` action in the mod's
  * manifest. That is the only way a mod reaches a registry the game owns, since the file holding it
@@ -553,47 +693,381 @@ const registerInGameRootList = async (
     member: string,
     host: NewContentHost
 ): Promise<RegistrationOutcome> => {
-    const failed = (failure: RegistrationFailure, manifests?: string[]): RegistrationOutcome => ({
-        route: 'manifest',
-        registeredIn: '',
-        changedFiles: [],
-        failure,
-        manifests,
-    });
     const dataRoot = host.dataRoot();
     const root = await gameRootOf(host);
-    if (!dataRoot || !root) return failed('noGameRoot');
+    if (!dataRoot || !root) return manifestFailed('noGameRoot');
     const registryTarget = gameRootListTarget(root.document, root.fsPath, dataRoot, member);
-    if (!registryTarget) return failed('noGameRoot');
+    if (!registryTarget) return manifestFailed('noGameRoot');
+    return await writeManifestAction(
+        target.modRoot,
+        host,
+        () => manifestAlreadyAdds(target.modRoot, registryTarget, target.fsPath),
+        // A mod action's source references resolve against the file the action is written in, never
+        // against the game root its target names. The entry is memberless because a registry of
+        // whole files is what the game root's own list holds.
+        (manifestDir, indent, lineEnding) =>
+            addManyActionText(registryTarget, `&${relativeRulesReference(manifestDir, target.fsPath)}`, indent, lineEnding)
+    );
+};
 
-    const choice = manifestForRegistration(target.modRoot);
-    if (choice.kind === 'none') return failed('noModRoot');
-    if (choice.kind === 'ambiguous') return failed('ambiguousManifest', choice.manifests);
-    const manifestFsPath = choice.fsPath;
-    if (await manifestAlreadyAdds(target.modRoot, registryTarget, target.fsPath)) {
-        return failed('alreadyRegistered');
-    }
+/**
+ * Register a created decal group in the game's own `Groups` list, with an `AddMany` naming the group
+ * inside the created file, since that list holds groups and the file merely carries one.
+ *
+ * @param target the created decal group file.
+ * @param host the server facilities.
+ * @returns what the registration did.
+ */
+const registerDecalGroup = async (target: Target, host: NewContentHost): Promise<RegistrationOutcome> => {
+    const dataRoot = host.dataRoot();
+    // The decal file is the proof that the install is really there, in place of the game root the
+    // other routes read, because nothing in the game root points at it.
+    if (!dataRoot || !existsSync(join(dataRoot, DECAL_GROUPS_FILE))) return manifestFailed('noGameRoot');
+    const registryTarget = `<${DECAL_GROUPS_FILE}>/${DECAL_GROUPS_MEMBER}`;
+    return await writeManifestAction(
+        target.modRoot,
+        host,
+        () => manifestAlreadyAdds(target.modRoot, registryTarget, target.fsPath),
+        (manifestDir, indent, lineEnding) =>
+            addManyActionText(
+                registryTarget,
+                `&${relativeRulesReference(manifestDir, target.fsPath, DECAL_GROUP_MEMBER)}`,
+                indent,
+                lineEnding
+            )
+    );
+};
 
-    const document = await documentFor(manifestFsPath, openBuffers(host));
-    if (!document) return failed('notEditable');
-    const text = document.getText();
-    const lineEnding = lineEndingOf(text);
-    const insert = manifestActionInsert(text, parseText(text, manifestFsPath), lineEnding);
-    if (insert.kind === 'unusable') return failed('manifestUnusable');
+/**
+ * The action target of a gui registry, once the file holding it is really there. The game root does
+ * not name these files, so the file is the proof of the install, as it is for the decal groups.
+ *
+ * @param registry the registry.
+ * @param host the server facilities.
+ * @returns the target, or undefined when the game path is unset or the file is missing.
+ */
+const guiRegistryTarget = (registry: RegistrySpec, host: NewContentHost): string | undefined => {
+    const dataRoot = host.dataRoot();
+    if (!dataRoot || !existsSync(join(dataRoot, registry.vanillaFile))) return undefined;
+    return registry.targets[0];
+};
 
-    // A mod action's source references resolve against the file the action is written in, never
-    // against the game root its target names. The entry is memberless because a registry of whole
-    // files is what the game root's own list holds.
-    const reference = `&${relativeRulesReference(dirOf(manifestFsPath), target.fsPath)}`;
-    const entryText = addManyActionText(registryTarget, reference, insert.indent, lineEnding);
-    const at = document.positionAt(insert.offset);
+/**
+ * Register a created toolbar category as a named member of the game's editor groups. The category
+ * is a member of a group rather than an entry of a list, so it takes an `Add` with a `Name`, the
+ * one verb that can add a named member, and the name is the id a part writes.
+ *
+ * @param target the created category file.
+ * @param host the server facilities.
+ * @returns what the registration did.
+ */
+const registerEditorGroup = async (target: Target, host: NewContentHost): Promise<RegistrationOutcome> => {
+    const registryTarget = guiRegistryTarget(EDITOR_GROUP_REGISTRY, host);
+    if (!registryTarget) return manifestFailed('noGameRoot');
+    return await writeManifestAction(
+        target.modRoot,
+        host,
+        () => manifestAlreadyAdds(target.modRoot, registryTarget, target.fsPath),
+        (manifestDir, indent, lineEnding) =>
+            actionEntryText(
+                [
+                    'Action = Add',
+                    `AddTo = "${registryTarget}"`,
+                    `Name = "${target.id}"`,
+                    `ToAdd = &${relativeRulesReference(manifestDir, target.fsPath, target.id)}`,
+                ],
+                indent,
+                lineEnding
+            )
+    );
+};
+
+/**
+ * Register a created stat line or toggle in the game's own list of them, with an `AddMany` naming
+ * the entry inside the created file, since the list holds entries and the file merely carries one.
+ *
+ * @param target the created file.
+ * @param registry the registry the entry goes into.
+ * @param member the member of the created file holding the entry.
+ * @param host the server facilities.
+ * @returns what the registration did.
+ */
+const registerInGuiRegistry = async (
+    target: Target,
+    registry: RegistrySpec,
+    member: string,
+    host: NewContentHost
+): Promise<RegistrationOutcome> => {
+    const registryTarget = guiRegistryTarget(registry, host);
+    if (!registryTarget) return manifestFailed('noGameRoot');
+    return await writeManifestAction(
+        target.modRoot,
+        host,
+        () => manifestAlreadyAdds(target.modRoot, registryTarget, target.fsPath),
+        (manifestDir, indent, lineEnding) =>
+            addManyActionText(
+                registryTarget,
+                `&${relativeRulesReference(manifestDir, target.fsPath, member)}`,
+                indent,
+                lineEnding
+            )
+    );
+};
+
+/**
+ * Register a created buff by merging its file into the game's buff map with an `Overrides`. The map
+ * is a group rather than a list, so the list verbs throw on it, and the merge is by member name,
+ * which is why the file holds the buff as its one member. The target is the reference the game root
+ * writes for its `Buffs`, and the literal path stands in for a root that does not name it, as long
+ * as the file is really there.
+ *
+ * @param target the created buff file.
+ * @param host the server facilities.
+ * @returns what the registration did.
+ */
+const registerBuff = async (target: Target, host: NewContentHost): Promise<RegistrationOutcome> => {
+    const dataRoot = host.dataRoot();
+    if (!dataRoot) return manifestFailed('noGameRoot');
+    const root = await gameRootOf(host);
+    const derived = root ? gameRootListTarget(root.document, root.fsPath, dataRoot, BUFFS_MEMBER) : undefined;
+    const fallback = existsSync(join(dataRoot, BUFF_REGISTRY.vanillaFile)) ? BUFF_REGISTRY.targets[0] : undefined;
+    const registryTarget = derived ?? fallback;
+    if (!registryTarget) return manifestFailed('noGameRoot');
+    return await writeManifestAction(
+        target.modRoot,
+        host,
+        () => manifestAlreadyOverridesWith(target.modRoot, registryTarget, target.fsPath),
+        (manifestDir, indent, lineEnding) =>
+            overridesActionText(registryTarget, `&${relativeRulesReference(manifestDir, target.fsPath)}`, indent, lineEnding)
+    );
+};
+
+/**
+ * Register a created codex page in the game's tutorial pages, with an `AddMany` naming the whole
+ * file, since the list holds pages and the file is one.
+ *
+ * @param target the created page file.
+ * @param host the server facilities.
+ * @returns what the registration did.
+ */
+const registerCodexPage = async (target: Target, host: NewContentHost): Promise<RegistrationOutcome> => {
+    const dataRoot = host.dataRoot();
+    // The tutorial file is the proof that the install is really there, as the decal file is for a
+    // decal group, because the game root reaches it only through the codex file's own list.
+    if (!dataRoot || !existsSync(join(dataRoot, CODEX_TUTORIALS_FILE))) return manifestFailed('noGameRoot');
+    const registryTarget = `<${CODEX_TUTORIALS_FILE}>/${CODEX_PAGES_MEMBER}`;
+    return await writeManifestAction(
+        target.modRoot,
+        host,
+        () => manifestAlreadyAdds(target.modRoot, registryTarget, target.fsPath),
+        (manifestDir, indent, lineEnding) =>
+            addManyActionText(registryTarget, `&${relativeRulesReference(manifestDir, target.fsPath)}`, indent, lineEnding)
+    );
+};
+
+/**
+ * Point an existing `Replace` action's `With` at another file, keeping everything else about the
+ * action as the author wrote it. The old path is reported so the author knows which file the
+ * manifest no longer names, since that file is left where it is.
+ *
+ * @param existing the action to re-point.
+ * @param fsPath the file the value is replaced with from now on.
+ * @param host the server facilities.
+ * @returns what the registration did.
+ */
+const repointReplace = async (
+    existing: ManifestReplaceAction,
+    fsPath: string,
+    host: NewContentHost
+): Promise<RegistrationOutcome> => {
+    const document = await documentFor(existing.manifestFsPath, openBuffers(host));
+    if (!document) return manifestFailed('notEditable');
+    const previous = String(existing.source.valueType.value);
+    const path = manifestRelativePath(dirOf(existing.manifestFsPath), fsPath);
+    const { line, characterStart, characterEnd } = existing.source.position;
+    // The value's range is replaced as it was written, quotes and all when it had them.
+    const written = document.getText({ start: { line, character: characterStart }, end: { line, character: characterEnd } });
+    const quoted = written.startsWith('"') || written.startsWith("'");
     const edits: TextEdit[] = [
-        { range: { start: at, end: at }, newText: `${insert.before}${entryText}${insert.after}` },
+        {
+            range: { start: { line, character: characterStart }, end: { line, character: characterEnd } },
+            newText: quoted ? `${written[0]}${path}${written[0]}` : path,
+        },
     ];
     const applied = await host.applyEdit({ [document.uri]: edits }).catch(() => false);
-    if (!applied) return failed('editRejected');
-    host.filesChanged([manifestFsPath]);
-    return { route: 'manifest', registeredIn: manifestFsPath, changedFiles: [manifestFsPath] };
+    if (!applied) return manifestFailed('editRejected');
+    host.filesChanged([existing.manifestFsPath]);
+    return {
+        route: 'manifest',
+        registeredIn: existing.manifestFsPath,
+        changedFiles: [existing.manifestFsPath],
+        previousLogo: previous,
+    };
+};
+
+/**
+ * The path of a file the way a manifest names it, relative to the manifest's own directory.
+ *
+ * @param manifestDir the manifest's directory.
+ * @param fsPath the file being named.
+ * @returns the relative path, forward slashes on every platform.
+ */
+const manifestRelativePath = (manifestDir: string, fsPath: string): string =>
+    relative(manifestDir, fsPath).replace(/\\/g, '/');
+
+/**
+ * Point the title screen at a copied logo ship, with a `Replace` action on the menu rules' `LogoShip`
+ * value. The value is a single path rather than a list, so it is replaced rather than added to, and
+ * the path is written relative to the manifest, which is how the game reads a `With`.
+ *
+ * @param target the copied ship image.
+ * @param host the server facilities.
+ * @returns what the registration did.
+ */
+const registerLogoShip = async (target: Target, host: NewContentHost): Promise<RegistrationOutcome> => {
+    const dataRoot = host.dataRoot();
+    if (!dataRoot) return manifestFailed('noGameRoot');
+    const root = await gameRootOf(host);
+    const derived = root ? gameRootMemberTarget(root.document, MENUS_MEMBER, LOGO_SHIP_MEMBER) : undefined;
+    // A game root that does not name its menus is still a game whose menus are where they always
+    // are, so the literal path stands in when the file is really there.
+    const fallback = existsSync(join(dataRoot, MENUS_FILE)) ? `<${MENUS_FILE}>/${LOGO_SHIP_MEMBER}` : undefined;
+    const logoTarget = derived ?? fallback;
+    if (!logoTarget) return manifestFailed('noGameRoot');
+    if (await manifestAlreadyReplacesWith(target.modRoot, logoTarget, target.fsPath)) {
+        return manifestFailed('alreadyRegistered');
+    }
+    // The title screen shows one ship, so a mod that already replaces it gets that action pointed
+    // at the new copy rather than a second action saying something else about the same value.
+    const existing = await manifestReplaceActionFor(target.modRoot, logoTarget);
+    if (existing) return await repointReplace(existing, target.fsPath, host);
+    return await writeManifestAction(
+        target.modRoot,
+        host,
+        async () => false,
+        (manifestDir, indent, lineEnding) =>
+            actionEntryText(
+                [
+                    'Action = Replace',
+                    `Replace = "${logoTarget}"`,
+                    `With = "${manifestRelativePath(manifestDir, target.fsPath)}"`,
+                ],
+                indent,
+                lineEnding
+            )
+    );
+};
+
+/**
+ * Take whichever registration route the kind has.
+ *
+ * @param kind the content kind that was created.
+ * @param target the created file.
+ * @param args the client's arguments, which carry the ship a part goes in.
+ * @param host the server facilities.
+ * @param cancellationToken cancels the registry reads.
+ * @returns what the registration did, or that the kind has no route.
+ */
+const register = async (
+    kind: ContentKind,
+    target: Target,
+    args: NewContentArgs,
+    host: NewContentHost,
+    cancellationToken: CancellationToken
+): Promise<RegistrationOutcome> => {
+    switch (kind) {
+        case 'part':
+            return await registerPart(target, args.ship, host, cancellationToken);
+        case 'resource':
+            return await registerInGameRootList(target, RESOURCES_MEMBER, host);
+        case 'logoShip':
+            return await registerLogoShip(target, host);
+        case 'decalFolder':
+            return await registerDecalGroup(target, host);
+        case 'editorGroup':
+            return await registerEditorGroup(target, host);
+        case 'partStat':
+            return await registerInGuiRegistry(target, PART_STAT_REGISTRY, STAT_MEMBER, host);
+        case 'partToggle':
+            return await registerInGuiRegistry(target, PART_TOGGLE_REGISTRY, TOGGLE_MEMBER, host);
+        case 'buff':
+            return await registerBuff(target, host);
+        case 'codexPage':
+            return await registerCodexPage(target, host);
+        case 'bullet':
+        case 'mediaEffect':
+            return { route: 'none', registeredIn: '', changedFiles: [] };
+    }
+};
+
+/**
+ * The reference that reaches a created file, written from the directory of the file the command was
+ * invoked on, which is the file the author is looking at and the one they will paste it into.
+ *
+ * @param kind the content kind that was created.
+ * @param anchor where the command was invoked.
+ * @param target the created file.
+ * @returns the reference, sigil included, or the manifest-relative path for a logo ship, which no
+ * reference can name.
+ */
+const referenceTo = (kind: ContentKind, anchor: Anchor, target: Target): string => {
+    switch (kind) {
+        case 'logoShip':
+            // The manifest sits at the mod root, so the path is the one the Replace action wrote.
+            return manifestRelativePath(target.modRoot, target.fsPath);
+        case 'part':
+            return `&${relativeRulesReference(anchor.dir, target.fsPath, 'Part')}`;
+        case 'decalFolder':
+            return `&${relativeRulesReference(anchor.dir, target.fsPath, DECAL_GROUP_MEMBER)}`;
+        case 'editorGroup':
+        case 'partStat':
+        case 'partToggle':
+        case 'buff':
+            // A part never references the entry's file. It writes the id, as its `EditorGroup`, as
+            // a name inside its `Stats`, as a component's `ToggleID` or as a `BuffType`, so the id
+            // is the reference.
+            return target.id;
+        case 'resource':
+        case 'bullet':
+        case 'mediaEffect':
+        case 'codexPage':
+            return `&${relativeRulesReference(anchor.dir, target.fsPath)}`;
+    }
+};
+
+/**
+ * Write a created file, exclusively, so a file that appeared between the check and the write is
+ * never overwritten.
+ *
+ * @param fsPath the file to write.
+ * @param text its content.
+ * @returns why nothing was written, absent on success.
+ */
+const writeCreated = async (fsPath: string, text: string): Promise<NewContentFailure | undefined> => {
+    try {
+        await mkdir(dirname(fsPath), { recursive: true });
+        await writeFile(fsPath, text, { encoding: 'utf-8', flag: 'wx' });
+        return undefined;
+    } catch {
+        return existsSync(fsPath) ? 'pathTaken' : 'writeFailed';
+    }
+};
+
+/**
+ * Copy the saved ship a logo ship is made from, with the same refusal to overwrite.
+ *
+ * @param source the saved ship the client named.
+ * @param fsPath where the copy goes.
+ * @returns why nothing was copied, absent on success.
+ */
+const copySavedShip = async (source: string, fsPath: string): Promise<NewContentFailure | undefined> => {
+    try {
+        await mkdir(dirname(fsPath), { recursive: true });
+        await copyFile(source, fsPath, constants.COPYFILE_EXCL);
+        return undefined;
+    } catch {
+        return existsSync(fsPath) ? 'pathTaken' : 'writeFailed';
+    }
 };
 
 /**
@@ -632,13 +1106,12 @@ const applyRound = async (
     if (typeof target === 'string') return applyFailed(kind, target);
 
     const emitted = emitContent(kind, target.fileName, target.id, await modLineEnding(modRoot));
-    try {
-        await mkdir(dirname(target.fsPath), { recursive: true });
-        // Exclusive, so a file that appeared between the check and the write is never overwritten.
-        await writeFile(target.fsPath, emitted.text, { encoding: 'utf-8', flag: 'wx' });
-    } catch {
-        return applyFailed(kind, existsSync(target.fsPath) ? 'pathTaken' : 'writeFailed');
-    }
+    // A logo ship is the author's own saved ship rather than a template, so it is copied in whole.
+    const failure =
+        kind === 'logoShip'
+            ? await copySavedShip(args.source ?? '', target.fsPath)
+            : await writeCreated(target.fsPath, emitted.text);
+    if (failure) return applyFailed(kind, failure);
     host.filesChanged([target.fsPath]);
 
     const localization = await writeLocalizationKeys(
@@ -648,15 +1121,10 @@ const applyRound = async (
         cancellationToken
     ).catch(() => ({ keys: [], files: [] }));
 
-    let registration: RegistrationOutcome = { route: 'none', registeredIn: '', changedFiles: [] };
-    if (!args.skipRegistration) {
-        if (kind === 'part') registration = await registerPart(target, args.ship, host, cancellationToken);
-        else if (kind === 'resource') registration = await registerInGameRootList(target, RESOURCES_MEMBER, host);
-    }
+    const registration: RegistrationOutcome = args.skipRegistration
+        ? { route: 'none', registeredIn: '', changedFiles: [] }
+        : await register(kind, target, args, host, cancellationToken);
 
-    // The reference is written from the directory of the file the command was invoked on, which is
-    // the file the author is looking at and the one they will paste it into.
-    const member = kind === 'part' ? 'Part' : undefined;
     return {
         kind: 'apply',
         created: target.fsPath,
@@ -669,9 +1137,11 @@ const applyRound = async (
         changedFiles: [...new Set([...registration.changedFiles, ...localization.files])],
         localizationKeys: emitted.localization.map((entry) => entry.key),
         localizationFiles: localization.files,
-        reference: `&${relativeRulesReference(anchor.dir, target.fsPath, member)}`,
+        reference: referenceTo(kind, anchor, target),
         pointedAtBy: emitted.pointedAtBy,
+        usage: emitted.usage,
         placeholderAssets: emitted.placeholderAssets,
+        ...(registration.previousLogo !== undefined ? { previousLogo: registration.previousLogo } : {}),
     };
 };
 

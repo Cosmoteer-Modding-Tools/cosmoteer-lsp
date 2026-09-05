@@ -15,21 +15,18 @@ import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.Alarm
-import com.redhat.devtools.lsp4ij.LanguageServerManager
-import cosmoteer.lsp.CosmoteerLanguageServerAPI
 import cosmoteer.lsp.SchemaSearchDetailParams
 import cosmoteer.lsp.SchemaSearchHit
 import cosmoteer.lsp.SchemaSearchParams
 import cosmoteer.lsp.SchemaSearchResult
 import cosmoteer.lsp.commandResultOf
-import cosmoteer.preview.ShaderPreviewService
-import org.eclipse.lsp4j.ExecuteCommandParams
+import cosmoteer.lsp.executeServerCommand
+import cosmoteer.lsp.requestFromServer
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.TextDocumentIdentifier
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.event.ActionEvent
-import java.util.concurrent.CompletableFuture
 import javax.swing.Action
 import javax.swing.DefaultListModel
 import javax.swing.JComponent
@@ -125,13 +122,7 @@ class SchemaSearchDialog(private val project: Project, private val caret: Schema
             params.textDocument = TextDocumentIdentifier(caret.uri)
             params.position = caret.position
         }
-        LanguageServerManager.getInstance(project)
-            .getLanguageServer(ShaderPreviewService.SERVER_ID)
-            .thenCompose { item ->
-                val server = item?.server as? CosmoteerLanguageServerAPI
-                    ?: return@thenCompose CompletableFuture.completedFuture<SchemaSearchResult?>(null)
-                server.schemaSearch(params)
-            }
+        requestFromServer(project) { server -> server.schemaSearch(params) }
             .thenAccept { result -> showResult(query, result) }
     }
 
@@ -164,13 +155,7 @@ class SchemaSearchDialog(private val project: Project, private val caret: Schema
      * @param hit the hit whose page is wanted.
      */
     private fun openDocumentation(hit: SchemaSearchHit) {
-        LanguageServerManager.getInstance(project)
-            .getLanguageServer(ShaderPreviewService.SERVER_ID)
-            .thenCompose { item ->
-                val server = item?.server as? CosmoteerLanguageServerAPI
-                    ?: return@thenCompose CompletableFuture.completedFuture<String?>(null)
-                server.schemaSearchDetail(SchemaSearchDetailParams(hit.id))
-            }
+        requestFromServer(project) { server -> server.schemaSearchDetail(SchemaSearchDetailParams(hit.id)) }
             .thenAccept { markdown ->
                 ApplicationManager.getApplication().invokeLater {
                     if (project.isDisposed) return@invokeLater
@@ -204,13 +189,7 @@ class SchemaSearchDialog(private val project: Project, private val caret: Schema
                 addProperty("character", target.position.character)
             })
         }
-        LanguageServerManager.getInstance(project)
-            .getLanguageServer(ShaderPreviewService.SERVER_ID)
-            .thenCompose { item ->
-                item?.server?.workspaceService
-                    ?.executeCommand(ExecuteCommandParams(INSERT_COMMAND, listOf(args)))
-                    ?: CompletableFuture.completedFuture<Any?>(null)
-            }
+        executeServerCommand(project, INSERT_COMMAND, args)
             .thenAccept { result ->
                 val answer = commandResultOf(result)
                 ApplicationManager.getApplication().invokeLater {

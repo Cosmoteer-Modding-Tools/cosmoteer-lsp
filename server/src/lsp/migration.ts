@@ -3,50 +3,20 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { readFile } from 'fs/promises';
 import { lexer } from '../core/lexer/lexer';
 import { parser } from '../core/parser/parser';
-import { collectFileMigration, createMigrationPreview, MigrationSummary } from '../features/migration/migrate-workspace';
-import { applyMigrationChanges, MigrationChange, narrowToSymbolScope } from '../features/migration/migrate-symbol';
-import { buildPostUpdateReport, PostUpdateReportResult } from '../features/post-update/post-update-report';
+import { collectFileMigration, createMigrationPreview } from '../features/migration/migrate-workspace';
+import { applyMigrationChanges, narrowToSymbolScope } from '../features/migration/migrate-symbol';
+import { MigrationChange, MigrationSummary } from '../features/migration/migration.types';
 import { collectRulesFiles, uriToFsPath } from '../features/navigation/workspace-files';
 import { filePathToUri } from '../features/navigation/navigation-strategy';
 import { normalizeUri } from '../features/navigation/reference-location';
 import { reachabilityKey } from '../mod/mod-reachability';
-import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
 import { beginFsTrustWindow, endFsTrustWindow } from '../workspace/fs-cache';
 import { workspaceRelativePath } from '../utils/relative-path';
-import { globalSettings } from '../settings';
 import { connection, documents } from './context';
 import { ensureFragmentRooting } from './fragment-rooting';
 import { sharedBaseHost } from './hosts';
-import { scanSettingsKeyOf } from './scan-epoch';
-import { isOutsideRulesPanel, validationScopeKeys, wholeWorkspaceEnabled } from './validation-scope';
+import { isOutsideRulesPanel, validationScopeKeys } from './validation-scope';
 import { workspaceFolderUris } from './workspace-folders';
-import { currentScanCacheEntries } from './workspace-scan';
-
-/**
- * Build the post-update report out of what this session already knows.
- *
- * The findings come from the scan cache rather than from a fresh pass, so the report describes
- * exactly what the Problems panel shows, and only the entries computed under the current epoch and
- * index revisions are taken, which is the same gate the persisted scan cache uses. The migration is
- * asked for a dry run, which brings its own progress and fs trust window.
- *
- * @returns the report for the invoking client, or null when no workspace folder is open.
- */
-export async function postUpdateReport(): Promise<PostUpdateReportResult | null> {
-    const folderUris = await workspaceFolderUris();
-    if (folderUris.length === 0) return null;
-    const entries = currentScanCacheEntries();
-    const migration = await migrateWorkspace({ dryRun: true }).catch(() => null);
-    return await buildPostUpdateReport({
-        dataRoot: CosmoteerWorkspaceService.instance.dataRootPath,
-        folderPaths: folderUris.map(uriToFsPath),
-        wholeWorkspaceEnabled: wholeWorkspaceEnabled(),
-        maxProblems: globalSettings.maxNumberOfProblems,
-        settingsKey: scanSettingsKeyOf(),
-        entries,
-        migration: migration ?? undefined,
-    });
-}
 
 /**
  * The one-command workspace migration: walk every rules file the workspace scan would validate, run

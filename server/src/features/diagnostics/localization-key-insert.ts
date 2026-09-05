@@ -179,9 +179,18 @@ export const insertEditsForFile = (
             // Insert on its own line just before the group's closing `}` (its position ends right after it).
             const brace = container.position.end - 1;
             if (text[brace] !== '}') continue;
-            const content = `${renderBranch(branch, childIndentOf(container)).join('\n')}\n`;
-            const pos = offsetToPosition(text, brace);
-            edits.push({ offset: brace, edit: { range: { start: pos, end: pos }, newText: content } });
+            const indent = childIndentOf(container);
+            const content = `${renderBranch(branch, indent).join('\n')}\n`;
+            // A nested group closes with an indented `}`, and the new lines go in front of that
+            // indentation rather than between it and the brace, or the brace would lose its own
+            // indentation and the first new line would gain it. A brace that shares its line with
+            // other members gets the lines on a line of their own and keeps the brace indented.
+            const lineStart = text.lastIndexOf('\n', brace - 1) + 1;
+            const braceOnOwnLine = /^[ \t]*$/.test(text.slice(lineStart, brace));
+            const offset = braceOnOwnLine ? lineStart : brace;
+            const newText = braceOnOwnLine ? content : `\n${content}${tabs(Math.max(0, indent - 1))}`;
+            const pos = offsetToPosition(text, offset);
+            edits.push({ offset, edit: { range: { start: pos, end: pos }, newText } });
             continue;
         }
         // Document root: append at end of file.

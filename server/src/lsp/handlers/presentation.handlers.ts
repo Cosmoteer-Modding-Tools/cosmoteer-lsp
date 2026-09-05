@@ -2,6 +2,7 @@ import { CancellationTokenSource, SemanticTokens, SemanticTokensDelta, TextEdit 
 import { HoverService } from '../../features/hover/hover.service';
 import { InlayHintService } from '../../features/inlay/inlay-hint.service';
 import { documentColors, colorPresentations } from '../../features/color/document-color';
+import { markupColors, markupColorPresentations } from '../../features/color/markup-color';
 import { buildSemanticTokens } from '../../features/semantic/semantic-tokens.service';
 import { buildShaderSemanticTokens } from '../../features/semantic/shader-semantic-tokens';
 import { computeSignatureHelp } from '../../features/signature/signature-help.service';
@@ -138,7 +139,7 @@ const formattingEdits = (uri: string, options: { tabSize: number; insertSpaces: 
 export function register(): void {
     // Hover: show what a value resolves to, its computed number and/or reference target.
     connection.onHover(async (params, cancellationToken) => {
-        // `.shader` files: explain the symbol under the cursor (uniform, intrinsic, type, function, …).
+        // `.shader` files: explain the symbol under the cursor (uniform, intrinsic, type, function, ï¿½).
         if (isShaderDocument(params.textDocument.uri)) {
             const document = documents.get(params.textDocument.uri);
             if (!document) return null;
@@ -189,7 +190,9 @@ export function register(): void {
         const parserResult = ensureParserResult(params.textDocument.uri);
         if (!parserResult) return [];
         try {
-            return documentColors(parserResult);
+            // A language file adds the colours its markup sets (`<color r='250' â€¦>`), which the
+            // schema knows nothing about because they live inside a translated string.
+            return [...documentColors(parserResult), ...markupColors(parserResult)];
         } catch (e) {
             if (globalSettings.trace.server === 'messages') console.error(e);
             return [];
@@ -205,7 +208,10 @@ export function register(): void {
         const document = documents.get(params.textDocument.uri);
         if (!parserResult || !document) return [];
         try {
-            return colorPresentations(parserResult, document.getText(), params.range, params.color);
+            const presentations = colorPresentations(parserResult, document.getText(), params.range, params.color);
+            return presentations.length > 0
+                ? presentations
+                : markupColorPresentations(parserResult, params.range, params.color);
         } catch (e) {
             if (globalSettings.trace.server === 'messages') console.error(e);
             return [];
@@ -302,7 +308,7 @@ export function register(): void {
     });
 
     // Signature help: show a math function's parameter list and highlight the active argument while
-    // typing inside its parentheses (`Damage = ceil(…)`). Driven by a raw-text scan so it works mid-edit.
+    // typing inside its parentheses (`Damage = ceil(ï¿½)`). Driven by a raw-text scan so it works mid-edit.
     connection.onSignatureHelp(async (params) => {
         const document = documents.get(params.textDocument.uri);
         if (!document) return null;

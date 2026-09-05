@@ -1,0 +1,13 @@
+Part : <../base_part_terran.rules>/Part
+{
+	ID = cosmoteer.storage
+	OtherIDs = [crate]
+	NameKey = "Parts/Storage"
+	Size = [2, 2]
+	MaxHealth = 600
+	TypeCategories = [storage]
+	Resources
+	[
+		[steel, 20]
+	]
+}

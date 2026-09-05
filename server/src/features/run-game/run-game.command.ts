@@ -4,7 +4,7 @@ import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.s
 import { foldPathCase } from '../../workspace/fs-cache';
 import { localModDirs, workshopContentDir } from '../../workspace/workshop-dir';
 import { readFile } from 'fs/promises';
-import { declaredCompatibleVersions, modVersionVerdict, readGameVersionInfo } from '../post-update/game-version';
+import { declaredCompatibleVersions, modVersionVerdict, readGameVersionInfo } from '../game-version';
 import { manifestPathsIn, readManifest } from '../../mod/mod-dependencies';
 import { enableModInSettings, enabledModFolders } from './game-settings-file';
 import { findSteamExecutable, gameLiveness, launchGame } from './game-process';

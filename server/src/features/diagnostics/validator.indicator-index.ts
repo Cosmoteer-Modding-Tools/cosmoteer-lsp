@@ -4,14 +4,13 @@ import {
     AbstractNode,
     AbstractNodeDocument,
     GroupNode,
-    isAssignmentNode,
     isGroupNode,
     isListNode,
     isValueNode,
     ListNode,
     ValueNode,
 } from '../../core/ast/ast';
-import { childNodesOf } from '../../utils/ast.utils';
+import { childNodesOf, memberValueNamed } from '../../utils/ast.utils';
 import { listElementType } from '../../document/schema/schema-context';
 import { ValidationError } from './validator';
 
@@ -20,23 +19,6 @@ const INDICATOR_RULES = 'Cosmoteer.Ships.Parts.Graphics.PartIndicatorSpritesRule
 
 /** The member holding the indices an indicator hides while it is showing. */
 const HIDES_INDICATORS = 'hidesindicators';
-
-/**
- * The member written under `name` in a group, in the assignment and the named-block spellings.
- *
- * @param group the group to read.
- * @param name the member name, matched case-insensitively the way the game matches it.
- * @returns the member's value node, or undefined when the group does not write it.
- */
-const memberOf = (group: GroupNode, name: string): AbstractNode | undefined => {
-    for (const element of group.elements) {
-        if (isAssignmentNode(element) && element.left.name.toLowerCase() === name) return element.right ?? undefined;
-        if ((isGroupNode(element) || isListNode(element)) && element.identifier?.name.toLowerCase() === name) {
-            return element;
-        }
-    }
-    return undefined;
-};
 
 /**
  * The whole number a value node spells, or undefined for anything else. A reference or an
@@ -103,7 +85,7 @@ export const validateIndicatorIndexes = async (
             const indicators = list.elements as GroupNode[];
             const count = indicators.length;
             for (let index = 0; index < count; index++) {
-                const hides = memberOf(indicators[index], HIDES_INDICATORS);
+                const hides = memberValueNamed(indicators[index], HIDES_INDICATORS);
                 const written: AbstractNode[] = hides
                     ? isListNode(hides)
                         ? hides.elements

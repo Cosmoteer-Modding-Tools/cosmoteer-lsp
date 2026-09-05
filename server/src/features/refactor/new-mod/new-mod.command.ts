@@ -1,11 +1,11 @@
-import { existsSync, readdirSync, statSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { identityOfMod, manifestPathsIn, readManifest, scalarMember } from '../../../mod/mod-dependencies';
 import { isValidModId } from '../../../mod/mod-manifest';
 import { foldPathCase } from '../../../workspace/fs-cache';
-import { localModDirs, workshopContentDir } from '../../../workspace/workshop-dir';
+import { installedModRoots, localModDirs } from '../../../workspace/workshop-dir';
 import { gameVersionsInsertLiteral } from '../../diagnostics/validator.manifest-version';
 import { contentFileNameOf } from '../new-content/content-id';
 import { NewModApplyResult, NewModArgs, NewModDestination, NewModResult, NewModScanResult } from './new-mod.types';
@@ -54,29 +54,6 @@ const applyFailed = (failure: NewModApplyResult['failure']): NewModApplyResult =
     loadedByGame: false,
     failure,
 });
-
-/** The mod folders on this machine, which are the roots a new mod would be created beside. */
-const installedModRoots = (): string[] => {
-    const roots: string[] = [];
-    for (const parent of [workshopContentDir(), ...localModDirs()]) {
-        if (!parent) continue;
-        let entries: string[];
-        try {
-            entries = readdirSync(parent);
-        } catch {
-            continue;
-        }
-        for (const entry of entries) {
-            const root = join(parent, entry);
-            try {
-                if (statSync(root).isDirectory()) roots.push(root);
-            } catch {
-                /* a folder that vanished between the listing and the probe */
-            }
-        }
-    }
-    return roots;
-};
 
 /**
  * The manifest ids already taken on this machine, folded to lower case. The game matches mods by

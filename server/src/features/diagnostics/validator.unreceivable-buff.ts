@@ -7,9 +7,9 @@ import { resolveGroupClass } from '../../document/schema/schema-context';
 import { flattenGroup, flattenListMember } from '../../semantics/effective-group';
 import { findMemberThroughInheritance } from '../../semantics/inheritance-resolver';
 import { resolveReference } from '../../semantics/effective-member';
-import { PART_RULES_CLASS } from '../part-editor/part-fields';
 import { memberNameOf } from '../../semantics/reference-resolver';
 import { booleanOf, childNamed, enumNameOf } from '../part-editor/vector-forms';
+import { instantiatedParts } from './validator.part-geometry';
 import { ValidationError } from './validator';
 
 /**
@@ -88,23 +88,6 @@ interface BuffUse {
     /** For a toggle, the state it is stuck in, which is what the author actually sees. */
     readonly latchedOn?: boolean;
 }
-
-/**
- * The part groups this document instantiates: a group resolving to `PartRules` that writes its own
- * `ID`, matching the gate the part-geometry pass uses for the same reason.
- *
- * @param document the parsed document.
- * @returns the part groups to judge, in source order.
- */
-const instantiatedParts = (document: AbstractNodeDocument): GroupNode[] => {
-    const parts: GroupNode[] = [];
-    const visit = (node: AbstractNode): void => {
-        if (isGroupNode(node) && childNamed(node, 'ID') && resolveGroupClass(node) === PART_RULES_CLASS) parts.push(node);
-        if (isGroupNode(node) || isListNode(node)) for (const child of node.elements) visit(child);
-    };
-    for (const element of document.elements) visit(element);
-    return parts;
-};
 
 /**
  * The buff a group names in its `BuffType` member, when the group is one of the consumer classes.

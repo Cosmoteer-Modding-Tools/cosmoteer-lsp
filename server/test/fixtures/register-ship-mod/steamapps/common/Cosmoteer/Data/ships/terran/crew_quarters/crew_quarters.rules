@@ -1,0 +1,25 @@
+Part : <../base_part_terran.rules>/Part
+{
+	ID = cosmoteer.crew_quarters
+	NameKey = "Parts/CrewQuarters"
+	Size = [2, 2]
+	MaxHealth = 500
+	TypeCategories = [provides_crew]
+	Resources
+	[
+		[steel, 16]
+	]
+	Components
+	{
+		CrewSource
+		{
+			Type = CrewSource
+			Crew = 4
+		}
+		PartCrew
+		{
+			Type = PartCrew
+			Crew = 1
+		}
+	}
+}

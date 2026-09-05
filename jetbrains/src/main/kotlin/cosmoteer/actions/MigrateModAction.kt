@@ -11,9 +11,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.testFramework.LightVirtualFile
-import com.redhat.devtools.lsp4ij.LanguageServerManager
-import cosmoteer.preview.ShaderPreviewService
-import org.eclipse.lsp4j.ExecuteCommandParams
+import cosmoteer.lsp.executeServerCommand
 import cosmoteer.lsp.commandResultOf
 
 /**
@@ -61,13 +59,7 @@ class MigrateModAction : AnAction() {
      * @returns the raw `workspace/executeCommand` result, null when no server is running.
      */
     private fun execute(project: Project, arguments: JsonObject) =
-        LanguageServerManager.getInstance(project)
-            .getLanguageServer(ShaderPreviewService.SERVER_ID)
-            .thenCompose { item ->
-                item?.server?.workspaceService
-                    ?.executeCommand(ExecuteCommandParams(COMMAND, listOf(arguments)))
-                    ?: java.util.concurrent.CompletableFuture.completedFuture<Any?>(null)
-            }
+        executeServerCommand(project, COMMAND, arguments)
 
     /**
      * Shows what a dry run would change, as the IDE's own side-by-side diff over the rewritten files,

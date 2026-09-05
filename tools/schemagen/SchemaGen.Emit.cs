@@ -229,6 +229,13 @@ internal sealed partial class SchemaGen
                 .OrderBy(c => c.Key, StringComparer.Ordinal)
                 .Select(c => new KeyValuePair<string, JsonNode?>(c.Key,
                     new JsonArray(c.Value.Select(i => (JsonNode)i).ToArray())))),
+            // Which kinds every class and interface satisfies through its ancestry, so a mod
+            // component that derives from a game class or interface can be judged from the bundle
+            // alone. Only types satisfying at least one kind appear.
+            ["componentAncestry"] = new JsonObject(componentAncestry
+                .OrderBy(c => c.Key, StringComparer.Ordinal)
+                .Select(c => new KeyValuePair<string, JsonNode?>(c.Key,
+                    new JsonArray(c.Value.Select(i => (JsonNode)i).ToArray())))),
             ["unresolved"] = new JsonObject
             {
                 ["types"] = new JsonObject(unkTypes.OrderByDescending(k => k.Value).Select(k => new KeyValuePair<string, JsonNode?>(k.Key, k.Value))),

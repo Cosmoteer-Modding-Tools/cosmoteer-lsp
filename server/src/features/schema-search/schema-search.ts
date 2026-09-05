@@ -26,13 +26,8 @@ import {
     wikiUrlForType,
 } from '../../document/schema/schema';
 import { SchemaField } from '../../document/schema/schema.types';
-import {
-    SchemaSearchEntry,
-    SchemaSearchEntryKind,
-    fieldEntryId,
-    schemaSearchEntries,
-    schemaSearchEntryById,
-} from './schema-search.index';
+import { fieldEntryId, schemaSearchEntries, schemaSearchEntryById } from './schema-search.index';
+import { SchemaSearchEntry, SchemaSearchEntryKind } from './schema-search.types';
 
 /** What the client sends. The document position rides along once, when the picker opens. */
 export interface SchemaSearchParams {

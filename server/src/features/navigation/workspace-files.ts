@@ -1,11 +1,12 @@
 import { Dirent } from 'fs';
 import { readFile } from 'fs/promises';
 import { resolve, sep } from 'path';
-import { cachedReaddir } from '../../workspace/fs-cache';
+import { cachedReaddir, onFsInvalidation } from '../../workspace/fs-cache';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument } from '../../core/ast/ast';
 import { parseText } from '../../utils/ast.utils';
 import { CancellationError } from '../../utils/cancellation';
+import { uriToFsPath } from '../../utils/uri-path';
 import { ParserResultRegistrar } from '../../registrar/parser-result-registrar';
 import { isRulesFileName } from '../../document/document-kind';
 import { globalSettings } from '../../settings';
@@ -27,24 +28,7 @@ export const modFolderPaths = (folderPaths: string[]): string[] => {
     return folderPaths.filter((folder) => normalizeUri(uriToFsPath(folder)) !== dataKey);
 };
 
-/**
- * Convert a workspace-folder `file://` URI to an on-disk path (Windows-aware).
- *
- * @param uri the workspace-folder URI.
- * @returns the on-disk path, or `uri` unchanged when it is not a `file://` URI.
- */
-export const uriToFsPath = (uri: string): string => {
-    if (!uri.startsWith('file://')) return uri;
-    let path = uri.slice('file://'.length);
-    try {
-        path = decodeURIComponent(path);
-    } catch {
-        /* leave as-is on malformed escapes */
-    }
-    // `file:///C:/x` decodes to `/C:/x`, so strip the slash before a drive letter.
-    if (/^\/[a-zA-Z]:\//.test(path)) path = path.slice(1);
-    return path.replace(/\//g, sep);
-};
+export { uriToFsPath };
 
 /**
  * Yield every rules file path under `dir`, recursively. Unreadable dirs are skipped. Listings come
@@ -129,7 +113,8 @@ export async function* readFilesAhead(files: string[]): AsyncGenerator<{ file: s
  * @param folderPaths the workspace folders to walk.
  * @param cancellationToken cancels the walk.
  * @param options `diskOnly` to ignore open buffers, `onDiskText` to observe each disk-read
- * file's raw text.
+ * file's raw text, `acceptText` to rule a disk file out from its text before it is parsed, and
+ * `skipFile` to rule one out before it is even read.
  * @returns every parsed `.rules` document in the project, de-duplicated by canonical uri.
  */
 export async function* projectDocuments(
@@ -139,6 +124,7 @@ export async function* projectDocuments(
         diskOnly?: boolean;
         onDiskText?: (file: string, text: string) => void;
         acceptText?: (file: string, text: string) => boolean;
+        skipFile?: (file: string) => boolean;
     }
 ): AsyncGenerator<AbstractNodeDocument> {
     const seen = new Set<string>();
@@ -151,7 +137,9 @@ export async function* projectDocuments(
             seen.add(norm);
             const open = options?.diskOnly ? undefined : ParserResultRegistrar.instance.getResultByPath(file);
             if (open) yield open;
-            else toRead.push(file);
+            // A disk file the consumer already knows it would reject is not even read. Only disk
+            // files: an open buffer is yielded above whatever the consumer remembers about it.
+            else if (!options?.skipFile?.(file)) toRead.push(file);
         }
     }
     // A single unparseable file must not abort the whole project walk. Otherwise one bad file
@@ -199,10 +187,32 @@ export async function* projectDocuments(
  * @param cancellationToken cancels the search.
  * @returns every open buffer, plus each parsed document whose text contains `name`.
  */
-export async function* documentsMentioning(
+export function documentsMentioning(
     folderPaths: string[],
     name: string,
     cancellationToken: CancellationToken
+): AsyncGenerator<AbstractNodeDocument> {
+    return documentsMentioningWhere(folderPaths, name, cancellationToken, (text) => text.includes(name), parsedMention);
+}
+
+/**
+ * The documents a symbol search has to read: every open buffer first, then each candidate file the
+ * mention index names for `needle`, read from disk and parsed only when its text passes the caller's
+ * own test.
+ *
+ * @param folderPaths the workspace folders to search.
+ * @param needle the word the mention index is asked about.
+ * @param cancellationToken cancels the search.
+ * @param mentions whether a candidate's raw text is worth parsing.
+ * @param parse parses a candidate, or answers undefined for one that cannot be parsed.
+ * @returns every open buffer, plus each parsed candidate whose text passes the test.
+ */
+export async function* documentsMentioningWhere(
+    folderPaths: string[],
+    needle: string,
+    cancellationToken: CancellationToken,
+    mentions: (text: string) => boolean,
+    parse: (file: string, text: string) => AbstractNodeDocument | undefined
 ): AsyncGenerator<AbstractNodeDocument> {
     const seen = new Set<string>();
     for (const document of ParserResultRegistrar.instance.allResults()) {
@@ -212,13 +222,13 @@ export async function* documentsMentioning(
         yield document;
     }
     const candidates = await MentionIndex.instance
-        .candidateFiles(name, folderPaths, cancellationToken)
+        .candidateFiles(needle, folderPaths, cancellationToken)
         .catch(() => undefined);
     let toRead: string[];
     if (candidates) {
         toRead = candidates.filter((file) => !seen.has(normalizeUri(file)));
     } else {
-        // Not a pure-word name (or the index failed): fall back to walking every folder file.
+        // Not a pure-word needle (or the index failed): fall back to walking every folder file.
         toRead = [];
         for (const folder of folderPaths) {
             for await (const file of collectRulesFiles(uriToFsPath(folder))) {
@@ -232,13 +242,61 @@ export async function* documentsMentioning(
     }
     for await (const { file, text } of readFilesAhead(toRead)) {
         if (cancellationToken.isCancellationRequested) throw new CancellationError();
-        if (text === undefined || !text.includes(name)) continue;
-        // One bad file must not abort the whole search (the parser still throws on some
-        // constructs). Skip it.
-        try {
-            yield parseText(text, file);
-        } catch {
-            /* unparseable, skip */
-        }
+        if (text === undefined || !mentions(text)) continue;
+        const document = parse(file, text);
+        if (document) yield document;
     }
 }
+
+/** A candidate's parse, kept with the text it came from so a re-read can vouch for it. */
+interface MentionParse {
+    text: string;
+    document: AbstractNodeDocument;
+}
+
+/**
+ * The parses of the last candidates, by normalized path. A whole-workspace scan asks about the
+ * same handful of files once per id they mention, a part file naming many ids most of all, and
+ * parsing was the larger half of what each of those questions cost. The text is what proves an
+ * entry current: the caller has just read the file, and a string comparison against the kept text
+ * is far cheaper than the parse it saves, so no stamp is needed and no stale tree can be served.
+ */
+const mentionParses = new Map<string, MentionParse>();
+
+/** How many candidate parses are kept. Bounded by count, since each holds a tree. */
+const MENTION_PARSE_CAP = 512;
+
+onFsInvalidation((fsPath) => {
+    if (fsPath === undefined) mentionParses.clear();
+    else mentionParses.delete(normalizeUri(fsPath));
+});
+
+/**
+ * Parses a candidate file's text, reusing the last parse when the text is unchanged. One bad file
+ * must not abort the whole search (the parser still throws on some constructs), so an unparseable
+ * candidate answers nothing.
+ *
+ * @param file the candidate's on-disk path.
+ * @param text the text just read from it.
+ * @returns the parsed document, or undefined when the text cannot be parsed.
+ */
+const parsedMention = (file: string, text: string): AbstractNodeDocument | undefined => {
+    const key = normalizeUri(file);
+    const kept = mentionParses.get(key);
+    if (kept && kept.text === text) {
+        mentionParses.delete(key);
+        mentionParses.set(key, kept);
+        return kept.document;
+    }
+    try {
+        const document = parseText(text, file);
+        if (mentionParses.size >= MENTION_PARSE_CAP) {
+            const oldest = mentionParses.keys().next().value;
+            if (oldest !== undefined) mentionParses.delete(oldest);
+        }
+        mentionParses.set(key, { text, document });
+        return document;
+    } catch {
+        return undefined;
+    }
+};

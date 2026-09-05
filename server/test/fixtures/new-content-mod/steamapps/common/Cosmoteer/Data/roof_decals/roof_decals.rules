@@ -1,0 +1,17 @@
+// Stands in for the game's roof decal groups, which a mod's own decal folder is added to as a group.
+Groups
+[
+	{
+		Folders = ["shapes"]
+		NameKey = "DecalGroups/Shapes"
+		Icon
+		{
+			Texture
+			{
+				File = "shapes.png"
+				MipLevels = 2
+				SampleMode = Linear
+			}
+		}
+	}
+]

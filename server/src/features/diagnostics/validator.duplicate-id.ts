@@ -17,7 +17,7 @@ import { documentRootClass } from '../../document/schema/document-root';
 import { ENTITY_FIELDS, PART_RULES_CLASS, sameId } from '../../document/schema/entity-schema';
 import { typeDef } from '../../document/schema/schema';
 import { ActionRootingIndex } from '../../mod/action-rooting.index';
-import { computeModReachability, ModReachability, reachabilityKey, relativeToMod } from '../../mod/mod-reachability';
+import { ModReachability, reachabilityKey, reachabilityMemo, relativeToMod } from '../../mod/mod-reachability';
 import { findModRoot } from '../../mod/mod-root';
 import { isStringsFile } from '../../mod/strings-folder';
 import { documentsMentioning, uriToFsPath } from '../navigation/workspace-files';
@@ -170,7 +170,7 @@ const realKey = (fsPath: string): string => {
 };
 
 /** Per-mod reachability closures, so a per-file pass does not re-walk the mod for every file. */
-const reachabilityByRoot = new Map<string, Promise<ModReachability | undefined>>();
+const reachabilityClosures = reachabilityMemo();
 
 /** Verdicts of the peer scan, keyed per mod root, class and id. */
 const peerVerdicts = new Map<string, string[]>();
@@ -181,35 +181,9 @@ const PEER_VERDICTS_CAP = 512;
  * added or renamed is seen by the next validation.
  */
 export const invalidateDuplicateIdCache = (): void => {
-    reachabilityByRoot.clear();
+    reachabilityClosures.clear();
     peerVerdicts.clear();
     realPathKeys.clear();
-};
-
-/**
- * The mod's reachable-file closure, computed once per mod root.
- *
- * @param modRoot the mod root directory.
- * @param cancellationToken cancels the walk.
- * @returns the closure, or undefined when it could not be completed.
- */
-const reachabilityOf = async (
-    modRoot: string,
-    cancellationToken: CancellationToken
-): Promise<ModReachability | undefined> => {
-    let pending = reachabilityByRoot.get(modRoot);
-    if (!pending) {
-        pending = computeModReachability(modRoot, cancellationToken).catch(() => undefined);
-        reachabilityByRoot.set(modRoot, pending);
-    }
-    const reachability = await pending;
-    // A cancelled walk returns a partial closure, and a file missing from it would read as dead
-    // content, so it is dropped instead of memoized.
-    if (!reachability || cancellationToken.isCancellationRequested) {
-        reachabilityByRoot.delete(modRoot);
-        return undefined;
-    }
-    return reachability;
 };
 
 /**
@@ -303,11 +277,11 @@ export const validateDuplicateModIds = async (
     if (declarations.length === 0) return [];
     if (await isStringsFile(document.uri, cancellationToken)) return [];
 
-    const reachability = await reachabilityOf(modRoot, cancellationToken);
-    if (!reachability || hasVariantManifests(reachability)) return [];
+    const closure = await reachabilityClosures.of(modRoot, cancellationToken);
+    if (!closure || hasVariantManifests(closure)) return [];
 
     const ownPath = uriToFsPath(document.uri);
-    if (!reachability.reachable.has(reachabilityKey(ownPath))) return [];
+    if (!closure.reachable.has(reachabilityKey(ownPath))) return [];
     const ownKey = realKey(ownPath);
 
     const errors: ValidationError[] = [];
@@ -318,7 +292,7 @@ export const validateDuplicateModIds = async (
             declaration,
             ownKey,
             modRoot,
-            reachability,
+            closure,
             folderPaths,
             cancellationToken
         );

@@ -1,14 +1,11 @@
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, ValueNode, isValueNode } from '../core/ast/ast';
-import { getStartOfAstNode } from '../utils/ast.utils';
-import { isModRules } from '../document/document-kind';
+import { AbstractNode, ValueNode, isValueNode } from '../core/ast/ast';
 import { registerInheritanceExtensionSource } from '../semantics/reference-resolver';
-import { WatchedDocumentIndex } from '../features/navigation/watched-document-index';
-import { normalizeUri } from '../features/navigation/reference-location';
 import { modFolderPaths } from '../features/navigation/workspace-files';
 import { FileTree, isFile } from '../workspace/cosmoteer-workspace.service';
-import { isActionFragmentDocument, parseModActions, textCouldCarryActions } from './action-parser';
+import { ModAction } from './action';
 import { resolveActionTarget } from './action-target-resolver';
+import { ModActionNodeIndex } from './mod-action-node.index';
 
 /** One `AddBase`-appended base: the `BaseToAdd` reference and the source document that declared it. */
 interface AppendedBase {
@@ -37,13 +34,8 @@ interface AppendedBase {
  * (the reference is then left to resolve, or not, on the written list alone). The index is scoped to the
  * workspace mod folders, since the game `Data` tree carries no mod actions.
  */
-export class AddBaseIndex extends WatchedDocumentIndex {
+export class AddBaseIndex extends ModActionNodeIndex<AppendedBase> {
     private static _instance: AddBaseIndex;
-
-    /** Target node key → the bases appended to it, in the order the actions declare them. */
-    private readonly byNode = new Map<string, AppendedBase[]>();
-    /** Source document uri → the target node keys it contributed to, so a re-index can drop them. */
-    private readonly bySource = new Map<string, string[]>();
 
     private constructor() {
         super();
@@ -55,17 +47,6 @@ export class AddBaseIndex extends WatchedDocumentIndex {
     public static get instance(): AddBaseIndex {
         if (!AddBaseIndex._instance) AddBaseIndex._instance = new AddBaseIndex();
         return AddBaseIndex._instance;
-    }
-
-    /**
-     * A stable identity key for a game-tree node, matching another resolution of the same cached node.
-     *
-     * @param node the node to key.
-     * @returns the node's identity key.
-     */
-    private static nodeKey(node: AbstractNode): string {
-        const document = getStartOfAstNode(node);
-        return `${normalizeUri(document.uri)}|${node.position?.start ?? -1},${node.position?.end ?? -1}`;
     }
 
     /**
@@ -108,68 +89,23 @@ export class AddBaseIndex extends WatchedDocumentIndex {
     }
 
     /**
-     * Only a manifest or a file declaring a top-level `Actions` list contributes here, and both
-     * write that name into their text, so the build skips the parse of every other file of the mod.
+     * Records the base an `AddBase` action appends to its target node. An `Index`-inserting AddBase
+     * can re-slot the list, so it is skipped rather than mis-modelled as an append.
      *
-     * @param uri the file's uri.
-     * @param text the file's raw text.
-     * @returns true when the file could carry mod actions.
+     * @param action the parsed action.
+     * @param source the normalized uri of the document declaring it.
+     * @param cancellationToken cancels the target resolution.
+     * @returns the target node key, or nothing for an action this index does not model.
      */
-    protected override acceptsText(uri: string, text: string): boolean {
-        return textCouldCarryActions(uri, text);
-    }
-
-    /**
-     * Re-indexes one document, replacing whatever it contributed before with the bases its `AddBase`
-     * actions append. Only manifests and included action fragments carry `AddBase` actions, so any
-     * other document contributes nothing.
-     *
-     * @param document the parsed document to index.
-     * @param cancellationToken cancels the action walk.
-     * @returns true when this source's contribution differs from the one it replaced.
-     */
-    protected async indexDocument(document: AbstractNodeDocument, cancellationToken: CancellationToken): Promise<boolean> {
-        const source = normalizeUri(document.uri);
-        const previous = this.bySource.get(source) ?? [];
-        this.removeSource(source);
-        if (!isModRules(document.uri) && !isActionFragmentDocument(document)) return previous.length > 0;
-
-        const contributedKeys: string[] = [];
-        for (const action of parseModActions(document)) {
-            if (cancellationToken.isCancellationRequested) break;
-            if (action.type !== 'AddBase') continue;
-            // An `Index`-inserting AddBase can re-slot the list, so it is skipped rather than
-            // mis-modelled as an append.
-            if (action.presentFields.has('index')) continue;
-            const target = action.targets[0];
-            const base = action.sources[0];
-            if (!target || !base || !isValueNode(base) || base.valueType.type !== 'Reference') continue;
-            const resolved = await resolveActionTarget(target, cancellationToken).catch(() => null);
-            if (!resolved || isFile(resolved as unknown as FileTree)) continue;
-            const key = AddBaseIndex.nodeKey(resolved as AbstractNode);
-            const bases = this.byNode.get(key) ?? this.byNode.set(key, []).get(key)!;
-            bases.push({ source, base });
-            contributedKeys.push(key);
-        }
-        if (contributedKeys.length) this.bySource.set(source, contributedKeys);
-        return contributedKeys.length > 0 || previous.length > 0;
-    }
-
-    protected removeSource(source: string): void {
-        const keys = this.bySource.get(source);
-        if (!keys) return;
-        for (const key of keys) {
-            const bases = this.byNode.get(key);
-            if (!bases) continue;
-            const kept = bases.filter((entry) => entry.source !== source);
-            if (kept.length) this.byNode.set(key, kept);
-            else this.byNode.delete(key);
-        }
-        this.bySource.delete(source);
-    }
-
-    protected clear(): void {
-        this.byNode.clear();
-        this.bySource.clear();
+    protected async indexAction(action: ModAction, source: string, cancellationToken: CancellationToken): Promise<string[]> {
+        if (action.type !== 'AddBase' || action.presentFields.has('index')) return [];
+        const target = action.targets[0];
+        const base = action.sources[0];
+        if (!target || !base || !isValueNode(base) || base.valueType.type !== 'Reference') return [];
+        const resolved = await resolveActionTarget(target, cancellationToken).catch(() => null);
+        if (!resolved || isFile(resolved as unknown as FileTree)) return [];
+        const key = AddBaseIndex.nodeKey(resolved as AbstractNode);
+        this.bucketFor(key).push({ source, base });
+        return [key];
     }
 }

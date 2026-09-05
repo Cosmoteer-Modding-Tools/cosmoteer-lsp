@@ -1,9 +1,11 @@
-import { CompletionItem, CompletionList, TextDocumentPositionParams } from 'vscode-languageserver/node';
+import { CompletionItem, CompletionItemKind, CompletionList, TextDocumentPositionParams } from 'vscode-languageserver/node';
 import { AutoCompletionService, Completion } from '../../features/completion/autocompletion.service';
 import { openQuoteSuffix, valueRunAtCursor, wholeValueRange, withReplaceRange } from '../../features/completion/completion-range';
 import { modRulesOffsetCompletions } from '../../features/completion/autocompletion.mod-rules';
 import { inheritanceTargetCompletions } from '../../features/completion/autocompletion.inheritance-target';
 import { mathFunctionCompletionsAtLinePrefix } from '../../features/completion/autocompletion.math-function';
+import { markupCompletionsAt } from '../../features/completion/autocompletion.text-markup';
+import { textImageNames } from '../../features/text-markup/text-image.names';
 import {
     crossFileReferenceTargetAtOffset,
     isBareFieldNameIdentifier,
@@ -81,6 +83,36 @@ export function register(): void {
                   })
                 : '';
             const valueSuffix = openQuoteSuffix(linePrefix, lineSuffix);
+            // A language file's strings carry the game's own text markup, whose vocabulary is closed.
+            // Answered off the written line, before the tree is consulted at all, because a half-typed
+            // `<col` is still plain text to the parser.
+            const markup = markupCompletionsAt(
+                textDocumentPosition.textDocument.uri,
+                linePrefix,
+                textDocumentPosition.position
+            );
+            if (markup) {
+                const keys = markup.localizationKeys
+                    ? await LocalizationKeyIndex.instance
+                          .allKeyCompletions(await searchFolderUris(), cancellationToken)
+                          .catch(() => [])
+                    : [];
+                // The images a `<img name='…'/>` may name are the ones the project registers: the
+                // game root's text sprites, the resources and the factions.
+                const images: Completion[] = markup.imageNames
+                    ? [...(await textImageNames(await searchFolderUris(), cancellationToken).catch(() => new Set<string>()))]
+                          .sort()
+                          .map((name) => ({ label: name, kind: CompletionItemKind.Value }))
+                    : [];
+                const list = finishCompletionList(
+                    withReplaceRange(markup.completions.concat(keys).concat(images), markup.range),
+                    wordPrefix
+                );
+                // The offered set changes with every character typed inside a tag (an element name,
+                // then its attributes, then their values), so the client has to ask again rather than
+                // refilter what it already holds.
+                return { ...list, isIncomplete: true };
+            }
             const parserResult = ensureParserResult(textDocumentPosition.textDocument.uri);
             let completions: Completion[] = [];
             try {

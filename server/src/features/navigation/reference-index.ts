@@ -2,6 +2,7 @@ import { CancellationToken, Location, Position, WorkDoneProgressReporter } from 
 import {
     AbstractNode,
     AbstractNodeDocument,
+    isIdentifierNode,
     isListNode,
     isAssignmentNode,
     isDocumentNode,
@@ -231,6 +232,31 @@ export const enclosingContainerKey = (node: AbstractNode): string => {
     return current?.position ? String(current.position.start) : 'root';
 };
 
+/**
+ * The reference value a bare `&…` list element stands for (`&/PARTICLES/Foo` inside `MediaEffects
+ * [ … ]`).
+ *
+ * The parser gives such an element an IdentifierNode rather than a ValueNode whenever the preceding
+ * sibling is not a value, which is what happens right after a `}`. The game reads it as a reference
+ * all the same, so every reference-shaped feature has to see one. The wrap carries the identifier's
+ * own parent and position, so the scope it resolves in and the range it reports are the written
+ * element's.
+ *
+ * @param node the node to inspect.
+ * @returns the reference value it stands for, or null when it is not a bare list reference.
+ */
+export const standaloneReferenceValue = (node: AbstractNode | null | undefined): ValueNode | null => {
+    if (!isIdentifierNode(node) || typeof node.name !== 'string' || !node.name.startsWith('&')) return null;
+    const parent = node.parent;
+    if (!parent || !isListNode(parent) || !parent.elements.includes(node)) return null;
+    return {
+        type: 'Value',
+        valueType: { type: 'Reference', value: node.name },
+        parent,
+        position: node.position,
+    };
+};
+
 /** Every reference value node in a document, depth-first across all node shapes. */
 export function* referenceNodesOf(node: AbstractNode | null | undefined): Generator<ValueNode> {
     // A document parsed with errors can have null slots (e.g. `Key =` with no value →
@@ -249,6 +275,9 @@ export function* referenceNodesOf(node: AbstractNode | null | undefined): Genera
         for (const element of node.elements) yield* referenceNodesOf(element);
     } else if (isValueNode(node) && node.valueType.type === 'Reference') {
         yield node;
+    } else {
+        const standalone = standaloneReferenceValue(node);
+        if (standalone) yield standalone;
     }
 }
 
@@ -303,7 +332,10 @@ export const findReferenceTargetAtPosition = (
             }
             return null;
         }
-        return within(node) ? node : null;
+        if (!within(node)) return null;
+        // A bare `&…` list element is an identifier in the tree, so the caret sitting on one is
+        // answered with the reference it stands for rather than with a name nothing declares.
+        return standaloneReferenceValue(node) ?? node;
     };
     for (const element of document.elements) {
         const hit = recurse(element);

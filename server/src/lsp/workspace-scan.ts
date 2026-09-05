@@ -17,7 +17,6 @@ import {
     ScanCacheEntry,
     tryLoadScanCache,
 } from '../workspace/index-cache';
-import { recordScanBaseline } from '../features/post-update/post-update-baseline';
 import { startScanCpuProfile, stopScanCpuProfile } from '../utils/cpu-profile';
 import { perfCount, perfSampleMemory } from '../utils/perf-counters';
 import { globalSettings } from '../settings';
@@ -29,11 +28,14 @@ import { scanRevisionSum, scanSettingsKeyOf, workspaceScanEpoch } from './scan-e
 import { validateTextDocument } from './validate-document';
 import {
     isOutsideRulesPanel,
+    reachableFileFilter,
     validationScopeKeys,
     wholeWorkspaceEnabled,
     workspaceValidationScope,
 } from './validation-scope';
 import { workspaceFolderUris } from './workspace-folders';
+import { modPlans } from '../features/refactor/shared-base/mod-scan';
+import { modRootsUnder } from '../features/refactor/register-part/ship-registry';
 
 // ── Whole-workspace diagnostics ─────────────────────────────────────────────────────────────
 // On by default. Besides the file open in the editor (see `documents.onDidChangeContent`), the
@@ -320,6 +322,7 @@ export async function runWorkspaceValidation(): Promise<void> {
                 `Workspace validation: ${files.length} files in ${Date.now() - startedMs}ms (${fresh} validated, rest cached or open)`
             );
             announceWorkspaceValidation(files.length, fresh, Date.now() - startedMs);
+            void warmSharedBaseFacts(folderUris, token);
             // Persist the results computed under the pass's final shared state, so the next
             // session's scan can restore them instead of re-validating an unchanged project.
             // Only worth rewriting when this pass validated anything fresh.
@@ -329,16 +332,6 @@ export async function runWorkspaceValidation(): Promise<void> {
                     const entries = currentScanCacheEntries();
                     // Awaited, so a server shutdown right after the pass cannot tear the write.
                     await saveScanCache(dataRoot, folderUris.map(uriToFsPath), scanSettingsKeyOf(), entries);
-                    // The same results, recorded as this game version's generation, so a later game
-                    // update has a picture from before it to be compared against. Best effort, like
-                    // the caches: a failure to record never disturbs the pass that produced it.
-                    await recordScanBaseline({
-                        dataRoot,
-                        folderPaths: folderUris.map(uriToFsPath),
-                        settingsKey: scanSettingsKeyOf(),
-                        maxProblems: globalSettings.maxNumberOfProblems,
-                        entries,
-                    });
                 }
             }
         }
@@ -349,6 +342,33 @@ export async function runWorkspaceValidation(): Promise<void> {
         progress.done();
         if (workspaceValidationSource === source) workspaceValidationSource = undefined;
         releaseScanMemory();
+    }
+}
+
+/**
+ * Builds the shared-base plans of every mod in the workspace after a pass, in the background.
+ *
+ * The duplicate-field hint compares a file against the whole mod, and the plans that come out of
+ * that are computed once per mod and reused by every file. A pass served from the scan cache never
+ * asks for them, so the first file the user opened used to pay the whole-mod read and parse before
+ * its problems appeared. Done here, the work runs while nobody waits on it, and a file opened
+ * before it finishes joins the walk already running rather than starting one.
+ *
+ * @param folderUris the workspace folders of the pass.
+ * @param token the pass's token, so a pass that supersedes this one stops the warm-up too.
+ */
+async function warmSharedBaseFacts(folderUris: string[], token: CancellationToken): Promise<void> {
+    if (!globalSettings.diagnostics?.validateDuplicateFields) return;
+    try {
+        const inScope = await reachableFileFilter(token);
+        for (const folder of folderUris) {
+            for (const modRoot of modRootsUnder(uriToFsPath(folder))) {
+                if (token.isCancellationRequested) return;
+                await modPlans(modRoot, inScope, token);
+            }
+        }
+    } catch {
+        // Warming is a courtesy to the first open file. It computes the same plans on its own.
     }
 }
 

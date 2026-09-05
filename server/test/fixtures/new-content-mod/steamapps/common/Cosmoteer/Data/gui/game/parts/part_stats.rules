@@ -1,0 +1,8 @@
+// Stands in for the game's tooltip stat lines, which a mod adds one of with an AddMany.
+PartStats
+[
+	{
+		ID = CrewRequired
+		FormatKey = "Stats/CrewRequiredFmt"
+	}
+]

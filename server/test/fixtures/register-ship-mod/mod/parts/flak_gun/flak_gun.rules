@@ -1,0 +1,22 @@
+Part : <./Data/ships/terran/base_part_terran.rules>/Part
+{
+	ID = test.flak_gun
+	NameKey = "Parts/FlakGun"
+	DescriptionKey = "Parts/FlakGunDesc"
+	EditorGroups = ["WeaponsProjectile", "Defenses"]
+	Size = [1, 1]
+	MaxHealth = 1000
+	Resources
+	[
+		[steel, 4]
+	]
+	EditorIcon
+	{
+		Texture
+		{
+			File = "./Data/ships/terran/corridor/icon.png"
+			SampleMode = Linear
+		}
+		Size = [32, 32]
+	}
+}

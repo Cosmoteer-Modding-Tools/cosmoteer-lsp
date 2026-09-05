@@ -25,6 +25,7 @@ import { connection } from '../context';
 import { diagnosticsCache, inlayHintCache } from '../document-caches';
 import { codeModAutoRefreshEnabled, refreshModSchema } from '../mod-schema';
 import { markProjectIndexesDirty, openDocumentNorms } from '../open-documents';
+import { invalidateShipLayersFor } from '../ship-layers';
 import { bumpWorkspaceScanEpoch } from '../scan-epoch';
 import { bumpValidationScopeEpoch, validationScopeKeys, wholeWorkspaceEnabled } from '../validation-scope';
 import {
@@ -80,6 +81,9 @@ export function register(): void {
             // listing reference resolution keeps, and dirties the mention index's word entry.
             invalidateFsPath(uriToFsPath(change.uri));
             MentionIndex.instance.markDirty(uriToFsPath(change.uri));
+            // The ship-layer index reads ships and manifests from disk, so a disk change is the one
+            // event that can move it. It is dropped here rather than with the per-edit index set.
+            invalidateShipLayersFor(change.uri);
             if (change.type === FileChangeType.Deleted) {
                 WorkspaceSymbolService.instance.remove(change.uri);
                 SchemaIdIndex.instance.remove(change.uri);

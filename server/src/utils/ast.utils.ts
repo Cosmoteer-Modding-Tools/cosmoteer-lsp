@@ -46,6 +46,25 @@ export const namedMembersOf = (node: { elements: AbstractNode[] }): [string, Abs
  * @param node the node a walk has reached
  * @returns the nodes to visit below it, in document order, empty when it holds none
  */
+/**
+ * The member written under a name in a group, in the assignment and the named-block spellings,
+ * matched ignoring case the way the game matches member names.
+ *
+ * @param group the group or document to read.
+ * @param name the member name.
+ * @returns the member's value node, or undefined when the group does not write it.
+ */
+export const memberValueNamed = (group: { elements: AbstractNode[] }, name: string): AbstractNode | undefined => {
+    const lower = name.toLowerCase();
+    for (const element of group.elements) {
+        if (isAssignmentNode(element) && element.left.name.toLowerCase() === lower) return element.right ?? undefined;
+        if ((isGroupNode(element) || isListNode(element)) && element.identifier?.name.toLowerCase() === lower) {
+            return element;
+        }
+    }
+    return undefined;
+};
+
 export const childNodesOf = (node: AbstractNode): AbstractNode[] =>
     isGroupNode(node) || isListNode(node) || isDocumentNode(node)
         ? node.elements

@@ -1,0 +1,12 @@
+// Stands in for the game's basic sector: the trade routes every sector type inherits.
+Sector
+{
+	TradeRoutes
+	{
+		MaxTradeShipsPerEndpoint = 2.25
+		StationResourceTradeDeltas
+		[
+			{ ResourceType=steel;                PercentOfTypedTiles=[80%, 90%];   PercentOfUntypedTiles=[0%, 10%]; }
+		]
+	}
+}

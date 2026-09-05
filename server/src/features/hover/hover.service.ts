@@ -14,6 +14,7 @@ import { schemaDiscriminatorHover, schemaFieldHover } from './schema-hover';
 import { resolveClassThroughInheritance } from '../completion/inheritance-resolution';
 import { decompilerHoverLink } from './decompiler-link';
 import { shaderConstantHover } from '../shader/shader-hover';
+import { bucketOrderHover } from './bucket-order-hover';
 import { localizationKeyHover } from './localization-key-hover';
 import { substitutionTraceMarkdown } from './substitution-trace';
 import { modifierTraceMarkdown } from './modifier-trace';
@@ -110,6 +111,10 @@ export class HoverService {
         // For a localization key (`NameKey = "Parts/Foo"`), show its translated text per language.
         const localizationInfo = await localizationKeyHover(node, folderPaths, cancellationToken).catch(() => null);
         if (localizationInfo) lines.push(localizationInfo);
+
+        // For a media-effect bucket name, where it sits in the registry list that decides draw order.
+        const bucketInfo = await bucketOrderHover(node, folderPaths, cancellationToken).catch(() => null);
+        if (bucketInfo) lines.push(bucketInfo);
 
         // Where this declaration stands in its group's inheritance chain: the value it replaces, and
         // for a group how much of its member set comes from its bases. The last fact about this

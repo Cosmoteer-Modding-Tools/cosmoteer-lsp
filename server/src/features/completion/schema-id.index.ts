@@ -1,14 +1,43 @@
-import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
+import { CancellationToken, CompletionItemKind, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isAssignmentNode, isValueNode } from '../../core/ast/ast';
-import { documentRootClass } from '../../document/schema/document-root';
+import { classFitsDocument, documentRootClass } from '../../document/schema/document-root';
 import { typeDef } from '../../document/schema/schema';
 import { BUILTIN_IDS, entityDeclarationsOf, isIdDeclarationField } from '../../document/schema/entity-schema';
 import { MARKER_CLASSES, markerUsagesOf } from '../../document/schema/category-usage';
 import { normalizeUri } from '../navigation/reference-location';
+import { ReverseIncludeIndex } from '../navigation/reverse-include.index';
 import { WatchedDocumentIndex } from '../navigation/watched-document-index';
 import { schemaReferenceFieldOf, isSameOrSubclass } from '../navigation/schema-id-reference.navigation';
+import { aliasRootIndex } from '../../document/schema/alias-root';
 import { ActionRootingIndex } from '../../mod/action-rooting.index';
 import { Completion } from './autocompletion.service';
+
+/**
+ * The class a whole file declares an instance of, path and content first and the wiring afterwards.
+ *
+ * A mod is free to keep a declaration where it likes and hand the file to the game from somewhere
+ * else: a manifest action (`AddMany` into the game's `Resources` list), or simply the field that
+ * names it, which is how a mod keeps a bullet file next to the weapon that fires it
+ * (`Bullet = &<cannon_bolt/cannon_bolt.rules>`). The game reads such a file as whatever the slot
+ * declares. Rooting it by its path alone leaves its `ID` unharvested, so the mod's own resources and
+ * bullets are missing wherever the project's ids are offered or checked. The action, alias and
+ * reference indexes each record the slot a fragment is wired into, so the type is asked of them when
+ * the ordinary rooting has nothing, and the class still has to fit the document before an id is taken
+ * from it.
+ *
+ * @param document the parsed document to root.
+ * @returns the class the file declares, or undefined when it declares none.
+ */
+const declaredRootClass = (document: AbstractNodeDocument): string | undefined => {
+    const rooted = documentRootClass(document);
+    if (rooted) return rooted;
+    const wired =
+        ActionRootingIndex.instance.rootType(document.uri) ??
+        aliasRootIndex.rootType(document.uri) ??
+        ReverseIncludeIndex.instance.rootType(document.uri);
+    if (wired?.kind !== 'group') return undefined;
+    return classFitsDocument(wired.ref, document) ? wired.ref : undefined;
+};
 
 /** The top-level `ID = <value>` string of a whole-file-root document, if any. */
 const topLevelId = (document: AbstractNodeDocument): string | undefined => {
@@ -44,7 +73,7 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
     private static _instance: SchemaIdIndex;
 
     /** class FullName → (id → source uri) of every file declaring that id. */
-    private readonly byClass = new Map<string, Map<string, string>>();
+    private readonly byClass = new Map<string, Map<string, Set<string>>>();
     /** normalized source uri → the `(class, id)` entries it contributed (for incremental removal). */
     private readonly bySource = new Map<string, Array<{ cls: string; id: string; alias?: boolean }>>();
     /** The marker vocabulary aggregate, kept until an index change moves the revision past it. */
@@ -91,21 +120,52 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
             const [source, entries] = entry;
             this.bySource.set(source, entries);
             for (const { cls, id } of entries) {
-                (this.byClass.get(cls) ?? this.byClass.set(cls, new Map()).get(cls)!).set(id, source);
+                this.declare(cls, id, source);
             }
         }
         return true;
+    }
+
+    /**
+     * Records that `source` declares `id` for `cls`. An id several files declare is held with all of
+     * them, since the game keeps one of the two while the project still writes both, and dropping one
+     * file must not take the id away from the other.
+     *
+     * @param cls the declared class.
+     * @param id the declared id.
+     * @param source the declaring file's normalized uri.
+     */
+    private declare(cls: string, id: string, source: string): void {
+        const ids = this.byClass.get(cls) ?? this.byClass.set(cls, new Map()).get(cls)!;
+        (ids.get(id) ?? ids.set(id, new Set()).get(id)!).add(source);
     }
 
     protected removeSource(source: string): void {
         const prior = this.bySource.get(source);
         if (prior) {
             for (const { cls, id } of prior) {
-                const ids = this.byClass.get(cls);
-                if (ids?.get(id) === source) ids.delete(id);
+                const sources = this.byClass.get(cls)?.get(id);
+                if (!sources) continue;
+                sources.delete(source);
+                if (sources.size === 0) this.byClass.get(cls)?.delete(id);
             }
             this.bySource.delete(source);
         }
+    }
+
+    /**
+     * Builds the index with the reference and action rooting in place, so a fragment another file
+     * names, or a manifest wires into a game collection, is already typed when the walk reaches it.
+     * Without the wait the walk would root such a file by its path alone, and a one-shot build has no
+     * second pass to correct that.
+     *
+     * @param folderPaths the project folders to walk.
+     * @param progress the reporter the walk posts its file count to.
+     */
+    private async buildWiredFirst(folderPaths: string[], progress?: WorkDoneProgressReporter): Promise<void> {
+        await ReverseIncludeIndex.instance.ensureBuilt(folderPaths, CancellationToken.None).catch(() => undefined);
+        await ActionRootingIndex.instance.ensureBuilt(folderPaths, CancellationToken.None).catch(() => undefined);
+        await this.buildFromProject(folderPaths, progress);
     }
 
     protected indexDocument(document: AbstractNodeDocument): boolean {
@@ -114,7 +174,7 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         this.removeSource(source);
         const entries: Array<{ cls: string; id: string; alias?: boolean }> = [];
         // Whole-file root: the document's own top-level `ID` as an instance of its root class.
-        const rootClass = documentRootClass(document);
+        const rootClass = declaredRootClass(document);
         const id = rootClass ? topLevelId(document) : undefined;
         if (rootClass && id) entries.push({ cls: rootClass, id });
         // Aggregate list-element entities: each `Factions [ { ID } ]`, `PartToggles [ { ToggleID } ]`, …
@@ -136,7 +196,7 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         if (!entries.length) return changed;
         this.bySource.set(source, entries);
         for (const { cls, id: entryId } of entries) {
-            (this.byClass.get(cls) ?? this.byClass.set(cls, new Map()).get(cls)!).set(entryId, source);
+            this.declare(cls, entryId, source);
         }
         return changed;
     }
@@ -156,7 +216,7 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         cancellationToken: CancellationToken
     ): Promise<MarkerVocabulary> {
         await this.ensureFresh(
-            (progress) => this.buildFromProject(folderPaths, progress),
+            (progress) => this.buildWiredFirst(folderPaths, progress),
             cancellationToken,
             'Indexing references'
         );
@@ -224,7 +284,7 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         cancellationToken: CancellationToken
     ): Promise<Completion[]> {
         await this.ensureFresh(
-            (progress) => this.buildFromProject(folderPaths, progress),
+            (progress) => this.buildWiredFirst(folderPaths, progress),
             cancellationToken,
             'Indexing references'
         );
@@ -305,7 +365,7 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         cancellationToken: CancellationToken
     ): Promise<Set<string>> {
         await this.ensureFresh(
-            (progress) => this.buildFromProject(folderPaths, progress),
+            (progress) => this.buildWiredFirst(folderPaths, progress),
             cancellationToken,
             'Indexing references'
         );
@@ -342,7 +402,7 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         sourcePrefix?: string
     ): Promise<Array<{ id: string; source: string; alias: boolean }>> {
         await this.ensureFresh(
-            (progress) => this.buildFromProject(folderPaths, progress),
+            (progress) => this.buildWiredFirst(folderPaths, progress),
             cancellationToken,
             'Indexing references'
         );
@@ -378,7 +438,7 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         sourcePrefix?: string
     ): Promise<Set<string>> {
         await this.ensureFresh(
-            (progress) => this.buildFromProject(folderPaths, progress),
+            (progress) => this.buildWiredFirst(folderPaths, progress),
             cancellationToken,
             'Indexing references'
         );

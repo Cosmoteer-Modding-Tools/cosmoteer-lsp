@@ -8,10 +8,9 @@ import { CancellationToken, Position, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode } from '../../core/ast/ast';
 import { findEnclosingContainer } from '../../document/schema/schema-context';
-import { classAncestry, enumDef } from '../../document/schema/schema';
-import { ValueType } from '../../document/schema/schema.types';
+import { classAncestry } from '../../document/schema/schema';
 import { fieldSnippet } from '../completion/autocompletion.schema-fields';
-import { memberIndentAt } from '../diagnostics/required-field-insert';
+import { memberIndentAt, placeholderValue } from '../diagnostics/required-field-insert';
 import { memberSpanOf } from '../refactor/shared-base/member-record';
 import { resolveSchemaSearchContext } from './schema-search';
 import { schemaSearchEntryById } from './schema-search.index';
@@ -40,33 +39,6 @@ export interface InsertSchemaFieldResult {
     field?: string;
     failure?: InsertSchemaFieldFailure;
 }
-
-/**
- * The literal a scaffolded field is written with. Same rules the required-field quick fix follows: a
- * neutral value the game loads for the kinds that have one, and nothing at all for the kinds where
- * inventing a value would be a guess (a reference or an asset names something that has to exist, a
- * subtype cannot be picked for the author). The empty stop leaves the caret's own line inside the
- * scaffold for those.
- *
- * @param valueType the schema type of the field being scaffolded.
- * @returns the literal to write, empty when the kind has no value worth inventing.
- */
-const placeholderValue = (valueType: ValueType): string => {
-    switch (valueType.kind) {
-        case 'bool':
-            return 'false';
-        case 'int':
-        case 'float':
-        case 'number':
-            return '0';
-        case 'string':
-            return '""';
-        case 'enum':
-            return enumDef(valueType.ref)?.members[0] ?? '';
-        default:
-            return '';
-    }
-};
 
 /** Where the scaffold goes and how it is indented once it gets there. */
 interface Placement {
@@ -180,7 +152,9 @@ export const buildInsertSchemaFieldEdit = async (
             : documentPlacement(text, parserResult, offset);
     if (!placement) return { failure: 'noAnchor' };
 
-    const snippet = fieldSnippet(entry.field.name, entry.field.valueType, placeholderValue(entry.field.valueType));
+    // Same rules the required-field quick fix follows, with an empty stop for a kind it may not
+    // invent a value for, which leaves the caret's own line inside the scaffold.
+    const snippet = fieldSnippet(entry.field.name, entry.field.valueType, placeholderValue(entry.field.valueType) ?? '');
     const lineEnding = text.includes('\r\n') ? '\r\n' : '\n';
     const body = snippet
         .split('\n')

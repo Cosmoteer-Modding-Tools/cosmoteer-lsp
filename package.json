@@ -4,7 +4,7 @@
     "description": "A complete language server for Cosmoteer rules",
     "author": "Cosmoteer Modding Tools",
     "license": "MIT",
-    "version": "0.9.0",
+    "version": "1.0.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
@@ -35,77 +35,142 @@
         "commands": [
             {
                 "command": "cosmoteer.previewShader",
-                "title": "Cosmoteer: Preview Shader",
+                "title": "Preview Shader",
                 "category": "Cosmoteer"
             },
             {
                 "command": "cosmoteer.showModOverview",
-                "title": "Cosmoteer: Show Mod Overview",
-                "category": "Cosmoteer"
-            },
-            {
-                "command": "cosmoteer.showPostUpdateReport",
-                "title": "Cosmoteer: Show What the Game Update Changed",
+                "title": "Show Mod Overview",
                 "category": "Cosmoteer"
             },
             {
                 "command": "cosmoteer.editPartGrid",
-                "title": "Cosmoteer: Edit Part Grid",
+                "title": "Edit Part Grid",
                 "category": "Cosmoteer"
             },
             {
                 "command": "cosmoteer.migrateMod",
-                "title": "Cosmoteer: Migrate Mod to Current Game Version",
+                "title": "Migrate Mod to Current Game Version",
                 "category": "Cosmoteer"
             },
             {
                 "command": "cosmoteer.buildModSchemaFromMods",
-                "title": "Cosmoteer: Rebuild Schema from Code Mod Assemblies",
+                "title": "Rebuild Schema from Code Mod Assemblies",
                 "category": "Cosmoteer"
             },
             {
                 "command": "cosmoteer.extractSharedBaseFiles",
-                "title": "Cosmoteer: Extract Shared Base Files",
+                "title": "Extract Shared Base Files",
                 "category": "Cosmoteer"
             },
             {
                 "command": "cosmoteer.showPartWiring",
-                "title": "Cosmoteer: Show Part Wiring",
+                "title": "Show Part Wiring",
                 "category": "Cosmoteer"
             },
             {
                 "command": "cosmoteer.showEffectiveGroup",
-                "title": "Cosmoteer: Show What The Game Loads Here",
+                "title": "Show What The Game Loads Here",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.diffAgainstBase",
+                "title": "Diff This Group Against the Game's Version",
                 "category": "Cosmoteer"
             },
             {
                 "command": "cosmoteer.explainReference",
-                "title": "Cosmoteer: Explain This Reference",
+                "title": "Explain This Reference",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.showShipBlueprint",
+                "title": "Show Ship Blueprint",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.addShipToFaction",
+                "title": "Add Ships to a Faction",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.newFaction.create",
+                "title": "New Faction",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.newNebula.create",
+                "title": "New Nebula",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.newGalaxySize.create",
+                "title": "New Galaxy Size",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.newAsteroidType.create",
+                "title": "New Asteroid Type",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.newPlanet.create",
+                "title": "New Planet",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.tradeGood.create",
+                "title": "Resource in Trade",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.newTech.create",
+                "title": "New Tech",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.showResourceFlow",
+                "title": "Show Resource Flow",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.showEffectChain",
+                "title": "Show Firing Chain",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.compareParts",
+                "title": "Compare Parts in a Table",
                 "category": "Cosmoteer"
             },
             {
                 "command": "cosmoteer.searchSchema",
-                "title": "Cosmoteer: Search Schema and Field Docs",
+                "title": "Search Schema and Field Docs",
                 "category": "Cosmoteer"
             },
             {
                 "command": "cosmoteer.runInGame",
-                "title": "Cosmoteer: Run this Mod in Cosmoteer",
+                "title": "Run this Mod in Cosmoteer",
                 "category": "Cosmoteer"
             },
             {
                 "command": "cosmoteer.importGameLog",
-                "title": "Cosmoteer: Import Problems from the Game Log",
+                "title": "Import Problems from the Game Log",
                 "category": "Cosmoteer"
             },
             {
                 "command": "cosmoteer.newContentFile",
-                "title": "Cosmoteer: New Content File",
+                "title": "New Content File",
                 "category": "Cosmoteer"
             },
             {
                 "command": "cosmoteer.newMod.create",
-                "title": "Cosmoteer: New Mod",
+                "title": "New Mod",
+                "category": "Cosmoteer"
+            },
+            {
+                "command": "cosmoteer.new",
+                "title": "New…",
                 "category": "Cosmoteer"
             }
         ],
@@ -132,11 +197,75 @@
                     "when": "editorLangId == rules"
                 },
                 {
+                    "command": "cosmoteer.diffAgainstBase",
+                    "when": "editorLangId == rules"
+                },
+                {
                     "command": "cosmoteer.explainReference",
                     "when": "editorLangId == rules"
+                },
+                {
+                    "command": "cosmoteer.showShipBlueprint"
+                },
+                {
+                    "command": "cosmoteer.addShipToFaction"
+                },
+                {
+                    "command": "cosmoteer.newFaction.create"
+                },
+                {
+                    "command": "cosmoteer.newNebula.create"
+                },
+                {
+                    "command": "cosmoteer.newGalaxySize.create"
+                },
+                {
+                    "command": "cosmoteer.newAsteroidType.create"
+                },
+                {
+                    "command": "cosmoteer.newPlanet.create"
+                },
+                {
+                    "command": "cosmoteer.tradeGood.create"
+                },
+                {
+                    "command": "cosmoteer.newTech.create"
+                },
+                {
+                    "command": "cosmoteer.showResourceFlow",
+                    "when": "editorLangId == rules"
+                },
+                {
+                    "command": "cosmoteer.showEffectChain",
+                    "when": "editorLangId == rules"
+                },
+                {
+                    "command": "cosmoteer.compareParts"
+                }
+            ],
+            "explorer/context": [
+                {
+                    "command": "cosmoteer.new",
+                    "when": "explorerResourceIsFolder || resourceLangId == rules",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "cosmoteer.showShipBlueprint",
+                    "when": "resourceFilename =~ /\\.ship\\.png$/",
+                    "group": "navigation"
+                },
+                {
+                    "command": "cosmoteer.addShipToFaction",
+                    "when": "resourceFilename =~ /\\.ship\\.png$/ || explorerResourceIsFolder",
+                    "group": "navigation"
                 }
             ],
             "editor/context": [
+                {
+                    "command": "cosmoteer.new",
+                    "when": "editorLangId == rules",
+                    "group": "navigation@8"
+                },
                 {
                     "command": "cosmoteer.previewShader",
                     "when": "editorLangId == rules",
@@ -156,6 +285,11 @@
                     "command": "cosmoteer.explainReference",
                     "when": "editorLangId == rules",
                     "group": "navigation@12"
+                },
+                {
+                    "command": "cosmoteer.compareParts",
+                    "when": "editorLangId == rules",
+                    "group": "navigation@13"
                 }
             ]
         },

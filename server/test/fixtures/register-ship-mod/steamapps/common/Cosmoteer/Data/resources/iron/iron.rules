@@ -1,0 +1,28 @@
+ID = iron
+NameKey = "Resource/Iron"
+PluralNameKey = "Resource/IronPlural"
+DescriptionKey = "Resource/IronDesc"
+BuyPrice = 20
+AsteroidDensity = 20 / (&BuyPrice)
+MaxPerNugget = 1
+MaxStackSize = 5
+FlexGridPriorityKey = "flex_grid_iron"
+Rarity = RawCommon
+Icon
+{
+	Texture
+	{
+		File = "../steel/icon.png"
+		MipLevels = max
+	}
+	Size = [64, 64]
+}
+Overlay
+{
+	Texture
+	{
+		File = "../overlay_generic.png"
+		SampleMode = Linear
+	}
+	Size = [1, 1]
+}
