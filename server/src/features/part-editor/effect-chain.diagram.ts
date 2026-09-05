@@ -1,9 +1,20 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isValueNode } from '../../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
+import {
+    componentTriggerFieldNames,
+    fieldsOf,
+    isComponentTriggerType,
+    isMediaEffectType,
+    isWaitType,
+    mediaEffectFieldNames,
+    typeDef,
+    waitFieldNames,
+} from '../../document/schema/schema';
 import { ComponentReference, PartComponent, componentReferenceOf, componentsOfPart } from '../../semantics/part-components';
+import { memberOrInherited } from '../../semantics/effective-member';
 import { evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
-import { getStartOfAstNode, memberValueNamed } from '../../utils/ast.utils';
+import { getStartOfAstNode, memberValueNamed, namedMembersOf } from '../../utils/ast.utils';
 import { Diagram, DiagramEdge, DiagramNode } from '../diagram/diagram.types';
 import { partAt } from './part-at';
 
@@ -21,50 +32,98 @@ import { partAt } from './part-at';
  * continuous effect never ends. Bars would have to be drawn for all three, and most of them would be
  * a guess presented as a measurement. What is decidable is who fires whom and what each link waits,
  * and that is what this shows.
+ *
+ * Which members carry that wiring is asked of the schema rather than written here. The engine reads
+ * "what fires me" out of seventeen differently named fields, all typed the same, and a drawing that
+ * knew two of them would show a tenth of the chain. For the same reason `ChainedTo` is absent: it
+ * sets a component's location and rotation relative to another, so a turret's sprites and crew seat
+ * name the turret without any of them ever firing anything.
  */
 
-/** The member naming what fires a component, written either as an id or as a group holding one. */
-const TRIGGER_FIELDS: readonly string[] = ['Trigger', 'DelayTrigger'];
+/** The member a trigger group names its component in, for the `{ ID; TriggerID }` form. */
+const TRIGGER_ID_MEMBER = 'ID';
 
-/** The member naming what a component fires next. */
-const CHAIN_FIELD = 'ChainedTo';
-
-/** The members carrying a wait, in the order they are shown. */
-const DELAY_FIELDS: readonly string[] = ['Delay', 'InitialDelay', 'DelayAfterTrigger', 'Interval'];
-
-/** The members whose presence makes a component one that plays something. */
-const EFFECT_FIELDS: readonly string[] = ['MediaEffects', 'HitEffects'];
+/** The member a trigger group picks one of a component's several outputs with. */
+const TRIGGER_OUTPUT_MEMBER = 'TriggerID';
 
 /**
- * The value naming the component a trigger member points at, whether it is written as the name
- * itself or as the group that holds one.
+ * One trigger a component subscribes to: the component whose firing drives it, and the named output
+ * of that component where it names one.
+ */
+interface TriggerLink {
+    /** The value naming the component that fires. */
+    readonly source: AbstractNode;
+    /** The named output, absent where the trigger takes the component's default one. */
+    readonly output?: string;
+}
+
+/**
+ * The value nodes a member holds, whether written as one value, as a group, or as a list of either.
  *
  * @param group the component group.
- * @param field the trigger member's name.
- * @returns the value node, or undefined when the component writes no trigger.
+ * @param name the member name.
+ * @returns the nodes the member holds, empty when it is absent.
  */
-const triggerValue = (group: GroupNode, field: string): AbstractNode | undefined => {
-    const member = memberValueNamed(group, field);
-    if (!member) return undefined;
-    if (isValueNode(member)) return member;
-    if (isGroupNode(member)) {
-        const id = memberValueNamed(member, 'ID');
-        if (id && isValueNode(id)) return id;
-    }
-    return undefined;
+const memberEntries = (group: GroupNode, name: string): AbstractNode[] => {
+    const member = memberValueNamed(group, name);
+    if (!member) return [];
+    if (isListNode(member)) return member.elements.filter((element) => isValueNode(element) || isGroupNode(element));
+    return [member];
 };
 
 /**
- * The waits a component writes, as text ready for the box.
+ * The trigger a value holds, in the two forms the engine reads it in: the firing component's id, or
+ * a group naming that component in `ID` beside the `TriggerID` of one of its several outputs.
  *
- * @param group the component group.
+ * @param node the value the trigger member holds.
+ * @returns the link, or undefined when the value is neither shape.
+ */
+const triggerLinkOf = (node: AbstractNode): TriggerLink | undefined => {
+    if (isValueNode(node)) return { source: node };
+    if (!isGroupNode(node)) return undefined;
+    const id = memberValueNamed(node, TRIGGER_ID_MEMBER);
+    if (!id || !isValueNode(id)) return undefined;
+    const output = memberValueNamed(node, TRIGGER_OUTPUT_MEMBER);
+    return { source: id, output: output && isValueNode(output) ? String(output.valueType.value) : undefined };
+};
+
+/**
+ * The members of a component that carry a kind of wiring, taken from the class the component
+ * resolves to. A class that resolves answers exactly, since it declares the fields it reads.
+ *
+ * A component whose class does not resolve falls back to the schema-wide set of names typed that
+ * way. That is a weaker answer, but the names are distinctive enough that reading `FireTrigger` off
+ * an untyped group beats leaving the component out of the chain it visibly belongs to.
+ *
+ * @param component the component.
+ * @param typed what makes a field's type one of this kind.
+ * @param anyClass the schema-wide names of that kind, for a component without a class.
+ * @returns the member names to read, in the order the class declares them.
+ */
+const wiringMembers = (
+    component: PartComponent,
+    typed: (valueType: Parameters<typeof isWaitType>[0]) => boolean,
+    anyClass: () => ReadonlySet<string>
+): string[] => {
+    if (component.cls) return fieldsOf(component.cls).filter((field) => typed(field.valueType)).map((field) => field.name);
+    const names = anyClass();
+    return namedMembersOf(component.group)
+        .map(([name]) => name)
+        .filter((name) => names.has(name.toLowerCase()));
+};
+
+/**
+ * The waits a component writes, as text ready for the box. Every wait the engine reads is a time, so
+ * the members are taken from the class rather than from a list of names kept here.
+ *
+ * @param component the component.
  * @param token cancels the evaluation of each one.
  * @returns one entry per wait that works out to a number.
  */
-const delaysOf = async (group: GroupNode, token: CancellationToken): Promise<string[]> => {
+const delaysOf = async (component: PartComponent, token: CancellationToken): Promise<string[]> => {
     const out: string[] = [];
-    for (const field of DELAY_FIELDS) {
-        const member = memberValueNamed(group, field);
+    for (const field of wiringMembers(component, isWaitType, waitFieldNames)) {
+        const member = await memberOrInherited(component.group, field, token);
         if (!member) continue;
         const value = await evaluateNumericValue(member, token);
         // A wait written as a modifiable group, or read off a buff, has no one number to show. The
@@ -106,7 +165,15 @@ export const buildEffectChainDiagram = async (
     if (components.length === 0) return undefined;
 
     const byName = new Map<string, PartComponent>();
-    for (const component of components) byName.set(component.name.toLowerCase(), component);
+    // A part that switches between two sets of components declares the same id in each of them, and
+    // only one of the two is wired in at a time. The first is kept, which is the one written before
+    // the overclocked or otherwise switched-in alternative.
+    let switched = 0;
+    for (const component of components) {
+        const key = component.name.toLowerCase();
+        if (byName.has(key)) switched++;
+        else byName.set(key, component);
+    }
 
     const uri = getStartOfAstNode(part).uri;
     const nodes = new Map<string, DiagramNode>();
@@ -140,16 +207,20 @@ export const buildEffectChainDiagram = async (
             });
             return id;
         }
-        const type = memberValueNamed(component.group, 'Type');
-        const delays = await delaysOf(component.group, token);
-        const plays = EFFECT_FIELDS.some((field) => memberValueNamed(component.group, field));
-        const detail = [
-            type && isValueNode(type) ? String(type.valueType.value) : undefined,
-            ...delays,
-            plays ? l10n.t('plays effects') : undefined,
-        ]
-            .filter(Boolean)
-            .join(' · ');
+        const written = memberValueNamed(component.group, 'Type');
+        // The written `Type` first, since that is the word the reader is looking at, and the class's
+        // own discriminator where the component takes its type from a base instead of writing one.
+        const kind =
+            written && isValueNode(written)
+                ? String(written.valueType.value)
+                : component.cls
+                  ? typeDef(component.cls)?.derivedType
+                  : undefined;
+        const delays = await delaysOf(component, token);
+        const plays = wiringMembers(component, isMediaEffectType, mediaEffectFieldNames).some((field) =>
+            memberValueNamed(component.group, field)
+        );
+        const detail = [kind, ...delays, plays ? l10n.t('plays effects') : undefined].filter(Boolean).join(' · ');
         nodes.set(id, {
             id,
             label: component.name,
@@ -160,24 +231,24 @@ export const buildEffectChainDiagram = async (
         return id;
     };
 
-    for (const component of components) {
+    // Only the components kept above are read, so a part that switches between two sets does not get
+    // the wiring of both drawn over each other.
+    for (const component of byName.values()) {
         if (token.isCancellationRequested) return undefined;
-        for (const field of TRIGGER_FIELDS) {
-            const source = triggerValue(component.group, field);
-            if (!source) continue;
-            const from = await boxFor(await componentReferenceOf(source, token));
-            const to = await boxFor({ name: component.name, written: component.name });
-            edges.push({ from, to, kind: 'flow', label: field });
-            wired.add(from);
-            wired.add(to);
-        }
-        const chained = memberValueNamed(component.group, CHAIN_FIELD);
-        if (chained && isValueNode(chained)) {
-            const from = await boxFor({ name: component.name, written: component.name });
-            const to = await boxFor(await componentReferenceOf(chained, token));
-            edges.push({ from, to, kind: 'flow', label: CHAIN_FIELD });
-            wired.add(from);
-            wired.add(to);
+        for (const field of wiringMembers(component, isComponentTriggerType, componentTriggerFieldNames)) {
+            const member = await memberOrInherited(component.group, field, token);
+            if (!member) continue;
+            for (const entry of isListNode(member) ? memberEntries(component.group, field) : [member]) {
+                const link = triggerLinkOf(entry);
+                if (!link) continue;
+                const from = await boxFor(await componentReferenceOf(link.source, token));
+                const to = await boxFor({ name: component.name, written: component.name });
+                // The output the trigger picks belongs on the arrow, since a component offering
+                // several of them fires each at a different moment.
+                edges.push({ from, to, kind: 'flow', label: link.output ? `${field} · ${link.output}` : field });
+                wired.add(from);
+                wired.add(to);
+            }
         }
     }
 
@@ -191,9 +262,20 @@ export const buildEffectChainDiagram = async (
             'A wait is shown only where it works out to one number. A wait a buff can move, and a particle lifetime rolled per shot, have no single value to show.'
         ),
         l10n.t('A continuous effect never ends, so nothing here is drawn to scale.'),
+        l10n.t(
+            '`ChainedTo` is not drawn. It places a component relative to another rather than firing it, so a turret’s sprites and crew seat name the turret without taking part in any chain.'
+        ),
     ];
     if (unresolved > 0) {
         notes.push(l10n.t('{0} of the names written here match no component of this part.', String(unresolved)));
+    }
+    if (switched > 0) {
+        notes.push(
+            l10n.t(
+                '{0} of this part’s components share a name with another, in the sets a toggle switches between. Only the first of each is drawn, since only one of them fires at a time.',
+                String(switched)
+            )
+        );
     }
 
     return {

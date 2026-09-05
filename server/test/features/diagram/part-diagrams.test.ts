@@ -89,6 +89,38 @@ const PART = [
     '\t\t\t\tType = Multi',
     '\t\t\t}',
     '\t\t}',
+    '\t\tGun',
+    '\t\t{',
+    '\t\t\tType = BulletEmitter',
+    '\t\t\tFireTrigger = Turret',
+    '\t\t\tResourceStorage = Ammo',
+    '\t\t\tResourcesUsed = 2',
+    '\t\t}',
+    '\t\tSecondGun : Gun',
+    '\t\t{',
+    '\t\t\tResourcesUsed = 3',
+    '\t\t}',
+    '\t\tSwitched',
+    '\t\t{',
+    '\t\t\tType = ToggledComponents',
+    '\t\t\tToggle = Turret',
+    '\t\t\tComponents',
+    '\t\t\t{',
+    '\t\t\t\tBackup',
+    '\t\t\t\t{',
+    '\t\t\t\t\tType = TriggeredEffects',
+    '\t\t\t\t\tTrigger',
+    '\t\t\t\t\t{',
+    '\t\t\t\t\t\tID = Gun',
+    '\t\t\t\t\t\tTriggerID = HitIntervalElapsed',
+    '\t\t\t\t\t}',
+    '\t\t\t\t\tMediaEffects',
+    '\t\t\t\t\t{',
+    '\t\t\t\t\t\tType = Multi',
+    '\t\t\t\t\t}',
+    '\t\t\t\t}',
+    '\t\t\t}',
+    '\t\t}',
     '\t}',
     '}',
     '',
@@ -197,6 +229,18 @@ describe('resource flow diagram', () => {
         expect(diagram.notes?.[0]).toContain('the amount, the resource, and how often it moves');
     });
 
+    it('draws what a weapon spends on every shot', async () => {
+        // The draw is a member of the emitter, which is not a resource component at all, so the
+        // magazine used to fill and never empty on exactly the parts the picture is opened for.
+        const diagram = await diagramAt(buildResourceFlowDiagram, 'Maker');
+        expect(edgeBetween(diagram, 'Ammo', 'Gun')?.label).toBe('2 × bullets a shot');
+    });
+
+    it('reads a weapon that states its draw only in the base it narrows', async () => {
+        const diagram = await diagramAt(buildResourceFlowDiagram, 'Maker');
+        expect(edgeBetween(diagram, 'Ammo', 'SecondGun')?.label).toBe('3 × bullets a shot');
+    });
+
     it('leaves out the components that carry no resources', async () => {
         const diagram = await diagramAt(buildResourceFlowDiagram, 'Maker');
         expect(diagram.nodes.map((node) => node.label)).not.toContain('Turret');
@@ -260,16 +304,109 @@ describe('resource flow of a part that moves nothing', () => {
     });
 });
 
+// A component that takes its `Type` from a base rather than writing one, beside a hold that names no
+// resource at all. Both used to fall out of the drawing: the first as a red box claiming the part
+// had no such component, the second as a cargo bay reported to move nothing.
+const INHERITED = [
+    'Part',
+    '{',
+    '\tID = test.inherited',
+    '\tComponents',
+    '\t{',
+    '\t\tBaseStore',
+    '\t\t{',
+    '\t\t\tType = ResourceStorage',
+    '\t\t\tResourceType = heat',
+    '\t\t\tMaxResources = 10',
+    '\t\t}',
+    '\t\tHeatStore : BaseStore',
+    '\t\t{',
+    '\t\t\tMaxResources = 20',
+    '\t\t}',
+    '\t\tDump',
+    '\t\t{',
+    '\t\t\tType = ResourceChange',
+    '\t\t\tResourceStorage = HeatStore',
+    '\t\t\tAmount = 5',
+    '\t\t}',
+    '\t\tHold',
+    '\t\t{',
+    '\t\t\tType = FlexResourceGrid',
+    '\t\t}',
+    '\t}',
+    '}',
+    '',
+].join('\n');
+
+describe('resource flow of a part whose components inherit their type', () => {
+    beforeAll(async () => {
+        await initWorkspace();
+        globalSettings.cosmoteerPath = WORKSPACE_DATA_DIR;
+    });
+
+    const inheritedDiagram = async () => {
+        const document = parser(lexer(INHERITED), 'file:///inherited.rules').value;
+        const diagram = await buildResourceFlowDiagram(document, INHERITED.indexOf('Dump'), token);
+        expect(diagram).toBeDefined();
+        return diagram!;
+    };
+
+    it('reads a component that takes its type from a base rather than calling it missing', async () => {
+        // `HeatStore : BaseStore { … }` writes no `Type` of its own, which is how a vanilla thruster
+        // narrows the heat storage it inherits. Reading only the local declaration left the storage
+        // out of the drawing and then reported the sibling naming it as a mistake the author made.
+        const diagram = await inheritedDiagram();
+        expect(diagram.nodes.filter((node) => node.kind === 'missing')).toHaveLength(0);
+        expect(diagram.nodes.find((node) => node.label === 'HeatStore')?.detail).toBe('holds up to 20 heat');
+        expect(edgeBetween(diagram, 'Dump', 'HeatStore')).toBeDefined();
+    });
+
+    it('says a hold is a hold rather than that nothing moves', async () => {
+        // A cargo bay names no resource, since it takes whatever stacks, so neither set of resource
+        // names could say what it does and the part was summed up as moving nothing at all.
+        const diagram = await inheritedDiagram();
+        expect(diagram.subtitle).toContain('Crew stack tradeable goods here');
+        expect(edgeBetween(diagram, 'the ship', 'Hold')).toBeDefined();
+        expect(edgeBetween(diagram, 'Hold', 'the ship')).toBeDefined();
+    });
+});
+
 describe('firing chain diagram', () => {
     beforeAll(async () => {
         await initWorkspace();
         globalSettings.cosmoteerPath = WORKSPACE_DATA_DIR;
     });
 
-    it('draws what fires a component and what it fires next', async () => {
+    it('draws what fires a component, whatever the member it is written in is called', async () => {
+        // The engine reads "what fires me" out of seventeen differently named members of one type,
+        // so the members are taken from the schema rather than from the two names this file used to
+        // know. `FireTrigger` is the one every weapon in the game is driven through.
         const diagram = await diagramAt(buildEffectChainDiagram, 'Shots');
         expect(edgeBetween(diagram, 'Turret', 'Shots')?.label).toBe('Trigger');
-        expect(edgeBetween(diagram, 'Shots', 'Turret')?.label).toBe('ChainedTo');
+        expect(edgeBetween(diagram, 'Turret', 'Gun')?.label).toBe('FireTrigger');
+    });
+
+    it('does not draw a chained component as one that fires', async () => {
+        // `ChainedTo` places a component relative to another. Drawn as a firing edge it put a
+        // turret's sprites and crew seat into the chain, and pointed the arrow the wrong way round
+        // on the member that matters most: a weapon names the same turret in `ChainedTo` and in
+        // `FireTrigger`, and only the second of the two is the chain.
+        const diagram = await diagramAt(buildEffectChainDiagram, 'Shots');
+        expect(edgeBetween(diagram, 'Shots', 'Turret')).toBeUndefined();
+        expect(diagram.notes?.join(' ')).toContain('ChainedTo');
+    });
+
+    it('names the output a trigger picks where a component offers several', async () => {
+        const diagram = await diagramAt(buildEffectChainDiagram, 'Shots');
+        expect(edgeBetween(diagram, 'Gun', 'Backup')?.label).toBe('Trigger · HitIntervalElapsed');
+    });
+
+    it('reaches the components a toggle switches between', async () => {
+        // `ToggledComponents` hands its children to the part under the same flat ids the top-level
+        // components use, so a reader that stopped at the wrapper saw none of the emitters a laser
+        // blaster keeps in one.
+        const diagram = await diagramAt(buildEffectChainDiagram, 'Shots');
+        expect(diagram.nodes.map((node) => node.label)).toContain('Backup');
     });
 
     it('says which box plays something', async () => {

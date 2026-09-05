@@ -393,6 +393,130 @@ export const fieldOf = (fullName: string, fieldName: string): SchemaField | unde
 export const isLocalizationKeyType = (valueType: ValueType | undefined): boolean =>
     valueType?.kind === 'string' && valueType.semantic === 'localizationKey';
 
+/**
+ * The class the engine reads every "what fires me" field as. A component says what triggers it by
+ * naming a sibling in a field of this type, and the field's NAME is not fixed: the engine declares
+ * seventeen of them (`Trigger`, `FireTrigger`, `StartTrigger`, `ResetTrigger`, `Triggers`, …). So
+ * anything following a firing chain has to ask the schema which fields carry a trigger rather than
+ * name them itself, or it reads a tenth of the wiring and calls it the chain.
+ */
+const COMPONENT_TRIGGER_CLASS = 'Cosmoteer.Ships.Parts.Logic.ComponentTriggerReferenceRules';
+
+/**
+ * The two registries whose entries are something played. A field that plays anything holds entries of
+ * one of them, whether it is typed as the registry itself or as one of the `Multi…` wrappers over it,
+ * since the schema records what a wrapper really holds in its value form.
+ */
+const EFFECT_REGISTRIES = [
+    'Cosmoteer.Simulation.MediaEffects.MediaEffectRules',
+    'Cosmoteer.Simulation.HitEffects.HitEffectRules',
+];
+
+/** The group form of a wait, beside the `ModifiableTime` scalar the buffable delays are written as. */
+const TIME_CLASS = 'Halfling.Timing.Time';
+
+/**
+ * The class a value type names, looking through the list and range wrappers a field may be written
+ * in, so a `Triggers [ … ]` list answers the same as a single `Trigger`.
+ *
+ * @param valueType the field's declared type.
+ * @returns the class FullName the type resolves to, or undefined for a type naming no class.
+ */
+const groupClassOfType = (valueType: ValueType | undefined): string | undefined => {
+    if (!valueType) return undefined;
+    if (valueType.kind === 'group') return valueType.ref;
+    if (valueType.kind === 'list' || valueType.kind === 'range') return groupClassOfType(valueType.element);
+    return undefined;
+};
+
+/**
+ * The registry a field's entries come from, looking through the list wrappers and through a class
+ * whose own value form is a list of a registry. A `MultiMediaEffectRules` slot is written as the
+ * entries of the media-effect registry, and the schema says so in that class's value form, so the
+ * wrapper does not have to be named anywhere.
+ *
+ * @param valueType the field's declared type.
+ * @param depth guards a value form that leads back to itself.
+ * @returns the registry FullName, or undefined for a type holding no registry entries.
+ */
+const registryHeldBy = (valueType: ValueType | undefined, depth = 0): string | undefined => {
+    if (!valueType || depth > 4) return undefined;
+    if (valueType.kind === 'polymorphicGroup') return valueType.ref;
+    if (valueType.kind === 'list' || valueType.kind === 'range') return registryHeldBy(valueType.element, depth + 1);
+    if (valueType.kind === 'group') return registryHeldBy(typeDef(valueType.ref)?.valueForm, depth + 1);
+    return undefined;
+};
+
+/**
+ * Whether a field carries "what fires this component": a reference to the sibling whose trigger it
+ * subscribes to, written either as that sibling's id or as a `{ ID; TriggerID }` group picking one
+ * of its named outputs.
+ *
+ * @param valueType the field's declared type.
+ * @returns true when the field is a component-trigger reference.
+ */
+export const isComponentTriggerType = (valueType: ValueType | undefined): boolean =>
+    groupClassOfType(valueType) === COMPONENT_TRIGGER_CLASS;
+
+/**
+ * Whether a field makes its component play something visible or audible.
+ *
+ * @param valueType the field's declared type.
+ * @returns true when the field holds media or hit effects.
+ */
+export const isMediaEffectType = (valueType: ValueType | undefined): boolean => {
+    const registry = registryHeldBy(valueType);
+    return !!registry && EFFECT_REGISTRIES.includes(registry);
+};
+
+/**
+ * Whether a field is a wait: a delay, an interval or a duration, in seconds.
+ *
+ * @param valueType the field's declared type.
+ * @returns true when the field holds a time.
+ */
+export const isWaitType = (valueType: ValueType | undefined): boolean => {
+    if (valueType?.kind === 'number' && valueType.type === 'ModifiableTime') return true;
+    return groupClassOfType(valueType) === TIME_CLASS;
+};
+
+let fieldNameSetsByPredicate: Map<string, ReadonlySet<string>> | undefined;
+
+/**
+ * The lower-cased names of every field in the schema whose type satisfies a predicate, for reading a
+ * group whose own class did not resolve. The per-class answer is always the better one, so callers
+ * ask this only as the fallback. The names are distinctive enough (`FireTrigger`, `ToggledOnMediaEffects`)
+ * that reading them off an unresolved group beats reading nothing.
+ *
+ * @param key a stable name for the predicate, since the sets are cached under it.
+ * @param predicate what makes a field's type interesting.
+ * @returns the lower-cased field names, computed once per schema generation.
+ */
+const fieldNamesTyped = (key: string, predicate: (valueType: ValueType | undefined) => boolean): ReadonlySet<string> => {
+    fieldNameSetsByPredicate ??= new Map();
+    const cached = fieldNameSetsByPredicate.get(key);
+    if (cached) return cached;
+    const names = new Set<string>();
+    for (const type of Object.values(schema.types)) {
+        for (const field of type.fields) {
+            if (!predicate(field.valueType)) continue;
+            names.add(field.name.toLowerCase());
+            for (const alias of field.aliases ?? []) names.add(alias.toLowerCase());
+        }
+    }
+    fieldNameSetsByPredicate.set(key, names);
+    return names;
+};
+
+/** The lower-cased name of every field in the schema that says what fires a component. */
+export const componentTriggerFieldNames = (): ReadonlySet<string> => fieldNamesTyped('trigger', isComponentTriggerType);
+
+/** The lower-cased name of every field in the schema that plays media or hit effects. */
+export const mediaEffectFieldNames = (): ReadonlySet<string> => fieldNamesTyped('effects', isMediaEffectType);
+
+/** The lower-cased name of every field in the schema that holds a wait. */
+export const waitFieldNames = (): ReadonlySet<string> => fieldNamesTyped('wait', isWaitType);
+
 let localizationKeyFieldNameSet: Set<string> | undefined;
 
 /**

@@ -13,6 +13,7 @@ import { classAncestry } from '../../document/schema/schema';
 import { evaluateNumericValue } from '../../semantics/value-evaluator';
 import { ComponentReference, PartComponent, componentReferenceOf, componentsOfPart } from '../../semantics/part-components';
 import { getStartOfAstNode } from '../../utils/ast.utils';
+import { memberOrInherited } from '../../semantics/effective-member';
 import { Diagram, DiagramEdge, DiagramNode } from '../diagram/diagram.types';
 import { partAt } from './part-at';
 
@@ -52,10 +53,140 @@ const CLASSES = {
     consumer: `${RESOURCES}ResourceConsumerRules`,
     change: `${RESOURCES}ResourceChangeRules`,
     drainSink: `${RESOURCES}ExplosiveResourceDrainSinkRules`,
+    flexGrid: `${RESOURCES}FlexResourceGridRules`,
     networkIn: `${NETWORKS}PartNetworkResourceInputRules`,
     networkOut: `${NETWORKS}PartNetworkResourceOutputRules`,
     networkStore: `${NETWORKS}PartNetworkResourceStoreRules`,
 } as const;
+
+/**
+ * One way a component spends a resource it does not own. The weapons, the thrusters, the drives and
+ * the shields all take from a storage on their own part, and none of them lives in a resource
+ * namespace: a gun's ammo draw is a member of the emitter, a thruster's fuel draw a member of the
+ * thruster. A drawing that walked only the resource components would show every gun's magazine
+ * filling and never emptying, which is the one question a reader opens this picture with.
+ *
+ * Each entry says where to read that draw, in the two forms the engine accepts for all of them: the
+ * entries of a list, and the single-entry shorthand written flat beside it.
+ */
+/**
+ * The class behind fire suppression, hull repair and the heat exchanger. It trades a status held over
+ * an area against a storage, and it is the reason the table below carries a direction: its two
+ * storage members sit on one class and point opposite ways.
+ */
+const STATUS_REGULATOR = 'Cosmoteer.Ships.Statuses.StatusValueRegulatorRules';
+
+interface ResourceDraw {
+    /** The class whose components use a storage this way, matched through the ancestry so a mod's subclass counts. */
+    readonly cls: string;
+    /** The list member holding one entry per storage, absent for a class with only the flat form. */
+    readonly list?: string;
+    /** The member naming the storage, in a list entry and in the flat shorthand alike. */
+    readonly storage: string;
+    /**
+     * Which way the resources move. The schema types both ends of such a slot the same, so this is
+     * the one thing about a use of a storage that cannot be read off it.
+     */
+    readonly direction: 'from' | 'into';
+    /** The member holding how much moves, absent where the class states no amount. */
+    readonly quantity?: string;
+    /** What the engine reads when the amount is left unwritten, absent where it has no default. */
+    readonly defaultQuantity?: number;
+    /** What the arrow says about how often, empty where nothing decides it. */
+    readonly cadence: () => string;
+    /** What the box says the component does. */
+    readonly sentence: () => string;
+}
+
+export const DRAWS: readonly ResourceDraw[] = [
+    {
+        cls: 'Cosmoteer.Ships.Parts.Weapons.EmitterRules',
+        list: 'ResourceUsage',
+        storage: 'ResourceStorage',
+        direction: 'from',
+        quantity: 'ResourcesUsed',
+        defaultQuantity: 1,
+        cadence: () => l10n.t('a shot'),
+        sentence: () => l10n.t('spends this on every shot it fires'),
+    },
+    {
+        cls: 'Cosmoteer.Ships.Parts.Thrusters.ThrusterRules',
+        list: 'FuelUsage',
+        storage: 'FuelStorage',
+        direction: 'from',
+        quantity: 'FuelUsagePerSecond',
+        cadence: () => l10n.t('a second at full throttle'),
+        sentence: () => l10n.t('burns this while it thrusts'),
+    },
+    {
+        cls: 'Cosmoteer.Ships.Parts.Ftl.FtlDriveRules',
+        storage: 'PowerStorage',
+        direction: 'from',
+        cadence: () => l10n.t('while charging'),
+        sentence: () => l10n.t('charges from one storage and burns fuel from another to jump'),
+    },
+    {
+        cls: 'Cosmoteer.Ships.Parts.Ftl.FtlDriveRules',
+        storage: 'FuelStorage',
+        direction: 'from',
+        cadence: () => l10n.t('a jump'),
+        sentence: () => l10n.t('charges from one storage and burns fuel from another to jump'),
+    },
+    {
+        cls: 'Cosmoteer.Ships.Parts.Defenses.ArcShieldRules',
+        storage: 'DrainResourcesFrom',
+        direction: 'from',
+        quantity: 'ResourceDrainPerDamage',
+        cadence: () => l10n.t('per point of damage absorbed'),
+        sentence: () => l10n.t('spends this to absorb what hits the shield'),
+    },
+    {
+        cls: STATUS_REGULATOR,
+        storage: 'ValueSourceStorage',
+        direction: 'from',
+        cadence: () => l10n.t('per trigger'),
+        sentence: () => l10n.t('trades this against a status over the area it covers'),
+    },
+    {
+        cls: STATUS_REGULATOR,
+        storage: 'ValueTargetStorage',
+        direction: 'into',
+        cadence: () => l10n.t('per trigger'),
+        sentence: () => l10n.t('trades this against a status over the area it covers'),
+    },
+];
+
+/**
+ * The storage members the roles below follow, as `Class.Member`, beside the ones {@link DRAWS}
+ * covers. The schema types every member that names a storage, so the two lists together are held
+ * against it: a member the game reads as a storage and neither list accounts for is one whose arrow
+ * this drawing would leave off in silence, which is how the weapons went missing from it. A member
+ * left out on purpose is written into {@link STORAGE_MEMBERS_NOT_DRAWN} with the reason.
+ */
+export const STORAGE_MEMBERS_BY_ROLE: readonly string[] = [
+    `${RESOURCES}ResourceConsumerRules.Storage`,
+    `${RESOURCES}InlineResourceConverterRules.FromStorage`,
+    `${RESOURCES}MultiResourceStorageRules.ResourceStorages`,
+    `${RESOURCES}ResourceChangeRules.ResourceStorage`,
+    `${RESOURCES}ResourceConverterRules.FromStorage`,
+    `${RESOURCES}ResourceConverterRules.ToStorage`,
+    `${RESOURCES}ResourceConverterRules.Storage`,
+    `${RESOURCES}TriggeredResourceConverterRules.FromStorage`,
+    `${RESOURCES}TriggeredResourceConverterRules.ToStorage`,
+    `${NETWORKS}PartNetworkResourceStoreRules.ResourceStorage`,
+];
+
+/** The storage members no arrow is drawn for, each with what it does instead. */
+export const STORAGE_MEMBERS_NOT_DRAWN: ReadonlyMap<string, string> = new Map([
+    [
+        `${RESOURCES}BaseResourceStorageRules.AnticipateMoreResourcesFrom`,
+        'tells the crew more is on its way, so nothing moves along it',
+    ],
+    [
+        'Cosmoteer.Ships.Parts.Graphics.PartResourceSpritesRules.ResourceStorage',
+        'draws what a storage holds, so nothing moves along it',
+    ],
+]);
 
 /** What a component does with resources, which decides its sentence and the arrows drawn for it. */
 type Role =
@@ -66,6 +197,8 @@ type Role =
     | 'consumer'
     | 'change'
     | 'drain-sink'
+    | 'flex-grid'
+    | 'draws'
     | 'network-in'
     | 'network-out'
     | 'network-store'
@@ -99,8 +232,23 @@ interface ConversionEntry {
  * @param cls the component's resolved class.
  * @returns true when the class is one of the resource or network-resource kinds.
  */
-const isFlowComponent = (cls: string | undefined): boolean =>
-    !!cls && FLOW_NAMESPACES.some((namespace) => cls.startsWith(namespace));
+const isFlowComponent = (cls: string | undefined): boolean => {
+    if (!cls) return false;
+    if (FLOW_NAMESPACES.some((namespace) => cls.startsWith(namespace))) return true;
+    return drawsOf(cls).length > 0;
+};
+
+/**
+ * The ways a component spends a resource it does not own, read from its class.
+ *
+ * @param cls the component's resolved class.
+ * @returns the draws that apply, empty for a component that spends nothing.
+ */
+const drawsOf = (cls: string | undefined): ResourceDraw[] => {
+    if (!cls) return [];
+    const ancestry = classAncestry(cls);
+    return DRAWS.filter((draw) => ancestry.includes(draw.cls));
+};
 
 /**
  * What a component does with resources, read from its class rather than from the fields it happens
@@ -112,6 +260,8 @@ const isFlowComponent = (cls: string | undefined): boolean =>
 const roleOf = (cls: string | undefined): Role => {
     const ancestry = classAncestry(cls ?? '');
     const is = (name: string) => ancestry.includes(name);
+    if (drawsOf(cls).length > 0) return 'draws';
+    if (is(CLASSES.flexGrid)) return 'flex-grid';
     if (is(CLASSES.consumer)) return 'consumer';
     if (is(CLASSES.change)) return 'change';
     if (is(CLASSES.drainSink)) return 'drain-sink';
@@ -143,13 +293,34 @@ const memberText = (group: GroupNode, field: string): string | undefined => {
 };
 
 /**
- * Whether a boolean member is written as on.
+ * The written text of a member, read through the component's inheritance where it declares a base. A
+ * component narrowing another (`HeatStore : BaseStore { MaxResources = 20 }`) keeps every member it
+ * does not overwrite, so the resource such a storage holds is usually written one file away.
  *
  * @param group the component group.
  * @param field the member name.
- * @returns true when the member is written and reads as true.
+ * @param token cancels the inheritance walk.
+ * @returns the text, or undefined when the member is absent or is not a plain value.
  */
-const memberIsOn = (group: GroupNode, field: string): boolean => memberText(group, field)?.toLowerCase() === 'true';
+const inheritedText = async (
+    group: GroupNode,
+    field: string,
+    token: CancellationToken
+): Promise<string | undefined> => {
+    const node = await memberOrInherited(group, field, token);
+    return node && isValueNode(node) ? String(node.valueType.value) : undefined;
+};
+
+/**
+ * Whether a boolean member reads as on, through the component's inheritance like every other read.
+ *
+ * @param group the component group.
+ * @param field the member name.
+ * @param token cancels the inheritance walk.
+ * @returns true when the member is written anywhere in the chain and reads as true.
+ */
+const inheritedIsOn = async (group: GroupNode, field: string, token: CancellationToken): Promise<boolean> =>
+    (await inheritedText(group, field, token))?.toLowerCase() === 'true';
 
 /**
  * The value nodes a member holds, whether it is written as one value or a list of them. The nodes
@@ -229,6 +400,40 @@ const conversionEntries = (group: GroupNode, side: 'From' | 'To'): ConversionEnt
 };
 
 /**
+ * The storages one draw takes from, in the two forms the engine accepts for all of them: the entries
+ * of the class's list member, and the single-entry shorthand written flat in the component itself.
+ *
+ * @param group the component group.
+ * @param draw where the class states its draw.
+ * @returns one entry per storage the component takes from.
+ */
+const drawEntries = async (
+    group: GroupNode,
+    draw: ResourceDraw,
+    token: CancellationToken
+): Promise<ConversionEntry[]> => {
+    const entries: ConversionEntry[] = [];
+    // A weapon written once and narrowed twice (`EmitterLeft : EmitterBase { Location = … }`) states
+    // its draw only in the base, so the members are read through the inheritance the same way the
+    // game reads them.
+    const list = draw.list ? await memberOrInherited(group, draw.list, token) : undefined;
+    if (list && isListNode(list)) {
+        for (const entry of list.elements) {
+            if (!isGroupNode(entry)) continue;
+            const storage = memberValue(entry, draw.storage);
+            if (!storage) continue;
+            entries.push({ storage, quantity: draw.quantity ? numberMember(entry, draw.quantity) : undefined });
+        }
+    }
+    const shorthand = await memberOrInherited(group, draw.storage, token);
+    if (shorthand && isValueNode(shorthand)) {
+        const quantity = draw.quantity ? await memberOrInherited(group, draw.quantity, token) : undefined;
+        entries.push({ storage: shorthand, quantity });
+    }
+    return entries;
+};
+
+/**
  * A number as a reader would write it, with the trailing zeros of the arithmetic dropped.
  *
  * @param value the number.
@@ -275,6 +480,11 @@ export const buildResourceFlowDiagram = async (
     // What the part cannot make for itself, and what it offers the rest of the ship.
     const takesIn = new Set<string>();
     const givesOut = new Set<string>();
+    // A hold names no resource of its own, so it cannot be said in either set, and a part that is
+    // only a hold would otherwise be summed up as moving nothing.
+    let carriesGoods = false;
+    // How many component names are declared twice, in the alternative sets a toggle switches between.
+    let switched = 0;
 
     /**
      * The number a member works out to.
@@ -307,16 +517,19 @@ export const buildResourceFlowDiagram = async (
     };
 
     for (const component of flow) {
+        const key = component.name.toLowerCase();
+        // A part that switches between two sets of components declares the same id in each of them,
+        // and only one of the two is ever registered at a time. The first is kept, which is the one
+        // written before the overclocked or otherwise switched-in alternative.
+        if (byName.has(key)) {
+            switched++;
+            continue;
+        }
         // Both a storage and a consumer name their resource in `ResourceType`, and a component that
         // only moves resources between two storages names none at all.
-        const resource = memberText(component.group, 'ResourceType');
+        const resource = await inheritedText(component.group, 'ResourceType', token);
         const role = roleOf(component.cls);
-        byName.set(component.name.toLowerCase(), {
-            component,
-            id: `c:${component.name.toLowerCase()}`,
-            role,
-            resource,
-        });
+        byName.set(key, { component, id: `c:${key}`, role, resource });
     }
 
 
@@ -339,7 +552,7 @@ export const buildResourceFlowDiagram = async (
                     max === null
                         ? l10n.t('holds {0}', resource)
                         : l10n.t('holds up to {0} {1}', numberText(max), resource);
-                return memberIsOn(group, 'SuppliesResources')
+                return (await inheritedIsOn(group, 'SuppliesResources', token))
                     ? l10n.t('{0}, and the crew may carry it away', held)
                     : held;
             }
@@ -361,6 +574,14 @@ export const buildResourceFlowDiagram = async (
                 return l10n.t('converts on demand out of another storage, holding nothing itself');
             case 'consumer':
                 return l10n.t('crew deliver {0} here', resource);
+            case 'flex-grid':
+                // A cargo hold names no resource: it takes whatever stacks, and the crew both fill
+                // it and empty it, which is why it is drawn wired to the ship in both directions.
+                return l10n.t('a hold the crew stack any tradeable goods in');
+            case 'draws': {
+                const draws = drawsOf(entry.component.cls);
+                return draws[0]?.sentence() ?? l10n.t('spends resources it does not hold');
+            }
             case 'change': {
                 const amount = await numberOf(numberMember(group, 'Amount'));
                 const target = await storageResourceOf(group, 'ResourceStorage');
@@ -520,7 +741,10 @@ export const buildResourceFlowDiagram = async (
             id: entry.id,
             label: entry.component.name,
             detail: await sentenceFor(entry),
-            kind: entry.role === 'storage' || entry.role === 'multi-storage' ? 'resource' : 'component',
+            kind:
+                entry.role === 'storage' || entry.role === 'multi-storage' || entry.role === 'flex-grid'
+                    ? 'resource'
+                    : 'component',
             place: { uri, line: entry.component.group.position.line + 1 },
         });
     }
@@ -575,7 +799,29 @@ export const buildResourceFlowDiagram = async (
             }
         }
 
-        if (entry.role === 'storage' && memberIsOn(group, 'SuppliesResources')) {
+        if (entry.role === 'draws') {
+            // The storage a gun, a thruster, a drive or a shield spends out of lives on the same
+            // part, so the arrow runs from that storage into the component that empties it, and the
+            // other way round for the one member that fills a storage instead.
+            for (const draw of drawsOf(entry.component.cls)) {
+                for (const site of await drawEntries(group, draw, token)) {
+                    const other = endpointFor(await componentReferenceOf(site.storage, token));
+                    const quantity = site.quantity ? await numberOf(site.quantity) : (draw.defaultQuantity ?? null);
+                    if (site.quantity && quantity === null) unreadableNumbers++;
+                    const label = movementLabel(quantity, resourceOf(other), draw.cadence());
+                    if (draw.direction === 'from') wire(other, entry, label);
+                    else wire(entry, other, label);
+                }
+            }
+        }
+
+        if (entry.role === 'flex-grid') {
+            wire(outside(CREW_ID), entry, l10n.t('goods'));
+            wire(entry, outside(CREW_ID), l10n.t('goods'));
+            carriesGoods = true;
+        }
+
+        if (entry.role === 'storage' && (await inheritedIsOn(group, 'SuppliesResources', token))) {
             wire(entry, outside(CREW_ID), entry.resource ?? l10n.t('resources'));
             if (entry.resource) givesOut.add(entry.resource);
         }
@@ -622,6 +868,14 @@ export const buildResourceFlowDiagram = async (
             l10n.t('{0} of the names written here match no component of this part.', String(unresolved))
         );
     }
+    if (switched > 0) {
+        notes.push(
+            l10n.t(
+                '{0} of this part’s components share a name with another, in the sets a toggle switches between. Only the first of each is drawn, since only one of them is wired in at a time.',
+                String(switched)
+            )
+        );
+    }
     if (unreadableNumbers > 0) {
         notes.push(
             l10n.t(
@@ -639,11 +893,13 @@ export const buildResourceFlowDiagram = async (
     // The heading answers "what is this part doing with resources" before the boxes are read at all.
     // A part that moves none is the common case for armor, which carries a drain sink and nothing
     // else, and saying that outright is better than a picture of one box and no arrows.
+    const goodsClause = carriesGoods ? l10n.t('Crew stack tradeable goods here and carry them away again.') : '';
     const subtitle =
-        takesIn.size > 0 || givesOut.size > 0
+        takesIn.size > 0 || givesOut.size > 0 || carriesGoods
             ? [
                   takesIn.size > 0 ? l10n.t('Takes in: {0}.', [...takesIn].sort().join(', ')) : '',
                   givesOut.size > 0 ? l10n.t('Gives back: {0}.', [...givesOut].sort().join(', ')) : '',
+                  goodsClause,
               ]
                   .filter(Boolean)
                   .join(' ')

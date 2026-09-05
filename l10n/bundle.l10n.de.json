@@ -1566,5 +1566,22 @@
   "Diagram": "Diagramm",
   "Fit": "Einpassen",
   "The comparison is no longer available. Run the command again.": "Der Vergleich ist nicht mehr verfügbar. Führe den Befehl erneut aus.",
-  "No comparison available: this group does not derive from a file the game ships.": "Kein Vergleich verfügbar: Diese Gruppe leitet sich nicht von einer Datei ab, die das Spiel ausliefert."
+  "No comparison available: this group does not derive from a file the game ships.": "Kein Vergleich verfügbar: Diese Gruppe leitet sich nicht von einer Datei ab, die das Spiel ausliefert.",
+  "a shot": "pro Schuss",
+  "spends this on every shot it fires": "verbraucht das bei jedem abgefeuerten Schuss",
+  "a second at full throttle": "pro Sekunde bei vollem Schub",
+  "burns this while it thrusts": "verbrennt das, solange es Schub gibt",
+  "while charging": "beim Aufladen",
+  "charges from one storage and burns fuel from another to jump": "lädt sich aus einem Speicher auf und verbrennt für den Sprung Treibstoff aus einem anderen",
+  "a jump": "pro Sprung",
+  "per point of damage absorbed": "pro absorbiertem Schadenspunkt",
+  "spends this to absorb what hits the shield": "verbraucht das, um Treffer auf das Schild abzufangen",
+  "a hold the crew stack any tradeable goods in": "ein Laderaum, in dem die Crew beliebige Handelsgüter stapelt",
+  "spends resources it does not hold": "verbraucht Ressourcen, die es nicht selbst hält",
+  "goods": "Güter",
+  "Crew stack tradeable goods here and carry them away again.": "Die Crew stapelt hier Handelsgüter und trägt sie wieder fort.",
+  "{0} of this part’s components share a name with another, in the sets a toggle switches between. Only the first of each is drawn, since only one of them is wired in at a time.": "{0} Komponenten dieses Teils teilen sich einen Namen mit einer anderen, in den Sätzen, zwischen denen ein Schalter wechselt. Gezeichnet wird jeweils nur die erste, da immer nur eine von ihnen verdrahtet ist.",
+  "`ChainedTo` is not drawn. It places a component relative to another rather than firing it, so a turret’s sprites and crew seat name the turret without taking part in any chain.": "`ChainedTo` wird nicht gezeichnet. Es platziert eine Komponente relativ zu einer anderen, statt sie auszulösen, daher nennen die Sprites und der Crew-Platz eines Geschützturms den Turm, ohne an einer Kette teilzunehmen.",
+  "{0} of this part’s components share a name with another, in the sets a toggle switches between. Only the first of each is drawn, since only one of them fires at a time.": "{0} Komponenten dieses Teils teilen sich einen Namen mit einer anderen, in den Sätzen, zwischen denen ein Schalter wechselt. Gezeichnet wird jeweils nur die erste, da immer nur eine von ihnen auslöst.",
+  "trades this against a status over the area it covers": "tauscht das gegen einen Status über der Fläche, die es abdeckt"
 }
