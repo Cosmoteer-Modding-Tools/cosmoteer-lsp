@@ -2,6 +2,7 @@ import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
 import {
+    classSatisfiesKind,
     componentTriggerFieldNames,
     fieldsOf,
     isComponentTriggerType,
@@ -11,7 +12,14 @@ import {
     typeDef,
     waitFieldNames,
 } from '../../document/schema/schema';
-import { ComponentReference, PartComponent, componentReferenceOf, componentsOfPart } from '../../semantics/part-components';
+import {
+    ComponentReference,
+    PartComponent,
+    componentReferenceOf,
+    componentsOfPart,
+    isProxyComponent,
+    proxyTargetsOf,
+} from '../../semantics/part-components';
 import { memberOrInherited } from '../../semantics/effective-member';
 import { evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
 import { getStartOfAstNode, memberValueNamed, namedMembersOf } from '../../utils/ast.utils';
@@ -45,6 +53,16 @@ const TRIGGER_ID_MEMBER = 'ID';
 
 /** The member a trigger group picks one of a component's several outputs with. */
 const TRIGGER_OUTPUT_MEMBER = 'TriggerID';
+
+/**
+ * The runtime kind a component satisfies when it can fire something. A proxy stands in for another
+ * component whatever it relays, but only the ones relaying a trigger belong in a firing chain: a
+ * toggle, a mode or a value proxy passes on something else, and an arrow for it would say it fires.
+ */
+const TRIGGER_KIND = 'Cosmoteer.Ships.Parts.Logic.IPartComponentTrigger';
+
+/** The prefix of a box standing for a component a proxy reaches on another part. */
+const OTHER_PART_PREFIX = 'outside:other:';
 
 /**
  * One trigger a component subscribes to: the component whose firing drives it, and the named output
@@ -233,6 +251,27 @@ export const buildEffectChainDiagram = async (
 
     // Only the components kept above are read, so a part that switches between two sets does not get
     // the wiring of both drawn over each other.
+    /**
+     * The box for a component a proxy reaches on another part. Such a component is not this part's
+     * to have, so it gets a box saying where it lives rather than one calling it missing.
+     *
+     * @param reference what the proxy names.
+     * @returns the box id.
+     */
+    const otherPart = (reference: ComponentReference): string => {
+        const name = reference.name ?? reference.written;
+        const id = `${OTHER_PART_PREFIX}${name.toLowerCase()}`;
+        if (!nodes.has(id)) {
+            nodes.set(id, {
+                id,
+                label: name,
+                detail: l10n.t('on whichever part the proxy finds beside this one'),
+                kind: 'outside',
+            });
+        }
+        return id;
+    };
+
     for (const component of byName.values()) {
         if (token.isCancellationRequested) return undefined;
         for (const field of wiringMembers(component, isComponentTriggerType, componentTriggerFieldNames)) {
@@ -250,6 +289,42 @@ export const buildEffectChainDiagram = async (
                 wired.add(to);
             }
         }
+
+    }
+
+    // A proxy fires when the component it stands in for fires, so without this the chain breaks at
+    // every one of them and the branch beyond reads as something nothing sets off. Only a proxy the
+    // trigger pass above already reached is joined up: a storage proxy satisfies the trigger kind
+    // too, because every storage offers one, and drawing the resource plumbing of a part into its
+    // firing chain would fill the picture with pairs that fire nothing and are fired by nothing.
+    // A proxy standing in for another proxy joins the chain only once the first is in it, so the
+    // pass runs again while it keeps reaching further. Each one is expanded once, which bounds it.
+    const expanded = new Set<string>();
+    for (let reached = true; reached; ) {
+        reached = false;
+        for (const component of byName.values()) {
+            if (token.isCancellationRequested) return undefined;
+            if (!isProxyComponent(component.cls) || classSatisfiesKind(component.cls, TRIGGER_KIND) !== true) {
+                continue;
+            }
+            const self = `c:${component.name.toLowerCase()}`;
+            if (expanded.has(self) || !wired.has(self)) continue;
+            expanded.add(self);
+            const relayed = memberValueNamed(component.group, TRIGGER_OUTPUT_MEMBER);
+            const output = relayed && isValueNode(relayed) ? String(relayed.valueType.value) : undefined;
+            for (const target of await proxyTargetsOf(component.group, token)) {
+                const reference = await componentReferenceOf(target.component, token);
+                const from = target.otherPart ? otherPart(reference) : await boxFor(reference);
+                edges.push({
+                    from,
+                    to: self,
+                    kind: 'flow',
+                    label: output ? `proxies · ${output}` : l10n.t('proxies'),
+                });
+                wired.add(from);
+                reached = true;
+            }
+        }
     }
 
     // A component nothing fires and that fires nothing is not part of a chain, so it stays out of the
@@ -262,6 +337,9 @@ export const buildEffectChainDiagram = async (
             'A wait is shown only where it works out to one number. A wait a buff can move, and a particle lifetime rolled per shot, have no single value to show.'
         ),
         l10n.t('A continuous effect never ends, so nothing here is drawn to scale.'),
+        l10n.t(
+            'A proxy is drawn as fired by what it stands in for, since that is when it passes the trigger on. Only the proxies that relay a trigger are drawn, not the ones relaying a toggle or a value.'
+        ),
         l10n.t(
             '`ChainedTo` is not drawn. It places a component relative to another rather than firing it, so a turret’s sprites and crew seat name the turret without taking part in any chain.'
         ),
@@ -287,6 +365,7 @@ export const buildEffectChainDiagram = async (
             { kind: 'component', label: l10n.t('plays effects') },
             { kind: 'member', label: l10n.t('passes the trigger on') },
             { kind: 'missing', label: l10n.t('names no component') },
+            { kind: 'outside', label: l10n.t('on another part') },
             { kind: 'flow', label: l10n.t('fires') },
         ],
         notes,

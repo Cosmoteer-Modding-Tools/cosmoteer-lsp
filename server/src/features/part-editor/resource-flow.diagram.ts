@@ -10,10 +10,12 @@ import {
     isValueNode,
 } from '../../core/ast/ast';
 import { classAncestry } from '../../document/schema/schema';
+import { resolveGroupClass } from '../../document/schema/schema-context';
 import { evaluateNumericValue } from '../../semantics/value-evaluator';
 import { ComponentReference, PartComponent, componentReferenceOf, componentsOfPart } from '../../semantics/part-components';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { memberOrInherited } from '../../semantics/effective-member';
+import { BUFF_PROXY_CLASS, proxyTargetsOf } from '../../semantics/part-components';
 import { Diagram, DiagramEdge, DiagramNode } from '../diagram/diagram.types';
 import { partAt } from './part-at';
 
@@ -53,6 +55,7 @@ const CLASSES = {
     consumer: `${RESOURCES}ResourceConsumerRules`,
     change: `${RESOURCES}ResourceChangeRules`,
     drainSink: `${RESOURCES}ExplosiveResourceDrainSinkRules`,
+    storageProxy: `${RESOURCES}ResourceStorageProxyRules`,
     flexGrid: `${RESOURCES}FlexResourceGridRules`,
     networkIn: `${NETWORKS}PartNetworkResourceInputRules`,
     networkOut: `${NETWORKS}PartNetworkResourceOutputRules`,
@@ -198,6 +201,7 @@ type Role =
     | 'change'
     | 'drain-sink'
     | 'flex-grid'
+    | 'storage-proxy'
     | 'draws'
     | 'network-in'
     | 'network-out'
@@ -208,6 +212,24 @@ type Role =
 /** The two ends of the wiring outside the part, drawn so a resource entering or leaving has a source. */
 const CREW_ID = 'outside:crew';
 const NETWORK_ID = 'outside:network';
+
+/** The prefix of a box standing for a storage pooled from another part through a buff. */
+const BUFFED_PREFIX = 'outside:buffed:';
+
+/** The prefix of a box standing for a storage a proxy reaches on another part. */
+const PROXIED_PREFIX = 'outside:proxied:';
+
+/**
+ * The members naming the pooled component, in the list form and the single form. The group holding
+ * them reaches storages the part does not own: a buff links two parts, and these ids name components
+ * on the part at the other end of it, the ones buffing this part where `IncomingBuffTypes` is
+ * written and the ones this part buffs where `OutgoingBuffProviders` is. Reading them as siblings
+ * would name a component this part need not have, which is why they are drawn as what they are.
+ */
+const VIA_BUFFS_COMPONENTS = ['ComponentIDs', 'ComponentID'];
+
+/** The member that makes the buff an incoming one, so the storages sit on the parts buffing this. */
+const INCOMING_BUFFS_MEMBER = 'IncomingBuffTypes';
 
 /** One component as the drawing needs it. */
 interface FlowNode {
@@ -261,6 +283,9 @@ const roleOf = (cls: string | undefined): Role => {
     const ancestry = classAncestry(cls ?? '');
     const is = (name: string) => ancestry.includes(name);
     if (drawsOf(cls).length > 0) return 'draws';
+    // Ahead of the storage case it derives from: a proxy holds nothing of its own, so saying how
+    // much it holds would describe a store that is not there.
+    if (is(CLASSES.storageProxy)) return 'storage-proxy';
     if (is(CLASSES.flexGrid)) return 'flex-grid';
     if (is(CLASSES.consumer)) return 'consumer';
     if (is(CLASSES.change)) return 'change';
@@ -516,6 +541,37 @@ export const buildResourceFlowDiagram = async (
         return id;
     };
 
+    /**
+     * The box for a storage this part pools from another one through a buff.
+     *
+     * @param reference the component the buff rules name.
+     * @param incoming true when the buff comes in, so the storage sits on the part providing it.
+     * @returns the box id.
+     */
+    const buffed = (reference: ComponentReference, incoming: boolean): string =>
+        elsewhere(
+            reference,
+            BUFFED_PREFIX,
+            incoming
+                ? l10n.t('on each part sending this one the buff it pools through')
+                : l10n.t('on each part this one buffs')
+        );
+
+    /**
+     * The box for a storage that lives on another part.
+     *
+     * @param reference the component the rules name.
+     * @param prefix which kind of link reached it, so two links to one name stay two boxes.
+     * @param detail where the storage sits, which is the whole point of drawing it apart.
+     * @returns the box id.
+     */
+    const elsewhere = (reference: ComponentReference, prefix: string, detail: string): string => {
+        const name = reference.name ?? reference.written;
+        const id = `${prefix}${name.toLowerCase()}`;
+        if (!nodes.some((node) => node.id === id)) nodes.push({ id, label: name, detail, kind: 'outside' });
+        return id;
+    };
+
     for (const component of flow) {
         const key = component.name.toLowerCase();
         // A part that switches between two sets of components declares the same id in each of them,
@@ -574,6 +630,15 @@ export const buildResourceFlowDiagram = async (
                 return l10n.t('converts on demand out of another storage, holding nothing itself');
             case 'consumer':
                 return l10n.t('crew deliver {0} here', resource);
+            case 'storage-proxy': {
+                // It holds nothing of its own: every read and write goes to the storage it names,
+                // scaled where the rules say so, which is worth saying since the number a reader
+                // sees on the proxy is not the number in the store behind it.
+                const scale = await numberOf(numberMember(group, 'QuantityScale'));
+                return scale === null || scale === 1
+                    ? l10n.t('stands in for another storage, holding nothing itself')
+                    : l10n.t('stands in for another storage, counting {0} for each of its resources', numberText(scale));
+            }
             case 'flex-grid':
                 // A cargo hold names no resource: it takes whatever stacks, and the crew both fill
                 // it and empty it, which is why it is drawn wired to the ship in both directions.
@@ -815,6 +880,19 @@ export const buildResourceFlowDiagram = async (
             }
         }
 
+        if (entry.role === 'storage-proxy') {
+            // Everything read from or written to the proxy lands in the storage it names, so the
+            // arrow runs to that storage. Without it a proxy is a dead end, and the pool feeding it
+            // looks like it spreads resources into nothing.
+            for (const target of await proxyTargetsOf(group, token)) {
+                const reference = await componentReferenceOf(target.component, token);
+                const other = target.otherPart
+                    ? elsewhere(reference, PROXIED_PREFIX, l10n.t('on whichever part the proxy finds beside this one'))
+                    : endpointFor(reference);
+                wire(entry, other, l10n.t('stands in for'));
+            }
+        }
+
         if (entry.role === 'flex-grid') {
             wire(outside(CREW_ID), entry, l10n.t('goods'));
             wire(entry, outside(CREW_ID), l10n.t('goods'));
@@ -830,6 +908,20 @@ export const buildResourceFlowDiagram = async (
             for (const value of memberValues(group, 'ResourceStorages')) {
                 const other = endpointFor(await componentReferenceOf(value, token));
                 wire(entry, other, l10n.t('spread across'));
+            }
+            for (const element of group.elements) {
+                // Found by the class the schema types the group as, the same way the sibling check
+                // finds it, rather than by the member name each of them would otherwise repeat.
+                if (!isGroupNode(element) || !classAncestry(resolveGroupClass(element) ?? '').includes(BUFF_PROXY_CLASS)) {
+                    continue;
+                }
+                const incoming = memberValues(element, INCOMING_BUFFS_MEMBER).length > 0;
+                for (const field of VIA_BUFFS_COMPONENTS) {
+                    for (const value of memberValues(element, field)) {
+                        const reference = await componentReferenceOf(value, token);
+                        wire(entry, buffed(reference, incoming), l10n.t('spread across'));
+                    }
+                }
             }
         }
 
@@ -862,6 +954,9 @@ export const buildResourceFlowDiagram = async (
             'Read an arrow as what moves along it: the amount, the resource, and how often it moves. A box says what its component does with what reaches it.'
         ),
         l10n.t('Only the members that move resources are drawn. A toggle or a trigger naming a component is left out.'),
+        l10n.t(
+            'A storage pooled through a buff sits on the part at the other end of that buff, so it is drawn as a store outside this part rather than as one of its own components.'
+        ),
     ];
     if (unresolved > 0) {
         notes.push(

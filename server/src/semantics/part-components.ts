@@ -1,7 +1,8 @@
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, GroupNode, isGroupNode, isValueNode } from '../core/ast/ast';
+import { AbstractNode, GroupNode, isAssignmentNode, isGroupNode, isListNode, isValueNode } from '../core/ast/ast';
 import { registryForGroup, resolveGroupClass } from '../document/schema/schema-context';
 import { classByDiscriminator, fieldsOf, typeDef } from '../document/schema/schema';
+import { memberOrInherited } from './effective-member';
 import { effectiveMember, effectiveSubGroups } from './effective-member';
 import { resolveValueReference } from './value-evaluator';
 
@@ -139,4 +140,111 @@ export const componentReferenceOf = async (
     const target = await resolveValueReference(value, token).catch(() => null);
     if (target && isValueNode(target)) return { name: String(target.valueType.value), written };
     return { written };
+};
+
+/** The rules the engine inlines into every component that stands in for another one. */
+const PROXY_RULES = 'Cosmoteer.Ships.Parts.Logic.ProxyRules';
+
+/** The member naming the component a proxy stands in for, in a list entry and flat alike. */
+const PROXY_COMPONENT_MEMBER = 'ComponentID';
+
+/** The list of components a proxy may stand in for, one entry each. */
+const PROXY_LIST_MEMBER = 'ProxyableComponents';
+
+/**
+ * The members through which a component names a part other than the one it is written in:
+ * `PartLocation` picks the part at a cell, `PartCriteria` picks among the parts found there.
+ */
+const OTHER_PART_MEMBERS = ['PartLocation', 'PartCriteria'];
+
+/** The proxy that resolves its ids against whichever part this one is chained to. */
+const CHAINED_PROXY_TYPE = 'ChainableProxy';
+
+/**
+ * The group a component pools through buffs with. Its ids name components of the part at the other
+ * end of the buff, never of this one, so nothing may judge them against this part's components.
+ */
+export const BUFF_PROXY_CLASS = 'Cosmoteer.Ships.Parts.Logic.BuffMultiProxyRules';
+
+/**
+ * Whether a component resolves its component ids against some part other than the one it is written
+ * in, so this part's ids can neither judge them nor complete them. Three signals, which is the whole
+ * set the engine has: a proxy naming another cell's part through `PartLocation` or `PartCriteria`, a
+ * `ChainableProxy`, which resolves against whichever part is chained to this one, and the buff-pooled
+ * group, which {@link BUFF_PROXY_CLASS} types and callers walking ancestors check for separately.
+ *
+ * One definition, because the validator, both component completions and the drawn views all have to
+ * agree about it: an id this answers true for is one no feature may report, complete or draw as a
+ * component of this part.
+ *
+ * @param group the component group.
+ * @returns true when its ids belong to another part.
+ */
+export const targetsAnotherPart = (group: GroupNode): boolean =>
+    group.elements.some((element) => {
+        if (isAssignmentNode(element)) {
+            if (OTHER_PART_MEMBERS.includes(element.left.name)) return true;
+            return (
+                element.left.name === 'Type' &&
+                !!element.right &&
+                isValueNode(element.right) &&
+                String(element.right.valueType.value) === CHAINED_PROXY_TYPE
+            );
+        }
+        return isGroupNode(element) && !!element.identifier && OTHER_PART_MEMBERS.includes(element.identifier.name);
+    });
+
+/** What a proxy component stands in for. */
+export interface ProxyTarget {
+    /** The value naming the component. */
+    readonly component: AbstractNode;
+    /**
+     * True when that component is on another part. A proxy reaches across parts by describing where
+     * to look (`PartLocation`, or a `PartCriteria` matching a neighbour), and the id it then names
+     * belongs to whatever part is found there, so looking it up among this part's components would
+     * report a mistake that is not one.
+     */
+    readonly otherPart: boolean;
+}
+
+/**
+ * Whether a component stands in for another one. The engine writes a proxy's search rules flat into
+ * the component through an aliased member, which the bundle records as an inline, so the ten classes
+ * that do it are recognised by that rather than by a list of their names.
+ *
+ * @param cls the component's resolved class.
+ * @returns true when the class inlines the proxy rules.
+ */
+export const isProxyComponent = (cls: string | undefined): boolean =>
+    !!cls && (typeDef(cls)?.inlineFrom ?? []).includes(PROXY_RULES);
+
+/**
+ * The components a proxy stands in for, in the two forms the engine reads: the entries of
+ * `ProxyableComponents`, and the single entry written flat in the proxy itself.
+ *
+ * @param group the proxy's component group.
+ * @param token cancels the inheritance walk.
+ * @returns one target per component named, empty when the proxy names none this walk can read.
+ */
+export const proxyTargetsOf = async (group: GroupNode, token: CancellationToken): Promise<ProxyTarget[]> => {
+    const targets: ProxyTarget[] = [];
+    // A location written on the proxy itself sends every one of its entries to another part. It is
+    // read through the inheritance too, since a proxy narrowing another keeps the location it does
+    // not overwrite.
+    let located = targetsAnotherPart(group);
+    for (const member of OTHER_PART_MEMBERS) located ||= !!(await memberOrInherited(group, member, token));
+    const list = await memberOrInherited(group, PROXY_LIST_MEMBER, token);
+    if (list && isListNode(list)) {
+        for (const entry of list.elements) {
+            if (!isGroupNode(entry)) continue;
+            const component = await memberOrInherited(entry, PROXY_COMPONENT_MEMBER, token);
+            if (!component || !isValueNode(component)) continue;
+            let elsewhere = located || targetsAnotherPart(entry);
+            for (const member of OTHER_PART_MEMBERS) elsewhere ||= !!(await memberOrInherited(entry, member, token));
+            targets.push({ component, otherPart: elsewhere });
+        }
+    }
+    const flat = await memberOrInherited(group, PROXY_COMPONENT_MEMBER, token);
+    if (flat && isValueNode(flat)) targets.push({ component: flat, otherPart: located });
+    return targets;
 };

@@ -1583,5 +1583,15 @@
   "{0} of this part’s components share a name with another, in the sets a toggle switches between. Only the first of each is drawn, since only one of them is wired in at a time.": "{0} Komponenten dieses Teils teilen sich einen Namen mit einer anderen, in den Sätzen, zwischen denen ein Schalter wechselt. Gezeichnet wird jeweils nur die erste, da immer nur eine von ihnen verdrahtet ist.",
   "`ChainedTo` is not drawn. It places a component relative to another rather than firing it, so a turret’s sprites and crew seat name the turret without taking part in any chain.": "`ChainedTo` wird nicht gezeichnet. Es platziert eine Komponente relativ zu einer anderen, statt sie auszulösen, daher nennen die Sprites und der Crew-Platz eines Geschützturms den Turm, ohne an einer Kette teilzunehmen.",
   "{0} of this part’s components share a name with another, in the sets a toggle switches between. Only the first of each is drawn, since only one of them fires at a time.": "{0} Komponenten dieses Teils teilen sich einen Namen mit einer anderen, in den Sätzen, zwischen denen ein Schalter wechselt. Gezeichnet wird jeweils nur die erste, da immer nur eine von ihnen auslöst.",
-  "trades this against a status over the area it covers": "tauscht das gegen einen Status über der Fläche, die es abdeckt"
+  "trades this against a status over the area it covers": "tauscht das gegen einen Status über der Fläche, die es abdeckt",
+  "proxies": "vertritt",
+  "on whichever part the proxy finds beside this one": "auf dem Teil, das der Stellvertreter nebenan findet",
+  "on another part": "auf einem anderen Teil",
+  "A proxy is drawn as fired by what it stands in for, since that is when it passes the trigger on. Only the proxies that relay a trigger are drawn, not the ones relaying a toggle or a value.": "Ein Stellvertreter wird als von dem ausgelöst gezeichnet, was er vertritt, denn dann gibt er den Auslöser weiter. Gezeichnet werden nur die Stellvertreter, die einen Auslöser weitergeben, nicht die für einen Schalter oder einen Wert.",
+  "on each part sending this one the buff it pools through": "auf jedem Teil, das diesem den Buff schickt, über den gebündelt wird",
+  "on each part this one buffs": "auf jedem Teil, das dieses bufft",
+  "A storage pooled through a buff sits on the part at the other end of that buff, so it is drawn as a store outside this part rather than as one of its own components.": "Ein über einen Buff gebündelter Speicher liegt auf dem Teil am anderen Ende dieses Buffs, daher wird er als Speicher außerhalb dieses Teils gezeichnet und nicht als eine seiner eigenen Komponenten.",
+  "stands in for": "vertritt",
+  "stands in for another storage, holding nothing itself": "vertritt einen anderen Speicher und hält selbst nichts",
+  "stands in for another storage, counting {0} for each of its resources": "vertritt einen anderen Speicher und zählt {0} für jede seiner Ressourcen"
 }

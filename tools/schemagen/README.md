@@ -37,6 +37,10 @@ through a normal schema regeneration with no curation:
   `[DefaultSerializer]` + `CanRead`, or a per-field `[Serialize(OverrideDeserializer = …)]` like
   Widget's `AnchorRect = TopLeft` presets). The word is looked up by name, so strings only.
 
+- `unit` (value type): what a slot is measured in. `degrees` on `Angle` and `Direction`, `seconds`
+  on `Halfling.Timing.Time`, and the same on each `Modifiable…` that wraps one of them. It is what
+  lets a consumer recognise an angle or a wait without knowing the engine's structs by name.
+
 See the bundle's shape in [`server/src/document/schema/schema.types.ts`](../../server/src/document/schema/schema.types.ts)
 and the consumer in [`server/src/document/schema/README.md`](../../server/src/document/schema/README.md).
 

@@ -13,8 +13,8 @@
     },
     "dependencies": {
         "@vscode/l10n": "^0.0.18",
-        "vscode-languageserver": "^10.1.0",
-        "vscode-languageserver-textdocument": "^1.0.13",
+        "vscode-languageserver": "^10.1.1",
+        "vscode-languageserver-textdocument": "^1.0.14",
         "winreg": "^1.2.5"
     },
     "scripts": {
@@ -25,6 +25,6 @@
     "devDependencies": {
         "@types/node": "^24",
         "@types/winreg": "^1.2.36",
-        "vitest": "^4.1.11"
+        "vitest": "^5.0.0"
     }
 }

@@ -267,6 +267,21 @@ export const scalarPayloadFieldOf = (cls: string): SchemaField | undefined => {
 export const componentKindName = (kind: number): string | undefined => schema.componentKinds?.[kind];
 
 /**
+ * Whether the component a rules class builds satisfies a runtime kind named by its interface, for a
+ * caller that knows which behaviour it cares about rather than which slot asked for it.
+ *
+ * @param cls the component's rules class.
+ * @param kindName the kind's class FullName, as {@link componentKindName} returns it.
+ * @returns true when the class satisfies it, false when it does not, undefined when the bundle
+ *          cannot judge the class at all.
+ */
+export const classSatisfiesKind = (cls: string | undefined, kindName: string): boolean | undefined => {
+    if (!cls) return undefined;
+    const kind = schema.componentKinds?.indexOf(kindName) ?? -1;
+    return kind < 0 ? undefined : componentSatisfiesKind(cls, kind);
+};
+
+/**
  * Whether the component a rules class builds satisfies a slot's required kind.
  *
  * Three answers, and the third is the important one: a class the bundle has no capability entry for
@@ -412,9 +427,6 @@ const EFFECT_REGISTRIES = [
     'Cosmoteer.Simulation.HitEffects.HitEffectRules',
 ];
 
-/** The group form of a wait, beside the `ModifiableTime` scalar the buffable delays are written as. */
-const TIME_CLASS = 'Halfling.Timing.Time';
-
 /**
  * The class a value type names, looking through the list and range wrappers a field may be written
  * in, so a `Triggers [ … ]` list answers the same as a single `Trigger`.
@@ -470,15 +482,28 @@ export const isMediaEffectType = (valueType: ValueType | undefined): boolean => 
 };
 
 /**
- * Whether a field is a wait: a delay, an interval or a duration, in seconds.
+ * The unit a slot is measured in, looking through the list and range wrappers a field may be written
+ * in so a `Lifetime = [0.2, 0.5]` rolled per shot answers the same as a single number.
+ *
+ * @param valueType the field's declared type.
+ * @returns the unit, or undefined for a type measured in nothing.
+ */
+export const unitOf = (valueType: ValueType | undefined): string | undefined => {
+    if (!valueType) return undefined;
+    if (valueType.kind === 'list' || valueType.kind === 'range' || valueType.kind === 'interpolated') {
+        return unitOf(valueType.element);
+    }
+    return 'unit' in valueType ? valueType.unit : undefined;
+};
+
+/**
+ * Whether a field is a wait: a delay, an interval or a duration. Both shapes a wait is written in
+ * carry the unit, so neither the duration struct nor the modifiable that wraps it is named here.
  *
  * @param valueType the field's declared type.
  * @returns true when the field holds a time.
  */
-export const isWaitType = (valueType: ValueType | undefined): boolean => {
-    if (valueType?.kind === 'number' && valueType.type === 'ModifiableTime') return true;
-    return groupClassOfType(valueType) === TIME_CLASS;
-};
+export const isWaitType = (valueType: ValueType | undefined): boolean => unitOf(valueType) === 'seconds';
 
 let fieldNameSetsByPredicate: Map<string, ReadonlySet<string>> | undefined;
 

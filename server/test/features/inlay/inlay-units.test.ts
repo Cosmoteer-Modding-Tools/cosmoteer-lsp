@@ -69,9 +69,23 @@ describe('inlay hints take the unit from the declared field type', () => {
         expect(labels(await hintsFor(src))).toEqual(['= 220 rad (12605.071493°)']);
     });
 
+    it('labels a modifiable angle field as the radians the game stores', async () => {
+        // The wrapper carries the unit of what it wraps, so a buffable arc reads like a bare one.
+        const src = ['Turret', '{', '\tType = TurretWeapon', '\tFiringArc = 110 * 2', '}'].join('\n');
+        expect(labels(await hintsFor(src))).toEqual(['= 220 rad (12605.071493°)']);
+    });
+
     it('labels a modifiable time field in seconds', async () => {
         const src = ['Effect', '{', '\tType = ScreenShake', '\tDuration = 1 * 3', '}'].join('\n');
         expect(labels(await hintsFor(src))).toEqual(['= 3 s']);
+    });
+
+    it('labels a field typed as the engine duration struct in seconds', async () => {
+        // A wait is written in two shapes: the modifiable above, and the plain `Time` struct, which
+        // the bundle types as a group because that is what it is read as. Both carry the unit, so a
+        // part's swap delay reads as the duration it is rather than as a bare number.
+        const src = ['Part', '{', '\tConstructionSwapDelay = 0.25 * 2', '}'].join('\n');
+        expect(labels(await hintsFor(src))).toEqual(['= 0.5 s']);
     });
 
     it('leaves an untyped document on the written suffix alone', async () => {

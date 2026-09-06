@@ -57,6 +57,11 @@ internal sealed partial class SchemaGen
     // member list and kept honest by the vanilla scan.
     const string VALUE_MOD_MODE = "Cosmoteer.Ships.ValueModificationMode";
     const string MODIFIABLE_VALUE = "Cosmoteer.Ships.ModifiableValue";
+
+    // The engine's duration struct, a `_seconds` float behind a scalar-form deserializer. It and the
+    // `ModifiableTime` that wraps it are the only two shapes a wait is ever written in, so both carry
+    // `unit: "seconds"` and nothing downstream has to know either type by name.
+    const string TIME_STRUCT = "Halfling.Timing.Time";
     const string PART_CONVERSION = "Cosmoteer.Generators.Ships.Stages.ConvertTypeStage/PartConversion";
     // When an animated AtlasSprite's animation clock starts. Nested enum reached only via the sprite's
     // custom deserializer (no `[Serialize]` slot), so curated from the decompiled member list.

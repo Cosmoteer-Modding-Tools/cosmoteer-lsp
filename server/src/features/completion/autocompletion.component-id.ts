@@ -3,11 +3,8 @@ import { AbstractNodeDocument, GroupNode, isGroupNode } from '../../core/ast/ast
 import { registryForGroup } from '../../document/schema/schema-context';
 import { fieldOf, registryOf, scalarReferenceTargetOf } from '../../document/schema/schema';
 import { documentRootOf, namedMembersOf } from '../../utils/ast.utils';
-import {
-    collectPartComponentIds,
-    NON_SIBLING_FIELDS,
-    targetsAnotherPart,
-} from '../diagnostics/validator.schema-sibling';
+import { collectPartComponentIds, NON_SIBLING_FIELDS } from '../diagnostics/validator.schema-sibling';
+import { targetsAnotherPart } from '../../semantics/part-components';
 import { BUILTIN_IDS } from '../../document/schema/entity-schema';
 import { Completion } from './autocompletion.service';
 

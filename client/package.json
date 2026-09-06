@@ -14,10 +14,10 @@
     },
     "dependencies": {
         "@vscode/l10n": "^0.0.18",
-        "vscode-languageclient": "^10.1.0"
+        "vscode-languageclient": "^10.1.1"
     },
     "devDependencies": {
         "@types/node": "^24",
-        "@types/vscode": "^1.100.0"
+        "@types/vscode": "1.100.0"
     }
 }

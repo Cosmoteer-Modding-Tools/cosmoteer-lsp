@@ -23,7 +23,13 @@ export type ValueType =
       }
     | { kind: 'enum'; ref: string; name: string; enumLike?: boolean }
     | { kind: 'reference'; target: string; targetName: string }
-    | { kind: 'group' | 'polymorphicGroup'; ref: string; name: string }
+    | {
+          kind: 'group' | 'polymorphicGroup';
+          ref: string;
+          name: string;
+          /** The unit a scalar-form struct is measured in, `seconds` for the engine's duration type. */
+          unit?: string;
+      }
     | { kind: 'list' | 'range' | 'interpolated'; element: ValueType }
     | {
           kind: 'map';

@@ -100,6 +100,40 @@ const PART = [
     '\t\t{',
     '\t\t\tResourcesUsed = 3',
     '\t\t}',
+    '\t\tShotProxy',
+    '\t\t{',
+    '\t\t\tType = TriggerProxy',
+    '\t\t\tComponentID = Turret',
+    '\t\t}',
+    '\t\tRelay',
+    '\t\t{',
+    '\t\t\tType = TriggerProxy',
+    '\t\t\tComponentID = ShotProxy',
+    '\t\t}',
+    '\t\tNeighbourProxy',
+    '\t\t{',
+    '\t\t\tType = TriggerProxy',
+    '\t\t\tPartLocation = [0, 1]',
+    '\t\t\tComponentID = FarAwayThing',
+    '\t\t}',
+    '\t\tRelayEffects',
+    '\t\t{',
+    '\t\t\tType = TriggeredEffects',
+    '\t\t\tTrigger = Relay',
+    '\t\t\tMediaEffects',
+    '\t\t\t{',
+    '\t\t\t\tType = Multi',
+    '\t\t\t}',
+    '\t\t}',
+    '\t\tNeighbourEffects',
+    '\t\t{',
+    '\t\t\tType = TriggeredEffects',
+    '\t\t\tTrigger = NeighbourProxy',
+    '\t\t\tMediaEffects',
+    '\t\t\t{',
+    '\t\t\t\tType = Multi',
+    '\t\t\t}',
+    '\t\t}',
     '\t\tSwitched',
     '\t\t{',
     '\t\t\tType = ToggledComponents',
@@ -333,6 +367,31 @@ const INHERITED = [
     '\t\t{',
     '\t\t\tType = FlexResourceGrid',
     '\t\t}',
+    '\t\tMirror',
+    '\t\t{',
+    '\t\t\tType = ResourceStorageProxy',
+    '\t\t\tResourceType = heat',
+    '\t\t\tComponentID = HeatStore',
+    '\t\t\tQuantityScale = 2',
+    '\t\t}',
+    '\t\tFarMirror',
+    '\t\t{',
+    '\t\t\tType = ResourceStorageProxy',
+    '\t\t\tResourceType = heat',
+    '\t\t\tPartLocation = [0, 1]',
+    '\t\t\tComponentID = NeighbourStore',
+    '\t\t}',
+    '\t\tPooled',
+    '\t\t{',
+    '\t\t\tType = MultiResourceStorage',
+    '\t\t\tResourceType = heat',
+    '\t\t\tResourceStorages = [HeatStore]',
+    '\t\t\tViaBuffs',
+    '\t\t\t{',
+    '\t\t\t\tIncomingBuffTypes = [HeatCollection]',
+    '\t\t\t\tComponentIDs = [CollectorStore]',
+    '\t\t\t}',
+    '\t\t}',
     '\t}',
     '}',
     '',
@@ -359,6 +418,33 @@ describe('resource flow of a part whose components inherit their type', () => {
         expect(diagram.nodes.filter((node) => node.kind === 'missing')).toHaveLength(0);
         expect(diagram.nodes.find((node) => node.label === 'HeatStore')?.detail).toBe('holds up to 20 heat');
         expect(edgeBetween(diagram, 'Dump', 'HeatStore')).toBeDefined();
+    });
+
+    it('follows a storage proxy to the store it stands in for', async () => {
+        // A proxy holds nothing: every read and write lands in the storage it names. Left undrawn it
+        // was a dead end, and the pool feeding it looked like it spread resources into nothing.
+        const diagram = await inheritedDiagram();
+        expect(edgeBetween(diagram, 'Mirror', 'HeatStore')?.label).toBe('stands in for');
+        expect(diagram.nodes.find((node) => node.label === 'Mirror')?.detail).toBe(
+            'stands in for another storage, counting 2 for each of its resources'
+        );
+    });
+
+    it('says a storage proxy reaching across parts names a store somewhere else', async () => {
+        const diagram = await inheritedDiagram();
+        expect(diagram.nodes.find((node) => node.label === 'NeighbourStore')?.kind).toBe('outside');
+        expect(diagram.nodes.filter((node) => node.kind === 'missing')).toHaveLength(0);
+    });
+
+    it('draws a storage pooled through a buff as one on another part', async () => {
+        // `ViaBuffs` names components on the part at the other end of the buff, not on this one, so
+        // looking the id up among this part's components would report a mistake that is not one.
+        const diagram = await inheritedDiagram();
+        const box = diagram.nodes.find((node) => node.label === 'CollectorStore');
+        expect(box?.kind).toBe('outside');
+        expect(box?.detail).toBe('on each part sending this one the buff it pools through');
+        expect(edgeBetween(diagram, 'Pooled', 'CollectorStore')?.label).toBe('spread across');
+        expect(diagram.nodes.filter((node) => node.kind === 'missing')).toHaveLength(0);
     });
 
     it('says a hold is a hold rather than that nothing moves', async () => {
@@ -399,6 +485,25 @@ describe('firing chain diagram', () => {
     it('names the output a trigger picks where a component offers several', async () => {
         const diagram = await diagramAt(buildEffectChainDiagram, 'Shots');
         expect(edgeBetween(diagram, 'Gun', 'Backup')?.label).toBe('Trigger · HitIntervalElapsed');
+    });
+
+    it('joins the chain through a proxy, and through a proxy of a proxy', async () => {
+        // A proxy fires when what it stands in for fires. Without that link the chain broke at every
+        // one of them and the branch beyond read as something nothing sets off, which is most of a
+        // weapon: the effects hang off the proxy rather than off the emitter itself.
+        const diagram = await diagramAt(buildEffectChainDiagram, 'Shots');
+        expect(edgeBetween(diagram, 'Turret', 'ShotProxy')?.label).toBe('proxies');
+        expect(edgeBetween(diagram, 'ShotProxy', 'Relay')?.label).toBe('proxies');
+        expect(edgeBetween(diagram, 'Relay', 'RelayEffects')?.label).toBe('Trigger');
+    });
+
+    it('says a proxy reaching across parts names a component somewhere else', async () => {
+        // `PartLocation` sends the proxy to whatever part sits there, so the id it then names is not
+        // this part's to have and calling it a missing component would be a false accusation.
+        const diagram = await diagramAt(buildEffectChainDiagram, 'Shots');
+        const box = diagram.nodes.find((node) => node.label === 'FarAwayThing');
+        expect(box?.kind).toBe('outside');
+        expect(diagram.nodes.filter((node) => node.kind === 'missing')).toHaveLength(0);
     });
 
     it('reaches the components a toggle switches between', async () => {
