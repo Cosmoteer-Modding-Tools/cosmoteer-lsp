@@ -108,9 +108,13 @@ export const referenceRepairEdit = async (
     token: CancellationToken
 ): Promise<WorkspaceEdit | undefined> => {
     const moved = new Map<string, string>();
+    // The paths as the filesystem writes them: the map is keyed in compare form, which is lowercased
+    // and names nothing on a case-sensitive filesystem.
+    const movedPaths: string[] = [];
     for (const rename of renames) {
         if (!/\.rules$/i.test(rename.oldPath)) continue;
         moved.set(canonical(rename.oldPath), rename.newPath);
+        movedPaths.push(rename.oldPath);
     }
     if (moved.size === 0) return undefined;
 
@@ -152,8 +156,8 @@ export const referenceRepairEdit = async (
     };
 
     // The moved files first: whatever they point at has to be re-expressed against where they land.
-    for (const [oldPath] of moved) await visit(oldPath);
-    for (const [oldPath] of moved) {
+    for (const oldPath of movedPaths) await visit(oldPath);
+    for (const oldPath of movedPaths) {
         if (token.isCancellationRequested) return undefined;
         const stem = stemOf(oldPath);
         if (!stem) continue;

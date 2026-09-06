@@ -1,6 +1,6 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { pathToFileURL } from 'url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
@@ -25,7 +25,10 @@ const repairFor = async (oldPath: string, newPath: string): Promise<Record<strin
 describe('repairing references when a file moves', () => {
     beforeAll(async () => {
         await initWorkspace();
-        root = mkdtempSync(join(tmpdir(), 'cosmoteer-rename-'));
+        // The capital in the folder name is the point: a path lowercased anywhere on the way to the
+        // filesystem names nothing where names are case-sensitive.
+        root = join(mkdtempSync(join(tmpdir(), 'cosmoteer-rename-')), 'Mod');
+        mkdirSync(root);
         mkdirSync(join(root, 'parts'));
         mkdirSync(join(root, 'shared'));
         writeFileSync(join(root, 'shared', 'base.rules'), 'Base\n{\n\tA = 1\n}\n');
@@ -34,7 +37,7 @@ describe('repairing references when a file moves', () => {
         folders = [pathToFileURL(root).href];
     });
 
-    afterAll(() => rmSync(root, { recursive: true, force: true }));
+    afterAll(() => rmSync(dirname(root), { recursive: true, force: true }));
 
     it('rewrites a reference to the file that moved', async () => {
         const repaired = await repairFor(join(root, 'shared', 'base.rules'), join(root, 'lib', 'base.rules'));
