@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isListNode } from '../../../../src/core/ast/ast';
+import { isListNode, isValueNode } from '../../../../src/core/ast/ast';
 import { findActionsList, parseModActions } from '../../../../src/mod/action-parser';
 import {
     addManyActionText,
     manifestActionInsert,
+    overridesActionText,
     shipPartsTargetPath,
 } from '../../../../src/features/refactor/register-part/manifest-action.emitter';
 import { parseText } from '../../../../src/utils/ast.utils';
@@ -36,6 +37,32 @@ describe('the manifest action emitter', () => {
         expect(isListNode(source) && source.elements).toHaveLength(1);
         expect(actions[0].presentFields.has('addto')).toBe(true);
         expect(actions[0].presentFields.has('manytoadd')).toBe(true);
+    });
+
+    it('emits an Overrides entry the action parser reads back with its group target and reference source', () => {
+        // A map-shaped registry takes Overrides, since AddMany throws on a group, and its source is
+        // the referenced group itself rather than a list of entries.
+        const entry = overridesActionText('<buffs/buffs.rules>', '&<buffs/phase_engine.rules>', '\t', '\r\n');
+        expect(entry).toBe(
+            [
+                '\t{',
+                '\t\tAction = Overrides',
+                '\t\tOverrideIn = "<buffs/buffs.rules>"',
+                '\t\tOverrides = &<buffs/phase_engine.rules>',
+                '\t}',
+            ].join('\r\n')
+        );
+        const text = ['Actions', '[', entry, ']', ''].join('\r\n');
+        const actions = parseModActions(parseText(text, MANIFEST));
+        expect(actions).toHaveLength(1);
+        expect(actions[0].type).toBe('Overrides');
+        expect(actions[0].targets.map((node) => String(node.valueType.value))).toEqual(['<buffs/buffs.rules>']);
+        expect(actions[0].sources).toHaveLength(1);
+        const source = actions[0].sources[0];
+        expect(isValueNode(source) && source.valueType.type).toBe('Reference');
+        expect(isValueNode(source) && String(source.valueType.value)).toBe('&<buffs/phase_engine.rules>');
+        expect(actions[0].presentFields.has('overridein')).toBe(true);
+        expect(actions[0].presentFields.has('overrides')).toBe(true);
     });
 
     it('appends into an existing Actions list, keeping the last entry indentation and line ending', () => {

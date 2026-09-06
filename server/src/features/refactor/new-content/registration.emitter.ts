@@ -4,6 +4,7 @@ import {
     AbstractNodeDocument,
     isListNode,
     isValueNode,
+    ValueNode,
 } from '../../../core/ast/ast';
 import { basenameOf } from '../../../document/document-kind';
 import { ActionSource } from '../../../mod/action';
@@ -25,7 +26,8 @@ import { manifestsIn } from '../register-part/ship-registry';
  * `<file>/List` the game root names tomorrow. The target is read off the game root rather than
  * hardcoded, since the game root is the file that says where a registry lives: `cosmoteer.rules`
  * writes `Resources = &<resources/resources.rules>/Resources`, and that reference, sigil removed, is
- * exactly the path an action target has to name.
+ * exactly the path an action target has to name. The logo ship takes the same road with a `Replace`
+ * instead of an `AddMany`, since the title screen reads one value rather than a list.
  */
 
 /** How a manifest can fail to take a new action entry. */
@@ -101,11 +103,44 @@ export const gameRootListTarget = (
     return undefined;
 };
 
-/** The comparison key of a file, folded the way the filesystem matches it. */
-const fileKey = (fsPath: string): string => foldPathCase(resolve(fsPath).replace(/\\/g, '/'));
-
 /** The `<…>` span of a reference, whatever member path follows it. */
 const REFERENCE_FILE = /^\s*&?\s*<([^<>]+)>/;
+
+/**
+ * The action-target path of a member inside a file one of the game root's own members names.
+ *
+ * The game root names its menu rules as `Menus = &<gui/menus.rules>`, and the logo ship is the
+ * `LogoShip` value inside that file, so the target the `Replace` action needs is the file the root
+ * names with the member path appended. A member the root holds itself, or one it does not declare,
+ * has no such file and so no such target.
+ *
+ * @param rootDocument the game root `cosmoteer.rules`, parsed.
+ * @param memberName the top-level member naming the file, matched ignoring case.
+ * @param memberPath the member inside that file the target has to name.
+ * @returns the target path, or undefined when the game root names no such file.
+ */
+export const gameRootMemberTarget = (
+    rootDocument: AbstractNodeDocument,
+    memberName: string,
+    memberPath: string
+): string | undefined => {
+    const lower = memberName.toLowerCase();
+    for (const [name, node] of namedMembersOf(rootDocument)) {
+        if (name.toLowerCase() !== lower) continue;
+        if (!isValueNode(node) || node.valueType.type !== 'Reference') return undefined;
+        const match = REFERENCE_FILE.exec(String(node.valueType.value));
+        if (!match) return undefined;
+        // Whatever member path the root itself wrote after the file is dropped, since the target
+        // names a member of the file rather than of whatever the root was pointing at inside it. The
+        // path is relative to the root's own directory, which is the data root every target is read
+        // against, so it is kept as written.
+        return `<${match[1]}>/${memberPath}`;
+    }
+    return undefined;
+};
+
+/** The comparison key of a file, folded the way the filesystem matches it. */
+const fileKey = (fsPath: string): string => foldPathCase(resolve(fsPath).replace(/\\/g, '/'));
 
 /**
  * The file a reference names, member path or not.
@@ -205,4 +240,96 @@ export const manifestAlreadyAdds = async (
     // so a bare reference counts as a registration just as a list element does.
     await manifestActionMatches(modRoot, target, (source, declaringDir) =>
         referencesFile(isListNode(source) ? source.elements : [source], declaringDir, fileFsPath)
+    );
+
+/**
+ * Whether one of a mod's manifests already merges a file into a group with an `Overrides`.
+ *
+ * The source of an `Overrides` is the group itself, `Overrides = &<buffs/mine.rules>`, rather than
+ * a list of entries, so only a reference source counts and an inline `Overrides { … }` group never
+ * names a file. A second `Overrides` of the same file would merge the same members twice, which is
+ * harmless for the game and noise in the manifest.
+ *
+ * @param modRoot the mod whose manifests are read.
+ * @param target the group as an action target names it.
+ * @param fileFsPath the file being merged in.
+ * @returns true when an `Overrides` action already references it.
+ */
+export const manifestAlreadyOverridesWith = async (
+    modRoot: string,
+    target: string,
+    fileFsPath: string
+): Promise<boolean> =>
+    await manifestActionMatches(
+        modRoot,
+        target,
+        (source, declaringDir) => referencesFile([source], declaringDir, fileFsPath),
+        'Overrides'
+    );
+
+/** A `Replace` action one of the mod's manifests already carries for a target. */
+export interface ManifestReplaceAction {
+    /** The manifest the action is written in. */
+    readonly manifestFsPath: string;
+    /** Its `With` value node, a plain path relative to that manifest. */
+    readonly source: ValueNode;
+}
+
+/**
+ * The `Replace` action a mod's manifests already carry for a target, whatever it replaces the value
+ * with. A value the game holds once (the title screen ship) is replaced at most once per mod: a
+ * second `Replace` of the same node would only make the manifest say two things about one value,
+ * so a caller finding one re-points it rather than adding another.
+ *
+ * @param modRoot the mod whose manifests are read.
+ * @param target the value as an action target names it.
+ * @returns the first such action with a plain value source, or undefined when none replaces it.
+ */
+export const manifestReplaceActionFor = async (
+    modRoot: string,
+    target: string
+): Promise<ManifestReplaceAction | undefined> => {
+    const wanted = normalizeTargetPath(target).toLowerCase();
+    for (const manifestFsPath of manifestsIn(modRoot)) {
+        const file = await readRulesFile(manifestFsPath);
+        if (!file) continue;
+        for (const action of parseModActions(file.document)) {
+            if (action.type !== 'Replace') continue;
+            const hits = action.targets.some(
+                (node) => normalizeTargetPath(String(node.valueType.value)).toLowerCase() === wanted
+            );
+            if (!hits) continue;
+            const source = action.sources.find(isValueNode);
+            if (source) return { manifestFsPath, source };
+        }
+    }
+    return undefined;
+};
+
+/**
+ * Whether one of a mod's manifests already replaces a value with a path to a file.
+ *
+ * The `With` of a `Replace` is a plain path relative to the manifest rather than a reference, which
+ * is how the logo ship is named: `With = "gui/logo.ship.png"`. Two spellings of the same file count
+ * as the same registration, so the paths are compared resolved rather than as text.
+ *
+ * @param modRoot the mod whose manifests are read.
+ * @param target the value as an action target names it.
+ * @param fileFsPath the file the value is replaced with.
+ * @returns true when a `Replace` action already names it.
+ */
+export const manifestAlreadyReplacesWith = async (
+    modRoot: string,
+    target: string,
+    fileFsPath: string
+): Promise<boolean> =>
+    await manifestActionMatches(
+        modRoot,
+        target,
+        (source, declaringDir) => {
+            if (!isValueNode(source)) return false;
+            const written = String(source.valueType.value).trim();
+            return written.length > 0 && fileKey(resolve(declaringDir, written)) === fileKey(fileFsPath);
+        },
+        'Replace'
     );

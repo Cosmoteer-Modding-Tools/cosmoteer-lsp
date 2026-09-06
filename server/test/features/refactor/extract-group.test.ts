@@ -4,10 +4,8 @@ import { join } from 'path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import {
-    extractGroupToFile,
-    ExtractGroupResult,
-} from '../../../src/features/refactor/extract-group/extract-group.command';
+import { extractGroupToFile } from '../../../src/features/refactor/extract-group/extract-group.command';
+import { ExtractGroupResult } from '../../../src/features/refactor/extract-group/extract-group.types';
 import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
 import { globalSettings, setGlobalSettings } from '../../../src/settings';
 import { invalidateFsPath } from '../../../src/workspace/fs-cache';

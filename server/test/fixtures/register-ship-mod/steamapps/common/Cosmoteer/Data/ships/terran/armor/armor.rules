@@ -1,0 +1,12 @@
+Part : <../base_part_terran.rules>/Part
+{
+	ID = cosmoteer.armor
+	NameKey = "Parts/Armor"
+	Size = [1, 1]
+	MaxHealth = 2000
+	TypeCategories = [armor, non_flammable]
+	Resources
+	[
+		[steel, 6]
+	]
+}

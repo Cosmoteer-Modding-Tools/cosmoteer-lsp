@@ -1,5 +1,38 @@
-import { Uri, Webview } from 'vscode';
+import { Disposable, ExtensionContext, Uri, ViewColumn, Webview, WebviewPanel, window } from 'vscode';
 import { readFileSync, statSync } from 'fs';
+
+/**
+ * A scripted webview panel that keeps its page alive while hidden and may load the bundled `media`
+ * assets. Anything else a page shows (a game image, a texture) is inlined as a data URI, since it
+ * lives outside any workspace folder a resource grant could cover.
+ *
+ * @param context the extension context, whose `media` folder the page may load from.
+ * @param viewType the panel's view type.
+ * @param title the tab title.
+ * @param column where the panel opens.
+ * @returns the panel.
+ */
+export const createCosmoteerPanel = (
+    context: ExtensionContext,
+    viewType: string,
+    title: string,
+    column: ViewColumn
+): WebviewPanel =>
+    window.createWebviewPanel(viewType, title, column, {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [Uri.joinPath(context.extensionUri, 'media')],
+    });
+
+/**
+ * Disposes a panel's listeners and empties the list, for the panel's own teardown.
+ *
+ * @param disposables the listeners, emptied in place.
+ */
+export const disposeAll = (disposables: Disposable[]): void => {
+    for (const disposable of disposables) disposable.dispose();
+    disposables.length = 0;
+};
 
 /**
  * Webview helpers shared by the shader preview and the part grid editor: inlining game images as

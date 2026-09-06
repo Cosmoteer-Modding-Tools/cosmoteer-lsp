@@ -8,6 +8,7 @@ import { validateSchema } from '../diagnostics/validator.schema';
 import { validateIgnoredFields } from '../diagnostics/validator.ignored-field';
 import { removalRange } from '../../utils/removal-range';
 import { unifiedDiff } from '../../utils/unified-diff';
+import { ManualFinding, MigrationPreview, MigrationPreviewFile } from './migration.types';
 
 /**
  * The `workspace/executeCommand` id of the one-command workspace migration. Both clients invoke it
@@ -17,37 +18,6 @@ import { unifiedDiff } from '../../utils/unified-diff';
  * change.
  */
 export const MIGRATE_WORKSPACE_COMMAND = 'cosmoteer.migrateWorkspace';
-
-/** A migration finding that needs author judgment, reported instead of auto-fixed. */
-interface ManualFinding {
-    /** The file the finding is in. */
-    uri: string;
-    /** 1-based line of the finding, for a human-readable report. */
-    line: number;
-    /** The finding's diagnostic message (already carries the game version and guidance). */
-    message: string;
-}
-
-/** What the workspace migration did, returned to the invoking client for display. */
-export interface MigrationSummary {
-    /** Files that received at least one edit. */
-    files: number;
-    /** Total mechanical fixes applied. */
-    fixes: number;
-    /**
-     * Applied fix count per game version that made the change. The empty-string key collects fixes
-     * whose change predates the recorded changelogs (the `Ammo*` → `Resource*` family).
-     */
-    byVersion: Record<string, number>;
-    /** Findings the migration only reports (author judgment needed). */
-    manual: ManualFinding[];
-    /** Ignored/dead fields removed on top, when the caller opted in. */
-    deadFieldsRemoved: number;
-    /** Files skipped because they did not parse cleanly (never edited mechanically). */
-    unparsable: number;
-    /** What a dry run would have changed. Absent when the migration was applied. */
-    preview?: MigrationPreview;
-}
 
 /**
  * How many rewritten files a dry run carries in full. A migration can cover every file of a mod, and
@@ -61,25 +31,6 @@ export const MAX_PREVIEW_CONTENT_BYTES = 2_000_000;
 
 /** The largest unified diff a dry run sends. Past it the diff stops and the payload says so. */
 export const MAX_PREVIEW_DIFF_BYTES = 1_000_000;
-
-/** One file a dry run would change, with the text it would end up holding. */
-interface MigrationPreviewFile {
-    fsPath: string;
-    /** The file's contents after the migration, for a side-by-side view against what is on disk. */
-    after: string;
-}
-
-/** What a dry run would change, in the formats an editor can render. */
-interface MigrationPreview {
-    /** Every changed file as one unified diff, for a client without a diff view. */
-    diff: string;
-    /** The changed files with their rewritten contents, capped by {@link MAX_PREVIEW_FILES}. */
-    changed: MigrationPreviewFile[];
-    /** How many changed files are not carried in {@link MigrationPreview.changed}. */
-    omitted: number;
-    /** True when the diff reached {@link MAX_PREVIEW_DIFF_BYTES} and stops short of the last files. */
-    diffTruncated: boolean;
-}
 
 /** Gathers a dry run's changed files, dropping whatever does not fit in one message. */
 interface MigrationPreviewCollector {

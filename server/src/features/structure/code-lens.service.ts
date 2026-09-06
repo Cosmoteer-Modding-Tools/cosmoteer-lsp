@@ -1,7 +1,7 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken, CodeLens, Range } from 'vscode-languageserver';
 import { isModRules } from '../../document/document-kind';
-import { computeModReachability, ModReachability, reachabilityKey, relativeToMod } from '../../mod/mod-reachability';
+import { reachabilityKey, reachabilityMemo, relativeToMod } from '../../mod/mod-reachability';
 import { findModRoot } from '../../mod/mod-root';
 import { isStringsFile } from '../../mod/strings-folder';
 import { uriToFsPath } from '../navigation/workspace-files';
@@ -26,37 +26,11 @@ interface ReachabilityLensData {
 }
 
 /** Per-mod closures, so a file-by-file question does not re-walk the mod for every file. */
-const reachabilityByRoot = new Map<string, Promise<ModReachability | undefined>>();
+const reachabilityClosures = reachabilityMemo();
 
 /** Drops the memoized closures, so a file added or renamed is seen by the next lens. */
 export const invalidateCodeLensCache = (): void => {
-    reachabilityByRoot.clear();
-};
-
-/**
- * The mod's reachable-file closure, computed once per mod root.
- *
- * @param modRoot the mod root directory.
- * @param cancellationToken cancels the walk.
- * @returns the closure, or undefined when it could not be completed.
- */
-const reachabilityOf = async (
-    modRoot: string,
-    cancellationToken: CancellationToken
-): Promise<ModReachability | undefined> => {
-    let pending = reachabilityByRoot.get(modRoot);
-    if (!pending) {
-        pending = computeModReachability(modRoot, cancellationToken).catch(() => undefined);
-        reachabilityByRoot.set(modRoot, pending);
-    }
-    const reachability = await pending;
-    // A cancelled walk returns a partial closure, in which a reachable file reads as dead content,
-    // so it is dropped instead of memoized.
-    if (!reachability || cancellationToken.isCancellationRequested) {
-        reachabilityByRoot.delete(modRoot);
-        return undefined;
-    }
-    return reachability;
+    reachabilityClosures.clear();
 };
 
 /**
@@ -89,15 +63,15 @@ export const resolveCodeLens = async (lens: CodeLens, cancellationToken: Cancell
     if (data?.kind !== 'reachability') return lens;
     const modRoot = findModRoot(data.uri);
     if (!modRoot) return lens;
-    const reachability = await reachabilityOf(modRoot, cancellationToken);
-    if (!reachability) return lens;
+    const closure = await reachabilityClosures.of(modRoot, cancellationToken);
+    if (!closure) return lens;
     const fsPath = uriToFsPath(data.uri);
     const key = reachabilityKey(fsPath);
-    if (!reachability.allRulesFiles.some((file) => reachabilityKey(file) === key)) return lens;
-    if (reachability.reachable.has(key)) {
+    if (!closure.allRulesFiles.some((file) => reachabilityKey(file) === key)) return lens;
+    if (closure.reachable.has(key)) {
         return { ...lens, command: { title: l10n.t('The mod loads this file'), command: '' } };
     }
-    const referencedBy: string[] = reachability.deadReferencers.get(key) ?? [];
+    const referencedBy: string[] = closure.deadReferencers.get(key) ?? [];
     const title =
         referencedBy.length > 0
             ? l10n.t(

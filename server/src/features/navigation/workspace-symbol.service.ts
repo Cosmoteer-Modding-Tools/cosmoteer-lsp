@@ -9,6 +9,7 @@ import {
     isValueNode,
     GroupNode,
 } from '../../core/ast/ast';
+import { valueSymbolKind } from './document-symbol.service';
 import { filePathToUri } from './navigation-strategy';
 import { normalizeUri, rangeOf } from './reference-location';
 import { WatchedDocumentIndex } from './watched-document-index';
@@ -123,22 +124,7 @@ export class WorkspaceSymbolService extends WatchedDocumentIndex {
         if (!node) return SymbolKind.Field;
         if (isGroupNode(node)) return SymbolKind.Object;
         if (isListNode(node)) return SymbolKind.Array;
-        if (isValueNode(node)) {
-            switch (node.valueType.type) {
-                case 'String':
-                    return SymbolKind.String;
-                case 'Number':
-                    return SymbolKind.Number;
-                case 'Boolean':
-                    return SymbolKind.Boolean;
-                case 'Reference':
-                    return SymbolKind.Variable;
-                case 'Sprite':
-                case 'Sound':
-                case 'Shader':
-                    return SymbolKind.File;
-            }
-        }
+        if (isValueNode(node)) return valueSymbolKind(node);
         return SymbolKind.Field;
     }
 }

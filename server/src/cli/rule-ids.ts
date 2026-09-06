@@ -72,7 +72,7 @@ export const RULES: readonly LintRule[] = [
     {
         id: 'document-duplicate',
         title: 'Duplicate top-level key',
-        description: 'A key written twice at the top level of a file, where only the last one takes effect.',
+        description: 'A key written twice at the top level of a file, which the game refuses to parse.',
         defaultLevel: 'error',
         needsGameData: false,
     },
@@ -136,8 +136,16 @@ export const RULES: readonly LintRule[] = [
         id: 'mod-action',
         title: 'Mod action',
         description:
-            'A manifest action, or an action list a manifest includes: an unknown verb, a missing required field, a target that resolves to nothing, and a source or target of the wrong shape.',
+            'A manifest action, or an action list a manifest includes: an unknown verb, a missing required field, a target that resolves to nothing, a source or target of the wrong shape, and an entry that is not written as its own group.',
         defaultLevel: 'error',
+        needsGameData: false,
+    },
+    {
+        id: 'overrides-replaces-group',
+        title: 'Overrides replaces a whole group',
+        description:
+            'An `Overrides` body whose group stands in for a whole group of the target. The game does not merge them, so every member the body leaves out is gone when the mod loads.',
+        defaultLevel: 'info',
         needsGameData: false,
     },
     {
@@ -400,7 +408,7 @@ export const RULES: readonly LintRule[] = [
         id: 'validateTextMarkup',
         title: 'Text markup',
         description:
-            'A localization string whose markup the game cannot read, which it answers by drawing the string with its tags visible as plain text.',
+            'A localization string whose markup the game cannot read, which it answers by drawing the string with its tags visible as plain text. Covers the shape of the fragment, the tags the game draws and the attributes each of them reads.',
         defaultLevel: 'warning',
         setting: 'validateTextMarkup',
         needsGameData: false,

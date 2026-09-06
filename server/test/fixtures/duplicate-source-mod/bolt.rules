@@ -1,0 +1,4 @@
+// A bullet file kept next to its weapon rather than under a shots folder. Only the field that names
+// it says what it is, so its id is harvested through that slot or not at all.
+ID = test.bolt
+Speed = 100

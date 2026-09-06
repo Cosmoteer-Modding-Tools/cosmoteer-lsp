@@ -6,6 +6,7 @@ import { AbstractNode, isAssignmentNode, isGroupNode, isListNode, isValueNode } 
 import { parseAlias } from '../document/schema/alias-root';
 import { isManifestBasename, isRulesFileName } from '../document/document-kind';
 import { parseFilePath } from '../utils/ast.utils';
+import { stringLiteralEnd } from '../utils/text.utils';
 import { findActionsList, parseModActions } from './action-parser';
 
 /**
@@ -100,34 +101,9 @@ const stripComments = (text: string): string => {
             }
             continue;
         }
-        if (c === '@' && next === '"') {
-            i += 2;
-            while (i < text.length) {
-                if (text[i] === '"') {
-                    if (text[i + 1] === '"') {
-                        i += 2;
-                        continue;
-                    }
-                    i++;
-                    break;
-                }
-                i++;
-            }
-            continue;
-        }
-        if (c === '"') {
-            i++;
-            while (i < text.length) {
-                if (text[i] === '\\') {
-                    i += 2;
-                    continue;
-                }
-                if (text[i] === '"') {
-                    i++;
-                    break;
-                }
-                i++;
-            }
+        const literalEnd = stringLiteralEnd(text, i);
+        if (literalEnd !== undefined) {
+            i = literalEnd;
             continue;
         }
         i++;
@@ -159,6 +135,12 @@ const rulesFilesUnder = (root: string): string[] => {
  * ref, a path escaping the mod, a non-`.rules` target, or a file that does not exist. Existence is
  * decided against `knownFiles` (every `.rules` under the mod, per {@link reachabilityKey}), which
  * replaces two `existsSync` calls per ref with set lookups.
+ *
+ * @param raw the ref's inner text, without the angle brackets.
+ * @param fromDir the directory of the file the ref is written in.
+ * @param modRoot the mod's root folder, the second place a ref is resolved against.
+ * @param knownFiles every `.rules` file under the mod, keyed per {@link reachabilityKey}.
+ * @returns the absolute path, or undefined when the ref names nothing inside the mod.
  */
 const resolveRef = (raw: string, fromDir: string, modRoot: string, knownFiles: Set<string>): string | undefined => {
     const ref = raw.trim().replace(/\\/g, '/');
@@ -359,3 +341,45 @@ export const computeModReachability = async (
 
 /** The relative, forward-slash path of `file` under the mod root, for display. */
 export const relativeToMod = (modRoot: string, file: string): string => relative(modRoot, file).replace(/\\/g, '/');
+
+/** A per-mod memo of closures, so a file-by-file question does not re-walk the mod for every file. */
+export interface ReachabilityMemo {
+    /**
+     * The mod's reachable-file closure, computed once per mod root.
+     *
+     * @param modRoot the mod root directory.
+     * @param cancellationToken cancels the walk.
+     * @returns the closure, or undefined when it could not be completed.
+     */
+    of(modRoot: string, cancellationToken: CancellationToken): Promise<ModReachability | undefined>;
+    /** Drops the memoized closures, so a file added or renamed is seen by the next question. */
+    clear(): void;
+}
+
+/**
+ * A memo of reachability closures keyed by mod root. A cancelled walk returns a partial closure, in
+ * which a reachable file reads as dead content, so it is dropped instead of memoized.
+ *
+ * @returns a fresh memo.
+ */
+export const reachabilityMemo = (): ReachabilityMemo => {
+    const byRoot = new Map<string, Promise<ModReachability | undefined>>();
+    return {
+        async of(modRoot, cancellationToken) {
+            let pending = byRoot.get(modRoot);
+            if (!pending) {
+                pending = computeModReachability(modRoot, cancellationToken).catch(() => undefined);
+                byRoot.set(modRoot, pending);
+            }
+            const reachability = await pending;
+            if (!reachability || cancellationToken.isCancellationRequested) {
+                byRoot.delete(modRoot);
+                return undefined;
+            }
+            return reachability;
+        },
+        clear() {
+            byRoot.clear();
+        },
+    };
+};

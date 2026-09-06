@@ -4,7 +4,7 @@ import { resolveGroupClass } from '../../document/schema/schema-context';
 import { acceptsShaderConstants, isShaderConstantField } from '../../document/schema/schema';
 import { resolveAssetPath } from '../navigation/asset-resolver';
 import { shaderConstants } from './shader-index';
-import { ShaderConstant } from './shader-parser';
+import { ShaderConstant } from './shader-parser.types';
 import { materialShaderNode } from './shader-reference';
 
 /**

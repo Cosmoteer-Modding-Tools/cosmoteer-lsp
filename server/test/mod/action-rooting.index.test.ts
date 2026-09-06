@@ -3,7 +3,14 @@ import { join } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, GroupNode, isGroupNode, isListNode, isValueNode, ListNode } from '../../src/core/ast/ast';
 import { parseFilePath } from '../../src/utils/ast.utils';
-import { invalidateSchemaContextCache, memberTypeIn, resolveGroupClass } from '../../src/document/schema/schema-context';
+import { documentRootClass } from '../../src/document/schema/document-root';
+import {
+    documentScopeClass,
+    invalidateSchemaContextCache,
+    memberScopeClassAt,
+    memberTypeIn,
+    resolveGroupClass,
+} from '../../src/document/schema/schema-context';
 import { ActionRootingIndex } from '../../src/mod/action-rooting.index';
 import { parseModActions } from '../../src/mod/action-parser';
 import { clearModRootCache } from '../../src/mod/mod-root';
@@ -93,6 +100,15 @@ describe('AddBase and Overrides fragment rooting', () => {
         expect(root).toEqual({ kind: 'group', ref: 'Cosmoteer.Ships.Parts.PartRules', name: 'PartRules' });
         // The rooted file's own top-level members type through PartRules.
         expect(memberTypeIn(doc, 'Density')).toBeDefined();
+    });
+
+    it('reads a whole-file fragment top-level scope through the action root, the way hover and completion do', async () => {
+        // A file with no root of its own (no `Type`, no path rule) has only the action to root it, and
+        // its top-level leaves are read through the scope class rather than the document root class.
+        const doc = await parseFilePath(modFile('part_base.rules'));
+        expect(documentRootClass(doc)).toBeUndefined();
+        expect(documentScopeClass(doc)).toBe('Cosmoteer.Ships.Parts.PartRules');
+        expect(memberScopeClassAt(doc, 0)).toBe('Cosmoteer.Ships.Parts.PartRules');
     });
 
     it('roots a whole-file Overrides fragment as the target file root class', async () => {

@@ -2,20 +2,21 @@ package cosmoteer.actions
 
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
-import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.fileChooser.FileChooser
+import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
-import com.redhat.devtools.lsp4ij.LanguageServerManager
 import cosmoteer.lsp.commandResultOf
-import cosmoteer.preview.ShaderPreviewService
-import org.eclipse.lsp4j.ExecuteCommandParams
+import cosmoteer.lsp.executeServerCommand
+import cosmoteer.lsp.failureCode
+import cosmoteer.lsp.notifyCosmoteer
 import java.nio.file.Paths
 import java.util.concurrent.CompletableFuture
 
@@ -29,7 +30,10 @@ import java.util.concurrent.CompletableFuture
  * the cause. The questions the exchange asks are choices only the author can make, which is why this
  * runs here and not on the server.
  */
-class NewContentAction : AnAction() {
+open class NewContentAction(
+    /** The kind to create without asking, for the one-kind entries of the New menu. Null asks. */
+    private val presetKind: String? = null,
+) : AnAction() {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun update(event: AnActionEvent) {
@@ -68,7 +72,7 @@ class NewContentAction : AnAction() {
                 )
                 return@invokeLater
             }
-            val failure = scan.get("failure")?.takeIf { !it.isJsonNull }?.asString
+            val failure = scan.failureCode()
             if (failure != null) {
                 notify(project, failureMessage(failure), NotificationType.WARNING)
                 return@invokeLater
@@ -76,17 +80,25 @@ class NewContentAction : AnAction() {
 
             val kinds = (scan.getAsJsonArray("kinds") ?: JsonArray()).map { it.asJsonObject }
             if (kinds.isEmpty()) return@invokeLater
-            val kindLabels = kinds.map { kindLabel(it) }.toTypedArray()
-            val kindChoice = chooseOne(
-                project,
-                "A part is registered in a ship class. A resource is registered with an action in " +
-                    "this mod's mod.rules. Nothing in the game registers a shot or a media effect, " +
-                    "so those are created and the reference a part has to carry is handed back.",
-                "Cosmoteer: New Content File",
-                kindLabels
-            )
-            if (kindChoice < 0) return@invokeLater
-            val kind = kinds[kindChoice]
+            // A kind picked from the New menu skips the chooser, the way a named entry there would.
+            val kind = if (presetKind != null) {
+                kinds.firstOrNull { it.get("kind")?.asString == presetKind } ?: run {
+                    notify(project, "This version of the server cannot create a $presetKind.", NotificationType.WARNING)
+                    return@invokeLater
+                }
+            } else {
+                val kindLabels = kinds.map { kindLabel(it) }.toTypedArray()
+                val kindChoice = chooseOne(
+                    project,
+                    "A part is registered in a ship class. A resource is registered with an action in " +
+                        "this mod's mod.rules. Nothing in the game registers a shot or a media effect, " +
+                        "so those are created and the reference a part has to carry is handed back.",
+                    "Cosmoteer: New Content File",
+                    kindLabels
+                )
+                if (kindChoice < 0) return@invokeLater
+                kinds[kindChoice]
+            }
             val kindId = kind.get("kind")?.asString ?: return@invokeLater
 
             val prefix = scan.get("idPrefix")?.takeIf { !it.isJsonNull }?.asString.orEmpty()
@@ -105,6 +117,14 @@ class NewContentAction : AnAction() {
             }
             if (kind.get("registration")?.asString == "ship") {
                 if (!chooseShip(project, scan, args)) return@invokeLater
+            }
+            // The title screen ship is a saved ship the author already has, copied in rather than
+            // written from a template, so this kind asks for the file.
+            if (kindId == "logoShip") {
+                val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("png")
+                    .withTitle("Select the Saved Ship for the Title Screen")
+                val picked = FileChooser.chooseFile(descriptor, project, null) ?: return@invokeLater
+                args.addProperty("source", picked.path)
             }
             executeCommand(project, args).thenAccept { applied -> report(project, applied) }
         }
@@ -152,6 +172,13 @@ class NewContentAction : AnAction() {
             "resource" -> "Resource"
             "bullet" -> "Shot"
             "mediaEffect" -> "Media effect"
+            "logoShip" -> "Title screen ship"
+            "decalFolder" -> "Roof decal folder"
+            "editorGroup" -> "Build toolbar category"
+            "partStat" -> "Part stat line"
+            "partToggle" -> "Part toggle"
+            "buff" -> "Buff"
+            "codexPage" -> "Codex page"
             else -> kind.get("kind")?.asString.orEmpty()
         }
         val folder = kind.get("folder")?.asString.orEmpty()
@@ -187,13 +214,7 @@ class NewContentAction : AnAction() {
      * @return the raw `workspace/executeCommand` result, null when no server is running.
      */
     private fun executeCommand(project: Project, arguments: JsonObject): CompletableFuture<Any?> =
-        LanguageServerManager.getInstance(project)
-            .getLanguageServer(ShaderPreviewService.SERVER_ID)
-            .thenCompose { item ->
-                item?.server?.workspaceService
-                    ?.executeCommand(ExecuteCommandParams(COMMAND, listOf(arguments)))
-                    ?: CompletableFuture.completedFuture<Any?>(null)
-            }
+        executeServerCommand(project, COMMAND, arguments)
 
     /**
      * Says what was created and what still has to happen, which for a shot or a media effect is the
@@ -215,7 +236,7 @@ class NewContentAction : AnAction() {
                 )
                 return@invokeLater
             }
-            val failure = answer.get("failure")?.takeIf { !it.isJsonNull }?.asString
+            val failure = answer.failureCode()
             if (failure != null) {
                 notify(project, failureMessage(failure), NotificationType.WARNING)
                 return@invokeLater
@@ -242,6 +263,11 @@ class NewContentAction : AnAction() {
                         .substringAfterLast('/').substringAfterLast('\\')
                     notes += "Registered in $where."
                 }
+            }
+            answer.get("usage")?.takeIf { !it.isJsonNull }?.asString?.let { notes += it }
+            answer.get("previousLogo")?.takeIf { !it.isJsonNull }?.asString?.let { previous ->
+                notes += "The title screen showed $previous before. That action now points at the new ship, " +
+                    "and the old file stays where it is."
             }
             val keys = answer.getAsJsonArray("localizationKeys") ?: JsonArray()
             val files = answer.getAsJsonArray("localizationFiles") ?: JsonArray()
@@ -311,10 +337,7 @@ class NewContentAction : AnAction() {
      * @param type the notification severity.
      */
     private fun notify(project: Project, content: String, type: NotificationType) {
-        NotificationGroupManager.getInstance()
-            .getNotificationGroup("Cosmoteer Language Server")
-            .createNotification("Cosmoteer new content", content, type)
-            .notify(project)
+        notifyCosmoteer(project, "Cosmoteer new content", content, type)
     }
 
     companion object {

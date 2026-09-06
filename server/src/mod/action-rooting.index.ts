@@ -136,6 +136,9 @@ const splitLastSegment = (raw: string): { parent: string; last: string } | undef
  * carries no mod actions.
  */
 export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMemberSource {
+    /** The three mod-action indexes reject exactly the files that provably carry no actions. */
+    public override readonly textGateId = 'mod-actions';
+
     private static _instance: ActionRootingIndex;
 
     /** Fragment uri (normalized) → member (lower-cased, '' for the whole file) → source uri → type.
@@ -203,6 +206,24 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
      */
     public rootType(uri: string): ValueType | undefined {
         return this.memberType(uri, '');
+    }
+
+    /**
+     * Every fragment an action wires into a whole map of `cls`, which is how a mod adds entries to a
+     * table the engine reads by name (its own icons in the game's text sprites).
+     *
+     * @param cls the map's value class.
+     * @returns the normalized uris of the fragments rooted as such a map.
+     */
+    public urisRootedAsMapOf(cls: string): string[] {
+        const uris: string[] = [];
+        for (const uri of this.byTarget.keys()) {
+            const rootType = this.rootType(uri);
+            if (rootType?.kind === 'map' && rootType.value.kind === 'group' && rootType.value.ref === cls) {
+                uris.push(uri);
+            }
+        }
+        return uris;
     }
 
     /**

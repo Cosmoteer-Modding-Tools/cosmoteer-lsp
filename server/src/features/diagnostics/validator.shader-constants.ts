@@ -16,7 +16,7 @@ import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.s
 import { cachedDirLookup } from '../../workspace/fs-cache';
 import { resolveAssetPath } from '../navigation/asset-resolver';
 import { allShaderUniformNames, shaderConstants } from '../shader/shader-index';
-import { ShaderConstantKind } from '../shader/shader-parser';
+import { ShaderConstantKind } from '../shader/shader-parser.types';
 import { materialConstants, materialShaderNode } from '../shader/shader-reference';
 import { closestMatch } from '../../utils/did-you-mean';
 import { didYouMeanFix, ValidationError } from './validator';

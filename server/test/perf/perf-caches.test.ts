@@ -8,7 +8,14 @@ import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
 import { stepIntoNode } from '../../src/semantics/reference-resolver';
 import { getStartOfAstNode } from '../../src/utils/ast.utils';
-import { cachedParseFilePath, cachedReaddir, clearFsCaches, invalidateFsPath } from '../../src/workspace/fs-cache';
+import {
+    cachedParseFilePath,
+    cachedPathExists,
+    cachedReaddir,
+    clearFsCaches,
+    invalidateFsPath,
+    onFsInvalidation,
+} from '../../src/workspace/fs-cache';
 import { ParserResultRegistrar } from '../../src/registrar/parser-result-registrar';
 import { GroupNode, isValueNode } from '../../src/core/ast/ast';
 
@@ -151,5 +158,30 @@ describe('whole-document lex+parse throughput', () => {
         const elapsed = performance.now() - start;
         // Ten parses of a ~2000-assignment document. Warm runs take well under a second.
         expect(elapsed).toBeLessThan(5_000);
+    });
+});
+
+describe('fs-cache invalidation', () => {
+    it('hands the changed path to the listeners and nothing on a wholesale clear', () => {
+        const heard: Array<string | undefined> = [];
+        onFsInvalidation((fsPath) => heard.push(fsPath));
+        const file = join(dir, 'listened.rules');
+        invalidateFsPath(file);
+        clearFsCaches();
+        expect(heard).toEqual([file, undefined]);
+    });
+
+    it('forgets the existence answer of the changed path and keeps the others', () => {
+        const created = join(dir, 'created-later.rules');
+        const sibling = join(dir, 'sibling.rules');
+        writeFileSync(sibling, 'A = 1\n');
+        expect(cachedPathExists(created)).toBe(false);
+        expect(cachedPathExists(sibling)).toBe(true);
+        writeFileSync(created, 'B = 2\n');
+        // Still the memoized answer: nothing has announced the file yet.
+        expect(cachedPathExists(created)).toBe(false);
+        invalidateFsPath(created);
+        expect(cachedPathExists(created)).toBe(true);
+        expect(cachedPathExists(sibling)).toBe(true);
     });
 });

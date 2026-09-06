@@ -1,0 +1,22 @@
+// Stands in for the game's part toggles, which a mod adds one of with an AddMany. Every choice id
+// is as taken as the toggle id, since each gets a hotkey entry of its own.
+PartToggles
+[
+	{
+		ToggleID = "on_off"
+		Style = Switch
+		Choices
+		[
+			{
+				ChoiceID = "on_off_off"
+				ButtonToolTipKey = "PartToggles/OnOff_Off"
+				ButtonSprite { Texture { File = "toggle_power_off.png"; MipLevels = 2; SampleMode = Linear } }
+			}
+			{
+				ChoiceID = "on_off_on"
+				ButtonToolTipKey = "PartToggles/OnOff_On"
+				ButtonSprite { Texture { File = "toggle_power_on.png"; MipLevels = 2; SampleMode = Linear } }
+			}
+		]
+	}
+]

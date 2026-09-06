@@ -36,6 +36,8 @@ const DATA_DIR = process.env.COSMOTEER_DATA_DIR ?? 'C:/Program Files (x86)/Steam
 const MODS_DIR = process.env.COSMOTEER_MODS_DIR ?? 'C:/Program Files (x86)/Steam/steamapps/workshop/content/799600';
 const OUT_FILE = process.env.MODSCAN_OUT ?? '';
 const HAVE = existsSync(DATA_DIR) && existsSync(MODS_DIR) && !!OUT_FILE;
+// The folders the passes read the project through, set per mod as the scan walks them.
+let scanFolders: string[] = [];
 const token = CancellationToken.None;
 
 type Pass = (document: AbstractNodeDocument, token: CancellationToken) => Promise<ValidationError[]>;
@@ -50,7 +52,7 @@ const PASSES: { name: string; run: Pass }[] = [
     { name: 'bulletcomp', run: validateBulletComponents },
     { name: 'underlying', run: validateUnderlyingParts },
     { name: 'chainedbuff', run: validateChainedBuffReceivable },
-    { name: 'markup', run: validateTextMarkup },
+    { name: 'markup', run: (document, token) => validateTextMarkup(document, scanFolders, token) },
 ];
 
 const filesUnder = (root: string, ext: string): string[] => {
@@ -133,6 +135,7 @@ describe.skipIf(!HAVE)('the 0.9.0 checks over installed workshop mods', () => {
             for (const modDir of modDirs) {
                 const modId = modDir.replace(/\\/g, '/').split('/').pop();
                 const folders = [DATA_DIR, modDir];
+                scanFolders = folders;
                 ReverseIncludeIndex.instance.reset();
                 SchemaIdIndex.instance.reset();
                 LocalizationKeyIndex.instance.reset();

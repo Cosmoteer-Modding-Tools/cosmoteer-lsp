@@ -2,12 +2,12 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
+import { buildClonePlan } from '../../../../src/features/refactor/clone-declaration/clone-plan';
 import {
-    buildClonePlan,
     ClonePlan,
     ClonePlanContext,
     ClonePlanResult,
-} from '../../../../src/features/refactor/clone-declaration/clone-plan';
+} from '../../../../src/features/refactor/clone-declaration/clone.types';
 import { locateCloneTarget } from '../../../../src/features/refactor/clone-declaration/clone-target';
 import { LocalizationText } from '../../../../src/features/completion/localization-key.index';
 import { clearModRootCache } from '../../../../src/mod/mod-root';

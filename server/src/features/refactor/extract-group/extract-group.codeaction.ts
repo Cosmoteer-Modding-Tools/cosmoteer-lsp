@@ -1,30 +1,13 @@
 import * as l10n from '@vscode/l10n';
 import { CodeAction, CodeActionKind } from 'vscode-languageserver';
-import { AbstractNodeDocument, GroupNode, isGroupNode } from '../../../core/ast/ast';
+import { AbstractNodeDocument } from '../../../core/ast/ast';
 import { isModRules } from '../../../document/document-kind';
 import { ROOT_GROUP_CLASSES } from '../../../document/schema/schema-context';
 import { findModRoot } from '../../../mod/mod-root';
 import { globalSettings } from '../../../settings';
 import { memberSpanOf } from '../shared-base/member-record';
-import { EXTRACT_GROUP_ACTION_COMMAND, ExtractGroupArgs } from './extract-group.command';
-
-/**
- * The innermost named group the offset falls in, which is the block the offer would move.
- *
- * @param container the group or document to search.
- * @param offset the caret's byte offset.
- * @returns the group, or undefined when the offset falls in no named group.
- */
-const locateGroup = (container: AbstractNodeDocument | GroupNode, offset: number): GroupNode | undefined => {
-    for (const element of container.elements) {
-        const span = memberSpanOf(element);
-        if (!span || offset < span.start || offset >= span.end) continue;
-        if (!isGroupNode(element)) return undefined;
-        const deeper = offset >= element.position.start ? locateGroup(element, offset) : undefined;
-        return deeper ?? (element.identifier ? element : undefined);
-    }
-    return undefined;
-};
+import { EXTRACT_GROUP_ACTION_COMMAND, locateGroup } from './extract-group.command';
+import { ExtractGroupArgs } from './extract-group.types';
 
 /**
  * The "move this block into a file of its own" refactoring, offered on a named group inside a file

@@ -49,13 +49,14 @@ import { validateMarkerVocabulary } from '../features/diagnostics/validator.mark
 import { validateLocalizationCoverage } from '../features/diagnostics/validator.localization-coverage';
 import { validateInertFields } from '../features/diagnostics/validator.inert-field';
 import { validateModConflicts } from '../features/diagnostics/validator.mod-conflict';
-import { validateModActions } from '../features/diagnostics/validator.mod-action';
+import { validateActionEntries, validateModActions } from '../features/diagnostics/validator.mod-action';
+import { Action } from '../mod/action';
 import { validateManifestVersion } from '../features/diagnostics/validator.manifest-version';
 import { validateModManifest } from '../features/diagnostics/validator.mod-manifest';
 import { TemplateBaseIndex } from '../features/diagnostics/template-base.index';
 import { validateShaderDocument } from '../features/shader/shader-diagnostics';
 import { ModRulesRegistrar } from '../mod/mod-rules.registrar';
-import { isActionFragmentDocument, parseModActions } from '../mod/action-parser';
+import { findActionsList, isActionFragmentDocument, parseModActions } from '../mod/action-parser';
 import { basenameOf, isDocumentationFileName, isModRules, isShaderDocument } from '../document/document-kind';
 import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
 import { primeParsedFile } from '../workspace/fs-cache';
@@ -64,6 +65,7 @@ import { globalSettings } from '../settings';
 import { traceFailure } from '../utils/cancellation';
 import { perfCount } from '../utils/perf-counters';
 import { hasDiagnosticRelatedInformationCapability } from './capabilities';
+import { refreshOpenDocumentDiagnostics } from './push-diagnostics';
 import { getDocumentSettings } from './document-settings';
 import { ensureFragmentRooting } from './fragment-rooting';
 import { openBufferReadOverride, openParseCache, registerOpenDocument } from './open-documents';
@@ -366,7 +368,10 @@ export async function validateTextDocument(
                     textDocument.getText(),
                     await searchFolderUris(),
                     cancelToken,
-                    await reachableFileFilter(cancelToken)
+                    await reachableFileFilter(cancelToken),
+                    // An open file shows its problems now and its duplicate-field hints once the
+                    // mod-wide plans exist. The bulk pass waits, since it stores what it publishes.
+                    persist ? () => refreshOpenDocumentDiagnostics(textDocument.uri) : undefined
                 ).catch(() => [])
             );
             validationErrors = validationErrors.concat(tagged(duplicateFieldErrors, 'validateDuplicateFields'));
@@ -505,7 +510,11 @@ export async function validateTextDocument(
         // by drawing the tags themselves. Judged on a mod's own language files only, since the game's
         // translations are not the author's to correct.
         if (settings.diagnostics?.validateTextMarkup) {
-            const passErrors = await validateTextMarkup(parserResult.value, cancelToken).catch(() => []);
+            const passErrors = await validateTextMarkup(
+                parserResult.value,
+                await searchFolderUris(),
+                cancelToken
+            ).catch(() => []);
             validationErrors = validationErrors.concat(tagged(passErrors, 'validateTextMarkup'));
         }
         // Separate pass: a range whose direction its consumer refuses. Kept out of the schema pass, which
@@ -540,14 +549,21 @@ export async function validateTextDocument(
             const effectBucketErrors = await validateEffectBuckets(parserResult.value, cancelToken).catch(() => []);
             validationErrors = validationErrors.concat(tagged(effectBucketErrors, 'validateEffectBuckets'));
         }
+        // Separate pass: validate the action verbs/targets against the effective game tree (the
+        // AstType-keyed Validator allows only one pass per type), and flag an entry of the `Actions`
+        // list that is not a `{ }` group, which the manifest reader cannot read as an action. The
+        // entry check runs off the list itself, since such an entry never reaches the parsed actions.
+        const actionPass = async (actions: Action[]): Promise<ValidationError[]> => {
+            const modActionErrors = await validateModActions(actions, cancelToken, textDocument.getText()).catch(
+                (): ValidationError[] => []
+            );
+            const entryErrors = validateActionEntries(findActionsList(parserResult.value));
+            return tagged(modActionErrors.concat(entryErrors), 'mod-action');
+        };
         if (isModRules(textDocument.uri)) {
-            // Separate pass: validate the manifest's action verbs/targets against the
-            // effective game tree (the AstType-keyed Validator allows only one pass per type).
-            const modActionErrors = await validateModActions(
-                ModRulesRegistrar.instance.getActions(textDocument.uri),
-                cancelToken
-            ).catch(() => []);
-            validationErrors = validationErrors.concat(tagged(modActionErrors, 'mod-action'));
+            validationErrors = validationErrors.concat(
+                await actionPass(ModRulesRegistrar.instance.getActions(textDocument.uri))
+            );
             // Separate pass: a version-split `mod_*.rules` without `CompatibleGameVersions` is
             // never selected by the game when the mod has other manifest files.
             const manifestVersionErrors = await validateManifestVersion(parserResult.value, cancelToken).catch(
@@ -578,10 +594,7 @@ export async function validateTextDocument(
             // its `AddTo`/`OverrideIn` paths are checked instead of misread as unresolved mod-relative
             // references. Gated on the game index being ready, since target resolution needs the game
             // tree (an unready tree would flag every real vanilla target as missing).
-            const modActionErrors = await validateModActions(parseModActions(parserResult.value), cancelToken).catch(
-                () => []
-            );
-            validationErrors = validationErrors.concat(tagged(modActionErrors, 'mod-action'));
+            validationErrors = validationErrors.concat(await actionPass(parseModActions(parserResult.value)));
         }
     } catch (e) {
         traceFailure(e);

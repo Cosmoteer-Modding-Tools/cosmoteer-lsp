@@ -7,7 +7,7 @@ import {
     GameVersionInfo,
     gameAssemblyPathFor,
     readGameVersionInfo,
-} from '../../../src/features/post-update/game-version';
+} from '../../../src/features/game-version';
 import { gameAcceptsModVersions } from '../../../src/features/run-game/run-game.command';
 
 // Whether the command warns that the game will turn the mod straight back off is the game's own

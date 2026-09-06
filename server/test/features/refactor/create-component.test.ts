@@ -2,10 +2,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import {
-    createComponent,
-    CreateComponentResult,
-} from '../../../src/features/refactor/create-component/create-component.command';
+import { createComponent } from '../../../src/features/refactor/create-component/create-component.command';
+import { CreateComponentResult } from '../../../src/features/refactor/create-component/create-component.types';
 import { plainTextOf } from '../../../src/features/refactor/snippet-action';
 import { filePathToUri } from '../../../src/features/navigation/navigation-strategy';
 import { globalSettings, setGlobalSettings } from '../../../src/settings';

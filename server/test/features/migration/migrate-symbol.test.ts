@@ -17,13 +17,11 @@ import { validateIgnoredFields } from '../../../src/features/diagnostics/validat
 import { validateSchema } from '../../../src/features/diagnostics/validator.schema';
 import {
     applyMigrationChanges,
-    MigrateSymbolArgs,
-    MigrateSymbolHost,
     MIGRATE_SYMBOL_ACTION_COMMAND,
     migrateSymbolCodeAction,
-    MigrationChange,
     narrowToSymbolScope,
 } from '../../../src/features/migration/migrate-symbol';
+import { MigrateSymbolArgs, MigrateSymbolHost, MigrationChange } from '../../../src/features/migration/migration.types';
 import { collectFileMigration } from '../../../src/features/migration/migrate-workspace';
 import { editableModRootOf } from '../../../src/features/refactor/shared-base/shared-base.analysis-entry';
 import { globalSettings } from '../../../src/settings';

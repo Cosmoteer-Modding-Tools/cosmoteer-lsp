@@ -1,0 +1,7 @@
+Doodads
+[
+	// Planets.
+	&<planets/doodad_planet_rocky.rules>
+	&<planets/doodad_planet_gas.rules>
+	&<asteroids/iron/doodad_asteroid_iron_s.rules>
+]

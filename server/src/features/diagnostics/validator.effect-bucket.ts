@@ -16,7 +16,7 @@ import { ActionRootingIndex } from '../../mod/action-rooting.index';
 import { ValidationError } from './validator';
 
 /** The class whose five self-referential lists are the whole effect-bucket registry. */
-const BUCKET_REGISTRY_CLASS = 'Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules';
+export const BUCKET_REGISTRY_CLASS = 'Cosmoteer.Simulation.MediaEffects.MediaEffectBucketsRules';
 
 /**
  * Lower-cased list field name to the number of buckets the engine reads out of it. Each list owns
@@ -42,7 +42,7 @@ const BUCKET_CAPS: ReadonlyMap<string, number> = new Map([
 const DEFAULT_BULLET_BUCKET = 'default_bullet';
 
 /** One bucket list a document writes, in either the named or the assigned spelling. */
-interface BucketList {
+export interface BucketList {
     /** The field name as written, which is what the engine's own message names. */
     readonly field: string;
     readonly node: ListNode;
@@ -56,7 +56,7 @@ interface BucketList {
  * @param node the node to walk.
  * @returns a generator of the bucket lists found under it.
  */
-function* bucketListsIn(node: AbstractNode): Generator<BucketList> {
+export function* bucketListsIn(node: AbstractNode): Generator<BucketList> {
     const list = isListNode(node) && node.identifier ? { name: node.identifier.name, node } : undefined;
     const assigned =
         isAssignmentNode(node) && isListNode(node.right) ? { name: node.left.name, node: node.right } : undefined;

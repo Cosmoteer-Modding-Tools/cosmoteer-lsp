@@ -134,6 +134,8 @@ describe.skipIf(!HAVE)('sprite geometry over installed workshop mods', () => {
         if (OUT_FILE) writeFileSync(OUT_FILE, findings.join('\n'), 'utf8');
         expect(unexpected).toEqual([]);
         // The mod the check was designed against: one wide plate drawn upright at both damage levels.
+        // Only asked of a machine that still has that mod subscribed.
+        if (!existsSync(join(MODS_DIR, '3119349707'))) return;
         const xwing = findings.filter((finding) => finding.includes('XWingThruster.rules'));
         expect(xwing).toHaveLength(2);
         expect(xwing[0]).toContain('128 by 64 pixels');

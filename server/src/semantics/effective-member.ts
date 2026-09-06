@@ -2,6 +2,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, GroupNode, isDocumentNode, isGroupNode } from '../core/ast/ast';
 import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
 import { childNamed } from '../features/part-editor/vector-forms';
+import { memberValueNamed } from '../utils/ast.utils';
 import { findMemberThroughInheritance, inheritanceBasesOf, ResolveReferenceFn } from './inheritance-resolver';
 
 /**
@@ -48,6 +49,26 @@ export const effectiveMember = async (
     if (local) return { node: local, inherited: false };
     const inherited = await findMemberThroughInheritance(group, name, resolveReference, token).catch(() => null);
     return inherited ? { node: inherited, inherited: true } : null;
+};
+
+/**
+ * Reads a member the way {@link effectiveMember} does, skipping the inheritance walk for a group that
+ * declares no base at all. Callers reading many members off many groups pay the walk only where one
+ * can answer, which is what makes a per-component field sweep affordable.
+ *
+ * @param group the group to read from.
+ * @param name the member name.
+ * @param token cancels reference resolution.
+ * @returns the member's value node, or undefined when it is absent everywhere.
+ */
+export const memberOrInherited = async (
+    group: GroupNode,
+    name: string,
+    token: CancellationToken
+): Promise<AbstractNode | undefined> => {
+    const local = memberValueNamed(group, name);
+    if (local || !group.inheritance?.length) return local;
+    return (await effectiveMember(group, name, token))?.node;
 };
 
 /** A named sub-group of a group, with the inheritance flag of where the declaration was found. */

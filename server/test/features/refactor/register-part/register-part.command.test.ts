@@ -5,13 +5,13 @@ import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { isGroupNode, isListNode } from '../../../../src/core/ast/ast';
 import { filePathToUri } from '../../../../src/features/navigation/navigation-strategy';
+import { registerPartInShip } from '../../../../src/features/refactor/register-part/register-part.command';
 import {
     RegisterPartApplyResult,
     RegisterPartArgs,
     RegisterPartHost,
     RegisterPartScanResult,
-    registerPartInShip,
-} from '../../../../src/features/refactor/register-part/register-part.command';
+} from '../../../../src/features/refactor/register-part/register-part.types';
 import { shipEntryKey } from '../../../../src/features/refactor/register-part/ship-registry';
 import { clearBaseFileCache } from '../../../../src/features/refactor/shared-base/base-index';
 import { parseModActions } from '../../../../src/mod/action-parser';

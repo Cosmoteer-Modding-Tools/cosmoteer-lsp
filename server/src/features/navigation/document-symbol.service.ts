@@ -16,6 +16,31 @@ import {
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { enclosingRange, orderRange, unionRange } from './ast-range';
 
+/**
+ * The symbol kind a plain value is outlined as, by what it spells.
+ *
+ * @param node the value node.
+ * @returns the kind, a field for a value kind the outline has no closer match for.
+ */
+export const valueSymbolKind = (node: ValueNode): SymbolKind => {
+    switch (node.valueType.type) {
+        case 'String':
+            return SymbolKind.String;
+        case 'Number':
+            return SymbolKind.Number;
+        case 'Boolean':
+            return SymbolKind.Boolean;
+        case 'Reference':
+            return SymbolKind.Variable;
+        case 'Sprite':
+        case 'Sound':
+        case 'Shader':
+            return SymbolKind.File;
+        default:
+            return SymbolKind.Field;
+    }
+};
+
 /** An group/list and the assignment that introduces it, if any. */
 type Container = GroupNode | ListNode;
 
@@ -135,22 +160,7 @@ export class DocumentSymbolService {
         if (!node) return SymbolKind.Field;
         if (isFunctionCallNode(node)) return SymbolKind.Function;
         if (isMathExpressionNode(node)) return SymbolKind.Number;
-        if (isValueNode(node)) {
-            switch (node.valueType.type) {
-                case 'String':
-                    return SymbolKind.String;
-                case 'Number':
-                    return SymbolKind.Number;
-                case 'Boolean':
-                    return SymbolKind.Boolean;
-                case 'Reference':
-                    return SymbolKind.Variable;
-                case 'Sprite':
-                case 'Sound':
-                case 'Shader':
-                    return SymbolKind.File;
-            }
-        }
+        if (isValueNode(node)) return valueSymbolKind(node);
         return SymbolKind.Field;
     }
 

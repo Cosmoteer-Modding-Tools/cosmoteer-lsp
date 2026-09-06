@@ -1,0 +1,21 @@
+// Stands in for the game's asteroid ship class: its id and the parts list a mod's deposits are added to.
+Asteroid
+{
+	ID = cosmoteer.asteroid
+	OtherIDs = [Asteroid, Asteroids]
+	NameKey = "ShipClasses/Asteroid"
+	DefaultPartID = cosmoteer.rock_1x1
+	IsAsteroid = true
+
+	Parts
+	[
+		&<rock/rock_1x1.rules>/Part
+		&<rock/rock_1x1_hard.rules>/Part
+		&<deposit_iron/deposit_iron_1x.rules>/Part
+		&<deposit_iron/deposit_iron_1x_hard.rules>/Part
+		&<deposit_iron/deposit_iron_2x.rules>/Part
+		&<deposit_iron/deposit_iron_2x_hard.rules>/Part
+		&<deposit_iron/deposit_iron_3x.rules>/Part
+		&<deposit_iron/deposit_iron_3x_hard.rules>/Part
+	]
+}

@@ -14,7 +14,8 @@ import { clearNavigationMemo } from '../features/navigation/full.navigation-stra
 import { invalidateEffectiveChainCache } from '../semantics/effective-group';
 import { modFolderPaths } from '../features/navigation/workspace-files';
 import { perfCount } from '../utils/perf-counters';
-import { searchFolderUris } from './workspace-folders';
+import { CosmoteerWorkspaceService } from '../workspace/cosmoteer-workspace.service';
+import { searchFolderUris, workspaceFolderPaths } from './workspace-folders';
 
 /** Resolves {@link workspaceInitialized} once `onInitialized` settled the game-tree scan. */
 let resolveWorkspaceInitialized: () => void;
@@ -89,7 +90,9 @@ export async function ensureFragmentRooting(cancellationToken: CancellationToken
     // stale in the navigation memo (they never read the edited file, so the per-file memo drop misses
     // them). Snapshot their revisions and clear the memo below if a reconcile moved either.
     const actionRevisionBefore = AddBaseIndex.instance.revision + MemberInjectionIndex.instance.revision;
-    await timedStartupPhase('startup.aliasRootMs', () => ensureAliasRootIndex(cancellationToken)).catch(
+    const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+    const aliasCacheScope = dataRoot ? { dataRoot, folderPaths: await workspaceFolderPaths() } : undefined;
+    await timedStartupPhase('startup.aliasRootMs', () => ensureAliasRootIndex(cancellationToken, aliasCacheScope)).catch(
         () => undefined
     );
     const folders = await searchFolderUris();

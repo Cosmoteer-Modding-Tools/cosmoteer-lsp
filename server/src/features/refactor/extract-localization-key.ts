@@ -86,7 +86,7 @@ const stripSuffix = (key: string, suffix: string): string =>
     suffix.length > 0 && key.length > suffix.length && key.endsWith(suffix) ? key.slice(0, -suffix.length) : key;
 
 /** `deposit_carbon_1x` -> `DepositCarbon1x`, the spelling strings files name an entity with. */
-const pascalCase = (raw: string): string =>
+export const pascalCase = (raw: string): string =>
     raw
         .split(/[^A-Za-z0-9]+/)
         .filter((part) => part.length > 0)

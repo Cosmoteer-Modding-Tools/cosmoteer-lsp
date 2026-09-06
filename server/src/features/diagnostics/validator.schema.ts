@@ -33,6 +33,7 @@ import {
 } from '../../document/schema/schema';
 import {
     deprecatedDiscriminator,
+    deprecatedEnumValue,
     migrationSymbolOf,
     obsoleteField,
     renamedFieldAlias,
@@ -292,8 +293,44 @@ export const validateSchema = async (
                     // The game parses enum values with the case-sensitive `Enum.Parse(type, text)`,
                     // so a member matched only after case-folding still fails to load in game and
                     // deserves its own message.
+                    // A member the game renamed is reported as the rename it is, with the version
+                    // that made it, rather than as a value the enum happens not to have.
+                    const renamed = deprecatedEnumValue(field.valueType.ref, written);
                     const folded = members.find((m) => m.toLowerCase() === written.toLowerCase());
-                    if (folded) {
+                    if (renamed) {
+                        errors.push({
+                            message: l10n.t(
+                                "'{0}' was renamed to '{1}' in game version {2} ({3}).",
+                                written,
+                                renamed.replacement,
+                                renamed.version ?? '',
+                                renamed.note
+                            ),
+                            node: value,
+                            severity: 'hint',
+                            data: {
+                                migration: {
+                                    version: renamed.version,
+                                    apply: 'rewrite',
+                                    symbol: migrationSymbolOf('enumValue', written),
+                                },
+                                rewrite: {
+                                    title: l10n.t("Change to '{0}'", renamed.replacement),
+                                    edits: [
+                                        {
+                                            start: value.position.start,
+                                            end: value.position.end,
+                                            newText: renamed.replacement,
+                                        },
+                                    ],
+                                },
+                                quickFix: {
+                                    title: l10n.t("Change to '{0}'", renamed.replacement),
+                                    newText: renamed.replacement,
+                                },
+                            },
+                        });
+                    } else if (folded) {
                         errors.push({
                             message: l10n.t(
                                 "'{0}' has the wrong casing. The game's enum parsing is case-sensitive; write '{1}'.",

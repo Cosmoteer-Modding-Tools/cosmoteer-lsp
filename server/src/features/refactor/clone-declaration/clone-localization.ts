@@ -6,6 +6,7 @@ import { namedMembersOf, parseText } from '../../../utils/ast.utils';
 import { fieldOfValueNode } from '../../completion/autocompletion.schema';
 import { LocalizationText } from '../../completion/localization-key.index';
 import { insertEditsForFile, LocalizationKeyInsertion } from '../../diagnostics/localization-key-insert';
+import { pascalCase } from '../extract-localization-key';
 
 /**
  * A key path as a strings file declares one: slash-joined member names, nothing a name cannot hold.
@@ -13,14 +14,6 @@ import { insertEditsForFile, LocalizationKeyInsertion } from '../../diagnostics/
  * private, because the two features are free to disagree about what they will accept.
  */
 const KEY_PATH = /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)*$/;
-
-/** `deposit_carbon_1x` to `DepositCarbon1x`, the spelling strings files name an entity with. */
-const pascalCase = (raw: string): string =>
-    raw
-        .split(/[^A-Za-z0-9]+/)
-        .filter((part) => part.length > 0)
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join('');
 
 /** One localization key the source writes, and the field writing it. */
 interface CloneKeyField {

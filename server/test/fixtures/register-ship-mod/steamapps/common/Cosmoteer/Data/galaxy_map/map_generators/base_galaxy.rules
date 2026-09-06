@@ -1,0 +1,28 @@
+Factions
+{
+	Type = Factions
+	Factions
+	[
+		{
+			FactionID = cabal
+			TerritoryRatio = 100%
+		}
+	]
+	RemainderFaction = fringe
+}
+
+MaxTier = 12
+TierSpread = 3
+
+FactionTiers
+{
+	Type = FactionNodeTiers
+	Factions
+	[
+		{
+			FactionID = cabal
+			TierRangeLow = [1, (&~/MaxTier) - (&~/TierSpread)]
+			TierRangeHigh = [1 + (&~/TierSpread), (&~/MaxTier)]
+		}
+	]
+}

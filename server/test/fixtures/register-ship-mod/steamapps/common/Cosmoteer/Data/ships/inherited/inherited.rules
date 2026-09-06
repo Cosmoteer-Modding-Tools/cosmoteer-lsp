@@ -1,0 +1,4 @@
+Inherited : <../terran/terran.rules>/Terran
+{
+	ID = cosmoteer.inherited
+}

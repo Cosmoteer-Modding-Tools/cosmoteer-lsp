@@ -15,8 +15,7 @@ import { CONSTANTS, MATH_FUNCTIONS } from '../../semantics/math-function-registr
 import { activeCallAt, paramsOf } from '../signature/signature-help.service';
 import { AutoCompletion, Completion, CompletionSuggestion } from './autocompletion.service';
 import { fieldOfValueNode } from './autocompletion.schema';
-import { findEnclosingGroup, resolveGroupClass } from '../../document/schema/schema-context';
-import { documentRootClass } from '../../document/schema/document-root';
+import { documentScopeClass, findEnclosingGroup, resolveGroupClass } from '../../document/schema/schema-context';
 import { fieldOf } from '../../document/schema/schema';
 import { ValueType } from '../../document/schema/schema.types';
 import { resolveClassThroughInheritance } from './inheritance-resolution';
@@ -122,7 +121,7 @@ const fieldTypeIn = async (
 ): Promise<ValueType | undefined> => {
     const asNode = container as AbstractNode;
     if (isDocumentNode(asNode)) {
-        const cls = documentRootClass(asNode);
+        const cls = documentScopeClass(asNode);
         return cls ? fieldOf(cls, fieldName)?.valueType : undefined;
     }
     if (isGroupNode(asNode)) {
@@ -196,7 +195,7 @@ export const mathFunctionCompletionsAtLinePrefix = (
     const fieldName = /([A-Za-z_]\w*)\s*=\s*[^=]*$/.exec(code)?.[1];
     if (!fieldName) return mathItems();
     const group = findEnclosingGroup(document, offset);
-    const cls = group ? resolveGroupClass(group) : documentRootClass(document);
+    const cls = group ? resolveGroupClass(group) : documentScopeClass(document);
     const fieldType = cls ? fieldOf(cls, fieldName)?.valueType : undefined;
     return fieldType === undefined || allowsMath(fieldType) ? mathItems() : [];
 };

@@ -18,11 +18,8 @@ import { clearSharedBaseScanCache } from '../../../../src/features/refactor/shar
 import { containerAtOffset } from '../../../../src/features/refactor/shared-base/shared-base.analysis-entry';
 import { groupAtPath } from '../../../../src/features/refactor/shared-base/base-index';
 import { topLevelMembersOf } from '../../../../src/features/refactor/shared-base/member-record';
-import {
-    applySharedBase,
-    scanForSharedBases,
-    SharedBaseHost,
-} from '../../../../src/features/refactor/shared-base/shared-base.command';
+import { applySharedBase, scanForSharedBases } from '../../../../src/features/refactor/shared-base/shared-base.command';
+import { SharedBaseHost } from '../../../../src/features/refactor/shared-base/shared-base.types';
 import { SerializedPlan } from '../../../../src/features/refactor/shared-base/plan.types';
 
 // The extraction really applied to real content, and then asked whether the files still say what

@@ -1,0 +1,4 @@
+ID = test.gem
+NameKey = "Resource/Gem"
+BuyPrice = 120
+MaxStackSize = 20

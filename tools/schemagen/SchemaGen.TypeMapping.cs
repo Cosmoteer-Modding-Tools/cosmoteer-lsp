@@ -94,6 +94,14 @@ internal sealed partial class SchemaGen
             }
             if (Attr(def, BASETYPE) != null)   // registry base, incl. interfaces without [ReflectiveSerialization]
             { o["kind"] = "polymorphicGroup"; o["ref"] = def.FullName; o["name"] = def.Name; return o; }
+            // The engine's duration struct. It reaches the group branch below on its `_seconds` member,
+            // but what a reader of the bundle needs to know about it is the unit, which is also the only
+            // thing it shares with the `ModifiableTime` that wraps it. Stamping both means nothing
+            // downstream has to know either type by name to recognise a wait.
+            if (def.FullName == TIME_STRUCT)
+            {
+                o["kind"] = "group"; o["ref"] = def.FullName; o["name"] = def.Name; o["unit"] = "seconds"; return o;
+            }
             // A class-level [ReflectiveSerialization] or a type that merely carries [Serialize] members
             // (e.g. PartNetworkOverlayIcon) is deserialized field-by-field, so model it as a group whose
             // fields we can complete/validate. `Participates` already keeps these in the graph. This just
@@ -191,7 +199,16 @@ internal sealed partial class SchemaGen
         // modifiers and Min/Max clamps (`Damage { BaseValue = 5  BuffType = …  BuffMode = Multiply }`).
         // We keep the primary kind `number` (so scalar completion/inlay/numeric validation work) and point
         // `groupForm` at a curated group type so completion/hover/validation also work inside the `{ }`.
-        if (nm.StartsWith("Modifiable")) { o["kind"] = "number"; o["type"] = nm; o["groupForm"] = MODIFIABLE_VALUE; return o; }
+        if (nm.StartsWith("Modifiable"))
+        {
+            o["kind"] = "number"; o["type"] = nm; o["groupForm"] = MODIFIABLE_VALUE;
+            // A modifiable is measured in whatever it wraps, so the unit is stamped through the
+            // wrapper as it is on the bare struct. Without it a consumer would have to know the
+            // wrapper types by name to tell an angle or a wait from any other number.
+            if (nm == "ModifiableTime") o["unit"] = "seconds";
+            else if (nm == "ModifiableAngle") o["unit"] = "degrees";
+            return o;
+        }
 
         o["kind"] = "opaque"; o["type"] = nm;   // custom hand-written deserializer, accept-any, no field validation
         return o;

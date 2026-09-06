@@ -7,11 +7,11 @@ plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.intellij.platform") version "2.18.1"
-    id("org.jetbrains.changelog") version "2.2.1"
+    id("org.jetbrains.changelog") version "2.5.0"
 }
 
 group = "modding.cosmoteer.tools"
-version = "0.9.0"
+version = "1.0.0"
 
 repositories {
     mavenCentral()
@@ -25,7 +25,7 @@ dependencies {
         // Community baseline: the plugin runs on every JetBrains IDE (IDEA, Rider, PyCharm, ...)
         // because LSP4IJ replaces the Ultimate-only native LSP API.
         create("IC", "2024.3.5")
-        plugins(listOf("com.redhat.devtools.lsp4ij:0.20.1"))
+        plugins(listOf("com.redhat.devtools.lsp4ij:0.21.0"))
         bundledPlugin("org.jetbrains.plugins.textmate")
         pluginVerifier()
         zipSigner()
@@ -82,7 +82,9 @@ intellijPlatform {
             // went internal in 262 but was clean in 252). EAP snapshot IDEs don't resolve through the
             // plugin's IDE-download coordinate, so the newest EAP is only checked by the marketplace
             // upload itself; keep anything platform-version-sensitive out of the code (see PluginPaths).
-            create(IntelliJPlatformType.IntellijIdeaCommunity, "2025.2.6")
+            // The Community edition is no longer published from 2025.3 on, so the latest stable is the
+            // unified IntelliJ IDEA distribution rather than another IntellijIdeaCommunity build.
+            create(IntelliJPlatformType.IntellijIdea, "2025.3")
             // Rider is the primary target audience (C# modders), verify against it explicitly.
             // Rider ships only as an installer, which the verifier can't unpack, so pull the
             // archive distribution instead (useInstaller = false). See plugin issue #1852.

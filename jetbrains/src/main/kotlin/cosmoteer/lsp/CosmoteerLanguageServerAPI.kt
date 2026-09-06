@@ -12,6 +12,9 @@ import java.util.concurrent.CompletableFuture
 /** Parameters of the `cosmoteer/modOverview` request. */
 class ModOverviewParams(var textDocument: TextDocumentIdentifier? = null)
 
+/** Parameters of a request that names one document inside a mod. */
+class ModFileParams(var textDocument: TextDocumentIdentifier? = null)
+
 /** Parameters of the `cosmoteer/partGridEdit` request (mirror of the server's PartGridEditParams). */
 class PartGridEditParams(
     var textDocument: TextDocumentIdentifier? = null,
@@ -40,6 +43,71 @@ class SchemaSearchParams(
     var textDocument: TextDocumentIdentifier? = null,
     var position: Position? = null,
     var limit: Int? = null,
+)
+
+/** Which parts the part table is narrowed to. An axis with no values narrows nothing. */
+class PartTableFilter(
+    /** The `TypeCategories` tags a part has to carry one of. */
+    var categories: List<String> = emptyList(),
+    /** The component types a part has to carry one of. */
+    var components: List<String> = emptyList(),
+    /** The mods a part may come from. */
+    var sources: List<String> = emptyList(),
+)
+
+/** Parameters of the `cosmoteer/partTable` request. */
+class PartTableParams(
+    /** The document the table is scoped to, which decides the mod it reads beside the game data. */
+    var textDocument: TextDocumentIdentifier? = null,
+    /** The column paths to compute, null on the first build so the server ranks them. */
+    var columns: List<String>? = null,
+    /** Which parts to narrow to, null for all of them. */
+    var filter: PartTableFilter? = null,
+    /** Read the parts from disk again rather than answering from the walk of the last build. */
+    var refresh: Boolean = false,
+    /** The columns version the page holds, so the answer can leave the columns out while it stands. */
+    var columnsVersion: String? = null,
+)
+
+/** The `cosmoteer/partTableProgress` notice: how far the server's walk over the parts has come. */
+class PartTableProgress(
+    /** How many parts have been read. */
+    var done: Int = 0,
+    /** How many parts the walk reads in all. */
+    var total: Int = 0,
+)
+
+/** Parameters of the `cosmoteer/partTableFormula` request. */
+class PartTableFormulaParams(
+    /** The expression, written over column paths in square brackets. */
+    var formula: String = "",
+    /** The row key `ref(…)` reads, null when the table compares nothing. */
+    var reference: String? = null,
+    /** The other formula columns by name, so one formula may read another by its name. */
+    var formulas: Map<String, String>? = null,
+    /** The row keys on screen, which the column aggregates run over. */
+    var rows: List<String>? = null,
+    /** Row key to column path to number or null: the values the reader typed over cells, passed through as JSON. */
+    var overrides: JsonObject? = null,
+)
+
+/** Parameters of the `cosmoteer/partTableEdit` request (mirror of the server's PartTableEditParams). */
+class PartTableEditParams(
+    /** The row key of the part the value belongs to. */
+    var row: String = "",
+    /** The column path of the cell. */
+    var column: String = "",
+    /** The text the reader typed, written into the file as it stands. */
+    var text: String = "",
+)
+
+/** Result of the `cosmoteer/partTableEdit` request (mirror of the server's PartTableEditResult). */
+class PartTableEditResult(
+    var status: String = "notFound",
+    var edit: WorkspaceEdit? = null,
+    var message: String? = null,
+    /** Where a write that followed a reference landed, shown in the page's notice line. */
+    var note: String? = null,
 )
 
 /** Parameters of the `cosmoteer/schemaSearchDetail` request. */
@@ -93,6 +161,7 @@ interface CosmoteerLanguageServerAPI : LanguageServer {
     @JsonRequest("cosmoteer/modOverview")
     fun modOverview(params: ModOverviewParams): CompletableFuture<String?>
 
+
     /**
      * Builds the interactive part grid editor payload for the part at a position (effective size,
      * sprites, per-cell field layers, rotation fields).
@@ -135,6 +204,43 @@ interface CosmoteerLanguageServerAPI : LanguageServer {
     fun effectiveGroup(params: TextDocumentPositionParams): CompletableFuture<String?>
 
     /**
+     * Renders what the group at a position loads differently from the nearest base of it the game
+     * ships itself.
+     *
+     * @param params the document and a position inside the group.
+     * @returns the markdown, or null when the group derives from nothing the game ships.
+     */
+    @JsonRequest("cosmoteer/baseDiff")
+    fun baseDiff(params: TextDocumentPositionParams): CompletableFuture<String?>
+
+    /**
+     * Reads what a `.ship.png` blueprint places, and judges every part id it names.
+     *
+     * @param params the blueprint file.
+     * @returns the markdown, or null when the file carries no saved ship.
+     */
+    @JsonRequest("cosmoteer/shipBlueprint")
+    fun shipBlueprint(params: ModFileParams): CompletableFuture<String?>
+
+    /**
+     * Builds the drawn resource wiring of the part at a position.
+     *
+     * @param params the document and a position inside the part.
+     * @returns the diagram payload, or null when the part carries no resources.
+     */
+    @JsonRequest("cosmoteer/resourceFlowDiagram")
+    fun resourceFlowDiagram(params: TextDocumentPositionParams): CompletableFuture<JsonObject?>
+
+    /**
+     * Builds the drawn firing chain of the part at a position.
+     *
+     * @param params the document and a position inside the part.
+     * @returns the diagram payload, or null when the part fires nothing.
+     */
+    @JsonRequest("cosmoteer/effectChainDiagram")
+    fun effectChainDiagram(params: TextDocumentPositionParams): CompletableFuture<JsonObject?>
+
+    /**
      * Explains the reference at a position: which of its segments resolved, where the last one that
      * did landed, and what the game would have found there.
      *
@@ -162,4 +268,33 @@ interface CosmoteerLanguageServerAPI : LanguageServer {
      */
     @JsonRequest("cosmoteer/schemaSearchDetail")
     fun schemaSearchDetail(params: SchemaSearchDetailParams): CompletableFuture<String?>
+
+    /**
+     * Builds the part comparison table: every part of the game and of the mod being edited, the
+     * member paths they carry, and the values of the columns the view is showing.
+     *
+     * @param params the scoping document and the columns to compute.
+     * @returns the table, or null when it could not be built.
+     */
+    @JsonRequest("cosmoteer/partTable")
+    fun partTable(params: PartTableParams): CompletableFuture<JsonObject?>
+
+    /**
+     * Computes one formula column over the table the last build produced.
+     *
+     * @param params the formula and the row it compares against.
+     * @returns the value per row key, or the message to show when the formula does not parse.
+     */
+    @JsonRequest("cosmoteer/partTableFormula")
+    fun partTableFormula(params: PartTableFormulaParams): CompletableFuture<JsonObject?>
+
+    /**
+     * Turns a value typed over a table cell into the WorkspaceEdit that writes it into the file the
+     * cell was read from.
+     *
+     * @param params the row, the column and the typed text.
+     * @returns the edit and its status, or the message to show when the cell cannot be written.
+     */
+    @JsonRequest("cosmoteer/partTableEdit")
+    fun partTableEdit(params: PartTableEditParams): CompletableFuture<PartTableEditResult?>
 }

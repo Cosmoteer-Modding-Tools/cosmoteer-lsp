@@ -5,12 +5,12 @@ import { describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
 import { parser } from '../../../../src/core/parser/parser';
 import { lexer } from '../../../../src/core/lexer/lexer';
+import { buildClonePlan } from '../../../../src/features/refactor/clone-declaration/clone-plan';
 import {
-    buildClonePlan,
+    CloneFailure,
     ClonePlan,
     ClonePlanContext,
-    CloneFailure,
-} from '../../../../src/features/refactor/clone-declaration/clone-plan';
+} from '../../../../src/features/refactor/clone-declaration/clone.types';
 import { locateCloneTarget } from '../../../../src/features/refactor/clone-declaration/clone-target';
 import { filePathToUri } from '../../../../src/features/navigation/navigation-strategy';
 import { scanSpans } from '../../../../src/features/refactor/clone-declaration/unit-rebase';

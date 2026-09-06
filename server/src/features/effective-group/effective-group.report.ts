@@ -14,19 +14,15 @@ import { basenameOf } from '../../document/document-kind';
 import { fieldsOf, typeDef } from '../../document/schema/schema';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { SchemaField } from '../../document/schema/schema.types';
-import {
-    EffectiveMemberEntry,
-    MemberOrigin,
-    UnreadableBase,
-    UnreadableReason,
-    flattenGroup,
-} from '../../semantics/effective-group';
+import { flattenGroup } from '../../semantics/effective-group';
+import { EffectiveMemberEntry, UnreadableBase, UnreadableReason } from '../../semantics/effective-group.types';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { navigationDepKey } from '../../utils/navigation-deps';
 import { findEnclosingGroup } from '../../document/schema/schema-context';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { valueAt } from '../completion/inherited-members';
-import { code, linkDestination, plainPathOf, tableCell } from '../report/markdown-link';
+import { code, tableCell } from '../report/markdown-link';
+import { placeLink, valueText } from '../report/report-values';
 
 /**
  * The "what the game actually loads here" report: the member set a container really deserializes,
@@ -45,41 +41,11 @@ import { code, linkDestination, plainPathOf, tableCell } from '../report/markdow
  * same base is usually shared by files this one knows nothing about.
  */
 
-/** How many characters of a written value a row shows before it is cut. */
-const VALUE_WIDTH = 60;
-
 /** One table cell's text, escaped the way every markdown report in this server escapes one. */
 const cell = tableCell;
 
-/**
- * A markdown link to a node's position, labeled `file.rules:line`. Uses the `vscode://file/…` deep
- * link with a `:line` suffix, since markdown-it rejects the `file:` scheme outright.
- *
- * @param origin the place to link to.
- * @returns the markdown link.
- */
-const originLink = (origin: MemberOrigin): string => {
-    const line = origin.node.position.line + 1;
-    const encoded = linkDestination(plainPathOf(origin.uri));
-    return `[${basenameOf(origin.uri)}:${line}](vscode://file/${encoded}:${line})`;
-};
-
-/**
- * A written value rendered on one line.
- *
- * @param node the member's value node.
- * @returns the display text.
- */
-const valueText = (node: AbstractNode | null): string => {
-    if (!node) return l10n.t('*(no value)*');
-    if (isValueNode(node)) {
-        const text = String(node.valueType.value);
-        return code(text.length > VALUE_WIDTH ? `${text.slice(0, VALUE_WIDTH)}…` : text);
-    }
-    if (isListNode(node)) return l10n.t('*list of {0}*', String(node.elements.length));
-    if (isGroupNode(node)) return l10n.t('*group of {0}*', String(node.elements.length));
-    return l10n.t('*(unreadable)*');
-};
+/** A markdown link to a declaration's line, labeled `file.rules:line`. */
+const originLink = placeLink;
 
 /**
  * The dotted path of a container inside its file, for the report's title.
@@ -87,7 +53,7 @@ const valueText = (node: AbstractNode | null): string => {
  * @param node the container.
  * @returns the path, or the file's own name for a document root.
  */
-const pathOf = (node: AbstractNode): string => {
+export const pathOf = (node: AbstractNode): string => {
     const segments: string[] = [];
     for (let current: AbstractNode | undefined = node; current; current = current.parent) {
         if (isDocumentNode(current)) break;
@@ -251,7 +217,7 @@ export const generateEffectiveGroupReport = async (
     const lines: string[] = [];
     lines.push(`# ${l10n.t('What the game loads for {0}', code(title))}`);
     lines.push('');
-    lines.push(l10n.t('In {0}.', originLink({ uri: getStartOfAstNode(group).uri, node: group, hop: 0, inherited: false })));
+    lines.push(l10n.t('In {0}.', originLink({ uri: getStartOfAstNode(group).uri, node: group })));
     if (cls) {
         const def = typeDef(cls);
         lines.push('');
@@ -338,7 +304,7 @@ const unreadableBaseLine = (base: UnreadableBase): string =>
  * @param node the list the caret sits in.
  * @returns the group, or null when the list hangs directly off the document root.
  */
-const nearestGroup = (node: ListNode): GroupNode | AbstractNodeDocument | null => {
+export const nearestGroup = (node: ListNode): GroupNode | AbstractNodeDocument | null => {
     for (let current: AbstractNode | undefined = node.parent; current; current = current.parent) {
         if (isGroupNode(current) || isDocumentNode(current)) return current;
     }

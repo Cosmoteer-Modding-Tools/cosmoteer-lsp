@@ -2,8 +2,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, isAssignmentNode, isDocumentNode, isGroupNode, isValueNode, ValueNode } from '../../core/ast/ast';
 import { AutoCompletion, Completion } from './autocompletion.service';
 import { AssetAutoCompletionStrategy, AssetType } from './strategy/asset.autocompletion-strategy';
-import { resolveGroupClass } from '../../document/schema/schema-context';
-import { documentRootClass } from '../../document/schema/document-root';
+import { documentScopeClass, resolveGroupClass } from '../../document/schema/schema-context';
 import { fieldOf } from '../../document/schema/schema';
 
 const assetAutoCompletionStrategy = new AssetAutoCompletionStrategy();
@@ -22,7 +21,7 @@ const ASSET_TYPE_BY_KIND: Record<string, AssetType> = { image: 'Sprite', sound: 
  */
 const schemaAssetType = (node: ValueNode): AssetType | undefined => {
     const classOf = (n: AbstractNode | null | undefined): string | undefined =>
-        n && isDocumentNode(n) ? documentRootClass(n) : n && isGroupNode(n) ? resolveGroupClass(n) : undefined;
+        n && isDocumentNode(n) ? documentScopeClass(n) : n && isGroupNode(n) ? resolveGroupClass(n) : undefined;
 
     // The value's parent is its containing group (the parser links values to the group, not the
     // assignment), so recover the field name from the assignment whose value this is.

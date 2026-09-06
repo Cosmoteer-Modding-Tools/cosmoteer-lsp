@@ -10,6 +10,7 @@ import {
     isValueNode,
 } from '../core/ast/ast';
 import { listElementType } from '../document/schema/schema-context';
+import { unitOf } from '../document/schema/schema';
 import { ValueType } from '../document/schema/schema.types';
 import { fieldOfAssignedNode } from '../features/completion/autocompletion.schema';
 import { formatNumber } from './value-evaluator';
@@ -84,21 +85,28 @@ export const sourceUnitOf = (nodes: readonly AbstractNode[]): ValueUnit | undefi
 };
 
 /**
- * The unit a numeric slot's declared type names. `Halfling.Geometry.Angle` and
- * `Halfling.Geometry.Direction` both hold a `_radians` float and `Cosmoteer.Ships.ModifiableAngle`
- * wraps an `Angle`, so all three read as radians. Their ObjectText constructor parses the written
- * text straight into that field, so a bare `FiringArc = 220` really is 220 radians. The bundle's
- * `unit: "degrees"` names the suffix an author writes into such a field, not what the game stores.
- * `ModifiableTime` wraps `Halfling.Timing.Time`, which the engine documents as seconds.
+ * The unit a slot's declared type is measured in, read off the bundle rather than off a list of the
+ * engine's types kept here. Every measured type carries the unit: the angles (`Halfling.Geometry.Angle`,
+ * `Halfling.Geometry.Direction`) and the waits (`Halfling.Timing.Time`), each also through the
+ * `Modifiable…` that wraps it.
+ *
+ * The angles all hold a `_radians` float, and their ObjectText constructor parses the written text
+ * straight into it, so a bare `FiringArc = 220` really is 220 radians. The bundle's `unit: "degrees"`
+ * names the suffix an author writes into such a field, not what the game stores, which is why it is
+ * rendered as radians with the degrees beside them.
  *
  * @param valueType the declared type of the slot the value sits in.
- * @returns the unit, or undefined when the type names none.
+ * @returns the unit, or undefined when the type is measured in nothing.
  */
 const declaredUnitOf = (valueType: ValueType | undefined): ValueUnit | undefined => {
-    if (valueType?.kind !== 'number') return undefined;
-    if (valueType.unit === 'degrees' || valueType.type === 'ModifiableAngle') return 'angle';
-    if (valueType.type === 'ModifiableTime') return 'seconds';
-    return undefined;
+    switch (unitOf(valueType)) {
+        case 'degrees':
+            return 'angle';
+        case 'seconds':
+            return 'seconds';
+        default:
+            return undefined;
+    }
 };
 
 /**

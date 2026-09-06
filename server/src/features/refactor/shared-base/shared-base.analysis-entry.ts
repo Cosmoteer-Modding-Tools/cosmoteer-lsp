@@ -8,7 +8,7 @@ import { workshopContentDir } from '../../../workspace/workshop-dir';
 import { isCoveredByFolders, normalizeUri } from '../../navigation/reference-location';
 import { uriToFsPath } from '../../navigation/workspace-files';
 import { Candidate, candidatesInFile, MIN_FIELDS } from './duplicate-field.analysis';
-import { modPlans } from './mod-scan';
+import { modPlans, modPlansIfBuilt } from './mod-scan';
 import { ExtractionPlan, Participant } from './plan.types';
 
 /**
@@ -76,6 +76,11 @@ export const editableModRootOf = (fsPath: string): string | undefined => {
  * @param inScope tells whether a file is one the game actually loads. Without it a backup folder or
  * an unused template would take part, and applying the extraction would rewrite files the mod never
  * reads and drag the base file up to a directory the live files do not share.
+ * @param whenPlansArrive when given, the mod's plans are not waited for: a mod whose plans are not
+ * computed yet answers nothing now, the walk is started (or joined) with a token no later edit
+ * cancels, and this is called once it has finished so the caller can ask again. The open editor
+ * passes it, since a file being opened should not wait seconds for a whole-mod read to show its
+ * problems. A whole-workspace pass leaves it out, because its results are stored.
  * @returns the plans this document takes part in, largest saving first, empty when there are none.
  */
 export const plansForDocument = async (
@@ -83,7 +88,8 @@ export const plansForDocument = async (
     text: string,
     folderPaths: readonly string[],
     cancellationToken: CancellationToken,
-    inScope?: (fsPath: string) => boolean
+    inScope?: (fsPath: string) => boolean,
+    whenPlansArrive?: () => void
 ): Promise<ExtractionPlan[]> => {
     if (!isCoveredByFolders(document.uri, folderPaths)) return [];
     const fsPath = uriToFsPath(document.uri);
@@ -97,7 +103,16 @@ export const plansForDocument = async (
 
     // The mod's plans do not depend on which of its files is being validated, so they are computed
     // once and every file only asks which of them it appears in.
-    const plans = await modPlans(modRoot, inScope, cancellationToken);
+    let plans = modPlansIfBuilt(modRoot);
+    if (!plans && whenPlansArrive) {
+        void modPlans(modRoot, inScope, CancellationToken.None)
+            .then(() => {
+                if (modPlansIfBuilt(modRoot)) whenPlansArrive();
+            })
+            .catch(() => undefined);
+        return [];
+    }
+    plans ??= await modPlans(modRoot, inScope, cancellationToken);
     if (plans.length === 0) return [];
 
     // The memoized plans were built from what the files say on disk. This document's own containers

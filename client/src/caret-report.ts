@@ -11,6 +11,8 @@ interface CaretReportKind {
     documentName: string;
     /** The warning shown when the server has no report for the position. */
     missing: string;
+    /** Anything else the request carries beside the document and the position. */
+    extra?: Record<string, unknown>;
 }
 
 /**
@@ -39,6 +41,7 @@ export const showCaretReport = async (
     const markdown = await client.sendRequest<string | null>(report.method, {
         textDocument: { uri: targetUri.toString() },
         position: { line: targetPosition.line, character: targetPosition.character },
+        ...report.extra,
     });
     if (!markdown) {
         void window.showWarningMessage(report.missing);

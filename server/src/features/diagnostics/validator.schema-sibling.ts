@@ -30,6 +30,7 @@ import { isSameOrSubclass } from '../navigation/schema-id-reference.navigation';
 import { BUILTIN_IDS } from '../../document/schema/entity-schema';
 import { includingDocumentsOf, overrideTargetsOf } from '../../mod/override-sources';
 import { isFile, FileWithPath } from '../../workspace/cosmoteer-workspace.service';
+import { BUFF_PROXY_CLASS, targetsAnotherPart } from '../../semantics/part-components';
 import { childNodesOf, getStartOfAstNode } from '../../utils/ast.utils';
 import { closestMatch } from '../../utils/did-you-mean';
 import { didYouMeanFix, type ValidationError } from './validator';
@@ -540,9 +541,6 @@ const componentTargetOfField = (cls: string, fieldName: string): string | undefi
     return valueType?.kind === 'list' ? targetOf(valueType.element) : targetOf(valueType);
 };
 
-/** The class of a buff-mediated component proxy, the `ViaBuffs { … }` group (see {@link reachesOutsideThisOwner}). */
-const BUFF_PROXY_CLASS = 'Cosmoteer.Ships.Parts.Logic.BuffMultiProxyRules';
-
 /**
  * True when `group` resolves its component ids against some other part than the one it is written
  * in, so this part's ids cannot judge them. Every mechanism the engine has for that is structural,
@@ -573,26 +571,6 @@ export const tupleComponentTargetAt = (list: ListNode, index: number): boolean =
     const element = slot.elements[index];
     return element?.kind === 'reference' && registryOf(element.target)?.name === 'PartComponentRules';
 };
-
-/**
- * True if `group` is a cross-part proxy: it declares `PartLocation` or `PartCriteria`, the fields a
- * proxy uses to name another cell's part, or it is a `Type = ChainableProxy`, which resolves its
- * `ComponentID` against whichever part is chained to this one (a solar panel spike's
- * `AnchorLocation` lives in the anchor part). Such a proxy's `ComponentID` targets a component in
- * that other part, so it must not be checked against this part's component ids.
- */
-export const targetsAnotherPart = (group: GroupNode): boolean =>
-    group.elements.some((element) => {
-        if (isAssignmentNode(element)) {
-            if (element.left.name === 'PartLocation' || element.left.name === 'PartCriteria') return true;
-            return (
-                element.left.name === 'Type' &&
-                isValueNode(element.right) &&
-                String(element.right.valueType.value) === 'ChainableProxy'
-            );
-        }
-        return isGroupNode(element) && (element.identifier?.name === 'PartLocation' || element.identifier?.name === 'PartCriteria');
-    });
 
 /** The class of a whole-file bullet root, whose `Components` are named per bullet exactly like a part's. */
 const BULLET_RULES_CLASS = 'Cosmoteer.Bullets.BulletRules';

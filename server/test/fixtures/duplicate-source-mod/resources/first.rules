@@ -1,0 +1,4 @@
+// Two resource files of one mod declaring the same id, which is what the index has to keep
+// answering for after either of them is dropped.
+ID = test.shared.resource
+MaxStackSize = 1

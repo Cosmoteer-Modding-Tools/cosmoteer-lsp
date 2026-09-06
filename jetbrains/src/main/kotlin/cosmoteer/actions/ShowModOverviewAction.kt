@@ -1,21 +1,13 @@
 package cosmoteer.actions
 
-import com.intellij.notification.NotificationGroupManager
-import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.testFramework.LightVirtualFile
 import com.redhat.devtools.lsp4ij.LSPIJUtils
-import com.redhat.devtools.lsp4ij.LanguageServerManager
-import cosmoteer.lsp.CosmoteerLanguageServerAPI
 import cosmoteer.lsp.ModOverviewParams
-import cosmoteer.preview.ShaderPreviewService
 import org.eclipse.lsp4j.TextDocumentIdentifier
 
 /** Whether a file is a mod manifest (`mod.rules` or a version-specific `mod_*.rules`). */
@@ -52,30 +44,10 @@ class ShowModOverviewAction : AnAction() {
  */
 fun showModOverview(project: Project, manifest: VirtualFile) {
     val params = ModOverviewParams(TextDocumentIdentifier(LSPIJUtils.toUri(manifest).toASCIIString()))
-    LanguageServerManager.getInstance(project)
-        .getLanguageServer(ShaderPreviewService.SERVER_ID)
-        .thenCompose { item ->
-            val server = item?.server as? CosmoteerLanguageServerAPI
-                ?: return@thenCompose java.util.concurrent.CompletableFuture.completedFuture<String?>(null)
-            server.modOverview(params)
-        }
-        .thenAccept { markdown ->
-            ApplicationManager.getApplication().invokeLater {
-                if (project.isDisposed) return@invokeLater
-                if (markdown.isNullOrEmpty()) {
-                    NotificationGroupManager.getInstance()
-                        .getNotificationGroup("Cosmoteer Language Server")
-                        .createNotification(
-                            "No mod overview available",
-                            "The file is not inside a mod with a mod.rules.",
-                            NotificationType.WARNING
-                        )
-                        .notify(project)
-                    return@invokeLater
-                }
-                val overview = LightVirtualFile("Mod Overview.md", markdown)
-                overview.isWritable = false
-                FileEditorManager.getInstance(project).openFile(overview, true)
-            }
-        }
+    showServerMarkdown(
+        project,
+        "Mod Overview.md",
+        "No mod overview available",
+        "The file is not inside a mod with a mod.rules."
+    ) { server -> server.modOverview(params) }
 }

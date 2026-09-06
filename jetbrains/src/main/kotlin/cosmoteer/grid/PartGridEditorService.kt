@@ -2,7 +2,6 @@ package cosmoteer.grid
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
@@ -18,25 +17,16 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.wm.ToolWindowManager
-import com.intellij.ui.jcef.JBCefApp
-import com.intellij.ui.jcef.JBCefBrowser
-import com.intellij.ui.jcef.JBCefBrowserBase
-import com.intellij.ui.jcef.JBCefJSQuery
 import com.intellij.util.Alarm
 import com.redhat.devtools.lsp4ij.LSPIJUtils
-import com.redhat.devtools.lsp4ij.LanguageServerManager
-import cosmoteer.PluginPaths
-import cosmoteer.lsp.CosmoteerLanguageServerAPI
 import cosmoteer.lsp.PartGridEditParams
+import cosmoteer.lsp.requestFromServer
+import cosmoteer.preview.JcefPageHost
 import cosmoteer.preview.JcefSupport
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.eclipse.lsp4j.TextDocumentPositionParams
-import java.nio.file.Files
-import java.util.concurrent.CompletableFuture
 import javax.swing.JComponent
-import javax.swing.JLabel
-import javax.swing.SwingConstants
 
 /**
  * Owns the interactive part grid editor: a JCEF browser running the same page the VS Code
@@ -49,11 +39,18 @@ import javax.swing.SwingConstants
 @Service(Service.Level.PROJECT)
 class PartGridEditorService(private val project: Project) : Disposable {
     private val gson = Gson()
-    private var browser: JBCefBrowser? = null
-    private var fallback: JComponent? = null
-    /** Whether the page reported `ready`. Messages posted earlier are queued. */
-    @Volatile private var pageReady = false
-    @Volatile private var queuedMessage: String? = null
+    private val page = JcefPageHost(
+        "Part Grid Editor",
+        "part-grid-editor",
+        PAGE_BODY,
+        // Windowed (non-OSR) mode, same as the shader preview: off-screen rendering never
+        // composites GPU layers, and it is also required for reliable mouse interaction here.
+        false,
+        "The part grid editor needs the embedded browser (JCEF), which this IDE runtime does not support.",
+        logger<PartGridEditorService>(),
+        "Bad message from the part grid editor page",
+        ::onPageMessage
+    )
     /** The part document and offset being edited, re-queried when the document changes. */
     @Volatile private var tracked: Pair<VirtualFile, Int>? = null
     /** The part group anchor of the last payload, echoed by edit requests. */
@@ -71,15 +68,7 @@ class PartGridEditorService(private val project: Project) : Disposable {
     }
 
     /** The Swing component the tool window shows: the browser, or a notice when JCEF is unavailable. */
-    fun component(): JComponent {
-        if (!JBCefApp.isSupported()) {
-            return fallback ?: JLabel(
-                "The part grid editor needs the embedded browser (JCEF), which this IDE runtime does not support.",
-                SwingConstants.CENTER
-            ).also { fallback = it }
-        }
-        return ensureBrowser().component
-    }
+    fun component(): JComponent = page.component()
 
     /**
      * Opens the grid editor for the part at an offset: shows the tool window, remembers the
@@ -108,7 +97,7 @@ class PartGridEditorService(private val project: Project) : Disposable {
                 Position(line, safeOffset - document.getLineStartOffset(line))
             )
         } ?: return
-        withServer { server -> server.partGridData(params) }
+        requestFromServer(project) { server -> server.partGridData(params) }
             .thenAccept { data -> postRender(data) }
             .exceptionally { error ->
                 logger<PartGridEditorService>().warn("Part grid data request failed", error)
@@ -116,21 +105,11 @@ class PartGridEditorService(private val project: Project) : Disposable {
             }
     }
 
-    /** Resolves the language server and runs one request against it. */
-    private fun <T> withServer(request: (CosmoteerLanguageServerAPI) -> CompletableFuture<T?>): CompletableFuture<T?> =
-        LanguageServerManager.getInstance(project)
-            .getLanguageServer(SERVER_ID)
-            .thenCompose { item ->
-                val server = item?.server as? CosmoteerLanguageServerAPI
-                    ?: return@thenCompose CompletableFuture.completedFuture<T?>(null)
-                request(server)
-            }
-
     /** Converts the server payload to the page's `render`/`empty` message and posts it. */
     private fun postRender(data: JsonObject?) {
         if (data == null) {
             anchor = null
-            postMessage("""{"type":"empty"}""")
+            page.post("""{"type":"empty"}""")
             return
         }
         anchor = data.getAsJsonObject("anchor")?.let { position ->
@@ -154,68 +133,15 @@ class PartGridEditorService(private val project: Project) : Disposable {
             add("data", data)
             add("spriteData", spriteData)
         }
-        postMessage(gson.toJson(message))
-    }
-
-    /** Dispatches a message into the page, queueing it until the page has reported `ready`. */
-    private fun postMessage(json: String) {
-        val cefBrowser = ensureBrowserOnEdt() ?: return
-        if (!pageReady) {
-            queuedMessage = json
-            return
-        }
-        cefBrowser.cefBrowser.executeJavaScript(
-            "window.dispatchEvent(new MessageEvent('message', {data: $json}));",
-            cefBrowser.cefBrowser.url,
-            0
-        )
-    }
-
-    /** [ensureBrowser], hopping to the EDT when needed. Null when JCEF is unsupported. */
-    private fun ensureBrowserOnEdt(): JBCefBrowser? {
-        if (!JBCefApp.isSupported()) return null
-        browser?.let { return it }
-        var created: JBCefBrowser? = null
-        ApplicationManager.getApplication().invokeAndWait { created = ensureBrowser() }
-        return created
-    }
-
-    /** Creates the browser and loads the editor page on first use. */
-    private fun ensureBrowser(): JBCefBrowser {
-        browser?.let { return it }
-        // Windowed (non-OSR) mode, same as the shader preview: off-screen rendering never
-        // composites GPU layers, and it is also required for reliable mouse interaction here.
-        val newBrowser = JBCefBrowser.createBuilder()
-            .setOffScreenRendering(false)
-            .build()
-        val query = JBCefJSQuery.create(newBrowser as JBCefBrowserBase)
-        query.addHandler { raw ->
-            onPageMessage(raw)
-            null
-        }
-        newBrowser.loadHTML(pageHtml(query))
-        browser = newBrowser
-        return newBrowser
+        page.post(gson.toJson(message))
     }
 
     /** Handles messages the page sends through the shimmed `acquireVsCodeApi().postMessage`. */
-    private fun onPageMessage(raw: String) {
-        try {
-            val message = JsonParser.parseString(raw).asJsonObject
-            when (message.get("type")?.asString) {
-                "ready" -> {
-                    pageReady = true
-                    queuedMessage?.let { pending ->
-                        queuedMessage = null
-                        postMessage(pending)
-                    }
-                }
-                "edit" -> applyMutation(message)
-                "openLocation" -> openLocation(message)
-                "refresh" -> ApplicationManager.getApplication().invokeLater { render() }
-            }
-        } catch (exception: Exception) {
-            logger<PartGridEditorService>().warn("Bad message from the part grid editor page", exception)
+    private fun onPageMessage(message: JsonObject) {
+        when (message.get("type")?.asString) {
+            "edit" -> applyMutation(message)
+            "openLocation" -> openLocation(message)
+            "refresh" -> ApplicationManager.getApplication().invokeLater { render() }
         }
     }
 
@@ -234,7 +160,7 @@ class PartGridEditorService(private val project: Project) : Disposable {
             message.get("dataVersion")?.asInt ?: -1,
             message.getAsJsonObject("mutation")
         )
-        withServer { server -> server.partGridEdit(params) }
+        requestFromServer(project) { server -> server.partGridEdit(params) }
             .thenAccept { result ->
                 val edit = result?.edit
                 if (result?.status == "ok" && edit != null) {
@@ -248,16 +174,16 @@ class PartGridEditorService(private val project: Project) : Disposable {
                             addProperty("type", "note")
                             addProperty("note", note)
                         }
-                        postMessage(gson.toJson(message))
+                        page.post(gson.toJson(message))
                     }
                 } else {
                     val reason = result?.status ?: "error"
-                    postMessage("""{"type":"editRejected","reason":"$reason"}""")
+                    page.post("""{"type":"editRejected","reason":"$reason"}""")
                 }
             }
             .exceptionally { error ->
                 logger<PartGridEditorService>().warn("Part grid edit request failed", error)
-                postMessage("""{"type":"editRejected","reason":"error"}""")
+                page.post("""{"type":"editRejected","reason":"error"}""")
                 null
             }
     }
@@ -291,45 +217,19 @@ class PartGridEditorService(private val project: Project) : Disposable {
     /** One spelling for a path, since a uri, a virtual file and Windows each answer with their own. */
     private fun normalizedPath(path: String): String = path.replace('\\', '/').lowercase()
 
-    /** The page shell: the bundled stylesheet and editor script inlined, plus the VS Code API shim. */
-    private fun pageHtml(query: JBCefJSQuery): String {
-        val css = Files.readString(PluginPaths.media("part-grid-editor.css"))
-        val script = Files.readString(PluginPaths.media("part-grid-editor.js"))
-        val bridge = query.inject("JSON.stringify(m)")
-        return """<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<style>$css</style>
-<style>${JcefSupport.themeCss()}</style>
-<title>Part Grid Editor</title>
-</head>
-<body>
-<div id="editor">
-<div id="stage"><canvas id="grid"></canvas><div id="status"></div></div>
-<div id="sidebar"></div>
-</div>
-<script>
-window.acquireVsCodeApi = function () {
-    return {
-        postMessage: function (m) { $bridge },
-        getState: function () { return undefined; },
-        setState: function () {}
-    };
-};
-</script>
-<script>$script</script>
-</body>
-</html>"""
-    }
-
     override fun dispose() {
-        browser = null
+        page.dispose()
     }
 
     companion object {
         const val TOOL_WINDOW_ID = "Cosmoteer Part Grid Editor"
         const val SERVER_ID = "cosmoteerLanguageServer"
+
+        /** The page's markup, which the shared script draws into. */
+        private const val PAGE_BODY = """<div id="editor">
+<div id="stage"><canvas id="grid"></canvas><div id="status"></div></div>
+<div id="sidebar"></div>
+</div>"""
 
         fun getInstance(project: Project): PartGridEditorService = project.getService(PartGridEditorService::class.java)
     }

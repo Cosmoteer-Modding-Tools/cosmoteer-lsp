@@ -1,0 +1,12 @@
+// A small stand-in for the game's own bucket registry, enough for the draw-order hover to read a
+// name's place out of the list it is written in.
+LowerBuckets
+[
+	BulletLower1
+	CannonShoot
+	Lower1
+]
+UpperBuckets
+[
+	OnlyOne
+]

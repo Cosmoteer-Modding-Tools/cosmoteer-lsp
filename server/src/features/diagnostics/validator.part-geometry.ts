@@ -2,6 +2,8 @@ import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { resolveGroupClass } from '../../document/schema/schema-context';
+import { effectiveMember } from '../../semantics/effective-member';
+import { flattenList } from '../../semantics/effective-group';
 import { findMemberThroughInheritance, ResolveReferenceFn } from '../../semantics/inheritance-resolver';
 import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
 import { CELL_SET_FIELDS, MAP_FIELDS, PART_RULES_CLASS } from '../part-editor/part-fields';
@@ -97,7 +99,7 @@ const wholeCell = (node: AbstractNode | null | undefined): { x: number; y: numbe
  * @param document the parsed document.
  * @returns the part groups to judge, in source order.
  */
-const instantiatedParts = (document: AbstractNodeDocument): GroupNode[] => {
+export const instantiatedParts = (document: AbstractNodeDocument): GroupNode[] => {
     const parts: GroupNode[] = [];
     const visit = (node: AbstractNode): void => {
         // The id check runs first because it is a member scan, while resolving the class walks the
@@ -292,6 +294,47 @@ const judgeDoorToggles = (part: GroupNode, size: PartSize, errors: ValidationErr
     for (const element of part.elements) visit(element);
 };
 
+/** The shorthand fields that each add one keep-out rect per category the part prohibits. */
+const PROHIBIT_SHORTHANDS: readonly string[] = ['ProhibitLeft', 'ProhibitRight', 'ProhibitAbove', 'ProhibitBelow'];
+
+/**
+ * Flags a prohibit shorthand on a part whose effective `Prohibits` list is empty.
+ *
+ * The shorthands add one keep-out rect per category the list names, so with no category named they
+ * add nothing and the part happily takes the neighbour it was written to keep away. Parts inherit
+ * `Prohibits = [default]` from `base_part.rules`, so this can only fire on a part that clears the
+ * inherited list, which is the shape the shorthand is silently dead in.
+ *
+ * @param part the part group.
+ * @param cancellationToken cancels the inheritance fold of the list.
+ * @param errors collects the findings.
+ */
+const judgeProhibits = async (
+    part: GroupNode,
+    cancellationToken: CancellationToken,
+    errors: ValidationError[]
+): Promise<void> => {
+    const written = PROHIBIT_SHORTHANDS.map((field) => childNamed(part, field)).filter(
+        (node): node is AbstractNode => !!node
+    );
+    if (written.length === 0) return;
+    const member = await effectiveMember(part, 'Prohibits', cancellationToken).catch(() => null);
+    if (!member || !isListNode(member.node)) return;
+    const flattened = await flattenList(member.node, cancellationToken);
+    // A chain the walk could not read in full might supply a category this level cannot see, and a
+    // report on half a chain would be a false one.
+    if (!flattened.complete || flattened.entries.length > 0) return;
+    for (const node of written) {
+        errors.push({
+            message: l10n.t(
+                'This part prohibits no category, so this keep-out distance adds nothing. The shorthands add one rect per category in `Prohibits`, which is empty here.'
+            ),
+            node,
+            severity: 'warning',
+        });
+    }
+};
+
 /**
  * Runs the part-geometry checks over a document.
  * @param document the parsed document to validate.
@@ -312,6 +355,7 @@ export const validatePartGeometry = async (
         for (const spec of MAP_FIELDS) judgeMapKeys(part, spec.field, size, errors);
         judgePhysicalRect(part, size, errors);
         judgeDoorToggles(part, size, errors);
+        await judgeProhibits(part, cancellationToken, errors);
     }
     return errors;
 };

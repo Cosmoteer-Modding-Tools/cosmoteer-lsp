@@ -1,0 +1,24 @@
+// Stands in for the game's tech tree: two techs in the vanilla shape, one unlocking a part and one
+// building on it.
+Techs
+[
+	{
+		ID = cosmoteer.laser
+		NameKey = &<./Data/ships/terran/laser/laser.rules>/Part/NameKey
+		DescriptionKey = "Parts/LaserDesc"
+		Icon = &<./Data/ships/terran/laser/laser.rules>/Part/EditorIcon
+		EditorGroup = "WeaponsEnergy"
+		PartsUnlocked = [&<./Data/ships/terran/laser/laser.rules>/Part/ID]
+		Cost = 3000
+	}
+	{
+		ID = cosmoteer.armor
+		OtherIDs = [cosmoteer.armor_plate]
+		NameKey = "Parts/Armor"
+		DescriptionKey = "Parts/ArmorDesc"
+		EditorGroup = "Structure"
+		PartsUnlocked = [&<./Data/ships/terran/armor/armor.rules>/Part/ID]
+		Cost = 1000
+		Prerequisites = [cosmoteer.laser]
+	}
+]

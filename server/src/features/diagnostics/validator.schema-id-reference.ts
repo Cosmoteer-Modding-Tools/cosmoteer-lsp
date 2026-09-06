@@ -39,6 +39,7 @@ import {
     declaredDependenciesOf,
     identityOfMod,
     isDeclaredDependency,
+    isSameMod,
 } from '../../mod/mod-dependencies';
 import { closestMatch } from '../../utils/did-you-mean';
 import { globalSettings } from '../../settings';
@@ -572,6 +573,7 @@ export const undeclaredDependencyErrors = async (
     const ownRoot = findModRoot(document.uri);
     if (!ownRoot) return [];
     const declared = await declaredDependenciesOf(ownRoot).catch(() => new Set<string>());
+    const ownIdentity = await identityOfMod(ownRoot).catch(() => null);
     const errors: ValidationError[] = [];
     for (const [root, reference] of rescuedBy) {
         if (cancellationToken.isCancellationRequested) return errors;
@@ -580,6 +582,10 @@ export const undeclaredDependencyErrors = async (
         if (sameModRoot(root, ownRoot)) continue;
         const identity = await identityOfMod(root).catch(() => null);
         if (!identity || isDeclaredDependency(declared, identity)) continue;
+        // The same mod in two folders is one mod. A mod worked on in the mods folder is usually
+        // installed from the workshop too, and an id it declares itself resolves into whichever copy
+        // the walk reached first, which is not a dependency on anybody.
+        if (ownIdentity && isSameMod(identity, ownIdentity)) continue;
         const token = dependencyTokenOf(identity);
         const name = identity.name ?? identity.manifestId ?? token ?? root;
         errors.push({

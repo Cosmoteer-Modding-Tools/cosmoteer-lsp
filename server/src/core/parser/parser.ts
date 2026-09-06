@@ -4,6 +4,7 @@ import { ALLOWED_AUDIO_EXTENSIONS } from '../../utils/constants';
 import {
     AbstractNode,
     AbstractNodeDocument,
+    AstPosition,
     ListNode,
     AssignmentNode,
     ExpressionNode,
@@ -110,6 +111,20 @@ const IN_STRING_RUN: ReadonlySet<TOKEN_TYPES> = new Set([
  * @returns whether identifiers in this container stand alone.
  */
 const isListElementIdentifier = (parent: AbstractNode | undefined): boolean => parent?.type === 'List';
+
+/**
+ * The span a single-token node covers, as the token's own extent.
+ *
+ * @param token the token the node is built from.
+ * @returns the node position.
+ */
+const tokenPosition = (token: Token): AstPosition => ({
+    characterEnd: token.lineOffset + (token.value as string)?.length,
+    characterStart: token.lineOffset,
+    end: token.end ?? 0,
+    line: token.lineNumber,
+    start: token.start,
+});
 
 // Hoisted out of the parse loop, which tests these for every member name and for the guarded
 // sign/slash branches of every parsed file. A regex literal in the body allocates a fresh RegExp per
@@ -1039,18 +1054,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     type: 'Assignment',
                     assignmentType: 'Equals',
                     parent,
-                    left: {
-                        type: 'Identifier',
-                        name: token.value,
-                        parent,
-                        position: {
-                            characterEnd: token.lineOffset + (token.value as string)?.length,
-                            characterStart: token.lineOffset,
-                            end: token.end ?? 0,
-                            line: token.lineNumber,
-                            start: token.start,
-                        },
-                    } as IdentifierNode,
+                    left: { type: 'Identifier', name: token.value, parent, position: tokenPosition(token) } as IdentifierNode,
                     right: valueIsEmpty ? null : continueMathExpression(walk(_lastNode, parent), parent),
                 } as AssignmentNode;
             } else if (
@@ -1076,27 +1080,10 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     type: 'Value',
                     valueType: inferValueType(IS_NUMBER, token),
                     parent,
-                    position: {
-                        characterEnd: token.lineOffset + (token.value as string)?.length,
-                        characterStart: token.lineOffset,
-                        end: token.end ?? 0,
-                        line: token.lineNumber,
-                        start: token.start,
-                    },
+                    position: tokenPosition(token),
                 } as ValueNode;
             } else {
-                node = {
-                    type: 'Identifier',
-                    name: token.value,
-                    parent,
-                    position: {
-                        characterEnd: token.lineOffset + (token.value as string)?.length,
-                        characterStart: token.lineOffset,
-                        end: token.end ?? 0,
-                        line: token.lineNumber,
-                        start: token.start,
-                    },
-                } as IdentifierNode;
+                node = { type: 'Identifier', name: token.value, parent, position: tokenPosition(token) } as IdentifierNode;
                 // The game accepts a bare `&…` reference only as a list element or a field
                 // value. In group or document position it throws `Unexpected "&"` and the whole
                 // file fails to load, so report it as a parse error while keeping the node for

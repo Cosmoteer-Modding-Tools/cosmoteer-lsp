@@ -353,6 +353,27 @@ const workspaceStampMap = async (folderPaths: string[]): Promise<Map<string, [nu
 };
 
 /**
+ * Whether a saved stamp list still describes the workspace folders exactly: the same files, each
+ * with the same size and modification time.
+ *
+ * @param stamps the stamps a cache file recorded.
+ * @param folderPaths the workspace folder fs paths.
+ * @returns true when nothing was added, removed or touched since.
+ */
+const stampsStillCurrent = async (
+    stamps: Array<[path: string, size: number, mtimeMs: number]>,
+    folderPaths: string[]
+): Promise<boolean> => {
+    const current = await workspaceStampMap(folderPaths);
+    if (stamps.length !== current.size) return false;
+    for (const [path, size, mtimeMs] of stamps) {
+        const now = current.get(foldPathCase(path));
+        if (!now || now[0] !== size || now[1] !== mtimeMs) return false;
+    }
+    return true;
+};
+
+/**
  * Loads the persisted scan results when nothing that feeds them moved since they were saved (see
  * the gate description above).
  *
@@ -379,12 +400,7 @@ export const tryLoadScanCache = async (
         if (cache.settingsKey !== settingsKey) return undefined;
         if (!Array.isArray(cache.stamps) || !Array.isArray(cache.entries)) return undefined;
         if (cache.manifestHash !== (await manifestHashOf(dataRoot))) return undefined;
-        const current = await workspaceStampMap(folderPaths);
-        if (cache.stamps.length !== current.size) return undefined;
-        for (const [path, size, mtimeMs] of cache.stamps) {
-            const now = current.get(foldPathCase(path));
-            if (!now || now[0] !== size || now[1] !== mtimeMs) return undefined;
-        }
+        if (!(await stampsStillCurrent(cache.stamps, folderPaths))) return undefined;
         for (const entry of cache.entries) {
             if (!Array.isArray(entry) || typeof entry[0] !== 'string') return undefined;
             if (typeof entry[1] !== 'number' || typeof entry[2] !== 'number') return undefined;
@@ -558,5 +574,149 @@ export const saveProjectCache = async (
         await rename(temp, file);
     } catch {
         /* best-effort cache, never fail the build over it */
+    }
+};
+
+// ── Text gate cache ──────────────────────────────────────────────────────────────────────────
+// An index that can rule a file out from its raw text still has to read the file to do so, and
+// the mod-action indexes rule out nearly every file of a mod that way on every start. The files a
+// gate rejected are remembered with their on-disk identity, so the next start skips their read
+// as long as they have not changed. Only rejections are kept: an accepted file is read and parsed
+// either way, and a rejected file that changes is read again because its stamp no longer matches.
+
+/** Bump when the meaning of a persisted rejection changes. */
+const TEXT_GATE_FORMAT_VERSION = 1;
+
+/** One rejected file: its path and the identity the rejection was made under. */
+export type TextGateEntry = [path: string, size: number, mtimeMs: number];
+
+interface TextGateFile {
+    formatVersion: number;
+    dataRoot: string;
+    entries: TextGateEntry[];
+}
+
+/**
+ * The files a text gate rejected in an earlier session.
+ *
+ * @param dataRoot the game `Data` root the cache directory is keyed by.
+ * @param gateId the gate whose rejections to load.
+ * @returns the rejected files with their identities, empty when nothing usable is on disk.
+ */
+export const tryLoadTextGate = async (dataRoot: string, gateId: string): Promise<TextGateEntry[]> => {
+    try {
+        const raw = await readFile(cacheArtifactPath(dataRoot, `text-gate-${gateId}`), { encoding: 'utf-8' });
+        const cache = JSON.parse(raw) as TextGateFile;
+        if (cache.formatVersion !== TEXT_GATE_FORMAT_VERSION || cache.dataRoot !== dataRoot) return [];
+        return Array.isArray(cache.entries) ? cache.entries : [];
+    } catch {
+        return [];
+    }
+};
+
+/**
+ * Persists the files a text gate rejected, best-effort.
+ *
+ * @param dataRoot the game `Data` root the cache directory is keyed by.
+ * @param gateId the gate the rejections belong to.
+ * @param entries the rejected files with the identities they were rejected under.
+ */
+export const saveTextGate = async (dataRoot: string, gateId: string, entries: TextGateEntry[]): Promise<void> => {
+    try {
+        const file = cacheArtifactPath(dataRoot, `text-gate-${gateId}`);
+        await mkdir(dirname(file), { recursive: true });
+        const cache: TextGateFile = { formatVersion: TEXT_GATE_FORMAT_VERSION, dataRoot, entries };
+        const temp = `${file}.${process.pid}.tmp`;
+        await writeFile(temp, JSON.stringify(cache), { encoding: 'utf-8' });
+        await rename(temp, file);
+    } catch {
+        /* best-effort cache, never fail the build over it */
+    }
+};
+
+// ── Alias-root cache ─────────────────────────────────────────────────────────────────────────
+// The forward alias walk from `cosmoteer.rules` resolves and parses every fragment the game root
+// reaches, on every start. Its result depends on the game tree and on the mod's files, which is the
+// gate the scan cache already uses, so the walk's result is kept behind the same gate.
+
+/** Bump when the persisted shape of the alias-root state changes. */
+const ALIAS_ROOT_FORMAT_VERSION = 1;
+
+interface AliasRootCacheFile {
+    formatVersion: number;
+    serverBuildId: string;
+    dataRoot: string;
+    manifestHash: string;
+    stamps: Array<[path: string, size: number, mtimeMs: number]>;
+    state: unknown;
+}
+
+/**
+ * The artifact of the alias-root cache for one workspace over one install.
+ *
+ * @param dataRoot the game `Data` root.
+ * @param folderPaths the workspace folder fs paths.
+ * @returns the artifact path.
+ */
+const aliasRootCacheFileFor = (dataRoot: string, folderPaths: string[]): string =>
+    cacheArtifactPath(dataRoot, `alias-root-${folderKeyOf(folderPaths)}`);
+
+/**
+ * The saved alias-root state, when it was computed under exactly the state the session is in:
+ * same build, same install, bit-identical workspace files.
+ *
+ * @param dataRoot the game `Data` root the walk resolved against.
+ * @param folderPaths the workspace folder fs paths.
+ * @returns the saved state, or undefined when nothing usable is on disk.
+ */
+export const tryLoadAliasRootCache = async (dataRoot: string, folderPaths: string[]): Promise<unknown> => {
+    const buildId = serverBuildId();
+    if (!buildId) return undefined;
+    try {
+        const file = aliasRootCacheFileFor(dataRoot, folderPaths);
+        const raw = await readFile(file, { encoding: 'utf-8' });
+        const cache = JSON.parse(raw) as AliasRootCacheFile;
+        if (cache.formatVersion !== ALIAS_ROOT_FORMAT_VERSION) return undefined;
+        if (cache.serverBuildId !== buildId || cache.dataRoot !== dataRoot) return undefined;
+        if (!Array.isArray(cache.stamps) || cache.state === undefined) return undefined;
+        if (cache.manifestHash !== (await manifestHashOf(dataRoot))) return undefined;
+        if (!(await stampsStillCurrent(cache.stamps, folderPaths))) return undefined;
+        void touchBestEffort(file);
+        return cache.state;
+    } catch {
+        return undefined;
+    }
+};
+
+/**
+ * Saves the alias-root state with the gate keys of the state it was computed under. Best-effort.
+ *
+ * @param dataRoot the game `Data` root the walk resolved against.
+ * @param folderPaths the workspace folder fs paths.
+ * @param state the built index as plain data.
+ */
+export const saveAliasRootCache = async (dataRoot: string, folderPaths: string[], state: unknown): Promise<void> => {
+    const buildId = serverBuildId();
+    if (!buildId) return;
+    try {
+        const file = aliasRootCacheFileFor(dataRoot, folderPaths);
+        await mkdir(dirname(file), { recursive: true });
+        const stamps: AliasRootCacheFile['stamps'] = [];
+        for (const [path, [size, mtimeMs]] of await workspaceStampMap(folderPaths)) {
+            stamps.push([path, size, mtimeMs]);
+        }
+        const cache: AliasRootCacheFile = {
+            formatVersion: ALIAS_ROOT_FORMAT_VERSION,
+            serverBuildId: buildId,
+            dataRoot,
+            manifestHash: await manifestHashOf(dataRoot),
+            stamps,
+            state,
+        };
+        const temp = `${file}.${process.pid}.tmp`;
+        await writeFile(temp, JSON.stringify(cache), { encoding: 'utf-8' });
+        await rename(temp, file);
+    } catch {
+        /* best-effort cache, never fail the start over it */
     }
 };

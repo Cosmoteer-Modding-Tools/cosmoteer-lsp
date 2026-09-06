@@ -1,0 +1,4 @@
+// A particle effect naming buckets, so the draw-order hover has a value to read.
+Type = Particles
+Bucket = CannonShoot
+PenetratingBucket = OnlyOne

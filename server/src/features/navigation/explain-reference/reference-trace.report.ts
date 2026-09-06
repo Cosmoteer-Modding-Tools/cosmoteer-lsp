@@ -12,14 +12,8 @@ import { basenameOf } from '../../../document/document-kind';
 import { findNodeAtPosition } from '../../../utils/ast.utils';
 import { code, linkDestination, plainPathOf } from '../../report/markdown-link';
 import { findReferenceTargetAtPosition } from '../reference-index';
-import {
-    AvailableAt,
-    HopKind,
-    ReferenceHop,
-    ReferenceTrace,
-    TracePlace,
-    traceReference,
-} from './reference-trace';
+import { traceReference } from './reference-trace';
+import { AvailableAt, HopKind, ReferenceHop, ReferenceTrace, TracePlace } from './reference-trace.types';
 
 /**
  * The "why does this reference not resolve" report.

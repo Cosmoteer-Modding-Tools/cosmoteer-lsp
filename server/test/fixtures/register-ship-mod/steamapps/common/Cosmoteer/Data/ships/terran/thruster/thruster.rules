@@ -1,0 +1,12 @@
+Part : <../base_part_terran.rules>/Part
+{
+	ID = cosmoteer.thruster
+	NameKey = "Parts/Thruster"
+	Size = [1, 1]
+	MaxHealth = 300
+	TypeCategories = [thruster, uses_power]
+	Resources
+	[
+		[steel, 8]
+	]
+}

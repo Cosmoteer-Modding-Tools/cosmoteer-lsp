@@ -11,6 +11,7 @@ import {
 import { namedMembersOf } from '../../utils/ast.utils';
 import {
     findEnclosingContainer,
+    documentScopeClass,
     findEnclosingGroup,
     findEnclosingList,
     groupClassCandidates,
@@ -20,7 +21,7 @@ import {
     memberScopeClassAt,
     registryForGroup,
 } from '../../document/schema/schema-context';
-import { documentRootClass, documentRootRegistry } from '../../document/schema/document-root';
+import { documentRootRegistry } from '../../document/schema/document-root';
 import {
     fieldOf,
     fieldSignatureMarkdown,
@@ -135,7 +136,7 @@ export const schemaFieldNameCompletions = async (
     if (container && isListNode(container)) return listElementCompletions(container);
     const group = findEnclosingGroup(document, offset);
     // Inheritance-aware: a `MyTurret : ^/0/Turret { … }` group inherits its class from the base.
-    let cls = group ? await resolveClassThroughInheritance(group, cancellationToken) : documentRootClass(document);
+    let cls = group ? await resolveClassThroughInheritance(group, cancellationToken) : documentScopeClass(document);
     // A shader constant written in group form (`_waveTex { … }`) is not a schema field, so the slot
     // walk cannot type it. Resolve its class from the material's referenced `.shader` file instead.
     if (!cls && group) cls = await shaderConstantGroupClass(group, document.uri, cancellationToken);

@@ -2,10 +2,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { join } from 'path';
 import { CancellationToken, Position } from 'vscode-languageserver';
 import { AbstractNodeDocument, IdentifierNode, isIdentifierNode } from '../../../src/core/ast/ast';
-import {
-    ReferenceTrace,
-    traceReference,
-} from '../../../src/features/navigation/explain-reference/reference-trace';
+import { traceReference } from '../../../src/features/navigation/explain-reference/reference-trace';
+import { ReferenceTrace } from '../../../src/features/navigation/explain-reference/reference-trace.types';
 import {
     generateReferenceTraceReport,
     renderReferenceTrace,

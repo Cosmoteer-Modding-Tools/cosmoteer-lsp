@@ -49,6 +49,9 @@ const MODIFIABLE_TIME = {
     kind: 'number',
     type: 'ModifiableTime',
     groupForm: 'Cosmoteer.Ships.ModifiableValue',
+    // The unit the extractor stamps on every wait, which is how a reader tells one from any other
+    // number without knowing the engine's duration types by name.
+    unit: 'seconds',
 } as const;
 
 /** A reference to a ship render layer (`ID<ShipRenderLayerRules>`). */

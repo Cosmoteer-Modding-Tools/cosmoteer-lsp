@@ -14,9 +14,9 @@ import { findMemberThroughInheritance } from '../../semantics/inheritance-resolv
 import {
     EffectiveMember,
     effectiveMember,
-    effectiveSubGroups,
     resolveReference,
 } from '../../semantics/effective-member';
+import { componentsOfPart as allComponents } from '../../semantics/part-components';
 import { resolveAssetPath } from '../navigation/asset-resolver';
 import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
 import { referenceNodesOf } from '../navigation/reference-index';
@@ -517,26 +517,6 @@ const GRAPHICS_OFFSET_SLOTS: readonly string[] = [
     'OperationalRoofLighting',
     'BlueprintSprite',
 ];
-
-/**
- * All named component groups of a part, whatever their class, merged across the `Components`
- * group's own inheritance chain so components a part gathers from other files are included.
- * @param part the part group.
- * @param token cancels reference resolution.
- * @returns the components with their resolved class, local declarations first.
- */
-const allComponents = async (
-    part: GroupNode,
-    token: CancellationToken
-): Promise<Array<{ name: string; group: GroupNode; cls: string | undefined }>> => {
-    const components = await effectiveMember(part, 'Components', token);
-    if (!components || !isGroupNode(components.node)) return [];
-    return (await effectiveSubGroups(components.node, token)).map((entry) => ({
-        name: entry.name,
-        group: entry.group,
-        cls: resolveGroupClass(entry.group),
-    }));
-};
 
 /** Whether a component carries a field, by schema class or by a locally written member. */
 const hasField = (group: GroupNode, cls: string | undefined, field: string): boolean =>

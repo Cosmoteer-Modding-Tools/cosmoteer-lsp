@@ -135,6 +135,39 @@ const rulesUnder = (dir: string, out: string[] = [], depth = 0): string[] => {
     return out;
 };
 
+// The shorthands add one keep-out rect per category the part prohibits, so with no category named
+// they add nothing at all. Parts inherit `Prohibits = [default]`, so only a part that clears the
+// inherited list can reach this.
+describe('a prohibit shorthand on a part that prohibits nothing', () => {
+    beforeAll(async () => {
+        await initWorkspace();
+    });
+
+    it('says the keep-out distance adds nothing', async () => {
+        const body = [`${TAB}Size = [2, 2]`, `${TAB}Prohibits`, `${TAB}[`, `${TAB}]`, `${TAB}ProhibitLeft = 2`].join(NEWLINE);
+        expect(await messages(body)).toEqual([
+            'This part prohibits no category, so this keep-out distance adds nothing. The shorthands add one rect per category in `Prohibits`, which is empty here.',
+        ]);
+    });
+
+    it('says nothing where the part prohibits a category', async () => {
+        const body = [
+            `${TAB}Size = [2, 2]`,
+            `${TAB}Prohibits`,
+            `${TAB}[`,
+            `${TAB}${TAB}default`,
+            `${TAB}]`,
+            `${TAB}ProhibitLeft = 2`,
+        ].join(NEWLINE);
+        expect(await messages(body)).toEqual([]);
+    });
+
+    it('says nothing where no shorthand is written', async () => {
+        const body = [`${TAB}Size = [2, 2]`, `${TAB}Prohibits`, `${TAB}[`, `${TAB}]`].join(NEWLINE);
+        expect(await messages(body)).toEqual([]);
+    });
+});
+
 describe.skipIf(!existsSync(VANILLA))('validatePartGeometry over the whole vanilla tree', () => {
     beforeAll(async () => {
         await initWorkspace();

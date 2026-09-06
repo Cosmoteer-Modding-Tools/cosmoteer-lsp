@@ -9,10 +9,7 @@ import com.intellij.diff.DiffManager
 import com.intellij.diff.chains.SimpleDiffRequestChain
 import com.intellij.diff.requests.DiffRequest
 import com.intellij.diff.requests.SimpleDiffRequest
-import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
-import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -20,10 +17,9 @@ import com.intellij.openapi.fileTypes.FileTypeManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.LocalFileSystem
-import com.redhat.devtools.lsp4ij.LanguageServerManager
 import cosmoteer.lsp.commandResultOf
-import cosmoteer.preview.ShaderPreviewService
-import org.eclipse.lsp4j.ExecuteCommandParams
+import cosmoteer.lsp.executeServerCommand
+import cosmoteer.lsp.notifyCosmoteer
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
@@ -59,13 +55,7 @@ object SharedBaseFlow {
      * @returns the raw `workspace/executeCommand` result, null when no server is running.
      */
     fun executeCommand(project: Project, arguments: JsonObject): CompletableFuture<Any?> =
-        LanguageServerManager.getInstance(project)
-            .getLanguageServer(ShaderPreviewService.SERVER_ID)
-            .thenCompose { item ->
-                item?.server?.workspaceService
-                    ?.executeCommand(ExecuteCommandParams(COMMAND, listOf(arguments)))
-                    ?: CompletableFuture.completedFuture<Any?>(null)
-            }
+        executeServerCommand(project, COMMAND, arguments)
 
     /**
      * Asks the server what a plan would do, and carries on into the diff and the confirmation.
@@ -286,10 +276,7 @@ object SharedBaseFlow {
      * @param type the balloon's severity.
      */
     fun showNotification(project: Project, content: String, type: NotificationType) {
-        NotificationGroupManager.getInstance()
-            .getNotificationGroup("Cosmoteer Language Server")
-            .createNotification("Cosmoteer shared base", content, type)
-            .notify(project)
+        notifyCosmoteer(project, "Cosmoteer shared base", content, type)
     }
 
     /** The server's own command id, the one it declares and answers. */

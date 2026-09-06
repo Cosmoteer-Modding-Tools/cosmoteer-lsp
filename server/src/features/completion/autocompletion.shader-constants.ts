@@ -4,7 +4,7 @@ import { resolveGroupClass } from '../../document/schema/schema-context';
 import { TEXTURE_GROUP_CLASS } from '../../document/schema/schema-overlay';
 import { acceptsShaderConstants } from '../../document/schema/schema';
 import { resolveAssetPath } from '../../features/navigation/asset-resolver';
-import { ShaderConstant, ShaderConstantKind } from '../../features/shader/shader-parser';
+import { ShaderConstant, ShaderConstantKind } from '../../features/shader/shader-parser.types';
 import { shaderConstants } from '../../features/shader/shader-index';
 import { materialShaderNode } from '../../features/shader/shader-reference';
 import { Completion } from './autocompletion.service';

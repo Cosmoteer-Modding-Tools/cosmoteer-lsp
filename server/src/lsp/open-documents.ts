@@ -25,7 +25,7 @@ import { collectIncludeText } from '../features/shader/shader-index';
 import { documents } from './context';
 import { diagnosticsCache, inlayHintCache } from './document-caches';
 import { bumpWorkspaceScanEpoch } from './scan-epoch';
-import { invalidateShipLayersFor } from './ship-layers';
+import { invalidatePartTableFor } from '../features/part-table/part-table.service';
 
 /**
  * The parsed AST for an open document, parsing the live buffer on demand when the validation
@@ -91,18 +91,22 @@ export function ensureLexResult(document: TextDocument): {
  * next query. Every path that changes a file has to dirty the same set, an open-buffer edit, a disk
  * change and a refactor's write alike, so the set is named in one place here.
  *
+ * The ship-layer index is not in the set: it reads ships and manifests from disk, so an unsaved
+ * edit cannot change what it would build, and dropping it per keystroke made every edit of a file
+ * under `ships/` re-walk the game tree for nothing. The disk-change paths drop it themselves.
+ *
  * @param uri the uri of the file whose content changed.
  */
 export function markProjectIndexesDirty(uri: string): void {
     WorkspaceSymbolService.instance.markDirty(uri);
     SchemaIdIndex.instance.markDirty(uri);
-    invalidateShipLayersFor(uri);
     TemplateBaseIndex.instance.markDirty(uri);
     LocalizationKeyIndex.instance.markDirty(uri);
     ReverseIncludeIndex.instance.markDirty(uri);
     AddBaseIndex.instance.markDirty(uri);
     MemberInjectionIndex.instance.markDirty(uri);
     ActionRootingIndex.instance.markDirty(uri);
+    invalidatePartTableFor(uri);
 }
 
 /**

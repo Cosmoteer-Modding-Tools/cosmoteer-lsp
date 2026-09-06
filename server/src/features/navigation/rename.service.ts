@@ -10,6 +10,7 @@ import {
     ValueNode,
 } from '../../core/ast/ast';
 import { getStartOfAstNode } from '../../utils/ast.utils';
+import { dedupeEdits } from '../../utils/text-edit.utils';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { DefinitionService, isReferenceValue } from './definition.service';
 import { FullNavigationStrategy } from './full.navigation-strategy';
@@ -326,15 +327,3 @@ const deriveRenameSymbol = (node: AbstractNode): RenameSymbol | null => {
     return null;
 };
 
-/** Drop duplicate edits within each file (same range, e.g., a self-reference + declaration). */
-const dedupeEdits = (changes: { [uri: string]: TextEdit[] }): void => {
-    for (const uri of Object.keys(changes)) {
-        const seen = new Set<string>();
-        changes[uri] = changes[uri].filter((edit) => {
-            const key = `${edit.range.start.line}:${edit.range.start.character}-${edit.range.end.line}:${edit.range.end.character}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-    }
-};

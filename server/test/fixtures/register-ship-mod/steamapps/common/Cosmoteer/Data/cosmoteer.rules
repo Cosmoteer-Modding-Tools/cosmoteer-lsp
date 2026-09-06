@@ -1,0 +1,18 @@
+// Stands in for the game's own root rules file: the registries the ship and faction commands read,
+// and nothing else.
+Crew = &<crew/crew.rules>
+Resources = &<resources/resources.rules>/Resources
+Factions = &<factions/factions.rules>/Factions
+Doodads = &<doodads/doodads.rules>/Doodads
+CareerMode = &<modes/career/career.rules>
+CreativeMode = &<modes/creative/creative.rules>
+Nebulas = &<nebulas/nebulas.rules>
+Menus = &<gui/menus.rules>
+BuiltinShips = &<builtin_ships/builtins.rules>/Ships
+Ships
+[
+	&<ships/terran/terran.rules>/Terran
+	&<ships/inherited/inherited.rules>/Inherited
+	&<ships/asteroid/asteroid.rules>/Asteroid
+]
+TIER_TABLES = &<modes/career/tier_tables.rules>

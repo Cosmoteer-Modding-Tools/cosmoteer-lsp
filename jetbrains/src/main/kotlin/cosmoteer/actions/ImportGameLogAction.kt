@@ -11,10 +11,8 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.testFramework.LightVirtualFile
-import com.redhat.devtools.lsp4ij.LanguageServerManager
+import cosmoteer.lsp.executeServerCommand
 import cosmoteer.lsp.commandResultOf
-import cosmoteer.preview.ShaderPreviewService
-import org.eclipse.lsp4j.ExecuteCommandParams
 import java.net.URI
 import java.nio.file.Paths
 
@@ -51,14 +49,7 @@ class ImportGameLogAction : AnAction() {
      * @return the raw `workspace/executeCommand` result, null when no server is running.
      */
     private fun execute(project: Project, uri: String) =
-        LanguageServerManager.getInstance(project)
-            .getLanguageServer(ShaderPreviewService.SERVER_ID)
-            .thenCompose { item ->
-                val arguments = JsonObject().apply { addProperty("uri", uri) }
-                item?.server?.workspaceService
-                    ?.executeCommand(ExecuteCommandParams(COMMAND, listOf(arguments)))
-                    ?: java.util.concurrent.CompletableFuture.completedFuture<Any?>(null)
-            }
+        executeServerCommand(project, COMMAND, JsonObject().apply { addProperty("uri", uri) })
 
     /**
      * Renders the import: a notification for every outcome that has nothing to show, and a markdown

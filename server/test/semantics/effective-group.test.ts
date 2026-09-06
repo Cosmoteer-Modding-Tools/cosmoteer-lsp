@@ -4,12 +4,12 @@ import { AbstractNode, AbstractNodeDocument, GroupNode, ListNode, isGroupNode, i
 import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
 import {
-    EffectiveListEntry,
     flattenGroup,
     flattenList,
     flattenListMember,
     invalidateEffectiveChainCache,
 } from '../../src/semantics/effective-group';
+import { EffectiveListEntry } from '../../src/semantics/effective-group.types';
 import {
     registerMemberEnumerationSource,
     registerMemberExtensionSource,

@@ -67,17 +67,27 @@ export const currentFsTrustGeneration = (): number | undefined => (trustDepth > 
 const readdirCache: Map<string, ReaddirEntry> = new Map();
 const parseCache: Map<string, ParseEntry> = new Map();
 
+/**
+ * A callback run whenever the fs caches are invalidated. It receives the on-disk path of the one
+ * file that changed, or nothing when every path may have, so a cache that knows what it derived
+ * from which file can drop that file's share instead of starting over. The distinction is what
+ * keeps a save from costing a whole-mod re-read: before it, one changed file emptied every
+ * derived cache in the server, and the next validation walked, read and parsed the mod again.
+ */
+export type FsInvalidationListener = (fsPath?: string) => void;
+
 /** Callbacks to run whenever the fs caches are invalidated, so dependent caches (the navigation
  *  memo) stay consistent with what resolution would now read from disk. */
-const invalidationListeners: Array<() => void> = [];
+const invalidationListeners: FsInvalidationListener[] = [];
 
 /**
  * Registers a callback invoked on every {@link invalidateFsPath} and {@link clearFsCaches}, so a
  * cache derived from resolution results can drop itself when the underlying files may have changed.
+ * A listener that ignores the path it is handed keeps the old wholesale behaviour.
  *
  * @param listener the callback to run on each invalidation.
  */
-export const onFsInvalidation = (listener: () => void): void => {
+export const onFsInvalidation = (listener: FsInvalidationListener): void => {
     invalidationListeners.push(listener);
 };
 
@@ -273,7 +283,7 @@ export const cachedParseFilePath = async (
     // it, which is what a game update installed mid session looks like. Everything worked out from
     // the old text is stale too, so the caches derived from resolution are told, the same way a
     // watched change tells them. Only a real replacement announces, never a first read.
-    if (cached) for (const listener of invalidationListeners) listener();
+    if (cached) for (const listener of invalidationListeners) listener(fsPath);
     parseCache.set(key, {
         size: stats.size,
         mtimeMs: stats.mtimeMs,
@@ -343,10 +353,20 @@ export const primeParsedFile = async (fsPath: string, document: AbstractNodeDocu
  * @param fsPath the on-disk path of the changed file.
  */
 export const invalidateFsPath = (fsPath: string): void => {
-    parseCache.delete(keyOf(fsPath));
+    const key = keyOf(fsPath);
+    parseCache.delete(key);
     readdirCache.delete(keyOf(path.dirname(fsPath)));
-    existsMemo.clear();
-    for (const listener of invalidationListeners) listener();
+    // A created or deleted file changes the existence answer for its own path, and a file created
+    // inside a directory the memo had never seen changes the answer for that directory too. Every
+    // other answer stands, so only the path and its ancestors are forgotten. Emptying the whole memo
+    // here made every save re-probe the thousands of paths the refactoring analyses ask about.
+    for (let ancestor = key; ; ) {
+        existsMemo.delete(ancestor);
+        const parent = ancestor.slice(0, ancestor.lastIndexOf('/'));
+        if (parent.length === 0 || parent === ancestor) break;
+        ancestor = parent;
+    }
+    for (const listener of invalidationListeners) listener(fsPath);
 };
 
 /** Empties the caches. For workspace-root changes and tests. */

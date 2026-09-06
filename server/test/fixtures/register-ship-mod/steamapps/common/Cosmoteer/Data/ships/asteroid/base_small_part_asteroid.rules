@@ -1,0 +1,15 @@
+// A cut-down copy of the game's small asteroid tile: the fields that make a tile an asteroid tile.
+Part : <../base_part.rules>/Part
+{
+	Size = [1, 1]
+	Density = 10
+	MaxHealth = 10000
+	Flammable = false
+	IsRotateable = true
+	CrewSpeedFactor = 0
+	TypeCategories = [asteroid]
+
+	Components : ^/0/Components
+	{
+	}
+}

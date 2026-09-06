@@ -14,7 +14,8 @@ import {
 import { basenameOf } from '../../document/document-kind';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { SchemaField } from '../../document/schema/schema.types';
-import { MemberOrigin, flattenGroup } from '../../semantics/effective-group';
+import { flattenGroup } from '../../semantics/effective-group';
+import { MemberOrigin } from '../../semantics/effective-group.types';
 import { inheritanceEntriesOf, memberValueOf } from '../../semantics/reference-resolver';
 import { Completion } from './autocompletion.service';
 

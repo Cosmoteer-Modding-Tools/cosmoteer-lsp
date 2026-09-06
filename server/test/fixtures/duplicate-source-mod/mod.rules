@@ -1,0 +1,16 @@
+ID = Test.DuplicateSourceMod
+Name = "Two files, one id"
+
+// Registers the part into a real ship Parts list, which is what roots it. Its bullet emitter then
+// names a bullet file kept beside it, the way a mod keeps a shot next to the weapon that fires it.
+Actions
+[
+	{
+		Action = AddMany
+		AddTo = "<ships/partship.rules>/PartShip/Parts"
+		ManyToAdd
+		[
+			&<weapon.rules>/Part
+		]
+	}
+]

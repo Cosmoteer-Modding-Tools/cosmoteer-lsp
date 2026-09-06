@@ -1077,7 +1077,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -1088,7 +1089,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -1117,7 +1119,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -1128,7 +1131,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -1166,7 +1170,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -1186,7 +1191,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -1518,7 +1524,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -1570,7 +1577,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -1770,7 +1778,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -1781,7 +1790,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -1801,7 +1811,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -1935,7 +1946,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -2570,7 +2582,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableAngle",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "degrees"
           },
           "optional": false,
           "absentThrows": true
@@ -2699,7 +2712,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": true,
@@ -2710,7 +2724,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -2720,7 +2735,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -2792,7 +2808,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -3317,7 +3334,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": true,
@@ -3413,7 +3431,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -3795,7 +3814,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": true,
@@ -3882,7 +3902,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -5117,7 +5138,8 @@
             "element": {
               "kind": "number",
               "type": "ModifiableTime",
-              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+              "groupForm": "Cosmoteer.Ships.ModifiableValue",
+              "unit": "seconds"
             }
           },
           "optional": false,
@@ -5148,7 +5170,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -5261,7 +5284,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -5334,7 +5358,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -5425,7 +5450,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -5667,7 +5693,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -5676,7 +5703,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -5886,7 +5914,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableAngle",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "degrees"
           },
           "optional": true
         },
@@ -5934,7 +5963,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableAngle",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "degrees"
           },
           "optional": true
         },
@@ -6986,7 +7016,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true
@@ -7006,7 +7037,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -7907,7 +7939,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -7917,7 +7950,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -9026,7 +9060,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": false,
@@ -9075,7 +9110,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -9259,7 +9295,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -9611,7 +9648,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -9750,7 +9788,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -9763,7 +9802,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": false,
@@ -9852,7 +9892,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": false,
@@ -9866,7 +9907,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": false,
@@ -9939,7 +9981,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": false,
@@ -9963,7 +10006,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": false,
@@ -10812,7 +10856,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -13830,7 +13875,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -13886,7 +13932,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -14149,7 +14196,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -14444,7 +14492,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -14605,7 +14654,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -14616,7 +14666,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -14627,7 +14678,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -14763,7 +14815,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -14774,7 +14827,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -14794,7 +14848,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -15595,7 +15650,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -15621,7 +15677,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -15640,7 +15697,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -17142,7 +17200,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -17151,7 +17210,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -17298,7 +17358,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -17315,7 +17376,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -17412,7 +17474,8 @@
             "element": {
               "kind": "number",
               "type": "ModifiableAngle",
-              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+              "groupForm": "Cosmoteer.Ships.ModifiableValue",
+              "unit": "degrees"
             }
           },
           "optional": true,
@@ -17425,7 +17488,8 @@
             "element": {
               "kind": "number",
               "type": "ModifiableAngle",
-              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+              "groupForm": "Cosmoteer.Ships.ModifiableValue",
+              "unit": "degrees"
             }
           },
           "optional": true
@@ -17592,7 +17656,8 @@
             "element": {
               "kind": "number",
               "type": "ModifiableAngle",
-              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+              "groupForm": "Cosmoteer.Ships.ModifiableValue",
+              "unit": "degrees"
             }
           },
           "optional": true,
@@ -17628,7 +17693,8 @@
             "element": {
               "kind": "number",
               "type": "ModifiableAngle",
-              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+              "groupForm": "Cosmoteer.Ships.ModifiableValue",
+              "unit": "degrees"
             }
           },
           "optional": true
@@ -17728,7 +17794,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -17918,7 +17985,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableAngle",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "degrees"
           },
           "optional": true
         },
@@ -17967,7 +18035,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -18016,7 +18085,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -18189,7 +18259,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableAngle",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "degrees"
           },
           "optional": false,
           "absentThrows": true
@@ -18208,7 +18279,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableAngle",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "degrees"
           },
           "optional": true
         },
@@ -18226,7 +18298,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableAngle",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "degrees"
           },
           "optional": true
         },
@@ -18235,7 +18308,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableAngle",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "degrees"
           },
           "optional": false,
           "absentThrows": true
@@ -18255,7 +18329,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableAngle",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "degrees"
           },
           "optional": false,
           "absentThrows": true
@@ -18343,7 +18418,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -18353,7 +18429,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -18506,7 +18583,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true
@@ -19461,7 +19539,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -19470,7 +19549,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -19479,7 +19559,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -20429,7 +20510,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true
@@ -20439,7 +20521,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -20457,7 +20540,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -20667,7 +20751,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -20744,7 +20829,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -20926,7 +21012,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -21462,7 +21549,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableAngle",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "degrees"
           },
           "optional": true
         },
@@ -21471,7 +21559,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableAngle",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "degrees"
           },
           "optional": true
         },
@@ -21480,7 +21569,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableAngle",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "degrees"
           },
           "optional": true
         },
@@ -21549,7 +21639,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true
@@ -21702,7 +21793,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true
@@ -22415,7 +22507,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -22646,7 +22739,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true
@@ -24010,7 +24104,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -24523,7 +24618,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -25449,7 +25545,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -25643,7 +25740,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableAngle",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "degrees"
           },
           "optional": false,
           "absentThrows": true
@@ -25862,7 +25960,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -26116,7 +26215,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": true
@@ -26133,7 +26233,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -27335,7 +27436,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": false,
@@ -27531,7 +27633,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": false,
@@ -27604,7 +27707,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -27784,7 +27888,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": true
@@ -29688,7 +29793,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -29757,7 +29863,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -29895,7 +30002,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -29904,7 +30012,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -29913,7 +30022,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -30533,7 +30643,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -30590,7 +30701,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -30601,7 +30713,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -30612,7 +30725,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -30641,7 +30755,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -30821,7 +30936,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -31033,7 +31149,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -31044,7 +31161,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -31153,7 +31271,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -31164,7 +31283,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -31392,7 +31512,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -31403,7 +31524,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -31414,7 +31536,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -31425,7 +31548,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -31436,7 +31560,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -31570,7 +31695,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -31581,7 +31707,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -31671,7 +31798,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -31682,7 +31810,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -33058,7 +33187,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -33407,7 +33537,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -33476,7 +33607,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -33513,7 +33645,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -33524,7 +33657,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -33544,7 +33678,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -33573,7 +33708,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -33629,7 +33765,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -33876,7 +34013,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -34033,7 +34171,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": false,
@@ -34063,7 +34202,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -34156,7 +34296,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -34176,7 +34317,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -34756,7 +34898,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -34779,7 +34922,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -34802,7 +34946,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -34825,7 +34970,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -34843,7 +34989,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -34854,7 +35001,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -34870,7 +35018,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -34888,7 +35037,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -34899,7 +35049,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -34915,7 +35066,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -34938,7 +35090,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -34956,7 +35109,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -34967,7 +35121,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -34983,7 +35138,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -35006,7 +35162,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -35029,7 +35186,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -35052,7 +35210,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -35075,7 +35234,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -35098,7 +35258,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -35121,7 +35282,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -35139,7 +35301,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -35155,7 +35318,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -35178,7 +35342,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -35201,7 +35366,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -36570,7 +36736,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -37585,7 +37752,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -37608,7 +37776,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -37631,7 +37800,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -37654,7 +37824,8 @@
                 {
                   "kind": "group",
                   "ref": "Halfling.Timing.Time",
-                  "name": "Time"
+                  "name": "Time",
+                  "unit": "seconds"
                 },
                 {
                   "kind": "group",
@@ -37672,7 +37843,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -37683,7 +37855,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -37694,7 +37867,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -37725,7 +37899,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -38334,7 +38509,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -44589,7 +44765,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -47640,7 +47817,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -48128,7 +48306,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -48175,7 +48354,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -49452,7 +49632,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -49499,7 +49680,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -49641,7 +49823,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -49718,7 +49901,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -51365,7 +51549,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -51496,7 +51681,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -51568,7 +51754,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -51619,7 +51806,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -52584,7 +52772,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": false,
@@ -52809,7 +52998,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -52820,7 +53010,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -52831,7 +53022,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -52842,7 +53034,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -52930,7 +53123,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true,
@@ -53285,7 +53479,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -53305,7 +53500,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -53699,7 +53895,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true
@@ -53770,7 +53967,8 @@
             "element": {
               "kind": "number",
               "type": "ModifiableTime",
-              "groupForm": "Cosmoteer.Ships.ModifiableValue"
+              "groupForm": "Cosmoteer.Ships.ModifiableValue",
+              "unit": "seconds"
             }
           },
           "optional": true,
@@ -53884,7 +54082,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -54004,7 +54203,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableAngle",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "degrees"
           },
           "optional": false,
           "absentThrows": true
@@ -54022,7 +54222,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -54276,7 +54477,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -54503,7 +54705,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true
         },
@@ -54970,7 +55173,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -55004,7 +55208,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -55014,7 +55219,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -55024,7 +55230,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -55246,7 +55453,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -55256,7 +55464,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -55266,7 +55475,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -55379,7 +55589,8 @@
           "valueType": {
             "kind": "number",
             "type": "ModifiableTime",
-            "groupForm": "Cosmoteer.Ships.ModifiableValue"
+            "groupForm": "Cosmoteer.Ships.ModifiableValue",
+            "unit": "seconds"
           },
           "optional": false,
           "absentThrows": true
@@ -55950,7 +56161,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": true,
@@ -56738,7 +56950,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -60035,7 +60248,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -60099,7 +60313,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -60109,7 +60324,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -60255,7 +60471,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -60299,7 +60516,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -60824,7 +61042,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -60834,7 +61053,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -60844,7 +61064,8 @@
           "valueType": {
             "kind": "group",
             "ref": "Halfling.Timing.Time",
-            "name": "Time"
+            "name": "Time",
+            "unit": "seconds"
           },
           "optional": true,
           "nullable": false
@@ -63583,7 +63804,8 @@
             "element": {
               "kind": "group",
               "ref": "Halfling.Timing.Time",
-              "name": "Time"
+              "name": "Time",
+              "unit": "seconds"
             }
           },
           "optional": true,
@@ -65664,6 +65886,688 @@
     ],
     "Cosmoteer.Ships.Statuses.StatusValueRegulatorRules": [
       15
+    ]
+  },
+  "componentAncestry": {
+    "Cosmoteer.Bullets.Death.BulletDeathByEnemyProximity": [
+      1
+    ],
+    "Cosmoteer.Bullets.Hits.BulletDamagePool": [
+      0,
+      1
+    ],
+    "Cosmoteer.Bullets.Hits.BulletPenetratingHit": [
+      1
+    ],
+    "Cosmoteer.Bullets.Hits.BulletSimpleHit": [
+      1
+    ],
+    "Cosmoteer.Bullets.IBulletComponentFactor": [
+      1
+    ],
+    "Cosmoteer.Bullets.Targeting.BulletTargetable": [
+      1,
+      2
+    ],
+    "Cosmoteer.Ships.Blueprints.Logic.BlueprintPartNetworkToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Blueprints.Logic.BlueprintPartNetworkToggleReceiver": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Blueprints.Logic.BlueprintPartStaticToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Blueprints.Logic.Values.BlueprintPartBuffableValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Blueprints.Logic.Values.BlueprintPartMultiValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Blueprints.Logic.Values.BlueprintPartNetworkValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Blueprints.Logic.Values.BlueprintPartNetworkValueReceiver": [
+      15
+    ],
+    "Cosmoteer.Ships.Blueprints.Logic.Values.BlueprintPartStaticValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Blueprints.Logic.Values.BlueprintPartTileLineScoreValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Blueprints.Logic.Values.BlueprintPartToggleValueSelector": [
+      15
+    ],
+    "Cosmoteer.Ships.Blueprints.Logic.Values.BlueprintPartValueOperation": [
+      15
+    ],
+    "Cosmoteer.Ships.Networks.BasePartNetworkResourceStorage": [
+      9,
+      13,
+      14,
+      15,
+      16,
+      22
+    ],
+    "Cosmoteer.Ships.Networks.IPartNetworkToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Networks.IPartNetworkTrigger": [
+      14
+    ],
+    "Cosmoteer.Ships.Networks.IPartNetworkValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkPort": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkResourceInput": [
+      9,
+      13,
+      14,
+      15,
+      16,
+      22
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkResourceOutput": [
+      9,
+      13,
+      14,
+      15,
+      16,
+      22
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkToggleReceiver": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkTrigger": [
+      14
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkTriggerReceiver": [
+      14
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Networks.PartNetworkValueReceiver": [
+      15
+    ],
+    "Cosmoteer.Ships.Networks.Queries.ISubnetworkToggleQueryResult": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Networks.Queries.ISubnetworkTriggerQueryResult": [
+      14
+    ],
+    "Cosmoteer.Ships.Networks.Queries.ISubnetworkValueQueryResult": [
+      15
+    ],
+    "Cosmoteer.Ships.Networks.Queries.SubnetworkToggleQueryResult\u00602": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Networks.Queries.SubnetworkToggleQueryResult\u00602/AllToggleModeHandle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Networks.Queries.SubnetworkToggleQueryResult\u00602/AnyToggleModeHandle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Networks.Queries.SubnetworkToggleQueryResult\u00602/BaseToggleModeHandle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Networks.Queries.SubnetworkToggleQueryResult\u00602/NoneToggleModeHandle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Networks.Queries.SubnetworkToggleQueryResult\u00602/OneToggleModeHandle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Networks.Queries.SubnetworkTriggerQueryResult\u00602": [
+      14
+    ],
+    "Cosmoteer.Ships.Networks.Queries.SubnetworkValueQueryResult\u00602": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Buffs.PartBuffProvider": [
+      3
+    ],
+    "Cosmoteer.Ships.Parts.Buffs.PartBuffToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Buffs.PartBuffableValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Buffs.PartFloodBuffProvider": [
+      3
+    ],
+    "Cosmoteer.Ships.Parts.ChainablePartComponent": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Colliders.BaseCollider": [
+      4,
+      5
+    ],
+    "Cosmoteer.Ships.Parts.Colliders.CircleCollider": [
+      4,
+      5
+    ],
+    "Cosmoteer.Ships.Parts.Colliders.PolygonCollider": [
+      4,
+      5
+    ],
+    "Cosmoteer.Ships.Parts.Commands.CommandToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Construction.PartConstructionTracker": [
+      8,
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Crew.CrewDestinationProximityToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Crew.CrewLocation": [
+      4,
+      6
+    ],
+    "Cosmoteer.Ships.Parts.Crew.CrewSource": [
+      8
+    ],
+    "Cosmoteer.Ships.Parts.Crew.PartCrew": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Defenses.ArcShield": [
+      4,
+      7,
+      14
+    ],
+    "Cosmoteer.Ships.Parts.Effects.PartContinuousEffects": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Effects.PartDeathEffects": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Effects.PartToggleEffects": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Effects.PartTriggeredEffects": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Ftl.FtlDrive": [
+      9,
+      13,
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.BasePartValueSprites": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.IPartComponentColor": [
+      8
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartBlendSprite": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartBlendSpriteGrid": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartGraphics": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartIndicatorSprites": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartMultiColor": [
+      8
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartOpenCloseSprite": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartResourceSprites": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartRoofOpacityValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartShieldArcsMimic": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartSprite": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartSpriteGrid": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartToggledBlendSprites": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartValueColor": [
+      8
+    ],
+    "Cosmoteer.Ships.Parts.Graphics.PartValueSprites": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Logic.BaseTileScoreValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.ComponentPresenceToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Logic.DistanceThreshold": [
+      9,
+      13,
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.DoorPresenceToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Logic.FanArcController": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Logic.IComponentToggleProvider": [
+      9
+    ],
+    "Cosmoteer.Ships.Parts.Logic.IPartComponentDistance": [
+      10
+    ],
+    "Cosmoteer.Ships.Parts.Logic.IPartComponentMode": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.IPartComponentTime": [
+      12
+    ],
+    "Cosmoteer.Ships.Parts.Logic.IPartComponentToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Logic.IPartComponentTrigger": [
+      14
+    ],
+    "Cosmoteer.Ships.Parts.Logic.IPartComponentValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.JunkToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartBurstTrigger": [
+      14
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartChainableProxy": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartDamageTrigger": [
+      14
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartDebugMode": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartDebugToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartDebugTrigger": [
+      14
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartDebugValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartDelayTrigger": [
+      14
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartDestroyedTrigger": [
+      14
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartHealthToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartLazyMultiValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartModeCycle": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartModeProxy": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartModeToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartModeTrigger": [
+      14
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartMultiToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartMultiTrigger": [
+      14
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartMultiValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartPolledValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartSmoothedValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartStaticMode": [
+      11
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartStaticToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartStaticValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartStopwatch": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartThresholdToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartThresholdTrigger": [
+      14
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartTileLineScoreValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartTileScoreValue": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartTimer": [
+      9,
+      13,
+      14,
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartTimer/IsRunningToggleProvider": [
+      9
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartToggleProxy": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartToggleTrigger": [
+      14
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartToggleValueSelector": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartTransformLerp": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartTransformMatch": [
+      4,
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartTriggerProxy": [
+      14
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartTriggeredToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartValueAccumulator": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartValueChangeTrigger": [
+      14,
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartValueLerp": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartValueOperation": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartValueProxy": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.PartValueTween": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Logic.ShipConstructionToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.OperationalChainablePartComponent": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Resources.BaseResourceStorage": [
+      9,
+      13,
+      14,
+      15,
+      16,
+      22
+    ],
+    "Cosmoteer.Ships.Parts.Resources.IResourceStorage": [
+      16
+    ],
+    "Cosmoteer.Ships.Parts.Resources.InlineResourceConverter": [
+      9,
+      13,
+      14,
+      15,
+      16,
+      22
+    ],
+    "Cosmoteer.Ships.Parts.Resources.IonEnergyStorage": [
+      9,
+      13,
+      14,
+      15,
+      16,
+      22
+    ],
+    "Cosmoteer.Ships.Parts.Resources.MultiResourceStorage": [
+      9,
+      13,
+      14,
+      15,
+      16,
+      22
+    ],
+    "Cosmoteer.Ships.Parts.Resources.ResourceConsumingStorage": [
+      9,
+      13,
+      14,
+      15,
+      16,
+      22
+    ],
+    "Cosmoteer.Ships.Parts.Resources.ResourceConverter": [
+      9,
+      13,
+      14,
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Resources.ResourceStorage": [
+      9,
+      13,
+      14,
+      15,
+      16,
+      22
+    ],
+    "Cosmoteer.Ships.Parts.Resources.ResourceStorageProxy": [
+      9,
+      13,
+      14,
+      15,
+      16,
+      22
+    ],
+    "Cosmoteer.Ships.Parts.Resources.TriggeredResourceConverter": [
+      9,
+      13,
+      14,
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Resources.TypedResourceGrid": [
+      9,
+      13,
+      14,
+      15,
+      16,
+      22
+    ],
+    "Cosmoteer.Ships.Parts.Thrusters.Thruster": [
+      4,
+      15
+    ],
+    "Cosmoteer.Ships.Parts.UI.PartProgressBar": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.UI.PartUIColor": [
+      8
+    ],
+    "Cosmoteer.Ships.Parts.UI.PartUIToggle": [
+      9,
+      11,
+      13,
+      17
+    ],
+    "Cosmoteer.Ships.Parts.UI.PartUITrigger": [
+      14
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.BeamEmitter": [
+      4,
+      9,
+      10,
+      13,
+      14,
+      15,
+      18,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.BeamEmitterProxy": [
+      4,
+      14,
+      15,
+      18,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.BeamRegulator": [
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.BulletEmitter": [
+      4,
+      14,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.DirectControlToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.Emitter": [
+      4,
+      14,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.EmitterProxy": [
+      4,
+      14,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.FixedWeapon": [
+      4,
+      9,
+      13,
+      14,
+      15,
+      21
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.IBeamEmitter": [
+      14,
+      15,
+      18,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.IEmitter": [
+      14,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.Oscillator": [
+      4
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.PartToggleEmitterSelector": [
+      4,
+      14,
+      19
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.RailgunProjectile": [
+      4,
+      12,
+      14,
+      15
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.TurretWeapon": [
+      4,
+      9,
+      10,
+      13,
+      14,
+      15,
+      20,
+      21
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.Weapon": [
+      4,
+      9,
+      13,
+      14,
+      15,
+      21
+    ],
+    "Cosmoteer.Ships.Parts.Weapons.Weapon/NullEmitter": [
+      14,
+      19
+    ],
+    "Cosmoteer.Ships.Repairs.DestroyedPartNetworkPort": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Resources.IResourceConsumerTarget": [
+      16,
+      22
+    ],
+    "Cosmoteer.Ships.Statuses.PartStatusToggle": [
+      9,
+      13
+    ],
+    "Cosmoteer.Ships.Statuses.StatusValueRegulator": [
+      15
+    ],
+    "Cosmoteer.Source.Ships.Blueprints.BlueprintPartNetworkPort": [
+      9,
+      13
     ]
   },
   "unresolved": {

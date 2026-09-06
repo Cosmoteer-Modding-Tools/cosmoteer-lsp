@@ -28,3 +28,18 @@ describe('MentionIndex disk-text feed', () => {
         expect(real!.some((p) => p.replace(/\\/g, '/').endsWith('orphan/dead.rules'))).toBe(true);
     });
 });
+
+describe('MentionIndex sweep scope', () => {
+    beforeEach(() => MentionIndex.instance.reset());
+
+    it('keeps an entry outside the swept folders until a sweep covers its folder', async () => {
+        // The entry carries the file's real identity and a word the file does not hold, so an
+        // answer naming it proves the sweep trusted the entry rather than re-reading the file.
+        const info = statSync(deadFile);
+        MentionIndex.instance.ingestDiskText(deadFile, info.size, info.mtimeMs, 'FabricatedWordNotOnDisk');
+        const elsewhere = join(FIXTURES_DIR, 'workspace');
+        await MentionIndex.instance.candidateFiles('Anything', [elsewhere], token);
+        const kept = await MentionIndex.instance.candidateFiles('FabricatedWordNotOnDisk', [folder], token);
+        expect(kept!.some((p) => p.replace(/\\/g, '/').endsWith('orphan/dead.rules'))).toBe(true);
+    });
+});

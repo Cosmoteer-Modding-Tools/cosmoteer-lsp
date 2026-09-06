@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, statSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 import { CosmoteerWorkspaceService } from './cosmoteer-workspace.service';
@@ -64,4 +64,32 @@ export const localModDirs = (): string[] => {
         }
     }
     return dirs;
+};
+
+/**
+ * The mod folders the game loads on this machine: every folder of the workshop tree and of the
+ * user's own `Mods` folders.
+ *
+ * @returns the mod roots, empty when neither location exists.
+ */
+export const installedModRoots = (): string[] => {
+    const roots: string[] = [];
+    for (const parent of [workshopContentDir(), ...localModDirs()]) {
+        if (!parent) continue;
+        let entries: string[];
+        try {
+            entries = readdirSync(parent);
+        } catch {
+            continue;
+        }
+        for (const entry of entries) {
+            const root = join(parent, entry);
+            try {
+                if (statSync(root).isDirectory()) roots.push(root);
+            } catch {
+                /* a folder that vanished between the listing and the probe */
+            }
+        }
+    }
+    return roots;
 };

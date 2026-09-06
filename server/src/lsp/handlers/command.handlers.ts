@@ -2,8 +2,8 @@ import { CancellationToken } from 'vscode-languageserver/node';
 import { OPEN_IN_DECOMPILER_COMMAND } from '../../features/hover/decompiler-link';
 import { OpenInDecompilerArgs, openInDecompiler } from '../../features/hover/decompiler-launcher';
 import { MIGRATE_WORKSPACE_COMMAND } from '../../features/migration/migrate-workspace';
-import { MIGRATE_SYMBOL_COMMAND, MigrateSymbolArgs } from '../../features/migration/migrate-symbol';
-import { POST_UPDATE_REPORT_COMMAND } from '../../features/post-update/post-update-report';
+import { MIGRATE_SYMBOL_COMMAND } from '../../features/migration/migrate-symbol';
+import { MigrateSymbolArgs } from '../../features/migration/migration.types';
 import { BUILD_MOD_SCHEMA_COMMAND } from '../../features/mod-schema/mod-schema';
 import {
     EXTRACT_LOCALIZATION_KEY_COMMAND,
@@ -13,36 +13,46 @@ import {
 } from '../../features/refactor/extract-localization-key';
 import {
     EXTRACT_SHARED_BASE_COMMAND,
-    ExtractSharedBaseArgs,
     extractSharedBase,
 } from '../../features/refactor/shared-base/shared-base.command';
-import {
-    EXTRACT_GROUP_COMMAND,
-    ExtractGroupArgs,
-    extractGroupToFile,
-} from '../../features/refactor/extract-group/extract-group.command';
+import { ExtractSharedBaseArgs } from '../../features/refactor/shared-base/shared-base.types';
+import { EXTRACT_GROUP_COMMAND, extractGroupToFile } from '../../features/refactor/extract-group/extract-group.command';
+import { ExtractGroupArgs } from '../../features/refactor/extract-group/extract-group.types';
 import {
     CREATE_COMPONENT_COMMAND,
-    CreateComponentArgs,
     createComponent,
 } from '../../features/refactor/create-component/create-component.command';
+import { CreateComponentArgs } from '../../features/refactor/create-component/create-component.types';
 import {
     REGISTER_PART_IN_SHIP_COMMAND,
-    RegisterPartArgs,
     registerPartInShip,
 } from '../../features/refactor/register-part/register-part.command';
+import { RegisterPartArgs } from '../../features/refactor/register-part/register-part.types';
 import {
     OVERRIDE_IN_MOD_COMMAND,
-    OverrideInModArgs,
     overrideInMod,
 } from '../../features/refactor/override-in-mod/override-in-mod.command';
-import {
-    CLONE_DECLARATION_COMMAND,
-    CloneDeclarationArgs,
-    cloneDeclaration,
-} from '../../features/refactor/clone-declaration/clone.command';
+import { OverrideInModArgs } from '../../features/refactor/override-in-mod/override-in-mod.types';
+import { CLONE_DECLARATION_COMMAND, cloneDeclaration } from '../../features/refactor/clone-declaration/clone.command';
+import { CloneDeclarationArgs } from '../../features/refactor/clone-declaration/clone.types';
 import { NEW_CONTENT_COMMAND, newContent } from '../../features/refactor/new-content/new-content.command';
 import { NEW_MOD_COMMAND, newMod } from '../../features/refactor/new-mod/new-mod.command';
+import { REGISTER_SHIP_COMMAND, registerShip } from '../../features/ships/register-ship.command';
+import { RegisterShipArgs } from '../../features/ships/register-ship.types';
+import { NEW_FACTION_COMMAND, newFaction } from '../../features/ships/new-faction.command';
+import { NewFactionArgs } from '../../features/ships/new-faction.types';
+import { NEW_NEBULA_COMMAND, newNebula } from '../../features/ships/new-nebula.command';
+import { NewNebulaArgs } from '../../features/ships/new-nebula.types';
+import { NEW_GALAXY_SIZE_COMMAND, newGalaxySize } from '../../features/ships/new-galaxy-size.command';
+import { NewGalaxySizeArgs } from '../../features/ships/new-galaxy-size.types';
+import { NEW_ASTEROID_TYPE_COMMAND, newAsteroidType } from '../../features/ships/new-asteroid-type.command';
+import { NewAsteroidTypeArgs } from '../../features/ships/new-asteroid-type.types';
+import { NEW_PLANET_COMMAND, newPlanet } from '../../features/ships/new-planet.command';
+import { NewPlanetArgs } from '../../features/ships/new-planet.types';
+import { TRADE_GOOD_COMMAND, tradeGood } from '../../features/ships/trade-good.command';
+import { TradeGoodArgs } from '../../features/ships/trade-good.types';
+import { NEW_TECH_COMMAND, newTech } from '../../features/ships/new-tech.command';
+import { NewTechArgs } from '../../features/ships/new-tech.types';
 import { NewModArgs } from '../../features/refactor/new-mod/new-mod.types';
 import { NewContentArgs } from '../../features/refactor/new-content/new-content.types';
 import { GameLogHost, IMPORT_GAME_LOG_COMMAND, importGameLog } from '../../features/game-log/import-game-log.command';
@@ -72,10 +82,13 @@ import {
     createComponentHost,
     extractGroupHost,
     newContentHost,
+    newFactionHost,
+    newTechHost,
     registerPartHost,
+    registerShipHost,
     sharedBaseHost,
 } from '../hosts';
-import { migrateWorkspace, postUpdateReport } from '../migration';
+import { migrateWorkspace } from '../migration';
 import { rebuildModSchema } from '../mod-schema';
 import { ensureParserResult, openBufferReadOverride } from '../open-documents';
 import { bumpWorkspaceScanEpoch } from '../scan-epoch';
@@ -107,15 +120,6 @@ export function register(): void {
             });
         }
 
-        // What the game update changed for this mod. Reads the findings the last scan already produced
-        // and the recording taken before the update, so it never validates anything a second time, and
-        // folds in a dry run of the migration, which is the other half of "what do I have to do now".
-        if (params.command === POST_UPDATE_REPORT_COMMAND) {
-            return await postUpdateReport().catch((e) => {
-                if (globalSettings.trace.server === 'messages') console.error(e);
-                return null;
-            });
-        }
         // The same migration narrowed to one deprecation and to the mod the offer came from. It runs on
         // the server for the same reason the whole-workspace one does: one implementation works the
         // rewrite out and both clients only trigger it and show the summary.
@@ -269,6 +273,106 @@ export function register(): void {
             beginFsTrustWindow();
             try {
                 return await newContent(args, newContentHost(), CancellationToken.None).catch((e) => {
+                    if (globalSettings.trace.server === 'messages') console.error(e);
+                    return null;
+                });
+            } finally {
+                endFsTrustWindow();
+            }
+        }
+        // Putting saved ships into a faction's spawn pool: the blueprints are read, judged against
+        // the game's own figures and written into the mod's builtin_ships tree, so the part walk
+        // and the registries need the same rooting the part table does.
+        if (params.command === REGISTER_SHIP_COMMAND) {
+            const args = (params.arguments?.[0] ?? {}) as RegisterShipArgs;
+            await ensureFragmentRooting(CancellationToken.None);
+            beginFsTrustWindow();
+            try {
+                return await registerShip(args, registerShipHost(), CancellationToken.None).catch((e) => {
+                    if (globalSettings.trace.server === 'messages') console.error(e);
+                    return null;
+                });
+            } finally {
+                endFsTrustWindow();
+            }
+        }
+        // Creating a faction writes the files the galaxy generator needs beside the faction itself,
+        // and wires each of them in from the manifest, which is the same read of the mod's manifests
+        // the content command does.
+        if (params.command === NEW_FACTION_COMMAND) {
+            const args = (params.arguments?.[0] ?? {}) as NewFactionArgs;
+            await ensureFragmentRooting(CancellationToken.None);
+            beginFsTrustWindow();
+            try {
+                return await newFaction(args, newFactionHost(), CancellationToken.None).catch((e) => {
+                    if (globalSettings.trace.server === 'messages') console.error(e);
+                    return null;
+                });
+            } finally {
+                endFsTrustWindow();
+            }
+        }
+        // A nebula and a galaxy size are built on the game's own files the same way a faction is,
+        // and wired in from the manifest the same way, so they share the faction's host and gate.
+        if (params.command === NEW_NEBULA_COMMAND || params.command === NEW_GALAXY_SIZE_COMMAND) {
+            await ensureFragmentRooting(CancellationToken.None);
+            beginFsTrustWindow();
+            try {
+                const run =
+                    params.command === NEW_NEBULA_COMMAND
+                        ? newNebula((params.arguments?.[0] ?? {}) as NewNebulaArgs, newContentHost(), CancellationToken.None)
+                        : newGalaxySize((params.arguments?.[0] ?? {}) as NewGalaxySizeArgs, newContentHost(), CancellationToken.None);
+                return await run.catch((e) => {
+                    if (globalSettings.trace.server === 'messages') console.error(e);
+                    return null;
+                });
+            } finally {
+                endFsTrustWindow();
+            }
+        }
+        // A planet and a trade good are built on the game's own files the same way a nebula is, and
+        // both pickers show names from the language files, which the ship host already reads.
+        if (params.command === NEW_PLANET_COMMAND || params.command === TRADE_GOOD_COMMAND) {
+            await ensureFragmentRooting(CancellationToken.None);
+            beginFsTrustWindow();
+            try {
+                const host = { ...newContentHost(), localizedName: registerShipHost().localizedName };
+                const run =
+                    params.command === NEW_PLANET_COMMAND
+                        ? newPlanet((params.arguments?.[0] ?? {}) as NewPlanetArgs, host, CancellationToken.None)
+                        : tradeGood((params.arguments?.[0] ?? {}) as TradeGoodArgs, host, CancellationToken.None);
+                return await run.catch((e) => {
+                    if (globalSettings.trace.server === 'messages') console.error(e);
+                    return null;
+                });
+            } finally {
+                endFsTrustWindow();
+            }
+        }
+        // A tech reads the mod's own parts and the game's tech tree, with names from the language files.
+        if (params.command === NEW_TECH_COMMAND) {
+            await ensureFragmentRooting(CancellationToken.None);
+            beginFsTrustWindow();
+            try {
+                return await newTech((params.arguments?.[0] ?? {}) as NewTechArgs, newTechHost(), CancellationToken.None).catch((e) => {
+                    if (globalSettings.trace.server === 'messages') console.error(e);
+                    return null;
+                });
+            } finally {
+                endFsTrustWindow();
+            }
+        }
+        // An asteroid type is built on the game's own asteroid class and registries the same way, and
+        // the ship host names the resources through the language files.
+        if (params.command === NEW_ASTEROID_TYPE_COMMAND) {
+            await ensureFragmentRooting(CancellationToken.None);
+            beginFsTrustWindow();
+            try {
+                return await newAsteroidType(
+                    (params.arguments?.[0] ?? {}) as NewAsteroidTypeArgs,
+                    registerShipHost(),
+                    CancellationToken.None
+                ).catch((e) => {
                     if (globalSettings.trace.server === 'messages') console.error(e);
                     return null;
                 });

@@ -33,9 +33,9 @@ import {
     NON_SIBLING_FIELDS,
     PLAIN_ID,
     RUNTIME_INJECTED_IDS,
-    targetsAnotherPart,
     tupleComponentTargetAt,
 } from '../diagnostics/validator.schema-sibling';
+import { targetsAnotherPart } from '../../semantics/part-components';
 import { childNodesOf, documentRootOf, namedMembersOf } from '../../utils/ast.utils';
 import { Completion } from './autocompletion.service';
 import { ValueType } from '../../document/schema/schema.types';

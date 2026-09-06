@@ -1,0 +1,2 @@
+// Stands in for the game's menu rules: the ship the title screen flies in.
+LogoShip = "logo.ship.png"

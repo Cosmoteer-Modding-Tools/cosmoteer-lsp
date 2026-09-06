@@ -1,60 +1,8 @@
-import { Disposable, ExtensionContext, Position, Uri, ViewColumn, WebviewPanel, commands, l10n, window, workspace } from 'vscode';
+import { Disposable, ExtensionContext, Position, Uri, ViewColumn, WebviewPanel, commands, l10n, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
-import { imageDataUri, stringsScript, webviewShell } from '../webview-util';
+import { createCosmoteerPanel, disposeAll, imageDataUri, stringsScript, webviewShell } from '../webview-util';
 import { shaderPreviewStrings } from '../webview-strings';
-
-/** The preview payload shape returned by the server's `cosmoteer/shaderPreview` request. */
-interface ShaderPreviewData {
-    shaderName: string;
-    shaderUri: string | null;
-    glsl: string | null;
-    vertexStage: {
-        glsl: string;
-        fragment: string;
-        kind: 'sprite' | 'particle' | 'beam' | 'crew' | 'shipPart';
-    } | null;
-    translationOk: boolean;
-    reason?: string;
-    constants: Array<{
-        name: string;
-        kind: string;
-        hlslType: string;
-        default?: string;
-        value?: string;
-        components?: number[];
-        isColor?: boolean;
-    }>;
-    textures: Array<{
-        name: string;
-        uri: string | null;
-        sampler: { sampleMode: string; uMode: string; vMode: string; mips: boolean; mipCount?: number };
-    }>;
-    blend: {
-        label: string;
-        srcRgb: string;
-        dstRgb: string;
-        rgbOp: string;
-        srcAlpha: string;
-        dstAlpha: string;
-        alphaOp: string;
-    };
-    tint: string | null;
-    tintComponents: number[] | null;
-    isParticle: boolean;
-    isBeam: boolean;
-    particleColor: { lifetime: number; invert: boolean; colors: number[][] } | null;
-    spriteSheet: {
-        textureSize: number[];
-        spriteSize: number[];
-        count: number;
-        perRow: number;
-        offset: number[];
-        animated: boolean;
-    } | null;
-    particleLifetime: number | null;
-    baseSize: number[] | null;
-    size: string | null;
-}
+import { ShaderPreviewData } from './preview-panel.types';
 
 /**
  * Owns the single live shader-preview webview. It asks the language server for the material under the
@@ -77,14 +25,7 @@ export class ShaderPreviewPanel {
         private readonly context: ExtensionContext,
         private readonly client: LanguageClient
     ) {
-        this.panel = window.createWebviewPanel('cosmoteerShaderPreview', l10n.t('Shader Preview'), ViewColumn.Beside, {
-            enableScripts: true,
-            retainContextWhenHidden: true,
-            // Only the bundled webview assets need to load as resources. The sprite texture can live
-            // anywhere under the game or a workshop mod (outside any workspace folder), so it is inlined
-            // as a data URI instead of relying on localResourceRoots.
-            localResourceRoots: [Uri.joinPath(context.extensionUri, 'media')],
-        });
+        this.panel = createCosmoteerPanel(context, 'cosmoteerShaderPreview', l10n.t('Shader Preview'), ViewColumn.Beside);
         this.panel.onDidDispose(() => this.dispose());
         this.panel.webview.onDidReceiveMessage((message) => this.onMessage(message));
         // Live update: re-render when the previewed material's document, or its resolved shader file,
@@ -96,8 +37,7 @@ export class ShaderPreviewPanel {
     /** Tears down the panel's listeners and pending refresh, and clears the singleton. */
     private dispose(): void {
         if (this.refreshTimer) clearTimeout(this.refreshTimer);
-        for (const disposable of this.disposables) disposable.dispose();
-        this.disposables.length = 0;
+        disposeAll(this.disposables);
         ShaderPreviewPanel.current = undefined;
     }
 
@@ -193,4 +133,3 @@ ${stringsScript(nonce, shaderPreviewStrings())}
 </html>`;
     }
 }
-

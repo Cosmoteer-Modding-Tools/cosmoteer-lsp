@@ -1,0 +1,4 @@
+Part : <../base_part.rules>/Part
+{
+	ConstructionSwapDelay = 0.2
+}

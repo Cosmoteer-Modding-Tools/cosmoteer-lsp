@@ -9,10 +9,8 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
-import com.redhat.devtools.lsp4ij.LanguageServerManager
+import cosmoteer.lsp.executeServerCommand
 import cosmoteer.lsp.commandResultOf
-import cosmoteer.preview.ShaderPreviewService
-import org.eclipse.lsp4j.ExecuteCommandParams
 import java.nio.file.Paths
 
 /**
@@ -58,17 +56,14 @@ class RunInCosmoteerAction : AnAction() {
      * @return the raw `workspace/executeCommand` result, null when no server is running.
      */
     private fun execute(project: Project, uri: String, userDataFolder: String?) =
-        LanguageServerManager.getInstance(project)
-            .getLanguageServer(ShaderPreviewService.SERVER_ID)
-            .thenCompose { item ->
-                val arguments = JsonObject().apply {
-                    addProperty("uri", uri)
-                    if (userDataFolder != null) addProperty("userDataFolder", userDataFolder)
-                }
-                item?.server?.workspaceService
-                    ?.executeCommand(ExecuteCommandParams(COMMAND, listOf(arguments)))
-                    ?: java.util.concurrent.CompletableFuture.completedFuture<Any?>(null)
+        executeServerCommand(
+            project,
+            COMMAND,
+            JsonObject().apply {
+                addProperty("uri", uri)
+                if (userDataFolder != null) addProperty("userDataFolder", userDataFolder)
             }
+        )
 
     /**
      * Renders what the server answered: the choice of user folder as a dialog, a refusal as its own

@@ -1,0 +1,8 @@
+ID = test.shipmod
+Name = "Ship Fixture"
+Version = 1.0.0
+StringsFolder = "strings"
+
+Actions
+[
+]

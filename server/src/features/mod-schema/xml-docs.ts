@@ -76,6 +76,10 @@ export const summarize = (body: string): string => {
         .replace(ANY_TAG, '');
     text = text.replace(/&(?:lt|gt|amp|quot|apos);/g, (entity) => ENTITIES[entity] ?? entity);
     text = text.replace(/\s+/g, ' ').trim();
+    // A tag that contributed no text can leave its wrapper punctuation behind, most often an
+    // `(<inheritdoc/>)` the compiler never expanded. Only a free-standing pair is dropped, so a
+    // method mentioned as `EmitOneShot()` keeps its parentheses.
+    text = text.replace(/\s+\(\s*\)/g, '');
     // Written for engine developers: drop the C# copy-plumbing boilerplate, which means nothing in
     // a `.rules` file, and turn `Gets or sets whether …` into `Whether …`.
     text = text.replace(/\s*This (?:property|member) [^.]*?CopySettingsFrom\(\)[^.]*\.?/g, '');

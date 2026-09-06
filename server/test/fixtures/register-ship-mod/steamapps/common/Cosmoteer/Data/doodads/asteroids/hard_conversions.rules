@@ -1,0 +1,20 @@
+// Stands in for the game's shared soft-to-hard conversion list, which a mod's own pairs are added to.
+Conversions
+[
+	{
+		From = cosmoteer.rock_1x1
+		To = cosmoteer.rock_1x1_hard
+	}
+	{
+		From = cosmoteer.deposit_iron_1x
+		To = cosmoteer.deposit_iron_1x_hard
+	}
+	{
+		From = cosmoteer.deposit_iron_2x
+		To = cosmoteer.deposit_iron_2x_hard
+	}
+	{
+		From = cosmoteer.deposit_iron_3x
+		To = cosmoteer.deposit_iron_3x_hard
+	}
+]

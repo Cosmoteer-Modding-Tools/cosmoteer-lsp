@@ -1,0 +1,8 @@
+Part : <../base_small_part_asteroid.rules>/Part
+{
+	NameKey = "Parts/Rock1x1Hard"
+	ID = cosmoteer.rock_1x1_hard
+	SelectionTypeID = "rock"
+	MaxHealth = 20000
+	IsCrewSalvageable = false
+}

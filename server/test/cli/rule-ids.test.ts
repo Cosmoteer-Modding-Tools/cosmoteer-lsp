@@ -69,6 +69,7 @@ describe('the rule table', () => {
             'orphan-comment-terminator',
             'unterminated-comment',
             'mod-action',
+            'overrides-replaces-group',
             'manifest-version',
         ]);
     });

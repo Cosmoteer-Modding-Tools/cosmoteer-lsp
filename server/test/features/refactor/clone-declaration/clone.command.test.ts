@@ -5,15 +5,14 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { CancellationToken, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LocalizationText } from '../../../../src/features/completion/localization-key.index';
+import { cloneDeclaration, proposeCloneId } from '../../../../src/features/refactor/clone-declaration/clone.command';
 import {
     CloneApplyResult,
     CloneDeclarationArgs,
     CloneHost,
     ClonePreviewResult,
     CloneScanResult,
-    cloneDeclaration,
-    proposeCloneId,
-} from '../../../../src/features/refactor/clone-declaration/clone.command';
+} from '../../../../src/features/refactor/clone-declaration/clone.types';
 import { filePathToUri } from '../../../../src/features/navigation/navigation-strategy';
 import { clearModRootCache } from '../../../../src/mod/mod-root';
 import { globalSettings } from '../../../../src/settings';

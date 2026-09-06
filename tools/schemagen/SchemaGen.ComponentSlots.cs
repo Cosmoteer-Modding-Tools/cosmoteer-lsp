@@ -48,6 +48,15 @@ internal sealed partial class SchemaGen
     /// </summary>
     readonly Dictionary<string, List<int>> componentCapabilities = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Which kinds every class and interface satisfies through its own ancestry, keyed by FullName,
+    /// as indices into {@link componentKindNames}. Only a type that satisfies at least one kind has
+    /// an entry, and a kind interface satisfies itself. This is the game's type graph reduced to
+    /// what the slot check needs, so a mod component deriving from a game class or interface can be
+    /// judged without reading the game's assemblies again.
+    /// </summary>
+    readonly Dictionary<string, List<int>> componentAncestry = new(StringComparer.Ordinal);
+
     const string PART_COMPONENT_RULES = "Cosmoteer.Ships.Parts.PartComponentRules";
     const string LIVE_PART = "Cosmoteer.Ships.Parts.Part";
     const string PART_COMPONENT = "Cosmoteer.Ships.Parts.PartComponent";
@@ -111,6 +120,7 @@ internal sealed partial class SchemaGen
         }
         BuildSlotTable();
         BuildComponentCapabilities();
+        BuildComponentAncestry();
     }
 
     /// <summary>
@@ -368,6 +378,23 @@ internal sealed partial class SchemaGen
             for (var index = 0; index < componentKindNames.Count; index++)
                 if (ancestry.Contains(componentKindNames[index])) satisfied.Add(index);
             componentCapabilities[type.FullName] = satisfied;
+        }
+    }
+
+    /// <summary>
+    /// Records, for every class and interface, which of the recovered kinds its ancestry satisfies.
+    /// A type satisfying none is left out, which keeps the table to the types the check can use.
+    /// </summary>
+    void BuildComponentAncestry()
+    {
+        if (componentKindNames.Count == 0) return;
+        foreach (var type in allTypes)
+        {
+            var ancestry = Ancestry(type);
+            var satisfied = new List<int>();
+            for (var index = 0; index < componentKindNames.Count; index++)
+                if (ancestry.Contains(componentKindNames[index])) satisfied.Add(index);
+            if (satisfied.Count > 0) componentAncestry[type.FullName] = satisfied;
         }
     }
 

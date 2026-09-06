@@ -1,7 +1,6 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
-import { readdirSync, statSync } from 'fs';
-import { dirname, join, resolve } from 'path';
+import { dirname, resolve } from 'path';
 import {
     AbstractNode,
     AbstractNodeDocument,
@@ -18,7 +17,7 @@ import { findActionsList, parseActionList, parseModActions } from '../../mod/act
 import { normalizeTargetPath } from '../../mod/action-target-resolver';
 import { identityOfMod, manifestPathsIn, readManifest, scalarMember } from '../../mod/mod-dependencies';
 import { findModRoot, sameModRoot } from '../../mod/mod-root';
-import { localModDirs, workshopContentDir } from '../../workspace/workshop-dir';
+import { installedModRoots, workshopContentDir } from '../../workspace/workshop-dir';
 import { ValidationError } from './validator';
 
 /**
@@ -101,29 +100,6 @@ export const claimsOf = (action: Action): Claim[] => {
         }
     }
     return claims;
-};
-
-/** The mod folders the game loads beside the one being edited: the workshop tree and the user's own. */
-const installedModRoots = (): string[] => {
-    const roots: string[] = [];
-    for (const parent of [workshopContentDir(), ...localModDirs()]) {
-        if (!parent) continue;
-        let entries: string[];
-        try {
-            entries = readdirSync(parent);
-        } catch {
-            continue;
-        }
-        for (const entry of entries) {
-            const root = join(parent, entry);
-            try {
-                if (statSync(root).isDirectory()) roots.push(root);
-            } catch {
-                /* a folder that vanished between the listing and the probe */
-            }
-        }
-    }
-    return roots;
 };
 
 /** How many hops of included fragments an `Actions` list is followed through. */

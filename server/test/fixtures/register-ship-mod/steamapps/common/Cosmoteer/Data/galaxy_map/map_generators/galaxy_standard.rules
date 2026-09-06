@@ -1,0 +1,11 @@
+// Stands in for the game's standard map generator, which a mod's own size clones with another
+// number of systems.
+Spawners
+[
+	: <base_galaxy.rules>/MapNodes
+	{
+		Count = 75
+	}
+	&<base_galaxy.rules>/Factions
+	&<base_galaxy.rules>/FactionTiers
+]

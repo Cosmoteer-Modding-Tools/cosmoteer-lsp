@@ -1,0 +1,238 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: var(--vscode-font-family, sans-serif);
+    font-size: var(--vscode-font-size, 13px);
+    color: var(--vscode-foreground, #ccc);
+    background: var(--vscode-editor-background, #1e1e1e);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+#page {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* ------------------------------------------------------------------ header */
+
+#header {
+    padding: 10px 12px 6px;
+    border-bottom: 1px solid var(--vscode-panel-border, #333);
+}
+
+#title {
+    font-size: 1.15em;
+    font-weight: 600;
+}
+
+#subtitle {
+    opacity: 0.8;
+    margin-top: 2px;
+}
+
+#controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+#filter {
+    flex: 0 1 240px;
+    padding: 3px 6px;
+    color: var(--vscode-input-foreground, #ccc);
+    background: var(--vscode-input-background, #2a2a2a);
+    border: 1px solid var(--vscode-input-border, #3c3c3c);
+    border-radius: 3px;
+}
+
+button {
+    padding: 3px 10px;
+    color: var(--vscode-button-foreground, #fff);
+    background: var(--vscode-button-background, #0e639c);
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+#legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-left: auto;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    opacity: 0.9;
+}
+
+.legend-item::before {
+    content: '';
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    background: currentColor;
+}
+
+/* ------------------------------------------------------------------- stage */
+
+#stage {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+#canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+    touch-action: none;
+}
+
+#canvas.panning {
+    cursor: grabbing;
+}
+
+#empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+}
+
+/* An author rule beats the hidden attribute's own display: none, so it is restated here. */
+#empty[hidden],
+#notes[hidden],
+#subtitle[hidden] {
+    display: none;
+}
+
+/* ------------------------------------------------------------------- boxes */
+
+.node .box {
+    fill: var(--vscode-editorWidget-background, #252526);
+    stroke: var(--vscode-panel-border, #454545);
+    stroke-width: 1;
+}
+
+.node .label {
+    fill: var(--vscode-foreground, #ccc);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.node .detail {
+    fill: var(--vscode-descriptionForeground, #999);
+    font-size: 10.5px;
+}
+
+.node.clickable {
+    cursor: pointer;
+}
+
+.node.clickable:hover .box,
+.node.clickable:focus .box {
+    stroke: var(--vscode-focusBorder, #007fd4);
+    stroke-width: 2;
+}
+
+.node.dimmed {
+    opacity: 0.18;
+}
+
+/* One colour per node kind, taken from the theme so both light and dark read. */
+.node.kind-outside .box {
+    stroke: var(--vscode-charts-blue, #4daafc);
+    stroke-dasharray: 6 3;
+}
+
+.node.kind-member .box {
+    stroke: var(--vscode-charts-purple, #b180d7);
+}
+
+.node.kind-component .box {
+    stroke: var(--vscode-charts-green, #89d185);
+}
+
+.node.kind-resource .box {
+    stroke: var(--vscode-charts-yellow, #d7ba7d);
+}
+
+.node.kind-missing .box {
+    stroke: var(--vscode-charts-red, #f14c4c);
+    stroke-dasharray: 4 3;
+}
+
+/* ------------------------------------------------------------------ arrows */
+
+.edge {
+    fill: none;
+    stroke-width: 1.4;
+    stroke: var(--vscode-descriptionForeground, #999);
+}
+
+.edge.dimmed {
+    opacity: 0.1;
+}
+
+.edge.kind-flow,
+.arrow.kind-flow {
+    stroke: var(--vscode-charts-green, #89d185);
+    fill: var(--vscode-charts-green, #89d185);
+}
+
+.edge.kind-warning,
+.arrow.kind-warning {
+    stroke: var(--vscode-charts-red, #f14c4c);
+    fill: var(--vscode-charts-red, #f14c4c);
+}
+
+.arrow {
+    stroke: none;
+}
+
+/* The legend swatch takes its colour from the same kind class. */
+.legend-item.kind-outside {
+    color: var(--vscode-charts-blue, #4daafc);
+}
+
+.legend-item.kind-member {
+    color: var(--vscode-charts-purple, #b180d7);
+}
+
+.legend-item.kind-component,
+.legend-item.kind-flow {
+    color: var(--vscode-charts-green, #89d185);
+}
+
+.legend-item.kind-resource {
+    color: var(--vscode-charts-yellow, #d7ba7d);
+}
+
+.legend-item.kind-missing,
+.legend-item.kind-warning {
+    color: var(--vscode-charts-red, #f14c4c);
+}
+
+/* ------------------------------------------------------------------- notes */
+
+#notes {
+    margin: 0;
+    padding: 8px 12px 10px 28px;
+    border-top: 1px solid var(--vscode-panel-border, #333);
+    color: var(--vscode-descriptionForeground, #999);
+}

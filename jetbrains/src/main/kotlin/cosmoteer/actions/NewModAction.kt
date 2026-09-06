@@ -2,7 +2,6 @@ package cosmoteer.actions
 
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
-import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
@@ -12,10 +11,10 @@ import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
-import com.redhat.devtools.lsp4ij.LanguageServerManager
 import cosmoteer.lsp.commandResultOf
-import cosmoteer.preview.ShaderPreviewService
-import org.eclipse.lsp4j.ExecuteCommandParams
+import cosmoteer.lsp.executeServerCommand
+import cosmoteer.lsp.failureCode
+import cosmoteer.lsp.notifyCosmoteer
 import java.util.concurrent.CompletableFuture
 
 /**
@@ -121,13 +120,7 @@ class NewModAction : AnAction() {
      * @return the raw `workspace/executeCommand` result, null when no server is running.
      */
     private fun executeCommand(project: Project, arguments: JsonObject): CompletableFuture<Any?> =
-        LanguageServerManager.getInstance(project)
-            .getLanguageServer(ShaderPreviewService.SERVER_ID)
-            .thenCompose { item ->
-                item?.server?.workspaceService
-                    ?.executeCommand(ExecuteCommandParams(COMMAND, listOf(arguments)))
-                    ?: CompletableFuture.completedFuture<Any?>(null)
-            }
+        executeServerCommand(project, COMMAND, arguments)
 
     /**
      * Says what was created and what has to happen before the game loads anything from it.
@@ -148,7 +141,7 @@ class NewModAction : AnAction() {
                 )
                 return@invokeLater
             }
-            val failure = answer.get("failure")?.takeIf { !it.isJsonNull }?.asString
+            val failure = answer.failureCode()
             if (failure != null) {
                 notify(project, failureMessage(failure), NotificationType.WARNING)
                 return@invokeLater
@@ -191,10 +184,7 @@ class NewModAction : AnAction() {
      * @param type the notification severity.
      */
     private fun notify(project: Project, content: String, type: NotificationType) {
-        NotificationGroupManager.getInstance()
-            .getNotificationGroup("Cosmoteer Language Server")
-            .createNotification("Cosmoteer new mod", content, type)
-            .notify(project)
+        notifyCosmoteer(project, "Cosmoteer new mod", content, type)
     }
 
     companion object {

@@ -2,6 +2,7 @@ import { readFile, stat } from 'fs/promises';
 import { dirname, join, resolve } from 'path';
 import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode, isValueNode } from '../../../core/ast/ast';
 import { parseText } from '../../../utils/ast.utils';
+import { indentOfLineAt } from '../../../utils/text.utils';
 import { CosmoteerWorkspaceService } from '../../../workspace/cosmoteer-workspace.service';
 import { foldPathCase, onFsInvalidation } from '../../../workspace/fs-cache';
 import { topLevelMembersOf } from './member-record';
@@ -166,15 +167,6 @@ export const baseTargetFrom = (
         empty: members.length === 0,
         declaredKeys: new Set(members.map((member) => member.key)),
     };
-};
-
-/** The whitespace the line holding an offset begins with. */
-const indentOfLineAt = (text: string, offset: number): string => {
-    let start = offset;
-    while (start > 0 && text[start - 1] !== '\n') start--;
-    let end = start;
-    while (end < text.length && (text[end] === ' ' || text[end] === '\t')) end++;
-    return text.slice(start, end);
 };
 
 /**

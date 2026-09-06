@@ -1,0 +1,7 @@
+Part : <../base_small_part_asteroid.rules>/Part
+{
+	NameKey = "Parts/Rock1x1"
+	ID = cosmoteer.rock_1x1
+	OtherIDs = [cosmoteer.rubble]
+	SelectionTypeID = "rock"
+}

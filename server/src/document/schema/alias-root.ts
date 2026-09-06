@@ -29,6 +29,12 @@ import { normalizeUri } from '../../features/navigation/reference-location';
 import { uriToFsPath } from '../../features/navigation/workspace-files';
 
 const ROOT_CLASS = 'Cosmoteer.Data.Rules';
+
+/** The index as plain data: per file its member types, and the macro aliases by name. */
+export interface AliasRootState {
+    files: Array<[uri: string, members: Array<[member: string, valueType: ValueType]>]>;
+    macros: Array<[name: string, key: string, fsPath: string]>;
+}
 const MAX_DEPTH = 12;
 
 /** Resolve a file-only reference (`<path/to.rules>`) written in `fromUri` to its parsed document. */
@@ -76,6 +82,49 @@ class AliasRootIndex {
         this.macroTargets.clear();
     }
 
+    /**
+     * The built index as plain data, for the cache that spares the next start the walk. Every
+     * value type recorded here is a plain object from the schema tables or a literal built during
+     * the walk, so the data round-trips through JSON unchanged.
+     *
+     * @returns the index and the macro targets.
+     */
+    public saveState(): AliasRootState {
+        return {
+            files: [...this.index].map(([uri, members]) => [uri, [...members]]),
+            macros: [...this.macroTargets].map(([name, target]) => [name, target.key, target.fsPath]),
+        };
+    }
+
+    /**
+     * Restores an index saved by {@link saveState}, standing in for the walk. A state whose shape is
+     * not the one written is refused, and the walk runs as if nothing was saved.
+     *
+     * @param state the saved index.
+     * @returns true when the state was taken.
+     */
+    public loadState(state: unknown): boolean {
+        const candidate = state as AliasRootState | undefined;
+        if (!candidate || !Array.isArray(candidate.files) || !Array.isArray(candidate.macros)) return false;
+        for (const entry of candidate.files) {
+            if (!Array.isArray(entry) || typeof entry[0] !== 'string' || !Array.isArray(entry[1])) return false;
+        }
+        for (const entry of candidate.macros) {
+            if (!Array.isArray(entry) || entry.length !== 3 || entry.some((part) => typeof part !== 'string')) return false;
+        }
+        this.index.clear();
+        this.macroTargets.clear();
+        for (const [uri, members] of candidate.files) {
+            this.index.set(uri, new Map(members));
+        }
+        for (const [name, key, fsPath] of candidate.macros) {
+            this.macroTargets.set(name, { key, fsPath });
+        }
+        this.built = true;
+        this._revision++;
+        return true;
+    }
+
     /** The normalized uri of the file a game-root macro (`NAME = &<file>`) aliases, if any. */
     public macroAliasTarget(name: string): string | undefined {
         return this.macroTargets.get(name.toLowerCase())?.key;
@@ -94,6 +143,24 @@ class AliasRootIndex {
     /** The schema type the whole file at `uri` was aliased to (a member-less `Field = &<file>`), if any. */
     public rootType(uri: string): ValueType | undefined {
         return this.index.get(normalizeUri(uri))?.get('');
+    }
+
+    /**
+     * Every file the game root aliases as a whole map of `cls`, which is how a table the engine
+     * reads by name (the text sprites it draws inline in text) reaches the game tree.
+     *
+     * @param cls the map's value class.
+     * @returns the normalized uris of the files aliased to such a map.
+     */
+    public urisRootedAsMapOf(cls: string): string[] {
+        const uris: string[] = [];
+        for (const [uri, members] of this.index) {
+            const rootType = members.get('');
+            if (rootType?.kind === 'map' && rootType.value.kind === 'group' && rootType.value.ref === cls) {
+                uris.push(uri);
+            }
+        }
+        return uris;
     }
 
     /** Build the index by walking `cosmoteer.rules`'s aliases. Idempotent until {@link invalidate}. */
@@ -326,6 +393,22 @@ export const aliasedMemberType = (document: AbstractNodeDocument, memberName: st
         }
     }
     return undefined;
+};
+
+/**
+ * The class a whole unrooted fragment file stands for, read off how the game root, an including file
+ * or a manifest action pulls the file in as one `group<C>` value: a codex page appended to the lore
+ * codex, a doodad appended to the doodad list, a base appended by `AddBase`. The forward walk answers
+ * first, then the fallbacks in their registration order, the same precedence {@link aliasedMemberType}
+ * gives them. A file rooted as a map or a list has no class of its own and answers nothing.
+ *
+ * @param document the unrooted fragment document.
+ * @returns the class FullName the file's top-level members are read through, or undefined.
+ */
+export const aliasedRootClass = (document: AbstractNodeDocument): string | undefined => {
+    let root = aliasRootIndex.rootType(document.uri);
+    for (const fallback of aliasFallbacks) root ??= fallback.rootType(document.uri);
+    return root?.kind === 'group' ? root.ref : undefined;
 };
 
 /**

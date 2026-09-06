@@ -8,7 +8,7 @@ import bundle from '../../../src/document/schema/cosmoteer.schema.json';
 import { SchemaBundle } from '../../../src/document/schema/schema.types';
 import { readAssembly } from '../../../src/features/mod-schema/dotnet-assembly';
 import { extractModSchema, gameSchemaView } from '../../../src/features/mod-schema/extract';
-import { parseXmlDocs } from '../../../src/features/mod-schema/xml-docs';
+import { parseXmlDocs, xmlDocPathFor } from '../../../src/features/mod-schema/xml-docs';
 
 // The extraction of a code mod's schema surface is a port of `tools/schemagen --mod`, the C# tool
 // that produces the shipped bundle, onto a TypeScript metadata reader so no .NET runtime is needed
@@ -129,6 +129,18 @@ describe.skipIf(!HAVE)('mod schema extraction matches schemagen', () => {
             if (Object.keys(def.members).length > 0) ourMembers[registry] = { ...def.members };
         }
         expect(ourMembers).toEqual(oracleMembers);
+
+        // Component slots: the kinds a mod's slots may require continue the game's list, and every
+        // component class the mod emits must satisfy the same kinds schemagen recovers for it. The
+        // oracle numbers kinds over game and mod together, so the lists must agree in length for
+        // the indices compared above to mean the same thing.
+        expect((result.componentKinds ?? []).length + (bundle as SchemaBundle).componentKinds!.length).toBe(
+            oracle.componentKinds!.length
+        );
+        const oracleCapabilities = Object.fromEntries(
+            Object.entries(oracle.componentCapabilities ?? {}).filter(([fullName]) => modNamespaces.has(fullName))
+        );
+        expect(result.componentCapabilities ?? {}).toEqual(oracleCapabilities);
     }, 900_000);
 
     // The prose side of the same contract. A mod author's `///` comments reach hover only if this
@@ -142,8 +154,13 @@ describe.skipIf(!HAVE)('mod schema extraction matches schemagen', () => {
             return;
         }
         const ours = new Set<string>();
-        for (const assembly of ['Cosmoteer.xml', 'HalflingCore.xml']) {
-            const xmlPath = join(BIN_DIR, assembly);
+        // schemagen's seed also carries the doc file beside each `--mod` assembly, so the mod's own
+        // comments are part of the same contract.
+        const xmlPaths = [
+            ...['Cosmoteer.xml', 'HalflingCore.xml'].map((assembly) => join(BIN_DIR, assembly)),
+            ...DLLS.map((dll) => xmlDocPathFor(dll)).filter((path): path is string => path !== undefined),
+        ];
+        for (const xmlPath of xmlPaths) {
             if (!existsSync(xmlPath)) continue;
             for (const summary of parseXmlDocs(readFileSync(xmlPath, 'utf8')).values()) ours.add(summary);
         }

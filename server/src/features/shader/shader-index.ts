@@ -1,6 +1,7 @@
 import { readFile, stat } from 'fs/promises';
 import { resolve as resolvePath } from 'path';
-import { ParsedShader, ShaderConstant, parseShader } from './shader-parser';
+import { parseShader } from './shader-parser';
+import { ParsedShader, ShaderConstant } from './shader-parser.types';
 import { resolveInclude } from './shader-source';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 

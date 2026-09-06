@@ -2,6 +2,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNodeDocument, isDocumentNode } from '../../core/ast/ast';
 import { aliasRootIndex } from '../../document/schema/alias-root';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
+import { saveAliasRootCache, tryLoadAliasRootCache } from '../../workspace/index-cache';
 import { FullNavigationStrategy } from './full.navigation-strategy';
 
 const navigation = new FullNavigationStrategy();
@@ -21,9 +22,14 @@ let buildInFlight: Promise<void> | undefined;
  * triggering request must not be able to null out individual aliases (a half-built index would
  * permanently unroot fragments like `buffs.rules`, and every dependent one-time index such as
  * schema ids and localization keys would pin that state too).
+ * @param cacheScope the install and workspace folders the walk is keyed by, when its result may be
+ * kept between sessions. Without it the walk always runs.
  * @returns once the index is built (or determined unbuildable for now).
  */
-export const ensureAliasRootIndex = async (cancellationToken: CancellationToken): Promise<void> => {
+export const ensureAliasRootIndex = async (
+    cancellationToken: CancellationToken,
+    cacheScope?: { dataRoot: string; folderPaths: string[] }
+): Promise<void> => {
     void cancellationToken;
     if (aliasRootIndex.isReady()) return;
     if (buildInFlight) return buildInFlight;
@@ -31,6 +37,12 @@ export const ensureAliasRootIndex = async (cancellationToken: CancellationToken)
         const root = await CosmoteerWorkspaceService.instance.getCosmoteerRules().catch(() => undefined);
         const rootDoc = root?.content.parsedDocument;
         if (!rootDoc) return;
+        // The walk's result is kept between sessions behind the scan cache's gate: same build, same
+        // install, bit-identical workspace files. A hit spares the parse of every aliased fragment.
+        if (cacheScope) {
+            const saved = await tryLoadAliasRootCache(cacheScope.dataRoot, cacheScope.folderPaths);
+            if (saved !== undefined && aliasRootIndex.loadState(saved)) return;
+        }
         // Show an "indexing" indicator while the alias graph is walked from the game root. On a full game
         // tree this follows many fragment files, so it can take a moment on the first schema-resolving call.
         await CosmoteerWorkspaceService.instance.withIndexingProgress('Indexing game data', () =>
@@ -43,6 +55,9 @@ export const ensureAliasRootIndex = async (cancellationToken: CancellationToken)
                     : undefined;
             })
         );
+        if (cacheScope && aliasRootIndex.isReady()) {
+            await saveAliasRootCache(cacheScope.dataRoot, cacheScope.folderPaths, aliasRootIndex.saveState());
+        }
     })().finally(() => {
         // A finished build is either cached in aliasRootIndex or legitimately retryable (no game
         // root yet, invalidated later), so the shared promise is always released.

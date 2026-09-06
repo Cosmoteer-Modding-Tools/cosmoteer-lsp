@@ -1,38 +1,8 @@
 import { Disposable, ExtensionContext, Position, Uri, ViewColumn, WebviewPanel, commands, l10n, window, workspace } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
-import { WorkspaceEdit as LspWorkspaceEdit } from 'vscode-languageclient';
-import { imageDataUri, stringsScript, webviewShell } from '../webview-util';
+import { createCosmoteerPanel, disposeAll, imageDataUri, stringsScript, webviewShell } from '../webview-util';
 import { partGridEditorStrings } from '../webview-strings';
-
-/**
- * The payload shape returned by the server's `cosmoteer/partGridData` request (client-side mirror
- * of `server/src/features/part-editor/part-grid.types.ts`, only the members the panel touches are
- * typed, the webview consumes the rest as-is).
- */
-interface PartGridData {
-    partName: string;
-    dataVersion: number;
-    anchor: { line: number; character: number };
-    sprites: Array<{ id: string; uri: string | null }>;
-    /** The other files the payload was read from, watched for changes alongside the part's own. */
-    dependsOn?: string[];
-}
-
-/** The result shape of the server's `cosmoteer/partGridEdit` request. */
-interface PartGridEditResult {
-    status: 'ok' | 'stale' | 'notFound' | 'error';
-    message?: string;
-    edit?: LspWorkspaceEdit;
-    /** Where a write that followed a reference landed, for the page's status line. */
-    note?: string;
-}
-
-/** A mutation message posted by the webview (forwarded to the server verbatim). */
-interface EditMessage {
-    type: 'edit';
-    mutation: unknown;
-    dataVersion: number;
-}
+import { EditMessage, PartGridData, PartGridEditResult } from './editor-panel.types';
 
 /**
  * Owns the single live part grid editor webview. It asks the language server for the part at the
@@ -60,14 +30,7 @@ export class PartGridEditorPanel {
         private readonly context: ExtensionContext,
         private readonly client: LanguageClient
     ) {
-        this.panel = window.createWebviewPanel('cosmoteerPartGridEditor', l10n.t('Part Grid Editor'), ViewColumn.Beside, {
-            enableScripts: true,
-            retainContextWhenHidden: true,
-            // Only the bundled webview assets need to load as resources. The part sprites can live
-            // anywhere under the game or a workshop mod (outside any workspace folder), so they are
-            // inlined as data URIs instead of relying on localResourceRoots.
-            localResourceRoots: [Uri.joinPath(context.extensionUri, 'media')],
-        });
+        this.panel = createCosmoteerPanel(context, 'cosmoteerPartGridEditor', l10n.t('Part Grid Editor'), ViewColumn.Beside);
         this.panel.onDidDispose(() => this.dispose());
         this.panel.webview.onDidReceiveMessage((message) => void this.onMessage(message));
         // Live update: re-render when the edited part document changes, whether through the grid
@@ -79,8 +42,7 @@ export class PartGridEditorPanel {
     /** Tears down the panel's listeners and pending refresh, and clears the singleton. */
     private dispose(): void {
         if (this.refreshTimer) clearTimeout(this.refreshTimer);
-        for (const disposable of this.disposables) disposable.dispose();
-        this.disposables.length = 0;
+        disposeAll(this.disposables);
         PartGridEditorPanel.current = undefined;
     }
 
