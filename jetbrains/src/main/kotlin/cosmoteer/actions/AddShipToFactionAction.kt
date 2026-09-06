@@ -158,9 +158,11 @@ class AddShipToFactionAction : AnAction() {
         val summary = ships.joinToString("\n") { shipSummary(it) }
         val answer = Messages.showYesNoCancelDialog(
             project,
-            "Each ship is rated the way the game rates it: the tier from the price of its parts, doors " +
-                "and crew, the difficulty against the game's own ships of that tier, and the role from " +
-                "what it carries.\n\n$summary",
+            "Each ship is rated the way the game rates it. Tier is the danger level of the star " +
+                "systems it spawns in, 1 to 18, read from the price of its parts, doors and crew. " +
+                "Difficulty rates how hard it is for that tier, 1 easy, 2 average, 3 hard, read from " +
+                "what it spends on weapons and armor against the game's own ships of that tier. The " +
+                "role comes from what it carries.\n\n$summary",
             "Cosmoteer: Register as Suggested?",
             "Register",
             "Adjust Each Ship",
@@ -199,7 +201,8 @@ class AddShipToFactionAction : AnAction() {
         val valueTier = ship.get("valueTier")?.asInt ?: 1
         val tierText = Messages.showInputDialog(
             project,
-            "The tier $name spawns at. The game rates its value at tier $valueTier.",
+            "The danger level of the star systems $name spawns in, 1 to 18. The game values it at " +
+                "${credits(ship)} credits, which its tier table puts at tier $valueTier.",
             "Cosmoteer: $name",
             null,
             (tiers?.get(role)?.asInt ?: valueTier).toString(),
@@ -208,15 +211,15 @@ class AddShipToFactionAction : AnAction() {
         val tier = tierText.trim().toIntOrNull()?.takeIf { it >= 1 } ?: return null
         val suggested = ship.get("difficulty")?.asInt ?: 2
         val bands = arrayOf(
-            "1, lighter than the game's own ships of its tier",
-            "2, in line with the game's own ships of its tier",
-            "3, heavier than the game's own ships of its tier"
+            "1, easy: fewer weapons and less armor than the game's ships of its tier",
+            "2, average: armed and armored like the game's ships of its tier",
+            "3, hard: more weapons and armor than the game's ships of its tier"
         )
         val ordered = (listOf(suggested) + listOf(1, 2, 3).filter { it != suggested })
         val difficultyChoice = chooseOne(
             project,
-            "How hard is $name for its tier? No spawner of the game reads this, but mods and the files do. " +
-                "The first entry is the suggestion.",
+            "${difficultyReason(ship)} The game itself never reads the difficulty, only mods that " +
+                "filter their spawns by it do. The first entry is the suggestion.",
             "Cosmoteer: $name",
             ordered.map { bands[it - 1] }.toTypedArray()
         )
@@ -244,12 +247,40 @@ class AddShipToFactionAction : AnAction() {
     private fun shipSummary(ship: JsonObject): String {
         val role = ship.getAsJsonArray("roles")?.firstOrNull()?.asString ?: "combat"
         val tier = ship.getAsJsonObject("tierByRole")?.get(role)?.asInt ?: 1
-        val value = ship.getAsJsonObject("value")?.get("total")?.asInt ?: 0
+        val valueTier = ship.get("valueTier")?.asInt ?: tier
+        val difficulty = ship.get("difficulty")?.asInt ?: 2
+        val lowered =
+            if (tier != valueTier) " (rated tier $valueTier by value, written lower the way the game writes stations)" else ""
+        return "${ship.get("name")?.asString}: ${roleLabel(role)}, tier $tier$lowered, difficulty $difficulty " +
+            "(${difficultyWord(difficulty)}). ${credits(ship)} credits. ${difficultyReason(ship)}"
+    }
+
+    /** The one word a difficulty band means. */
+    private fun difficultyWord(difficulty: Int): String = when (difficulty) {
+        1 -> "easy"
+        3 -> "hard"
+        else -> "average"
+    }
+
+    /** A ship's value with thousands separators. */
+    private fun credits(ship: JsonObject): String =
+        "%,d".format(ship.getAsJsonObject("value")?.get("total")?.asDouble?.toLong() ?: 0L)
+
+    /**
+     * Says what the difficulty was read from: the ship's weapon and armor shares next to what the
+     * game's own ships of its tier spend.
+     *
+     * @param ship the scanned ship.
+     * @return the sentence.
+     */
+    private fun difficultyReason(ship: JsonObject): String {
         val strength = ship.getAsJsonObject("strength")
-        val weapons = ((strength?.get("weaponShare")?.asDouble ?: 0.0) * 100).toInt()
-        val typical = ((strength?.get("typicalWeaponShare")?.asDouble ?: 0.0) * 100).toInt()
-        return "${ship.get("name")?.asString}: ${roleLabel(role)}, tier $tier, difficulty ${ship.get("difficulty")?.asInt} " +
-            "($value credits, weapons $weapons% of its value where the game spends $typical%)"
+        fun percent(field: String): String = "${Math.round((strength?.get(field)?.asDouble ?: 0.0) * 100)}%"
+        val valueTier = ship.get("valueTier")?.asInt ?: 1
+        val difficulty = ship.get("difficulty")?.asInt ?: 2
+        return "Weapons take ${percent("weaponShare")} of its value and armor ${percent("armorShare")}, where the " +
+            "game's tier $valueTier ships spend ${percent("typicalWeaponShare")} and ${percent("typicalArmorShare")}, " +
+            "so it rates ${difficultyWord(difficulty)}."
     }
 
     /** One line describing a faction: its name and whose it is. */

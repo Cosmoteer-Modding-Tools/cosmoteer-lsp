@@ -8,7 +8,7 @@ import { parser } from '../../../src/core/parser/parser';
 import { aliasRootIndex } from '../../../src/document/schema/alias-root';
 import { ReverseIncludeIndex } from '../../../src/features/navigation/reverse-include.index';
 import { buildPartTable } from '../../../src/features/part-table/part-table.service';
-import { PartTableData, PartTableRow } from '../../../src/features/part-table/part-table.types';
+import { PartTableColumn, PartTableData, PartTableRow } from '../../../src/features/part-table/part-table.types';
 import { globalSettings } from '../../../src/settings';
 import { CosmoteerWorkspaceService } from '../../../src/workspace/cosmoteer-workspace.service';
 
@@ -79,6 +79,12 @@ const SHOWN = [
     '@DPS',
 ];
 
+/** The columns of a table asked for them, which every build here is. */
+const columnsOf = (data: PartTableData): readonly PartTableColumn[] => {
+    expect(data.columns, 'the table carries no columns').toBeDefined();
+    return data.columns!;
+};
+
 const rowOf = (rows: readonly PartTableRow[], id: string): PartTableRow => {
     const row = rows.find((candidate) => candidate.id === id);
     expect(row, `no row for ${id}`).toBeDefined();
@@ -140,7 +146,7 @@ describe.skipIf(!HAVE_DATA)('part table over vanilla data', () => {
         expect(rowOf(table.rows, 'cosmoteer.megarock_1x1').ships).toEqual(['Megaroid']);
         expect(table.ships).toEqual(['Asteroid', 'Megaroid', 'Terran']);
 
-        const cost = table.columns.find((column) => column.path === '@Cost');
+        const cost = columnsOf(table).find((column) => column.path === '@Cost');
         expect(cost?.derived).toBe(true);
         expect(cost?.rows).toBeGreaterThan(50);
     });
@@ -163,7 +169,7 @@ describe.skipIf(!HAVE_DATA)('part table over vanilla data', () => {
         const narrowed = await buildPartTable(gameScope(), SHOWN, { categories: ['defense'] }, token);
         expect(narrowed.rows.length).toBeGreaterThan(0);
         expect(narrowed.rows.length).toBeLessThan(table.rows.length);
-        expect(narrowed.columns.length).toBeLessThan(table.columns.length);
+        expect(columnsOf(narrowed).length).toBeLessThan(columnsOf(table).length);
         // The whole scope is still counted, so the view can say what it is showing of what there is.
         expect(narrowed.total).toBe(table.rows.length);
         // The axes stay the whole scope's, so narrowing to one category never takes the others out

@@ -88,13 +88,49 @@ const roleReason = (ship: ScannedShip, role: ShipRole): string => {
 const difficultyLabel = (difficulty: ShipDifficulty): string => {
     switch (difficulty) {
         case 1:
-            return l10n.t('1, lighter than the game\'s own ships of its tier');
+            return l10n.t('1 · Easy: fewer weapons and less armor than the game\'s ships of its tier');
         case 2:
-            return l10n.t('2, in line with the game\'s own ships of its tier');
+            return l10n.t('2 · Average: armed and armored like the game\'s ships of its tier');
         case 3:
-            return l10n.t('3, heavier than the game\'s own ships of its tier');
+            return l10n.t('3 · Hard: more weapons and armor than the game\'s ships of its tier');
     }
 };
+
+/** The one word a difficulty band means, for the lines that quote the number. */
+const difficultyWord = (difficulty: ShipDifficulty): string => {
+    switch (difficulty) {
+        case 1:
+            return l10n.t('easy');
+        case 2:
+            return l10n.t('average');
+        case 3:
+            return l10n.t('hard');
+    }
+};
+
+/**
+ * What the difficulty was read from, in one sentence: the ship's weapon and armor shares next to
+ * what the game's own ships of that tier spend.
+ *
+ * @param ship the scanned ship.
+ * @returns the sentence.
+ */
+const difficultyReason = (ship: ScannedShip): string =>
+    l10n.t(
+        'Weapons take {0} of its value and armor {1}, where the game\'s tier {2} ships spend {3} and {4}, so it rates {5}.',
+        percent(ship.strength.weaponShare),
+        percent(ship.strength.armorShare),
+        String(ship.valueTier),
+        percent(ship.strength.typicalWeaponShare),
+        percent(ship.strength.typicalArmorShare),
+        difficultyWord(ship.difficulty)
+    );
+
+/** The legend the review carries, saying what tier and difficulty mean. */
+const ratingLegend = (): string =>
+    l10n.t(
+        'Tier is the danger level of the star systems the ship spawns in, 1 to 18. Difficulty rates how hard it is for that tier, 1 easy, 2 average, 3 hard.'
+    );
 
 /** A percentage with no decimals, for the reason lines. */
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
@@ -114,17 +150,27 @@ const shipDetail = (ship: ScannedShip, role: ShipRole): string => {
     if (ship.blocked === 'idTaken') return l10n.t('A built-in ship of that name exists, so the game would refuse the duplicate. Rename the file to register it.');
     if (ship.blocked) return l10n.t('This file does not carry a saved ship.');
     const parts: string[] = [
-        l10n.t('{0} credits ({1} parts, {2} crew)', credits(ship.value.total), String(ship.signals.parts), String(ship.signals.crew)),
-        l10n.t('weapons {0} of its value where the game spends {1}', percent(ship.strength.weaponShare), percent(ship.strength.typicalWeaponShare)),
-        roleReason(ship, role),
+        l10n.t(
+            'Worth {0} credits ({1} parts, {2} crew), which the game\'s tier table puts at tier {3}.',
+            credits(ship.value.total),
+            String(ship.signals.parts),
+            String(ship.signals.crew),
+            String(ship.valueTier)
+        ),
     ];
     if (ship.tierByRole[role] !== ship.valueTier) {
-        parts.push(l10n.t('rated tier {0} by value, written lower the way the game files write stations', String(ship.valueTier)));
+        parts.push(
+            l10n.t(
+                'Written at tier {0} instead, since the game\'s own stations sit below their value so they outweigh the ships around them.',
+                String(ship.tierByRole[role])
+            )
+        );
     }
+    parts.push(difficultyReason(ship), l10n.t('{0}: {1}.', roleLabel(role), roleReason(ship, role)));
     if (ship.signals.unknownParts.length > 0) {
-        parts.push(l10n.t('{0} parts nothing declares', String(ship.signals.unknownParts.length)));
+        parts.push(l10n.t('{0} parts nothing declares.', String(ship.signals.unknownParts.length)));
     }
-    return parts.join(' · ');
+    return parts.join(' ');
 };
 
 /**
@@ -211,7 +257,13 @@ const reviewShips = async (scan: RegisterShipScanResult): Promise<ShipChoice[] |
         const role = ship.roles[0];
         return {
             label: ship.name,
-            description: l10n.t('{0} · tier {1} · difficulty {2}', roleLabel(role), String(ship.tierByRole[role]), String(ship.difficulty)),
+            description: l10n.t(
+                '{0} · tier {1} · difficulty {2} ({3})',
+                roleLabel(role),
+                String(ship.tierByRole[role]),
+                String(ship.difficulty),
+                difficultyWord(ship.difficulty)
+            ),
             detail: shipDetail(ship, role),
             picked: true,
             ship,
@@ -229,6 +281,7 @@ const reviewShips = async (scan: RegisterShipScanResult): Promise<ShipChoice[] |
     }
     const picked = await window.showQuickPick(items, {
         canPickMany: true,
+        title: ratingLegend(),
         placeHolder:
             readable.length === 1
                 ? l10n.t('Register this ship as suggested? Untick it to adjust it first.')
@@ -275,7 +328,11 @@ const adjustShip = async (ship: ScannedShip): Promise<ShipChoice | undefined> =>
     if (!role) return undefined;
     const tier = await window.showInputBox({
         title: ship.name,
-        prompt: l10n.t('The tier the ship spawns at. The game rates its {0} credits at tier {1}.', credits(ship.value.total), String(ship.valueTier)),
+        prompt: l10n.t(
+            'The danger level of the star systems the ship spawns in, 1 to 18. The game values it at {0} credits, which its tier table puts at tier {1}.',
+            credits(ship.value.total),
+            String(ship.valueTier)
+        ),
         value: String(ship.tierByRole[role.role]),
         validateInput: (value) => (/^\d{1,2}$/.test(value.trim()) && Number(value) >= 1 ? undefined : l10n.t('A whole number from 1 up.')),
     });
@@ -288,7 +345,10 @@ const adjustShip = async (ship: ScannedShip): Promise<ShipChoice | undefined> =>
         })),
         {
             title: ship.name,
-            placeHolder: l10n.t('How hard is it for its tier? No spawner of the game reads this, but mods and the files do.'),
+            placeHolder:
+                difficultyReason(ship) +
+                ' ' +
+                l10n.t('The game itself never reads the difficulty, only mods that filter their spawns by it do.'),
         }
     );
     if (!difficulty) return undefined;
