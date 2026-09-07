@@ -3,6 +3,7 @@ import { AutoCompletionService, Completion } from '../../features/completion/aut
 import { openQuoteSuffix, valueRunAtCursor, wholeValueRange, withReplaceRange } from '../../features/completion/completion-range';
 import { modRulesOffsetCompletions } from '../../features/completion/autocompletion.mod-rules';
 import { inheritanceTargetCompletions } from '../../features/completion/autocompletion.inheritance-target';
+import { warmInheritedClasses } from '../../features/completion/inheritance-resolution';
 import { mathFunctionCompletionsAtLinePrefix } from '../../features/completion/autocompletion.math-function';
 import { markupCompletionsAt } from '../../features/completion/autocompletion.text-markup';
 import { textImageNames } from '../../features/text-markup/text-image.names';
@@ -120,6 +121,9 @@ export function register(): void {
                 // may simply not be parsed yet, and the client must ask again rather than cache nothing.
                 if (!parserResult) return { isIncomplete: true, items: [] };
                 await ensureFragmentRooting(cancellationToken);
+                // The list, reference and discriminator completions resolve classes synchronously, so a
+                // group deriving from a base in another file is classified for them up front.
+                await warmInheritedClasses(parserResult, cancellationToken).catch(() => undefined);
                 /** The project's ids for a reference target, ship-layer narrowed and ranged onto the value. */
                 const idCompletionsFor = async (target: string): Promise<Completion[]> =>
                     withReplaceRange(

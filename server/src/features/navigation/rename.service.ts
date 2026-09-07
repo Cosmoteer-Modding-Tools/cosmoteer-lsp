@@ -10,6 +10,7 @@ import {
     ValueNode,
 } from '../../core/ast/ast';
 import { getStartOfAstNode } from '../../utils/ast.utils';
+import { warmInheritedClasses } from '../completion/inheritance-resolution';
 import { dedupeEdits } from '../../utils/text-edit.utils';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { DefinitionService, isReferenceValue } from './definition.service';
@@ -110,6 +111,7 @@ export class RenameService {
         position: Position,
         cancellationToken: CancellationToken = CancellationToken.None
     ): Promise<{ range: Range; placeholder: string } | null> {
+        await warmInheritedClasses(document, cancellationToken).catch(() => undefined);
         // A localization key is a slash path into the mod's language files rather than a member name
         // or a reference segment, so it is recognized before either of those branches can claim it.
         // Inside a strings file the general member rename would rewrite the key in that one language.
@@ -176,6 +178,9 @@ export class RenameService {
         cancellationToken: CancellationToken,
         readOverride?: (absPath: string) => string | undefined
     ): Promise<WorkspaceEdit | null> {
+        // An id inside a group deriving from a base in another file is a schema reference only once
+        // that group's class is known to the synchronous schema lookups.
+        await warmInheritedClasses(document, cancellationToken).catch(() => undefined);
         const changes: { [uri: string]: TextEdit[] } = {};
         const add = (uri: string, range: Range, text: string) => {
             (changes[uri] ??= []).push(TextEdit.replace(range, text));

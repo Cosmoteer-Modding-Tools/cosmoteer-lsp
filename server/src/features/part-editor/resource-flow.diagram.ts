@@ -16,6 +16,7 @@ import { ComponentReference, PartComponent, componentReferenceOf, componentsOfPa
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { memberOrInherited } from '../../semantics/effective-member';
 import { BUFF_PROXY_CLASS, proxyTargetsOf } from '../../semantics/part-components';
+import { legendFor } from '../diagram/diagram-series';
 import { Diagram, DiagramEdge, DiagramNode } from '../diagram/diagram.types';
 import { partAt } from './part-at';
 
@@ -740,14 +741,24 @@ export const buildResourceFlowDiagram = async (
         return id;
     };
 
+    const resourceOf = (side: FlowNode | string): string | undefined =>
+        typeof side === 'string' ? undefined : side.resource;
+
     /**
      * Adds one arrow between two ends of the wiring.
      *
      * @param from the component the resources leave.
      * @param to the component they arrive in.
      * @param label what moves along the arrow, and how often.
+     * @param series the resource the arrow is coloured by, which is the one either end holds unless
+     * the caller knows better, such as the goods a flex grid stacks that no storage names.
      */
-    const wire = (from: FlowNode | string, to: FlowNode | string, label: string): void => {
+    const wire = (
+        from: FlowNode | string,
+        to: FlowNode | string,
+        label: string,
+        series = resourceOf(from) ?? resourceOf(to)
+    ): void => {
         const idOf = (side: FlowNode | string): string => (typeof side === 'string' ? side : side.id);
         // A mismatch is only claimed where both sides resolved and both name a resource, since every
         // proxy component in this schema is a link the walk cannot follow.
@@ -757,7 +768,7 @@ export const buildResourceFlowDiagram = async (
             !!from.resource &&
             !!to.resource &&
             from.resource !== to.resource;
-        edges.push({ from: idOf(from), to: idOf(to), kind: mismatch ? 'warning' : 'flow', label });
+        edges.push({ from: idOf(from), to: idOf(to), kind: mismatch ? 'warning' : 'flow', label, series });
     };
 
     /**
@@ -797,8 +808,6 @@ export const buildResourceFlowDiagram = async (
      * @param side the box the arrow touches.
      * @returns the resource id, or undefined for a box that names none.
      */
-    const resourceOf = (side: FlowNode | string): string | undefined =>
-        typeof side === 'string' ? undefined : side.resource;
     // The sentences are written once every component is known, since a component that names no
     // resource of its own, such as a resource change, is described with the one its storage holds.
     for (const entry of byName.values()) {
@@ -894,8 +903,8 @@ export const buildResourceFlowDiagram = async (
         }
 
         if (entry.role === 'flex-grid') {
-            wire(outside(CREW_ID), entry, l10n.t('goods'));
-            wire(entry, outside(CREW_ID), l10n.t('goods'));
+            wire(outside(CREW_ID), entry, l10n.t('goods'), l10n.t('goods'));
+            wire(entry, outside(CREW_ID), l10n.t('goods'), l10n.t('goods'));
             carriesGoods = true;
         }
 
@@ -1007,14 +1016,17 @@ export const buildResourceFlowDiagram = async (
         subtitle,
         nodes,
         edges,
-        legend: [
-            { kind: 'resource', label: l10n.t('holds a resource') },
-            { kind: 'component', label: l10n.t('moves resources') },
-            { kind: 'outside', label: l10n.t('outside this part') },
-            { kind: 'missing', label: l10n.t('names no component') },
-            { kind: 'flow', label: l10n.t('resources move this way') },
-            { kind: 'warning', label: l10n.t('the two hold different resources') },
-        ],
+        legend: legendFor(
+            [
+                { kind: 'resource', label: l10n.t('holds a resource') },
+                { kind: 'component', label: l10n.t('moves resources') },
+                { kind: 'outside', label: l10n.t('outside this part') },
+                { kind: 'missing', label: l10n.t('names no component') },
+                { kind: 'flow', label: l10n.t('resources move this way') },
+                { kind: 'warning', label: l10n.t('the two hold different resources') },
+            ],
+            edges
+        ),
         notes,
     };
 };

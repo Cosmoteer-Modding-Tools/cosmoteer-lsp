@@ -18,7 +18,7 @@ import { assignmentNameOf } from '../../utils/ast.utils';
 import { closestMatch } from '../../utils/did-you-mean';
 import { resolveAssetPath } from '../navigation/asset-resolver';
 import { stringValueNodesOf } from '../navigation/schema-reference.navigation';
-import { normalizeDir } from './asset-base-path';
+import { normalizeDir } from '../navigation/asset-resolver';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { cachedReaddir } from '../../workspace/fs-cache';
 import { ValidationError } from './validator';

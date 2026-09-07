@@ -1,0 +1,5 @@
+// Bases reached as `: &<cross_file_bases.rules>/Name` from inherits_descendants.rules. Each carries
+// the `Type=` its deriver leaves out, the way a mod's shared base file does.
+TargetBase { Type = TargetSearch }
+SequenceBase { Type = Sequence }
+MissionBase { Type = Mission }

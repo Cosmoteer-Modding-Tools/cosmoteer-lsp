@@ -53,6 +53,16 @@ describe('collectFileMigration', () => {
         expect(result.manual[0].line).toBe(3);
     });
 
+    it('extends an inherited TypeCategories list for Flammable = false without a local one', async () => {
+        const { result, applied } = await migrate(
+            'Base\n{\n\tTypeCategories = [armor]\n}\nPart : &Base\n{\n\tFlammable = false\n\tMaxHealth = 100\n}\n'
+        );
+        expect(applied).toContain('\tTypeCategories : ^/0/TypeCategories [non_flammable]\n\tMaxHealth = 100');
+        expect(applied).not.toContain('Flammable');
+        expect(result.byVersion['0.30.0']).toBe(1);
+        expect(result.manual).toEqual([]);
+    });
+
     it('removes Flammable = true outright', async () => {
         const { applied } = await migrate('Part\n{\n\tFlammable = true\n\tMaxHealth = 100\n}\n');
         expect(applied).not.toContain('Flammable');

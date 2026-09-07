@@ -51,6 +51,12 @@ export interface DiagramEdge {
     readonly to: string;
     readonly label?: string;
     readonly kind: DiagramEdgeKind;
+    /**
+     * What this arrow belongs with, so the page gives every series its own colour and a swatch in
+     * the legend: the resource moving along it in a resource flow, the trigger a chain starts from in
+     * a firing chain. Absent, the arrow takes the plain colour of its kind.
+     */
+    readonly series?: string;
 }
 
 /** A whole diagram, ready to draw. */

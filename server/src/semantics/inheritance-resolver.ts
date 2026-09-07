@@ -107,3 +107,53 @@ export const findMemberThroughInheritance = async (
     }
     return null;
 };
+
+/**
+ * The position in `node`'s own inheritance list of the first base whose chain declares the named
+ * member, which is the `N` a `Member : ^/N/Member [ … ]` extension has to name for the game to
+ * resolve it. The lookup mirrors the game's own: a base's local members first, then its bases in
+ * turn, so a member declared two levels up still counts for the base that leads there.
+ *
+ * @param node the inheriting group or list.
+ * @param segment the member name to find.
+ * @param resolveReference the reference resolver to reach a base with.
+ * @param cancellationToken cancels reference resolution.
+ * @returns the index into `node.inheritance`, or undefined when no base's chain declares the member
+ * (or when the node inherits from nothing at all).
+ */
+export const inheritanceBaseIndexDeclaring = async (
+    node: GroupNode | ListNode,
+    segment: string,
+    resolveReference: ResolveReferenceFn,
+    cancellationToken: CancellationToken
+): Promise<number | undefined> => {
+    if (!node.inheritance) return undefined;
+    for (let index = 0; index < node.inheritance.length; index++) {
+        const inheritance = node.inheritance[index];
+        if (inheritance.valueType.type !== 'Reference') continue;
+        const visited = new Set<AbstractNode>([node]);
+        const resolved = await resolveReference(
+            inheritance.valueType.value,
+            inheritance,
+            getStartOfAstNode(node).uri,
+            cancellationToken,
+            visited
+        ).catch(() => null);
+        if (!resolved) continue;
+        let base: AbstractNode | undefined;
+        if (isFile(resolved as unknown as FileTree)) {
+            base = (await getParsedFileDocument(resolved as unknown as FileWithPath).catch(() => null)) ?? undefined;
+        } else {
+            base = resolved as AbstractNode;
+        }
+        if (!base) continue;
+        if (stepIntoNode(base, segment)) return index;
+        if (
+            (isGroupNode(base) || isListNode(base)) &&
+            (await findMemberThroughInheritance(base, segment, resolveReference, cancellationToken, visited))
+        ) {
+            return index;
+        }
+    }
+    return undefined;
+};

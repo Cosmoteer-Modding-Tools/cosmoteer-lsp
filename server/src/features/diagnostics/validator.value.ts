@@ -184,10 +184,8 @@ const checkAssets = async (node: ValueNode, cancellationToken: CancellationToken
             };
         }
         const uri = getStartOfAstNode(node).uri;
-        // Resolution tries the file's own directory first, then any inherited asset base
-        // directory, e.g. `CrewEnterEffects : /BASE_SOUNDS/AudioInterior` makes the
-        // RandomSounds paths relative to the inherited base sound file's directory
-        // (mirrored into the mod tree).
+        // The game combines the path with this file's own directory and looks nowhere else, so
+        // a base inherited from another folder changes nothing about where the asset has to be.
         if (await resolveAssetPath(node, uri, cancellationToken).catch(() => true)) {
             return undefined;
         }
@@ -195,7 +193,7 @@ const checkAssets = async (node: ValueNode, cancellationToken: CancellationToken
         // the same directories) as both extra info and a quick fix.
         const suggestion = await suggestAssetFilename(node, uri, cancellationToken).catch(() => null);
         const base = l10n.t(
-            'The asset "{0}" could not be found, relative to this file or any inherited asset base',
+            'The asset "{0}" could not be found relative to this file',
             String(node.valueType.value)
         );
         return {

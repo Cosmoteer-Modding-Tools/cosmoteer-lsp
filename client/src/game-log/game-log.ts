@@ -1,3 +1,4 @@
+import * as path from 'path';
 import {
     commands,
     Diagnostic,
@@ -20,7 +21,7 @@ import { anchorUri } from '../wizards/wizard-client';
 
 /** Mirror of the server's game-log import result (see server features/game-log/import-game-log.command.ts). */
 interface ImportGameLogResult {
-    kind: 'imported' | 'no-mod' | 'no-logs' | 'nothing-for-this-mod';
+    kind: 'imported' | 'loaded-clean' | 'no-mod' | 'no-logs' | 'nothing-for-this-mod';
     log?: { path: string; time: string; gameVersion?: string };
     diagnostics: Array<{
         uri: string;
@@ -73,6 +74,15 @@ export function registerGameLog(context: ExtensionContext, client: LanguageClien
             }
             if (result.kind === 'no-logs') {
                 window.showInformationMessage(l10n.t('Cosmoteer has written no logs yet. Run the game once, then try again.'));
+                return;
+            }
+            if (result.kind === 'loaded-clean') {
+                window.showInformationMessage(
+                    l10n.t(
+                        'The newest run that loaded this mod reported nothing about its files ({0}).',
+                        result.log ? path.basename(result.log.path) : ''
+                    )
+                );
                 return;
             }
             if (result.kind === 'nothing-for-this-mod') {

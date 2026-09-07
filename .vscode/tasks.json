@@ -55,6 +55,19 @@
             "problemMatcher": []
         },
         {
+            // Builds what the e2e launch needs: the esbuild bundle the host loads plus the
+            // tsc-emitted test runner under out/client/test (mirrors scripts/e2e.sh).
+            "label": "compile-e2e",
+            "type": "shell",
+            "command": "node esbuild.mjs && npx tsc -b",
+            "group": "build",
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "never"
+            },
+            "problemMatcher": ["$tsc"]
+        },
+        {
             // Type checking runs separately: esbuild bundles without type-checking, so this
             // is the only task that surfaces type errors. Not the default build.
             "label": "check-types (watch)",

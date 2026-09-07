@@ -29,6 +29,8 @@ import {
 import { classAncestry, discriminatorIsAmbiguous, fieldOf, fieldsOf, schema } from '../../document/schema/schema';
 import { documentRootClass } from '../../document/schema/document-root';
 import { deprecatedField, migrationSymbolOf } from '../../document/schema/deprecations';
+import { resolveReference } from '../../semantics/effective-member';
+import { inheritanceBaseIndexDeclaring } from '../../semantics/inheritance-resolver';
 import { ValidationError, ValidationErrorData } from './validator';
 import { childNodesOf, getStartOfAstNode } from '../../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
@@ -117,7 +119,7 @@ const siblingNamed = (group: FieldContainer, name: string, except: AbstractNode)
  * The group's own `TypeCategories` list literal, in either spelling (`TypeCategories = […]` or the
  * bare list form `TypeCategories […]`), when it has a closing bracket to append into. Only the
  * doc-local list qualifies: writing a fresh `TypeCategories` assignment would override an inherited
- * list, so a part without a local one is reported for manual review instead of auto-fixed.
+ * list, so a part without a local one extends the inherited list instead (see the caller).
  *
  * @param group the part group to search.
  * @returns the local list node, or undefined when the group has none (or an unclosed one).
@@ -463,7 +465,7 @@ export const validateIgnoredFields = async (
      * @param element the member's assignment or bare named list.
      * @param cls the class that declares the dead field, or owns the group the member is foreign to.
      */
-    const report = (node: FieldContainer, element: NamedMember, cls: string): void => {
+    const report = async (node: FieldContainer, element: NamedMember, cls: string): Promise<void> => {
         const identifier = memberIdentifier(element);
         if (!identifier) return;
         // The hint fades, and the remove fix deletes, the name together with its value, which for a
@@ -509,10 +511,13 @@ export const validateIgnoredFields = async (
             } else if (name.toLowerCase() === 'flammable') {
                 if (isFalseValue(value)) {
                     // `Flammable = false` was a fireproofing, and since Meltdown that
-                    // intent is spelled as the `non_flammable` part category. Only a
-                    // doc-local `TypeCategories` list can be appended to safely (a fresh
-                    // assignment would override an inherited list), so without one the
-                    // finding stays manual.
+                    // intent is spelled as the `non_flammable` part category. A doc-local
+                    // `TypeCategories` list is appended to in place. Without one, a fresh
+                    // assignment would replace the list the part inherits, so the fix instead
+                    // extends the inherited list the way vanilla does
+                    // (`TypeCategories : ^/N/TypeCategories [non_flammable]`), which needs a base
+                    // whose chain declares the list, or the game fails to resolve `^/N`. A part
+                    // with neither stays manual.
                     const categories = localTypeCategoriesList(node);
                     if (categories) {
                         data.migration.apply = 'rewrite';
@@ -527,6 +532,26 @@ export const validateIgnoredFields = async (
                                 },
                             ],
                         };
+                    } else if (isGroupNode(node as unknown as AbstractNode)) {
+                        const baseIndex = await inheritanceBaseIndexDeclaring(
+                            node as unknown as GroupNode,
+                            'TypeCategories',
+                            resolveReference,
+                            cancellationToken
+                        ).catch(() => undefined);
+                        if (baseIndex !== undefined) {
+                            data.migration.apply = 'rewrite';
+                            data.rewrite = {
+                                title: l10n.t("Replace with a 'non_flammable' TypeCategories entry"),
+                                edits: [
+                                    {
+                                        start,
+                                        end,
+                                        newText: `TypeCategories : ^/${baseIndex}/TypeCategories [non_flammable]`,
+                                    },
+                                ],
+                            };
+                        }
                     }
                 } else {
                     // `Flammable = true` restates the old default: removal is the migration.
@@ -559,7 +584,7 @@ export const validateIgnoredFields = async (
             data,
         });
     };
-    const visit = (node: AbstractNode): void => {
+    const visit = async (node: AbstractNode): Promise<void> => {
         if (cancellationToken.isCancellationRequested) return;
         if (isGroupNode(node)) {
             for (const element of node.elements) {
@@ -567,11 +592,11 @@ export const validateIgnoredFields = async (
                 if (!member) continue;
                 const name = memberIdentifier(member)!.name;
                 const cls = ignoredFieldClass(node, name, document) ?? deadDeclaredFieldClass(node, name, document);
-                if (cls) report(node, member, cls);
+                if (cls) await report(node, member, cls);
             }
         }
         const children = childNodesOf(node);
-        for (const child of children) if (child) visit(child);
+        for (const child of children) if (child) await visit(child);
     };
     // A file that is one object writes its members at the top level (a whole-file media effect, a
     // part override fragment), where there is no enclosing group to judge them against. Only the
@@ -584,8 +609,8 @@ export const validateIgnoredFields = async (
         const member = namedMember(element);
         if (!member) continue;
         const cls = deadDeclaredIn(rootClass, memberIdentifier(member)!.name, document);
-        if (cls) report(document, member, cls);
+        if (cls) await report(document, member, cls);
     }
-    for (const element of document.elements) visit(element);
+    for (const element of document.elements) await visit(element);
     return errors;
 };

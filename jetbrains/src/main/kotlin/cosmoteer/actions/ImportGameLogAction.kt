@@ -67,6 +67,7 @@ class ImportGameLogAction : AnAction() {
                 null -> "The game log could not be read."
                 "no-mod" -> "This file is not inside a mod: no mod.rules was found above it."
                 "no-logs" -> "Cosmoteer has written no logs yet. Run the game once, then try again."
+                "loaded-clean" -> "The newest run that loaded this mod reported nothing about its files."
                 "nothing-for-this-mod" -> "No game log mentions this mod. The game reports a mod only while it loads it."
                 else -> null
             }

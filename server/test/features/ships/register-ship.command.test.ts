@@ -477,6 +477,26 @@ describe('registering ships in a faction', () => {
             'File="../../../my_ships/Insider.ship.png"'
         );
     });
+
+    // The game reads StasisIcon from the role file, the same way it reads File, so an icon drawn
+    // beside a ship that stays where it is has to be named with the same walk up.
+    it('names the stasis icon of a station left in place by the same relative path as the ship', async () => {
+        const inside = `${MOD_DIR}/my_ships`;
+        mkdirSync(inside, { recursive: true });
+        const path = `${inside}/Outpost.ship.png`;
+        writeFileSync(path, shipPngBytes(blueprintTree('Outpost', ['cosmoteer.storage', 'cosmoteer.corridor', 'cosmoteer.armor'])));
+        const result = await apply(
+            { blueprints: [], faction: 'fringe', ships: [{ fsPath: path, role: 'trade_station', tier: 3, difficulty: 1 }] },
+            makeHost()
+        );
+        expect(result.ships[0].failure).toBeUndefined();
+        expect(result.ships[0].stasisIcon).toBe(`${inside}/Outpost.png`);
+        expect(existsSync(`${inside}/Outpost.png`)).toBe(true);
+        expect(existsSync(`${MOD_DIR}/builtin_ships/fringe/Stations/Outpost.png`)).toBe(false);
+        const entry = read(`${MOD_DIR}/builtin_ships/fringe/Stations/builtins_fringe_stations.rules`);
+        expect(entry).toContain('File="../../../my_ships/Outpost.ship.png"');
+        expect(entry).toContain('StasisIcon="../../../my_ships/Outpost.png"');
+    });
 });
 
 describe('creating a faction', () => {

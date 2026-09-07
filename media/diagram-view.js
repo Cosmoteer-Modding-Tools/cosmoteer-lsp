@@ -40,14 +40,35 @@
             outgoing.get(edge.from).push(edge.to);
             incoming.get(edge.to).push(edge.from);
         }
+        // A resource that the crew both deliver and carry away, or a trigger that fires its own
+        // source, closes a cycle. Left in the layering, every pass would push the whole ring one
+        // layer further right until the bound stopped it, and the drawing would be a row of boxes
+        // scaled down to nothing. The edges that close a ring in a depth-first walk are left out of
+        // the layering instead; they still draw, bowing back under the row.
+        const back = new Set();
+        const seen = new Set();
+        const onPath = new Set();
+        const walk = (id) => {
+            seen.add(id);
+            onPath.add(id);
+            for (const next of outgoing.get(id)) {
+                if (onPath.has(next)) back.add(`${id}\u0000${next}`);
+                else if (!seen.has(next)) walk(next);
+            }
+            onPath.delete(id);
+        };
+        for (const id of ids) if (!seen.has(id)) walk(id);
+
         const layer = new Map();
         for (const id of ids) layer.set(id, 0);
-        // Longest path from the roots, with a bound on the passes so a cycle cannot spin here.
+        // Longest path from the roots. Without the ring edges the graph has none, so the passes end
+        // on their own; the bound is there for the day that stops being true.
         const passes = Math.min(ids.size, 64);
         for (let pass = 0; pass < passes; pass++) {
             let moved = false;
             for (const id of ids) {
                 for (const next of outgoing.get(id)) {
+                    if (back.has(`${id}\u0000${next}`)) continue;
                     if (layer.get(next) < layer.get(id) + 1) {
                         layer.set(next, layer.get(id) + 1);
                         moved = true;
@@ -138,13 +159,14 @@
     }
 
     /**
-     * The curve of one arrow, from the right edge of its source to the left edge of its target.
+     * The four points of one arrow's cubic curve, from the right edge of its source to the left
+     * edge of its target.
      *
      * @param {object} from the source box.
      * @param {object} to the target box.
-     * @returns {string} the SVG path data.
+     * @returns {Array<{x: number, y: number}>} start, two control points, end.
      */
-    function edgePath(from, to) {
+    function edgeCurve(from, to) {
         const x1 = from.x + from.width;
         const y1 = from.y + from.height / 2;
         const x2 = to.x;
@@ -153,14 +175,53 @@
         // two would be unreadable, so it bows out under the row instead.
         if (x2 <= x1) {
             const dip = Math.max(from.height, Math.abs(y2 - y1)) * 0.9 + 24;
-            return `M ${x1} ${y1} C ${x1 + 40} ${y1 + dip}, ${x2 - 40} ${y2 + dip}, ${x2} ${y2}`;
+            return [
+                { x: x1, y: y1 },
+                { x: x1 + 40, y: y1 + dip },
+                { x: x2 - 40, y: y2 + dip },
+                { x: x2, y: y2 },
+            ];
         }
         const bend = Math.max(30, (x2 - x1) / 2);
-        return `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
+        return [
+            { x: x1, y: y1 },
+            { x: x1 + bend, y: y1 },
+            { x: x2 - bend, y: y2 },
+            { x: x2, y: y2 },
+        ];
+    }
+
+    /**
+     * The path data of one arrow.
+     *
+     * @param {object} from the source box.
+     * @param {object} to the target box.
+     * @returns {string} the SVG path data.
+     */
+    function edgePath(from, to) {
+        const [p0, p1, p2, p3] = edgeCurve(from, to);
+        return `M ${p0.x} ${p0.y} C ${p1.x} ${p1.y}, ${p2.x} ${p2.y}, ${p3.x} ${p3.y}`;
+    }
+
+    /**
+     * Where the words of an arrow go: the point halfway along its curve, which on a forward arrow
+     * is the middle of the gap between the two layers and on a bowed-back one the bottom of the bow,
+     * both clear of the boxes.
+     *
+     * @param {object} from the source box.
+     * @param {object} to the target box.
+     * @returns {{x: number, y: number}} the point on the curve at its halfway parameter.
+     */
+    function edgeMidpoint(from, to) {
+        const [p0, p1, p2, p3] = edgeCurve(from, to);
+        return {
+            x: (p0.x + 3 * p1.x + 3 * p2.x + p3.x) / 8,
+            y: (p0.y + 3 * p1.y + 3 * p2.y + p3.y) / 8,
+        };
     }
 
     if (typeof module !== 'undefined' && typeof acquireVsCodeApi === 'undefined') {
-        module.exports = { assignLayers, orderLayers, layoutDiagram, edgePath };
+        module.exports = { assignLayers, orderLayers, layoutDiagram, edgePath, edgeMidpoint };
         return;
     }
 
@@ -187,9 +248,15 @@
         return template.replace(/\{(\d+)\}/g, (match, index) => (args[index] === undefined ? match : String(args[index])));
     }
 
-    const BOX = { width: 190, height: 46, gapX: 70, gapY: 16 };
+    // The gap between two layers is where a forward arrow's words sit, so it is as wide as a short
+    // sentence such as "1 battery per 0.5 s".
+    const BOX = { width: 190, height: 46, gapX: 130, gapY: 16 };
     const MIN_ZOOM = 0.2;
     const MAX_ZOOM = 3;
+    // One colour per series of arrows: a resource in the flow view, a chain in the firing view. None
+    // of them is the warning red, the ones nearest a box border's colour come last, and all are
+    // mid-lightness so the same eight read on a light theme and on a dark one.
+    const SERIES_COLOURS = ['#d18616', '#2aa198', '#e3699b', '#1f9fd0', '#8f9b2c', '#b07a4a', '#7d8fd6', '#b06be0'];
 
     const svg = document.getElementById('canvas');
     const titleEl = document.getElementById('title');
@@ -246,11 +313,26 @@
         titleEl.textContent = diagram.title || '';
         subtitleEl.textContent = diagram.subtitle || '';
         subtitleEl.hidden = !diagram.subtitle;
+        // Series are numbered in the order their first arrow was written, so the colour of a
+        // resource holds still while the reader edits and the drawing redraws under them.
+        const seriesColour = new Map();
+        for (const edge of diagram.edges) {
+            if (edge.kind !== 'flow' || !edge.series || seriesColour.has(edge.series)) continue;
+            seriesColour.set(edge.series, SERIES_COLOURS[seriesColour.size % SERIES_COLOURS.length]);
+        }
+
         legendEl.replaceChildren();
         for (const entry of diagram.legend || []) {
             const item = document.createElement('span');
             item.className = `legend-item kind-${entry.kind}`;
             item.textContent = entry.label;
+            legendEl.appendChild(item);
+        }
+        for (const [series, colour] of seriesColour) {
+            const item = document.createElement('span');
+            item.className = 'legend-item series';
+            item.style.color = colour;
+            item.textContent = series;
             legendEl.appendChild(item);
         }
         notesEl.replaceChildren();
@@ -267,10 +349,12 @@
 
         laid = layoutDiagram(diagram.nodes, diagram.edges, BOX);
 
+        // A marker cannot take its colour from the line it ends, so there is one head per kind and
+        // one more per series colour.
         const defs = el('defs');
-        for (const kind of ['include', 'inherit', 'action', 'flow', 'warning']) {
+        const head = (id, cls, fill) => {
             const marker = el('marker', {
-                id: `arrow-${kind}`,
+                id,
                 viewBox: '0 0 10 10',
                 refX: 9,
                 refY: 5,
@@ -278,9 +362,15 @@
                 markerHeight: 7,
                 orient: 'auto-start-reverse',
             });
-            marker.appendChild(el('path', { d: 'M 0 0 L 10 5 L 0 10 z', class: `arrow kind-${kind}` }));
+            const shape = el('path', { d: 'M 0 0 L 10 5 L 0 10 z', class: cls });
+            if (fill) shape.style.fill = fill;
+            marker.appendChild(shape);
             defs.appendChild(marker);
-        }
+        };
+        for (const kind of ['include', 'inherit', 'action', 'flow', 'warning']) head(`arrow-${kind}`, `arrow kind-${kind}`);
+        const palette = [...new Set(seriesColour.values())];
+        palette.forEach((colour, index) => head(`arrow-series-${index}`, 'arrow', colour));
+        const seriesHead = (colour) => `arrow-series-${palette.indexOf(colour)}`;
         svg.appendChild(defs);
 
         const scene = el('g', { id: 'scene' });
@@ -293,14 +383,30 @@
         for (const edge of diagram.edges) {
             const from = laid.boxes.get(edge.from);
             const to = laid.boxes.get(edge.to);
+            // A missing end still gets an item, so the filter's edge-by-index match holds.
+            const item = el('g', { class: `edge-item kind-${edge.kind}` });
+            edgeLayer.appendChild(item);
             if (!from || !to) continue;
+            const colour = edge.kind === 'flow' ? seriesColour.get(edge.series) : undefined;
             const path = el('path', {
                 d: edgePath(from, to),
                 class: `edge kind-${edge.kind}`,
-                'marker-end': `url(#arrow-${edge.kind})`,
+                'marker-end': `url(#${colour ? seriesHead(colour) : `arrow-${edge.kind}`})`,
             });
-            if (edge.label) path.appendChild(el('title')).textContent = edge.label;
-            edgeLayer.appendChild(path);
+            if (colour) path.style.stroke = colour;
+            item.appendChild(path);
+            if (!edge.label) continue;
+            // The words sit on the line itself: the amount, the resource and how often for a flow,
+            // the firing member for a chain. Hidden in a tooltip they left every arrow looking the
+            // same, and the reader hovering each one to tell a heat line from a battery line.
+            const mid = edgeMidpoint(from, to);
+            const words = el('text', { x: mid.x, y: mid.y, class: 'edge-label' });
+            words.textContent = edge.label;
+            item.appendChild(words);
+            truncate(words, BOX.gapX - 10);
+            const tooltip = el('title');
+            tooltip.textContent = edge.label;
+            item.appendChild(tooltip);
         }
 
         for (const box of laid.boxes.values()) {
@@ -390,11 +496,11 @@
         for (const group of svg.querySelectorAll('g.node')) {
             group.classList.toggle('dimmed', !matched.has(group.getAttribute('data-id')));
         }
-        const paths = svg.querySelectorAll('path.edge');
+        const items = svg.querySelectorAll('g.edge-item');
         diagram.edges.forEach((edge, index) => {
-            const path = paths[index];
-            if (!path) return;
-            path.classList.toggle('dimmed', !(matched.has(edge.from) || matched.has(edge.to)));
+            const item = items[index];
+            if (!item) return;
+            item.classList.toggle('dimmed', !(matched.has(edge.from) || matched.has(edge.to)));
         });
     }
 

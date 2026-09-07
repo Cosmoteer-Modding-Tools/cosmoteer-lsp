@@ -5,6 +5,7 @@ import { CancellationToken, Diagnostic, DiagnosticSeverity, Range } from 'vscode
 import { AbstractNode } from '../../core/ast/ast';
 import { findModRoot } from '../../mod/mod-root';
 import { stepIntoNode } from '../../semantics/reference-resolver';
+import { identityOfMod } from '../../mod/mod-dependencies';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { cachedParseFilePath } from '../../workspace/fs-cache';
 import { foldPathCase } from '../../workspace/fs-cache';
@@ -37,7 +38,11 @@ interface GameLogDiagnostic {
 
 /** What the import found, and which run it read. */
 export interface ImportGameLogResult {
-    readonly kind: 'imported' | 'no-mod' | 'no-logs' | 'nothing-for-this-mod';
+    /**
+     * `loaded-clean` is a run that lists the mod among the ones it loaded and names none of its
+     * files, which is the answer a modder is after: the game took the mod and had nothing to say.
+     */
+    readonly kind: 'imported' | 'loaded-clean' | 'no-mod' | 'no-logs' | 'nothing-for-this-mod';
     /** The log that was read, when one was. */
     readonly log?: { readonly path: string; readonly time: string; readonly gameVersion?: string };
     readonly diagnostics: readonly GameLogDiagnostic[];
@@ -164,6 +169,7 @@ export const importGameLog = async (
 
     const logs = await logsNewestFirst();
     if (logs.length === 0) return { kind: 'no-logs', diagnostics: [], stale: 0 };
+    const modId = (await identityOfMod(modRoot)).manifestId?.toLowerCase();
 
     for (const log of logs) {
         if (cancellationToken.isCancellationRequested) break;
@@ -187,7 +193,14 @@ export const importGameLog = async (
                 stale++;
             }
         }
-        if (diagnostics.length === 0 && stale === 0) continue;
+        if (diagnostics.length === 0 && stale === 0) {
+            // A run that loaded the mod and reported nothing is the newest word on it; an older
+            // run's findings would describe files that have moved on since.
+            if (modId && report.modIds.some((id) => id.toLowerCase() === modId)) {
+                return { kind: 'loaded-clean', log: { path: log.path, time: '', gameVersion: report.gameVersion }, diagnostics: [], stale: 0 };
+            }
+            continue;
+        }
         return {
             kind: 'imported',
             log: { path: log.path, time, gameVersion: report.gameVersion },

@@ -23,6 +23,7 @@ import {
 import { memberOrInherited } from '../../semantics/effective-member';
 import { evaluateNumericValue, formatNumber } from '../../semantics/value-evaluator';
 import { getStartOfAstNode, memberValueNamed, namedMembersOf } from '../../utils/ast.utils';
+import { chainSeries, legendFor } from '../diagram/diagram-series';
 import { Diagram, DiagramEdge, DiagramNode } from '../diagram/diagram.types';
 import { partAt } from './part-at';
 
@@ -356,18 +357,24 @@ export const buildEffectChainDiagram = async (
         );
     }
 
+    // One colour per chain, named after the box it starts from, so a reader can follow what one
+    // trigger sets off through a part whose twenty other arrows cross it.
+    const coloured = chainSeries(edges, (id) => nodes.get(id)?.label ?? id);
     return {
         title: l10n.t('Firing chain of {0}', partNameOf(part)),
         subtitle: l10n.t('{0} of {1} components are wired into a chain', String(nodes.size), String(components.length)),
         nodes: [...nodes.values()],
-        edges,
-        legend: [
-            { kind: 'component', label: l10n.t('plays effects') },
-            { kind: 'member', label: l10n.t('passes the trigger on') },
-            { kind: 'missing', label: l10n.t('names no component') },
-            { kind: 'outside', label: l10n.t('on another part') },
-            { kind: 'flow', label: l10n.t('fires') },
-        ],
+        edges: coloured,
+        legend: legendFor(
+            [
+                { kind: 'component', label: l10n.t('plays effects') },
+                { kind: 'member', label: l10n.t('passes the trigger on') },
+                { kind: 'missing', label: l10n.t('names no component') },
+                { kind: 'outside', label: l10n.t('on another part') },
+                { kind: 'flow', label: l10n.t('fires') },
+            ],
+            coloured
+        ),
         notes,
     };
 };

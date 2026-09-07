@@ -185,24 +185,48 @@ button:hover {
     stroke: var(--vscode-descriptionForeground, #999);
 }
 
-.edge.dimmed {
+.edge-item.dimmed {
     opacity: 0.1;
 }
 
-.edge.kind-flow,
-.arrow.kind-flow {
-    stroke: var(--vscode-charts-green, #89d185);
-    fill: var(--vscode-charts-green, #89d185);
+/* The line is a stroke and only the head is filled. A fill on the line closes every curve into a
+   shape, and a bowed-back arrow turns into a solid sail over the boxes. Arrows are orange, a colour
+   no box border uses, so a line is never read as part of the box it touches. */
+.edge.kind-flow {
+    stroke: var(--vscode-charts-orange, #d18616);
 }
 
-.edge.kind-warning,
-.arrow.kind-warning {
+.edge.kind-warning {
     stroke: var(--vscode-charts-red, #f14c4c);
-    fill: var(--vscode-charts-red, #f14c4c);
 }
 
 .arrow {
     stroke: none;
+}
+
+.arrow.kind-flow {
+    fill: var(--vscode-charts-orange, #d18616);
+}
+
+.arrow.kind-warning {
+    fill: var(--vscode-charts-red, #f14c4c);
+}
+
+/* The words on an arrow, haloed in the page's own background so they stay readable where lines
+   cross. */
+.edge-label {
+    fill: var(--vscode-foreground, #ccc);
+    font-size: 9.5px;
+    text-anchor: middle;
+    dominant-baseline: central;
+    paint-order: stroke;
+    stroke: var(--vscode-editor-background, #1e1e1e);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+}
+
+.edge-item.kind-warning .edge-label {
+    fill: var(--vscode-charts-red, #f14c4c);
 }
 
 /* The legend swatch takes its colour from the same kind class. */
@@ -214,9 +238,12 @@ button:hover {
     color: var(--vscode-charts-purple, #b180d7);
 }
 
-.legend-item.kind-component,
-.legend-item.kind-flow {
+.legend-item.kind-component {
     color: var(--vscode-charts-green, #89d185);
+}
+
+.legend-item.kind-flow {
+    color: var(--vscode-charts-orange, #d18616);
 }
 
 .legend-item.kind-resource {

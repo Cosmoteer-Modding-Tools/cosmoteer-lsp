@@ -10,6 +10,7 @@ import {
     ValueNode,
 } from '../../core/ast/ast';
 import { isShaderDocument } from '../../document/document-kind';
+import { warmInheritedClasses } from '../completion/inheritance-resolution';
 import { documentRootClass } from '../../document/schema/document-root';
 import { entityDeclarationsOf, sameId } from '../../document/schema/entity-schema';
 import { getStartOfAstNode } from '../../utils/ast.utils';
@@ -468,6 +469,9 @@ export const documentHighlightsAt = async (
     // A `.shader` file is HLSL, not Object Text. Parsing one with the Object Text parser yields a
     // nonsense AST, and a word match over a shader is exactly what the editor already does for free.
     if (isShaderDocument(document.uri)) return null;
+    // An id inside a group deriving from a base in another file is recognized as a reference only
+    // once that group's class is known to the synchronous schema lookups.
+    await warmInheritedClasses(document, cancellationToken).catch(() => undefined);
 
     const uriKey = normalizeUri(document.uri);
     const positionKey = `${position.line}:${position.character}`;

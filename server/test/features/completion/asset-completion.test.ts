@@ -1,10 +1,18 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNodeDocument, ValueNode } from '../../../src/core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    AssignmentNode,
+    isAssignmentNode,
+    ListNode,
+    ValueNode,
+} from '../../../src/core/ast/ast';
 import { AssetAutoCompletionStrategy } from '../../../src/features/completion/strategy/asset.autocompletion-strategy';
 import { AutoCompletionAsset } from '../../../src/features/completion/autocompletion.asset';
 import { Completion } from '../../../src/features/completion/autocompletion.service';
 import { globalSettings } from '../../../src/settings';
+import { findNodeByIdentifier, parseFilePath } from '../../../src/utils/ast.utils';
 import { initWorkspace, WORKSPACE_DATA_DIR, workspaceFile } from '../../workspace-helper';
 
 const token = CancellationToken.None;
@@ -99,5 +107,31 @@ describe('AutoCompletionAsset (the trigger gate)', () => {
     it('does NOT fire on an unquoted plain string (an ordinary identifier/name)', async () => {
         const result = await completer.getCompletions(node('SomeName', 'String', false), token);
         expect(result).toEqual([]);
+    });
+});
+
+describe('AutoCompletionAsset inside a list of assets', () => {
+    const completer = new AutoCompletionAsset();
+    let element: ValueNode;
+
+    beforeAll(async () => {
+        await initWorkspace();
+        globalSettings.cosmoteerPath = WORKSPACE_DATA_DIR;
+        const doc = await parseFilePath(workspaceFile('effects', 'list_assets.rules'));
+        const sfx = findNodeByIdentifier(doc, 'Sfx') as unknown as { elements: AbstractNode[] };
+        const assignment = sfx.elements.find(
+            (e): e is AssignmentNode => isAssignmentNode(e) && e.left.name === 'RandomSounds'
+        );
+        const list = assignment!.right as ListNode;
+        element = list.elements[0] as ValueNode;
+    });
+
+    it('fires on an empty element of a list of sounds, filtered to the sound kind of the list', async () => {
+        // Before, only a value written straight under a group assignment was matched against the
+        // schema, so an element of the list got nothing until a slash was typed.
+        const result = await completer.getCompletions(element, token);
+        expect(labels(result)).toContain('audio/');
+        expect(labels(result)).toContain('./Data/');
+        expect(labels(result)).not.toContain('spark.png');
     });
 });
