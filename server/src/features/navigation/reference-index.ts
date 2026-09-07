@@ -13,6 +13,7 @@ import {
     ValueNode,
 } from '../../core/ast/ast';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
+import { warmInheritedClasses } from '../completion/inheritance-resolution';
 import { DefinitionService, isReferenceValue } from './definition.service';
 import {
     dedupeLocations,
@@ -77,6 +78,9 @@ export class ReferenceIndex {
         cancellationToken: CancellationToken,
         progress?: WorkDoneProgressReporter
     ): Promise<Location[]> {
+        // An id inside a group deriving from a base in another file is a schema symbol only once
+        // that group's class is known to the synchronous schema lookups.
+        await warmInheritedClasses(document, cancellationToken).catch(() => undefined);
         // A particle data channel (`DataOut = rot_vel` … `BIn = rot_vel`) is a same-file symbol. Every
         // `ParticleDataID` field carrying the name is a site. Detected by cursor position on a channel.
         const channel = particleChannelAt(document, position);

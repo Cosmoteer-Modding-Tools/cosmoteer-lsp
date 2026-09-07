@@ -34,7 +34,7 @@ describe('importing the game log', () => {
             { openText: () => undefined },
             token
         );
-        expect(['imported', 'nothing-for-this-mod']).toContain(result.kind);
+        expect(['imported', 'loaded-clean', 'nothing-for-this-mod']).toContain(result.kind);
         for (const entry of result.diagnostics) {
             // Nothing outside the mod is ever published, however many files a log names.
             expect(entry.uri.toLowerCase()).toContain(mod.replace(/\\/g, '/').toLowerCase());

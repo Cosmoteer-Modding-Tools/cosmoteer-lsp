@@ -1,7 +1,22 @@
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, GroupNode, ValueNode, isDocumentNode, isGroupNode } from '../../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    GroupNode,
+    ValueNode,
+    isAssignmentNode,
+    isDocumentNode,
+    isGroupNode,
+    isListNode,
+} from '../../core/ast/ast';
 import { getStartOfAstNode } from '../../utils/ast.utils';
-import { groupDiscriminator, registryHintFromContainer, resolveGroupClass } from '../../document/schema/schema-context';
+import {
+    groupDiscriminator,
+    registryHintFromContainer,
+    resolveGroupClass,
+    schemaContextEpoch,
+    seedGroupClass,
+} from '../../document/schema/schema-context';
 import { documentRootClass } from '../../document/schema/document-root';
 import { classByDiscriminator } from '../../document/schema/schema';
 import { DefinitionService, isReferenceValue } from '../navigation/definition.service';
@@ -17,6 +32,16 @@ import { getParsedFileDocument } from '../../workspace/parsed-file-cache';
  * can't classify it, and completion goes silent. This follows each `: base` reference (via the same
  * resolver go-to-definition uses, so cross-file bases resolve too) to the base group and classifies
  * that, recursively. Async because resolving a base may read another file.
+ *
+ * A class found this way is seeded into the synchronous resolution, so the containers written
+ * inside the group take their slot from it as well. A group with no base of its own that sits
+ * inside such a deriver is answered the same way: its ancestors are resolved first, then its own
+ * slot is read again.
+ *
+ * @param group the group whose class is wanted.
+ * @param cancellationToken stops the cross-file walk.
+ * @param seen the groups already on the walk, guarding an inheritance cycle.
+ * @returns the class FullName, or undefined when no base classifies the group.
  */
 export const resolveClassThroughInheritance = async (
     group: GroupNode,
@@ -28,6 +53,55 @@ export const resolveClassThroughInheritance = async (
     if (seen.has(group)) return undefined; // guard inheritance cycles
     seen.add(group);
 
+    if (await resolveAncestorsThroughInheritance(group, cancellationToken, seen)) {
+        const viaAncestor = resolveGroupClass(group);
+        if (viaAncestor) return viaAncestor;
+    }
+
+    const cls = await classThroughOwnBases(group, cancellationToken, seen);
+    if (cls) seedGroupClass(group, cls);
+    return cls;
+};
+
+/**
+ * Resolves the class of every ancestor group that derives from a base and has no class yet,
+ * outermost first, so that a group nested in a cross-file deriver finds its slot typed.
+ *
+ * @param group the group whose ancestors are resolved.
+ * @param cancellationToken stops the cross-file walk.
+ * @param seen the groups already on the walk.
+ * @returns true when at least one ancestor was newly classified.
+ */
+const resolveAncestorsThroughInheritance = async (
+    group: GroupNode,
+    cancellationToken: CancellationToken,
+    seen: Set<GroupNode>
+): Promise<boolean> => {
+    const pending: GroupNode[] = [];
+    for (let node = group.parent; node && !isDocumentNode(node); node = node.parent) {
+        if (isGroupNode(node) && node.inheritance?.length && !resolveGroupClass(node)) pending.push(node);
+    }
+    let seeded = false;
+    for (const ancestor of pending.reverse()) {
+        if (cancellationToken.isCancellationRequested) return seeded;
+        if (await resolveClassThroughInheritance(ancestor, cancellationToken, seen)) seeded = true;
+    }
+    return seeded;
+};
+
+/**
+ * The class a group takes from the bases it names itself, each followed to its definition.
+ *
+ * @param group the group whose bases are followed.
+ * @param cancellationToken stops the cross-file walk.
+ * @param seen the groups already on the walk.
+ * @returns the class FullName, or undefined when no base classifies the group.
+ */
+const classThroughOwnBases = async (
+    group: GroupNode,
+    cancellationToken: CancellationToken,
+    seen: Set<GroupNode>
+): Promise<string | undefined> => {
     const document = getStartOfAstNode(group);
     for (const reference of group.inheritance ?? []) {
         if (cancellationToken.isCancellationRequested) return undefined;
@@ -83,4 +157,51 @@ const classOfWholeFileBase = (fragment: AbstractNodeDocument, deriver: GroupNode
     if (rooted) return rooted;
     const disc = groupDiscriminator(fragment);
     return disc ? classByDiscriminator(disc, registryHintFromContainer(deriver)) : undefined;
+};
+
+/** The documents already warmed, with the memo epoch the warm-up ran at. */
+const warmedDocuments: WeakMap<AbstractNodeDocument, number> = new WeakMap();
+
+/**
+ * Seeds the class of every group in a document that derives from a base the synchronous
+ * resolution cannot reach, outermost first, so that every synchronous reader that follows, the
+ * validators, hover, the list and reference completions, sees the same classes the async walk
+ * does. Runs once per document tree and memo epoch, so calling it at each request entry is cheap.
+ *
+ * @param document the parsed document.
+ * @param cancellationToken stops the cross-file walk. A cancelled warm-up is not recorded as done.
+ */
+export const warmInheritedClasses = async (
+    document: AbstractNodeDocument,
+    cancellationToken: CancellationToken
+): Promise<void> => {
+    const epoch = schemaContextEpoch();
+    if (warmedDocuments.get(document) === epoch) return;
+    for (const group of derivingGroupsOf(document)) {
+        if (cancellationToken.isCancellationRequested) return;
+        if (resolveGroupClass(group)) continue;
+        await resolveClassThroughInheritance(group, cancellationToken).catch(() => undefined);
+    }
+    if (!cancellationToken.isCancellationRequested && schemaContextEpoch() === epoch) warmedDocuments.set(document, epoch);
+};
+
+/**
+ * Every group of a document that names a base, in document order, so an outer deriver is seeded
+ * before the groups written inside it are looked at.
+ *
+ * @param document the parsed document.
+ * @returns the deriving groups, outermost first.
+ */
+const derivingGroupsOf = (document: AbstractNodeDocument): GroupNode[] => {
+    const found: GroupNode[] = [];
+    const visit = (node: AbstractNode): void => {
+        if (isGroupNode(node) && node.inheritance?.length) found.push(node);
+        const children = isGroupNode(node) || isListNode(node) || isDocumentNode(node) ? node.elements : [];
+        for (const child of children) {
+            const container = isAssignmentNode(child) ? child.right : child;
+            if (container) visit(container);
+        }
+    };
+    visit(document);
+    return found;
 };

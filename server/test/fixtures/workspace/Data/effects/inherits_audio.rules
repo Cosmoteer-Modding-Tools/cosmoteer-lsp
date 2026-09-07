@@ -1,7 +1,8 @@
 // `MySound` inherits BaseAudio (defined in ../sounds/base_audio.rules via the
-// /BASE_AUDIO super alias). Its `Sound` asset path is relative to the BASE's
-// directory (Data/sounds), NOT this file's directory (Data/effects):
-//   Data/effects/inherits_audio.rules  ->  base dir Data/sounds  ->  Data/sounds/fx/beep.wav
+// /BASE_AUDIO super alias). The game still reads its `Sound` path relative to THIS
+// file's directory (Data/effects), never the base's (Data/sounds), so
+// Data/sounds/fx/beep.wav is not what the path names. The copy that sits under
+// Data/effects/audio/fx/beep.wav is what the did-you-mean has to find.
 MySound : /BASE_AUDIO/BaseAudio
 {
 	Sound = "fx/beep.wav"

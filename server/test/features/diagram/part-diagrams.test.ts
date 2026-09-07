@@ -193,6 +193,14 @@ describe('resource flow diagram', () => {
         expect(edgeBetween(diagram, 'Maker', 'Ammo')?.label).toBe('1 × bullets every 3 s');
     });
 
+    it('colours each arrow by the resource moving along it', async () => {
+        const diagram = await diagramAt(buildResourceFlowDiagram, 'Maker');
+        expect(edgeBetween(diagram, 'Power', 'Maker')?.series).toBe('power');
+        expect(edgeBetween(diagram, 'Maker', 'Ammo')?.series).toBe('bullets');
+        // Every arrow has a resource, so the plain arrow colour keys nothing and leaves the legend.
+        expect(diagram.legend.map((entry) => entry.kind)).not.toContain('flow');
+    });
+
     it('says what each component does with what reaches it', async () => {
         const diagram = await diagramAt(buildResourceFlowDiagram, 'Maker');
         const detail = (label: string) => diagram.nodes.find((node) => node.label === label)?.detail;
@@ -480,6 +488,14 @@ describe('firing chain diagram', () => {
         const diagram = await diagramAt(buildEffectChainDiagram, 'Shots');
         expect(edgeBetween(diagram, 'Shots', 'Turret')).toBeUndefined();
         expect(diagram.notes?.join(' ')).toContain('ChainedTo');
+    });
+
+    it('colours a whole chain after the box it starts from', async () => {
+        const diagram = await diagramAt(buildEffectChainDiagram, 'Shots');
+        expect(edgeBetween(diagram, 'Turret', 'Gun')?.series).toBe('Turret');
+        expect(edgeBetween(diagram, 'Gun', 'Backup')?.series).toBe('Turret');
+        expect(edgeBetween(diagram, 'Relay', 'RelayEffects')?.series).toBe('Turret');
+        expect(diagram.legend.map((entry) => entry.kind)).not.toContain('flow');
     });
 
     it('names the output a trigger picks where a component offers several', async () => {

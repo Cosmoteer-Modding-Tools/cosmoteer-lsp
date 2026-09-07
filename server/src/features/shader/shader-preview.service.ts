@@ -16,7 +16,7 @@ import { acceptsShaderConstants } from '../../document/schema/schema';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { resolveAssetPath } from '../navigation/asset-resolver';
 import { filePathToUri } from '../navigation/navigation-strategy';
-import { normalizeDir } from '../diagnostics/asset-base-path';
+import { normalizeDir } from '../navigation/asset-resolver';
 import { shaderConstants } from './shader-index';
 import { expandShaderSource } from './shader-source';
 import { translateToGlsl, type GlslTranslation } from './hlsl-to-glsl';

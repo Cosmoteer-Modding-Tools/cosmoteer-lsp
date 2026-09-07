@@ -1,6 +1,7 @@
 import { CancellationToken, Location, Position, Range } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isValueNode, ValueNode } from '../../core/ast/ast';
 import { findNodeAtPosition, getStartOfAstNode } from '../../utils/ast.utils';
+import { warmInheritedClasses } from '../completion/inheritance-resolution';
 import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { FullNavigationStrategy } from './full.navigation-strategy';
 import { isAssetValue, resolveAssetPath } from './asset-resolver';
@@ -54,6 +55,9 @@ export class DefinitionService {
         cancellationToken: CancellationToken,
         folderPaths: string[] = []
     ): Promise<Location | Location[] | null> {
+        // An id written inside a group deriving from a base in another file is typed only once
+        // that group's class is known to the synchronous schema lookups.
+        await warmInheritedClasses(document, cancellationToken).catch(() => undefined);
         const node = findNodeAtPosition(document, position);
         if (isReferenceValue(node)) {
             const primary = await this.resolveReferenceLocation(document, node, cancellationToken);
@@ -67,7 +71,7 @@ export class DefinitionService {
             return primary;
         }
         // An asset value (`Sprite`/`Sound`/`Shader`) points at an on-disk file, not an AST node.
-        // Resolve it (relative to the file or any inherited asset base) and jump to that file.
+        // Resolve it relative to the file, the way the game does, and jump to that file.
         if (isAssetValue(node)) {
             const path = await resolveAssetPath(node, document.uri, cancellationToken).catch(() => null);
             return path ? { uri: filePathToUri(path), range: ZERO_RANGE } : null;

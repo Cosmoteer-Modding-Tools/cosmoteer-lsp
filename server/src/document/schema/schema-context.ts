@@ -116,6 +116,54 @@ const slotTypeCache: WeakMap<AbstractNode, { epoch: number; value: ValueType | u
 const groupClassCache: WeakMap<GroupNode, { epoch: number; value: string | undefined }> = new WeakMap();
 
 /**
+ * Classes the async inheritance walk found for groups whose base lives in another file
+ * (`Sfx : /BASE_SOUNDS/AudioInterior { … }`). The synchronous resolution below reads another file
+ * never, so without this store such a group, and everything written inside it, had no class for
+ * every synchronous reader: the validators, hover, the list and reference completions. Keyed by
+ * the node, so an edit (a fresh tree) drops the seeds with the tree. No epoch: the async walk
+ * rewrites a seed on its next visit, and a stale class between two visits is the lesser harm
+ * next to a group that goes dark on every rooting change.
+ */
+const seededGroupClasses: WeakMap<GroupNode, string> = new WeakMap();
+
+/**
+ * The current memo epoch, for a caller that keeps its own per-epoch record of work done against
+ * these memos.
+ *
+ * @returns the epoch, bumped by {@link invalidateSchemaContextCache}.
+ */
+export const schemaContextEpoch = (): number => contextEpoch;
+
+/**
+ * Records the class the async inheritance walk resolved for a group, so the synchronous slot walk
+ * answers for the group and for every container written inside it. Memos taken below the group
+ * while it was still classless are dropped, since each of them was derived from that gap.
+ *
+ * @param group the group whose class was resolved through a base in another file.
+ * @param cls the class FullName.
+ */
+export const seedGroupClass = (group: GroupNode, cls: string): void => {
+    if (seededGroupClasses.get(group) === cls) return;
+    seededGroupClasses.set(group, cls);
+    forgetMemosBelow(group);
+};
+
+/**
+ * Drops the slot and class memos of a container and of everything below it.
+ *
+ * @param node the container whose subtree is forgotten.
+ */
+const forgetMemosBelow = (node: AbstractNode): void => {
+    slotTypeCache.delete(node);
+    if (isGroupNode(node)) groupClassCache.delete(node);
+    const children = isGroupNode(node) || isListNode(node) ? node.elements : [];
+    for (const child of children) {
+        const container = isAssignmentNode(child) ? child.right : child;
+        if (container && (isGroupNode(container) || isListNode(container))) forgetMemosBelow(container);
+    }
+};
+
+/**
  * A secondary source of slot types for containers the parent chain cannot anchor, the same inversion
  * {@link aliasedMemberType} uses for unrooted top-level members. The mod-action rooting index registers
  * here so an action's inline source value (`ToAdd { … }` in a manifest) and a deep action-wired container
@@ -544,12 +592,14 @@ export const resolveGroupClass = (group: GroupNode, depth = 0): string | undefin
     // A top-level group reachable only as a cross-file inheritance base: root it to the class that
     // best fits its own fields among the derivers and the slot class, ahead of the shallower
     // common-ancestor type either would yield alone. A group neither roots, with a same-file base
-    // inherits the base's class (inheritance preserves type).
+    // inherits the base's class (inheritance preserves type). A base in another file is out of
+    // reach here, so the class the async walk seeded for such a group answers last.
     const slotClass = classFromSlot(group, expectedValueType(group, depth));
     const value =
         inheritedBaseClassForGroup(group, slotClass) ??
         slotClass ??
-        sameFileInheritedClass(group, depth);
+        sameFileInheritedClass(group, depth) ??
+        seededGroupClasses.get(group);
     if (depth <= MEMO_DEPTH_LIMIT) groupClassCache.set(group, { epoch: contextEpoch, value });
     return value;
 };

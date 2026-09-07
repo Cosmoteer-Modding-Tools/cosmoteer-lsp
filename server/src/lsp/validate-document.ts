@@ -7,6 +7,7 @@ import { ValidationForDocumentDuplicates } from '../features/diagnostics/validat
 import { validateInheritanceCycles } from '../features/diagnostics/validator.inheritance-cycle';
 import { validateAnonymousBlocks } from '../features/diagnostics/validator.anonymous-block';
 import { validateSchema } from '../features/diagnostics/validator.schema';
+import { warmInheritedClasses } from '../features/completion/inheritance-resolution';
 import { validateSchemaSiblingReferences } from '../features/diagnostics/validator.schema-sibling';
 import { validateCrossFileIdReferences } from '../features/diagnostics/validator.schema-id-reference';
 import { validateRequiredFields } from '../features/diagnostics/validator.required-fields';
@@ -167,6 +168,10 @@ export async function validateTextDocument(
             ModRulesRegistrar.instance.registerManifest(parserResult.value);
         }
     }
+    if (cancelToken.isCancellationRequested) return [];
+    // The validators resolve classes synchronously. A group deriving from a base in another file
+    // is classified for them here, once, before any of them looks at the tree.
+    await warmInheritedClasses(parserResult.value, cancelToken).catch(() => undefined);
     if (cancelToken.isCancellationRequested) return [];
     if (settings.trace.server === 'verbose') {
         console.dir(parserResult);

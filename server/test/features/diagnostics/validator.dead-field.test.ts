@@ -70,6 +70,45 @@ describe('dead declared fields', () => {
         expect(hit!.data?.rewrite).toBeUndefined();
     });
 
+    it('extends the inherited TypeCategories list when a base declares one', async () => {
+        // No local list, but the base chain declares one, so the fix spells the vanilla extension
+        // idiom (`: ^/N/TypeCategories`) instead of a fresh assignment that would drop the inherited
+        // categories. `N` is the base whose chain declares it, here the second one.
+        const doc = parse(
+            [
+                'Other',
+                '{',
+                '\tMaxHealth = 1',
+                '}',
+                'Deep',
+                '{',
+                '\tTypeCategories = [armor]',
+                '}',
+                'Base : &Deep',
+                '{',
+                '}',
+                'Part : &Other, &Base',
+                '{',
+                '\tFlammable = false',
+                '}',
+                '',
+            ].join('\n')
+        );
+        const errors = await validateIgnoredFields(doc, token);
+        const hit = errors.find((e) => e.message.includes('Flammable'));
+        expect(hit!.data?.migration?.apply).toBe('rewrite');
+        const edits = hit!.data?.rewrite?.edits ?? [];
+        expect(edits).toHaveLength(1);
+        expect(edits[0].newText).toBe('TypeCategories : ^/1/TypeCategories [non_flammable]');
+    });
+
+    it('stays manual when no base declares TypeCategories either', async () => {
+        const doc = parse(['Base', '{', '\tMaxHealth = 1', '}', 'Part : &Base', '{', '\tFlammable = false', '}', ''].join('\n'));
+        const errors = await validateIgnoredFields(doc, token);
+        const hit = errors.find((e) => e.message.includes('Flammable'));
+        expect(hit!.data?.migration?.apply).toBeUndefined();
+    });
+
     it('sanctions plain removal for Flammable = true (the old default restated)', async () => {
         const doc = parse('Part\n{\n\tFlammable = true\n}\n');
         const errors = await validateIgnoredFields(doc, token);

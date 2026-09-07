@@ -1,0 +1,25 @@
+// Groups whose class comes only through a base in another file, with members the synchronous
+// schema readers have to type: a nested group, a list of enum values, a group element of a
+// polymorphic list and a cross-file id reference. None of them redeclares a `Type=`.
+NestedSound : /BASE_AUDIO/BaseAudio
+{
+	ConcurrencyMode = Foo
+	StopFinishesLoop = tru
+	DynamicVolume
+	{
+		UseCustomShapeForDistance = x
+		MaxDistance = 5
+	}
+}
+Targets : &<cross_file_bases.rules>/TargetBase
+{
+	TargetTypesByPriority = [Foo]
+}
+Tracks : &<cross_file_bases.rules>/SequenceBase
+{
+	Tracks = [ { Type = Layers; Volume = 1 } ]
+}
+Mission : &<cross_file_bases.rules>/MissionBase
+{
+	SpecificFaction = x
+}

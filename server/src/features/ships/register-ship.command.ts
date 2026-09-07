@@ -573,7 +573,7 @@ const ICON_ROLES: ReadonlySet<ShipRole> = new Set(['trade_station', 'military_st
  * @param blueprint the saved ship.
  * @param stats the parts, for their sizes.
  * @param shipFile the ship file the icon sits beside.
- * @returns the icon's file name, or undefined when nothing could be drawn or written.
+ * @returns the icon's path, or undefined when nothing could be drawn or written.
  */
 const writeStasisIcon = async (blueprint: Blueprint, stats: PartStatsIndex, shipFile: string): Promise<string | undefined> => {
     const parts: IconPart[] = [];
@@ -592,7 +592,7 @@ const writeStasisIcon = async (blueprint: Blueprint, stats: PartStatsIndex, ship
             return undefined;
         }
     }
-    return basename(iconFile);
+    return iconFile;
 };
 
 /**
@@ -664,8 +664,11 @@ const registerOne = async (
     }
     takenIds.add(id.toLowerCase());
     const entryFile = relative(paths.folder, shipFile).replace(/\\/g, '/');
-    const stasisIcon =
+    // The icon sits beside the ship, and the game reads its path from the role file, so a ship
+    // referenced where it is gets the same walk up to the icon as the File entry has to the ship.
+    const iconFile =
         ICON_ROLES.has(role) && registration.blueprint ? await writeStasisIcon(registration.blueprint, stats, shipFile) : undefined;
+    const stasisIcon = iconFile ? relative(paths.folder, iconFile).replace(/\\/g, '/') : undefined;
     const insertion = appendToList(
         roleFile.text,
         ships,
@@ -706,7 +709,7 @@ const registerOne = async (
         shipFile,
         registeredIn: paths.file,
         tradeRouteIn,
-        ...(stasisIcon ? { stasisIcon: `${paths.folder}/${stasisIcon}` } : {}),
+        ...(iconFile ? { stasisIcon: iconFile } : {}),
     };
 };
 

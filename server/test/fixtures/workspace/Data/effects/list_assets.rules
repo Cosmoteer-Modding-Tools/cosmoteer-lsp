@@ -1,0 +1,9 @@
+// A list of sound paths in a group that gets its class only through a cross-file base, the way
+// `CrewEnterEffects : /BASE_SOUNDS/AudioInterior` does in a mod. Each element fills the
+// `RandomSounds` list field, so completion inside an element has to know the field's element kind
+// while the element is still empty. The declaring directory (Data/effects) is what the paths
+// resolve against, so `audio/` is the folder to offer.
+Sfx : /BASE_AUDIO/BaseAudio
+{
+	RandomSounds = ["", "audio/fx/beep.wav"]
+}

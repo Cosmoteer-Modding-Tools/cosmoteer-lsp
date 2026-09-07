@@ -1,9 +1,18 @@
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, isAssignmentNode, isDocumentNode, isGroupNode, isValueNode, ValueNode } from '../../core/ast/ast';
+import {
+    AbstractNode,
+    isAssignmentNode,
+    isDocumentNode,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+    ValueNode,
+} from '../../core/ast/ast';
 import { AutoCompletion, Completion } from './autocompletion.service';
 import { AssetAutoCompletionStrategy, AssetType } from './strategy/asset.autocompletion-strategy';
-import { documentScopeClass, resolveGroupClass } from '../../document/schema/schema-context';
+import { documentScopeClass } from '../../document/schema/schema-context';
 import { fieldOf } from '../../document/schema/schema';
+import { resolveClassThroughInheritance } from './inheritance-resolution';
 
 const assetAutoCompletionStrategy = new AssetAutoCompletionStrategy();
 
@@ -13,32 +22,51 @@ const ASSET_TYPE_BY_KIND: Record<string, AssetType> = { image: 'Sprite', sound: 
 /**
  * The schema asset type of the field a value fills, when the schema knows it independently of the
  * value text. This is what lets completion offer same-folder assets while the path is still being
- * typed (a bare `particle_l` with no extension yet). Two shapes are recognised:
- *  - a direct asset field (`Shader = …`, a sprite's `File = …`), and
+ * typed (a bare `particle_l` with no extension yet). Three shapes are recognised:
+ *  - a direct asset field (`Shader = …`, a sprite's `File = …`),
+ *  - an element of a list of assets (`RandomSounds = ["…"]`), typed by the list's element kind, and
  *  - the dual-form group: a `File` inside a `Shader { … }` / `Texture { … }` group whose own slot is
  *    an asset (the group form of a `Shader`/`Texture` asset field), so `File` there inherits the
  *    group's asset kind even though the group itself carries no schema class for it.
+ * The containing group's class is resolved through cross-file inheritance as well, since a group
+ * such as `CrewEnterEffects : /BASE_SOUNDS/AudioInterior` redeclares no `Type =` of its own.
+ *
+ * @param node the value whose field is asked for.
+ * @param cancellationToken stops the cross-file class resolution.
+ * @returns the asset kind of the field, or undefined when the schema does not type it as one.
  */
-const schemaAssetType = (node: ValueNode): AssetType | undefined => {
-    const classOf = (n: AbstractNode | null | undefined): string | undefined =>
-        n && isDocumentNode(n) ? documentScopeClass(n) : n && isGroupNode(n) ? resolveGroupClass(n) : undefined;
+const schemaAssetType = async (node: ValueNode, cancellationToken: CancellationToken): Promise<AssetType | undefined> => {
+    const classOf = async (n: AbstractNode | null | undefined): Promise<string | undefined> =>
+        n && isDocumentNode(n)
+            ? documentScopeClass(n)
+            : n && isGroupNode(n)
+              ? await resolveClassThroughInheritance(n, cancellationToken).catch(() => undefined)
+              : undefined;
 
-    // The value's parent is its containing group (the parser links values to the group, not the
-    // assignment), so recover the field name from the assignment whose value this is.
-    const container = node.parent;
+    // An element of a list (`RandomSounds = ["…", "…"]`) fills the list's field, so the field is
+    // read off the list: its owning assignment, or its own name in the `RandomSounds [ … ]` form.
+    // Elsewhere the value's parent is its containing group (the parser links values to the group,
+    // not the assignment), so recover the field name from the assignment whose value this is.
+    const list = isListNode(node.parent) ? node.parent : undefined;
+    const filler: AbstractNode = list ?? node;
+    const container = filler.parent;
     if (!container || !(isGroupNode(container) || isDocumentNode(container))) return undefined;
-    const owner = container.elements.find((element) => isAssignmentNode(element) && element.right === node);
-    const fieldName = owner && isAssignmentNode(owner) ? owner.left.name : undefined;
+    const owner = container.elements.find((element) => isAssignmentNode(element) && element.right === filler);
+    const fieldName = owner && isAssignmentNode(owner) ? owner.left.name : list?.identifier?.name;
     if (!fieldName) return undefined;
 
-    const direct = classOf(container) ? fieldOf(classOf(container)!, fieldName)?.valueType : undefined;
+    const containerClass = await classOf(container);
+    const direct = containerClass ? fieldOf(containerClass, fieldName)?.valueType : undefined;
+    if (list) {
+        if (direct?.kind === 'list' && direct.element.kind === 'asset') return ASSET_TYPE_BY_KIND[direct.element.assetKind];
+        return undefined;
+    }
     if (direct?.kind === 'asset') return ASSET_TYPE_BY_KIND[direct.assetKind];
 
     // Group form: `File` inside a `Shader { … }` / `Texture { … }` group standing in an asset slot.
     if (fieldName === 'File' && isGroupNode(container) && container.identifier) {
-        const slot = classOf(container.parent)
-            ? fieldOf(classOf(container.parent)!, container.identifier.name)?.valueType
-            : undefined;
+        const outerClass = await classOf(container.parent);
+        const slot = outerClass ? fieldOf(outerClass, container.identifier.name)?.valueType : undefined;
         if (slot?.kind === 'asset') return ASSET_TYPE_BY_KIND[slot.assetKind];
     }
     return undefined;
@@ -66,7 +94,7 @@ const looksLikeAssetPath = (node: ValueNode): boolean => {
 export class AutoCompletionAsset implements AutoCompletion<ValueNode> {
     public async getCompletions(node: ValueNode, cancellationToken: CancellationToken): Promise<Completion[]> {
         if (!isValueNode(node)) return [];
-        const assetType = schemaAssetType(node);
+        const assetType = await schemaAssetType(node, cancellationToken);
         if (assetType) {
             return await assetAutoCompletionStrategy.complete({ node, cancellationToken, assetType }).catch(() => []);
         }

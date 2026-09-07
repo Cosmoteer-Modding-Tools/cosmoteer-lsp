@@ -11,7 +11,7 @@ import { evaluateNumericValueTraced } from '../../semantics/value-evaluator';
 import { formatWithUnit, unitForValue } from '../../semantics/value-units';
 import { FileWithPath } from '../../workspace/cosmoteer-workspace.service';
 import { schemaDiscriminatorHover, schemaFieldHover } from './schema-hover';
-import { resolveClassThroughInheritance } from '../completion/inheritance-resolution';
+import { resolveClassThroughInheritance, warmInheritedClasses } from '../completion/inheritance-resolution';
 import { decompilerHoverLink } from './decompiler-link';
 import { shaderConstantHover } from '../shader/shader-hover';
 import { bucketOrderHover } from './bucket-order-hover';
@@ -56,6 +56,9 @@ export class HoverService {
     ): Promise<Hover | null> {
         const node = findReferenceTargetAtPosition(document, position);
         if (!node) return null;
+        // A field inside a group deriving from a base in another file is described only once that
+        // group's class is known to the synchronous schema lookups below.
+        await warmInheritedClasses(document, cancellationToken).catch(() => undefined);
 
         const lines: string[] = [];
 

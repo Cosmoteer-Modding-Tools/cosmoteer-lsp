@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.0.1
+
+### Fixed
+
+- An asset path is now checked the way the game reads it, against the folder of the file it is written in only. A group inheriting a base from another folder no longer had that folder tried as well, which reported a path the game cannot load in one session and not in the next.
+- A missing asset that sits in a sub-folder of the file's own folder is now found, and the fix writes that path.
+- Path completion now works inside a list of assets such as `RandomSounds = [""]`, and in a group that gets its class only through a base in another file, such as `CrewEnterEffects : /BASE_SOUNDS/AudioInterior`. Before, nothing was offered there until a slash was typed.
+- Everything written inside such a group is now understood as well: a nested group such as `DynamicVolume { … }`, the elements of an enum list, the `Type =` of a group in a list, and a cross-file id such as `SpecificFaction = …`. Field and value completion, hover, go to definition, rename and the checks were all silent there before.
+- `Flammable = false` on a part without a `TypeCategories` list of its own is now migrated too. The fix writes `TypeCategories : ^/0/TypeCategories [non_flammable]`, extending the list the part inherits the way the game's own files do, when a base of the part declares that list. Before, such a part was only listed for review, which is what most parts written against an older game are, since they inherit the list from the game's base part.
+- The station generation command, created the statisicon with the wrong path and could lead to a crash.
+- The arrows of the resource flow and the firing chain were drawn as filled shapes rather than lines, so an arrow that bowed back to an earlier box covered the drawing as a solid sail and two arrows side by side read as one thick one. They are lines again.
+- The words of an arrow, the amount, the resource and how often it moves, or the member that fires, are now written on the arrow itself rather than kept for its tooltip, so a heat line is told from a battery line without hovering each one.
+- Every resource has its own arrow colour in the resource flow, and every chain its own in the firing chain, named after the trigger it starts from, with a swatch per colour in the legend. Before, every arrow was the one green the boxes that move resources also had, and a part with twenty crossing arrows read as one tangle.
+
 ## 1.0.0
 
 ### Added
