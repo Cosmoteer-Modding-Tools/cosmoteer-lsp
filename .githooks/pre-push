@@ -1,0 +1,21 @@
+#!/bin/sh
+# Type-checks the test tree before a push.
+#
+# Nothing else in the local loop covers it: the build's tsconfig is `include: ["src"]`, so
+# `check-types` never sees test/, and vitest compiles tests with esbuild, which ignores types
+# entirely. A test tree that stops type-checking therefore runs green locally and fails in CI, which
+# is how it reached 109 errors once before the CI step existed, and four errors again in 1.0.2.
+#
+# It is a push hook rather than a commit hook because it takes a few seconds, and it is not folded
+# into `check-types` because `package` runs that, and gating a release on test types would block a
+# hotfix for a problem the shipped bundle does not have.
+#
+# To push past it once, use `git push --no-verify`.
+
+echo "pre-push: type-checking the test tree"
+if ! npm run --silent check-types:test; then
+    echo ""
+    echo "pre-push: the test tree does not type-check, so CI would fail on it."
+    echo "pre-push: fix it, or push with --no-verify if that is deliberate."
+    exit 1
+fi

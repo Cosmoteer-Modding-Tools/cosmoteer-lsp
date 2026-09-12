@@ -838,6 +838,7 @@
         "format:check": "prettier --check \"client/src/**/*.ts\" \"server/src/**/*.ts\" \"*.mjs\" \"scripts/*.mjs\" \"tools/**/*.mjs\"",
         "package:cli": "node scripts/build-cli-package.mjs",
         "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
+        "prepare": "git config core.hooksPath .githooks || true",
         "test": "sh ./scripts/e2e.sh",
         "test:server": "cd server && npm test",
         "check-types": "node node_modules/typescript/bin/tsc -b --noEmit",

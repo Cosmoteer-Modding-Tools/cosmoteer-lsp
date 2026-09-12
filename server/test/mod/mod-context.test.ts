@@ -151,8 +151,9 @@ describe('nested hops resolve through the mod context', () => {
         document = (await parseFilePath(join(MOD_DIR, 'nested_refs.rules'))) as AbstractNodeDocument;
     });
 
-    const navigate = (path: string): Promise<unknown> =>
-        navigation.navigate(path, document.elements[0], document.uri, token);
+    // The return type is inferred rather than written as `unknown`: `valueOf` takes the node shapes
+    // navigation answers, and `unknown` is assignable to none of them.
+    const navigate = (path: string) => navigation.navigate(path, document.elements[0], document.uri, token);
 
     it('continues past an alias whose value is a mod-added global (`ALIAS = &/FOO` then `&ALIAS/Bar`)', async () => {
         expect(valueOf(await navigate('&ALIAS/Bar'))).toBe(7);
