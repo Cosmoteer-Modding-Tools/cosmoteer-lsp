@@ -259,7 +259,9 @@ const build = async (context: ShipLayerContext, cancellationToken: CancellationT
                 const record = ships.get(entry.key);
                 if (!record) continue;
                 const targets = action.targets.map((target) => String(target.valueType.value));
-                if (targets.some((target) => targetsMember(target, entry.fsPath, entry.groupName, RENDER_LAYERS_MEMBER))) {
+                if (
+                    targets.some((target) => targetsMember(target, entry.fsPath, entry.groupName, RENDER_LAYERS_MEMBER))
+                ) {
                     for (const { node } of await sourceNodesOf(action.sources, declaringDir)) {
                         layerKeysOf(node, record.scope.layers);
                     }
@@ -427,9 +429,7 @@ export const layerScopeForPart = async (
         // copy of a game part keeps, and the parts that pull it in, which is how a base file or a
         // sprite fragment is reached.
         data.reach ??= buildShipReach(data);
-        const reach = await data.reach.catch(
-            () => ({ byId: new Map(), byFile: new Map() }) as ShipReach
-        );
+        const reach = await data.reach.catch(() => ({ byId: new Map(), byFile: new Map() }) as ShipReach);
         if (partId) ships.push(...(reach.byId.get(partId.trim().toLowerCase()) ?? []));
         if (ships.length === 0) ships.push(...(reach.byFile.get(filePathKey(partFsPath)) ?? []));
     }

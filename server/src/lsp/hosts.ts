@@ -30,7 +30,6 @@ import { bumpWorkspaceScanEpoch } from './scan-epoch';
 import { bumpValidationScopeEpoch } from './validation-scope';
 import { searchFolderUris, workspaceFolderPaths } from './workspace-folders';
 
-
 /**
  * The server facilities the shared-base extraction runs against: the workspace folders it sweeps,
  * the open buffers whose unsaved text wins over disk, the client's edit channel, and the index

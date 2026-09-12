@@ -164,9 +164,7 @@ export const judgeAction = (
             detail: `The game knows no action called ${quote(verb || '(none)')}. It cannot read the manifest, so it starts without this mod.`,
         });
     }
-    const missing = VERB_SCHEMA[action.type].required.filter(
-        (field) => !action.presentFields.has(field.toLowerCase())
-    );
+    const missing = VERB_SCHEMA[action.type].required.filter((field) => !action.presentFields.has(field.toLowerCase()));
     if (missing.length > 0) {
         return done({
             ...base,

@@ -240,9 +240,7 @@ const coversPosition = (node: AbstractNode, position: Position): boolean => {
     if (!node.position || position.line !== node.position.line) return false;
     if (position.character < node.position.characterStart) return false;
     const closed = isValueNode(node) && node.quoted;
-    return closed
-        ? position.character < node.position.characterEnd
-        : position.character <= node.position.characterEnd;
+    return closed ? position.character < node.position.characterEnd : position.character <= node.position.characterEnd;
 };
 
 /**

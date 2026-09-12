@@ -97,7 +97,9 @@ export class ReferenceIndex {
         // `ParticleDataID` field carrying the name is a site. Detected by cursor position on a channel.
         const channel = particleChannelAt(document, position);
         if (channel) {
-            return dedupeLocations(channelOccurrences(document, channel.name).map((c) => referenceSiteLocation(c.node)));
+            return dedupeLocations(
+                channelOccurrences(document, channel.name).map((c) => referenceSiteLocation(c.node))
+            );
         }
 
         // A cross-file `ID<X>` symbol (a whole-file root keyed by `ID`, or a bare-id reference to one)

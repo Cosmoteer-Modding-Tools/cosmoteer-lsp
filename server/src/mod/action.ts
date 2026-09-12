@@ -182,7 +182,8 @@ const ACTIONS_LIST_NAME = 'actions';
 /** Whether a `{}` group directly declares an `Action = …` field (the game's action-entry marker). */
 const hasActionField = (group: GroupNode): boolean =>
     group.elements.some(
-        (element) => isAssignmentNode(element) && element.left.name.toLowerCase() === 'action' && isValueNode(element.right)
+        (element) =>
+            isAssignmentNode(element) && element.left.name.toLowerCase() === 'action' && isValueNode(element.right)
     );
 
 /**

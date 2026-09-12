@@ -16,7 +16,10 @@ import { overrideInModCodeAction } from '../../features/refactor/override-in-mod
 import { cloneDeclarationCodeAction } from '../../features/refactor/clone-declaration/clone.codeaction';
 import { migrateSymbolCodeAction } from '../../features/migration/migrate-symbol';
 import { ValidationErrorData } from '../../features/diagnostics/validator';
-import { buildFillLanguageKeysEdit, buildInsertLocalizationKeyEdit } from '../../features/diagnostics/localization-key-insert';
+import {
+    buildFillLanguageKeysEdit,
+    buildInsertLocalizationKeyEdit,
+} from '../../features/diagnostics/localization-key-insert';
 import { requiredFieldInsertText } from '../../features/diagnostics/required-field-insert';
 import { addDependencyEdit } from '../../mod/mod-dependencies';
 import { findModRoot } from '../../mod/mod-root';
@@ -134,7 +137,10 @@ const safeFixEdits = (doc: TextDocument, diagnostic: Diagnostic): TextEdit[] => 
     if (data?.rewrite && fixOffsetsAreCurrent(doc, diagnostic, data.rewrite.edits)) {
         return data.rewrite.edits.map((edit) => rewriteEdit(doc, edit));
     }
-    if (data?.remove && fixOffsetsAreCurrent(doc, diagnostic, [data.remove], QUOTED_IN_TITLE.exec(data.remove.title)?.[1])) {
+    if (
+        data?.remove &&
+        fixOffsetsAreCurrent(doc, diagnostic, [data.remove], QUOTED_IN_TITLE.exec(data.remove.title)?.[1])
+    ) {
         return [{ range: removalRange(doc, data.remove.start, data.remove.end), newText: '' }];
     }
     return [];
@@ -306,10 +312,11 @@ export function register(): void {
             !isShaderDocument(params.textDocument.uri) &&
             (!params.context.only ||
                 params.context.only.some((kind) =>
-                    [CodeActionKind.RefactorExtract, CodeActionKind.RefactorInline, CodeActionKind.RefactorRewrite].some(
-                        (offered) =>
-                            offered.startsWith(kind)
-                    )
+                    [
+                        CodeActionKind.RefactorExtract,
+                        CodeActionKind.RefactorInline,
+                        CodeActionKind.RefactorRewrite,
+                    ].some((offered) => offered.startsWith(kind))
                 ));
         if (wantsRefactor) {
             const parserResult = ensureParserResult(params.textDocument.uri);
@@ -472,9 +479,11 @@ export function register(): void {
             }
             if (data?.insertLocalizationKey) {
                 const key = data.insertLocalizationKey.key;
-                const edit = await buildInsertLocalizationKeyEdit(params.textDocument.uri, key, cancellationToken).catch(
-                    () => null
-                );
+                const edit = await buildInsertLocalizationKeyEdit(
+                    params.textDocument.uri,
+                    key,
+                    cancellationToken
+                ).catch(() => null);
                 if (edit) {
                     actions.push({
                         title: l10n.t('Add "{0}" to the mod\'s strings files', key),

@@ -93,7 +93,10 @@ const addsOnlyTheEntry = (before: readonly Token[], after: readonly Token[], ent
 };
 
 /** The `EnabledMods` member of the settings file's `GameSettings` group, whatever shape it is in. */
-const enabledModsMember = (text: string, settingsPath: string): AbstractNode | 'unparseable' | 'no-game-settings' | 'no-enabled-mods' => {
+const enabledModsMember = (
+    text: string,
+    settingsPath: string
+): AbstractNode | 'unparseable' | 'no-game-settings' | 'no-enabled-mods' => {
     let document;
     try {
         document = parseText(text, settingsPath);

@@ -50,10 +50,7 @@ async function testCompletion(
         typeof item.label === 'string' ? item.label : item.label.label
     );
     expectedLabels.forEach((label) => {
-        assert.ok(
-            actualLabels.includes(label),
-            `expected completion '${label}' in [${actualLabels.join(', ')}]`
-        );
+        assert.ok(actualLabels.includes(label), `expected completion '${label}' in [${actualLabels.join(', ')}]`);
         if (!expectReferenceKind) return;
         const item = actualCompletionList.items.find(
             (i) => (typeof i.label === 'string' ? i.label : i.label.label) === label

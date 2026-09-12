@@ -175,7 +175,12 @@ export const expandShaderSourceDetailed = async (
                 }
                 if (keyword === 'else') {
                     const frame = stack.pop();
-                    if (frame) stack.push({ active: frame.parentActive && !frame.taken, taken: true, parentActive: frame.parentActive });
+                    if (frame)
+                        stack.push({
+                            active: frame.parentActive && !frame.taken,
+                            taken: true,
+                            parentActive: frame.parentActive,
+                        });
                     continue;
                 }
                 if (keyword === 'endif') {

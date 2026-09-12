@@ -74,8 +74,7 @@ const DEPRECATED_DISCRIMINATORS: Readonly<Record<string, Deprecation>> = registr
  * @param written the discriminator value as written in the file (e.g. `AmmoChange`).
  * @returns the rename (current name + note), or undefined when the value is not a known deprecated type.
  */
-export const deprecatedDiscriminator = (written: string): Deprecation | undefined =>
-    DEPRECATED_DISCRIMINATORS[written];
+export const deprecatedDiscriminator = (written: string): Deprecation | undefined => DEPRECATED_DISCRIMINATORS[written];
 
 /** A field the game deleted outright (no old spelling left in its code): the migration guidance. */
 interface FieldDeprecation {
@@ -330,12 +329,7 @@ export const RENAMED_MOD_RULES_FIELDS: Readonly<Record<string, Deprecation>> = r
  * identity rather than a detail of it.
  */
 type MigrationSymbolKind =
-    | 'discriminator'
-    | 'deletedField'
-    | 'renamedAlias'
-    | 'obsoleteField'
-    | 'manifestField'
-    | 'enumValue';
+    'discriminator' | 'deletedField' | 'renamedAlias' | 'obsoleteField' | 'manifestField' | 'enumValue';
 
 /** What a migration symbol names: the registry entry behind it, in the form a message can read. */
 interface DeprecationSymbol {
@@ -464,4 +458,3 @@ export const allDeprecationSymbols = (): string[] => [
     ...Object.keys(RENAMED_MOD_RULES_FIELDS).map((key) => migrationSymbolOf('manifestField', key)),
     ...Object.keys(DEPRECATED_ENUM_VALUES).map((key) => migrationSymbolOf('enumValue', key)),
 ];
-

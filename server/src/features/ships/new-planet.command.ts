@@ -2,13 +2,7 @@ import { existsSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { relative } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
-import {
-    AbstractNode,
-    AbstractNodeDocument,
-    isGroupNode,
-    isListNode,
-    isValueNode,
-} from '../../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
 import { ActionSource } from '../../mod/action';
 import { identityOfMod, ModIdentity } from '../../mod/mod-dependencies';
 import { parseText } from '../../utils/ast.utils';

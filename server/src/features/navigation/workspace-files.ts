@@ -65,7 +65,6 @@ export async function* collectRulesFiles(dir: string): AsyncGenerator<string> {
     }
 }
 
-
 /** How many file reads are kept in flight ahead of the consumer during a project walk. */
 const READ_AHEAD = 16;
 

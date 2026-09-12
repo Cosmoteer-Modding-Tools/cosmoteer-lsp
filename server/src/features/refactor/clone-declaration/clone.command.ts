@@ -58,8 +58,10 @@ const MAX_PREVIEW_FILES = 40;
 const RESERVED_AUTHOR = 'cosmoteer';
 
 /** The unsaved text of an open file, or undefined when the editor does not hold it. */
-const openTextOf = (open: ReadonlyMap<string, TextDocument>) => (fsPath: string): string | undefined =>
-    open.get(normalizeUri(filePathToUri(fsPath)))?.getText();
+const openTextOf =
+    (open: ReadonlyMap<string, TextDocument>) =>
+    (fsPath: string): string | undefined =>
+        open.get(normalizeUri(filePathToUri(fsPath)))?.getText();
 
 /**
  * An id to start the author off with: the source's entity name with `_copy` on the end, and a counting
@@ -258,7 +260,10 @@ const previewClone = (plan: ClonePlan, folders: string[]): ClonePreviewResult =>
         kind: 'preview',
         diff: sections.filter((section) => section.length > 0).join('\n'),
         changed,
-        omitted: Math.max(0, plan.files.filter((file) => file.text !== undefined).length + plan.stringsFiles.length - changed.length),
+        omitted: Math.max(
+            0,
+            plan.files.filter((file) => file.text !== undefined).length + plan.stringsFiles.length - changed.length
+        ),
         writes,
         copied,
         stringsFiles: plan.stringsFiles.map((strings) => strings.fsPath),

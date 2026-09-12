@@ -26,7 +26,11 @@ const reachabilityClosures = reachabilityMemo();
 
 /** The class that owns `fieldName` for a member-bearing container (a group, or a whole-file-root document). */
 const ownerClassOf = (container: AbstractNode): string | undefined =>
-    isDocumentNode(container) ? documentRootClass(container) : isGroupNode(container) ? resolveGroupClass(container) : undefined;
+    isDocumentNode(container)
+        ? documentRootClass(container)
+        : isGroupNode(container)
+          ? resolveGroupClass(container)
+          : undefined;
 
 /**
  * The schema `reference` field a string value node belongs to: the target class and the written id.
@@ -54,12 +58,20 @@ export const schemaReferenceFieldOf = (
         const cls = fieldName ? ownerClassOf(owner) : undefined;
         const field = cls && fieldName ? fieldOf(cls, fieldName) : undefined;
         const vt = field?.valueType;
-        if (vt && (vt.kind === 'list' || vt.kind === 'range' || vt.kind === 'interpolated') && vt.element.kind === 'reference') {
+        if (
+            vt &&
+            (vt.kind === 'list' || vt.kind === 'range' || vt.kind === 'interpolated') &&
+            vt.element.kind === 'reference'
+        ) {
             return { targetClass: vt.element.target, value, fieldName, ownerClass: cls };
         }
         // A scalar-form group element (`EditorParentParts = ["cosmoteer.armor"]`): a bare entry of a
         // `list<group>` field reads as the element class's scalar payload.
-        if (vt && (vt.kind === 'list' || vt.kind === 'range' || vt.kind === 'interpolated') && vt.element.kind === 'group') {
+        if (
+            vt &&
+            (vt.kind === 'list' || vt.kind === 'range' || vt.kind === 'interpolated') &&
+            vt.element.kind === 'group'
+        ) {
             const target = scalarReferenceTargetOf(vt.element.ref);
             if (target) return { targetClass: target, value, fieldName };
         }
@@ -226,7 +238,11 @@ export function* mapKeyReferencesOf(document: AbstractNodeDocument): Generator<M
 export const mapKeyReferenceAt = (document: AbstractNodeDocument, position: Position): MapKeyReference | undefined => {
     for (const key of mapKeyReferencesOf(document)) {
         const pos = key.node.position;
-        if (pos.line === position.line && position.character >= pos.characterStart && position.character <= pos.characterEnd) {
+        if (
+            pos.line === position.line &&
+            position.character >= pos.characterStart &&
+            position.character <= pos.characterEnd
+        ) {
             return key;
         }
     }

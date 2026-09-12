@@ -2,12 +2,7 @@ import { AbstractNode, isListNode, isGroupNode, isValueNode, ValueNode } from '.
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { cachedParseFilePath, cachedReaddir, foldPathCase, onFsInvalidation } from '../../workspace/fs-cache';
 import { getParsedFileDocument } from '../../workspace/parsed-file-cache';
-import {
-    CosmoteerWorkspaceService,
-    FileTree,
-    FileWithPath,
-    isFile,
-} from '../../workspace/cosmoteer-workspace.service';
+import { CosmoteerWorkspaceService, FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import {
     createDirentPath,
     extractSubstrings,
@@ -276,7 +271,9 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
             // fs change) and permanently flag a valid reference. Skip storing it, like the
             // cancelled case above. Genuine hits, and misses of bearer-independent file paths, stay.
             const superPathBeforeGameRoot =
-                !result && (path.startsWith('&/') || path.startsWith('/')) && !CosmoteerWorkspaceService.instance.dataRootPath;
+                !result &&
+                (path.startsWith('&/') || path.startsWith('/')) &&
+                !CosmoteerWorkspaceService.instance.dataRootPath;
             if (!superPathBeforeGameRoot) {
                 // Replace any concurrent store of the same key first, so its dep-index
                 // registrations don't linger as orphans.
@@ -406,7 +403,7 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
             lastNode = node;
         }
         return node ?? null;
-    };;
+    };
 
     navigateRules = async (
         path: string,

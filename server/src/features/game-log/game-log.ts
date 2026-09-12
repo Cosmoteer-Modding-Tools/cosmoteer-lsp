@@ -64,7 +64,8 @@ const SHAPES: Shape[] = [
     // The token the parser stopped at. Line and Char are both 1-based, and Char counts code units
     // within the line, which is exactly what the editor's own positions count.
     {
-        pattern: /^Halfling\.ObjectText\.OTParseException: Unexpected (?:"([^"]*)"|(EOF)) at position Line=(\d+),Char=(\d+) in file "([^"]+)"\.$/,
+        pattern:
+            /^Halfling\.ObjectText\.OTParseException: Unexpected (?:"([^"]*)"|(EOF)) at position Line=(\d+),Char=(\d+) in file "([^"]+)"\.$/,
         build: (match) => ({
             file: match[5],
             otPath: '',
@@ -78,7 +79,8 @@ const SHAPES: Shape[] = [
     // An end of file the parser did not expect. The game interpolates the wrong member into the file
     // slot here, so the file is taken from the wrapper above rather than from this message.
     {
-        pattern: /^Halfling\.ObjectText\.OTParseException: Unexpected end-of-file at (?:position )?Line=(\d+),Char=(\d+) in file "[^"]*"\.$/,
+        pattern:
+            /^Halfling\.ObjectText\.OTParseException: Unexpected end-of-file at (?:position )?Line=(\d+),Char=(\d+) in file "[^"]*"\.$/,
         build: (match) => ({
             file: '',
             otPath: '',
@@ -88,11 +90,17 @@ const SHAPES: Shape[] = [
         }),
     },
     {
-        pattern: /^Halfling\.Serialization\.DeserializeException: Deserialization from source "<([^>]*)>((?:\/[^"]*)?)" failed\.$/,
-        build: (match) => ({ file: match[1], otPath: match[2], message: 'The game could not read this into the type it expects.' }),
+        pattern:
+            /^Halfling\.Serialization\.DeserializeException: Deserialization from source "<([^>]*)>((?:\/[^"]*)?)" failed\.$/,
+        build: (match) => ({
+            file: match[1],
+            otPath: match[2],
+            message: 'The game could not read this into the type it expects.',
+        }),
     },
     {
-        pattern: /^Halfling\.Serialization\.DeserializeException: Type name '([^']*)' at path '<([^>]*)>((?:\/[^']*)?)' is not a deserializable subclass of '([^']*)'\.$/,
+        pattern:
+            /^Halfling\.Serialization\.DeserializeException: Type name '([^']*)' at path '<([^>]*)>((?:\/[^']*)?)' is not a deserializable subclass of '([^']*)'\.$/,
         build: (match) => ({
             file: match[2],
             otPath: match[3],
@@ -100,7 +108,8 @@ const SHAPES: Shape[] = [
         }),
     },
     {
-        pattern: /^Halfling\.ObjectText\.OTNavigateException: Unable to find final target "([^"]*)" of Reference at path "<([^>]*)>((?:\/[^"]*)?)"\.$/,
+        pattern:
+            /^Halfling\.ObjectText\.OTNavigateException: Unable to find final target "([^"]*)" of Reference at path "<([^>]*)>((?:\/[^"]*)?)"\.$/,
         build: (match) => ({
             file: match[2],
             otPath: match[3],
@@ -108,7 +117,8 @@ const SHAPES: Shape[] = [
         }),
     },
     {
-        pattern: /^Halfling\.ObjectText\.OTNavigateException: Unable to find final target "([^"]*)" of inheritance reference at path <([^>]*)>((?:\/\S*)?)\.$/,
+        pattern:
+            /^Halfling\.ObjectText\.OTNavigateException: Unable to find final target "([^"]*)" of inheritance reference at path <([^>]*)>((?:\/\S*)?)\.$/,
         build: (match) => ({
             file: match[2],
             otPath: match[3],
@@ -117,7 +127,11 @@ const SHAPES: Shape[] = [
     },
     {
         pattern: /^Halfling\.ObjectText\.OTNavigateException: Reference at "<([^>]*)>((?:\/\S*)?)" is circular\.$/,
-        build: (match) => ({ file: match[1], otPath: match[2], message: 'This reference eventually points at itself.' }),
+        build: (match) => ({
+            file: match[1],
+            otPath: match[2],
+            message: 'This reference eventually points at itself.',
+        }),
     },
     // The shader compiler, which reports its own line and column directly.
     {

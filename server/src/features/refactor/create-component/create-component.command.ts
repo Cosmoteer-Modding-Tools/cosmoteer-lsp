@@ -39,7 +39,11 @@ const COMPONENTS = 'Components';
  * @param chain the groups found so far.
  * @returns the chain, empty when the offset falls in no group.
  */
-const groupChain = (container: AbstractNodeDocument | GroupNode, offset: number, chain: GroupNode[] = []): GroupNode[] => {
+const groupChain = (
+    container: AbstractNodeDocument | GroupNode,
+    offset: number,
+    chain: GroupNode[] = []
+): GroupNode[] => {
     for (const element of container.elements) {
         const span = memberSpanOf(element);
         if (!span || offset < span.start || offset >= span.end) continue;
@@ -84,7 +88,8 @@ const insertTarget = (
 ): { container: AbstractNodeDocument | GroupNode; isComponents: boolean } | undefined => {
     const chain = groupChain(document, offset);
     for (const group of [...chain].reverse()) {
-        if (group.identifier?.name.toLowerCase() === COMPONENTS.toLowerCase()) return { container: group, isComponents: true };
+        if (group.identifier?.name.toLowerCase() === COMPONENTS.toLowerCase())
+            return { container: group, isComponents: true };
         const components = componentsMemberOf(group);
         if (components) return { container: components, isComponents: true };
     }

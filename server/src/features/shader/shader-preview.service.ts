@@ -107,7 +107,10 @@ const BLEND_MODES: Readonly<Record<string, readonly [string, string, string, str
 };
 
 /** Builds a {@link ShaderPreviewBlend} from a label and a factor sextuple. */
-const blendOf = (label: string, spec: readonly [string, string, string, string, string, string]): ShaderPreviewBlend => ({
+const blendOf = (
+    label: string,
+    spec: readonly [string, string, string, string, string, string]
+): ShaderPreviewBlend => ({
     label,
     srcRgb: spec[0],
     dstRgb: spec[1],

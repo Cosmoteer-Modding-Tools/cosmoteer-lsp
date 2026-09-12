@@ -319,15 +319,21 @@ export async function validateTextDocument(
         // scan, since separators never become AST nodes. Hint severity keeps the finding out of the
         // Problems panel (vanilla itself ships hundreds of trailing separators).
         if (settings.diagnostics?.validateRedundantSeparators) {
-            validationErrors = validationErrors.concat(tagged(validateRedundantSeparators(tokens), 'validateRedundantSeparators'));
+            validationErrors = validationErrors.concat(
+                tagged(validateRedundantSeparators(tokens), 'validateRedundantSeparators')
+            );
         }
         // Separate pass: a second member started on a line the member before it already owns, a second
         // reference hung on a field by a `,`, and a `*/` that closes no comment. All three are hard
         // load failures the parser cannot see, since the first two fold into a value and the third
         // lexes as an operator pair. Ungated, like the parser errors they belong with.
         validationErrors = validationErrors.concat(tagged(validateMissingSeparators(tokens), 'missing-separator'));
-        validationErrors = validationErrors.concat(tagged(validateUnbracketedValueList(tokens), 'unbracketed-value-list'));
-        validationErrors = validationErrors.concat(tagged(validateOrphanCommentTerminators(tokens), 'orphan-comment-terminator'));
+        validationErrors = validationErrors.concat(
+            tagged(validateUnbracketedValueList(tokens), 'unbracketed-value-list')
+        );
+        validationErrors = validationErrors.concat(
+            tagged(validateOrphanCommentTerminators(tokens), 'orphan-comment-terminator')
+        );
         // Separate pass: block comments the game's scanner never closes (an even run of `*` before the
         // closing `/`), which swallow every rule between them and the next `*/`. Comments produce no
         // tokens, so it reads the spans the lexer collected alongside them.
@@ -426,9 +432,7 @@ export async function validateTextDocument(
             const particleChannelErrors = await timedPass('scan.vParticleChannelMs', async () =>
                 validateUnusedParticleChannels(parserResult.value, cancelToken).catch(() => [])
             );
-            validationErrors = validationErrors.concat(
-                tagged(particleChannelErrors, 'validateUnusedParticleChannels')
-            );
+            validationErrors = validationErrors.concat(tagged(particleChannelErrors, 'validateUnusedParticleChannels'));
         }
         // Separate pass: an id two files of this mod both register for one game collection, which
         // the game resolves by keeping one entry and dropping the rest. Needs the game index, like

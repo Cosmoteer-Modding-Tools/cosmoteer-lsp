@@ -68,14 +68,7 @@ export type RegistrationFailure = RegisterPartFailure | 'manifestUnusable' | 'no
 
 /** Why the command created nothing at all. */
 export type NewContentFailure =
-    | 'noModRoot'
-    | 'notEditable'
-    | 'unknownKind'
-    | 'invalidName'
-    | 'pathTaken'
-    | 'idTaken'
-    | 'noSource'
-    | 'writeFailed';
+    'noModRoot' | 'notEditable' | 'unknownKind' | 'invalidName' | 'pathTaken' | 'idTaken' | 'noSource' | 'writeFailed';
 
 /** What the client sends. Without a `name` the command reports what could be created here. */
 export interface NewContentArgs {

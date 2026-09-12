@@ -2,7 +2,14 @@ import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
 import { relative } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isValueNode, ValueNode } from '../../../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    GroupNode,
+    isGroupNode,
+    isValueNode,
+    ValueNode,
+} from '../../../core/ast/ast';
 import { hasId, sameId } from '../../../document/schema/entity-schema';
 import { findModRoot } from '../../../mod/mod-root';
 import { parseText } from '../../../utils/ast.utils';
@@ -219,15 +226,25 @@ const duplicateListElement = (
     if (!isGroupNode(container)) return { failure: 'noDeclaration' };
     // An element may name its bases before its brace, and those belong to the copy as much as its
     // body does, so the span starts at the earliest thing the element writes.
-    const start = Math.min(container.position.start, ...(container.inheritance ?? []).map((base) => base.position.start));
+    const start = Math.min(
+        container.position.start,
+        ...(container.inheritance ?? []).map((base) => base.position.start)
+    );
     const end = container.position.end;
     if (!(start >= 0 && end > start && end <= text.length)) return { failure: 'stale' };
     const span = { start, end };
 
     const removal = otherIdsRemoval(container, text, span);
-    const edits = [...idEditsOf(document, symbol, newId, target.node, span), ...keyEditsOf(keys, span), ...removal.edits];
+    const edits = [
+        ...idEditsOf(document, symbol, newId, target.node, span),
+        ...keyEditsOf(keys, span),
+        ...removal.edits,
+    ];
     if (overlapping(edits)) return { failure: 'stale' };
-    const copy = applyEdits(text.slice(start, end), edits.map((edit) => ({ ...edit, start: edit.start - start, end: edit.end - start })));
+    const copy = applyEdits(
+        text.slice(start, end),
+        edits.map((edit) => ({ ...edit, start: edit.start - start, end: edit.end - start }))
+    );
     const lineEnding = text.includes('\r\n') ? '\r\n' : '\n';
     const insert = `${lineEnding}${indentOfLineAt(text, start)}${copy}`;
     return { text: `${text.slice(0, end)}${insert}${text.slice(end)}`, dropped: removal.dropped };
@@ -260,7 +277,11 @@ const rewriteCopiedFile = (
     identity: ValueNode | undefined
 ): { text: string; dropped: string[] } | { failure: CloneFailure; detail: string[] } => {
     const removal = container ? otherIdsRemoval(container, text) : { edits: [], dropped: [] };
-    const edits: SourceEdit[] = [...idEditsOf(document, symbol, newId, identity), ...keyEditsOf(keys), ...removal.edits];
+    const edits: SourceEdit[] = [
+        ...idEditsOf(document, symbol, newId, identity),
+        ...keyEditsOf(keys),
+        ...removal.edits,
+    ];
     const rebased = rebaseUnitFile(text, rebaseContext);
     if ('refusal' in rebased) return { failure: rebased.refusal, detail: [rebased.path, source] };
     for (const rebase of rebased.rebases) edits.push(rebase);
@@ -298,7 +319,8 @@ export const buildClonePlan = async (
     const sourceDir = dirOfPath(target.fsPath);
     const sourceEditable = editableModRootOf(target.fsPath);
     const candidates = new Set<string>();
-    for (const folder of context.folderPaths) for (const root of context.modRootsUnder(folder)) candidates.add(slashed(root));
+    for (const folder of context.folderPaths)
+        for (const root of context.modRootsUnder(folder)) candidates.add(slashed(root));
     // A collection element is copied into the very list it is already in, so it has no destination to
     // choose and the caller cannot name one. That also means the file it is written back into has to
     // be one the user may edit, which is the one case where the source is gated as well.
@@ -317,7 +339,8 @@ export const buildClonePlan = async (
     if (!destinationRoot) return { failure: 'notEditable' };
 
     // Which files the copy carries, and where each of them lands.
-    const sources = target.unit === 'directory' ? filesUnder(sourceDir) : target.unit === 'file' ? [slashed(target.fsPath)] : [];
+    const sources =
+        target.unit === 'directory' ? filesUnder(sourceDir) : target.unit === 'file' ? [slashed(target.fsPath)] : [];
     const destinationOf = new Map<string, string>();
     if (target.unit === 'directory') {
         // Copying a directory into itself would read the copy as part of the source, so it is refused
@@ -371,7 +394,13 @@ export const buildClonePlan = async (
         const duplicate = duplicateListElement(document, text, target, symbol, newId, keys);
         if ('failure' in duplicate) return duplicate;
         droppedOtherIds = duplicate.dropped;
-        files.push({ source: declaringPath, destination: declaringPath, text: duplicate.text, before: text, created: false });
+        files.push({
+            source: declaringPath,
+            destination: declaringPath,
+            text: duplicate.text,
+            before: text,
+            created: false,
+        });
     } else {
         for (const source of sources) {
             if (cancellationToken.isCancellationRequested) return { failure: 'stale' };
@@ -390,7 +419,8 @@ export const buildClonePlan = async (
             }
             const fileText = declaring
                 ? text
-                : (context.openText?.(source) ?? (await readFile(source, { encoding: 'utf-8' }).catch(() => undefined)));
+                : (context.openText?.(source) ??
+                  (await readFile(source, { encoding: 'utf-8' }).catch(() => undefined)));
             if (fileText === undefined) {
                 // A `.rules` the unit cannot read is content the copy needs, so the clone is refused.
                 // A `.txt` goes on travelling byte for byte, exactly as it does when it is prose.
@@ -457,9 +487,10 @@ export const buildClonePlan = async (
             texts: await context.localizationTexts(key.sourceKey, cancellationToken).catch(() => []),
         }))
     );
-    const stringsPaths = await modStringsFiles(filePathToUri(`${destinationDir}/placeholder.rules`), cancellationToken).catch(
-        () => []
-    );
+    const stringsPaths = await modStringsFiles(
+        filePathToUri(`${destinationDir}/placeholder.rules`),
+        cancellationToken
+    ).catch(() => []);
     const stringsFiles = await stringsInsertsFor(stringsPaths.map(slashed), texts, context.openText);
 
     return {

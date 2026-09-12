@@ -37,7 +37,10 @@ const ASSET_TYPE_BY_KIND: Record<string, AssetType> = { image: 'Sprite', sound: 
  * @param cancellationToken stops the cross-file class resolution.
  * @returns the asset kind of the field, or undefined when the schema does not type it as one.
  */
-const schemaAssetType = async (node: ValueNode, cancellationToken: CancellationToken): Promise<AssetType | undefined> => {
+const schemaAssetType = async (
+    node: ValueNode,
+    cancellationToken: CancellationToken
+): Promise<AssetType | undefined> => {
     const classOf = async (n: AbstractNode | null | undefined): Promise<string | undefined> =>
         n && isDocumentNode(n)
             ? documentScopeClass(n)
@@ -60,7 +63,8 @@ const schemaAssetType = async (node: ValueNode, cancellationToken: CancellationT
     const containerClass = await classOf(container);
     const direct = containerClass ? fieldOf(containerClass, fieldName)?.valueType : undefined;
     if (list) {
-        if (direct?.kind === 'list' && direct.element.kind === 'asset') return ASSET_TYPE_BY_KIND[direct.element.assetKind];
+        if (direct?.kind === 'list' && direct.element.kind === 'asset')
+            return ASSET_TYPE_BY_KIND[direct.element.assetKind];
         return undefined;
     }
     if (direct?.kind === 'asset') return ASSET_TYPE_BY_KIND[direct.assetKind];
@@ -149,11 +153,12 @@ const assetTypeOfField = async (
     // Group form: `File` inside a `Shader { … }` / `Texture { … }` group standing in an asset slot.
     if (fieldName === 'File' && container.identifier) {
         const outer = container.parent;
-        const outerClass = outer && isDocumentNode(outer)
-            ? documentScopeClass(outer)
-            : outer && isGroupNode(outer)
-              ? await resolveClassThroughInheritance(outer, cancellationToken).catch(() => undefined)
-              : undefined;
+        const outerClass =
+            outer && isDocumentNode(outer)
+                ? documentScopeClass(outer)
+                : outer && isGroupNode(outer)
+                  ? await resolveClassThroughInheritance(outer, cancellationToken).catch(() => undefined)
+                  : undefined;
         const slot = outerClass ? fieldOf(outerClass, container.identifier.name)?.valueType : undefined;
         if (slot?.kind === 'asset') return ASSET_TYPE_BY_KIND[slot.assetKind];
     }

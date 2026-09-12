@@ -379,7 +379,11 @@ export const roleFileReference = (aggregatorDir: string, roleFile: string): stri
     relativeRulesReference(aggregatorDir, roleFile, SHIPS_MEMBER);
 
 /** The tier bands the game's own trade routes use, by the ship's tier. */
-const TRADE_TIER_RANGES: ReadonlyArray<{ readonly upTo: number; readonly range: readonly [number, number]; readonly tradeTime: number }> = [
+const TRADE_TIER_RANGES: ReadonlyArray<{
+    readonly upTo: number;
+    readonly range: readonly [number, number];
+    readonly tradeTime: number;
+}> = [
     { upTo: 3, range: [1, 9], tradeTime: 40 },
     { upTo: 5, range: [3, 12], tradeTime: 60 },
     { upTo: 7, range: [6, 18], tradeTime: 80 },
@@ -421,11 +425,27 @@ export const tradeShipEntryFor = (
     tier: number
 ): TradeShipEntry => {
     if (role === 'crew_transport') {
-        const band = CREW_TIER_RANGES.find((entry) => tier <= entry.upTo) ?? CREW_TIER_RANGES[CREW_TIER_RANGES.length - 1];
-        return { name, shipId, factionId, tierRange: band.range, stasisSpeed: DEFAULT_STASIS_SPEED, stasisTradeTime: CREW_TRADE_TIME };
+        const band =
+            CREW_TIER_RANGES.find((entry) => tier <= entry.upTo) ?? CREW_TIER_RANGES[CREW_TIER_RANGES.length - 1];
+        return {
+            name,
+            shipId,
+            factionId,
+            tierRange: band.range,
+            stasisSpeed: DEFAULT_STASIS_SPEED,
+            stasisTradeTime: CREW_TRADE_TIME,
+        };
     }
-    const band = TRADE_TIER_RANGES.find((entry) => tier <= entry.upTo) ?? TRADE_TIER_RANGES[TRADE_TIER_RANGES.length - 1];
-    return { name, shipId, factionId, tierRange: band.range, stasisSpeed: DEFAULT_STASIS_SPEED, stasisTradeTime: band.tradeTime };
+    const band =
+        TRADE_TIER_RANGES.find((entry) => tier <= entry.upTo) ?? TRADE_TIER_RANGES[TRADE_TIER_RANGES.length - 1];
+    return {
+        name,
+        shipId,
+        factionId,
+        tierRange: band.range,
+        stasisSpeed: DEFAULT_STASIS_SPEED,
+        stasisTradeTime: band.tradeTime,
+    };
 };
 
 /**
@@ -449,7 +469,7 @@ export const tradeShipEntryText = (entry: TradeShipEntry, baseReference: string)
 export const tradeShipsFileText = (lineEnding: LineEnding): string =>
     [
         '// Trade routes for the civilian ships of this faction, added to the career mode as a base of its',
-        '// own TradeShips so the routes load beside the game\'s own.',
+        "// own TradeShips so the routes load beside the game's own.",
         `// StasisSpeed is how fast the ship travels between stations while out of sight. The game's own`,
         `// routes write each ship's real cruise speed here, and ${DEFAULT_STASIS_SPEED} is the middle of that spread.`,
         '',

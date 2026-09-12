@@ -165,7 +165,12 @@ async function confirmSharedBaseRewrite(preview: SharedBasePreviewResult): Promi
     const baseName = path.basename(preview.baseFsPath);
     const confirmed = await window.showInformationMessage(
         preview.tier === 'existingBase'
-            ? l10n.t('Move {0} fields into {1}, the base those {2} files already inherit?', preview.fields, baseName, preview.files)
+            ? l10n.t(
+                  'Move {0} fields into {1}, the base those {2} files already inherit?',
+                  preview.fields,
+                  baseName,
+                  preview.files
+              )
             : l10n.t('Create {0} and rewrite {1} files to inherit it?', baseName, preview.files),
         {
             modal: true,

@@ -22,7 +22,11 @@ import {
 } from '../../document/schema/entity-schema';
 import { MARKER_CLASSES } from '../../document/schema/category-usage';
 import { SchemaIdIndex } from '../completion/schema-id.index';
-import { isSameOrSubclass, schemaReferenceFieldOf, mapKeyReferencesOf } from '../navigation/schema-id-reference.navigation';
+import {
+    isSameOrSubclass,
+    schemaReferenceFieldOf,
+    mapKeyReferencesOf,
+} from '../navigation/schema-id-reference.navigation';
 import { stringValueNodesOf } from '../navigation/schema-reference.navigation';
 import { ActionRootingIndex } from '../../mod/action-rooting.index';
 import type { ValueType } from '../../document/schema/schema.types';
@@ -281,7 +285,12 @@ const isVanillaLabelField = async (
     if (!dataRoot) return false;
     const dataRootUrl = pathToFileURL(dataRoot).href;
     const dataRootPrefix = normalizeUri(dataRootUrl);
-    const ids = await SchemaIdIndex.instance.primaryIdsForClass(targetClass, [dataRoot], cancellationToken, dataRootPrefix);
+    const ids = await SchemaIdIndex.instance.primaryIdsForClass(
+        targetClass,
+        [dataRoot],
+        cancellationToken,
+        dataRootPrefix
+    );
     let sawUsage = false;
     let sawResolving = false;
     for await (const document of documentsMentioning([dataRootUrl], fieldName, cancellationToken)) {
@@ -707,7 +716,10 @@ export const judgeIdReference = async (
     if (hasId(ids, reference.value)) return 'resolved';
     // A label field never resolves by design (checked before the per-id consults, since one field
     // verdict covers every value written in it).
-    if (reference.fieldName && (await isVanillaLabelField(reference.fieldName, reference.targetClass, cancellationToken))) {
+    if (
+        reference.fieldName &&
+        (await isVanillaLabelField(reference.fieldName, reference.targetClass, cancellationToken))
+    ) {
         return 'label-field';
     }
     // A declaration shape somewhere the rooted harvest cannot classify (an unrooted resource file,
@@ -723,7 +735,8 @@ export const judgeIdReference = async (
     }
     // A vanilla leftover: the base game's own files reference the id too, so it is not a typo
     // introduced here (lazy, one scan per unique unknown id per session).
-    if (await referencedInGameTree(reference.targetClass, reference.value, cancellationToken)) return 'vanilla-leftover';
+    if (await referencedInGameTree(reference.targetClass, reference.value, cancellationToken))
+        return 'vanilla-leftover';
     // The id may come from a dependency mod outside the workspace (a part of a base pack, a tag
     // another mod's sysgen declares): consult the installed workshop mods before flagging
     // (lazy, one scan per unique unknown id per session).

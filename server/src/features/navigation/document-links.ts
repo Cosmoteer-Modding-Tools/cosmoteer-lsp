@@ -94,7 +94,12 @@ export const computeDocumentLinks = (document: AbstractNodeDocument): DocumentLi
     for (const node of walk(document)) {
         const p = node.position;
         if (isAssetValue(node)) {
-            push(p.line, p.characterStart, p.characterEnd, { uri: document.uri, line: p.line, character: p.characterStart, isFull: true });
+            push(p.line, p.characterStart, p.characterEnd, {
+                uri: document.uri,
+                line: p.line,
+                character: p.characterStart,
+                isFull: true,
+            });
             continue;
         }
         if (!isReferenceValue(node)) continue;
@@ -105,7 +110,12 @@ export const computeDocumentLinks = (document: AbstractNodeDocument): DocumentLi
         const span = p.characterEnd - p.characterStart;
         const segments = raw.length === span && !raw.includes('\n') ? referenceSegments(raw) : [];
         if (segments.length === 0) {
-            push(p.line, p.characterStart, p.characterEnd, { uri: document.uri, line: p.line, character: p.characterStart, isFull: true });
+            push(p.line, p.characterStart, p.characterEnd, {
+                uri: document.uri,
+                line: p.line,
+                character: p.characterStart,
+                isFull: true,
+            });
             continue;
         }
         for (const seg of segments) {
@@ -163,9 +173,8 @@ export const resolveDocumentLink = async (
 
     const node = findNodeAtPosition(document, position);
     if (!node) return link;
-    const target = (await navigation
-        .navigate(data.prefix, node, data.uri, cancellationToken)
-        .catch(() => null)) as AbstractNode | FileWithPath | null;
+    const target = (await navigation.navigate(data.prefix, node, data.uri, cancellationToken).catch(() => null)) as
+        AbstractNode | FileWithPath | null;
     if (target) link.target = linkTargetFromLocation(locationOfTarget(target));
     return link;
 };

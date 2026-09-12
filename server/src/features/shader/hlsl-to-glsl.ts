@@ -457,10 +457,7 @@ const translateCbuffers = (src: string): string =>
 /** Rewrites a file-scope variable (a type at column 0) into a `uniform`, dropping any initializer. */
 const globalsToUniforms = (src: string): string => {
     const typeAlternation = GLSL_TYPES.join('|');
-    return src.replace(
-        new RegExp(`^(${typeAlternation})\\s+(_[A-Za-z0-9_]+)\\s*(?:=[^;]*)?;`, 'gm'),
-        'uniform $1 $2;'
-    );
+    return src.replace(new RegExp(`^(${typeAlternation})\\s+(_[A-Za-z0-9_]+)\\s*(?:=[^;]*)?;`, 'gm'), 'uniform $1 $2;');
 };
 
 /** A struct field, with its translated GLSL type. */
@@ -546,14 +543,46 @@ const isSwizzle = (name: string): boolean => /^(?:[xyzw]{1,4}|[rgba]{1,4}|[stpq]
 
 /** Builtins whose result type is the type of their first argument. */
 const SAME_AS_FIRST_ARGUMENT = new Set([
-    'abs', 'floor', 'ceil', 'fract', 'sign', 'sqrt', 'inversesqrt', 'normalize', 'exp', 'log', 'exp2',
-    'log2', 'sin', 'cos', 'tan', 'asin', 'acos', 'radians', 'degrees', 'dFdx', 'dFdy', 'fwidth',
+    'abs',
+    'floor',
+    'ceil',
+    'fract',
+    'sign',
+    'sqrt',
+    'inversesqrt',
+    'normalize',
+    'exp',
+    'log',
+    'exp2',
+    'log2',
+    'sin',
+    'cos',
+    'tan',
+    'asin',
+    'acos',
+    'radians',
+    'degrees',
+    'dFdx',
+    'dFdy',
+    'fwidth',
 ]);
 
 /** Builtins whose result type is the widest of their arguments (the scalar-promoting ones). */
 const WIDEST_ARGUMENT = new Set([
-    'min', 'max', 'clamp', 'mod', 'mix', 'step', 'smoothstep', 'atan', 'reflect', 'pow', 'pow_',
-    'lerp_', 'clamp_0_1', 'pvMod',
+    'min',
+    'max',
+    'clamp',
+    'mod',
+    'mix',
+    'step',
+    'smoothstep',
+    'atan',
+    'reflect',
+    'pow',
+    'pow_',
+    'lerp_',
+    'clamp_0_1',
+    'pvMod',
 ]);
 
 /** Builtins with a fixed result type, whatever their arguments. */
@@ -688,7 +717,10 @@ const inferType = (expression: string, scope: TypeScope): string | null => {
     if (/(?:&&|\|\||==|!=|<=|>=|<|>)/.test(expr) && lastBinaryOperator(expr, ['<', '>', '&', '|', '!']) >= 0) {
         return null;
     }
-    for (const operators of [['+', '-'], ['*', '/']]) {
+    for (const operators of [
+        ['+', '-'],
+        ['*', '/'],
+    ]) {
         const at = lastBinaryOperator(expr, operators);
         if (at > 0) {
             return widerType(inferType(expr.slice(0, at), scope), inferType(expr.slice(at + 1), scope));
@@ -851,21 +883,27 @@ const declarationsIn = (span: string, types: ReadonlySet<string>, into: Map<stri
  * @returns the body with scalar swizzles removed.
  */
 const dropScalarSwizzles = (body: string, scope: TypeScope): string => {
-    return body.replace(/\b([A-Za-z_]\w*)((?:\s*\.\s*[A-Za-z_]\w*)+)/g, (whole, head: string, tail: string, at: number) => {
-        if (at > 0 && /[.\w]/.test(body[at - 1])) return whole;
-        if (/^\s*\(/.test(body.slice(at + whole.length))) return whole;
-        let type = scope.names.get(head) ?? null;
-        if (!type) return whole;
-        let rebuilt = head;
-        for (const member of tail.split('.').slice(1).map((part) => part.trim())) {
-            if (vectorDimension(type) === 1 && isSwizzle(member) && /^[xrs]$/.test(member)) continue;
-            const next = memberType(type, member, scope);
-            if (!next) return whole;
-            rebuilt += `.${member}`;
-            type = next;
+    return body.replace(
+        /\b([A-Za-z_]\w*)((?:\s*\.\s*[A-Za-z_]\w*)+)/g,
+        (whole, head: string, tail: string, at: number) => {
+            if (at > 0 && /[.\w]/.test(body[at - 1])) return whole;
+            if (/^\s*\(/.test(body.slice(at + whole.length))) return whole;
+            let type = scope.names.get(head) ?? null;
+            if (!type) return whole;
+            let rebuilt = head;
+            for (const member of tail
+                .split('.')
+                .slice(1)
+                .map((part) => part.trim())) {
+                if (vectorDimension(type) === 1 && isSwizzle(member) && /^[xrs]$/.test(member)) continue;
+                const next = memberType(type, member, scope);
+                if (!next) return whole;
+                rebuilt += `.${member}`;
+                type = next;
+            }
+            return rebuilt;
         }
-        return rebuilt;
-    });
+    );
 };
 
 /**
@@ -965,12 +1003,15 @@ const resolveImplicitConversions = (src: string): string => {
  */
 const dedupeUniforms = (src: string): string => {
     const seen = new Set<string>();
-    return src.replace(/^[ \t]*uniform[ \t]+([A-Za-z_]\w*)[ \t]+([A-Za-z_]\w*)[ \t]*;[ \t]*$/gm, (whole, type: string, name: string) => {
-        const key = `${type} ${name}`;
-        if (seen.has(key)) return '';
-        seen.add(key);
-        return whole;
-    });
+    return src.replace(
+        /^[ \t]*uniform[ \t]+([A-Za-z_]\w*)[ \t]+([A-Za-z_]\w*)[ \t]*;[ \t]*$/gm,
+        (whole, type: string, name: string) => {
+            const key = `${type} ${name}`;
+            if (seen.has(key)) return '';
+            seen.add(key);
+            return whole;
+        }
+    );
 };
 
 /**
@@ -1028,7 +1069,9 @@ const pruneUnreachableFunctions = (src: string, entry: string): { src: string; k
  * can animate the beam time and expose intensity and fade as live controls. World locations scale
  * `vUv` up so world-unit noise math (nebulas) still shows variation across the quad.
  */
-const FIELD_DEFAULTS: Readonly<Record<string, Readonly<Record<string, string>>>> = registry<Readonly<Record<string, string>>>({
+const FIELD_DEFAULTS: Readonly<Record<string, Readonly<Record<string, string>>>> = registry<
+    Readonly<Record<string, string>>
+>({
     uv: { vec2: 'vUv', vec4: 'vec4(vUv, 0.0, 1.0)' },
     color: { vec4: 'vColor', vec3: 'vColor.rgb' },
     // The engine tangent is (rightDir.xy, flipX, flipY); an unrotated unflipped sprite is (1, 0, 1, 1).
@@ -1111,7 +1154,9 @@ vec4 lerp_(vec4 a, vec4 b, float t) { return mix(a, b, t); }
  * `vertexOffset.y` carries the half-thickness the game's CPU normally supplies. A field with no
  * entry here means the vertex stage cannot be synthesized and the preview keeps the stand-in path.
  */
-const VERT_INPUT_DEFAULTS: Readonly<Record<string, Readonly<Record<string, string>>>> = registry<Readonly<Record<string, string>>>({
+const VERT_INPUT_DEFAULTS: Readonly<Record<string, Readonly<Record<string, string>>>> = registry<
+    Readonly<Record<string, string>>
+>({
     location: { vec4: 'vec4(aPos * 50.0, 0.0, 1.0)' },
     locationMin: { vec4: 'vec4(aPos * 50.0, 0.0, 1.0)' },
     locationMax: { vec4: 'vec4(aPos * 50.0, 0.0, 1.0)' },
@@ -1300,9 +1345,7 @@ const buildVertexStage = (
     fragmentBody: string,
     lerpHelpers: string
 ): GlslVertexStage | undefined => {
-    const vertMatch = /(?:^|\n)\s*([A-Za-z_]\w*)\s+vert\s*\(\s*(?:in\s+)?([A-Za-z_]\w*)\s+[A-Za-z_]\w*\s*\)/.exec(
-        src
-    );
+    const vertMatch = /(?:^|\n)\s*([A-Za-z_]\w*)\s+vert\s*\(\s*(?:in\s+)?([A-Za-z_]\w*)\s+[A-Za-z_]\w*\s*\)/.exec(src);
     if (!vertMatch) return undefined;
     // The vert may return a differently named struct than pix takes (crew_warning_circle pairs its own
     // vert with base.shader's default pix, the hyperdrive beacon's geometry stage renames the struct);
@@ -1466,8 +1509,7 @@ export const translateToGlsl = (hlsl: string): GlslTranslation => {
     const callsLerp = /\blerp_\s*\(/.test(pruned.src);
     const definesLerp = pruned.kept.has('lerp_');
     const lerpHelpers = callsLerp ? (definesLerp ? LERP_PROMOTIONS : LERP_FALLBACK + LERP_PROMOTIONS) : '';
-    const glsl =
-        extension + PRELUDE + lerpHelpers + '\n' + pruned.src.trim() + '\n' + buildMain(pixStruct, structs);
+    const glsl = extension + PRELUDE + lerpHelpers + '\n' + pruned.src.trim() + '\n' + buildMain(pixStruct, structs);
     const vertex = buildVertexStage(src, pixStruct, structs, pruned.src, lerpHelpers);
     return { ok: true, glsl, vertex };
 };

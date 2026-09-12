@@ -11,13 +11,7 @@ export type RegisterShipFailure = 'noModRoot' | 'notEditable' | 'noGameRoot' | '
 
 /** Why one blueprint could not be registered, which never stops the others. */
 export type ShipRegistrationFailure =
-    | 'unreadable'
-    | 'alreadyRegistered'
-    | 'idTaken'
-    | 'copyFailed'
-    | 'writeFailed'
-    | 'editRejected'
-    | 'unknownRole';
+    'unreadable' | 'alreadyRegistered' | 'idTaken' | 'copyFailed' | 'writeFailed' | 'editRejected' | 'unknownRole';
 
 /** Why the manifest could not be written, which leaves the ship files in place but unwired. */
 export type ManifestFailure = 'ambiguousManifest' | 'manifestUnusable' | 'noGameRoot' | 'editRejected';

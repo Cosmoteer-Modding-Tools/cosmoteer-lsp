@@ -832,8 +832,10 @@
         "watch:tsc": "tsc -b --noEmit --watch",
         "watch:esbuild": "node esbuild.mjs --watch",
         "watch:esbuild-test": "node esbuild.mjs --watch --test",
-        "lint": "eslint ./client/src ./server/src",
+        "lint": "eslint ./client/src ./server/src && npm run format:check",
         "lint:mod": "node out/server/src/cli/lint.mjs",
+        "format": "prettier --write \"client/src/**/*.ts\" \"server/src/**/*.ts\" \"*.mjs\" \"scripts/*.mjs\" \"tools/**/*.mjs\"",
+        "format:check": "prettier --check \"client/src/**/*.ts\" \"server/src/**/*.ts\" \"*.mjs\" \"scripts/*.mjs\" \"tools/**/*.mjs\"",
         "package:cli": "node scripts/build-cli-package.mjs",
         "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
         "test": "sh ./scripts/e2e.sh",
@@ -858,6 +860,7 @@
         "glob": "^13.0.6",
         "mocha": "^12.0.0",
         "prettier": "3.9.6",
+        "tsgo": "npm:typescript@^7.0.2",
         "typescript": "^6.0.3",
         "typescript-eslint": "^8.69.0"
     }

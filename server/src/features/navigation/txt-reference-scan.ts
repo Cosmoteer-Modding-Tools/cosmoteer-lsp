@@ -29,7 +29,10 @@ const TXT_HINT = /\.txt/i;
  * @returns the case-folded candidate keys.
  */
 const candidateKeys = (inner: string, fromDir: string, dataRoot: string | undefined): string[] => {
-    const relative = inner.trim().replace(/\\/g, '/').replace(/^\.\/data\//i, '');
+    const relative = inner
+        .trim()
+        .replace(/\\/g, '/')
+        .replace(/^\.\/data\//i, '');
     const bases = [fromDir];
     if (dataRoot) bases.push(dataRoot, dirname(dataRoot));
     const keys: string[] = [];
@@ -102,7 +105,7 @@ export const collectReferencedTxtKeys = async (
     }
     // A `.txt` hands its own refs on only once something has named it, so the set grows until it
     // settles. Each file is passed on once, so the walk is linear in the refs the project writes.
-    for (let growing = true; growing; ) {
+    for (let growing = true; growing;) {
         growing = false;
         for (const [txtKey, keys] of fromTxt) {
             if (!referenced.has(txtKey)) continue;

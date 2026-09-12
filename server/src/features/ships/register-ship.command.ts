@@ -114,7 +114,11 @@ export interface RegisterShipHost extends RegisterPartHost {
      * @param cancellationToken cancels the walk.
      * @returns the index.
      */
-    partStats(context: ShipLayerContext, modRoot: string, cancellationToken: CancellationToken): Promise<PartStatsIndex>;
+    partStats(
+        context: ShipLayerContext,
+        modRoot: string,
+        cancellationToken: CancellationToken
+    ): Promise<PartStatsIndex>;
     /**
      * Every id the project declares for a schema class, so a ship whose name the game already has
      * is refused before anything is written. Optional because the mod's own files are checked
@@ -261,7 +265,11 @@ interface Judging {
  * @param cancellationToken cancels the reads.
  * @returns the figures.
  */
-const judging = async (modRoot: string, host: RegisterShipHost, cancellationToken: CancellationToken): Promise<Judging> => {
+const judging = async (
+    modRoot: string,
+    host: RegisterShipHost,
+    cancellationToken: CancellationToken
+): Promise<Judging> => {
     const context = await host.layerContext();
     const stats = await host.partStats(context, modRoot, cancellationToken);
     const prices = await collectResourcePrices(context, cancellationToken);
@@ -278,7 +286,12 @@ const judging = async (modRoot: string, host: RegisterShipHost, cancellationToke
  * @param takenIds the built-in ship ids already in use, folded.
  * @returns the scanned ship.
  */
-const scanShip = async (fsPath: string, modRoot: string, figures: Judging, takenIds: ReadonlySet<string>): Promise<ScannedShip> => {
+const scanShip = async (
+    fsPath: string,
+    modRoot: string,
+    figures: Judging,
+    takenIds: ReadonlySet<string>
+): Promise<ScannedShip> => {
     const insideMod = isUnder(fsPath, modRoot);
     const blueprint = await readShipBlueprint(fsPath);
     if (!blueprint) {
@@ -332,7 +345,10 @@ const tiersByRole = (valueTier: number): Record<ShipRole, number> => {
  * @param cancellationToken cancels the index read.
  * @returns the ids, empty when the host cannot say.
  */
-const knownShipIds = async (host: RegisterShipHost, cancellationToken: CancellationToken): Promise<ReadonlySet<string>> => {
+const knownShipIds = async (
+    host: RegisterShipHost,
+    cancellationToken: CancellationToken
+): Promise<ReadonlySet<string>> => {
     const wide = host.existingIds
         ? await host.existingIds(BUILTIN_SHIP_CLASS, cancellationToken).catch(() => undefined)
         : undefined;
@@ -409,7 +425,14 @@ class Workset {
         if (document) {
             const text = document.getText();
             const buffer = this.open.get(normalizeUri(filePathToUri(fsPath)));
-            const file: EditedFile = { fsPath, buffer, text, lineEnding: lineEndingOf(text), created: false, changed: false };
+            const file: EditedFile = {
+                fsPath,
+                buffer,
+                text,
+                lineEnding: lineEndingOf(text),
+                created: false,
+                changed: false,
+            };
             this.files.set(key, file);
             return file;
         }
@@ -575,7 +598,11 @@ const ICON_ROLES: ReadonlySet<ShipRole> = new Set(['trade_station', 'military_st
  * @param shipFile the ship file the icon sits beside.
  * @returns the icon's path, or undefined when nothing could be drawn or written.
  */
-const writeStasisIcon = async (blueprint: Blueprint, stats: PartStatsIndex, shipFile: string): Promise<string | undefined> => {
+const writeStasisIcon = async (
+    blueprint: Blueprint,
+    stats: PartStatsIndex,
+    shipFile: string
+): Promise<string | undefined> => {
     const parts: IconPart[] = [];
     for (const part of blueprint.parts) {
         const size = stats.byId.get(part.id.toLowerCase())?.size;
@@ -667,7 +694,9 @@ const registerOne = async (
     // The icon sits beside the ship, and the game reads its path from the role file, so a ship
     // referenced where it is gets the same walk up to the icon as the File entry has to the ship.
     const iconFile =
-        ICON_ROLES.has(role) && registration.blueprint ? await writeStasisIcon(registration.blueprint, stats, shipFile) : undefined;
+        ICON_ROLES.has(role) && registration.blueprint
+            ? await writeStasisIcon(registration.blueprint, stats, shipFile)
+            : undefined;
     const stasisIcon = iconFile ? relative(paths.folder, iconFile).replace(/\\/g, '/') : undefined;
     const insertion = appendToList(
         roleFile.text,
@@ -693,7 +722,12 @@ const registerOne = async (
                     const entry = tradeShipEntryFor(routeName, id, factionId, role, choice.tier);
                     workset.insert(
                         routes,
-                        appendToGroup(routes.text, group.position.end - 1, tradeShipEntryText(entry, baseTradeShipReference), routes.lineEnding)
+                        appendToGroup(
+                            routes.text,
+                            group.position.end - 1,
+                            tradeShipEntryText(entry, baseTradeShipReference),
+                            routes.lineEnding
+                        )
                     );
                 }
                 tradeRouteIn = paths.tradeShips;
@@ -738,7 +772,11 @@ const ensureAggregator = async (
     }
     const existing = await workset.get(faction.aggregator);
     if (!existing) {
-        const created = await workset.get(faction.aggregator, aggregatorText([...wanted.values()], lineEnding), lineEnding);
+        const created = await workset.get(
+            faction.aggregator,
+            aggregatorText([...wanted.values()], lineEnding),
+            lineEnding
+        );
         if (created) workset.touch(created);
         return;
     }
@@ -809,7 +847,10 @@ const ensureManifest = async (
                 modRoot,
                 careerTarget,
                 (source, declaringDir) => {
-                    const text = 'valueType' in source ? String((source as { valueType: { value: unknown } }).valueType.value) : '';
+                    const text =
+                        'valueType' in source
+                            ? String((source as { valueType: { value: unknown } }).valueType.value)
+                            : '';
                     const match = /^\s*&?\s*<([^<>]+)>/.exec(text);
                     return !!match && pathKey(`${declaringDir}/${match[1]}`) === pathKey(routesFile);
                 },
@@ -846,12 +887,20 @@ const ensureManifest = async (
     const insert = manifestActionInsert(manifest.text, parseText(manifest.text, choice.fsPath), manifest.lineEnding);
     if (insert.kind === 'unusable') return { manifest: '', failure: 'manifestUnusable' };
     const pieces: string[] = [];
-    for (const entry of entries) pieces.push(addManyActionText(shipsTarget, entry, insert.indent, manifest.lineEnding, true));
+    for (const entry of entries)
+        pieces.push(addManyActionText(shipsTarget, entry, insert.indent, manifest.lineEnding, true));
     if (tradeEntry) pieces.push(actionEntryText(tradeEntry, insert.indent, manifest.lineEnding));
     if (starterTarget && starterEntries.length > 0) {
         pieces.push(
             actionEntryText(
-                ['Action = AddMany', `AddTo = "${starterTarget}"`, 'ManyToAdd', '[', ...starterEntries.map((entry) => `\t${entry}`), ']'],
+                [
+                    'Action = AddMany',
+                    `AddTo = "${starterTarget}"`,
+                    'ManyToAdd',
+                    '[',
+                    ...starterEntries.map((entry) => `\t${entry}`),
+                    ']',
+                ],
                 insert.indent,
                 manifest.lineEnding
             )
@@ -874,7 +923,11 @@ const ensureManifest = async (
  * @param dataRoot the game's `Data` directory.
  * @returns the target, or undefined when the game root names no career mode.
  */
-const careerTradeShipsTarget = (rootDocument: AbstractNodeDocument, rootFsPath: string, dataRoot: string): string | undefined => {
+const careerTradeShipsTarget = (
+    rootDocument: AbstractNodeDocument,
+    rootFsPath: string,
+    dataRoot: string
+): string | undefined => {
     const file = gameRootListTarget(rootDocument, rootFsPath, dataRoot, CAREER_MODE_MEMBER);
     if (!file) return undefined;
     const withoutMember = file.replace(/>.*$/, '>');
@@ -901,7 +954,11 @@ interface StarterShip {
  * @param dataRoot the game's `Data` directory.
  * @returns the target path, or undefined when the game root names no career mode.
  */
-const careerStarterShipsTarget = (rootDocument: AbstractNodeDocument, rootFsPath: string, dataRoot: string): string | undefined => {
+const careerStarterShipsTarget = (
+    rootDocument: AbstractNodeDocument,
+    rootFsPath: string,
+    dataRoot: string
+): string | undefined => {
     const file = gameRootListTarget(rootDocument, rootFsPath, dataRoot, CAREER_MODE_MEMBER);
     if (!file) return undefined;
     return `${file.replace(/>.*$/, '>')}/${STARTER_SHIPS_MEMBER}`;
@@ -1068,7 +1125,8 @@ const applyRound = async (
 
     const written = await flush(workset, host);
     if (!written.applied) {
-        for (const ship of ships) if (!ship.failure) (ship as { failure?: ShipRegistrationFailure }).failure = 'editRejected';
+        for (const ship of ships)
+            if (!ship.failure) (ship as { failure?: ShipRegistrationFailure }).failure = 'editRejected';
     }
 
     // The description a starter ship is offered with is read from the strings, so each key is
@@ -1081,7 +1139,9 @@ const applyRound = async (
                 filePathToUri(anchor),
                 starters.map((starter) => ({
                     key: starter.descriptionKey,
-                    value: `"${basename(starter.shipFile).replace(/\.ship\.png$/i, '').replace(/"/g, '\\"')}"`,
+                    value: `"${basename(starter.shipFile)
+                        .replace(/\.ship\.png$/i, '')
+                        .replace(/"/g, '\\"')}"`,
                 })),
                 host,
                 cancellationToken
@@ -1096,7 +1156,10 @@ const applyRound = async (
         manifest: manifest.manifest,
         manifestFailure: manifest.failure,
         manifests: manifest.manifests,
-        createdFiles: [...written.created, ...ships.map((ship) => ship.stasisIcon).filter((icon): icon is string => !!icon)],
+        createdFiles: [
+            ...written.created,
+            ...ships.map((ship) => ship.stasisIcon).filter((icon): icon is string => !!icon),
+        ],
         changedFiles: [...written.changed, ...localizationFiles],
         localizationFiles,
     };

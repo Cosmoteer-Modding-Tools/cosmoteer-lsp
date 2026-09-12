@@ -86,11 +86,7 @@ export const validateIndicatorIndexes = async (
             const count = indicators.length;
             for (let index = 0; index < count; index++) {
                 const hides = memberValueNamed(indicators[index], HIDES_INDICATORS);
-                const written: AbstractNode[] = hides
-                    ? isListNode(hides)
-                        ? hides.elements
-                        : [hides]
-                    : [];
+                const written: AbstractNode[] = hides ? (isListNode(hides) ? hides.elements : [hides]) : [];
                 for (const value of written) {
                     const hidden = integerOf(value);
                     if (hidden === undefined) continue;

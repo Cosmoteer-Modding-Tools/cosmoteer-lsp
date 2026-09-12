@@ -10,9 +10,7 @@ const referenceAutoCompletionStrategy = new ReferenceAutoCompletionStrategy();
  * `:` of `Child : Parent`), whose relative lookups resolve against the group's container.
  */
 const isInheritanceReference = (node: ValueNode): boolean =>
-    !!node.parent &&
-    (isGroupNode(node.parent) || isListNode(node.parent)) &&
-    !!node.parent.inheritance?.includes(node);
+    !!node.parent && (isGroupNode(node.parent) || isListNode(node.parent)) && !!node.parent.inheritance?.includes(node);
 
 /**
  * The reference value text up to the cursor, or undefined when the cursor is not inside the value (so

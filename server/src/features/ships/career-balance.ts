@@ -37,8 +37,8 @@ const RESOURCES_MEMBER = 'Resources';
 
 /** The tier cutoffs the game ships, for a server that has no game path to read them from. */
 export const VANILLA_TIER_VALUE_MAXIMUMS: readonly number[] = [
-    60000, 75000, 90000, 110000, 140000, 180000, 230000, 300000, 400000, 500000, 650000, 800000, 1000000,
-    1300000, 1600000, 2000000, 2500000, 3000000, 4000000, 5000000,
+    60000, 75000, 90000, 110000, 140000, 180000, 230000, 300000, 400000, 500000, 650000, 800000, 1000000, 1300000,
+    1600000, 2000000, 2500000, 3000000, 4000000, 5000000,
 ];
 
 /** The price of one crew member the game ships. */

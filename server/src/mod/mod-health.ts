@@ -236,9 +236,7 @@ const runPasses = async (
     const paths = folderPaths.map(uriToFsPath);
     const inScope = (fsPath: string): boolean => reachability.reachable.has(reachabilityKey(fsPath));
     const served = scanned ? scanServedPasses(withGameIndex) : new Set<PassName>();
-    const needed = (Object.keys(PASS_RULES) as PassName[]).filter(
-        (pass) => pass !== 'duplicateIds' || withGameIndex
-    );
+    const needed = (Object.keys(PASS_RULES) as PassName[]).filter((pass) => pass !== 'duplicateIds' || withGameIndex);
     // A file is only read back off the scan when the scan can answer for every row, since one pass
     // recomputed for a file costs the read and the parse the whole fast path exists to skip.
     const readBack = !!scanned && needed.every((pass) => served.has(pass));
@@ -272,7 +270,12 @@ const runPasses = async (
             await validateRedundantOverrides(document, text, token).catch(() => [])
         );
         if (withGameIndex) {
-            record(results.duplicateIds, file, text, await validateDuplicateModIds(document, paths, token).catch(() => []));
+            record(
+                results.duplicateIds,
+                file,
+                text,
+                await validateDuplicateModIds(document, paths, token).catch(() => [])
+            );
         }
     }
     return results;
@@ -368,9 +371,7 @@ const languageRow = async (
             clear: true,
         };
     }
-    const named = behind
-        .slice(0, LANGUAGE_LIMIT)
-        .map((entry) => `${entry.language.language} (${entry.missing})`);
+    const named = behind.slice(0, LANGUAGE_LIMIT).map((entry) => `${entry.language.language} (${entry.missing})`);
     if (behind.length > LANGUAGE_LIMIT) {
         named.push(l10n.t('and {0} more languages', String(behind.length - LANGUAGE_LIMIT)));
     }

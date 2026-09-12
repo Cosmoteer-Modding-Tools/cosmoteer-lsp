@@ -63,7 +63,10 @@ const computeSemanticTokens = (uri: string): { resultId: string; data: number[] 
  * @param after the token data of the current document version.
  * @returns zero edits for identical arrays, otherwise the one covering edit.
  */
-const semanticTokensEdits = (before: number[], after: number[]): Array<{ start: number; deleteCount: number; data?: number[] }> => {
+const semanticTokensEdits = (
+    before: number[],
+    after: number[]
+): Array<{ start: number; deleteCount: number; data?: number[] }> => {
     let start = 0;
     const minLength = Math.min(before.length, after.length);
     while (start < minLength && before[start] === after[start]) start++;
@@ -126,9 +129,7 @@ const formattingEdits = (uri: string, options: { tabSize: number; insertSpaces: 
     const document = documents.get(uri);
     if (!document) return [];
     const text = document.getText();
-    const formatted = isShaderDocument(uri)
-        ? formatShaderDocument(text, options)
-        : formatRulesDocument(text, options);
+    const formatted = isShaderDocument(uri) ? formatShaderDocument(text, options) : formatRulesDocument(text, options);
     if (formatted === null) return [];
     return minimalReplacementEdits(document, formatted);
 };
@@ -244,7 +245,11 @@ export function register(): void {
                 // version supersedes the entry. Binding it to the first request's token let that
                 // request's cancellation truncate the hints every later same-version request served.
                 const source = new CancellationTokenSource();
-                const promise = InlayHintService.instance.getInlayHints(parserResult, FULL_DOCUMENT_RANGE, source.token);
+                const promise = InlayHintService.instance.getInlayHints(
+                    parserResult,
+                    FULL_DOCUMENT_RANGE,
+                    source.token
+                );
                 if (version !== undefined) {
                     inlayHintCache.get(uri)?.source.cancel();
                     entry = { version, promise, source };

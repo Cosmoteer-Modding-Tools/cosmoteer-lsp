@@ -103,9 +103,7 @@ const bodyOf = (
     while (lines.length > 0 && lines[0].trim().length === 0) lines.shift();
     while (lines.length > 0 && lines[lines.length - 1].trim().length === 0) lines.pop();
     const depth = /^[ \t]*/.exec(lines[0] ?? '')?.[0] ?? '';
-    const body = lines.map((line) =>
-        line.startsWith(depth) ? line.slice(depth.length) : line.replace(/^[ \t]+/, '')
-    );
+    const body = lines.map((line) => (line.startsWith(depth) ? line.slice(depth.length) : line.replace(/^[ \t]+/, '')));
     return { text: `${body.join(lineEnding)}${lineEnding}` };
 };
 

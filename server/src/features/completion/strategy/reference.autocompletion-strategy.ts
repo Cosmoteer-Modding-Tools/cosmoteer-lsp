@@ -17,12 +17,21 @@ import { getStartOfAstNode, parseFile } from '../../../utils/ast.utils';
 import { cachedParseFilePath, cachedReaddir } from '../../../workspace/fs-cache';
 import { basenameOf, isRulesFileName, isRulesPathSegment } from '../../../document/document-kind';
 import { getParsedFileDocument } from '../../../workspace/parsed-file-cache';
-import { CosmoteerWorkspaceService, FileTree, FileWithPath, isFile } from '../../../workspace/cosmoteer-workspace.service';
+import {
+    CosmoteerWorkspaceService,
+    FileTree,
+    FileWithPath,
+    isFile,
+} from '../../../workspace/cosmoteer-workspace.service';
 import { AutoCompletionStrategy } from './autocompletion.strategy';
 import { join } from 'path';
 import { CancellationError } from '../../../utils/cancellation';
 import { FullNavigationStrategy } from '../../navigation/full.navigation-strategy';
-import { modAddedGlobalNames, modOverrideMemberNamesForFile, resolveFromModContextOnly } from '../../../mod/mod-context';
+import {
+    modAddedGlobalNames,
+    modOverrideMemberNamesForFile,
+    resolveFromModContextOnly,
+} from '../../../mod/mod-context';
 import { AddBaseIndex } from '../../../mod/add-base.index';
 import { MemberInjectionIndex } from '../../../mod/member-injection.index';
 import { findInheritorsOf } from '../../../semantics/inheritor-resolver';
@@ -39,13 +48,17 @@ const EMPTY_STRING = '';
 
 /** Adapts the shared navigation strategy to the inheritance resolver's reference-resolution shape. */
 const resolveReference: ResolveReferenceFn = (path, startNode, currentLocation, token, inheritanceVisited) =>
-    navigation.navigate(path, startNode, currentLocation, token, new Set(), inheritanceVisited) as ReturnType<
-        ResolveReferenceFn
-    >;
+    navigation.navigate(
+        path,
+        startNode,
+        currentLocation,
+        token,
+        new Set(),
+        inheritanceVisited
+    ) as ReturnType<ResolveReferenceFn>;
 
 /** The label of a completion, whichever of the two forms it takes. */
-const labelOf = (completion: Completion): string =>
-    typeof completion === 'string' ? completion : completion.label;
+const labelOf = (completion: Completion): string => (typeof completion === 'string' ? completion : completion.label);
 
 /**
  * Joins option lists, keeping the first spelling of each label. The inherited options come after the
@@ -206,7 +219,7 @@ const optionsThroughReference = async (
 };
 
 /**
- *  Path-completion for reference values (file, super, in-file alias). Lists the members of 
+ *  Path-completion for reference values (file, super, in-file alias). Lists the members of
  *  the referenced entity, supporting cross-file navigation and mod overrides.
  */
 export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
@@ -290,7 +303,11 @@ export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
      * file/cosmoteer/workshop traversal. Used for mod-action target paths, which are
      * normalized to `<./Data/...>` before being passed here.
      */
-    async completeRawPath(path: string, node: AbstractNode, cancellationToken: CancellationToken): Promise<Completion[]> {
+    async completeRawPath(
+        path: string,
+        node: AbstractNode,
+        cancellationToken: CancellationToken
+    ): Promise<Completion[]> {
         return traversePath(
             path.startsWith('&') ? path.substring(1) : path,
             node,
@@ -645,12 +662,9 @@ const traverseReferencePath = async (
         // resolves for it. The same lookup the validator and go-to-definition use answers that, which
         // is why a path they both accept used to complete to nothing here.
         if (stepped == null && !isInheritance && (isGroupNode(currentNode) || isListNode(currentNode))) {
-            stepped = await findMemberThroughInheritance(
-                currentNode,
-                path,
-                resolveReference,
-                cancellationToken
-            ).catch(() => null);
+            stepped = await findMemberThroughInheritance(currentNode, path, resolveReference, cancellationToken).catch(
+                () => null
+            );
         }
 
         // stepIntoNode is synchronous and does not follow a reference result (an inheritance base, or a
@@ -702,7 +716,7 @@ const traverseReferencePath = async (
     // virtual member that only a deriving override supplies, not just the base's own declarations.
     const inheritorNames = await inheritorMemberNames(virtualBase, search, cancellationToken);
     return inheritorNames.length ? mergeOptions(options, inheritorNames) : options;
-}
+};
 
 /**
  * The member names every concrete inheritor of a virtual-inheritance base defines, filtered by the

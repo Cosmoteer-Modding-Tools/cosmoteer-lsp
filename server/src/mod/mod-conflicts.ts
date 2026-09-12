@@ -87,7 +87,10 @@ export const modConflicts = async (modRoot: string, token: CancellationToken): P
         if (text === null) continue;
         let actions;
         try {
-            actions = await manifestActionsWithFragments(manifestPath, parseText(text, pathToFileURL(manifestPath).href));
+            actions = await manifestActionsWithFragments(
+                manifestPath,
+                parseText(text, pathToFileURL(manifestPath).href)
+            );
         } catch {
             continue;
         }

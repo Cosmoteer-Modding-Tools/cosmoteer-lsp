@@ -94,7 +94,9 @@ const DEFAULT_BORDER_COLOR: readonly [number, number, number] = [143, 48, 220];
  */
 const colorOf = (value: unknown): readonly [number, number, number] | undefined => {
     if (!Array.isArray(value) || value.length !== 3) return undefined;
-    const channels = value.map((channel) => (Number.isInteger(channel) && channel >= 0 && channel <= 255 ? (channel as number) : undefined));
+    const channels = value.map((channel) =>
+        Number.isInteger(channel) && channel >= 0 && channel <= 255 ? (channel as number) : undefined
+    );
     if (channels.some((channel) => channel === undefined)) return undefined;
     return channels as unknown as readonly [number, number, number];
 };
@@ -121,7 +123,14 @@ const applyFailed = (id: string, failure: NewFactionFailure): NewFactionApplyRes
     galaxyFile: '',
     beaconFile: '',
     manifest: '',
-    wiring: { registry: 'noTarget', territory: 'noTarget', tiers: 'noTarget', beacon: 'noTarget', beaconSpawner: 'noTarget', lore: 'skipped' },
+    wiring: {
+        registry: 'noTarget',
+        territory: 'noTarget',
+        tiers: 'noTarget',
+        beacon: 'noTarget',
+        beaconSpawner: 'noTarget',
+        lore: 'skipped',
+    },
     nameKey: '',
     localizationFiles: [],
     placeholderAssets: [],
@@ -200,7 +209,11 @@ const galaxyTiers = async (
         const value = await evaluateNumericValue(node, cancellationToken).catch(() => null);
         return value !== null && Number.isFinite(value) ? value : fallback;
     };
-    return { maxTier: await read(MAX_TIER_MEMBER, VANILLA_MAX_TIER), tierSpread: await read(TIER_SPREAD_MEMBER, VANILLA_TIER_SPREAD), found: true };
+    return {
+        maxTier: await read(MAX_TIER_MEMBER, VANILLA_MAX_TIER),
+        tierSpread: await read(TIER_SPREAD_MEMBER, VANILLA_TIER_SPREAD),
+        found: true,
+    };
 };
 
 /** Where a faction's own files sit. */
@@ -261,7 +274,7 @@ const factionFileText = (
     [
         ...(iconFile === PLACEHOLDER_ICON
             ? [
-                  '// The faction itself. The icon is the game\'s own until you draw one: put a square PNG beside',
+                  "// The faction itself. The icon is the game's own until you draw one: put a square PNG beside",
                   '// this file and name it here.',
               ]
             : ['// The faction itself. The icon sits beside this file.']),
@@ -279,12 +292,12 @@ const factionFileText = (
         '\t\t\t\tMipLevels = max',
         '\t\t\t}',
         '\t\t}',
-        '\t\t// The colour the galaxy map draws the faction\'s territory border in, as red, green, blue.',
+        "\t\t// The colour the galaxy map draws the faction's territory border in, as red, green, blue.",
         `\t\tBorderColor = [${color[0]}, ${color[1]}, ${color[2]}]`,
-        '\t\t// The two player slots the faction\'s ships fight under: warships and stations use the',
+        "\t\t// The two player slots the faction's ships fight under: warships and stations use the",
         '\t\t// military one, traders and transports the civilian one. Each must be 100 or more, or the',
         '\t\t// game refuses to load, and no two factions may share one, or their ships count as the',
-        '\t\t// first faction that claims it. These are the first free pair above the game\'s own.',
+        "\t\t// first faction that claims it. These are the first free pair above the game's own.",
         `\t\tMilitaryPlayerIndex = ${indexes.military}`,
         `\t\tCivilianPlayerIndex = ${indexes.civilian}`,
         '\t}',
@@ -309,7 +322,7 @@ const galaxyFileText = (
     lineEnding: LineEnding
 ): string =>
     [
-        '// How much of the galaxy the faction owns. 100% is a share equal to each of the game\'s own',
+        "// How much of the galaxy the faction owns. 100% is a share equal to each of the game's own",
         '// factions, and the strength figures decide how its systems cluster around its home.',
         'Territory',
         '[',
@@ -334,7 +347,7 @@ const galaxyFileText = (
         '\t}',
         ']',
         '',
-        '// The FTL beacon that marks the faction\'s systems on the map.',
+        "// The FTL beacon that marks the faction's systems on the map.",
         'Beacons',
         '[',
         `\t{ Type=${beaconType}; Faction=${id}; }`,
@@ -354,10 +367,10 @@ const beaconFileText = (beaconType: string, shipFile: string, lineEnding: LineEn
     [
         ...(shipFile === PLACEHOLDER_BEACON_SHIP
             ? [
-                  '// The FTL beacon the faction\'s systems are entered through. The ship it is built from is the',
-                  '// game\'s own until you save one of yours beside this file and name it here.',
+                  "// The FTL beacon the faction's systems are entered through. The ship it is built from is the",
+                  "// game's own until you save one of yours beside this file and name it here.",
               ]
-            : ['// The FTL beacon the faction\'s systems are entered through, built from the ship beside this file.']),
+            : ["// The FTL beacon the faction's systems are entered through, built from the ship beside this file."]),
         `ID = ${beaconType}`,
         'Type = Landmark',
         'DescriptionKey = "Doodads/FTLBeacon"',
@@ -390,7 +403,7 @@ const beaconFileText = (beaconType: string, shipFile: string, lineEnding: LineEn
  */
 const loreFileText = (id: string, label: string, imageFile: string, lineEnding: LineEnding): string =>
     [
-        '// The faction\'s page in the lore codex. The texts are keys in the language files: fill them',
+        "// The faction's page in the lore codex. The texts are keys in the language files: fill them",
         '// there, and add or remove paragraphs here as the story needs.',
         `ID = ${id}`,
         `TitleKey = "Lore/${label}/Title"`,
@@ -475,7 +488,10 @@ const applyRound = async (
 
     const label = keyLabelOf(id);
     const loreKeys = args.lore
-        ? [`Lore/${label}/Title`, ...Array.from({ length: LORE_PARAGRAPHS }, (_, index) => `Lore/${label}/Lore${index + 1}`)]
+        ? [
+              `Lore/${label}/Title`,
+              ...Array.from({ length: LORE_PARAGRAPHS }, (_, index) => `Lore/${label}/Lore${index + 1}`),
+          ]
         : [];
     const created: string[] = [];
     let iconFile: string | undefined;
@@ -492,13 +508,27 @@ const applyRound = async (
             created.push(files.beaconShip);
         }
         const iconName = iconFile ? files.icon.slice(files.folder.length + 1) : PLACEHOLDER_ICON;
-        const beaconShipName = beaconShipFile ? files.beaconShip.slice(files.folder.length + 1) : PLACEHOLDER_BEACON_SHIP;
-        await writeFile(files.faction, factionFileText(id, nameKey, color, indexes, iconName, lineEnding), { encoding: 'utf-8', flag: 'wx' });
-        await writeFile(files.galaxy, galaxyFileText(id, beaconType, tiers, lineEnding), { encoding: 'utf-8', flag: 'wx' });
-        await writeFile(files.beacon, beaconFileText(beaconType, beaconShipName, lineEnding), { encoding: 'utf-8', flag: 'wx' });
+        const beaconShipName = beaconShipFile
+            ? files.beaconShip.slice(files.folder.length + 1)
+            : PLACEHOLDER_BEACON_SHIP;
+        await writeFile(files.faction, factionFileText(id, nameKey, color, indexes, iconName, lineEnding), {
+            encoding: 'utf-8',
+            flag: 'wx',
+        });
+        await writeFile(files.galaxy, galaxyFileText(id, beaconType, tiers, lineEnding), {
+            encoding: 'utf-8',
+            flag: 'wx',
+        });
+        await writeFile(files.beacon, beaconFileText(beaconType, beaconShipName, lineEnding), {
+            encoding: 'utf-8',
+            flag: 'wx',
+        });
         created.push(files.faction, files.galaxy, files.beacon);
         if (args.lore) {
-            await writeFile(files.lore, loreFileText(id, label, iconName, lineEnding), { encoding: 'utf-8', flag: 'wx' });
+            await writeFile(files.lore, loreFileText(id, label, iconName, lineEnding), {
+                encoding: 'utf-8',
+                flag: 'wx',
+            });
             created.push(files.lore);
         }
     } catch {
@@ -514,7 +544,9 @@ const applyRound = async (
             { key: nameKey, value: `"${(args.name ?? id).replace(/"/g, '\\"')}"` },
             ...loreKeys.map((key) => ({
                 key,
-                value: key.endsWith('/Title') ? `"${(args.name ?? id).replace(/"/g, '\\"')}"` : '"Write this part of the story here."',
+                value: key.endsWith('/Title')
+                    ? `"${(args.name ?? id).replace(/"/g, '\\"')}"`
+                    : '"Write this part of the story here."',
             })),
         ],
         host,
@@ -539,7 +571,8 @@ const applyRound = async (
     } else if (choice.kind === 'manifest') {
         manifestPath = choice.fsPath;
         const manifestDir = dirOf(choice.fsPath);
-        const reference = (file: string, member?: string): string => `&${relativeRulesReference(manifestDir, file, member)}`;
+        const reference = (file: string, member?: string): string =>
+            `&${relativeRulesReference(manifestDir, file, member)}`;
         const galaxyExists = existsSync(`${dataRoot.replace(/\\/g, '/')}/${BASE_GALAXY_FILE}`);
         const spawnerExists = existsSync(`${dataRoot.replace(/\\/g, '/')}/${BEACON_SPAWNER_FILE}`);
         const wirings: Wiring[] = [
@@ -550,8 +583,20 @@ const applyRound = async (
                 file: files.faction,
                 wholeList: true,
             },
-            { key: 'territory', target: galaxyExists ? TERRITORY_TARGET : undefined, reference: reference(files.galaxy, 'Territory'), file: files.galaxy, wholeList: true },
-            { key: 'tiers', target: galaxyExists ? TIERS_TARGET : undefined, reference: reference(files.galaxy, 'Tiers'), file: files.galaxy, wholeList: true },
+            {
+                key: 'territory',
+                target: galaxyExists ? TERRITORY_TARGET : undefined,
+                reference: reference(files.galaxy, 'Territory'),
+                file: files.galaxy,
+                wholeList: true,
+            },
+            {
+                key: 'tiers',
+                target: galaxyExists ? TIERS_TARGET : undefined,
+                reference: reference(files.galaxy, 'Tiers'),
+                file: files.galaxy,
+                wholeList: true,
+            },
             {
                 key: 'beacon',
                 target: gameRootListTarget(rootDocument, root.path, dataRoot, DOODADS_MEMBER),
@@ -559,11 +604,23 @@ const applyRound = async (
                 file: files.beacon,
                 wholeList: false,
             },
-            { key: 'beaconSpawner', target: spawnerExists ? BEACON_TYPES_TARGET : undefined, reference: reference(files.galaxy, 'Beacons'), file: files.galaxy, wholeList: true },
+            {
+                key: 'beaconSpawner',
+                target: spawnerExists ? BEACON_TYPES_TARGET : undefined,
+                reference: reference(files.galaxy, 'Beacons'),
+                file: files.galaxy,
+                wholeList: true,
+            },
         ];
         const loreExists = existsSync(`${dataRoot.replace(/\\/g, '/')}/${LORE_FILE}`);
         if (args.lore) {
-            wirings.push({ key: 'lore', target: loreExists ? LORE_TARGET : undefined, reference: reference(files.lore), file: files.lore, wholeList: false });
+            wirings.push({
+                key: 'lore',
+                target: loreExists ? LORE_TARGET : undefined,
+                reference: reference(files.lore),
+                file: files.lore,
+                wholeList: false,
+            });
         }
         if (await wireIntoManifest(choice.fsPath, modRoot, wirings, wiring, host)) changed.push(choice.fsPath);
     }
@@ -579,7 +636,10 @@ const applyRound = async (
         manifests,
         nameKey,
         localizationFiles: localization.files,
-        placeholderAssets: [...(iconFile ? [] : [PLACEHOLDER_ICON]), ...(beaconShipFile ? [] : [PLACEHOLDER_BEACON_SHIP])],
+        placeholderAssets: [
+            ...(iconFile ? [] : [PLACEHOLDER_ICON]),
+            ...(beaconShipFile ? [] : [PLACEHOLDER_BEACON_SHIP]),
+        ],
         iconFile,
         beaconShipFile,
         loreFile: args.lore ? files.lore : undefined,
@@ -607,7 +667,8 @@ export const newFaction = async (
 ): Promise<NewFactionResult> => {
     const scanning = args.id === undefined;
     const located = modRootFor(args.uri, host.dataRoot());
-    if ('failure' in located) return scanning ? scanFailed(located.failure) : applyFailed(args.id ?? '', located.failure);
+    if ('failure' in located)
+        return scanning ? scanFailed(located.failure) : applyFailed(args.id ?? '', located.failure);
     if (scanning) {
         const identity = await identityOfMod(located.modRoot).catch((): ModIdentity => ({ root: located.modRoot }));
         const facts = await known(located.modRoot, host, cancellationToken);

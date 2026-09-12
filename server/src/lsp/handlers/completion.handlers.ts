@@ -1,6 +1,16 @@
-import { CompletionItem, CompletionItemKind, CompletionList, TextDocumentPositionParams } from 'vscode-languageserver/node';
+import {
+    CompletionItem,
+    CompletionItemKind,
+    CompletionList,
+    TextDocumentPositionParams,
+} from 'vscode-languageserver/node';
 import { AutoCompletionService, Completion } from '../../features/completion/autocompletion.service';
-import { openQuoteSuffix, valueRunAtCursor, wholeValueRange, withReplaceRange } from '../../features/completion/completion-range';
+import {
+    openQuoteSuffix,
+    valueRunAtCursor,
+    wholeValueRange,
+    withReplaceRange,
+} from '../../features/completion/completion-range';
 import { modRulesOffsetCompletions } from '../../features/completion/autocompletion.mod-rules';
 import { inheritanceTargetCompletionsAt } from '../../features/completion/autocompletion.inheritance-target';
 import { warmInheritedClasses } from '../../features/completion/inheritance-resolution';
@@ -24,7 +34,11 @@ import { SchemaIdIndex } from '../../features/completion/schema-id.index';
 import { LocalizationKeyIndex } from '../../features/completion/localization-key.index';
 import { particleChannelCompletionsAtOffset } from '../../features/navigation/particle-channel';
 import { mapKeyTargetOf, schemaReferenceFieldOf } from '../../features/navigation/schema-id-reference.navigation';
-import { findEnclosingGroup, findEnclosingList, listElementReferenceTarget } from '../../document/schema/schema-context';
+import {
+    findEnclosingGroup,
+    findEnclosingList,
+    listElementReferenceTarget,
+} from '../../document/schema/schema-context';
 import { shaderCompletions, shaderIncludePathCompletions } from '../../features/shader/shader-completion';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { isModRules, isShaderDocument } from '../../document/document-kind';
@@ -42,7 +56,10 @@ import { searchFolderUris } from '../workspace-folders';
 export function register(): void {
     // This handler provides the initial list of the completion items.
     connection.onCompletion(
-        async (textDocumentPosition: TextDocumentPositionParams, cancellationToken): Promise<CompletionItem[] | CompletionList> => {
+        async (
+            textDocumentPosition: TextDocumentPositionParams,
+            cancellationToken
+        ): Promise<CompletionItem[] | CompletionList> => {
             // `.shader` files get HLSL completion (builtins plus the uniforms/functions/structs the file and
             // its `#include` chain declare), not the OT schema completion below.
             if (isShaderDocument(textDocumentPosition.textDocument.uri)) {
@@ -105,7 +122,11 @@ export function register(): void {
                 // The images a `<img name='…'/>` may name are the ones the project registers: the
                 // game root's text sprites, the resources and the factions.
                 const images: Completion[] = markup.imageNames
-                    ? [...(await textImageNames(await searchFolderUris(), cancellationToken).catch(() => new Set<string>()))]
+                    ? [
+                          ...(await textImageNames(await searchFolderUris(), cancellationToken).catch(
+                              () => new Set<string>()
+                          )),
+                      ]
                           .sort()
                           .map((name) => ({ label: name, kind: CompletionItemKind.Value }))
                     : [];
@@ -121,7 +142,10 @@ export function register(): void {
             // Text the game never reads gets no suggestions: a commented-out assignment still reads
             // as one, so without this a `// Layer = "` was answered with the render layers, and a
             // `/* Mode = */` with the enum members, of a line that is not in the file's data at all.
-            if (openDocument && isInsideComment(openDocument.getText(), openDocument.offsetAt(textDocumentPosition.position))) {
+            if (
+                openDocument &&
+                isInsideComment(openDocument.getText(), openDocument.offsetAt(textDocumentPosition.position))
+            ) {
                 return { isIncomplete: false, items: [] };
             }
             const parserResult = ensureParserResult(textDocumentPosition.textDocument.uri);
@@ -179,9 +203,7 @@ export function register(): void {
                         // retyped over an existing key (`Max<cursor> = 1`) takes the bare name: the
                         // scaffolding snippet would write a second ` = ` after the one already there.
                         const fieldNames = await schemaFieldNameCompletions(parserResult, offset, cancellationToken);
-                        return /^\s*=/.test(lineSuffix)
-                            ? asBareFieldNames(fieldNames, valueRange)
-                            : fieldNames;
+                        return /^\s*=/.test(lineSuffix) ? asBareFieldNames(fieldNames, valueRange) : fieldNames;
                     }
                     // An asset path whose opening quote is not closed yet has no value node, so the
                     // files it could name are read off the line instead of the tree.
@@ -196,7 +218,9 @@ export function register(): void {
                     if (valueCompletions.length > 0) {
                         // Only inside an unclosed quote do these need the whole-value range: the insert
                         // has to land on the typed text and carry the missing closing quote with it.
-                        return valueSuffix ? withReplaceRange(valueCompletions, valueRange, valueSuffix) : valueCompletions;
+                        return valueSuffix
+                            ? withReplaceRange(valueCompletions, valueRange, valueSuffix)
+                            : valueCompletions;
                     }
                     // A value position with no sync values: maybe a cross-file `ID<X>` field. Offer the
                     // project's ids of the target class (e.g. `ResourceType = ` → resource ids). An
@@ -243,7 +267,9 @@ export function register(): void {
                     // The cursor offset lets the reference completer complete the path segment at the
                     // cursor rather than the whole written value, so editing a middle segment of a long
                     // reference path offers that segment's members instead of a stale suggestion.
-                    const cursorOffset = documents.get(textDocumentPosition.textDocument.uri)?.offsetAt(textDocumentPosition.position);
+                    const cursorOffset = documents
+                        .get(textDocumentPosition.textDocument.uri)
+                        ?.offsetAt(textDocumentPosition.position);
                     completions = await AutoCompletionService.instance
                         .getCompletions(node, cancellationToken, cursorOffset)
                         .catch(() => []);

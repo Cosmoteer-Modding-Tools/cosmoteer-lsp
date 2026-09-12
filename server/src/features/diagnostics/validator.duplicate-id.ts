@@ -338,14 +338,7 @@ export const validateDuplicateModIds = async (
     for (const declaration of declarations) {
         if (cancellationToken.isCancellationRequested) return errors;
         if (!isRegistered(document.uri, declaration.member)) continue;
-        const peers = await peerFilesDeclaring(
-            declaration,
-            ownKey,
-            modRoot,
-            closure,
-            folderPaths,
-            cancellationToken
-        );
+        const peers = await peerFilesDeclaring(declaration, ownKey, modRoot, closure, folderPaths, cancellationToken);
         if (peers.length === 0) continue;
         const targetName = typeDef(declaration.cls)?.name ?? declaration.cls.split('.').pop()!;
         errors.push({

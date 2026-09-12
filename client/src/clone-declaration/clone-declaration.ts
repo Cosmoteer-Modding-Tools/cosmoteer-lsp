@@ -256,10 +256,7 @@ async function confirmClone(preview: ClonePreviewResult): Promise<boolean> {
     );
     if (preview.keys.length > 0) {
         parts.push(
-            l10n.t(
-                '{0} new language keys are declared with the text the original already has.',
-                preview.keys.length
-            )
+            l10n.t('{0} new language keys are declared with the text the original already has.', preview.keys.length)
         );
     }
     if (preview.droppedOtherIds.length > 0) {
