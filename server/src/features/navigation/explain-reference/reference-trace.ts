@@ -339,10 +339,7 @@ const availableIn = async (container: Container, token: CancellationToken): Prom
  * @param failedAt the index of the failing hop, or -1 when there was none.
  * @returns the reason names must be withheld, or undefined when they may be reported.
  */
-const withheldReasonOf = (
-    hops: readonly ReferenceHop[],
-    failedAt: number
-): 'runtime-root' | 'virtual' | undefined => {
+const withheldReasonOf = (hops: readonly ReferenceHop[], failedAt: number): 'runtime-root' | 'virtual' | undefined => {
     if (failedAt < 0) return undefined;
     for (const hop of hops.slice(0, failedAt)) {
         if (hop.kind === 'runtimeRoot') return 'runtime-root';
@@ -511,7 +508,8 @@ export const traceReference = async (node: ValueNode, token: CancellationToken):
         } else {
             const stopped = lastGood ? await asNode(lastGood) : null;
             if (isContainer(stopped)) available = await availableIn(stopped, token);
-            else if (stopped && isValueNode(stopped)) available = { kind: 'value', text: String(stopped.valueType.value) };
+            else if (stopped && isValueNode(stopped))
+                available = { kind: 'value', text: String(stopped.valueType.value) };
         }
     }
 
@@ -522,7 +520,11 @@ export const traceReference = async (node: ValueNode, token: CancellationToken):
     if (available.kind === 'members' && failedAt >= 0 && !extendsMissingMember && !optionalTarget) {
         const failing = hops[failedAt].segment;
         if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(failing)) {
-            suggestion = closestMatch(failing, available.names.map((member) => member.name)) ?? undefined;
+            suggestion =
+                closestMatch(
+                    failing,
+                    available.names.map((member) => member.name)
+                ) ?? undefined;
             const cut = suggestion ? written.lastIndexOf(failing) : -1;
             if (suggestion && cut >= 0) {
                 correctedValue = written.slice(0, cut) + suggestion + written.slice(cut + failing.length);

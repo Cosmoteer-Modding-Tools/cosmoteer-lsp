@@ -43,8 +43,16 @@ export const localModDirs = (): string[] => {
     if (dataRoot) {
         // …/steamapps/common/Cosmoteer/Data → …/steamapps/compatdata/799600/pfx/drive_c/users/steamuser
         const prefixHome = join(
-            dataRoot, '..', '..', '..', 'compatdata', COSMOTEER_APP_ID,
-            'pfx', 'drive_c', 'users', 'steamuser'
+            dataRoot,
+            '..',
+            '..',
+            '..',
+            'compatdata',
+            COSMOTEER_APP_ID,
+            'pfx',
+            'drive_c',
+            'users',
+            'steamuser'
         );
         userDataRoots.push(join(prefixHome, 'Saved Games', 'Cosmoteer'));
     }

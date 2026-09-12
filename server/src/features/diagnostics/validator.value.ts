@@ -195,10 +195,7 @@ const checkAssets = async (node: ValueNode, cancellationToken: CancellationToken
         // Not found. Offer a "did you mean" suggestion (closest existing file of this kind in
         // the same directories) as both extra info and a quick fix.
         const suggestion = await suggestAssetFilename(node, uri, cancellationToken).catch(() => null);
-        const base = l10n.t(
-            'The asset "{0}" could not be found relative to this file',
-            String(node.valueType.value)
-        );
+        const base = l10n.t('The asset "{0}" could not be found relative to this file', String(node.valueType.value));
         return {
             message: l10n.t('Asset not found'),
             node: node,
@@ -273,10 +270,14 @@ const checkReference = async (
                 // that rewrite instead of a name suggestion. Action targets are exempt even outside
                 // mod.rules (manifests include action lists from other files): the game resolves
                 // them against the Data root, where the bare `../` form is already correct.
-                const rewrite = isActionTargetValueNode(node) ? null : intendedWorkshopEscape(node.valueType.value, uri);
+                const rewrite = isActionTargetValueNode(node)
+                    ? null
+                    : intendedWorkshopEscape(node.valueType.value, uri);
                 if (
                     rewrite &&
-                    (await rulesNavigationStrategy.navigate(rewrite, startNode, uri, cancellationToken).catch(() => null))
+                    (await rulesNavigationStrategy
+                        .navigate(rewrite, startNode, uri, cancellationToken)
+                        .catch(() => null))
                 ) {
                     return {
                         message: l10n.t('Reference name is not known'),

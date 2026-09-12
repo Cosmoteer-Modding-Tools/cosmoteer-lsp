@@ -381,7 +381,7 @@ const mediaEffectLines = (): string[] => [
  */
 const decalGroupLines = (label: string): string[] => [
     '// Every PNG in the folder beside this file becomes a roof decal under this group in the paint',
-    '// tool. The icon is the game\'s own until you draw one.',
+    "// tool. The icon is the game's own until you draw one.",
     'Group',
     '{',
     `${INDENT}Folders = ["."]`,
@@ -599,7 +599,6 @@ export const emitContent = (
     let lines: string[];
     let localization: LocalizationEntry[] = [];
     let placeholderAssets: string[] = [];
-
 
     switch (kind) {
         case 'part':

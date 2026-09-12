@@ -76,7 +76,9 @@ export async function showModOverview(
         textDocument: { uri: targetUri.toString() },
     });
     if (!markdown) {
-        void window.showWarningMessage(l10n.t('No mod overview available: the file is not inside a mod with a mod.rules.'));
+        void window.showWarningMessage(
+            l10n.t('No mod overview available: the file is not inside a mod with a mod.rules.')
+        );
         return;
     }
     // One stable overview uri per manifest, so re-running the command refreshes the open preview

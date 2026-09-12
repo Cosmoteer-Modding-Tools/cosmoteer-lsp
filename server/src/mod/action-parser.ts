@@ -69,8 +69,7 @@ const ACTIONS_WORD = /action/i;
  * @param text the file's raw text.
  * @returns false only when the file provably declares no action entry.
  */
-export const textCouldCarryActions = (uri: string, text: string): boolean =>
-    isModRules(uri) || ACTIONS_WORD.test(text);
+export const textCouldCarryActions = (uri: string, text: string): boolean => isModRules(uri) || ACTIONS_WORD.test(text);
 
 /**
  * An action group's field names mapped to their value node (assignment RHS or identified

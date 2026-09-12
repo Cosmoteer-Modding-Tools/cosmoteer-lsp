@@ -222,13 +222,7 @@ const rehydrate = async (
     // Adding to a base file that already exists is only safe while nothing else inherits it, which is
     // a fact about the whole mod rather than about the participants, so it is re-proven here.
     const facts = await modFacts(modRoot, host.inScope, cancellationToken);
-    const judged = await judgeExistingBase(
-        plan,
-        modRoot,
-        facts.inheritorCounts,
-        facts.locations,
-        facts.inheritorFiles
-    );
+    const judged = await judgeExistingBase(plan, modRoot, facts.inheritorCounts, facts.locations, facts.inheritorFiles);
     if (typeof judged === 'string') return undefined;
     if (foldPathCase(judged.fsPath) !== foldPathCase(serialized.existingBase?.fsPath ?? '')) return undefined;
     return {

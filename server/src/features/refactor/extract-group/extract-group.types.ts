@@ -60,9 +60,7 @@ export interface ExtractGroupWritten {
 
 /** What the command answers with, on either round. */
 export type ExtractGroupResult =
-    | { offer: ExtractGroupOffer }
-    | { written: ExtractGroupWritten }
-    | { failure: ExtractGroupFailure };
+    { offer: ExtractGroupOffer } | { written: ExtractGroupWritten } | { failure: ExtractGroupFailure };
 
 /** The facilities the command reads buffers through and hands its edit to. */
 export interface ExtractGroupHost {

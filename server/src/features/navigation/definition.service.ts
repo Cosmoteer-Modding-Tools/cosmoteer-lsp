@@ -133,9 +133,13 @@ export class DefinitionService {
         // most-derived self) has no explicit base path, so fall back to the reference's own scope.
         const base = split.basePath.replace(/^&$/, '')
             ? await this.navigation.navigate(split.basePath, node, document.uri, cancellationToken).catch(() => null)
-            : node.parent ?? null;
+            : (node.parent ?? null);
         if (!base || isFile(base as FileTree)) return [];
-        const targets = await resolveVirtualInheritanceTargets(base as AbstractNode, split.memberPath, cancellationToken);
+        const targets = await resolveVirtualInheritanceTargets(
+            base as AbstractNode,
+            split.memberPath,
+            cancellationToken
+        );
         return targets.map(definitionLocationOf);
     }
 

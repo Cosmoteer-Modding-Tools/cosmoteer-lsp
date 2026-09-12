@@ -1,4 +1,14 @@
-import { Disposable, ExtensionContext, Position, Uri, ViewColumn, WebviewPanel, commands, l10n, workspace } from 'vscode';
+import {
+    Disposable,
+    ExtensionContext,
+    Position,
+    Uri,
+    ViewColumn,
+    WebviewPanel,
+    commands,
+    l10n,
+    workspace,
+} from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { createCosmoteerPanel, disposeAll, imageDataUri, stringsScript, webviewShell } from '../webview-util';
 import { shaderPreviewStrings } from '../webview-strings';
@@ -28,7 +38,12 @@ export class ShaderPreviewPanel {
         private readonly context: ExtensionContext,
         private readonly client: LanguageClient
     ) {
-        this.panel = createCosmoteerPanel(context, 'cosmoteerShaderPreview', l10n.t('Shader Preview'), ViewColumn.Beside);
+        this.panel = createCosmoteerPanel(
+            context,
+            'cosmoteerShaderPreview',
+            l10n.t('Shader Preview'),
+            ViewColumn.Beside
+        );
         this.panel.onDidDispose(() => this.dispose());
         this.panel.webview.onDidReceiveMessage((message) => this.onMessage(message));
         // Live update: re-render when the previewed material's document, or any file in its shader's

@@ -1,4 +1,10 @@
-import { CompletionItem, CompletionItemKind, InsertTextFormat, InsertTextMode, MarkupKind } from 'vscode-languageserver';
+import {
+    CompletionItem,
+    CompletionItemKind,
+    InsertTextFormat,
+    InsertTextMode,
+    MarkupKind,
+} from 'vscode-languageserver';
 import { Completion } from './autocompletion.service';
 
 /**

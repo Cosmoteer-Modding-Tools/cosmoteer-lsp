@@ -87,13 +87,7 @@ interface NewContentApplyResult {
 
 /** Mirror of why the server created nothing at all. */
 type NewContentFailure =
-    | 'noModRoot'
-    | 'notEditable'
-    | 'unknownKind'
-    | 'invalidName'
-    | 'pathTaken'
-    | 'idTaken'
-    | 'writeFailed';
+    'noModRoot' | 'notEditable' | 'unknownKind' | 'invalidName' | 'pathTaken' | 'idTaken' | 'writeFailed';
 
 /**
  * Create a new content file: ask what to create, what to call it and where to register it, then let
@@ -120,7 +114,9 @@ export async function createNewContent(
         return;
     }
     // A kind chosen from the New menu skips the picker, the way a named entry there would.
-    const kind = preset.kind ? scan.kinds.find((candidate) => candidate.kind === preset.kind) : await pickContentKind(scan);
+    const kind = preset.kind
+        ? scan.kinds.find((candidate) => candidate.kind === preset.kind)
+        : await pickContentKind(scan);
     if (!kind) return;
     const name = await window.showInputBox({
         title: l10n.t('Cosmoteer: New Content File'),

@@ -70,8 +70,16 @@ const OVERLAY_TYPES: Record<string, SchemaTypeDef> = {
         name: 'LoadingScreen',
         namespace: 'Cosmoteer.Data',
         fields: [
-            { name: 'Background', valueType: { kind: 'group', ref: 'Halfling.Gui.Image', name: 'Image' }, optional: true },
-            { name: 'Background2x', valueType: { kind: 'group', ref: 'Halfling.Gui.Image', name: 'Image' }, optional: true },
+            {
+                name: 'Background',
+                valueType: { kind: 'group', ref: 'Halfling.Gui.Image', name: 'Image' },
+                optional: true,
+            },
+            {
+                name: 'Background2x',
+                valueType: { kind: 'group', ref: 'Halfling.Gui.Image', name: 'Image' },
+                optional: true,
+            },
             {
                 name: 'LoadingBar',
                 valueType: { kind: 'group', ref: 'Halfling.Gui.ProgressBar', name: 'ProgressBar' },
@@ -213,9 +221,15 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
     ],
     // The buff provider parts read `BuffType` off the game buff registry in a custom constructor (a
     // non-generic read schemagen's IL scan does not catch).
-    'Cosmoteer.Ships.Parts.Buffs.PartSelfBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
-    'Cosmoteer.Ships.Parts.Buffs.PartAreaBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
-    'Cosmoteer.Ships.Parts.Buffs.PartGridBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
+    'Cosmoteer.Ships.Parts.Buffs.PartSelfBuffProviderRules': [
+        { name: 'BuffType', valueType: BUFF_REF, optional: true },
+    ],
+    'Cosmoteer.Ships.Parts.Buffs.PartAreaBuffProviderRules': [
+        { name: 'BuffType', valueType: BUFF_REF, optional: true },
+    ],
+    'Cosmoteer.Ships.Parts.Buffs.PartGridBuffProviderRules': [
+        { name: 'BuffType', valueType: BUFF_REF, optional: true },
+    ],
     // The thruster part reads these force/fuel values off the part rules, none as a generic
     // `*FromPath<T>` call. `Flammable` is the opposite case: the Meltdown fire rework deleted it from
     // the game entirely (fire immunity moved to the `non_flammable` part category), but vanilla and
@@ -253,7 +267,11 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
         { name: 'ComponentID', valueType: COMPONENT_REF, optional: true },
         {
             name: 'PartCriteria',
-            valueType: { kind: 'group', ref: 'Cosmoteer.Ships.Parts.RelativePartCriteria', name: 'RelativePartCriteria' },
+            valueType: {
+                kind: 'group',
+                ref: 'Cosmoteer.Ships.Parts.RelativePartCriteria',
+                name: 'RelativePartCriteria',
+            },
             optional: true,
         },
     ],

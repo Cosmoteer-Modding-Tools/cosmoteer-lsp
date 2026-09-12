@@ -351,7 +351,11 @@ const crossFileIdValue = (node: AbstractNode): ValueNode | undefined => {
  */
 const deriveRenameSymbol = (node: AbstractNode): RenameSymbol | null => {
     if ((isGroupNode(node) || isListNode(node)) && node.identifier) {
-        return { nameNode: node.identifier, name: node.identifier.name, targetKey: locationKey(definitionLocationOf(node)) };
+        return {
+            nameNode: node.identifier,
+            name: node.identifier.name,
+            targetKey: locationKey(definitionLocationOf(node)),
+        };
     }
     // An assignment value's parent is its container, so find the
     // `key = value` whose right-hand side is this node to recover the key to rewrite.
@@ -369,4 +373,3 @@ const deriveRenameSymbol = (node: AbstractNode): RenameSymbol | null => {
     }
     return null;
 };
-

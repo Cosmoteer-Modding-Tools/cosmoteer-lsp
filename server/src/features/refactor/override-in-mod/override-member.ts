@@ -274,7 +274,11 @@ export const overrideMemberAt = (
 
     let indentStart = span.start;
     while (indentStart > 0 && (text[indentStart - 1] === ' ' || text[indentStart - 1] === '\t')) indentStart--;
-    const body = reindent(applyRebases(raw, verdict.rebases), text.slice(indentStart, span.start), OVERRIDE_BODY_INDENT);
+    const body = reindent(
+        applyRebases(raw, verdict.rebases),
+        text.slice(indentStart, span.start),
+        OVERRIDE_BODY_INDENT
+    );
 
     return {
         member: {

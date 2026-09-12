@@ -43,7 +43,8 @@ export const resolveSchemaSiblingReference = (node: AbstractNode | null | undefi
     const container = node!.parent?.parent;
     if (!container || !isGroupNode(container)) return undefined;
     const named = container.elements.filter(
-        (element): element is GroupNode | ListNode => (isGroupNode(element) || isListNode(element)) && !!element.identifier
+        (element): element is GroupNode | ListNode =>
+            (isGroupNode(element) || isListNode(element)) && !!element.identifier
     );
     return (
         named.find((element) => element.identifier!.name === targetName) ??

@@ -44,7 +44,9 @@ function extractGroupFailureMessage(failure: string | undefined): string {
         case 'multiLineText':
             return l10n.t('A text in this block runs across lines, so it cannot be moved.');
         case 'scopeRelativeValue':
-            return l10n.t('This block reads something outside itself, so it would mean something else from another file.');
+            return l10n.t(
+                'This block reads something outside itself, so it would mean something else from another file.'
+            );
         case 'badFileName':
             return l10n.t('The name has to be a .rules file inside this folder.');
         case 'fileExists':

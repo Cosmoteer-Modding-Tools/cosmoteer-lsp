@@ -1,6 +1,13 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    GroupNode,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+} from '../../core/ast/ast';
 import {
     classSatisfiesKind,
     componentTriggerFieldNames,
@@ -124,7 +131,10 @@ const wiringMembers = (
     typed: (valueType: Parameters<typeof isWaitType>[0]) => boolean,
     anyClass: () => ReadonlySet<string>
 ): string[] => {
-    if (component.cls) return fieldsOf(component.cls).filter((field) => typed(field.valueType)).map((field) => field.name);
+    if (component.cls)
+        return fieldsOf(component.cls)
+            .filter((field) => typed(field.valueType))
+            .map((field) => field.name);
     const names = anyClass();
     return namedMembersOf(component.group)
         .map(([name]) => name)
@@ -290,7 +300,6 @@ export const buildEffectChainDiagram = async (
                 wired.add(to);
             }
         }
-
     }
 
     // A proxy fires when the component it stands in for fires, so without this the chain breaks at
@@ -301,7 +310,7 @@ export const buildEffectChainDiagram = async (
     // A proxy standing in for another proxy joins the chain only once the first is in it, so the
     // pass runs again while it keeps reaching further. Each one is expanded once, which bounds it.
     const expanded = new Set<string>();
-    for (let reached = true; reached; ) {
+    for (let reached = true; reached;) {
         reached = false;
         for (const component of byName.values()) {
             if (token.isCancellationRequested) return undefined;

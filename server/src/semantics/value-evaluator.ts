@@ -101,10 +101,7 @@ interface EvalContext {
  * (strings, percentages/units, unknown functions, unresolved refs, cycles) so callers can
  * simply show nothing rather than a wrong value.
  */
-export const evaluateNumericValue = async (
-    node: AbstractNode,
-    token: CancellationToken
-): Promise<number | null> => {
+export const evaluateNumericValue = async (node: AbstractNode, token: CancellationToken): Promise<number | null> => {
     // The explicit `trace: undefined` is deliberate: this runs on the whole-workspace diagnostics
     // pass, and giving it a different object shape than the traced entry point would make every
     // context read inside the evaluation polymorphic. Same for the `zero` slot below.
@@ -205,9 +202,7 @@ export const resolveReferencedBaseValue = async (
         .catch(() => null);
     if (!target || isFile(target as FileWithPath) || !isGroupNode(target as AbstractNode)) return null;
     const group = target as AbstractNode;
-    const member = await navigation
-        .navigate('BaseValue', group, getStartOfAstNode(group).uri, token)
-        .catch(() => null);
+    const member = await navigation.navigate('BaseValue', group, getStartOfAstNode(group).uri, token).catch(() => null);
     if (!member || isFile(member as FileWithPath)) return null;
     return member as AbstractNode;
 };
@@ -431,12 +426,7 @@ const reserveSubstitution = (sink: TraceSink, path: string): number => {
  * @param target the node the reference resolved to, or null when it did not resolve.
  * @returns nothing, the sink is updated in place.
  */
-const settleSubstitution = (
-    sink: TraceSink,
-    slot: number,
-    value: number | null,
-    target: AbstractNode | null
-): void => {
+const settleSubstitution = (sink: TraceSink, slot: number, value: number | null, target: AbstractNode | null): void => {
     const entry = sink.entries[slot];
     if (value === null || !target) {
         sink.entries.length = slot;
@@ -523,11 +513,7 @@ const evaluateSequence = async (parts: AbstractNode[], context: EvalContext): Pr
  * @param zero collector of a division by a zero divisor, on the checked path only.
  * @returns the value, or null when the stream does not collapse to one finite number.
  */
-const foldItems = (
-    items: (number | { op: string })[],
-    settle = true,
-    zero?: ZeroDivisionSink
-): number | null => {
+const foldItems = (items: (number | { op: string })[], settle = true, zero?: ZeroDivisionSink): number | null => {
     // A divisor of exactly zero, in the value the caller asked about rather than in one it reads
     // through a reference. Both the game and the folds below answer NaN for it.
     const noteZeroDivisor = (divisor: number): void => {
@@ -538,7 +524,11 @@ const foldItems = (
     const isOperand = (item: number | { op: string } | undefined): item is number => typeof item === 'number';
     // Fold every `operand op operand` triple whose operator is in `ops`, taking the leftmost match
     // each round (rightmost for the right-associative power) exactly like calculate()'s scan order.
-    const foldBinary = (ops: readonly string[], apply: (op: string, a: number, b: number) => number, rightAssoc = false) => {
+    const foldBinary = (
+        ops: readonly string[],
+        apply: (op: string, a: number, b: number) => number,
+        rightAssoc = false
+    ) => {
         for (;;) {
             let found = -1;
             for (let i = 0; i < items.length; i++) {
@@ -609,9 +599,7 @@ const foldItems = (
     foldBinary(['>='], (_, a, b) => relationCompare(a, b, (x, y, eps) => x >= y - eps));
     // Boolean families in BooleanAlgebra's three-valued logic (NaN = unknown): the AND/NAND level,
     // then OR/NOR/XOR, then the implications, mirroring bolCalc's priority groups.
-    foldBinary(['&', '&&', '~&', '~&&'], (op, a, b) =>
-        op.startsWith('~') ? negate3(and3(a, b)) : and3(a, b)
-    );
+    foldBinary(['&', '&&', '~&', '~&&'], (op, a, b) => (op.startsWith('~') ? negate3(and3(a, b)) : and3(a, b)));
     foldBinary(['|', '||', '~|', '~||', '(+)'], (op, a, b) =>
         op === '(+)' ? xor3(a, b) : op.startsWith('~') ? negate3(or3(a, b)) : or3(a, b)
     );

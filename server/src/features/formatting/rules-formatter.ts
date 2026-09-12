@@ -74,7 +74,15 @@ const collectSpans = (text: string, tokens: Token[]): Span[] | null => {
                 i++;
                 continue;
             }
-            if (c === ' ' || c === '\t' || c === '\n' || c === '\r' || c === '\f' || c === '\v' || c.charCodeAt(0) > 127) {
+            if (
+                c === ' ' ||
+                c === '\t' ||
+                c === '\n' ||
+                c === '\r' ||
+                c === '\f' ||
+                c === '\v' ||
+                c.charCodeAt(0) > 127
+            ) {
                 i++;
                 continue;
             }
@@ -104,12 +112,7 @@ const collectSpans = (text: string, tokens: Token[]): Span[] | null => {
  * @returns the normalized gap. An empty gap is only widened around structural punctuation, and a
  * non-empty gap is never emptied next to a value, so token boundaries can never merge.
  */
-const desiredGap = (
-    left: TOKEN_TYPES,
-    right: TOKEN_TYPES,
-    original: string,
-    insideValue: boolean
-): string => {
+const desiredGap = (left: TOKEN_TYPES, right: TOKEN_TYPES, original: string, insideValue: boolean): string => {
     // A space is a value character, so two unquoted values separated by a tab would merge into one
     // token if the tab became a space. Keep such gaps exactly as written.
     const valueLike = (t: TOKEN_TYPES): boolean =>
@@ -121,10 +124,7 @@ const desiredGap = (
     // still collapsed, it is only never created or removed. Inside a bracket the same punctuation is
     // structure again, which is why `insideValue` is false there.
     const valueGlue = (t: TOKEN_TYPES): boolean => t === TOKEN_TYPES.COLON || t === TOKEN_TYPES.EQUALS;
-    if (
-        insideValue &&
-        ((valueLike(left) && valueGlue(right)) || (valueGlue(left) && valueLike(right)))
-    ) {
+    if (insideValue && ((valueLike(left) && valueGlue(right)) || (valueGlue(left) && valueLike(right)))) {
         return original.length ? ' ' : '';
     }
     if (left === TOKEN_TYPES.LEFT_BRACE && right === TOKEN_TYPES.RIGHT_BRACE) {
@@ -141,10 +141,8 @@ const desiredGap = (
     return original.length ? ' ' : '';
 };
 
-const isOpener = (type: TOKEN_TYPES): boolean =>
-    type === TOKEN_TYPES.LEFT_BRACE || type === TOKEN_TYPES.LEFT_BRACKET;
-const isCloser = (type: TOKEN_TYPES): boolean =>
-    type === TOKEN_TYPES.RIGHT_BRACE || type === TOKEN_TYPES.RIGHT_BRACKET;
+const isOpener = (type: TOKEN_TYPES): boolean => type === TOKEN_TYPES.LEFT_BRACE || type === TOKEN_TYPES.LEFT_BRACKET;
+const isCloser = (type: TOKEN_TYPES): boolean => type === TOKEN_TYPES.RIGHT_BRACE || type === TOKEN_TYPES.RIGHT_BRACKET;
 
 interface Line {
     /** Offset of the line's first character. */

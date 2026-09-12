@@ -58,12 +58,8 @@ export const isTypoShape = (a: string, b: string): boolean => {
  * @param folded the folded name.
  * @returns the number of usages outside this document, never below zero.
  */
-const usesElsewhere = (
-    vocabulary: MarkerVocabulary,
-    own: Map<string, number>,
-    cls: string,
-    folded: string
-): number => Math.max(0, (vocabulary.get(cls)?.get(folded)?.uses ?? 0) - (own.get(`${cls}|${folded}`) ?? 0));
+const usesElsewhere = (vocabulary: MarkerVocabulary, own: Map<string, number>, cls: string, folded: string): number =>
+    Math.max(0, (vocabulary.get(cls)?.get(folded)?.uses ?? 0) - (own.get(`${cls}|${folded}`) ?? 0));
 
 /**
  * The names of a marker class the project has agreed on, meaning more than one usage outside this

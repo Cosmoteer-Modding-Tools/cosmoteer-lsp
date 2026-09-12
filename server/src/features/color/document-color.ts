@@ -57,11 +57,7 @@ const BYTE_COMPONENTS = ['R', 'G', 'B', 'A'] as const;
 const HSV_COMPONENTS = ['H', 'S', 'V'] as const;
 
 /** Every name a colour group may carry, which is what keeps a numeric `{ H S V }` lookalike out. */
-const COLOR_COMPONENTS: ReadonlySet<string> = new Set([
-    ...FLOAT_COMPONENTS,
-    ...BYTE_COMPONENTS,
-    ...HSV_COMPONENTS,
-]);
+const COLOR_COMPONENTS: ReadonlySet<string> = new Set([...FLOAT_COMPONENTS, ...BYTE_COMPONENTS, ...HSV_COMPONENTS]);
 
 /**
  * How far a picked channel may sit from the one handed to the picker and still count as untouched.
@@ -142,7 +138,11 @@ const toHsv = (color: Color): { hue: number; saturation: number; value: number }
 const componentNodes = (group: GroupNode): Map<string, ValueNode> => {
     const components = new Map<string, ValueNode>();
     for (const element of group.elements) {
-        if (isAssignmentNode(element) && isValueNode(element.right) && typeof element.right.valueType.value === 'number') {
+        if (
+            isAssignmentNode(element) &&
+            isValueNode(element.right) &&
+            typeof element.right.valueType.value === 'number'
+        ) {
             components.set(element.left.name, element.right);
         }
     }
@@ -286,8 +286,7 @@ const formatChannel = (value: number, scale: number): string =>
 const isUnchanged = (was: number, now: number): boolean => Math.abs(was - now) <= CHANNEL_EPSILON;
 
 /** The bytes a value node was written with, which is what an untouched channel is written back as. */
-const writtenText = (source: string, node: ValueNode): string =>
-    source.slice(node.position.start, node.position.end);
+const writtenText = (source: string, node: ValueNode): string => source.slice(node.position.start, node.position.end);
 
 /** A component to rewrite: its value node and the new literal to put in its place. */
 interface ChannelEdit {
@@ -350,7 +349,9 @@ const appendedGroupAlpha = (
     const name = scale === 255 ? 'A' : 'Af';
     const literal = formatChannel(alpha, scale);
     const written = `${name} = ${literal}`;
-    const inline = found.trio.some((channel) => channel !== last && channel.node.position.line === last.node.position.line);
+    const inline = found.trio.some(
+        (channel) => channel !== last && channel.node.position.line === last.node.position.line
+    );
     return {
         name,
         literal,
@@ -422,9 +423,7 @@ const groupSite = (found: GroupColor): ColorSite => {
                     })
                 );
             }
-            const labels = found.trio.map(
-                (channel, i) => `${channel.name}=${edits[i].text}`
-            );
+            const labels = found.trio.map((channel, i) => `${channel.name}=${edits[i].text}`);
             let tail = '';
             if (found.alpha) {
                 const text = isUnchanged(shown.alpha, picked.alpha)
@@ -714,7 +713,8 @@ export const colorPresentations = async (
     cancellationToken: CancellationToken = CancellationToken.None
 ): Promise<ColorPresentation[]> => {
     for (const site of await colorSites(document, cancellationToken)) {
-        if (site.range.start.line !== range.start.line || site.range.start.character !== range.start.character) continue;
+        if (site.range.start.line !== range.start.line || site.range.start.character !== range.start.character)
+            continue;
         return site.write(source, color);
     }
     return [];

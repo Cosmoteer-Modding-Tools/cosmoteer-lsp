@@ -96,7 +96,9 @@ export async function isOutsideRulesPanel(file: string, token: CancellationToken
  * @param token cancels the reachability computation.
  * @returns the predicate, or undefined when nothing is out of scope.
  */
-export async function reachableFileFilter(token: CancellationToken): Promise<((fsPath: string) => boolean) | undefined> {
+export async function reachableFileFilter(
+    token: CancellationToken
+): Promise<((fsPath: string) => boolean) | undefined> {
     const keys = await validationScopeKeys(token).catch(() => undefined);
     return keys ? (fsPath: string) => keys.has(reachabilityKey(fsPath)) : undefined;
 }

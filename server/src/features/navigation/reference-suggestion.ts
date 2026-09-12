@@ -52,7 +52,9 @@ export const suggestReferenceName = async (
     if (lastSlash > 0) {
         // Multi-segment: the prefix should resolve to a container suggest among its members.
         // A whole-file (`FileWithPath`) target has no `elements` to suggest from treat as none.
-        let scope = asNode(await navigation.navigate(value.slice(0, lastSlash), startNode, uri, cancellationToken).catch(() => null));
+        let scope = asNode(
+            await navigation.navigate(value.slice(0, lastSlash), startNode, uri, cancellationToken).catch(() => null)
+        );
         if (scope && isValueNode(scope) && scope.valueType.type === 'Reference') {
             scope = asNode(
                 await navigation

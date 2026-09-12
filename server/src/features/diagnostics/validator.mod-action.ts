@@ -119,7 +119,9 @@ const targetShapeDescription = (shape: TargetShape): string => {
  * @returns true for a list of lists, false for a list of anything else, undefined when unknown.
  */
 const targetHoldsLists = (target: ListNode): boolean | undefined => {
-    const entries = target.elements.filter((element) => isGroupNode(element) || isListNode(element) || isValueNode(element));
+    const entries = target.elements.filter(
+        (element) => isGroupNode(element) || isListNode(element) || isValueNode(element)
+    );
     if (entries.length > 0) return entries.every((element) => isListNode(element));
     const element = listElementType(target);
     return element ? element.kind === 'list' : undefined;
@@ -317,7 +319,9 @@ const deeperOverridesRewrite = (
     const innerText = text
         .slice(inner.position.start, inner.position.end)
         .split('\n')
-        .map((line, index) => (index > 0 && line.startsWith(innerIndent) ? bodyIndent + line.slice(innerIndent.length) : line))
+        .map((line, index) =>
+            index > 0 && line.startsWith(innerIndent) ? bodyIndent + line.slice(innerIndent.length) : line
+        )
         .join('\n');
     return {
         title: l10n.t('Target {0} and override only its members', path),
@@ -372,7 +376,9 @@ const overridesReplacingGroups = async (
         if (!replaced) continue;
         const kept = declaredNames(node);
         const flattened = await flattenGroup(replaced, cancellationToken).catch(() => null);
-        const dropped = (flattened?.members ?? []).map((member) => member.name).filter((member) => !kept.has(member.toLowerCase()));
+        const dropped = (flattened?.members ?? [])
+            .map((member) => member.name)
+            .filter((member) => !kept.has(member.toLowerCase()));
         if (dropped.length === 0) continue;
 
         // The fix follows the body down while it holds one bare group that the target holds a group
@@ -503,8 +509,7 @@ export const validateModActions = async (
         // A flag that tolerates a missing target only excuses the target being missing. When it is
         // there, the game applies the action to it and every check below still decides whether it
         // can (`ModAddAction.ApplyAction` throws on a leaf whether or not CreateIfNotExisting is set).
-        const toleratesMissing =
-            action.flags.IgnoreIfNotExisting === true || action.flags.CreateIfNotExisting === true;
+        const toleratesMissing = action.flags.IgnoreIfNotExisting === true || action.flags.CreateIfNotExisting === true;
 
         for (const target of action.targets) {
             if (cancellationToken.isCancellationRequested) return errors;
@@ -584,7 +589,11 @@ export const validateModActions = async (
             }
 
             // An entry that is a whole list, which the game appends as one entry it cannot read.
-            if ((action.type === 'Add' || action.type === 'AddMany') && !wholeFile && isListNode(resolved as AbstractNode)) {
+            if (
+                (action.type === 'Add' || action.type === 'AddMany') &&
+                !wholeFile &&
+                isListNode(resolved as AbstractNode)
+            ) {
                 errors.push(...(await listAppendedAsEntry(action, resolved as ListNode, cancellationToken)));
             }
 

@@ -158,7 +158,7 @@ const primaryManifestOf = (modRoot: string): string | undefined => {
 
 /** The line a top-level member starts on, taken from its identifier when it has one. */
 const startLineOf = (element: AbstractNode): number =>
-    (isListNode(element) && element.identifier ? element.identifier.position.line : element.position.line);
+    isListNode(element) && element.identifier ? element.identifier.position.line : element.position.line;
 
 /**
  * The edit adding one dependency to a mod's manifest: appended to the existing `Dependencies` list,

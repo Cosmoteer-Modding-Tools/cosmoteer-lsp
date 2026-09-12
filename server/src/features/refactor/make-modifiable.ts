@@ -42,11 +42,7 @@ interface Located {
  * @param chain the members found so far, appended to as the walk descends.
  * @returns the chain, empty when nothing holds the offset.
  */
-const locateChain = (
-    container: AbstractNodeDocument | GroupNode,
-    offset: number,
-    chain: Located[] = []
-): Located[] => {
+const locateChain = (container: AbstractNodeDocument | GroupNode, offset: number, chain: Located[] = []): Located[] => {
     for (const element of container.elements) {
         const span = memberSpanOf(element);
         if (!span || offset < span.start || offset >= span.end) continue;

@@ -232,9 +232,7 @@ export const schemaFieldNameCompletions = async (
         )
     );
     const requiredMissing = missing
-        .filter(
-            ({ field }) => requiredNames.has(field.name.toLowerCase()) && !suppliedByChain(field, inherited)
-        )
+        .filter(({ field }) => requiredNames.has(field.name.toLowerCase()) && !suppliedByChain(field, inherited))
         .map(({ field }) => field);
     if (requiredMissing.length >= 2) {
         completions.unshift({
@@ -573,7 +571,10 @@ export const isLocalizationKeyFieldAtOffset = (
 /** The `Type = …` field-name completion for a polymorphic group, documenting its discriminator set. */
 const discriminatorFieldCompletion = (registry: SchemaRegistry): Completion => {
     const members = Object.keys(registry.members);
-    const shown = members.slice(0, 20).map((m) => `\`${m}\``).join(', ');
+    const shown = members
+        .slice(0, 20)
+        .map((m) => `\`${m}\``)
+        .join(', ');
     return {
         label: registry.typeField,
         kind: CompletionItemKind.Field,

@@ -202,12 +202,15 @@ export class ModContext {
                     const members = await overrideMembers(source);
                     if (members.length) {
                         const targetKey = await resolveOverrideTargetKey(target);
-                        if (targetKey) for (const [name2, src2] of members) addFileOverride(targetKey, name2, src2 as ActionSource);
+                        if (targetKey)
+                            for (const [name2, src2] of members)
+                                addFileOverride(targetKey, name2, src2 as ActionSource);
                     }
                     // Also keep the legacy target-path-keyed entry for a whole-file inline group, so a
                     // direct `<file>/X` ref (which keys by the `<…>` path, not the resolved file) works.
                     if (fc.container.length === 0 && isGroupNode(source))
-                        for (const [name2, src2] of namedMembersOf(source)) add(fc.fileKey, name2, src2 as ActionSource);
+                        for (const [name2, src2] of namedMembersOf(source))
+                            add(fc.fileKey, name2, src2 as ActionSource);
                 }
             }
         }
@@ -382,21 +385,28 @@ const overrideMembers = (source: ActionSource): Promise<[string, AbstractNode][]
 /** Dereference a `&<file>` source value to that file's parsed document (or null). */
 const dereferenceSourceToDocument = async (source: ActionSource): Promise<AbstractNodeDocument | null> => {
     const resolved = await navigation
-        .navigate(String((source as { valueType: { value: unknown } }).valueType.value), source, getStartOfAstNode(source).uri, CancellationToken.None)
+        .navigate(
+            String((source as { valueType: { value: unknown } }).valueType.value),
+            source,
+            getStartOfAstNode(source).uri,
+            CancellationToken.None
+        )
         .catch(() => null);
     if (!resolved) return null;
     // A workspace-tree file resolves to a FileWithPath (parse it). A mod-relative whole-file ref
     // resolves through `navigateRulesByCurrentLocation`, which returns the already-parsed document.
-    if (isFile(resolved as unknown as FileTree)) return parseFilePath((resolved as FileWithPath).path).catch(() => null);
+    if (isFile(resolved as unknown as FileTree))
+        return parseFilePath((resolved as FileWithPath).path).catch(() => null);
     if (isDocumentNode(resolved as AbstractNode)) return resolved as AbstractNodeDocument;
     return null;
 };
 
 /** Resolve a whole-file action target (`<…/indicators.rules>`) to the key its file is stored under. */
 const resolveOverrideTargetKey = async (target: ActionSource): Promise<string | null> => {
-    const resolved = await resolveActionTarget(target as Parameters<typeof resolveActionTarget>[0], CancellationToken.None).catch(
-        () => null
-    );
+    const resolved = await resolveActionTarget(
+        target as Parameters<typeof resolveActionTarget>[0],
+        CancellationToken.None
+    ).catch(() => null);
     return fileKeyOfResolved(resolved);
 };
 
@@ -414,7 +424,8 @@ const fileKeyOfResolved = (resolved: AbstractNode | null | FileWithPath | undefi
     if (isFile(resolved as unknown as FileTree)) return normFileKey((resolved as FileWithPath).path);
     // A document node carries a uri while the file form carries an OS path, and the same file has to
     // key the same either way or a lookup answers nothing for a store the other form filled.
-    if (isDocumentNode(resolved as AbstractNode)) return normFileKey(uriToFsPath((resolved as AbstractNodeDocument).uri));
+    if (isDocumentNode(resolved as AbstractNode))
+        return normFileKey(uriToFsPath((resolved as AbstractNodeDocument).uri));
     return null;
 };
 

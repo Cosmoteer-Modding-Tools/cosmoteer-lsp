@@ -73,12 +73,7 @@ const soleInheritance = (container: GroupNode): ValueNode | undefined => {
 
 /** Why a container cannot take part, or undefined when it can. */
 type ContainerRefusal =
-    | 'unnamed'
-    | 'noClass'
-    | 'multipleBases'
-    | 'unresolvableBase'
-    | 'laterInheritanceSlot'
-    | 'noSpan';
+    'unnamed' | 'noClass' | 'multipleBases' | 'unresolvableBase' | 'laterInheritanceSlot' | 'noSpan';
 
 /** A container accepted for analysis, with the facts the later stages need. */
 interface ContainerFacts {

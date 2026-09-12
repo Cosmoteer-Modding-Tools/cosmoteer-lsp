@@ -169,7 +169,12 @@ export const partTechCoverage = async (
     // every part would read as ungated and the answer would be noise rather than information.
     const judged = TECH_CLASSES.some((cls) => index.hasFileDeclarationsFor(cls));
     if (!judged) {
-        return { judged: false, total: judgedParts.length, unreachable: own.length - judgedParts.length, uncovered: [] };
+        return {
+            judged: false,
+            total: judgedParts.length,
+            unreachable: own.length - judgedParts.length,
+            uncovered: [],
+        };
     }
 
     const named = new Set<string>();

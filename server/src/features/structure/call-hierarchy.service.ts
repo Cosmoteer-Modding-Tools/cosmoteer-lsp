@@ -149,7 +149,10 @@ const itemKey = (item: CallHierarchyItem): string =>
  * @param root the node to walk.
  * @param visit called for each declaration found.
  */
-const forEachDeclaration = (root: AbstractNode | AbstractNodeDocument, visit: (declaration: Declaration) => void): void => {
+const forEachDeclaration = (
+    root: AbstractNode | AbstractNodeDocument,
+    visit: (declaration: Declaration) => void
+): void => {
     const node = root as AbstractNode;
     if (isDeclaration(node)) visit(node);
     if (isGroupNode(node) || isListNode(node) || isDocumentNode(node)) {

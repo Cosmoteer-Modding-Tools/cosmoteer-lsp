@@ -19,21 +19,11 @@ import { documentFor, lineEndingOf, openBuffers } from '../command-host';
 import { relativeRulesReference } from '../shared-base/base-file.emitter';
 import { dirOf, readRulesFile } from '../shared-base/base-index';
 import { editableModRootOf } from '../shared-base/shared-base.analysis-entry';
-import {
-    addManyActionText,
-    manifestActionInsert,
-    overridesActionText,
-} from '../register-part/manifest-action.emitter';
+import { addManyActionText, manifestActionInsert, overridesActionText } from '../register-part/manifest-action.emitter';
 import { registerPartInShip } from '../register-part/register-part.command';
 import { RegisterPartHost } from '../register-part/register-part.types';
 import { ShipClassEntry, shipClassesFor, shipPartsListOf } from '../register-part/ship-registry';
-import {
-    authorPrefixOf,
-    contentFileNameOf,
-    contentIdFor,
-    declaredIdsIn,
-    ID_CLASS_OF_KIND,
-} from './content-id';
+import { authorPrefixOf, contentFileNameOf, contentIdFor, declaredIdsIn, ID_CLASS_OF_KIND } from './content-id';
 import {
     CONTENT_FOLDERS,
     contentFilePathOf,
@@ -390,7 +380,11 @@ const scanRound = async (
         modRoot,
         modId: identity.manifestId ?? '',
         idPrefix: authorPrefixOf(identity.manifestId) ?? '',
-        kinds: kindInfos(modRoot, ships.some((ship) => !ship.blocked), pointedAtByFor),
+        kinds: kindInfos(
+            modRoot,
+            ships.some((ship) => !ship.blocked),
+            pointedAtByFor
+        ),
         ships,
     };
 };
@@ -410,9 +404,7 @@ const takenIds = async (
     host: NewContentHost,
     cancellationToken: CancellationToken
 ): Promise<Set<string>> => {
-    const wide = host.existingIds
-        ? await host.existingIds(cls, cancellationToken).catch(() => undefined)
-        : undefined;
+    const wide = host.existingIds ? await host.existingIds(cls, cancellationToken).catch(() => undefined) : undefined;
     if (wide) return new Set([...wide].map((id) => id.toLowerCase()));
     return await declaredIdsIn(modRoot, cls, cancellationToken);
 };
@@ -706,7 +698,12 @@ const registerInGameRootList = async (
         // against the game root its target names. The entry is memberless because a registry of
         // whole files is what the game root's own list holds.
         (manifestDir, indent, lineEnding) =>
-            addManyActionText(registryTarget, `&${relativeRulesReference(manifestDir, target.fsPath)}`, indent, lineEnding)
+            addManyActionText(
+                registryTarget,
+                `&${relativeRulesReference(manifestDir, target.fsPath)}`,
+                indent,
+                lineEnding
+            )
     );
 };
 
@@ -838,7 +835,12 @@ const registerBuff = async (target: Target, host: NewContentHost): Promise<Regis
         host,
         () => manifestAlreadyOverridesWith(target.modRoot, registryTarget, target.fsPath),
         (manifestDir, indent, lineEnding) =>
-            overridesActionText(registryTarget, `&${relativeRulesReference(manifestDir, target.fsPath)}`, indent, lineEnding)
+            overridesActionText(
+                registryTarget,
+                `&${relativeRulesReference(manifestDir, target.fsPath)}`,
+                indent,
+                lineEnding
+            )
     );
 };
 
@@ -861,7 +863,12 @@ const registerCodexPage = async (target: Target, host: NewContentHost): Promise<
         host,
         () => manifestAlreadyAdds(target.modRoot, registryTarget, target.fsPath),
         (manifestDir, indent, lineEnding) =>
-            addManyActionText(registryTarget, `&${relativeRulesReference(manifestDir, target.fsPath)}`, indent, lineEnding)
+            addManyActionText(
+                registryTarget,
+                `&${relativeRulesReference(manifestDir, target.fsPath)}`,
+                indent,
+                lineEnding
+            )
     );
 };
 
@@ -886,7 +893,10 @@ const repointReplace = async (
     const path = manifestRelativePath(dirOf(existing.manifestFsPath), fsPath);
     const { line, characterStart, characterEnd } = existing.source.position;
     // The value's range is replaced as it was written, quotes and all when it had them.
-    const written = document.getText({ start: { line, character: characterStart }, end: { line, character: characterEnd } });
+    const written = document.getText({
+        start: { line, character: characterStart },
+        end: { line, character: characterEnd },
+    });
     const quoted = written.startsWith('"') || written.startsWith("'");
     const edits: TextEdit[] = [
         {

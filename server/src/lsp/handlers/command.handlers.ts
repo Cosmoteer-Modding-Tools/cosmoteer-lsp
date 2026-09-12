@@ -201,12 +201,10 @@ export function register(): void {
         // where the declaration goes is a question about the file's shape, which the client cannot ask.
         if (params.command === CREATE_COMPONENT_COMMAND) {
             const args = (params.arguments?.[0] ?? {}) as CreateComponentArgs;
-            return await createComponent(args, createComponentHost(), CancellationToken.None).catch(
-                (e) => {
-                    if (globalSettings.trace.server === 'messages') console.error(e);
-                    return null;
-                }
-            );
+            return await createComponent(args, createComponentHost(), CancellationToken.None).catch((e) => {
+                if (globalSettings.trace.server === 'messages') console.error(e);
+                return null;
+            });
         }
         if (params.command === REGISTER_PART_IN_SHIP_COMMAND) {
             const args = (params.arguments?.[0] ?? {}) as RegisterPartArgs;
@@ -320,8 +318,16 @@ export function register(): void {
             try {
                 const run =
                     params.command === NEW_NEBULA_COMMAND
-                        ? newNebula((params.arguments?.[0] ?? {}) as NewNebulaArgs, newContentHost(), CancellationToken.None)
-                        : newGalaxySize((params.arguments?.[0] ?? {}) as NewGalaxySizeArgs, newContentHost(), CancellationToken.None);
+                        ? newNebula(
+                              (params.arguments?.[0] ?? {}) as NewNebulaArgs,
+                              newContentHost(),
+                              CancellationToken.None
+                          )
+                        : newGalaxySize(
+                              (params.arguments?.[0] ?? {}) as NewGalaxySizeArgs,
+                              newContentHost(),
+                              CancellationToken.None
+                          );
                 return await run.catch((e) => {
                     if (globalSettings.trace.server === 'messages') console.error(e);
                     return null;
@@ -354,7 +360,11 @@ export function register(): void {
             await ensureFragmentRooting(CancellationToken.None);
             beginFsTrustWindow();
             try {
-                return await newTech((params.arguments?.[0] ?? {}) as NewTechArgs, newTechHost(), CancellationToken.None).catch((e) => {
+                return await newTech(
+                    (params.arguments?.[0] ?? {}) as NewTechArgs,
+                    newTechHost(),
+                    CancellationToken.None
+                ).catch((e) => {
                     if (globalSettings.trace.server === 'messages') console.error(e);
                     return null;
                 });

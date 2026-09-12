@@ -37,7 +37,12 @@ import {
 import { ChannelOccurrence, channelOccurrences, channelRangeOf, particleChannelAt } from './particle-channel';
 import { enclosingContainerKey, findReferenceTargetAtPosition, referenceNodesOf } from './reference-index';
 import { definitionLocationOf, definitionNameOf, locationKey, normalizeUri, rangeOf } from './reference-location';
-import { isSameOrSubclass, mapKeyReferenceAt, mapKeyReferencesOf, schemaReferenceFieldOf } from './schema-id-reference.navigation';
+import {
+    isSameOrSubclass,
+    mapKeyReferenceAt,
+    mapKeyReferencesOf,
+    schemaReferenceFieldOf,
+} from './schema-id-reference.navigation';
 import { resolveSchemaSiblingReference, stringValueNodesOf, valueTextRange } from './schema-reference.navigation';
 
 /** A cross-file id under the cursor: the written id and the class the cursor's site names. */

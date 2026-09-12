@@ -14,7 +14,11 @@ import { ReferenceIndex } from '../../features/navigation/reference-index';
 import { documentHighlightsAt } from '../../features/navigation/document-highlight';
 import { WorkspaceSymbolService } from '../../features/navigation/workspace-symbol.service';
 import { RenameRefusedError, RenameService, refuseEditsUnderRoot } from '../../features/navigation/rename.service';
-import { shaderDocumentDefinition, shaderDocumentSymbols, shaderSymbolDefinition } from '../../features/shader/shader-document-features';
+import {
+    shaderDocumentDefinition,
+    shaderDocumentSymbols,
+    shaderSymbolDefinition,
+} from '../../features/shader/shader-document-features';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { isShaderDocument } from '../../document/document-kind';
 import { globalSettings } from '../../settings';
@@ -42,7 +46,13 @@ export function register(): void {
             const dataDir = CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath;
             const include = shaderDocumentDefinition(text, offset, params.textDocument.uri, dataDir);
             if (include) return include;
-            return await shaderSymbolDefinition(text, offset, params.textDocument.uri, dataDir, openBufferReadOverride());
+            return await shaderSymbolDefinition(
+                text,
+                offset,
+                params.textDocument.uri,
+                dataDir,
+                openBufferReadOverride()
+            );
         }
         const parserResult = ensureParserResult(params.textDocument.uri);
         if (!parserResult) return null;

@@ -330,7 +330,12 @@ export type GridMutation =
     | { readonly op: 'addCell'; readonly layerId: string; readonly cell: GridCell }
     | { readonly op: 'removeCell'; readonly layerId: string; readonly cell: GridCell }
     /** Sets a map entry's values, an empty array removes the entry. */
-    | { readonly op: 'setEntryValues'; readonly layerId: string; readonly cell: GridCell; readonly values: readonly string[] }
+    | {
+          readonly op: 'setEntryValues';
+          readonly layerId: string;
+          readonly cell: GridCell;
+          readonly values: readonly string[];
+      }
     | { readonly op: 'addPoint'; readonly layerId: string; readonly point: GridPoint }
     | { readonly op: 'movePoint'; readonly layerId: string; readonly index: number; readonly point: GridPoint }
     | { readonly op: 'removePoint'; readonly layerId: string; readonly index: number }
@@ -347,7 +352,12 @@ export type GridMutation =
     | {
           readonly op: 'setRect';
           readonly layerId: string;
-          readonly rect: { readonly x: number; readonly y: number; readonly width: number; readonly height: number } | null;
+          readonly rect: {
+              readonly x: number;
+              readonly y: number;
+              readonly width: number;
+              readonly height: number;
+          } | null;
       }
     | { readonly op: 'setSize'; readonly size: { readonly width: number; readonly height: number } }
     /** Sets a boolean part-root field, null removes the local assignment (the undo of a first write). */

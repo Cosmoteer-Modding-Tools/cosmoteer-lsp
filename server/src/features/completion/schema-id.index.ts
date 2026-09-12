@@ -200,7 +200,11 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         if (rootClass && id) entries.push({ cls: rootClass, id });
         // Aggregate list-element entities: each `Factions [ { ID } ]`, `PartToggles [ { ToggleID } ]`, …
         for (const decl of entityDeclarationsOf(document)) {
-            entries.push(decl.alias ? { cls: decl.elementClass, id: decl.id, alias: true } : { cls: decl.elementClass, id: decl.id });
+            entries.push(
+                decl.alias
+                    ? { cls: decl.elementClass, id: decl.id, alias: true }
+                    : { cls: decl.elementClass, id: decl.id }
+            );
         }
         // Usage-defined marker targets (part categories, features, damage types, effect buckets, …)
         // have no declaration file, so each used name is itself an entry to complete and resolve.

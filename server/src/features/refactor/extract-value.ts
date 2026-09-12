@@ -118,9 +118,9 @@ export const extractValueCodeAction = (
     // (groups/lists on their identifier, falling back to the node position).
     const insertLine = isAssignmentNode(firstElement)
         ? firstElement.left.position?.line
-        : ((isGroupNode(firstElement) || isListNode(firstElement)) && firstElement.identifier
-              ? firstElement.identifier.position?.line
-              : firstElement.position?.line);
+        : (isGroupNode(firstElement) || isListNode(firstElement)) && firstElement.identifier
+          ? firstElement.identifier.position?.line
+          : firstElement.position?.line;
     if (insertLine === undefined) return undefined;
     const edits: TextEdit[] = [
         TextEdit.insert(Position.create(insertLine, 0), `${name} = ${literal}${lineEndingOf(text)}`),

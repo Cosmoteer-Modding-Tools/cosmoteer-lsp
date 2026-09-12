@@ -73,7 +73,6 @@ export async function retractWorkspaceDiagnostics(uri: string): Promise<void> {
     }
 }
 
-
 interface ScanResultEntry {
     size: number;
     mtimeMs: number;
@@ -146,7 +145,11 @@ export const currentScanCacheEntries = (): ScanCacheEntry[] => {
  *        for the file that was opened after the snapshot.
  * @param token cancellation token for the in-flight workspace pass.
  */
-export async function validateWorkspaceFile(file: string, openNorms: Set<string>, token: CancellationToken): Promise<void> {
+export async function validateWorkspaceFile(
+    file: string,
+    openNorms: Set<string>,
+    token: CancellationToken
+): Promise<void> {
     const uri = filePathToUri(file);
     if (openNorms.has(normalizeUri(uri))) return;
     // A readme, a changelog, or a `.txt` nothing references is not rules content the game would ever

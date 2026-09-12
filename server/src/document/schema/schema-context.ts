@@ -280,7 +280,7 @@ const expectedValueTypeUncached = (node: GroupNode | ListNode, depth: number): V
     // or, for the assignment spelling (`Foo = [ … ]`), the assignment naming it among the siblings.
     const memberName =
         node.identifier?.name ??
-        ((isGroupNode(parent) || isDocumentNode(parent))
+        (isGroupNode(parent) || isDocumentNode(parent)
             ? parent.elements.find(
                   (element): element is AssignmentNode => isAssignmentNode(element) && element.right === node
               )?.left.name
@@ -327,7 +327,8 @@ const expectedValueTypeUncached = (node: GroupNode | ListNode, depth: number): V
                 ? documentRootClass(grandparent)
                 : resolveGroupClass(grandparent, depth + 1);
             listType = ownerClass ? fieldOf(ownerClass, parent.identifier.name)?.valueType : undefined;
-            if (!listType && isDocumentNode(grandparent)) listType = aliasedMemberType(grandparent, parent.identifier.name);
+            if (!listType && isDocumentNode(grandparent))
+                listType = aliasedMemberType(grandparent, parent.identifier.name);
         } else {
             listType = expectedValueType(parent, depth + 1); // nested / assignment-form / inline list
         }
@@ -381,7 +382,11 @@ export const groupDiscriminator = (group: GroupNode | AbstractNodeDocument, type
     for (const [name, value] of namedMembersOf(group)) {
         if (name.toLowerCase() !== wanted) continue;
         // `value` can be null for an in-progress empty `Type = ` assignment.
-        if (value && isValueNode(value) && (value.valueType.type === 'String' || value.valueType.type === 'Reference')) {
+        if (
+            value &&
+            isValueNode(value) &&
+            (value.valueType.type === 'String' || value.valueType.type === 'Reference')
+        ) {
             found = String(value.valueType.value);
             break;
         }
@@ -505,7 +510,10 @@ const sameFileReferenceTarget = (
     if (depth > 32) return undefined;
     const cleaned = raw.trim().replace(/^&\s*/, '');
     if (!cleaned || cleaned.includes('<') || cleaned.startsWith('/')) return undefined;
-    const segments = cleaned.split('/').map((s) => s.trim()).filter(Boolean);
+    const segments = cleaned
+        .split('/')
+        .map((s) => s.trim())
+        .filter(Boolean);
     if (segments.length === 0) return undefined;
     let node: AbstractNode | null | undefined;
     let index = 0;
@@ -637,7 +645,8 @@ export const resolveGroupClass = (group: GroupNode, depth = 0): string | undefin
  */
 const componentFragmentClass = (group: GroupNode): string | undefined => {
     const container = group.parent;
-    if (!container || !isGroupNode(container) || container.identifier?.name.toLowerCase() !== 'components') return undefined;
+    if (!container || !isGroupNode(container) || container.identifier?.name.toLowerCase() !== 'components')
+        return undefined;
     const disc = groupDiscriminator(group);
     if (!disc || !discriminatorIsAmbiguous(disc)) return undefined;
     const names = ownedFieldNames(group);
@@ -702,10 +711,7 @@ const classFromSlot = (group: GroupNode, expected: ValueType | undefined): strin
     }
     // A scalar value with a group form (a `Modifiable<T>` written as `{ BaseValue = … BuffType = … }`):
     // when the slot is filled with a group, its fields come from the curated group-form class.
-    if (
-        (expected?.kind === 'number' || expected?.kind === 'int' || expected?.kind === 'float') &&
-        expected.groupForm
-    ) {
+    if ((expected?.kind === 'number' || expected?.kind === 'int' || expected?.kind === 'float') && expected.groupForm) {
         return expected.groupForm;
     }
     // A `Texture` is dual-form: a bare image path or a `{ File … SampleMode … }` group. schemagen only
@@ -853,10 +859,7 @@ export const slotDeclaredClass = (group: GroupNode): string | undefined => {
  * @param member the declared member name.
  * @returns the schema type at that slot, or undefined when the container can't be anchored to a class.
  */
-export const memberTypeIn = (
-    container: GroupNode | AbstractNodeDocument,
-    member: string
-): ValueType | undefined => {
+export const memberTypeIn = (container: GroupNode | AbstractNodeDocument, member: string): ValueType | undefined => {
     if (isDocumentNode(container)) {
         const root = documentRootClass(container);
         if (root) return fieldOf(root, member)?.valueType;
@@ -990,11 +993,7 @@ export const findEnclosingContainer = (
     document: AbstractNodeDocument,
     offset: number
 ): GroupNode | ListNode | undefined =>
-    findEnclosing(
-        document,
-        offset,
-        (node): node is GroupNode | ListNode => isGroupNode(node) || isListNode(node)
-    );
+    findEnclosing(document, offset, (node): node is GroupNode | ListNode => isGroupNode(node) || isListNode(node));
 
 /**
  * The schema type of the slot a list node fills, resolved from the field that declares it (an

@@ -1,11 +1,5 @@
 import { resolve } from 'path';
-import {
-    AbstractNode,
-    AbstractNodeDocument,
-    isListNode,
-    isValueNode,
-    ValueNode,
-} from '../../../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, isListNode, isValueNode, ValueNode } from '../../../core/ast/ast';
 import { basenameOf } from '../../../document/document-kind';
 import { ActionSource } from '../../../mod/action';
 import { parseModActions } from '../../../mod/action-parser';
@@ -170,11 +164,7 @@ const referencedFileOf = (reference: string, declaringDir: string): string | und
  * @param fileFsPath the file being registered.
  * @returns true when one of them resolves to that file.
  */
-const referencesFile = (
-    elements: readonly AbstractNode[],
-    declaringDir: string,
-    fileFsPath: string
-): boolean => {
+const referencesFile = (elements: readonly AbstractNode[], declaringDir: string, fileFsPath: string): boolean => {
     const wanted = fileKey(fileFsPath);
     for (const element of elements) {
         if (!isValueNode(element) || element.valueType.type !== 'Reference') continue;
@@ -231,11 +221,7 @@ export const manifestActionMatches = async (
  * @param fileFsPath the file being registered.
  * @returns true when an action already carries a reference to it.
  */
-export const manifestAlreadyAdds = async (
-    modRoot: string,
-    target: string,
-    fileFsPath: string
-): Promise<boolean> =>
+export const manifestAlreadyAdds = async (modRoot: string, target: string, fileFsPath: string): Promise<boolean> =>
     // A source is a `ManyToAdd [ … ]` list or a single `ToAdd`, and both reach the game the same way,
     // so a bare reference counts as a registration just as a list element does.
     await manifestActionMatches(modRoot, target, (source, declaringDir) =>

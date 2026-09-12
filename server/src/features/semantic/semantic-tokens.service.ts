@@ -94,7 +94,13 @@ const pushSpan = (position: AstPosition, type: TokenType, modifiers: number, tok
 };
 
 /** Pushes a token of a fixed length at a node's start (for naming the head of a wider node). */
-const pushHead = (position: AstPosition, length: number, type: TokenType, modifiers: number, tokens: RawToken[]): void => {
+const pushHead = (
+    position: AstPosition,
+    length: number,
+    type: TokenType,
+    modifiers: number,
+    tokens: RawToken[]
+): void => {
     if (length <= 0) return;
     tokens.push({ line: position.line, char: position.characterStart, length, type: typeIndex(type), modifiers });
 };

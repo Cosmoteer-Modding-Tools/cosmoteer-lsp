@@ -93,14 +93,22 @@ export const extendSchemaWithMods = (extension: ModSchemaExtension | undefined):
         for (const fullName of appliedModKeys.types) delete schema.types[fullName];
         for (const fullName of appliedModKeys.enums) delete schema.enums[fullName];
         for (const fullName of appliedModKeys.registries) delete schema.registries[fullName];
-        for (const [registryName, disc] of appliedModKeys.members) delete schema.registries[registryName]?.members[disc];
+        for (const [registryName, disc] of appliedModKeys.members)
+            delete schema.registries[registryName]?.members[disc];
         if (appliedModKeys.kinds > 0 && schema.componentKinds) schema.componentKinds.length -= appliedModKeys.kinds;
         for (const fullName of appliedModKeys.capabilities) delete schema.componentCapabilities?.[fullName];
     }
     appliedModExtension = extension;
     appliedModKeys = undefined;
     if (extension) {
-        const applied: AppliedModKeys = { types: new Set(), enums: [], registries: [], members: [], kinds: 0, capabilities: [] };
+        const applied: AppliedModKeys = {
+            types: new Set(),
+            enums: [],
+            registries: [],
+            members: [],
+            kinds: 0,
+            capabilities: [],
+        };
         for (const [fullName, type] of Object.entries(extension.types)) {
             if (schema.types[fullName]) continue;
             schema.types[fullName] = type;
@@ -163,7 +171,9 @@ export const modSchemaSignature = (): string => {
     if (!extension) return '';
     const parts: string[] = [];
     for (const [fullName, type] of Object.entries(extension.types)) {
-        parts.push(`T ${fullName} ${type.fields.map((field) => `${field.name}${field.description ? '*' : ''}`).join(',')}`);
+        parts.push(
+            `T ${fullName} ${type.fields.map((field) => `${field.name}${field.description ? '*' : ''}`).join(',')}`
+        );
     }
     for (const [fullName, def] of Object.entries(extension.enums)) parts.push(`E ${fullName} ${def.members.join(',')}`);
     for (const [name, registry] of Object.entries(extension.registries)) {
@@ -533,7 +543,10 @@ let fieldNameSetsByPredicate: Map<string, ReadonlySet<string>> | undefined;
  * @param predicate what makes a field's type interesting.
  * @returns the lower-cased field names, computed once per schema generation.
  */
-const fieldNamesTyped = (key: string, predicate: (valueType: ValueType | undefined) => boolean): ReadonlySet<string> => {
+const fieldNamesTyped = (
+    key: string,
+    predicate: (valueType: ValueType | undefined) => boolean
+): ReadonlySet<string> => {
     fieldNameSetsByPredicate ??= new Map();
     const cached = fieldNameSetsByPredicate.get(key);
     if (cached) return cached;
@@ -1063,7 +1076,8 @@ export const fieldExampleMarkdown = (field: SchemaField): string | undefined => 
 const renderDocCrefs = (prose: string): string =>
     prose.replace(/\[\[([^\]]+)\]\]/g, (_, ref: string) => {
         const labelled = ref.split('|');
-        const target = labelled.length > 1 ? labelled[labelled.length - 1] : (labelled[0].split('#').pop() ?? labelled[0]);
+        const target =
+            labelled.length > 1 ? labelled[labelled.length - 1] : (labelled[0].split('#').pop() ?? labelled[0]);
         const last = target.split('.').pop()?.trim();
         return last ? `\`${last}\`` : ref;
     });
@@ -1086,7 +1100,10 @@ export const fieldSignatureMarkdown = (field: SchemaField, owningType?: string):
         const members = enumDef(inner.ref)?.members ?? [];
         // Cap the inline listing: only ViKey (103 keyboard keys) exceeds it, and a hover-sized
         // sample plus the total serves better than a screen-filling dump.
-        const shown = members.slice(0, 24).map((m) => `\`${m}\``).join(', ');
+        const shown = members
+            .slice(0, 24)
+            .map((m) => `\`${m}\``)
+            .join(', ');
         if (members.length > 0) {
             extra.push(`one of: ${shown}${members.length > 24 ? `, … (${members.length} total)` : ''}`);
         }

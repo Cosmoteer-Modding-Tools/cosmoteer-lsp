@@ -97,7 +97,11 @@ export class AddBaseIndex extends ModActionNodeIndex<AppendedBase> {
      * @param cancellationToken cancels the target resolution.
      * @returns the target node key, or nothing for an action this index does not model.
      */
-    protected async indexAction(action: ModAction, source: string, cancellationToken: CancellationToken): Promise<string[]> {
+    protected async indexAction(
+        action: ModAction,
+        source: string,
+        cancellationToken: CancellationToken
+    ): Promise<string[]> {
         if (action.type !== 'AddBase' || action.presentFields.has('index')) return [];
         const target = action.targets[0];
         const base = action.sources[0];

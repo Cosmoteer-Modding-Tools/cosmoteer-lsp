@@ -103,7 +103,9 @@ export const inheritanceTargetCompletionsAt = async (
             .completeRawPath(header.typed, container, cancellationToken)
             .catch(() => []);
         return options.map((option) =>
-            typeof option === 'string' ? { label: option, kind: CompletionItemKind.Reference, range } : { ...option, range }
+            typeof option === 'string'
+                ? { label: option, kind: CompletionItemKind.Reference, range }
+                : { ...option, range }
         );
     }
     return startCompletions(container, header.declaredName, range);

@@ -1,4 +1,11 @@
-import { AbstractNode, AbstractNodeDocument, GroupNode, isAssignmentNode, isGroupNode, isListNode } from '../../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    GroupNode,
+    isAssignmentNode,
+    isGroupNode,
+    isListNode,
+} from '../../core/ast/ast';
 import { Validation } from './validator';
 import * as l10n from '@vscode/l10n';
 
@@ -9,7 +16,8 @@ import * as l10n from '@vscode/l10n';
  */
 const keyOf = (node: AbstractNode): { name: string; at: AbstractNode } | undefined => {
     if (isAssignmentNode(node)) return { name: node.left.name, at: node.left };
-    if ((isGroupNode(node) || isListNode(node)) && node.identifier) return { name: node.identifier.name, at: node.identifier };
+    if ((isGroupNode(node) || isListNode(node)) && node.identifier)
+        return { name: node.identifier.name, at: node.identifier };
     return undefined;
 };
 

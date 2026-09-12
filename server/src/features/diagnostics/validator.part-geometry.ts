@@ -51,7 +51,14 @@ const navigation = new FullNavigationStrategy();
 
 /** Adapts the shared navigation strategy to the inheritance resolver's reference-resolution shape. */
 const resolveReference: ResolveReferenceFn = (path, startNode, currentLocation, token, inheritanceVisited) =>
-    navigation.navigate(path, startNode, currentLocation, token, new Set(), inheritanceVisited) as ReturnType<ResolveReferenceFn>;
+    navigation.navigate(
+        path,
+        startNode,
+        currentLocation,
+        token,
+        new Set(),
+        inheritanceVisited
+    ) as ReturnType<ResolveReferenceFn>;
 
 /**
  * Whether a cell is one the part occupies, matching the engine's `IntRect.Contains(IntVector2)`.
@@ -104,7 +111,8 @@ export const instantiatedParts = (document: AbstractNodeDocument): GroupNode[] =
     const visit = (node: AbstractNode): void => {
         // The id check runs first because it is a member scan, while resolving the class walks the
         // slot and the inheritance chain.
-        if (isGroupNode(node) && childNamed(node, 'ID') && resolveGroupClass(node) === PART_RULES_CLASS) parts.push(node);
+        if (isGroupNode(node) && childNamed(node, 'ID') && resolveGroupClass(node) === PART_RULES_CLASS)
+            parts.push(node);
         if (isGroupNode(node) || isListNode(node)) for (const child of node.elements) visit(child);
     };
     for (const element of document.elements) visit(element);
@@ -120,7 +128,8 @@ export const instantiatedParts = (document: AbstractNodeDocument): GroupNode[] =
 const effectiveSize = async (part: GroupNode, cancellationToken: CancellationToken): Promise<PartSize | null> => {
     const local = childNamed(part, 'Size');
     const node =
-        local ?? (await findMemberThroughInheritance(part, 'Size', resolveReference, cancellationToken).catch(() => null));
+        local ??
+        (await findMemberThroughInheritance(part, 'Size', resolveReference, cancellationToken).catch(() => null));
     const size = wholeCell(node);
     return size && size.x > 0 && size.y > 0 ? { width: size.x, height: size.y } : null;
 };

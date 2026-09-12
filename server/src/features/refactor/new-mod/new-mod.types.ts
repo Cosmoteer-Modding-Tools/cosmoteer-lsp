@@ -4,13 +4,7 @@
  */
 
 /** Why the command created nothing at all. */
-export type NewModFailure =
-    | 'noDestination'
-    | 'invalidName'
-    | 'invalidAuthor'
-    | 'pathTaken'
-    | 'idTaken'
-    | 'writeFailed';
+export type NewModFailure = 'noDestination' | 'invalidName' | 'invalidAuthor' | 'pathTaken' | 'idTaken' | 'writeFailed';
 
 /** What the client sends. Without a `name` the command reports where a mod could be created. */
 export interface NewModArgs {

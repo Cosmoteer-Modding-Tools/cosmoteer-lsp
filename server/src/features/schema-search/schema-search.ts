@@ -293,7 +293,10 @@ const contextFieldEntries = (contextClass: string, limit: number): { entries: Sc
  * @returns the ranked hits with the caret context echoed back.
  */
 export const searchSchema = (params: SchemaSearchParams, contextClass?: string): SchemaSearchResult => {
-    const limit = Math.min(params.limit && params.limit > 0 ? params.limit : SCHEMA_SEARCH_HIT_CAP, SCHEMA_SEARCH_HIT_CAP);
+    const limit = Math.min(
+        params.limit && params.limit > 0 ? params.limit : SCHEMA_SEARCH_HIT_CAP,
+        SCHEMA_SEARCH_HIT_CAP
+    );
     const ancestry = contextClass ? classAncestry(contextClass) : [];
     const query = params.query?.trim() ?? '';
     // An empty query with a resolved caret still has something to say: the class's own vocabulary.
@@ -365,8 +368,7 @@ const fieldDetail = (entry: SchemaSearchEntry): string[] => [
  * @param description the class or registry summary, when one is documented.
  * @returns the summary line and its blank line, or nothing.
  */
-const summaryLines = (description?: string): string[] =>
-    description ? [renderCrefs(description), ''] : [];
+const summaryLines = (description?: string): string[] => (description ? [renderCrefs(description), ''] : []);
 
 /** The documentation page of a class: what it is, what it is written as, what it extends, and every field. */
 const typeDetail = (entry: SchemaSearchEntry): string[] => {
@@ -374,7 +376,12 @@ const typeDetail = (entry: SchemaSearchEntry): string[] => {
     const lines = [`# ${entry.label}`, '', `\`${entry.ownerFullName}\``, '', ...summaryLines(def?.description)];
     if (def?.derivedType && def.registry) {
         lines.push(
-            l10n.t('Written as `{0} = {1}` in a `{2}` slot.', registryOf(def.registry)?.typeField ?? 'Type', def.derivedType, registryOf(def.registry)?.name ?? def.registry),
+            l10n.t(
+                'Written as `{0} = {1}` in a `{2}` slot.',
+                registryOf(def.registry)?.typeField ?? 'Type',
+                def.derivedType,
+                registryOf(def.registry)?.name ?? def.registry
+            ),
             ''
         );
     }
@@ -390,7 +397,8 @@ const typeDetail = (entry: SchemaSearchEntry): string[] => {
 const enumDetail = (entry: SchemaSearchEntry): string[] => {
     const def = enumDef(entry.ownerFullName);
     const lines = [`# ${entry.label}`, ''];
-    if (entry.kind === 'enumMember') lines.push(l10n.t('A value of the `{0}` enum.', def?.name ?? entry.ownerFullName), '');
+    if (entry.kind === 'enumMember')
+        lines.push(l10n.t('A value of the `{0}` enum.', def?.name ?? entry.ownerFullName), '');
     lines.push(`\`${entry.ownerFullName}\``, '', `## ${l10n.t('Values')} (${def?.members.length ?? 0})`, '');
     for (const member of def?.members ?? []) lines.push(`- \`${member}\``);
     return lines;

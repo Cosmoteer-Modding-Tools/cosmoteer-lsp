@@ -76,7 +76,11 @@ export const ValidationForMath: Validation<MathExpressionNode> = {
                 const corrected = mathNameWithCorrectCase(String(child.valueType.value));
                 if (corrected) {
                     return {
-                        message: l10n.t('Unknown name "{0}", did you mean "{1}"?', String(child.valueType.value), corrected),
+                        message: l10n.t(
+                            'Unknown name "{0}", did you mean "{1}"?',
+                            String(child.valueType.value),
+                            corrected
+                        ),
                         node: child,
                         additionalInfo: l10n.t('Math names are case-sensitive, write "{0}"', corrected),
                         data: {

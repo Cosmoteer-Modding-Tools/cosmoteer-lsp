@@ -12,7 +12,15 @@ import {
 } from '../../core/ast/ast';
 import { getStartOfAstNode, namedMembersOf } from '../../utils/ast.utils';
 import { isModRules } from '../../document/document-kind';
-import { ACTION_VERBS, ActionVerb, FLAG_FIELDS, isActionVerb, isTargetField, TARGET_FIELDS, VERB_SCHEMA } from '../../mod/action';
+import {
+    ACTION_VERBS,
+    ActionVerb,
+    FLAG_FIELDS,
+    isActionVerb,
+    isTargetField,
+    TARGET_FIELDS,
+    VERB_SCHEMA,
+} from '../../mod/action';
 import { normalizeTargetPath } from '../../mod/action-target-resolver';
 import { AutoCompletion, Completion, CompletionSuggestion } from './autocompletion.service';
 import { ReferenceAutoCompletionStrategy } from './strategy/reference.autocompletion-strategy';
@@ -135,8 +143,7 @@ export const fieldCompletionsForGroup = (actionGroup: GroupNode | undefined, par
     const typed = partial.toLowerCase();
     return candidates.filter(
         (name) =>
-            name.toLowerCase().startsWith(typed) &&
-            (name.toLowerCase() === typed || !present.has(name.toLowerCase()))
+            name.toLowerCase().startsWith(typed) && (name.toLowerCase() === typed || !present.has(name.toLowerCase()))
     );
 };
 
@@ -190,7 +197,9 @@ const MOD_VALUE_POSITION = /(?:^|[\s{;[])([A-Za-z_]\w*)\s*=\s*("?[^"]*)$/;
 const SOURCE_PREFIXES = ['&<', '&<./Data/', '&/', '&~/'];
 
 /** The source fields of every verb, whose value supplies the data the action adds. */
-const SOURCE_FIELDS = new Set(Object.values(VERB_SCHEMA).flatMap((schema) => schema.sources.map((n) => n.toLowerCase())));
+const SOURCE_FIELDS = new Set(
+    Object.values(VERB_SCHEMA).flatMap((schema) => schema.sources.map((n) => n.toLowerCase()))
+);
 
 /**
  * Completions for the value of one manifest action field.

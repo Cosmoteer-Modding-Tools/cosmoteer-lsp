@@ -116,11 +116,29 @@ export interface MarkupColor {
 /** Something a written tag gets wrong, with the span it was found at. */
 export type MarkupIssue =
     /** An element the reader knows nothing about, which drops the markup of the whole string. */
-    | { readonly kind: 'unknownTag'; readonly name: string; readonly suggestion?: string; readonly start: number; readonly end: number }
+    | {
+          readonly kind: 'unknownTag';
+          readonly name: string;
+          readonly suggestion?: string;
+          readonly start: number;
+          readonly end: number;
+      }
     /** An element the reader knows and nothing ever feeds, so its lookup always throws. */
-    | { readonly kind: 'unusableTag'; readonly name: string; readonly reason: string; readonly start: number; readonly end: number }
+    | {
+          readonly kind: 'unusableTag';
+          readonly name: string;
+          readonly reason: string;
+          readonly start: number;
+          readonly end: number;
+      }
     /** An attribute the element throws without. */
-    | { readonly kind: 'missingAttribute'; readonly name: string; readonly attribute: string; readonly start: number; readonly end: number }
+    | {
+          readonly kind: 'missingAttribute';
+          readonly name: string;
+          readonly attribute: string;
+          readonly start: number;
+          readonly end: number;
+      }
     /** A value the element cannot parse, which throws the same way a missing one does. */
     | {
           readonly kind: 'badValue';
@@ -131,6 +149,19 @@ export type MarkupIssue =
           readonly end: number;
       }
     /** An attribute the element never reads, which the game ignores. */
-    | { readonly kind: 'unknownAttribute'; readonly name: string; readonly attribute: string; readonly suggestion?: string; readonly start: number; readonly end: number }
+    | {
+          readonly kind: 'unknownAttribute';
+          readonly name: string;
+          readonly attribute: string;
+          readonly suggestion?: string;
+          readonly start: number;
+          readonly end: number;
+      }
     /** A colour attribute another one on the same tag already decided, which the game ignores. */
-    | { readonly kind: 'ignoredAttribute'; readonly attribute: string; readonly winner: string; readonly start: number; readonly end: number };
+    | {
+          readonly kind: 'ignoredAttribute';
+          readonly attribute: string;
+          readonly winner: string;
+          readonly start: number;
+          readonly end: number;
+      };

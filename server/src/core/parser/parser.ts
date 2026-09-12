@@ -171,7 +171,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
      */
     const continuesPreviousLine = (token: Token, previous: Token | undefined): boolean =>
         !!previous && token.lineNumber > previous.lineNumber && !token.precededByNewline;
-    
+
     /**
      * Reports a member name the game refuses to read in group or document position. ObjectText reads
      * the name and then requires `=`, `:`, `{`, `[`, a terminator or a line break, and it never lets a
@@ -883,8 +883,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     // Remember the closing `)` so the node's end position spans the whole call,
                     // not just its name: callers (e.g. inlay hints) place markers after it. A
                     // function call that is never closed (`X = ceil(5`) is reported here.
-                    const closeParen =
-                        tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN ? tokens[current] : undefined;
+                    const closeParen = tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN ? tokens[current] : undefined;
                     if (closeParen) {
                         current++;
                     } else {
@@ -898,7 +897,9 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                         name,
                         arguments: args,
                         position: {
-                            characterEnd: closeParen ? closeParen.lineOffset + 1 : token.lineOffset + (name?.length ?? 0),
+                            characterEnd: closeParen
+                                ? closeParen.lineOffset + 1
+                                : token.lineOffset + (name?.length ?? 0),
                             characterStart: token.lineOffset,
                             end: closeParen?.end ?? tokens[current - 1]?.start ?? 0,
                             line: closeParen?.lineNumber ?? token.lineNumber,
@@ -1035,8 +1036,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     // parenthesized group (e.g. `(6/1)` or `((&~/SIZE/0)/2)`). A missing `)`,
                     // whether a stray non-paren token interrupted the group or the file ended
                     // mid-expression (`X = (5 + 3`), leaves `closeParen` undefined and is reported.
-                    const closeParen =
-                        tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN ? tokens[current] : undefined;
+                    const closeParen = tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN ? tokens[current] : undefined;
                     if (!closeParen) {
                         errors.push({
                             message: l10n.t('Expected right paren'),
@@ -1120,7 +1120,12 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     type: 'Assignment',
                     assignmentType: 'Equals',
                     parent,
-                    left: { type: 'Identifier', name: token.value, parent, position: tokenPosition(token) } as IdentifierNode,
+                    left: {
+                        type: 'Identifier',
+                        name: token.value,
+                        parent,
+                        position: tokenPosition(token),
+                    } as IdentifierNode,
                     right: valueIsEmpty ? null : continueMathExpression(walk(_lastNode, parent), parent),
                 } as AssignmentNode;
             } else if (
@@ -1153,7 +1158,12 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     position: tokenPosition(token),
                 } as ValueNode;
             } else {
-                node = { type: 'Identifier', name: token.value, parent, position: tokenPosition(token) } as IdentifierNode;
+                node = {
+                    type: 'Identifier',
+                    name: token.value,
+                    parent,
+                    position: tokenPosition(token),
+                } as IdentifierNode;
                 // The game accepts a bare `&…` reference only as a list element or a field
                 // value. In group or document position it throws `Unexpected "&"` and the whole
                 // file fails to load, so report it as a parse error while keeping the node for
@@ -1289,10 +1299,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 // pipebase.rules `ProxyableComponents`) is one element: a group inheriting from the
                 // ref with a `{}` override. Consuming the `;` here lets the body attach. Without it
                 // the `;` and `{ … }` leaked out and desynced the enclosing list's bracket matching.
-                if (
-                    tokens[current]?.type === TOKEN_TYPES.COMMA ||
-                    tokens[current]?.type === TOKEN_TYPES.SEMICOLON
-                ) {
+                if (tokens[current]?.type === TOKEN_TYPES.COMMA || tokens[current]?.type === TOKEN_TYPES.SEMICOLON) {
                     current++;
                     continue;
                 }
