@@ -1,5 +1,6 @@
 import * as l10n from '@vscode/l10n';
-import { CodeAction, CodeActionKind } from 'vscode-languageserver/node';
+import { CodeAction, CodeActionKind, Diagnostic, TextEdit } from 'vscode-languageserver/node';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { extractValueCodeAction } from '../../features/refactor/extract-value';
 import { inlineValueCodeAction } from '../../features/refactor/inline-value';
 import { makeModifiableCodeActions } from '../../features/refactor/make-modifiable';
@@ -27,6 +28,260 @@ import { connection, documents } from '../context';
 import { ensureParserResult, openBufferReadOverride } from '../open-documents';
 import { reachableFileFilter } from '../validation-scope';
 import { searchFolderPaths, searchFolderUris, workspaceFolderPaths } from '../workspace-folders';
+
+/** A quoted value as the author wrote it, with the `@` of a raw string kept apart from the body. */
+const QUOTED_VALUE = /^(@?)"([\s\S]*)"$/;
+
+/** The name a fix title names in quotes, which is the text the fix's span is meant to cover. */
+const QUOTED_IN_TITLE = /'([^']+)'/;
+
+/** A byte span a fix carries, measured while the file was validated. */
+interface FixSpan {
+    /** The inclusive start byte offset. */
+    readonly start: number;
+    /** The exclusive end byte offset. */
+    readonly end: number;
+}
+
+/**
+ * Whether the client asked for actions of this kind. The protocol matches a requested kind against
+ * an offered one by prefix, so a request for `quickfix` also asks for `quickfix.foo`.
+ *
+ * @param only the kinds the request was restricted to, absent when it asked for everything.
+ * @param kind the kind an action would be offered under.
+ * @returns true when the action may be offered.
+ */
+const wantsKind = (only: string[] | undefined, kind: string): boolean =>
+    !only || only.some((requested) => kind === requested || kind.startsWith(`${requested}.`));
+
+/**
+ * The replacement text of a did-you-mean fix, written back with the quoting the text it replaces
+ * carries. The suggestion itself is a bare name, and the flagged range covers the whole written
+ * value, so replacing one with the other used to turn `File = "icno.png"` into `File = icon.png`,
+ * which the game reads as a different kind of value entirely.
+ *
+ * @param current the text the fix replaces, as it stands in the file.
+ * @param newText the suggestion, as the diagnostic carries it.
+ * @returns the text to write.
+ */
+export const quotedLikeSource = (current: string, newText: string): string => {
+    const quoted = QUOTED_VALUE.exec(current);
+    if (!quoted || QUOTED_VALUE.test(newText)) return newText;
+    // A raw string takes its body verbatim, a plain one needs its quotes and backslashes escaped.
+    const body = quoted[1] === '@' ? newText : newText.replace(/["\\]/g, (char) => `\\${char}`);
+    return `${quoted[1]}"${body}"`;
+};
+
+/**
+ * Whether a fix's span still sits where the finding is underlined: it starts with the range, ends
+ * with it, or encloses it. Every producer places its span in one of those three relations to the
+ * node it reports, and an edit above the finding breaks all three at once.
+ *
+ * @param start the finding's current start byte offset.
+ * @param end the finding's current end byte offset.
+ * @param span the span the fix carries.
+ * @returns true while the span and the range still agree.
+ */
+const anchoredOnFinding = (start: number, end: number, span: FixSpan): boolean =>
+    span.start === start || span.end === end || (span.start <= start && span.end >= end);
+
+/**
+ * Whether the byte offsets a fix carries still describe the text they were measured on.
+ *
+ * The offsets are taken during validation and the fix is applied against whatever the buffer holds
+ * when the author picks it. The client moves a diagnostic's range along with the edits in between,
+ * but it never moves the offsets in its `data`, so a single line typed above the finding is enough
+ * to make them name a different piece of text, which the fix would then delete. A span that no
+ * longer lines up with the range is refused rather than applied blind.
+ *
+ * @param doc the buffer the fix would be applied to.
+ * @param diagnostic the finding the fix hangs off, whose range the client keeps current.
+ * @param spans the byte spans the fix would rewrite.
+ * @param expected text the spans must still contain, when the fix names it.
+ * @returns true while every span is safe to use.
+ */
+export const fixOffsetsAreCurrent = (
+    doc: TextDocument,
+    diagnostic: Diagnostic,
+    spans: readonly FixSpan[],
+    expected?: string
+): boolean => {
+    const text = doc.getText();
+    const start = doc.offsetAt(diagnostic.range.start);
+    const end = doc.offsetAt(diagnostic.range.end);
+    for (const span of spans) {
+        if (span.start < 0 || span.end > text.length || span.start > span.end) return false;
+        // An insertion writes text without taking any away, and the manifest fixes deliberately
+        // write at an offset of their own rather than at the finding, so neither is judged here.
+        if (span.start === span.end) continue;
+        if (!anchoredOnFinding(start, end, span)) return false;
+        if (expected !== undefined && !text.slice(span.start, span.end).includes(expected)) return false;
+    }
+    return true;
+};
+
+/**
+ * The edits of the deterministic fixes one finding carries: a migration rewrite, else the removal
+ * of something the game already ignores. A did-you-mean replacement is left out on purpose, since
+ * the closest name is a guess and a fix-all must not apply guesses.
+ *
+ * @param doc the buffer the fixes would be applied to.
+ * @param diagnostic the finding.
+ * @returns the edits, empty when the finding carries no such fix or its offsets went stale.
+ */
+const safeFixEdits = (doc: TextDocument, diagnostic: Diagnostic): TextEdit[] => {
+    const data = diagnostic.data as ValidationErrorData | undefined;
+    if (data?.rewrite && fixOffsetsAreCurrent(doc, diagnostic, data.rewrite.edits)) {
+        return data.rewrite.edits.map((edit) => rewriteEdit(doc, edit));
+    }
+    if (data?.remove && fixOffsetsAreCurrent(doc, diagnostic, [data.remove], QUOTED_IN_TITLE.exec(data.remove.title)?.[1])) {
+        return [{ range: removalRange(doc, data.remove.start, data.remove.end), newText: '' }];
+    }
+    return [];
+};
+
+/**
+ * An insertion in the client's terms, from the byte offset and the text a scaffold fix computed.
+ *
+ * @param doc the buffer the fix would be applied to.
+ * @param insertion the offset to write at and the text to write.
+ * @returns the edit in the client's terms.
+ */
+const editOf = (doc: TextDocument, insertion: { offset: number; newText: string }): TextEdit => {
+    const position = doc.positionAt(insertion.offset);
+    return { range: { start: position, end: position }, newText: insertion.newText };
+};
+
+/**
+ * One edit of a rewrite fix, with the whole-line widening a removal gets so it leaves no blank line.
+ *
+ * @param doc the buffer the fix would be applied to.
+ * @param edit the byte-offset edit the fix carries.
+ * @returns the edit in the client's terms.
+ */
+const rewriteEdit = (doc: TextDocument, edit: { start: number; end: number; newText: string }): TextEdit =>
+    edit.newText === ''
+        ? { range: removalRange(doc, edit.start, edit.end), newText: '' }
+        : {
+              range: { start: doc.positionAt(edit.start), end: doc.positionAt(edit.end) },
+              newText: edit.newText,
+          };
+
+/**
+ * The quick fixes one finding carries that are plain edits of the file it sits in: the did-you-mean
+ * replacement, the multi-edit migration rewrite and the removal. Each is built from the buffer the
+ * fix would be applied to rather than from the text the validation pass saw.
+ *
+ * @param doc the buffer the fixes would be applied to.
+ * @param uri the file the finding sits in.
+ * @param diagnostic the finding.
+ * @returns the actions, in the order they are offered.
+ */
+export const textFixActions = (doc: TextDocument, uri: string, diagnostic: Diagnostic): CodeAction[] => {
+    const data = diagnostic.data as ValidationErrorData | undefined;
+    const actions: CodeAction[] = [];
+    if (data?.quickFix) {
+        // The suggestion is a bare name and the flagged range can cover a quoted value, so the
+        // quoting the author wrote is put back around it.
+        const newText = quotedLikeSource(doc.getText(diagnostic.range), data.quickFix.newText);
+        actions.push({
+            title: data.quickFix.title,
+            kind: CodeActionKind.QuickFix,
+            diagnostics: [diagnostic],
+            isPreferred: true,
+            edit: { changes: { [uri]: [{ range: diagnostic.range, newText }] } },
+        });
+    }
+    // A rewrite (multi-edit migration, e.g. `Flammable = false` → TypeCategories entry) is offered
+    // before the plain removal and preferred over it: it preserves the author's intent where the
+    // removal would drop it. A rewrite saying exactly what the did-you-mean fix above already says
+    // (one edit, the flagged range, the same text) is dropped rather than offered twice.
+    const restated =
+        !!data?.quickFix &&
+        data.rewrite?.edits.length === 1 &&
+        data.rewrite.edits[0].newText === data.quickFix.newText &&
+        data.rewrite.edits[0].start === doc.offsetAt(diagnostic.range.start) &&
+        data.rewrite.edits[0].end === doc.offsetAt(diagnostic.range.end);
+    if (data?.rewrite && !restated && fixOffsetsAreCurrent(doc, diagnostic, data.rewrite.edits)) {
+        actions.push({
+            title: data.rewrite.title,
+            kind: CodeActionKind.QuickFix,
+            diagnostics: [diagnostic],
+            isPreferred: true,
+            edit: { changes: { [uri]: data.rewrite.edits.map((edit) => rewriteEdit(doc, edit)) } },
+        });
+    }
+    if (data?.remove) {
+        const expected = QUOTED_IN_TITLE.exec(data.remove.title)?.[1];
+        if (fixOffsetsAreCurrent(doc, diagnostic, [data.remove], expected)) {
+            actions.push({
+                title: data.remove.title,
+                kind: CodeActionKind.QuickFix,
+                diagnostics: [diagnostic],
+                isPreferred: !data.rewrite,
+                edit: {
+                    changes: { [uri]: [{ range: removalRange(doc, data.remove.start, data.remove.end), newText: '' }] },
+                },
+            });
+        }
+    }
+    return actions;
+};
+
+/**
+ * The one `source.fixAll` action for a file: every deterministic fix its findings carry, merged into
+ * a single edit so a whole file's deprecations and dead members go in one step instead of one
+ * lightbulb at a time. Overlapping edits are dropped rather than merged, since two fixes rewriting
+ * the same bytes cannot both be right.
+ *
+ * @param doc the buffer the fixes would be applied to.
+ * @param uri the file the findings sit in.
+ * @param context the request's context, which carries the findings and the kinds asked for.
+ * @returns the action, or nothing when no finding carries such a fix.
+ */
+export const fixAllAction = (
+    doc: TextDocument,
+    uri: string,
+    context: { only?: string[]; diagnostics: Diagnostic[] }
+): CodeAction[] => {
+    if (!wantsKind(context.only, CodeActionKind.SourceFixAll)) return [];
+    const taken: Array<{ start: number; end: number }> = [];
+    const edits: TextEdit[] = [];
+    const fixed: Diagnostic[] = [];
+    for (const diagnostic of context.diagnostics) {
+        const candidates = safeFixEdits(doc, diagnostic);
+        if (candidates.length === 0) continue;
+        const spans = candidates.map((edit) => ({
+            start: doc.offsetAt(edit.range.start),
+            end: doc.offsetAt(edit.range.end),
+        }));
+        if (spans.some((span) => taken.some((other) => span.start < other.end && other.start < span.end))) continue;
+        taken.push(...spans);
+        edits.push(...candidates);
+        fixed.push(diagnostic);
+    }
+    if (edits.length === 0) return [];
+    return [
+        {
+            title: l10n.t('Apply all safe fixes in this file ({0})', fixed.length),
+            kind: CodeActionKind.SourceFixAll,
+            diagnostics: fixed,
+            edit: { changes: { [uri]: edits } },
+        },
+    ];
+};
+
+/**
+ * The fix-all action for the buffer the request names, or nothing when the file is not open.
+ *
+ * @param uri the file the request is about.
+ * @param context the request's context.
+ * @returns the action, or nothing.
+ */
+const fixAllActionFor = (uri: string, context: { only?: string[]; diagnostics: Diagnostic[] }): CodeAction[] => {
+    const doc = documents.get(uri);
+    return doc ? fixAllAction(doc, uri, context) : [];
+};
 
 /**
  * Registers the code-action request: the refactorings offered on the tree under the caret and the
@@ -183,57 +438,13 @@ export function register(): void {
                 if (clone) actions.push(clone);
             }
         }
+        if (!wantsKind(params.context.only, CodeActionKind.QuickFix)) {
+            return [...actions, ...fixAllActionFor(params.textDocument.uri, params.context)];
+        }
         for (const diagnostic of params.context.diagnostics) {
             const data = diagnostic.data as ValidationErrorData | undefined;
-            if (data?.quickFix) {
-                actions.push({
-                    title: data.quickFix.title,
-                    kind: CodeActionKind.QuickFix,
-                    diagnostics: [diagnostic],
-                    isPreferred: true,
-                    edit: {
-                        changes: {
-                            [params.textDocument.uri]: [{ range: diagnostic.range, newText: data.quickFix.newText }],
-                        },
-                    },
-                });
-            }
-            // A rewrite (multi-edit migration, e.g. `Flammable = false` → TypeCategories entry) is
-            // offered before the plain removal and preferred over it: it preserves the author's intent
-            // where the removal would drop it.
-            if (data?.rewrite) {
-                const doc = documents.get(params.textDocument.uri);
-                if (doc) {
-                    const edits = data.rewrite.edits.map((edit) =>
-                        edit.newText === ''
-                            ? { range: removalRange(doc, edit.start, edit.end), newText: '' }
-                            : {
-                                  range: { start: doc.positionAt(edit.start), end: doc.positionAt(edit.end) },
-                                  newText: edit.newText,
-                              }
-                    );
-                    actions.push({
-                        title: data.rewrite.title,
-                        kind: CodeActionKind.QuickFix,
-                        diagnostics: [diagnostic],
-                        isPreferred: true,
-                        edit: { changes: { [params.textDocument.uri]: edits } },
-                    });
-                }
-            }
-            if (data?.remove) {
-                const doc = documents.get(params.textDocument.uri);
-                if (doc) {
-                    const range = removalRange(doc, data.remove.start, data.remove.end);
-                    actions.push({
-                        title: data.remove.title,
-                        kind: CodeActionKind.QuickFix,
-                        diagnostics: [diagnostic],
-                        isPreferred: !data.rewrite,
-                        edit: { changes: { [params.textDocument.uri]: [{ range, newText: '' }] } },
-                    });
-                }
-            }
+            const doc = documents.get(params.textDocument.uri);
+            if (doc) actions.push(...textFixActions(doc, params.textDocument.uri, diagnostic));
             // The same deprecation usually repeats across a mod, one `Flammable = false` per part file,
             // so the whole-mod fix is offered beside the single-file one. It carries a command rather
             // than an edit: which files change is only known after a sweep, which must not happen while
@@ -244,7 +455,6 @@ export function register(): void {
             // a command rather than an edit, since which kind of component it is cannot be read off the
             // reference and only the author knows it.
             if (data?.createComponent) {
-                const doc = documents.get(params.textDocument.uri);
                 if (doc) {
                     const args: CreateComponentArgs = {
                         uri: params.textDocument.uri,
@@ -316,19 +526,16 @@ export function register(): void {
             // is the fix's, not the author's, so it must not be applied without being looked at.
             if (data?.insertRequiredFields) {
                 const insert = data.insertRequiredFields;
-                const doc = documents.get(params.textDocument.uri);
                 const field = insert.fields.at(insert.fieldIndex);
-                if (doc && field) {
+                if (doc && field && doc.offsetAt(diagnostic.range.end) <= insert.offset) {
                     const text = doc.getText();
-                    const position = doc.positionAt(insert.offset);
-                    const range = { start: position, end: position };
                     const one = requiredFieldInsertText(text, insert, [field]);
                     if (one !== null) {
                         actions.push({
                             title: l10n.t("Insert the missing required field '{0}'", field.name),
                             kind: CodeActionKind.QuickFix,
                             diagnostics: [diagnostic],
-                            edit: { changes: { [params.textDocument.uri]: [{ range, newText: one }] } },
+                            edit: { changes: { [params.textDocument.uri]: [editOf(doc, one)] } },
                         });
                     }
                     // One fix for the whole group, so a component short several fields is scaffolded in
@@ -339,12 +546,12 @@ export function register(): void {
                             title: l10n.t('Insert the {0} missing required fields', insert.fields.length),
                             kind: CodeActionKind.QuickFix,
                             diagnostics: [diagnostic],
-                            edit: { changes: { [params.textDocument.uri]: [{ range, newText: all }] } },
+                            edit: { changes: { [params.textDocument.uri]: [editOf(doc, all)] } },
                         });
                     }
                 }
             }
         }
-        return actions;
+        return [...actions, ...fixAllActionFor(params.textDocument.uri, params.context)];
     });
 }

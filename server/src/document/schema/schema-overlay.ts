@@ -244,9 +244,19 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
             optional: true,
         },
     ],
-    // `ProxyRules` is embedded inline by every proxy part (below). Its `ComponentID` lives on a nested
-    // helper class in C#, so neither reflection nor the IL scan sees it, but the OT writes it directly.
-    'Cosmoteer.Ships.Parts.Logic.ProxyRules': [{ name: 'ComponentID', valueType: COMPONENT_REF, optional: true }],
+    // `ProxyRules` is embedded inline by every proxy part (below). Its `ComponentID` and `PartCriteria`
+    // live on the nested `ProxyableComponent` helper class in C#, so neither reflection nor the IL scan
+    // sees them, but the OT writes them directly: the constructor falls back to
+    // `reader.Read<ProxyableComponent>()` on the proxy's own node when no `ProxyableComponents` list is
+    // written, so the single-component shorthand reads both classes from the one group.
+    'Cosmoteer.Ships.Parts.Logic.ProxyRules': [
+        { name: 'ComponentID', valueType: COMPONENT_REF, optional: true },
+        {
+            name: 'PartCriteria',
+            valueType: { kind: 'group', ref: 'Cosmoteer.Ships.Parts.RelativePartCriteria', name: 'RelativePartCriteria' },
+            optional: true,
+        },
+    ],
     // A bullet emitter reads the resources it consumes and the storage they come from.
     'Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules': [
         { name: 'ResourcesUsed', valueType: MODIFIABLE_FLOAT, optional: true },

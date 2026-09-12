@@ -230,7 +230,8 @@ describe('creating an asteroid type', () => {
         const hard = read(`${folder}/deposit_glow_ore_3x_hard.rules`);
         expect(hard).toContain('NameKey = "Parts/GlowOreDeposit3xHard"');
         expect(hard).toContain('IconNameKey = "Parts/GlowOreDeposit3xHardIcon"');
-        expect(hard).toContain('DescriptionKey = "Resource/IronHardDesc"');
+        // The game ships a `HardDesc` for the laser-mined resources only, so the type declares its own.
+        expect(hard).toContain('DescriptionKey = "Parts/GlowOreDepositHardDesc"');
         expect(hard).toContain('ID = test.deposit_glow_ore_3x_hard');
         expect(hard).toContain('MaxHealth = 20000');
         expect(hard).toContain('IsCrewSalvageable = false');
@@ -304,6 +305,7 @@ describe('creating an asteroid type', () => {
             'Parts/GlowOreDeposit3xIcon',
             'Parts/GlowOreDeposit3xHard',
             'Parts/GlowOreDeposit3xHardIcon',
+            'Parts/GlowOreDepositHardDesc',
         ]);
         expect(result.localizationFiles.map((file) => file.split('/').pop())).toEqual(['de.rules', 'en.rules']);
         for (const language of ['en', 'de']) {
@@ -313,6 +315,10 @@ describe('creating an asteroid type', () => {
             expect(strings).toContain('GlowOreDeposit2xIcon = "Glow Ore (2x Soft)"');
             expect(strings).toContain('GlowOreDeposit2xHard = "Glow Ore Deposit (2x Hard)"');
             expect(strings).toContain('GlowOreDeposit2xHardIcon = "Glow Ore (2x Hard)"');
+            // The hard description composes the resource's own text and the game's mining-laser line.
+            expect(strings).toContain(
+                `GlowOreDepositHardDesc = "<string id='Resource/IronDesc'/>\\n\\n<string id='Resource/NotMineable'/>"`
+            );
             expect(parseErrorsOf(`${MOD_DIR}/strings/${language}.rules`)).toEqual([]);
         }
         expect(result.changedFiles).toContain(`${MOD_DIR}/mod.rules`);

@@ -2,6 +2,42 @@
 
 ## [Unreleased]
 
+### Added
+
+- A value that divides by zero is now reported. The game reads it as NaN, which a fractional field keeps as its value and a whole-number field refuses with an overflow while it loads, so the same expression is a silent wrong number in one field and a file the game will not load in another. Turn it off with `cosmoteerLSPRules.diagnostics.validateDivisionByZero`.
+
+### Fixed
+
+- Arithmetic is now computed the way the game computes it, in decimal. `10 / 3 * 3` reads 9.99999999999999 rather than 10, so `floor` of it reads 9 and a whole-number field fed such an expression is no longer shown as fine when the game refuses it.
+- `round` now takes the two arguments the game's parser demands and rounds halves away from zero, so `round(-2.5, 0)` is -3.
+- A math name the game has no function for is now reported rather than computed. `pow`, `atan2`, `cbrt`, `sign`, `sum`, `avg` and `lg` all look like they work and all stop the game loading the file. The part table's formula columns keep them, since a column is never read by the game.
+- Math names are now matched exactly, as the game matches them, and a name that is only miscased is offered the spelling that works. `Sqrt(16)` and `PI` used to compute a number.
+- A call whose arguments carry a comma is now reported unless it is quoted, because a comma ends a value. The same goes for a reference written bare in an expression, where only `(&path)` is substituted.
+- An expression written in quotes is now evaluated, so the hover and the hint show its value. That is the form the game's own files use for every call with a comma in it.
+- A percentage multiplied by a reference is no longer labelled a percentage, which read a recoil as 3000%.
+- Signature help now reads only the line the cursor is on and ignores what a comment or an escaped quote says.
+- A string left without its closing quote now ends at the end of its line, the way the game's own reader ends it, and is reported on the quote that opened it. Typing a quote in front of a word that was already there used to swallow the rest of the file.
+- A value left half written no longer takes the member below it. A line ending in an operator, in a sign, or in a call that is still open used to absorb the next field, which then disappeared.
+- A member written as `Name : Base` before its braces are typed is now kept, with the base it names, so completion and go to definition work while it is being written.
+- Colouring now covers exactly what is written. A negative number no longer paints the bracket after it, a value written across several lines no longer paints past its own line, and `90d` and `1.5r` read as the numbers they are.
+- The formatter no longer puts spaces around punctuation that belongs to a value, so `Key = a:b` and a written-out address keep their meaning.
+- Required now means what the game's deserializer means by it, which brings 319 more fields into the check, and the scaffold offered by completion lists the same fields the check reports as missing.
+- A component whose name happens to match an inheritance base somewhere else in the project is no longer skipped by the required-field check.
+- A quick fix whose offsets no longer match the text is refused instead of applied to the wrong place, and a did-you-mean fix keeps the quotes of a quoted value.
+- Completion inside an inheritance header now offers the bases rather than the field names, and it does so before the braces are typed. Reference paths walk the inheritance chain, `Action = ` offers the verbs, and a comment or a finished value offers nothing.
+- A reference that hops through a base, an alias or a list element now finds what the mod itself adds, and an `Add` naming a member of a whole game file resolves through the file's own alias.
+- A mod whose actions live in a fragment list not named `Actions` is now read as actions rather than as ordinary rules.
+- A member an action creates is now known to the rest of the mod even when the action that creates it lives in an included fragment rather than in the manifest. A second action writing into that member used to be reported as a target the game does not have.
+- A `.txt` file counts as rules content only when the project actually reaches it, through a `.rules` file or through another `.txt` that file reaches in turn. A folder of renamed leftovers that name only each other is no longer read as rules and no longer reports anything.
+- Renaming a middle segment of a reference path now renames that segment rather than the one at the end.
+- The colour picker no longer flattens a channel it did not change, a colour group written in mixed forms shows its real alpha, and colours written as hue and saturation, as a shader constant list, or as a name all get a swatch.
+- Every shader the game ships now translates to GLSL that compiles, so the preview shows the shader rather than a stand-in. A colour constant written with arithmetic renders its own colour, a particle def written at file scope shows its ramp, and an include resolves the way the game resolves it.
+- A colour written as a single word that names no colour the engine knows is now reported. Turn it off with `cosmoteerLSPRules.diagnostics.validateColorValues`.
+- A manifest whose `CompatibleGameVersions` names no version the installed game accepts is now reported, with a fix that sets the current version, and migrating a workspace brings the manifest to that version first.
+- A project that opens no folder no longer leaves the server silent for the rest of the session, and a failure during startup is written to the log instead of vanishing.
+
+## 1.0.1 - 2026-09-07
+
 ### Fixed
 
 - An asset path is now checked the way the game reads it, against the folder of the file it is written in only. A group inheriting a base from another folder no longer had that folder tried as well, which reported a path the game cannot load in one session and not in the next.
@@ -9,6 +45,7 @@
 - Path completion now works inside a list of assets such as `RandomSounds = [""]`, and in a group that gets its class only through a base in another file, such as `CrewEnterEffects : /BASE_SOUNDS/AudioInterior`. Before, nothing was offered there until a slash was typed.
 - Everything written inside such a group is now understood as well: a nested group such as `DynamicVolume { … }`, the elements of an enum list, the `Type =` of a group in a list, and a cross-file id such as `SpecificFaction = …`. Field and value completion, hover, go to definition, rename and the checks were all silent there before.
 - `Flammable = false` on a part without a `TypeCategories` list of its own is now migrated too. The fix writes `TypeCategories : ^/0/TypeCategories [non_flammable]`, extending the list the part inherits the way the game's own files do, when a base of the part declares that list. Before, such a part was only listed for review, which is what most parts written against an older game are, since they inherit the list from the game's base part.
+- The station generation command created the station icon with the wrong path, which could lead to a crash.
 - The arrows of the resource flow and the firing chain were drawn as filled shapes rather than lines, so an arrow that bowed back to an earlier box covered the drawing as a solid sail and two arrows side by side read as one thick one. They are lines again.
 - The words of an arrow, the amount, the resource and how often it moves, or the member that fires, are now written on the arrow itself rather than kept for its tooltip, so a heat line is told from a battery line without hovering each one.
 - Every resource has its own arrow colour in the resource flow, and every chain its own in the firing chain, named after the trigger it starts from, with a swatch per colour in the legend. Before, every arrow was the one green the boxes that move resources also had, and a part with twenty crossing arrows read as one tangle.

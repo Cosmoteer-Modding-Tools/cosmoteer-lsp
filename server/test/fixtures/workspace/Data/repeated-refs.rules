@@ -11,3 +11,8 @@ Repeated
 	R2 = &~/MemoBase/V
 	R3 = &~/MemoBase/V
 }
+
+// A key whose value is a whole file: the file has no name of its own, so the key is the symbol
+// other files write. Guards find-all-references and rename on that shape.
+AliasedFile = &<./Data/c.rules>
+UsesAlias = &AliasedFile/C/Leaf

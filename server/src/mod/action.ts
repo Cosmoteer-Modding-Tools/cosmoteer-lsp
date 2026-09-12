@@ -4,6 +4,7 @@ import {
     GroupNode,
     ValueNode,
     isAssignmentNode,
+    isDocumentNode,
     isGroupNode,
     isListNode,
     isValueNode,
@@ -83,6 +84,10 @@ export const VERB_SCHEMA: Record<ActionVerb, VerbSchema> = {
         sources: ['ToAdd'],
         flags: ['OnlyIfNotExisting', 'CreateIfNotExisting', 'IgnoreIfNotExisting'],
         required: ['AddTo', 'ToAdd'],
+        // `ModAddAction.ApplyAction` throws "must be a file, {} group node, or [] list node" on
+        // anything else, and a whole file is one of the three it accepts.
+        targetShape: 'container',
+        allowsWholeFileTarget: true,
         named: 'Name',
         optionals: ['Index'],
     },
@@ -174,10 +179,6 @@ export type Action = ModAction;
 /** The case-insensitive name of the list that holds action entries, per the game's node lookup. */
 const ACTIONS_LIST_NAME = 'actions';
 
-/** Whether a node is an `Actions` list, matched case-insensitively like the game's node lookup. */
-export const isActionsList = (node: AbstractNode | undefined): node is ListNode =>
-    !!node && isListNode(node) && node.identifier?.name.toLowerCase() === ACTIONS_LIST_NAME;
-
 /** Whether a `{}` group directly declares an `Action = …` field (the game's action-entry marker). */
 const hasActionField = (group: GroupNode): boolean =>
     group.elements.some(
@@ -185,14 +186,53 @@ const hasActionField = (group: GroupNode): boolean =>
     );
 
 /**
+ * Whether a node is a list of mod action entries.
+ *
+ * A manifest writes its own list as `Actions`, but a manifest can also concatenate fragment lists
+ * into it (`Actions : &<ParryList.rules>/ParryList  &<PartOverrides.rules>/PartOverrides`), and
+ * those lists carry whatever name their file gave them. The game reads every entry the manifest's
+ * `Actions` ends up holding, so a top-level list whose entries declare `Action = …` is an actions
+ * list under any name. Requiring the top level keeps a `{ Action = … }` group that happens to sit
+ * in some nested gameplay list from being read as a mod action.
+ *
+ * @param node the node to inspect.
+ * @returns true when the node is a list the game reads action entries from.
+ */
+export const isActionsList = (node: AbstractNode | undefined): node is ListNode => {
+    if (!node || !isListNode(node)) return false;
+    if (node.identifier?.name.toLowerCase() === ACTIONS_LIST_NAME) return true;
+    return (
+        !!node.parent &&
+        isDocumentNode(node.parent) &&
+        node.elements.some((element) => isGroupNode(element) && hasActionField(element))
+    );
+};
+
+/**
  * Whether a `{}` group is a mod action entry: it declares an `Action = …` field and sits directly in
- * an `Actions` list. This is the shape the game reads as an action regardless of which file the group
+ * an actions list. This is the shape the game reads as an action regardless of which file the group
  * lives in, so it identifies action entries in an included fragment file (launcher.rules) exactly as
  * in a mod.rules manifest. The verb text itself is not required to be known here. A typo'd verb is
  * still an action entry, so its target is still exempt from the generic reference checks and the
  * "unknown verb" message comes from {@link import('./action-parser').parseModActions}.
  */
 export const isActionEntryGroup = (group: GroupNode): boolean => hasActionField(group) && isActionsList(group.parent);
+
+/**
+ * Whether a value node is the `Name` of a mod action entry: the key the added member gets, never a
+ * path of any kind. A ship entry keyed `Name = "Small Pirate Lootbox.ship.png"` names a file only by
+ * convention, and reading it as an asset path reports a file the game never looks for.
+ *
+ * @param node the value node to inspect.
+ * @returns true when the node is an action entry's `Name` value.
+ */
+export const isActionNameValueNode = (node: AbstractNode): boolean => {
+    const parent = node.parent;
+    if (!parent || !isGroupNode(parent) || !isActionEntryGroup(parent)) return false;
+    return parent.elements.some(
+        (element) => isAssignmentNode(element) && element.left.name.toLowerCase() === 'name' && element.right === node
+    );
+};
 
 /**
  * Whether a value node is a mod action target path: the right-hand value of a target field

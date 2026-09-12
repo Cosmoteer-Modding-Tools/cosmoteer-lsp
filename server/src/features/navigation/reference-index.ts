@@ -12,9 +12,11 @@ import {
     isValueNode,
     ValueNode,
 } from '../../core/ast/ast';
+import { getStartOfAstNode } from '../../utils/ast.utils';
+import { isModRules } from '../../document/document-kind';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { warmInheritedClasses } from '../completion/inheritance-resolution';
-import { DefinitionService, isReferenceValue } from './definition.service';
+import { isReferenceValue } from './definition.service';
 import {
     dedupeLocations,
     definitionLocationOf,
@@ -32,8 +34,18 @@ import {
     idSymbolAt,
     idSymbolAtMapKey,
 } from './schema-id-symbol';
+import { filePathToUri, SegmentSpan } from './navigation-strategy';
+import {
+    referenceShapeOf,
+    segmentNameRange,
+    namedSegmentAt,
+    segmentTarget,
+    segmentTargetIdentity,
+    segmentTargetKey,
+    segmentsNamed,
+} from './reference-segment';
 import { particleChannelAt, channelOccurrences } from './particle-channel';
-import { documentsMentioning } from './workspace-files';
+import { documentsMatching, documentsMentioning } from './workspace-files';
 
 /**
  * Find-all-references via a targeted, name-pre-filtered search.
@@ -128,44 +140,50 @@ export class ReferenceIndex {
             return dedupeLocations(idSites);
         }
 
-        const targetNode = await this.resolveTargetNode(document, position, cancellationToken);
-        if (!targetNode) return [];
-        const name = definitionNameOf(targetNode);
+        const target = await this.resolveTarget(document, position, cancellationToken);
+        if (!target) return [];
+        const name = definitionNameOf(target.node);
         if (!name) return [];
 
-        const declaration = definitionLocationOf(targetNode);
-        const targetKey = locationKey(declaration);
+        const declaration = definitionLocationOf(target.node);
+        const targetKey = target.key;
         const sites: Location[] = [];
 
         progress?.begin('Searching references', 0, '', false);
         try {
-            for await (const doc of documentsMentioning(folderPaths, name, cancellationToken)) {
-                // References with the same text in the same enclosing container resolve identically
-                // (an OT relative path — `&Name`, `~/…`, `^/N/…`, `..` — is resolved against its
-                // container's scope, which is shared by its siblings). A document that repeats a
-                // reference many times (a big component list, an array of near-identical entries)
-                // would otherwise re-run the full cross-file resolution per copy. Memoize the resolved
-                // target key per (value, container) for the current document, so each distinct
-                // reference is resolved once. Correctness is unaffected: the key never merges two
-                // references that could resolve differently.
-                const resolvedByRef = new Map<string, string | null>();
+            // A file that only declares the name (a `Components` group of its own) can never refer to
+            // this declaration, so the candidate's raw text has to spell the name in a reference
+            // position before it is worth parsing at all. On the Star Wars mod that is most of the
+            // corpus for a name as common as `Part`.
+            const shape = referenceShapeOf(name);
+            for await (const doc of documentsMatching(folderPaths, name, cancellationToken, (text) =>
+                shape.test(text)
+            )) {
+                // References resolving against the same scope resolve identically (an OT relative
+                // path (`&Name`, `^/N/…`, `..`) is resolved against its container's scope, a `~/…`
+                // path against the file root, an absolute one against nothing at all). A document
+                // that repeats a reference many times (a big component list, an array of
+                // near-identical entries) would otherwise re-run the full cross-file resolution per
+                // copy. Memoize the resolved target key per (path prefix, scope) for the current
+                // document, so each distinct lookup is resolved once. Correctness is unaffected: the
+                // key never merges two references that could resolve differently.
+                const resolvedByPrefix = new Map<string, string | null>();
                 for (const reference of referenceNodesOf(doc)) {
-                    // The `name` text must appear in the reference for it to possibly point here.
+                    const spans = segmentsNamed(reference, name);
+                    if (!spans.length) continue;
                     const value = String(reference.valueType.value);
-                    if (!value.includes(name)) continue;
-                    // The container key is a space-free token (a byte offset or `root`), so one space
-                    // joins it to the value unambiguously, even when the value contains a space (a
-                    // `<path with spaces.rules>` file reference).
-                    const memoKey = `${value} ${enclosingContainerKey(reference)}`;
-                    let resolvedKey = resolvedByRef.get(memoKey);
-                    if (resolvedKey === undefined && !resolvedByRef.has(memoKey)) {
-                        const resolved = await DefinitionService.instance
-                            .resolveReferenceLocation(doc, reference, cancellationToken)
-                            .catch(() => null);
-                        resolvedKey = resolved ? locationKey(resolved) : null;
-                        resolvedByRef.set(memoKey, resolvedKey);
+                    const scope = resolutionScopeKey(doc, reference, value);
+                    for (const span of spans) {
+                        // The scope key is a space-free token, so one space joins it to the path
+                        // unambiguously, even when the path holds a `<name with spaces.rules>` part.
+                        const memoKey = `${value.substring(0, span.end)} ${scope}`;
+                        let resolvedKey = resolvedByPrefix.get(memoKey);
+                        if (resolvedKey === undefined && !resolvedByPrefix.has(memoKey)) {
+                            resolvedKey = await segmentTargetKey(doc, reference, span, cancellationToken);
+                            resolvedByPrefix.set(memoKey, resolvedKey);
+                        }
+                        if (resolvedKey === targetKey) sites.push(segmentSiteLocation(reference, span));
                     }
-                    if (resolvedKey === targetKey) sites.push(referenceSiteLocation(reference));
                 }
             }
         } finally {
@@ -186,22 +204,67 @@ export class ReferenceIndex {
         return dedupeLocations(sites);
     }
 
-    /** The definition node the cursor identifies, resolving through a reference if needed. */
-    private async resolveTargetNode(
+    /**
+     * The symbol the cursor identifies: the node whose name the sites spell, and the identity every
+     * site has to resolve to.
+     *
+     * @param document the parsed document the cursor is in.
+     * @param position the cursor position.
+     * @param cancellationToken cancels the cross-file resolution.
+     * @returns the symbol, or null when the cursor names nothing searchable.
+     */
+    private async resolveTarget(
         document: AbstractNodeDocument,
         position: Position,
         cancellationToken: CancellationToken
-    ): Promise<AbstractNode | null> {
+    ): Promise<{ node: AbstractNode; key: string } | null> {
         const found = findReferenceTargetAtPosition(document, position);
         if (!found) return null;
-        if (!isReferenceValue(found)) return resolveSchemaSiblingReference(found) ?? found;
-        const resolved = await DefinitionService.instance
-            .resolveReferenceTarget(document, found, cancellationToken)
-            .catch(() => null);
-        if (!resolved || isFile(resolved as unknown as FileWithPath)) return null;
-        return resolved as AbstractNode;
+        const identity = (node: AbstractNode) => ({ node, key: locationKey(definitionLocationOf(node)) });
+        if (!isReferenceValue(found)) return identity(resolveSchemaSiblingReference(found) ?? found);
+        // The cursor names the segment it sits on, not the path's endpoint, so a mid-path name is
+        // searched for as itself rather than as whatever the rest of the path lands on.
+        const span = namedSegmentAt(found, position);
+        if (!span) return null;
+        const resolved = await segmentTarget(document, found, span, cancellationToken);
+        if (!resolved) return null;
+        // `EditorGroups = &<editor_groups.rules>`: the reference names a whole file, which has no
+        // declaration to search for, but the key it is assigned to has one, and that is what other
+        // files write. The sites reach the file through that key, so the file is what they resolve to.
+        if (isFile(resolved as unknown as FileWithPath)) {
+            return definitionNameOf(found) ? { node: found, key: segmentTargetIdentity(resolved) } : null;
+        }
+        return identity(resolved as AbstractNode);
     }
 }
+
+/**
+ * A key for the scope one reference path is resolved against, so two lookups sharing it are
+ * resolved once. An absolute path (`&<file>/…`, `&/…`) depends on nothing, a runtime-rooted `~/…`
+ * path on the file it is written in, and every other relative form on its enclosing container.
+ *
+ * A `mod.rules` manifest is excluded from the wider keys: the same text is resolved as an action
+ * target there when it sits in a target field and as an ordinary reference when it does not.
+ *
+ * @param document the document the reference lives in.
+ * @param node the reference node.
+ * @param value the reference's path text.
+ * @returns the scope key.
+ */
+const resolutionScopeKey = (document: AbstractNodeDocument, node: AbstractNode, value: string): string => {
+    if (isModRules(document.uri)) return enclosingContainerKey(node);
+    const path = value.startsWith('&') ? value.slice(1) : value;
+    if (path.startsWith('<') || path.startsWith('/')) return 'absolute';
+    if (path.startsWith('~')) return 'file';
+    return enclosingContainerKey(node);
+};
+
+/** The LSP location of one matching segment of a reference, so a long path reports only the part
+ *  that names the symbol. */
+const segmentSiteLocation = (node: ValueNode, span: SegmentSpan): Location => ({
+    uri: filePathToUri(getStartOfAstNode(node).uri),
+    range: segmentNameRange(node, span),
+});
 
 /**
  * The texts to sweep the project for when searching a cross-file id: the id itself, which finds the

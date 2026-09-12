@@ -33,6 +33,19 @@ describe('findNodeAtPosition: inheritance references of empty containers', () =>
         expect(String((node as any).valueType.value)).toBe('^/0/ReceivableBuffs');
     });
 
+    it('leaves a quoted value once the cursor is behind its closing quote', () => {
+        const src = 'Part\n{\n\tNameKey = "Parts/X"\n}';
+        // Column 19 is between the last character and the closing quote, 20 is behind the quote.
+        expect(findNodeAtPosition(parse(src), Position.create(2, 19))).toBeDefined();
+        expect(findNodeAtPosition(parse(src), Position.create(2, 20))).toBeUndefined();
+    });
+
+    it('keeps an unquoted value while the cursor sits right behind it', () => {
+        const src = 'Part\n{\n\tMode = All\n}';
+        const node = findNodeAtPosition(parse(src), Position.create(2, 11));
+        expect(node && isValueNode(node) && String(node.valueType.value)).toBe('All');
+    });
+
     it('still finds a member inside a non-empty inheriting group', () => {
         const src = 'Part\n{\n\tComponents : ^/0/Components\n\t{\n\t\tX = &Y\n\t}\n}';
         const node = findNodeAtPosition(parse(src), Position.create(4, 7));

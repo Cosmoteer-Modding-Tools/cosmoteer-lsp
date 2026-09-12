@@ -4,6 +4,7 @@ import {
     AbstractNodeDocument,
     GroupNode,
     isAssignmentNode,
+    isDocumentNode,
     isGroupNode,
     isListNode,
     isValueNode,
@@ -18,7 +19,7 @@ import { resolveAssetPath } from '../navigation/asset-resolver';
 import { filePathToUri } from '../navigation/navigation-strategy';
 import { normalizeDir } from '../navigation/asset-resolver';
 import { shaderConstants } from './shader-index';
-import { expandShaderSource } from './shader-source';
+import { expandShaderSource, expandShaderSourceDetailed } from './shader-source';
 import { translateToGlsl, type GlslTranslation } from './hlsl-to-glsl';
 import { materialConstants, materialShaderNode } from './shader-reference';
 import { childNamed, numberOf } from '../part-editor/vector-forms';
@@ -71,6 +72,20 @@ export const DEFAULT_ENTRY_DEFINES: readonly string[] = [
     'USE_DEFAULT_VERT_BEAM',
     'USE_DEFAULT_VERT_PARTICLE',
 ];
+
+/**
+ * The default-entry guards worth turning on for one shader. A file that already writes its own `vert`
+ * (vanilla's beam bases do) would get a second, conflicting definition from the base library if the
+ * vertex guards were switched on as well, so only the guards for a stage the file leaves undefined are
+ * added.
+ *
+ * @param expanded the source expanded under the normal defines, which shows what it already defines.
+ * @returns the guards to add on the retry.
+ */
+export const defaultEntryDefinesFor = (expanded: string): string[] =>
+    /\bvert\s*\(/.test(expanded)
+        ? DEFAULT_ENTRY_DEFINES.filter((define) => !define.startsWith('USE_DEFAULT_VERT'))
+        : [...DEFAULT_ENTRY_DEFINES];
 
 /**
  * The engine's named blend modes from `Halfling.Graphics.TargetBlendMode`, in constructor order
@@ -146,9 +161,12 @@ const childText = (group: GroupNode, name: string): string | null => {
  * source text, so it is immune to line-ending and offset drift between the parse and the live document.
  * Handles a scalar (`_z = 0.2`), a list (`_x = [1, 0, 0, 1]`), and a colour group (`_x { Rf = 1 … }`).
  * Returns null for a value built from math or references, which the webview then reads from the text.
+ * One element that is not a plain number fails the whole value: dropping it would hand the webview a
+ * short component list (vanilla's `[0.09 * 255, 0.16 * 255, 0.58 * 255, 255]` became `[255]`, a dark
+ * blue rendered as pure red) instead of letting the text path evaluate the arithmetic.
  *
  * @param node the value node of the constant (an assignment's right side or a group).
- * @returns the components in source order, or null when they are not plain numbers.
+ * @returns the components in source order, or null when they are not all plain numbers.
  */
 const valueComponents = (node: AbstractNode): number[] | null => {
     const single = numberOf(node);
@@ -156,13 +174,10 @@ const valueComponents = (node: AbstractNode): number[] | null => {
     if (isListNode(node) || isGroupNode(node)) {
         const numbers: number[] = [];
         for (const element of node.elements) {
-            if (isAssignmentNode(element) && element.right) {
-                const n = numberOf(element.right);
-                if (n !== null) numbers.push(n);
-            } else {
-                const n = numberOf(element);
-                if (n !== null) numbers.push(n);
-            }
+            const value = isAssignmentNode(element) ? element.right : element;
+            const n = value ? numberOf(value) : null;
+            if (n === null) return null;
+            numbers.push(n);
         }
         return numbers.length ? numbers : null;
     }
@@ -350,6 +365,25 @@ const xyOf = (node: AbstractNode | null): number[] | null => {
 const OPERATOR_LISTS = ['PreInitializers', 'Initializers', 'PostInitializers', 'Updaters'] as const;
 
 /**
+ * The named child of a container that may be a group or the document root. Every vanilla `*_def.rules`
+ * writes the particle def at file scope, so the document node itself holds the `Updaters` list and the
+ * `Renderer` group that a nested def keeps inside a group. An ancestor walk that stops at the document
+ * finds neither.
+ *
+ * @param container the node to read a named child from.
+ * @param name the child's name.
+ * @returns the child's value node, or null when the container has no such child.
+ */
+const namedChildOf = (container: AbstractNode, name: string): AbstractNode | null => {
+    if (!isGroupNode(container) && !isDocumentNode(container)) return null;
+    for (const element of container.elements) {
+        if (isAssignmentNode(element) && element.left.name === name && element.right) return element.right;
+        if ((isGroupNode(element) || isListNode(element)) && element.identifier?.name === name) return element;
+    }
+    return null;
+};
+
+/**
  * Finds the particle system's `UvSprites` sprite-sheet operator for a material, walking the material's
  * ancestors the same way as {@link particleColorOf}. An updater animates through the cells each frame;
  * an initializer picks one cell per particle (still reported, with `animated` false unless it loops).
@@ -359,9 +393,8 @@ const OPERATOR_LISTS = ['PreInitializers', 'Initializers', 'PostInitializers', '
  */
 const spriteSheetOf = (material: GroupNode): ShaderPreviewSpriteSheet | null => {
     for (let current: AbstractNode | undefined = material.parent; current; current = current.parent) {
-        if (!isGroupNode(current)) continue;
         for (const listName of OPERATOR_LISTS) {
-            const list = childNamed(current, listName);
+            const list = namedChildOf(current, listName);
             if (!list || !isListNode(list)) continue;
             for (const element of list.elements) {
                 if (!isGroupNode(element) || !updaterEnabled(element)) continue;
@@ -392,8 +425,7 @@ const spriteSheetOf = (material: GroupNode): ShaderPreviewSpriteSheet | null => 
 /** The particle's lifetime in seconds from the def's `Lifetime` updater, independent of any ramp. */
 const lifetimeOf = (material: GroupNode): number | null => {
     for (let current: AbstractNode | undefined = material.parent; current; current = current.parent) {
-        if (!isGroupNode(current)) continue;
-        const updaters = childNamed(current, 'Updaters');
+        const updaters = namedChildOf(current, 'Updaters');
         if (!updaters || !isListNode(updaters)) continue;
         for (const element of updaters.elements) {
             if (!isGroupNode(element) || !updaterEnabled(element)) continue;
@@ -409,8 +441,7 @@ const lifetimeOf = (material: GroupNode): number | null => {
 /** The particle renderer's `BaseSize`, from the `Renderer` group beside the material, or null. */
 const baseSizeOf = (material: GroupNode): number[] | null => {
     for (let current: AbstractNode | undefined = material.parent; current; current = current.parent) {
-        if (!isGroupNode(current)) continue;
-        const renderer = childNamed(current, 'Renderer');
+        const renderer = namedChildOf(current, 'Renderer');
         if (renderer && isGroupNode(renderer)) {
             const baseSize = xyOf(childNamed(renderer, 'BaseSize'));
             if (baseSize) return baseSize;
@@ -431,8 +462,7 @@ const baseSizeOf = (material: GroupNode): number[] | null => {
  */
 const particleColorOf = (material: GroupNode): ShaderPreviewParticleColor | null => {
     for (let current: AbstractNode | undefined = material.parent; current; current = current.parent) {
-        if (!isGroupNode(current)) continue;
-        const updaters = childNamed(current, 'Updaters');
+        const updaters = namedChildOf(current, 'Updaters');
         if (!updaters || !isListNode(updaters)) continue;
         let lifetime = 1;
         let colors: number[][] | null = null;
@@ -497,6 +527,7 @@ export const buildShaderPreview = async (
         return {
             shaderName: String(shaderNode.valueType.value),
             shaderUri: null,
+            sourceUris: [],
             glsl: null,
             vertexStage: null,
             translationOk: false,
@@ -552,18 +583,26 @@ export const buildShaderPreview = async (
         textures.push(await resolveTexture(value.node, constant.name, document.uri, cancellationToken));
     }
 
-    let expanded = await expandShaderSource(shaderPath, [...PREVIEW_SHADER_DEFINES], dataDir, readOverride).catch(
-        () => ''
-    );
-    let translation: GlslTranslation = expanded
-        ? translateToGlsl(expanded)
-        : { ok: false, reason: 'shader unreadable' };
+    const entry = await expandShaderSourceDetailed(
+        shaderPath,
+        [...PREVIEW_SHADER_DEFINES],
+        dataDir,
+        readOverride
+    ).catch(() => ({ text: '', unresolved: [] as readonly string[], files: [] as readonly string[] }));
+    let expanded = entry.text;
+    // An unresolved include leaves the expansion missing the structs and helpers the shader is written
+    // against, so whatever the translator then says about it is misleading. Report the include instead.
+    let translation: GlslTranslation = entry.unresolved.length
+        ? { ok: false, reason: `cannot resolve include '${entry.unresolved[0]}'` }
+        : expanded
+          ? translateToGlsl(expanded)
+          : { ok: false, reason: 'shader unreadable' };
     // An include-library shader keeps its entry points behind USE_DEFAULT_… guards; retry with the
     // guards defined so previewing such a file shows the default pipeline instead of failing.
     if (!translation.ok && translation.reason === 'no recognizable pix entry point') {
         const withDefaults = await expandShaderSource(
             shaderPath,
-            [...PREVIEW_SHADER_DEFINES, ...DEFAULT_ENTRY_DEFINES],
+            [...PREVIEW_SHADER_DEFINES, ...defaultEntryDefinesFor(expanded)],
             dataDir,
             readOverride
         ).catch(() => '');
@@ -587,6 +626,7 @@ export const buildShaderPreview = async (
     return {
         shaderName: String(shaderNode.valueType.value),
         shaderUri: filePathToUri(shaderPath),
+        sourceUris: (entry.files.length ? entry.files : [shaderPath]).map(filePathToUri),
         glsl: translation.ok ? translation.glsl! : null,
         vertexStage: (translation.ok && translation.vertex) || null,
         translationOk: translation.ok,

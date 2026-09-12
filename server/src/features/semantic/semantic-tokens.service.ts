@@ -27,6 +27,10 @@ import {
  * IntelliJ LSP highlighter, so one implementation colours both editors.
  */
 
+// Line splitting for the clamp below, kept out of the loop that uses them.
+const LINE_BREAK = /\r?\n/;
+const CARRIAGE_RETURN = /\r$/;
+
 /** A single token before delta-encoding, captured so the whole set can be sorted by position first. */
 interface RawToken {
     readonly line: number;
@@ -42,11 +46,16 @@ interface RawToken {
  * rule without clamping.
  *
  * @param document the parsed document to highlight.
+ * @param text the document's source, used to keep a token inside the line it starts on. A value
+ * that runs over several lines (a verbatim string, a continued one) carries the whole span in one
+ * position, and a token reaching past its line is one the editor cannot place.
  * @returns the delta-encoded tokens for `textDocument/semanticTokens/full`.
  */
-export const buildSemanticTokens = (document: AbstractNodeDocument): SemanticTokens => {
-    const tokens: RawToken[] = [];
-    for (const element of document.elements) collectNode(element, true, tokens);
+export const buildSemanticTokens = (document: AbstractNodeDocument, text?: string): SemanticTokens => {
+    const collected: RawToken[] = [];
+    for (const element of document.elements) collectNode(element, true, collected);
+
+    const tokens = text === undefined ? collected : clampToLines(collected, text);
 
     // The builder demands tokens in document order. Node traversal is mostly ordered but a value's
     // sub-tokens (reference, operators) can interleave, so sort defensively before encoding.
@@ -55,6 +64,26 @@ export const buildSemanticTokens = (document: AbstractNodeDocument): SemanticTok
     const builder = new SemanticTokensBuilder();
     for (const token of tokens) builder.push(token.line, token.char, token.length, token.type, token.modifiers);
     return builder.build();
+};
+
+/**
+ * Cut every token back to the line it starts on.
+ *
+ * A value that runs over several lines, a verbatim string or one the author continued, carries the
+ * whole span in a single position, and a token reaching past the end of its line is one the editor
+ * cannot place.
+ *
+ * @param tokens the tokens the walk collected.
+ * @param text the document's source.
+ * @returns the tokens, each no longer than the rest of its own line.
+ */
+const clampToLines = (tokens: readonly RawToken[], text: string): RawToken[] => {
+    const lineLengths = text.split(LINE_BREAK).map((line) => line.replace(CARRIAGE_RETURN, '').length);
+    return tokens.map((token) => {
+        const lineLength = lineLengths[token.line];
+        if (lineLength === undefined || token.char + token.length <= lineLength) return token;
+        return { ...token, length: Math.max(0, lineLength - token.char) };
+    });
 };
 
 /** Pushes a token for a node's own single-line position span (start→end on its line). */
@@ -110,9 +139,28 @@ const collectNode = (node: AbstractNode | null | undefined, topLevel: boolean, t
     }
 
     if (isValueNode(node)) {
-        pushSpan(node.position, valueTokenType(node), 0, tokens);
+        pushSpan(spanOfValue(node), valueTokenType(node), 0, tokens);
         return;
     }
+};
+
+/**
+ * The span to colour for a value.
+ *
+ * A parenthesized operand carries the closing `)` in its own span, which the expression code relies
+ * on to know where the operand ends. Colouring it would paint the parenthesis as part of the value,
+ * so `(&A) * 2` showed `&A)` as one variable and the bracket changed colour as soon as the server
+ * answered. The written value is what gets coloured instead.
+ *
+ * @param node the value node to colour.
+ * @returns the span of the value's own text.
+ */
+const spanOfValue = (node: ValueNode): AstPosition => {
+    if (!node.parenthesized) return node.position;
+    const written = String(node.valueType.value);
+    const length = node.quoted ? written.length + 2 : written.length;
+    const characterEnd = node.position.characterStart + length;
+    return characterEnd < node.position.characterEnd ? { ...node.position, characterEnd } : node.position;
 };
 
 /** Emits tokens for a group/list: its identifier, inheritance bases, then its body. */
@@ -131,11 +179,12 @@ const collectContainer = (node: GroupNode | ListNode, topLevel: boolean, tokens:
     for (const element of node.elements) collectNode(element, false, tokens);
 };
 
-// A bareword that the parser types `String` but that is really a numeric literal: an mXparser
-// percentage (`50%`, `-0.6%`) or infinity. The parser keeps these `String` so the evaluator can
-// resolve them (percent → /100), but they read as numbers, and the TextMate grammar already colours
-// them numeric, so the semantic overlay must agree or the colour flips when the server catches up.
-const NUMERIC_LITERAL = /^-?(?:\s*\d*\.?\d+\s*%|infinity)$/i;
+// A bareword that the parser types `String` but that is really a numeric literal: a percentage
+// (`50%`, `-0.6%`), an angle in degrees or radians (`90d`, `1.5r`) or infinity. The parser keeps
+// these `String` so the evaluator can resolve them (percent → /100, degrees → radians), but they
+// read as numbers, and the TextMate grammar colours them numeric, so the semantic overlay has to
+// agree or the colour flips as soon as the server catches up.
+const NUMERIC_LITERAL = /^-?(?:\s*\d*\.?\d+\s*[%dr]|infinity)$/i;
 
 /** Maps a value node's parsed kind to its token type. */
 const valueTokenType = (node: ValueNode): TokenType => {

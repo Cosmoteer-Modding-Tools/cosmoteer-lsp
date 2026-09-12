@@ -13,9 +13,19 @@ import { getStartOfAstNode } from '../../utils/ast.utils';
 import { warmInheritedClasses } from '../completion/inheritance-resolution';
 import { dedupeEdits } from '../../utils/text-edit.utils';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
-import { DefinitionService, isReferenceValue } from './definition.service';
+import { isReferenceValue } from './definition.service';
 import { FullNavigationStrategy } from './full.navigation-strategy';
-import { filePathToUri, segmentName, segmentSpans, SegmentSpan } from './navigation-strategy';
+import { filePathToUri, segmentName } from './navigation-strategy';
+import {
+    referenceShapeOf,
+    segmentNameRange,
+    namedSegmentAt,
+    segmentSpanAt,
+    segmentTarget,
+    segmentTargetIdentity,
+    segmentTargetNode,
+    segmentsNamed,
+} from './reference-segment';
 import { definitionLocationOf, locationKey, normalizeUri, referenceSiteLocation } from './reference-location';
 import { findReferenceTargetAtPosition, referenceNodesOf } from './reference-index';
 import { resolveSchemaSiblingReference, stringValueNodesOf, valueTextRange } from './schema-reference.navigation';
@@ -24,13 +34,15 @@ import { idReferenceSites, idSymbolAt, idSymbolAtMapKey } from './schema-id-symb
 import { particleChannelAt, channelOccurrences, channelRangeOf } from './particle-channel';
 import { documentRootClass } from '../../document/schema/document-root';
 import { isValueNode } from '../../core/ast/ast';
-import { documentsMentioning } from './workspace-files';
+import { documentsMatching, documentsMentioning } from './workspace-files';
 import {
     buildLocalizationKeyRenameEdit,
     localizationKeyRenameTargetAt,
+    RenameRefusedError,
 } from '../refactor/rename-localization-key';
+import * as l10n from '@vscode/l10n';
 
-export { RenameRefusedError } from '../refactor/rename-localization-key';
+export { RenameRefusedError };
 
 /** A renameable symbol: the identifier text to rewrite, its name, and the target identity. */
 interface RenameSymbol {
@@ -39,36 +51,41 @@ interface RenameSymbol {
     targetKey: string;
 }
 
-/** A valid Cosmoteer member name: what a rename target may be renamed to. */
-const VALID_NAME = /^[A-Za-z0-9_]+$/;
+/** A valid Cosmoteer member name: what a rename target may be renamed to. A leading digit is
+ *  excluded because a bare number is a list index, a position in a container rather than a name,
+ *  and rewriting one would move an element instead of renaming anything. */
+const VALID_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
- * Drop edits to files under `root` (the read-only vanilla Cosmoteer `Data` tree) from a rename's
- * {@link WorkspaceEdit}. Rename searches the whole game (so cross-file references resolve), but must
- * never write to the install, applying those edits would corrupt the base game. The open mod
- * workspace is outside `root`, so its files are kept. A no-op when `root` is unknown.
+ * Guard a rename against writing into `root` (the read-only vanilla Cosmoteer `Data` tree).
+ *
+ * Rename searches the whole game so cross-file references resolve, but the install is never written.
+ * Half a rename is worse than none: dropping the edits under `root` used to leave the mod renaming
+ * its own uses of a vanilla symbol the game still calls by the old name, and the author was told
+ * nothing. So a rename that reaches the install is refused instead, and the author can override the
+ * symbol in the mod and rename that. A no-op when `root` is unknown or nothing lands there.
+ *
+ * @param edit the rename's workspace edit.
+ * @param root the game `Data` root, or undefined when it is not known.
+ * @returns the edit unchanged.
+ * @throws RenameRefusedError when any edit falls inside the install.
  */
-export const dropEditsUnderRoot = (edit: WorkspaceEdit, root: string | undefined): WorkspaceEdit => {
+export const refuseEditsUnderRoot = (edit: WorkspaceEdit, root: string | undefined): WorkspaceEdit => {
     if (!root || !edit.changes) return edit;
     const rootNorm = normalizeUri(root);
-    const changes: NonNullable<WorkspaceEdit['changes']> = {};
-    for (const [uri, edits] of Object.entries(edit.changes)) {
+    for (const uri of Object.keys(edit.changes)) {
         const norm = normalizeUri(uri);
-        if (norm === rootNorm || norm.startsWith(`${rootNorm}/`)) continue; // under the vanilla install
-        changes[uri] = edits;
+        if (norm === rootNorm || norm.startsWith(`${rootNorm}/`)) {
+            throw new RenameRefusedError(
+                l10n.t("Renaming this would have to change the game's own files, which the editor never writes.")
+            );
+        }
     }
-    return { ...edit, changes };
+    return edit;
 };
 
 /** A valid Cosmoteer ID value like a member name but dotted ids are allowed (`cosmoteer.fire`). */
 const VALID_ID = /^[A-Za-z0-9_.]+$/;
-
-/** The document range covering a segment's name (excluding any leading `&`). */
-const segmentNameRange = (node: ValueNode, span: SegmentSpan): Range => {
-    const sigil = span.text.startsWith('&') ? 1 : 0;
-    const { line, characterStart } = node.position;
-    return Range.create(line, characterStart + span.start + sigil, line, characterStart + span.end);
-};
 
 const identifierRange = (node: IdentifierNode): Range => {
     const { line, characterStart, characterEnd } = node.position;
@@ -122,15 +139,17 @@ export class RenameService {
         if (!found) return null;
 
         if (isReferenceValue(found)) {
-            const span = segmentSpans(String(found.valueType.value)).find((s) => {
-                const relative = position.character - found.position.characterStart;
-                return relative >= s.start && relative <= s.end;
-            });
+            const span = segmentSpanAt(found, position);
             if (!span) return null;
             const name = segmentName(span);
             // Only a plain member segment is renameable, not a `<file.rules>` part, a
             // super-path sigil, or a `^`/`~`/`..` navigation op.
-            if (!VALID_NAME.test(name)) return null;
+            if (!VALID_NAME.test(name)) {
+                // `EditorGroups = &<editor_groups.rules>`: the path names a file, which has no name
+                // to rewrite, but the key it is assigned to has one and is what other files point at.
+                const keySymbol = wholeFileReference(found) ? deriveRenameSymbol(found) : null;
+                return keySymbol ? { range: identifierRange(keySymbol.nameNode), placeholder: keySymbol.name } : null;
+            }
             return { range: segmentNameRange(found, span), placeholder: name };
         }
 
@@ -238,21 +257,18 @@ export class RenameService {
         // 1. The declaration itself.
         add(filePathToUri(getStartOfAstNode(symbol.nameNode).uri), identifierRange(symbol.nameNode), newName);
 
-        // 2. Every reference segment that resolves to the target. Only files whose text
-        // mentions the name are scanned, so this scales to the whole Cosmoteer Data tree.
-        for await (const doc of documentsMentioning(folderPaths, symbol.name, cancellationToken)) {
+        // 2. Every reference segment that resolves to the target. Only files whose text spells the
+        // name where a reference could use it are scanned, so this scales to the whole Cosmoteer
+        // Data tree.
+        const shape = referenceShapeOf(symbol.name);
+        for await (const doc of documentsMatching(folderPaths, symbol.name, cancellationToken, (text) =>
+            shape.test(text)
+        )) {
             for (const reference of referenceNodesOf(doc)) {
-                const value = String(reference.valueType.value);
-                const spans = segmentSpans(value);
-                if (!spans.some((span) => segmentName(span) === symbol.name)) continue;
                 const sourceUri = getStartOfAstNode(reference).uri;
-                for (const span of spans) {
-                    if (segmentName(span) !== symbol.name) continue;
-                    const resolved = await this.navigation
-                        .navigate(value.substring(0, span.end), reference, sourceUri, cancellationToken)
-                        .catch(() => null);
-                    if (!resolved || isFile(resolved as unknown as FileWithPath)) continue;
-                    if (locationKey(definitionLocationOf(resolved as AbstractNode)) !== symbol.targetKey) continue;
+                for (const span of segmentsNamed(reference, symbol.name)) {
+                    const resolved = await segmentTargetNode(doc, reference, span, cancellationToken);
+                    if (!resolved || locationKey(definitionLocationOf(resolved)) !== symbol.targetKey) continue;
                     add(filePathToUri(sourceUri), segmentNameRange(reference, span), newName);
                 }
             }
@@ -280,13 +296,35 @@ export class RenameService {
         if (!found) return null;
         if (!isReferenceValue(found)) return deriveRenameSymbol(resolveSchemaSiblingReference(found) ?? found);
 
-        const resolved = await DefinitionService.instance
-            .resolveReferenceTarget(document, found, cancellationToken)
-            .catch(() => null);
-        if (!resolved || isFile(resolved as unknown as FileWithPath)) return null;
-        return deriveRenameSymbol(resolved as AbstractNode);
+        // The cursor names the segment it sits on, not the path's endpoint. Resolving the whole
+        // value would rename `RGBA` when the reader put the caret on `Lime` in `&/SW_COLORS/Lime/RGBA`.
+        const span = namedSegmentAt(found, position);
+        if (!span) return null;
+        const resolved = await segmentTarget(document, found, span, cancellationToken);
+        if (!resolved) return null;
+        const symbol = deriveRenameSymbol(resolved as AbstractNode);
+        // `EditorGroups = &<editor_groups.rules>`: the reference names a whole file, which has no
+        // name to rewrite, but the key it is assigned to has one and is what other files write. The
+        // sites reach the file through that key, so the file is what they have to resolve to.
+        if (isFile(resolved as unknown as FileWithPath)) {
+            const keySymbol = deriveRenameSymbol(found);
+            return keySymbol ? { ...keySymbol, targetKey: segmentTargetIdentity(resolved) } : null;
+        }
+        return symbol;
     }
 }
+
+/**
+ * Whether a reference names a whole `.rules` file with no member after it
+ * (`EditorGroups = &<editor_groups.rules>`).
+ *
+ * @param node the reference value node.
+ * @returns true when the path is a bare file reference.
+ */
+const wholeFileReference = (node: ValueNode): boolean => {
+    const value = String(node.valueType.value).replace(/^&/, '').trim();
+    return value.startsWith('<') && value.endsWith('>');
+};
 
 /**
  * A cross-file `ID<X>` value node the cursor sits on a bare-id reference usage (a schema reference

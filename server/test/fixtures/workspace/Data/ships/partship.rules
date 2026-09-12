@@ -9,5 +9,10 @@ PartShip
 	ShipScale = 1
 	Parts
 	[
+		// The game's own entry a mod part must not re-register (the vanilla-collision fixture).
+		{
+			ID = test.vanilla.block
+			Size = [1, 1]
+		}
 	]
 }

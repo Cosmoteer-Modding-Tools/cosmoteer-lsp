@@ -40,12 +40,16 @@ const MAX_DEPTH = 12;
 /** Resolve a file-only reference (`<path/to.rules>`) written in `fromUri` to its parsed document. */
 type FileRefResolver = (fileRef: string, fromUri: string) => Promise<AbstractNodeDocument | undefined>;
 
-/** Split `&<path/to.rules>/Member/…` into the file ref and the first member segment (if any). */
-export const parseAlias = (raw: string): { fileRef: string; member?: string } | undefined => {
+/**
+ * Split `&<path/to.rules>/Member/…` into the file ref and the first member segment (if any). `deep`
+ * says the path went on past that member, which matters to anyone typing the member: the slot then
+ * describes a leaf inside it, not the member itself.
+ */
+export const parseAlias = (raw: string): { fileRef: string; member?: string; deep: boolean } | undefined => {
     const m = /^&?\s*(<[^>]*>)\s*(?:\/\s*(.+))?$/.exec(raw.trim());
     if (!m) return undefined;
-    const member = m[2]?.split('/')[0]?.trim();
-    return { fileRef: m[1], member: member || undefined };
+    const segments = m[2]?.split('/').map((segment) => segment.trim()).filter(Boolean) ?? [];
+    return { fileRef: m[1], member: segments[0] || undefined, deep: segments.length > 1 };
 };
 
 class AliasRootIndex {
@@ -217,6 +221,11 @@ class AliasRootIndex {
                 }
                 const target = await resolve(alias.fileRef, sourceUri).catch(() => undefined);
                 if (!target || !isDocumentNode(target)) continue;
+                // A deep alias (`FtlRemoveDelay = &<base_ship.rules>/FtlEffects/TotalDuration`) reads
+                // one leaf value, and the field's type says nothing about the member that leaf sits
+                // in, nor about what to walk into. Recording it there typed base_ship's whole
+                // `FtlEffects` group as a Time.
+                if (alias.deep) continue;
                 this.put(target.uri, alias.member ?? '', fieldType);
                 if (!alias.member && fieldType.kind === 'group' && !seen.has(normalizeUri(target.uri))) {
                     seen.add(normalizeUri(target.uri));
@@ -292,7 +301,8 @@ class AliasRootIndex {
         for (const element of list.elements) {
             if (!isValueNode(element) || element.valueType.type !== 'Reference') continue;
             const alias = parseAlias(String(element.valueType.value));
-            if (!alias) continue;
+            // A deep element alias names something inside the member, so the member is not the element.
+            if (!alias || alias.deep) continue;
             const target = await resolve(alias.fileRef, sourceUri).catch(() => undefined);
             if (!target || !isDocumentNode(target)) continue;
             const elementType: ValueType = { kind: 'group', ref: elementClass, name: elementClass.split('.').pop() ?? elementClass };

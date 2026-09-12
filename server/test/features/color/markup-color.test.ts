@@ -103,7 +103,25 @@ describe('markup colour swatches', () => {
         const document = parse(stringsWith(`"<color r=\\"255\\">x</color>"`));
         const range = markupColors(document)[0].range;
         const edit = markupColorPresentations(document, range, { red: 0, green: 0, blue: 0, alpha: 1 })[0].textEdit;
-        expect(edit?.newText).toBe(`<color r=\\"0\\" g=\\"0\\" b=\\"0\\">`);
+        expect(edit?.newText).toBe(`<color r=\\"0\\">`);
+    });
+
+    it('keeps the tag exactly as written when the pick lands back on its own colour', () => {
+        // `r='127.5'` is a channel the reader takes and the byte form cannot spell, so a pick that
+        // moves nothing has to leave it alone rather than round it to 128.
+        const document = parse(stringsWith(`"<color r='127.5'>x</color>"`));
+        const info = markupColors(document)[0];
+        const edit = markupColorPresentations(document, info.range, info.color)[0].textEdit;
+        expect(edit?.newText).toBe(`<color r='127.5'>`);
+    });
+
+    it('spells out only the channels the reader does not default', () => {
+        // A missing `r`, `g` or `b` is 0 and a missing `a` is opaque, so neither is worth writing.
+        const document = parse(stringsWith(`"<color a='0'>x</color>"`));
+        const info = markupColors(document)[0];
+        const edit = markupColorPresentations(document, info.range, { red: 0, green: 1, blue: 0, alpha: 0 })[0]
+            .textEdit;
+        expect(edit?.newText).toBe(`<color g='255' a='0'>`);
     });
 
     it('answers nothing for a range that is no colour tag of this file', () => {

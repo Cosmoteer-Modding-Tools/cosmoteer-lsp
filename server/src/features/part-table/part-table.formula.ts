@@ -11,7 +11,8 @@ import { PartTableOverrides, PartTableRow } from './part-table.types';
  * for the value the row being compared against holds, which is what turns a column into the
  * percentage of a reference part, `coalesce` and `has` for a fallback where a part lacks a value,
  * and the column aggregates and `rank` for a number that says where a row stands among the rows on
- * screen.
+ * screen, plus the handful of arithmetic names in {@link TABLE_FUNCTIONS} that a table wants and the
+ * game's expression parser has no function for.
  *
  * A column path is written in square brackets, `[Components/ArcShield/Radius/BaseValue]`. A path
  * with no separators may also be written bare, so `MaxHealth / Cost` reads the way a reader would
@@ -28,6 +29,22 @@ export interface FormulaOptions {
     /** Values the reader typed over cells, read ahead of the file's values. */
     readonly overrides?: PartTableOverrides;
 }
+
+/**
+ * Functions this table language has beyond the game's math vocabulary.
+ *
+ * A column formula is read by this module, never by the game, so it is free to offer names the
+ * game's expression parser would refuse. The rules-math registry deliberately holds only what the
+ * game accepts, so a modder is not told that `pow` works when a part file using it will not load.
+ */
+const TABLE_FUNCTIONS: Readonly<Record<string, (values: number[]) => number | null>> = {
+    sum: (values) => values.reduce((total, value) => total + value, 0),
+    avg: (values) => (values.length ? values.reduce((total, value) => total + value, 0) / values.length : null),
+    pow: (values) => (values.length === 2 ? values[0] ** values[1] : null),
+    sign: (values) => (values.length === 1 ? Math.sign(values[0]) : null),
+    cbrt: (values) => (values.length === 1 ? Math.cbrt(values[0]) : null),
+    atan2: (values) => (values.length === 2 ? Math.atan2(values[0], values[1]) : null),
+};
 
 /**
  * The aggregates over the visible rows, each folding the present values of one expression. Every
@@ -54,6 +71,7 @@ const EXTRA_FUNCTIONS: ReadonlySet<string> = new Set([
     'has',
     'rank',
     ...Object.keys(AGGREGATES),
+    ...Object.keys(TABLE_FUNCTIONS),
 ]);
 
 /** One token of a formula. */
@@ -512,6 +530,13 @@ const evaluateCall = (name: string, args: readonly Node[], row: PartTableRow, co
             if (value !== null) present.push(value);
         }
         return present.length === 0 ? null : aggregate(present);
+    }
+    const table = TABLE_FUNCTIONS[name];
+    if (table) {
+        const tableValues = argumentValues(args, row, context);
+        if (!tableValues) return null;
+        const tableResult = table(tableValues);
+        return tableResult === null || !Number.isFinite(tableResult) ? null : tableResult;
     }
     const spec = MATH_FUNCTIONS[name];
     if (!spec?.evaluate) return null;

@@ -18,10 +18,7 @@ import { lineEndingOf } from '../refactor/command-host';
 import { authorPrefixOf } from '../refactor/new-content/content-id';
 import { LocalizationEntry } from '../refactor/new-content/content-templates';
 import { writeLocalizationKeys } from '../refactor/new-content/new-content.command';
-import {
-    gameRootListTarget,
-    manifestForRegistration,
-} from '../refactor/new-content/registration.emitter';
+import { gameRootListTarget, manifestForRegistration } from '../refactor/new-content/registration.emitter';
 import { addManyActionText } from '../refactor/register-part/manifest-action.emitter';
 import { shipPartsIn } from '../refactor/register-part/ship-registry';
 import { relativeRulesReference } from '../refactor/shared-base/base-file.emitter';
@@ -967,6 +964,15 @@ const localizationEntriesOf = (plan: TypePlan): LocalizationEntry[] => {
             entries.push({ key: `${stem}Icon`, value: `"${name} (${n}x ${grade})"` });
         }
     }
+    // The hard tiles describe themselves the way the game's own hard deposits do: the resource's own
+    // description, then the line saying a mining laser is needed. Both are composed by reference, so
+    // the text follows the player's language without the type restating either of them.
+    if (plan.hard) {
+        entries.push({
+            key: plan.hardDescriptionKey,
+            value: `"<string id='${plan.descriptionKey}'/>\\n\\n<string id='Resource/NotMineable'/>"`,
+        });
+    }
     return entries;
 };
 
@@ -1099,9 +1105,10 @@ const applyRound = async (
         overlayReference: `${installReference(dataRoot, overlayFile)}/Overlay`,
         editorGroup: await resourceEditorGroupOf(dataRoot, resource.id),
         descriptionKey,
-        hardDescriptionKey: /Desc$/.test(descriptionKey)
-            ? descriptionKey.replace(/Desc$/, 'HardDesc')
-            : `${descriptionKey}Hard`,
+        // The game ships a `<Resource>HardDesc` for the laser-mined resources only, so deriving one
+        // from the resource's key writes a reference nothing declares for every other resource. The
+        // type declares its own key instead, the way it does for its names and icons.
+        hardDescriptionKey: `Parts/${keyLabelOf(id)}DepositHardDesc`,
     };
     const files = typeFilesOf(modRoot, plan);
     if (existsSync(files.folder)) return applyFailed(id, 'pathTaken');

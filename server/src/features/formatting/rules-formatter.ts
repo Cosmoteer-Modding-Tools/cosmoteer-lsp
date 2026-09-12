@@ -99,15 +99,34 @@ const collectSpans = (text: string, tokens: Token[]): Span[] | null => {
  * @param left the token type before the gap.
  * @param right the token type after the gap.
  * @param original the gap's current text.
+ * @param insideValue whether the gap sits after the member's own `=` or `:`, which is where the
+ * text belongs to the value rather than to the structure around it.
  * @returns the normalized gap. An empty gap is only widened around structural punctuation, and a
  * non-empty gap is never emptied next to a value, so token boundaries can never merge.
  */
-const desiredGap = (left: TOKEN_TYPES, right: TOKEN_TYPES, original: string): string => {
+const desiredGap = (
+    left: TOKEN_TYPES,
+    right: TOKEN_TYPES,
+    original: string,
+    insideValue: boolean
+): string => {
     // A space is a value character, so two unquoted values separated by a tab would merge into one
     // token if the tab became a space. Keep such gaps exactly as written.
     const valueLike = (t: TOKEN_TYPES): boolean =>
         t === TOKEN_TYPES.VALUE || t === TOKEN_TYPES.TRUE || t === TOKEN_TYPES.FALSE;
     if (left === TOKEN_TYPES.VALUE && valueLike(right)) return original;
+    // A colon or a second `=` standing in the open beside a value is text the game reads as part of
+    // that value: it joins two tokens with no space between them and a whitespace run as one space,
+    // so `Key = a:b` and `Key = a=b` mean something else once a space is put around them. A run is
+    // still collapsed, it is only never created or removed. Inside a bracket the same punctuation is
+    // structure again, which is why `insideValue` is false there.
+    const valueGlue = (t: TOKEN_TYPES): boolean => t === TOKEN_TYPES.COLON || t === TOKEN_TYPES.EQUALS;
+    if (
+        insideValue &&
+        ((valueLike(left) && valueGlue(right)) || (valueGlue(left) && valueLike(right)))
+    ) {
+        return original.length ? ' ' : '';
+    }
     if (left === TOKEN_TYPES.LEFT_BRACE && right === TOKEN_TYPES.RIGHT_BRACE) {
         return original.length ? ' ' : '';
     }
@@ -273,13 +292,23 @@ export const formatRulesDocument = (text: string, options: RulesFormattingOption
         if (leadToken && leadToken !== tokens[0] && !leadToken.precededByNewline) lineDepth++;
 
         let content = indentUnit.repeat(Math.max(0, lineDepth));
+        // The member's own `=` or `:` is the last piece of structure on the line. What follows it,
+        // for as long as no bracket opens, is the value, where whitespace is the game's own and not
+        // ours to place.
+        const assignmentAt = lineSpans.findIndex(
+            (candidate) =>
+                candidate.kind === 'token' &&
+                (candidate.token?.type === TOKEN_TYPES.EQUALS || candidate.token?.type === TOKEN_TYPES.COLON)
+        );
+        let bracketDepth = 0;
         for (let i = 0; i < lineSpans.length; i++) {
             const span = lineSpans[i];
+            const pastAssignment = assignmentAt >= 0 && i - 1 > assignmentAt && bracketDepth === 0;
             if (i > 0) {
                 const prevSpan = lineSpans[i - 1];
                 const gap = text.slice(prevSpan.end, span.start);
                 if (prevSpan.kind === 'token' && span.kind === 'token' && prevSpan.token && span.token) {
-                    content += desiredGap(prevSpan.token.type, span.token.type, gap);
+                    content += desiredGap(prevSpan.token.type, span.token.type, gap, pastAssignment);
                 } else {
                     content += gap;
                 }
@@ -290,6 +319,21 @@ export const formatRulesDocument = (text: string, options: RulesFormattingOption
             // rest of the line, nothing after it may be trimmed.
             if (span.end > line.end) piece = dropCr(piece);
             content += piece;
+            if (span.kind === 'token' && span.token) {
+                if (
+                    span.token.type === TOKEN_TYPES.LEFT_PAREN ||
+                    span.token.type === TOKEN_TYPES.LEFT_BRACE ||
+                    span.token.type === TOKEN_TYPES.LEFT_BRACKET
+                ) {
+                    bracketDepth++;
+                } else if (
+                    span.token.type === TOKEN_TYPES.RIGHT_PAREN ||
+                    span.token.type === TOKEN_TYPES.RIGHT_BRACE ||
+                    span.token.type === TOKEN_TYPES.RIGHT_BRACKET
+                ) {
+                    bracketDepth = Math.max(0, bracketDepth - 1);
+                }
+            }
         }
         rendered.push({ content, blank: false });
     }

@@ -19,7 +19,7 @@ import { getStartOfAstNode } from '../../utils/ast.utils';
 import { isValidReference } from '../../utils/reference.utils';
 import { Validation, ValidationError } from './validator';
 import { extractSubstrings } from '../navigation/navigation-strategy';
-import { isActionTargetValueNode } from '../../mod/action';
+import { isActionNameValueNode, isActionTargetValueNode } from '../../mod/action';
 import { findModRoot } from '../../mod/mod-root';
 import { resolveFromModContextOnly } from '../../mod/mod-context';
 import { isStringsFile } from '../../mod/strings-folder';
@@ -165,6 +165,9 @@ const checkAssets = async (node: ValueNode, cancellationToken: CancellationToken
         // asset-like extension, it is not an asset path. The game never resolves these. Skip the
         // asset check so strings files don't show false "Asset not found" warnings.
         if (await isStringsFile(getStartOfAstNode(node).uri, cancellationToken)) return undefined;
+        // A mod action's `Name` is the key its entry is added under. A ship keyed
+        // `Name = "Small Pirate Lootbox.ship.png"` names no file the game loads.
+        if (isActionNameValueNode(node)) return undefined;
         // A field the game provably ignores (not in the resolved schema class, never referenced in
         // the file) never has its path resolved either. Vanilla's `Filename = SmoothFalloffRamp.png`
         // inside `Type = ValueCurve` updaters is dev-editor metadata, not a loaded asset.

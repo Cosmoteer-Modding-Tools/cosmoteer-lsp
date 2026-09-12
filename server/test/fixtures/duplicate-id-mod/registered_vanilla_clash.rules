@@ -1,0 +1,7 @@
+// Registers an id the game's own tree already registers. The game builds the collection in a
+// dictionary and throws on the second entry, so the mod does not load at all.
+Part : <./Data/ships/terran/base_part_terran.rules>/Part
+{
+	ID = test.vanilla.block
+	Size = [1, 1]
+}

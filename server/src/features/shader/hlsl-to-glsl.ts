@@ -72,9 +72,16 @@ const stripComments = (src: string): string => src.replace(/\/\*[\s\S]*?\*\//g, 
 /** Removes HLSL `[attribute(...)]` annotations (e.g. `[maxvertexcount(4)]`), which GLSL has no use for. */
 const stripAttributes = (src: string): string => src.replace(/^\s*\[[A-Za-z_]\w*\s*\([^)]*\)\s*\]\s*$/gm, '');
 
-/** Strips HLSL `: SEMANTIC` annotations from declarations and parameters. */
+/**
+ * Strips HLSL `: SEMANTIC` annotations. Only the two places a semantic may appear are matched, a
+ * declaration (a struct field or a parameter, so `type name` precedes the colon) and a function's
+ * return semantic (a `)` precedes it and the body's `{` follows). Matching a bare colon instead would
+ * eat the else branch of a ternary whose right side is an identifier (`a ? b : c`).
+ */
 const stripSemantics = (src: string): string =>
-    src.replace(/\s*:\s*(?:SV_)?[A-Za-z_]\w*(?:\d+)?(?=\s*[;,){])/g, '');
+    src
+        .replace(/(\b[A-Za-z_]\w*[ \t]+[A-Za-z_]\w*)\s*:\s*(?:SV_)?[A-Za-z_]\w*(?=\s*[;,)])/g, '$1')
+        .replace(/(\))\s*:\s*(?:SV_)?[A-Za-z_]\w*(?=\s*\{)/g, '$1');
 
 /** Translates HLSL vector and matrix type tokens (and their constructors) to GLSL. */
 const translateTypes = (src: string): string => {
@@ -259,8 +266,9 @@ const stripFloatSuffix = (src: string): string => src.replace(/(\d*\.\d+|\d+\.\d
 
 /**
  * Coerces bare integer literals to floats so GLSL ES never mixes `int` and `float` in arithmetic.
- * Two contexts must stay integer, or the result is invalid GLSL: array subscripts (`arr[0]`) and the
- * control parts of an `int`-typed `for` loop (`for (int i = 0; i < 4; i++)`). Those spans are masked
+ * Three contexts must be left alone, or the result is invalid GLSL: array subscripts (`arr[0]`), the
+ * control parts of an `int`-typed `for` loop (`for (int i = 0; i < 4; i++)`), and the digits of an
+ * exponent literal, which is already a float (`1e-3` must not become `1e-3.0`). Those spans are masked
  * out (each replaced by a single private-use placeholder char, which carries no digits) before the
  * coercion and restored afterwards.
  */
@@ -269,6 +277,7 @@ const intLiteralsToFloat = (src: string): string => {
     const out = src
         .replace(/\bfor\s*\([^)]*\)/g, (m) => (/\bint\b/.test(m) ? mask(m) : m))
         .replace(/\[[^\]]*\]/g, mask)
+        .replace(/(?<![\w.])\d+(?:\.\d*)?[eE][-+]?\d+/g, mask)
         .replace(/(?<![\w.])\d+(?![\w.])/g, '$&.0');
     return restore(out);
 };
@@ -503,6 +512,465 @@ const findFunctions = (src: string): FunctionDef[] => {
         sig.lastIndex = i;
     }
     return functions;
+};
+
+/**
+ * HLSL converts freely between a scalar and a vector and silently truncates a wider value into a
+ * narrower one; GLSL does neither, so a faithful line-for-line translation stops compiling at
+ * `output.rgb = luminance;`, `float4 ret = 0;` and `float2 uv = mul(float4(…), matrix);`. The passes
+ * below give the translator just enough of a type system to spot those three shapes and repair them,
+ * plus the fourth HLSL-only spelling, a swizzle on a scalar (`input.rotSpeed.x` where `rotSpeed` is a
+ * `float`). Everything is deliberately one-sided: an expression whose type cannot be pinned down is
+ * left exactly as written, so a gap in the inference can only leave a line untouched, never rewrite it
+ * wrongly.
+ */
+
+/** The component count of a scalar or vector type, or null for a matrix, a struct or an unknown type. */
+const vectorDimension = (type: string | null | undefined): number | null => {
+    if (type === 'float' || type === 'int' || type === 'bool') return 1;
+    const vec = /^vec([234])$/.exec(type ?? '');
+    return vec ? Number(vec[1]) : null;
+};
+
+/** The size of a square matrix type, or null when the type is not a matrix. */
+const matrixSize = (type: string | null | undefined): number | null => {
+    const mat = /^mat([234])$/.exec(type ?? '');
+    return mat ? Number(mat[1]) : null;
+};
+
+/** The vector type of a given component count (`1` is the scalar `float`). */
+const vectorType = (dimension: number): string => (dimension === 1 ? 'float' : `vec${dimension}`);
+
+/** True when a member name is a vector swizzle rather than a struct field. */
+const isSwizzle = (name: string): boolean => /^(?:[xyzw]{1,4}|[rgba]{1,4}|[stpq]{1,4})$/.test(name);
+
+/** Builtins whose result type is the type of their first argument. */
+const SAME_AS_FIRST_ARGUMENT = new Set([
+    'abs', 'floor', 'ceil', 'fract', 'sign', 'sqrt', 'inversesqrt', 'normalize', 'exp', 'log', 'exp2',
+    'log2', 'sin', 'cos', 'tan', 'asin', 'acos', 'radians', 'degrees', 'dFdx', 'dFdy', 'fwidth',
+]);
+
+/** Builtins whose result type is the widest of their arguments (the scalar-promoting ones). */
+const WIDEST_ARGUMENT = new Set([
+    'min', 'max', 'clamp', 'mod', 'mix', 'step', 'smoothstep', 'atan', 'reflect', 'pow', 'pow_',
+    'lerp_', 'clamp_0_1', 'pvMod',
+]);
+
+/** Builtins with a fixed result type, whatever their arguments. */
+const FIXED_RESULT: Readonly<Record<string, string>> = {
+    length: 'float',
+    distance: 'float',
+    dot: 'float',
+    cross: 'vec3',
+    texture2D: 'vec4',
+    pvTexLod: 'vec4',
+    pvTexSize: 'vec2',
+    pvIsInf: 'bool',
+};
+
+/** The names, structs and function return types an expression inside one function is read against. */
+interface TypeScope {
+    /** Variable and parameter names in scope, mapped to their GLSL type. */
+    readonly names: ReadonlyMap<string, string>;
+    /** Every struct in the translation unit, for member lookups. */
+    readonly structs: ReadonlyMap<string, StructField[]>;
+    /** Function return types. A null marks a name whose overloads disagree on the return type. */
+    readonly returns: ReadonlyMap<string, string | null>;
+}
+
+/** The index of the `)` matching the `(` at `open`, or -1. */
+const matchingClose = (src: string, open: number): number => {
+    let depth = 0;
+    for (let i = open; i < src.length; i++) {
+        if (src[i] === '(' || src[i] === '[') depth++;
+        else if (src[i] === ')' || src[i] === ']') {
+            if (--depth === 0) return i;
+        }
+    }
+    return -1;
+};
+
+/** Splits an argument list at its top-level commas. */
+const splitArguments = (list: string): string[] => {
+    const parts: string[] = [];
+    let depth = 0;
+    let start = 0;
+    for (let i = 0; i < list.length; i++) {
+        if (list[i] === '(' || list[i] === '[') depth++;
+        else if (list[i] === ')' || list[i] === ']') depth--;
+        else if (list[i] === ',' && depth === 0) {
+            parts.push(list.slice(start, i));
+            start = i + 1;
+        }
+    }
+    parts.push(list.slice(start));
+    return parts;
+};
+
+/** The index of the last top-level occurrence of a binary operator from `operators`, or -1. */
+const lastBinaryOperator = (expr: string, operators: readonly string[]): number => {
+    let depth = 0;
+    let found = -1;
+    for (let i = 0; i < expr.length; i++) {
+        const c = expr[i];
+        if (c === '(' || c === '[') depth++;
+        else if (c === ')' || c === ']') depth--;
+        else if (depth === 0 && operators.includes(c)) {
+            // A sign is unary unless something bindable ends right before it.
+            let p = i - 1;
+            while (p >= 0 && /\s/.test(expr[p])) p--;
+            if (p >= 0 && /[\w).\]]/.test(expr[p])) found = i;
+        }
+    }
+    return found;
+};
+
+/** The index of the first top-level `char` at or after `from`, or -1. */
+const topLevelIndexOf = (expr: string, char: string, from = 0): number => {
+    let depth = 0;
+    for (let i = from; i < expr.length; i++) {
+        if (expr[i] === '(' || expr[i] === '[') depth++;
+        else if (expr[i] === ')' || expr[i] === ']') depth--;
+        else if (depth === 0 && expr[i] === char) return i;
+    }
+    return -1;
+};
+
+/** The wider of two operand types under GLSL's scalar-promotion rules, or null when unknown. */
+const widerType = (left: string | null, right: string | null): string | null => {
+    if (!left || !right) return null;
+    if (left === right) return left;
+    const leftMatrix = matrixSize(left);
+    const rightMatrix = matrixSize(right);
+    if (leftMatrix || rightMatrix) {
+        const vector = leftMatrix ? right : left;
+        return vectorDimension(vector) === 1 ? (leftMatrix ? left : right) : vector;
+    }
+    const leftDimension = vectorDimension(left);
+    const rightDimension = vectorDimension(right);
+    if (leftDimension === null || rightDimension === null) return null;
+    if (leftDimension === 1) return right;
+    if (rightDimension === 1) return left;
+    return null; // two different vector widths never mix in valid GLSL
+};
+
+/**
+ * Infers the GLSL type of an expression, or null when anything about it is unknown. The grammar
+ * covered is the one the shaders write: literals, names, constructors, calls, member and swizzle
+ * chains, indexing, arithmetic and the ternary. A comparison yields null rather than `bool`, since a
+ * comparison never appears where this matters and guessing would be the riskier answer.
+ *
+ * @param expression the expression source.
+ * @param scope the names, structs and function return types to read it against.
+ * @returns the GLSL type name, or null when it could not be pinned down.
+ */
+const inferType = (expression: string, scope: TypeScope): string | null => {
+    let expr = expression.trim();
+    for (;;) {
+        if (expr.startsWith('(') && matchingClose(expr, 0) === expr.length - 1) {
+            expr = expr.slice(1, -1).trim();
+            continue;
+        }
+        if (/^[-+!]/.test(expr)) {
+            expr = expr.slice(1).trim();
+            continue;
+        }
+        break;
+    }
+    if (!expr) return null;
+
+    const question = topLevelIndexOf(expr, '?');
+    if (question >= 0) {
+        const colon = topLevelIndexOf(expr, ':', question + 1);
+        if (colon < 0) return null;
+        return inferType(expr.slice(question + 1, colon), scope) ?? inferType(expr.slice(colon + 1), scope);
+    }
+    if (/(?:&&|\|\||==|!=|<=|>=|<|>)/.test(expr) && lastBinaryOperator(expr, ['<', '>', '&', '|', '!']) >= 0) {
+        return null;
+    }
+    for (const operators of [['+', '-'], ['*', '/']]) {
+        const at = lastBinaryOperator(expr, operators);
+        if (at > 0) {
+            return widerType(inferType(expr.slice(0, at), scope), inferType(expr.slice(at + 1), scope));
+        }
+    }
+
+    // A primary expression: a literal, or a name/call followed by member, swizzle and index suffixes.
+    if (/^\.?\d/.test(expr)) {
+        return /^(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/.test(expr) ? 'float' : null;
+    }
+    const head = /^([A-Za-z_]\w*)/.exec(expr);
+    if (!head) return null;
+    let at = head[1].length;
+    let type: string | null;
+    while (at < expr.length && /\s/.test(expr[at])) at++;
+    if (expr[at] === '(') {
+        const close = matchingClose(expr, at);
+        if (close < 0) return null;
+        const args = splitArguments(expr.slice(at + 1, close));
+        type = callResultType(head[1], args, scope);
+        at = close + 1;
+    } else {
+        type = scope.names.get(head[1]) ?? null;
+    }
+    while (at < expr.length) {
+        while (at < expr.length && /\s/.test(expr[at])) at++;
+        if (expr[at] === '.') {
+            const member = /^\.\s*([A-Za-z_]\w*)/.exec(expr.slice(at));
+            if (!member) return null;
+            type = memberType(type, member[1], scope);
+            at += member[0].length;
+        } else if (expr[at] === '[') {
+            const close = matchingClose(expr, at);
+            if (close < 0) return null;
+            const size = matrixSize(type);
+            type = size ? vectorType(size) : vectorDimension(type) ? 'float' : null;
+            at = close + 1;
+        } else {
+            return at === expr.length ? type : null;
+        }
+    }
+    return type;
+};
+
+/**
+ * The type of `base.member`: a struct field, or a swizzle of a vector.
+ *
+ * @param base the type the member is read from.
+ * @param member the member name.
+ * @param scope the struct table.
+ * @returns the member's type, or null when it cannot be resolved.
+ */
+const memberType = (base: string | null, member: string, scope: TypeScope): string | null => {
+    if (!base) return null;
+    const struct = scope.structs.get(base);
+    if (struct) return struct.find((field) => field.name === member)?.type ?? null;
+    const dimension = vectorDimension(base);
+    if (dimension === null || !isSwizzle(member) || member.length > 4) return null;
+    return vectorType(member.length);
+};
+
+/**
+ * The result type of a call: a constructor, a user function, or one of the builtins (including the
+ * `mul_`, `pow_` and `lerp_` helpers the intrinsic translation emits).
+ *
+ * @param name the called function's name.
+ * @param args the argument expressions, unparsed.
+ * @param scope the names, structs and function return types.
+ * @returns the result type, or null when it is unknown.
+ */
+const callResultType = (name: string, args: readonly string[], scope: TypeScope): string | null => {
+    if (vectorDimension(name) !== null || matrixSize(name) !== null || scope.structs.has(name)) return name;
+    const declared = scope.returns.get(name);
+    if (declared) return declared;
+    if (FIXED_RESULT[name]) return FIXED_RESULT[name];
+    if (SAME_AS_FIRST_ARGUMENT.has(name)) return args.length ? inferType(args[0], scope) : null;
+    if (WIDEST_ARGUMENT.has(name) || name === 'mul_') {
+        let type: string | null = args.length ? inferType(args[0], scope) : null;
+        for (const arg of args.slice(1)) type = widerType(type, inferType(arg, scope));
+        return type;
+    }
+    return null;
+};
+
+/** A function definition with everything the type passes need: its body span and its parameters. */
+interface TypedFunction {
+    /** The offset of the body's opening brace. */
+    readonly bodyStart: number;
+    /** The offset just past the body's closing brace. */
+    readonly bodyEnd: number;
+    /** The parameter names mapped to their GLSL types. */
+    readonly parameters: ReadonlyMap<string, string>;
+}
+
+/** Matches a function definition's signature: return type, name, parameter list and the body brace. */
+const FUNCTION_SIGNATURE = /(?:^|\n)[ \t]*([A-Za-z_]\w*)[ \t]+([A-Za-z_]\w*)[ \t]*\(([^;{)]*)\)[ \t\n]*\{/g;
+
+/** Matches a variable declaration: an optional qualifier, a type, a name and a `;`, `=` or `,`. */
+const DECLARATION = /\b(?:const\s+|uniform\s+|varying\s+|attribute\s+)*([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*(?=[;=,])/g;
+
+/**
+ * Locates every function definition and reads its parameters, so each body can be typed on its own.
+ * Per-function scoping is what makes the inference usable at all: `vsOut` is a `vec4` local in one
+ * shader's `pix` and a `VERT_OUTPUT` local in its `vert`.
+ *
+ * @param src the translated source.
+ * @param types the type names that may open a declaration (the built-ins plus every struct).
+ * @returns one entry per function definition, and the return type per function name (null when
+ *          overloads disagree).
+ */
+const collectTypedFunctions = (
+    src: string,
+    types: ReadonlySet<string>
+): { functions: TypedFunction[]; returns: Map<string, string | null> } => {
+    const functions: TypedFunction[] = [];
+    const returns = new Map<string, string | null>();
+    FUNCTION_SIGNATURE.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = FUNCTION_SIGNATURE.exec(src))) {
+        const [, returnType, name, parameterList] = match;
+        if (!types.has(returnType) && returnType !== 'void') continue;
+        returns.set(name, returns.has(name) && returns.get(name) !== returnType ? null : returnType);
+        const bodyStart = src.indexOf('{', match.index + match[0].length - 1);
+        let depth = 0;
+        let bodyEnd = bodyStart;
+        for (; bodyEnd < src.length; bodyEnd++) {
+            if (src[bodyEnd] === '{') depth++;
+            else if (src[bodyEnd] === '}' && --depth === 0) {
+                bodyEnd++;
+                break;
+            }
+        }
+        const parameters = new Map<string, string>();
+        for (const piece of splitArguments(parameterList)) {
+            const parsed = /^\s*(?:(?:in|out|inout)\s+)?([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*$/.exec(piece);
+            if (parsed && types.has(parsed[1])) parameters.set(parsed[2], parsed[1]);
+        }
+        functions.push({ bodyStart, bodyEnd, parameters });
+        FUNCTION_SIGNATURE.lastIndex = bodyEnd;
+    }
+    return { functions, returns };
+};
+
+/** Reads every `type name` declaration in a span into a name-to-type map. */
+const declarationsIn = (span: string, types: ReadonlySet<string>, into: Map<string, string>): void => {
+    DECLARATION.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = DECLARATION.exec(span))) {
+        if (types.has(match[1])) into.set(match[2], match[1]);
+    }
+};
+
+/**
+ * Drops a swizzle written on a scalar (`input.rotSpeed.x` where `rotSpeed` is a `float`), which HLSL
+ * accepts as the scalar itself. Only identifier-rooted member chains are walked, and only a chain whose
+ * every step resolves is rewritten.
+ *
+ * @param body the function body source.
+ * @param scope the names, structs and function return types in that body.
+ * @returns the body with scalar swizzles removed.
+ */
+const dropScalarSwizzles = (body: string, scope: TypeScope): string => {
+    return body.replace(/\b([A-Za-z_]\w*)((?:\s*\.\s*[A-Za-z_]\w*)+)/g, (whole, head: string, tail: string, at: number) => {
+        if (at > 0 && /[.\w]/.test(body[at - 1])) return whole;
+        if (/^\s*\(/.test(body.slice(at + whole.length))) return whole;
+        let type = scope.names.get(head) ?? null;
+        if (!type) return whole;
+        let rebuilt = head;
+        for (const member of tail.split('.').slice(1).map((part) => part.trim())) {
+            if (vectorDimension(type) === 1 && isSwizzle(member) && /^[xrs]$/.test(member)) continue;
+            const next = memberType(type, member, scope);
+            if (!next) return whole;
+            rebuilt += `.${member}`;
+            type = next;
+        }
+        return rebuilt;
+    });
+};
+
+/**
+ * Repairs the assignments and initializers whose two sides differ in width: a scalar written into a
+ * vector target gets the matching constructor, and a wider value written into a narrower one gets the
+ * leading swizzle HLSL would have truncated to.
+ *
+ * @param body the function body source.
+ * @param scope the names, structs and function return types in that body.
+ * @returns the body with the mismatched assignments rewritten.
+ */
+const fixAssignmentWidths = (body: string, scope: TypeScope): string => {
+    let out = '';
+    let cursor = 0;
+    for (let i = 0; i < body.length; i++) {
+        if (body[i] !== '=' || body[i + 1] === '=') continue;
+        if (i > 0 && '=<>!+-*/%&|^'.includes(body[i - 1])) continue;
+
+        let depth = 0;
+        let end = -1;
+        for (let j = i + 1; j < body.length && end < 0; j++) {
+            const c = body[j];
+            if (c === '(' || c === '[') depth++;
+            else if (c === ')' || c === ']') depth--;
+            else if (depth === 0 && (c === ';' || c === ',')) end = j;
+            else if (c === '{' || c === '}') break;
+        }
+        if (end < 0) continue;
+
+        let start = i - 1;
+        for (; start >= 0; start--) {
+            if (';{}(),'.includes(body[start])) break;
+        }
+        const left = body.slice(start + 1, i).trim();
+        const right = body.slice(i + 1, end).trim();
+        const declaration = /^(?:const\s+)?([A-Za-z_]\w*)\s+[A-Za-z_]\w*$/.exec(left);
+        const targetType = declaration ? declaration[1] : inferType(left, scope);
+        const targetWidth = vectorDimension(targetType);
+        const sourceWidth = vectorDimension(inferType(right, scope));
+        if (targetWidth === null || sourceWidth === null || targetWidth === sourceWidth) continue;
+
+        const fixed =
+            sourceWidth === 1
+                ? `${vectorType(targetWidth)}(${right})`
+                : targetWidth < sourceWidth
+                  ? `(${right}).${'xyzw'.slice(0, targetWidth)}`
+                  : null;
+        if (fixed === null) continue;
+        out += `${body.slice(cursor, i + 1)} ${fixed}`;
+        cursor = end;
+        i = end;
+    }
+    return out + body.slice(cursor);
+};
+
+/**
+ * Runs the width and swizzle repairs over every function body, each against its own scope.
+ *
+ * @param src the translated source, after type, intrinsic and identifier rewriting.
+ * @returns the source with the HLSL-only conversions made explicit.
+ */
+const resolveImplicitConversions = (src: string): string => {
+    const structs = parseStructs(src);
+    const types = new Set([...GLSL_TYPES, ...structs.keys()]);
+    const { functions, returns } = collectTypedFunctions(src, types);
+    if (!functions.length) return src;
+
+    // File-scope names: everything declared outside any function body (uniforms, consts, globals).
+    const globals = new Map<string, string>();
+    let outside = '';
+    let at = 0;
+    for (const fn of functions) {
+        outside += src.slice(at, fn.bodyStart);
+        at = fn.bodyEnd;
+    }
+    outside += src.slice(at);
+    declarationsIn(outside, types, globals);
+
+    let out = '';
+    let cursor = 0;
+    for (const fn of functions) {
+        const names = new Map(globals);
+        for (const [name, type] of fn.parameters) names.set(name, type);
+        const body = src.slice(fn.bodyStart, fn.bodyEnd);
+        declarationsIn(body, types, names);
+        const scope: TypeScope = { names, structs, returns };
+        out += src.slice(cursor, fn.bodyStart) + fixAssignmentWidths(dropScalarSwizzles(body, scope), scope);
+        cursor = fn.bodyEnd;
+    }
+    return out + src.slice(cursor);
+};
+
+/**
+ * Drops a repeated identical `uniform` declaration, which GLSL rejects as a redefinition. An include
+ * library and the file including it can declare the same uniform (vanilla's beam bases do), and the
+ * expansion then carries both.
+ */
+const dedupeUniforms = (src: string): string => {
+    const seen = new Set<string>();
+    return src.replace(/^[ \t]*uniform[ \t]+([A-Za-z_]\w*)[ \t]+([A-Za-z_]\w*)[ \t]*;[ \t]*$/gm, (whole, type: string, name: string) => {
+        const key = `${type} ${name}`;
+        if (seen.has(key)) return '';
+        seen.add(key);
+        return whole;
+    });
 };
 
 /**
@@ -836,17 +1304,19 @@ const buildVertexStage = (
         src
     );
     if (!vertMatch) return undefined;
-    // The vert may return a differently named struct than pix takes (crew_warning_circle pairs its
-    // own vert with base.shader's default pix); the engine matches stages by semantic layout, so a
-    // field-for-field identical struct is accepted the same way.
+    // The vert may return a differently named struct than pix takes (crew_warning_circle pairs its own
+    // vert with base.shader's default pix, the hyperdrive beacon's geometry stage renames the struct);
+    // the engine matches the stages by semantic layout, so a type-for-type identical struct is accepted
+    // the same way. GLSL has no such conversion, so `vout` keeps the vert's own return type and the
+    // fields are copied across by position.
+    const vertFields = vertMatch[1] === pixStruct ? structs.get(pixStruct) : structs.get(vertMatch[1]);
     if (vertMatch[1] !== pixStruct) {
-        const vertOut = structs.get(vertMatch[1]);
         const pixIn = structs.get(pixStruct);
         const sameLayout =
-            !!vertOut &&
+            !!vertFields &&
             !!pixIn &&
-            vertOut.length === pixIn.length &&
-            vertOut.every((f, i) => f.name === pixIn[i].name && f.type === pixIn[i].type);
+            vertFields.length === pixIn.length &&
+            vertFields.every((f, i) => f.type === pixIn[i].type);
         if (!sameLayout) return undefined;
     }
     const inFields = structs.get(vertMatch[2]);
@@ -892,17 +1362,20 @@ const buildVertexStage = (
         .filter((f) => f.name !== 'location')
         .map((f) => `varying ${f.type} vOut_${f.name};`)
         .join('\n');
+    // The vert's own field at the same index as the pix field, since the two structs are only
+    // guaranteed to match type for type (the names differ whenever the vert renames its output).
+    const vertField = (index: number): string => vertFields?.[index]?.name ?? outFields[index].name;
     const vertexMain = `
 void main()
 {
     ${vertMatch[2]} vin;
 ${initLines.join('\n')}
-    ${pixStruct} vout = vert(vin);
+    ${vertMatch[1]} vout = vert(vin);
 ${outFields
-    .filter((f) => f.name !== 'location')
-    .map((f) => `    vOut_${f.name} = vout.${f.name};`)
+    .map((f, i) => (f.name === 'location' ? null : `    vOut_${f.name} = vout.${vertField(i)};`))
+    .filter((line) => line !== null)
     .join('\n')}
-    gl_Position = vout.location;
+    gl_Position = vout.${vertField(outFields.findIndex((f) => f.name === 'location'))};
 }
 `;
     const vertexLerp = /\blerp_\s*\(/.test(pruned.src)
@@ -972,6 +1445,9 @@ export const translateToGlsl = (hlsl: string): GlslTranslation => {
     src = replaceWord(src, 'input', 'vsIn');
     src = replaceWord(src, 'output', 'vsOut');
     src = replaceWord(src, 'half', 'half_');
+    src = dedupeUniforms(src);
+    // Last, so the type inference reads the final GLSL spellings of every type, name and intrinsic.
+    src = resolveImplicitConversions(src);
 
     const structs = parseStructs(src);
     const pruned = pruneUnreachableFunctions(src, 'pix');

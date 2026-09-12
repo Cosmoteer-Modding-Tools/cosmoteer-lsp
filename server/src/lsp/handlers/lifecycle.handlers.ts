@@ -63,16 +63,8 @@ import {
 } from '../mod-schema';
 import { schedulePushValidation } from '../push-diagnostics';
 import { noteScanSettingsChange } from '../scan-epoch';
-import {
-    bumpValidationScopeEpoch,
-    wholeWorkspaceEnabled,
-    workspaceValidationScope,
-} from '../validation-scope';
-import {
-    getWorkspaceFoldersCached,
-    invalidateWorkspaceFoldersCache,
-    searchFolderUris,
-} from '../workspace-folders';
+import { bumpValidationScopeEpoch, wholeWorkspaceEnabled, workspaceValidationScope } from '../validation-scope';
+import { getWorkspaceFoldersCached, invalidateWorkspaceFoldersCache, searchFolderUris } from '../workspace-folders';
 import { clearWorkspaceDiagnostics, runWorkspaceValidation } from '../workspace-scan';
 
 /**
@@ -95,6 +87,16 @@ function resetProjectIndexes(): void {
     MentionIndex.instance.reset();
     clearFsCaches();
     invalidateSchemaContextCache();
+}
+
+/**
+ * A failure written for the client's log, with the stack when there is one.
+ *
+ * @param error whatever was thrown.
+ * @returns the text to log.
+ */
+function describeFailure(error: unknown): string {
+    return error instanceof Error ? (error.stack ?? error.message) : String(error);
 }
 
 /**
@@ -217,55 +219,89 @@ export function register(): void {
     });
 
     connection.onInitialized(async (_params) => {
+        try {
+            await startUpServer();
+        } catch (error) {
+            // The connection drops a rejected notification handler on the floor, and the startup it
+            // interrupted is what makes the server answer anything at all, so a failure here would
+            // otherwise leave the session silent with nothing written anywhere.
+            connection.console.error(`Cosmoteer rules server startup failed: ${describeFailure(error)}`);
+        }
+    });
+
+    /**
+     * Pull the settings for the opened workspace and scan the game install they name, or tell the
+     * user that every check reading the game data stays off without one.
+     *
+     * @param scopeUri the workspace folder the settings are read for.
+     * @returns when the game tree is scanned, or the decision that there is none is settled.
+     */
+    const loadGameTree = async (scopeUri: string): Promise<void> => {
+        setGlobalSettings(
+            await connection.workspace.getConfiguration({
+                scopeUri,
+                section: 'cosmoteerLSPRules',
+            })
+        );
+        const settings = globalSettings;
+        if (settings?.cosmoteerPath) {
+            const gameTreeStarted = Date.now();
+            await CosmoteerWorkspaceService.instance.initialize(
+                settings.cosmoteerPath,
+                await connection.window.createWorkDoneProgress()
+            );
+            perfCount('startup.gameTreeMs', Date.now() - gameTreeStarted);
+            return;
+        }
+        if (
+            await CosmoteerWorkspaceService.instance.initializeWithoutPath(
+                await connection.window.createWorkDoneProgress()
+            )
+        )
+            return;
+        connection.window
+            .showErrorMessage(
+                l10n.t(
+                    'The Cosmoteer path is not set, so every check that reads the game data is off: component references, cross-file ids, localization keys, duplicate ids, unreceivable buffs and included action fragments. Set the path in the Cosmoteer Rules settings. If the setting is not shown yet, restart the editor.'
+                ),
+                {
+                    title: l10n.t('Open Settings'),
+                    command: 'workbench.action.openSettings',
+                }
+            )
+            .then(() => {
+                connection.sendRequest('cosmoteer/openSettings', {
+                    items: [{ scopeUri, section: 'cosmoteerLSPRules' }],
+                });
+            });
+    };
+
+    /**
+     * Everything the server does once the client has confirmed initialization: the validator
+     * registry, the game install, the schema of a code mod, the client registrations, and the first
+     * workspace pass.
+     *
+     * @returns when the startup has run as far as it can get.
+     */
+    const startUpServer = async (): Promise<void> => {
         Validator.instance.registerValidation(ValidationForValue);
         Validator.instance.registerValidation(ValidationForIdentifier);
         Validator.instance.registerValidation(ValidationForFunctionCall);
         Validator.instance.registerValidation(ValidationForAssignment);
         Validator.instance.registerValidation(ValidationForMath);
         Validator.instance.registerValidation(ValidationForGroupDuplicates);
-        const workspaceFolders = await getWorkspaceFoldersCached();
+        // A client with no folder open is free to answer the folder pull with an empty array rather
+        // than with null, so the two answers have to mean the same thing here.
+        const folders = await getWorkspaceFoldersCached();
+        const workspaceFolders = folders && folders.length > 0 ? folders : null;
 
         if (workspaceFolders) {
-            setGlobalSettings(
-                await connection.workspace.getConfiguration({
-                    scopeUri: workspaceFolders[0].uri,
-                    section: 'cosmoteerLSPRules',
-                })
-            );
-            const settings = globalSettings;
-            if (settings?.cosmoteerPath) {
-                const gameTreeStarted = Date.now();
-                await CosmoteerWorkspaceService.instance.initialize(
-                    settings.cosmoteerPath,
-                    await connection.window.createWorkDoneProgress()
-                );
-                perfCount('startup.gameTreeMs', Date.now() - gameTreeStarted);
-            } else {
-                if (
-                    !(await CosmoteerWorkspaceService.instance.initializeWithoutPath(
-                        await connection.window.createWorkDoneProgress()
-                    ))
-                )
-                    connection.window
-                        .showErrorMessage(
-                            l10n.t(
-                                'The Cosmoteer path is not set, so every check that reads the game data is off: component references, cross-file ids, localization keys, duplicate ids, unreceivable buffs and included action fragments. Set the path in the Cosmoteer Rules settings. If the setting is not shown yet, restart the editor.'
-                            ),
-                            {
-                                title: l10n.t('Open Settings'),
-                                command: 'workbench.action.openSettings',
-                            }
-                        )
-                        .then(() => {
-                            connection.sendRequest('cosmoteer/openSettings', {
-                                items: [
-                                    {
-                                        scopeUri: workspaceFolders[0].uri,
-                                        section: 'cosmoteerLSPRules',
-                                    },
-                                ],
-                            });
-                        });
+            try {
+                await loadGameTree(workspaceFolders[0].uri);
+            } catch (error) {
+                // The steps below hand the indexes their folder set and answer every later request,
+                // so an install that cannot be read has to cost the game data alone, not the session.
+                connection.console.error(`Reading the Cosmoteer install failed: ${describeFailure(error)}`);
             }
         }
         // Merge the schema surface of any code mod before anything validates. A code mod's `.dll`
@@ -366,7 +402,7 @@ export function register(): void {
 
         // On by default: validate every file in the workspace, not just the open ones.
         await runWorkspaceValidation();
-    });
+    };
 
     connection.onDidChangeConfiguration(async (change) => {
         if (hasConfigurationCapability) {

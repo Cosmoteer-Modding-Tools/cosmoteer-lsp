@@ -43,7 +43,8 @@ export const paramsOf = (spec: MathFunctionSpec): readonly string[] => {
  * @returns the rendered signature with one label per parameter.
  */
 const buildSignature = (rawName: string, spec: MathFunctionSpec): SignatureInformation => {
-    const name = rawName.toLowerCase();
+    // The name is shown as written, since only that spelling is the one the game accepts.
+    const name = rawName;
     const params = paramsOf(spec);
     return {
         label: `${name}(${params.join(', ')})`,
@@ -66,14 +67,34 @@ interface Frame {
 }
 
 /**
- * Reconstruct the call stack at `offset` by scanning `text` forward from a bounded window. Returns
- * the innermost frame that belongs to a named function call, with the count of top-level commas seen
- * inside it so far (the active argument index). Returns undefined when the cursor is not inside any
- * `name(` call.
+ * The offset the scan for an enclosing call starts at: the beginning of the value's own line.
+ *
+ * A field value ends at the newline unless the line is continued with a trailing backslash, so a
+ * call can never begin on an earlier line than that. Scanning further back used to hand a comment
+ * on one line to a value on the next.
+ *
+ * @param text the whole document text.
+ * @param offset the cursor position.
+ * @returns the offset to start scanning at.
+ */
+const valueStartOffset = (text: string, offset: number): number => {
+    let start = text.lastIndexOf('\n', offset - 1) + 1;
+    while (start > 0) {
+        const lineBefore = text.slice(text.lastIndexOf('\n', start - 2) + 1, start - 1).trimEnd();
+        if (!lineBefore.endsWith('\\')) break;
+        start = text.lastIndexOf('\n', start - 2) + 1;
+    }
+    return start;
+};
+
+/**
+ * Reconstruct the call stack at `offset` by scanning `text` forward from the start of the value.
+ * Returns the innermost frame that belongs to a named function call, with the count of top-level
+ * commas seen inside it so far (the active argument index). Returns undefined when the cursor is not
+ * inside any `name(` call, including when it sits in a comment.
  */
 export const activeCallAt = (text: string, offset: number): ActiveCall | undefined => {
-    // A 4 KB look-back comfortably covers any realistic single value expression while bounding work.
-    const start = Math.max(0, offset - 4096);
+    const start = valueStartOffset(text, offset);
     const stack: Frame[] = [];
     let pendingIdent = '';
     let inString = false;
@@ -81,7 +102,22 @@ export const activeCallAt = (text: string, offset: number): ActiveCall | undefin
     for (let i = start; i < offset; i++) {
         const c = text[i];
         if (inString) {
+            // A quote the value escapes does not end the string, and reading it as an end used to
+            // flip the rest of the line into "code" and answer a call for plain text.
+            if (c === '\\') {
+                i++;
+                continue;
+            }
             if (c === '"') inString = false;
+            continue;
+        }
+        // Everything after a line comment belongs to the comment, so no call encloses the cursor.
+        if (c === '/' && text[i + 1] === '/') return undefined;
+        if (c === '/' && text[i + 1] === '*') {
+            const close = text.indexOf('*/', i + 2);
+            if (close < 0 || close + 2 > offset) return undefined;
+            i = close + 1;
+            pendingIdent = '';
             continue;
         }
         if (c === '"') {

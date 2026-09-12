@@ -38,6 +38,15 @@ describe('did-you-mean diagnostics', () => {
             expect(error?.data?.quickFix?.title).toContain('ProhibitedBy');
         });
 
+        // The member the reference is written in is the closest name in scope by a letter, and
+        // taking it would point the value at itself, which the game cannot resolve.
+        it('never offers the name the value is assigned to', async () => {
+            const error = await validate('Root = 1\nMAX_HEALTH = &MAX_HELTH\n', '&MAX_HELTH');
+            expect(error?.message).toBe('Reference name is not known');
+            expect(error?.additionalInfo).not.toContain('Did you mean');
+            expect(error?.data).toBeUndefined();
+        });
+
         it('omits a suggestion when nothing in scope is close', async () => {
             const error = await validate('Root = 1\nBad = &Zzzzzzzzz\n', '&Zzzzzzzzz');
             expect(error?.message).toBe('Reference name is not known');

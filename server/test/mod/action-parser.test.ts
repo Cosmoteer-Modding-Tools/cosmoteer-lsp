@@ -137,6 +137,39 @@ describe('parseModActions', () => {
         expect(isActionFragmentDocument(parseDoc('Actions\n[\n\t{\n\t\tFoo = 1\n\t}\n]\n'))).toBe(false);
     });
 
+    it('reads a fragment whose list carries the file’s own name, not `Actions`', () => {
+        // Seen in workshop mod 2880017812: the manifest writes
+        // `Actions : &<ParryList.rules>/ParryList`, so the fragment's list is called `ParryList`.
+        // The game reads whatever the manifest's `Actions` ends up holding, so the entries are
+        // actions and their quoted targets must not be checked as ordinary references.
+        const fragment = `
+ParryList : &<PartOverrides.rules>/PartOverrides
+[
+	{
+		Action = Overrides
+		OverrideIn = "<a.rules>/Components"
+		Overrides
+		{
+			Foo = 1
+		}
+	}
+]
+`;
+        const doc = parseDoc(fragment);
+        expect(isActionFragmentDocument(doc)).toBe(true);
+        const [action] = parseModActions(doc);
+        expect(action.type).toBe('Overrides');
+        expect(isActionTargetValueNode(action.targets[0])).toBe(true);
+    });
+
+    it('does not read a nested list of `Action = …` groups as mod actions', () => {
+        // Only a top-level list is concatenated into a manifest's `Actions`. A gameplay list buried
+        // in a group keeps its own meaning even when its entries happen to write `Action`.
+        const doc = parseDoc('Root\n{\n\tSteps\n\t[\n\t\t{\n\t\t\tAction = Remove\n\t\t\tRemove = "<a.rules>/X"\n\t\t}\n\t]\n}\n');
+        expect(isActionFragmentDocument(doc)).toBe(false);
+        expect(parseModActions(doc)).toEqual([]);
+    });
+
     it('identifies action target value nodes anywhere an action lives', () => {
         // Every parsed target sits in a real action entry, so it is an action target.
         for (const action of parseActions(ALL_VERBS)) {

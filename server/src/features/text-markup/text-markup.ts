@@ -567,13 +567,17 @@ export const isIntegerValue = (value: string): boolean => /^[+-]?\d+$/.test(valu
 /** Whether a written value is one `IntColor.FromHex` reads: six or eight hex digits, no leading hash. */
 export const isHexColorValue = (value: string): boolean => /^[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(value);
 
+/** The colour table keyed the way `Color.NamedColors` is keyed, which is case-insensitively. */
+const NAMED_COLORS_LOWERCASE: ReadonlyMap<string, readonly [number, number, number, number]> = new Map(
+    [...NAMED_COLORS].map(([name, channels]) => [name.toLowerCase(), channels])
+);
+
+/** The shape every colour name has, which rules out a whole translated sentence before it is copied. */
+const COLOR_NAME_SHAPED = /^\s*[A-Za-z]{1,32}\s*$/;
+
 /** The named colour a value names, matched case-insensitively as `Color.NamedColors` is keyed. */
-export const namedColorOf = (value: string): readonly [number, number, number, number] | undefined => {
-    for (const [name, channels] of NAMED_COLORS) {
-        if (name.toLowerCase() === value.trim().toLowerCase()) return channels;
-    }
-    return undefined;
-};
+export const namedColorOf = (value: string): readonly [number, number, number, number] | undefined =>
+    COLOR_NAME_SHAPED.test(value) ? NAMED_COLORS_LOWERCASE.get(value.trim().toLowerCase()) : undefined;
 
 /**
  * The colour a `<color>` or `<background>` tag sets, read the way `TextBuilder.ParseColor` reads it:

@@ -206,10 +206,14 @@ export interface CosmoteerSettings {
         // cares: the whole-number roll refuses a high end below its low one rather than swapping them, and
         // a compared window the wrong way round is one nothing can fall into.
         validateValueRanges: boolean;
+        // When true (the default), report a value that divides by zero. The game's evaluator answers NaN,
+        // which a fractional field stores and a whole-number field refuses with an overflow while loading.
+        validateDivisionByZero: boolean;
         // When true (the default), check the markup of a language file's strings. The game hands every
         // string it draws to a markup reader and answers a failure by drawing the string again with its
         // tags as plain text, saying nothing, so a single unclosed tag reaches the player as markup. Each
         // tag is judged against the element the reader would run for it, attributes and values included.
+        validateColorValues: boolean;
         validateTextMarkup: boolean;
         // When true (the default), report a part component chain that comes back to a component it has
         // already been through. Neither the reading side nor the running side carries a visited set, so a
@@ -356,6 +360,8 @@ export const defaultSettings: CosmoteerSettings = {
         validateBulletComponents: true,
         validateChainedBuffReceivable: true,
         validateValueRanges: true,
+        validateDivisionByZero: true,
+        validateColorValues: true,
         validateTextMarkup: true,
         validateChainedToCycles: true,
         validateMishandledFields: true,

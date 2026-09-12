@@ -65,6 +65,28 @@ describe('applyFieldDocs class summaries', () => {
     });
 });
 
+describe('fieldSignatureMarkdown cross-references and required marker', () => {
+    const withProse = (prose: string) =>
+        fieldSignatureMarkdown({ name: 'Foo', valueType: { kind: 'string' }, optional: true, description: prose });
+
+    it('renders every authored cref spelling as the member name', () => {
+        expect(withProse('see [[Cosmoteer.Ships.Parts.PartRules#Prohibits|Prohibits]]')).toContain('`Prohibits`');
+        expect(withProse('see [[Cosmoteer.Ships.Parts.PartRules#Prohibits]]')).toContain('`Prohibits`');
+        expect(withProse('see [[Cosmoteer.Ships.Parts.PartRules.Prohibits]]')).toContain('`Prohibits`');
+        expect(withProse('see [[Prohibits]]')).toContain('`Prohibits`');
+        expect(withProse('see [[Cosmoteer.Ships.Parts.PartRules#Prohibits|Prohibits]]')).not.toContain('[[');
+    });
+
+    // Required is the deserializer's meaning: no `Optional = true` on the field's `[Serialize]`. The
+    // broader `optional` heuristic also counts nullable, collection and ctor-initialized members,
+    // which had 319 fields reading as optional although the game load rejects them.
+    it('marks a field required when its absence throws, whatever the type says', () => {
+        const field = { name: 'Foo', valueType: { kind: 'list' as const, element: { kind: 'string' as const } } };
+        expect(fieldSignatureMarkdown({ ...field, optional: true, absentThrows: true })).toContain('required');
+        expect(fieldSignatureMarkdown({ ...field, optional: false })).not.toContain('required');
+    });
+});
+
 describe('fieldSignatureMarkdown with a description', () => {
     it('renders the prose below the type signature, separated by a rule', () => {
         const md = fieldSignatureMarkdown(

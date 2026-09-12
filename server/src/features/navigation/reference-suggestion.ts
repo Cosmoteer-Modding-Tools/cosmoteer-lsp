@@ -1,5 +1,13 @@
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, isDocumentNode, isGroupNode, isListNode, isValueNode, ValueNode } from '../../core/ast/ast';
+import {
+    AbstractNode,
+    isAssignmentNode,
+    isDocumentNode,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+    ValueNode,
+} from '../../core/ast/ast';
 import { extractSubstrings } from './navigation-strategy';
 import { FullNavigationStrategy } from './full.navigation-strategy';
 import { getStartOfAstNode, namedMembersOf } from '../../utils/ast.utils';
@@ -60,6 +68,22 @@ export const suggestReferenceName = async (
         while (scope && isListNode(scope)) scope = scope.parent ?? undefined;
         if (hasElements(scope)) for (const [name] of namedMembersOf(scope)) candidates.add(name);
         for (const [name] of namedMembersOf(getStartOfAstNode(node))) candidates.add(name);
+    }
+
+    // The member the reference is written in is a candidate like any other, and for a bare `&Name`
+    // it is usually the closest one, since the typo is a letter away from the name above it. The
+    // correction would point the value at itself (`MAX_HEALTH = &MAX_HEALTH`), which is a cycle the
+    // game cannot resolve, so the name the value is assigned to is never offered for that value.
+    if (lastSlash <= 0) {
+        const owner = node.parent;
+        if (hasElements(owner)) {
+            for (const element of owner.elements) {
+                if (isAssignmentNode(element) && element.right === node) {
+                    candidates.delete(element.left.name);
+                    break;
+                }
+            }
+        }
     }
 
     const suggestion = closestMatch(failing, candidates);

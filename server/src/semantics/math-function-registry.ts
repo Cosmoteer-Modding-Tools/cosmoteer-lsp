@@ -1,4 +1,5 @@
 import { registry } from '../utils/registry';
+import { decimalRound } from './decimal-arithmetic';
 /**
  * The single source of truth for every math function the extension knows about. Signature help,
  * the unknown-function and arity diagnostics, argument-type checking and numeric evaluation are
@@ -32,11 +33,12 @@ export interface MathFunctionSpec {
     /** Pure numeric implementation, present only for the subset we can evaluate for inlay hints. */
     evaluate?: (args: number[]) => number | null;
     /**
-     * Where the name comes from: the mXparser built-in collection, a Cosmoteer-registered
-     * `IMathFunction`, or an extra name we accept for compatibility (seen working in the wild
-     * although it is not part of the documented mXparser collection).
+     * Where the name comes from: the mXparser built-in collection, or a Cosmoteer-registered
+     * `IMathFunction`. Nothing else belongs here. A name mXparser does not define is a load error,
+     * not a compatibility extra: the game reports an invalid token and refuses the file, so
+     * accepting `pow` or `cbrt` here would hide a broken mod rather than help it.
      */
-    source: 'mxparser' | 'cosmoteer' | 'extra';
+    source: 'mxparser' | 'cosmoteer';
 }
 
 // Plain mXparser vocabulary, grouped by arity. Functions listed here are recognized (no
@@ -46,7 +48,7 @@ export interface MathFunctionSpec {
 const UNARY_NAMES = [
     'sin', 'cos', 'tg', 'tan', 'ctg', 'cot', 'ctan', 'sec', 'csc', 'cosec',
     'asin', 'arsin', 'arcsin', 'acos', 'arcos', 'arccos', 'atg', 'atan', 'arctg', 'arctan',
-    'actg', 'acot', 'actan', 'arcctg', 'arccot', 'arcctan', 'ln', 'log2', 'lg', 'log10',
+    'actg', 'acot', 'actan', 'arcctg', 'arccot', 'arcctan', 'ln', 'log2', 'log10',
     'rad', 'exp', 'sqrt', 'sinh', 'cosh', 'tgh', 'tanh', 'coth', 'ctgh', 'ctanh',
     'sech', 'csch', 'cosech', 'deg', 'abs', 'sgn', 'floor', 'ceil', 'not', 'asinh',
     'arsinh', 'arcsinh', 'acosh', 'arcosh', 'arccosh', 'atgh', 'atanh', 'arctgh', 'arctanh', 'acoth',
@@ -102,7 +104,7 @@ const variadic = (doc: string, fn: (xs: number[]) => number): MathFunctionSpec =
 /**
  * The functions whose meaning we model: numeric implementations follow mXparser semantics
  * (https://mathparser.org/mxparser-math-collection/), trigonometry is in radians and `ln` is the
- * natural log. Aliases (`tg`/`tan`, `lg`/`log10`) are separate entries sharing an implementation.
+ * natural log. Aliases (`tg`/`tan`, `asin`/`arcsin`) are separate entries sharing an implementation.
  * Argument-type checking (number or reference) applies only to entries with an `evaluate`, other
  * functions have signatures we do not model and would false-positive.
  */
@@ -111,25 +113,22 @@ const CURATED: Record<string, MathFunctionSpec> = registry({
     ceil: unary('x', 'Round up to the nearest integer.', unaryFn(Math.ceil)),
     floor: unary('x', 'Round down to the nearest integer.', unaryFn(Math.floor)),
     round: {
-        arity: [1, 2],
+        arity: [2, 2],
         params: ['x', 'places'],
-        doc: 'Round to the nearest integer, or to `places` decimals.',
-        // mXparser `round(x, n)` rounds to n decimals and a lone `round(x)` is the nearest integer.
-        evaluate: (a) =>
-            a.length === 1 ? Math.round(a[0]) : a.length === 2 ? Math.round(a[0] * 10 ** a[1]) / 10 ** a[1] : null,
+        doc: 'Round to `places` decimals. Both arguments are required.',
+        // mXparser rounds on the decimal value with ties away from zero, so `round(-2.5, 0)` is -3
+        // and `round(1.005, 2)` is 1.01. A one-argument `round(x)` is a load error in the game.
+        evaluate: (a) => (a.length === 2 ? decimalRound(a[0], a[1]) : null),
         source: 'mxparser',
     },
     abs: unary('x', 'Absolute value.', unaryFn(Math.abs)),
-    sign: { ...unary('x', 'Sign of x: -1, 0 or 1.', unaryFn(Math.sign)), source: 'extra' },
     sgn: unary('x', 'Sign of x: -1, 0 or 1.', unaryFn(Math.sign)),
     // Roots, powers, exponential, logarithms
     sqrt: unary('x', 'Square root.', unaryFn(Math.sqrt)),
-    cbrt: { ...unary('x', 'Cube root.', unaryFn(Math.cbrt)), source: 'extra' },
     exp: unary('x', 'e raised to the power x.', unaryFn(Math.exp)),
     ln: unary('x', 'Natural logarithm (base e).', unaryFn(Math.log)),
     log2: unary('x', 'Logarithm base 2.', unaryFn(Math.log2)),
     log10: unary('x', 'Logarithm base 10.', unaryFn(Math.log10)),
-    lg: unary('x', 'Logarithm base 10.', unaryFn(Math.log10)),
     log: {
         arity: [2, 2],
         params: ['base', 'x'],
@@ -138,26 +137,12 @@ const CURATED: Record<string, MathFunctionSpec> = registry({
         evaluate: binaryFn((base, x) => Math.log(x) / Math.log(base)),
         source: 'mxparser',
     },
-    pow: {
-        arity: [2, 2],
-        params: ['base', 'exponent'],
-        doc: 'base raised to the power exponent.',
-        evaluate: binaryFn(Math.pow),
-        source: 'extra',
-    },
     mod: {
         arity: [2, 2],
         params: ['a', 'b'],
         doc: 'Remainder of a divided by b.',
         evaluate: binaryFn((x, y) => x % y),
         source: 'mxparser',
-    },
-    atan2: {
-        arity: [2, 2],
-        params: ['y', 'x'],
-        doc: 'Angle of the vector (x, y), in radians.',
-        evaluate: binaryFn(Math.atan2),
-        source: 'extra',
     },
     // Trigonometry, radians
     sin: trig('Sine of an angle (radians).', Math.sin),
@@ -187,11 +172,6 @@ const CURATED: Record<string, MathFunctionSpec> = registry({
     // Aggregates
     min: variadic('Smallest of the given values.', (xs) => Math.min(...xs)),
     max: variadic('Largest of the given values.', (xs) => Math.max(...xs)),
-    sum: { ...variadic('Sum of the given values.', (xs) => xs.reduce((s, x) => s + x, 0)), source: 'extra' },
-    avg: {
-        ...variadic('Average of the given values.', (xs) => xs.reduce((s, x) => s + x, 0) / xs.length),
-        source: 'extra',
-    },
     // Cosmoteer-registered functions (the `IMathFunction` implementations in Cosmoteer.dll).
     // As of the 2026-06 build the only one is `db2vol` (`DecibelsToVolumeMathFunction`); it takes a
     // quoted string argument, so it is never argument-type checked or evaluated.
@@ -221,12 +201,26 @@ const buildRegistry = (): Record<string, MathFunctionSpec> => {
 export const MATH_FUNCTIONS: Readonly<Record<string, MathFunctionSpec>> = buildRegistry();
 
 /**
- * Look a function up by its written name.
+ * Look a function up by its written name. mXparser is case-sensitive, so only the exact lowercase
+ * spelling resolves: the game reads `Sqrt(16)` as an invalid token and refuses to load the file.
  *
- * @param name the function name as written in the document (any casing).
+ * @param name the function name exactly as written in the document.
  * @returns the spec, or undefined for an unknown name.
  */
-export const mathFunction = (name: string): MathFunctionSpec | undefined => MATH_FUNCTIONS[name.toLowerCase()];
+export const mathFunction = (name: string): MathFunctionSpec | undefined =>
+    Object.hasOwn(MATH_FUNCTIONS, name) ? MATH_FUNCTIONS[name] : undefined;
+
+/**
+ * The spelling a name would have if only its casing were wrong, for the did-you-mean diagnostic.
+ *
+ * @param name the function or constant name as written.
+ * @returns the accepted lowercase spelling, or undefined when the name is unknown either way.
+ */
+export const mathNameWithCorrectCase = (name: string): string | undefined => {
+    if (Object.hasOwn(MATH_FUNCTIONS, name) || Object.hasOwn(CONSTANTS, name)) return undefined;
+    const lower = name.toLowerCase();
+    return Object.hasOwn(MATH_FUNCTIONS, lower) || Object.hasOwn(CONSTANTS, lower) ? lower : undefined;
+};
 
 /** Lowercased names of every recognized math function. A name outside this set is a likely typo. */
 export const ALL_MATH_FUNCTION_NAMES: ReadonlySet<string> = new Set(Object.keys(MATH_FUNCTIONS));

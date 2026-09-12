@@ -49,3 +49,29 @@ export const documentFor = async (
  * @returns the ending the file is written with.
  */
 export const lineEndingOf = (text: string): '\n' | '\r\n' => (text.includes('\r\n') ? '\r\n' : '\n');
+
+/** How many indented lines are read before the indentation style is called, so a huge file is not walked. */
+const INDENT_SAMPLE = 200;
+
+/** The leading whitespace of a line that has something on it. */
+const LINE_INDENT = /^([ \t]+)(?=[^\s])/gm;
+
+/**
+ * The one indentation step a file is written with, read from its own lines: a tab where any line
+ * indents with one, else the shallowest run of spaces it uses. A file with nothing indented keeps
+ * the tab the game's own files are written with.
+ *
+ * @param text the file's own text.
+ * @returns the string one level of indentation is written as.
+ */
+export const indentUnitOf = (text: string): string => {
+    LINE_INDENT.lastIndex = 0;
+    let spaces = 0;
+    for (let seen = 0; seen < INDENT_SAMPLE; seen++) {
+        const match = LINE_INDENT.exec(text);
+        if (!match) break;
+        if (match[1].includes('\t')) return '\t';
+        if (spaces === 0 || match[1].length < spaces) spaces = match[1].length;
+    }
+    return spaces > 0 ? ' '.repeat(spaces) : '\t';
+};

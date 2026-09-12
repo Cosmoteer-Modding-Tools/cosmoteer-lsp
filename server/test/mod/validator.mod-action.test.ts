@@ -89,7 +89,7 @@ describe('validateModActions', () => {
 
     it('flags AddMany whose source is not a list', async () => {
         const errors = await validate(
-            action('AddMany', '\t\tAddTo = "<a.rules>/A"\n\t\tIgnoreIfNotExisting = true\n\t\tManyToAdd = 1')
+            action('AddMany', '\t\tAddTo = "<action_targets.rules>/List"\n\t\tIgnoreIfNotExisting = true\n\t\tManyToAdd = 1')
         );
         expect(errors).toHaveLength(1);
         expect(errors[0].message).toBe('Mod action source has the wrong shape');
@@ -97,7 +97,7 @@ describe('validateModActions', () => {
 
     it('does not flag AddMany whose source is a list', async () => {
         const errors = await validate(
-            action('AddMany', '\t\tAddTo = "<a.rules>/A"\n\t\tIgnoreIfNotExisting = true\n\t\tManyToAdd\n\t\t[\n\t\t\t1\n\t\t\t2\n\t\t]')
+            action('AddMany', '\t\tAddTo = "<action_targets.rules>/List"\n\t\tIgnoreIfNotExisting = true\n\t\tManyToAdd\n\t\t[\n\t\t\t1\n\t\t\t2\n\t\t]')
         );
         expect(errors).toEqual([]);
     });
@@ -166,9 +166,26 @@ describe('validateModActions', () => {
         expect(errors[0].message).toBe('Add action is missing the Name field');
     });
 
-    it('does not require Name when Add targets a leaf value node', async () => {
+    // `ModAddAction.ApplyAction` throws "must be a file, {} group node, or [] list node" on a leaf,
+    // so an Add aimed at one costs the author the whole mod rather than one entry.
+    it('flags Add aimed at a leaf value node, which the game refuses to add into', async () => {
         const errors = await validate(action('Add', '\t\tAddTo = "<a.rules>/A/Direct"\n\t\tToAdd = 1'));
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toBe('Mod action target has the wrong shape');
+    });
+
+    it('does not flag Add aimed at a list, where the entry needs no Name', async () => {
+        const errors = await validate(action('Add', '\t\tAddTo = "<action_targets.rules>/List"\n\t\tToAdd = 1'));
         expect(errors).toEqual([]);
+    });
+
+    // A flag that tolerates a missing target only excuses it being missing. When it is there, the
+    // game applies the action to it and throws on a shape it cannot add into.
+    it('still checks the target shape when CreateIfNotExisting is set and the target exists', async () => {
+        const errors = await validate(
+            action('Add', '\t\tAddTo = "<a.rules>/A/Direct"\n\t\tToAdd = 1\n\t\tCreateIfNotExisting = true')
+        );
+        expect(errors.map((e) => e.message)).toEqual(['Mod action target has the wrong shape']);
     });
 
     it('does not flag AddMany whose target is a list node', async () => {

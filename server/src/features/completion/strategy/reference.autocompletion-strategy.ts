@@ -1,7 +1,10 @@
-import { CancellationToken } from 'vscode-languageserver';
+import * as l10n from '@vscode/l10n';
+import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
 import { extractSubstrings, filePathToDirectoryPath } from '../../navigation/navigation-strategy';
 import {
     AbstractNode,
+    GroupNode,
+    ListNode,
     isListNode,
     isAssignmentNode,
     isDocumentNode,
@@ -12,7 +15,7 @@ import {
 } from '../../../core/ast/ast';
 import { getStartOfAstNode, parseFile } from '../../../utils/ast.utils';
 import { cachedParseFilePath, cachedReaddir } from '../../../workspace/fs-cache';
-import { isRulesFileName, isRulesPathSegment } from '../../../document/document-kind';
+import { basenameOf, isRulesFileName, isRulesPathSegment } from '../../../document/document-kind';
 import { getParsedFileDocument } from '../../../workspace/parsed-file-cache';
 import { CosmoteerWorkspaceService, FileTree, FileWithPath, isFile } from '../../../workspace/cosmoteer-workspace.service';
 import { AutoCompletionStrategy } from './autocompletion.strategy';
@@ -23,10 +26,129 @@ import { modAddedGlobalNames, modOverrideMemberNamesForFile, resolveFromModConte
 import { AddBaseIndex } from '../../../mod/add-base.index';
 import { MemberInjectionIndex } from '../../../mod/member-injection.index';
 import { findInheritorsOf } from '../../../semantics/inheritor-resolver';
+import {
+    findMemberThroughInheritance,
+    inheritanceBasesOf,
+    ResolveReferenceFn,
+} from '../../../semantics/inheritance-resolver';
 import { stepIntoNode } from '../../../semantics/reference-resolver';
+import { Completion } from '../autocompletion.service';
 
 const navigation = new FullNavigationStrategy();
 const EMPTY_STRING = '';
+
+/** Adapts the shared navigation strategy to the inheritance resolver's reference-resolution shape. */
+const resolveReference: ResolveReferenceFn = (path, startNode, currentLocation, token, inheritanceVisited) =>
+    navigation.navigate(path, startNode, currentLocation, token, new Set(), inheritanceVisited) as ReturnType<
+        ResolveReferenceFn
+    >;
+
+/** The label of a completion, whichever of the two forms it takes. */
+const labelOf = (completion: Completion): string =>
+    typeof completion === 'string' ? completion : completion.label;
+
+/**
+ * Joins option lists, keeping the first spelling of each label. The inherited options come after the
+ * node's own, so a member the node redeclares is offered as its own rather than as inherited.
+ *
+ * @param groups the option lists to join, in precedence order.
+ * @returns the joined list.
+ */
+const mergeOptions = (...groups: Completion[][]): Completion[] => {
+    const seen = new Set<string>();
+    const out: Completion[] = [];
+    for (const group of groups) {
+        for (const option of group) {
+            const label = labelOf(option);
+            if (seen.has(label)) continue;
+            seen.add(label);
+            out.push(option);
+        }
+    }
+    return out;
+};
+
+/**
+ * The members a node's inheritance chain supplies, marked with the file they come from.
+ *
+ * The game reads a node as the union of its own members and its bases', so a path that walks into a
+ * group must offer the inherited ones too: a Star Wars part's `Components` block declares almost
+ * nothing itself and inherits the rest, and without this every `&^/0/Components/` completed to
+ * nothing while the same path validated clean. The walk mirrors {@link findMemberThroughInheritance}:
+ * the bases in declaration order, depth first, with one shared visited set so a cyclic chain ends.
+ *
+ * @param node the container whose bases to read.
+ * @param search the member-name prefix typed so far.
+ * @param cancellationToken cancels the cross-file base resolution.
+ * @param visited the shared cycle guard.
+ * @returns the inherited member options, nearest base first.
+ */
+const inheritedOptions = async (
+    node: GroupNode | ListNode,
+    search: string,
+    cancellationToken: CancellationToken,
+    visited: Set<AbstractNode>
+): Promise<Completion[]> => {
+    if (visited.has(node)) return [];
+    visited.add(node);
+    const out: Completion[] = [];
+    for await (const base of inheritanceBasesOf(node, resolveReference, cancellationToken, visited)) {
+        const from = basenameOf(getStartOfAstNode(base).uri);
+        for (const option of getOptionsForElement(base, search)) {
+            out.push({
+                label: option,
+                kind: CompletionItemKind.Reference,
+                detail: l10n.t('inherited from {0}', from),
+            });
+        }
+        // A whole-file base is a document root, which has no chain of its own to walk further.
+        if (isGroupNode(base) || isListNode(base)) {
+            out.push(...(await inheritedOptions(base, search, cancellationToken, visited)));
+        }
+    }
+    return out;
+};
+
+/**
+ * A node's own members plus the ones its inheritance chain supplies.
+ *
+ * @param node the node the path has reached.
+ * @param search the member-name prefix typed so far.
+ * @param cancellationToken cancels the cross-file base resolution.
+ * @returns the options, the node's own first.
+ */
+const optionsWithInheritance = async (
+    node: AbstractNode,
+    search: string,
+    cancellationToken: CancellationToken
+): Promise<Completion[]> => {
+    const own = getOptionsForElement(node, search);
+    if (!(isGroupNode(node) || isListNode(node)) || !node.inheritance?.length) return own;
+    const inherited = await inheritedOptions(node, search, cancellationToken, new Set()).catch(() => []);
+    return inherited.length ? mergeOptions(own, inherited) : own;
+};
+
+/**
+ * Like {@link getOptionsForParentLevel}, but reading the inheritance chain as well. Used where the
+ * path has come to rest and its members are listed.
+ *
+ * @param search the member-name prefix typed so far.
+ * @param node the node the path has reached.
+ * @param cancellationToken cancels the cross-file base resolution.
+ * @returns the options at that level.
+ */
+const optionsForParentLevelWithInheritance = async (
+    search: string,
+    node: AbstractNode,
+    cancellationToken: CancellationToken
+): Promise<Completion[]> => {
+    const value = search.startsWith('&') ? search.slice(1) : search;
+    if (isDocumentNode(node) || isGroupNode(node) || isListNode(node)) {
+        return optionsWithInheritance(node, value, cancellationToken);
+    }
+    if (!node.parent) return [];
+    return optionsWithInheritance(node.parent, value, cancellationToken);
+};
 
 /** A reference value node (file, super, or in-file alias) we can dereference to list its target's members. */
 const isReferenceValueNode = (node: AbstractNode | null | undefined): node is ValueNode =>
@@ -64,22 +186,23 @@ const optionsThroughReference = async (
     reference: ValueNode,
     cancellationToken: CancellationToken,
     originUri: string
-): Promise<string[]> => {
+): Promise<Completion[]> => {
     const resolved = await navigation
         .navigate(String(reference.valueType.value), reference, getStartOfAstNode(reference).uri, cancellationToken)
         .catch(() => undefined);
     if (!resolved) return [];
-    const own =
+    const target =
         (resolved as { type?: string }).type === 'File'
-            ? getOptionsForLevel(await parseFile(resolved as FileWithPath))
-            : getOptionsForLevel(resolved as AbstractNode);
+            ? await parseFile(resolved as FileWithPath)
+            : (resolved as AbstractNode);
+    const own = await optionsWithInheritance(target, EMPTY_STRING, cancellationToken);
     // The reference may target a file the mod patches with a whole-file/global `Overrides`
     // (e.g. `&/INDICATORS/` → indicators.rules + the mod's added indicators): offer those
     // mod-added members alongside the file's own so completion reflects the effective tree.
     const modAdded = await modOverrideMemberNamesForFile(resolved as AbstractNode | FileWithPath, originUri).catch(
         () => []
     );
-    return modAdded.length ? [...new Set([...own, ...modAdded])] : own;
+    return modAdded.length ? mergeOptions(own, modAdded) : own;
 };
 
 /**
@@ -87,7 +210,7 @@ const optionsThroughReference = async (
  *  the referenced entity, supporting cross-file navigation and mod overrides.
  */
 export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
-    string[],
+    Completion[],
     { node: ValueNode; isInheritanceNode: boolean; cancellationToken: CancellationToken }
 > {
     /** Regex to match reference values. */
@@ -105,7 +228,7 @@ export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
         /** The value text up to the cursor, used instead of the whole written value so a mid-path
          *  edit completes the segment at the cursor. Undefined completes the whole value. */
         valueUpToCursor?: string;
-    }): Promise<string[]> {
+    }): Promise<Completion[]> {
         const { node, isInheritanceNode, cancellationToken } = args;
         if (node.valueType.type !== 'Reference') {
             return [];
@@ -133,12 +256,12 @@ export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
         // members (mirrors `isInheritanceMember` in the navigation strategy).
         const startNode = isInheritanceNode && node.parent?.parent ? node.parent.parent : node;
         if (this.referenceRegex.test(reference)) {
-            const options = getOptionsForParentLevel(reference, startNode);
+            const options = await optionsForParentLevelWithInheritance(reference, startNode, cancellationToken);
             // Don't offer the inheriting group itself as its own base (self-inheritance).
             const inheritingName =
                 isGroupNode(node.parent) || isListNode(node.parent) ? node.parent.identifier?.name : undefined;
             return isInheritanceNode && inheritingName
-                ? options.filter((option) => option !== inheritingName)
+                ? options.filter((option) => labelOf(option) !== inheritingName)
                 : options;
         } else {
             return await traversePath(
@@ -167,7 +290,7 @@ export class ReferenceAutoCompletionStrategy extends AutoCompletionStrategy<
      * file/cosmoteer/workshop traversal. Used for mod-action target paths, which are
      * normalized to `<./Data/...>` before being passed here.
      */
-    async completeRawPath(path: string, node: AbstractNode, cancellationToken: CancellationToken): Promise<string[]> {
+    async completeRawPath(path: string, node: AbstractNode, cancellationToken: CancellationToken): Promise<Completion[]> {
         return traversePath(
             path.startsWith('&') ? path.substring(1) : path,
             node,
@@ -256,7 +379,11 @@ const getOptionsForElement = (node: AbstractNode, search: string = EMPTY_STRING)
             if (anonymousContainer) return [index.toString() + '/'];
             if ((isGroupNode(v) || isListNode(v)) && v.identifier) return [v.identifier.name];
             if (isAssignmentNode(v)) return [v.left.name];
-            return [voidFieldName(v) ?? EMPTY_STRING];
+            // A plain list element has no name, and the game addresses it by its index. Offering it
+            // as the empty string put a blank row in the popup that inserted nothing.
+            if (isListNode(node)) return [index.toString()];
+            const voidName = voidFieldName(v);
+            return voidName ? [voidName] : [];
         });
         return [...own, ...injected.filter((name) => !own.includes(name))];
     }
@@ -289,7 +416,7 @@ const traversePath = async (
     node: AbstractNode,
     cancellationToken: CancellationToken,
     originUri: string
-): Promise<string[]> => {
+): Promise<Completion[]> => {
     if (cancellationToken.isCancellationRequested) throw new CancellationError();
 
     // ObjectText `<...>` file paths may use a backslash separator, which the game resolves via the
@@ -360,14 +487,14 @@ const optionsInFile = async (
     document: AbstractNode,
     cancellationToken: CancellationToken,
     originUri: string
-): Promise<string[]> => {
+): Promise<Completion[]> => {
     const meaningful = inFileParts.filter((part) => part !== EMPTY_STRING);
     if (meaningful.length === 0) {
         // `<…file.rules>` or `<…file.rules>/`: list the file's root members, plus any the mod
         // merges into that file via a whole-file Override (effective tree).
-        const own = getOptionsForLevel(document);
+        const own = await optionsWithInheritance(document, EMPTY_STRING, cancellationToken);
         const modAdded = await modOverrideMemberNamesForFile(document, originUri).catch(() => []);
-        return modAdded.length ? [...new Set([...own, ...modAdded])] : own;
+        return modAdded.length ? mergeOptions(own, modAdded) : own;
     }
     return await traverseReferencePath(inFileParts, document, cancellationToken, originUri);
 };
@@ -490,7 +617,7 @@ const traverseReferencePath = async (
     originUri: string
 ) => {
     if (parts.length === 1) {
-        return getOptionsForParentLevel(parts[0], node);
+        return await optionsForParentLevelWithInheritance(parts[0], node, cancellationToken);
     }
     let currentNode = node;
     if (!(isGroupNode(currentNode) || isListNode(currentNode) || isDocumentNode(currentNode)) && node.parent) {
@@ -514,6 +641,17 @@ const traverseReferencePath = async (
         // `isInheritance` mirrors stepIntoNode's flag exactly: the previous segment was `^`.
         const isInheritance = i > 0 && parts[i - 1] === '^';
         let stepped: AbstractNode | null | undefined = stepIntoNode(currentNode, path, isInheritance);
+        // The game reads a node as the union with its bases, so a segment naming an inherited member
+        // resolves for it. The same lookup the validator and go-to-definition use answers that, which
+        // is why a path they both accept used to complete to nothing here.
+        if (stepped == null && !isInheritance && (isGroupNode(currentNode) || isListNode(currentNode))) {
+            stepped = await findMemberThroughInheritance(
+                currentNode,
+                path,
+                resolveReference,
+                cancellationToken
+            ).catch(() => null);
+        }
 
         // stepIntoNode is synchronous and does not follow a reference result (an inheritance base, or a
         // member whose value is `&…`). Dereference it through the shared navigation engine only when a
@@ -531,7 +669,14 @@ const traverseReferencePath = async (
                     ? await parseFile(target as FileWithPath)
                     : (target as AbstractNode | null | undefined);
         }
-        if (stepped == null) break;
+        if (stepped == null) {
+            // A segment before the last one names something that is not there, so the path leads
+            // nowhere and the level the walk got stuck at is not the answer: listing it offered the
+            // members of a container the written path does not reach. The last segment is the
+            // prefix being typed and is expected not to resolve yet.
+            if (i < parts.length - 1) return [];
+            break;
+        }
         currentNode = stepped;
     }
     // The walk stopped on a reference (or an assignment to
@@ -546,12 +691,17 @@ const traverseReferencePath = async (
     }
     if (isAssignmentNode(currentNode) && currentNode.left.name === parts[parts.length - 2]) return [];
     const search = parts[parts.length - 1];
-    const options = getOptionsForParentLevel(search, currentNode, parts[parts.length - 2] === '^');
+    // A `^` step lists the inheritance slots themselves, which are indexes rather than members, so
+    // only the member listing reads the chain.
+    const options =
+        parts[parts.length - 2] === '^'
+            ? getOptionsForParentLevel(search, currentNode, true)
+            : await optionsForParentLevelWithInheritance(search, currentNode, cancellationToken);
     if (!virtualBase) return options;
     // Merge the members every concrete inheritor of the base defines, so a `:` path offers a
     // virtual member that only a deriving override supplies, not just the base's own declarations.
     const inheritorNames = await inheritorMemberNames(virtualBase, search, cancellationToken);
-    return inheritorNames.length ? [...new Set([...options, ...inheritorNames])] : options;
+    return inheritorNames.length ? mergeOptions(options, inheritorNames) : options;
 }
 
 /**
@@ -569,11 +719,38 @@ const inheritorMemberNames = async (
     search: string,
     cancellationToken: CancellationToken
 ): Promise<string[]> => {
-    const inheritors = await findInheritorsOf(base, cancellationToken).catch(() => []);
+    const inheritors = await inheritorsOf(base, cancellationToken);
     const names = new Set<string>();
     for (const inheritor of inheritors) for (const name of getOptionsForLevel(inheritor, search)) names.add(name);
     return [...names];
-};;
+};
+
+/** The inheritor search per base node, which costs a re-parse and a reference resolution per
+ *  candidate file. Keyed by the base's AST node, so a re-parse of any file in the chain starts a
+ *  fresh entry, and bounded by a short window so a change elsewhere in the project is picked up. */
+const inheritorMemo = new WeakMap<AbstractNode, { at: number; inheritors: Promise<(GroupNode | ListNode)[]> }>();
+
+/** How long an inheritor search stays reusable. Long enough to cover the burst of requests one
+ *  keystroke produces, short enough that an edit in another file shows up on the next popup. */
+const INHERITOR_MEMO_MS = 2000;
+
+/**
+ * The concrete inheritors of a virtual-inheritance base, reused within a short window.
+ *
+ * @param base the base a `:` resolved against.
+ * @param cancellationToken cancels the search.
+ * @returns the inheritors, empty when the search failed.
+ */
+const inheritorsOf = async (
+    base: AbstractNode,
+    cancellationToken: CancellationToken
+): Promise<(GroupNode | ListNode)[]> => {
+    const cached = inheritorMemo.get(base);
+    if (cached && Date.now() - cached.at < INHERITOR_MEMO_MS) return cached.inheritors;
+    const inheritors = findInheritorsOf(base, cancellationToken).catch(() => []);
+    inheritorMemo.set(base, { at: Date.now(), inheritors });
+    return inheritors;
+};
 
 /**
  *  Traverse a reference path that starts with a reference to a super entity, resolving it to the target entity and listing its members.

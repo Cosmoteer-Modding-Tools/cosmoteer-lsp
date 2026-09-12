@@ -23,7 +23,9 @@ import { childNodesOf, namedMembersOf } from '../../utils/ast.utils';
 import {
     classAncestry,
     classByDiscriminator,
+    classesByDiscriminator,
     commonAncestorClass,
+    discriminatorIsAmbiguous,
     fieldOf,
     fieldsOf,
     firstRegistryDeclaring,
@@ -472,7 +474,14 @@ const inheritedBaseClassForGroup = (group: GroupNode, slotClass?: string): strin
             bestFieldCount = count;
         }
     }
-    return best ?? commonAncestorClass(deriverClasses);
+    if (best) return best;
+    // Without a full-coverage candidate the common ancestor is a guess, so it has to at least own one
+    // of the names the group writes. A class that knows none of them is not what the group is, and
+    // pinning it there costs every member a wrong type and an unknown-field judgement. A group with
+    // no members of its own has nothing to contradict, so it keeps the ancestor.
+    const fallback = commonAncestorClass(deriverClasses);
+    if (!fallback || names.length === 0) return fallback;
+    return names.some((name) => !!fieldOf(fallback, name)) ? fallback : undefined;
 };
 
 /**
@@ -612,6 +621,39 @@ export const resolveGroupClass = (group: GroupNode, depth = 0): string | undefin
  * @param expected the group's slot type, as {@link expectedValueType} returns it.
  * @returns the class FullName, or undefined when the group cannot be anchored.
  */
+/**
+ * Break a colliding `Type=` inside an untyped `Components` container by field fit. `ArcShield` names
+ * both a part component and a media effect, and a `Components` group written at a fragment file's root
+ * has no slot and no differently-typed sibling to infer from, so the first registry declaring the name
+ * won and the part component read as an effect. The candidate that owns the most of the members the
+ * group actually writes is the one the game will read it as.
+ *
+ * Only reached when the group's own slot gave nothing: a `Components` map inside a rooted part types
+ * its members through the slot long before this.
+ *
+ * @param group the component group whose class is wanted.
+ * @returns the best-fitting candidate class, or undefined when the case does not apply or no
+ *          candidate fits better than the others.
+ */
+const componentFragmentClass = (group: GroupNode): string | undefined => {
+    const container = group.parent;
+    if (!container || !isGroupNode(container) || container.identifier?.name.toLowerCase() !== 'components') return undefined;
+    const disc = groupDiscriminator(group);
+    if (!disc || !discriminatorIsAmbiguous(disc)) return undefined;
+    const names = ownedFieldNames(group);
+    if (names.length === 0) return undefined;
+    let best: string | undefined;
+    let bestScore = 0;
+    for (const candidate of classesByDiscriminator(disc)) {
+        const score = names.filter((name) => !!fieldOf(candidate, name)).length;
+        if (score > bestScore) {
+            best = candidate;
+            bestScore = score;
+        }
+    }
+    return best;
+};
+
 /** Whether a group written in a range slot uses the engine's range keys (`Value`, or `Min`/`Max`). */
 const usesRangeKeys = (group: GroupNode): boolean =>
     namedMembersOf(group).some(([name]) => /^(value|min|max)$/i.test(name));
@@ -680,7 +722,7 @@ const classFromSlot = (group: GroupNode, expected: ValueType | undefined): strin
     const container = group.parent;
     const containerRegistry = container && isGroupNode(container) ? registryForContainer(container) : undefined;
     const viaType = classOfGroup(group, containerRegistry?.name);
-    if (viaType) return viaType;
+    if (viaType) return componentFragmentClass(group) ?? viaType;
     const id = group.identifier?.name;
     if (id && ROOT_GROUP_CLASSES[id]) return ROOT_GROUP_CLASSES[id];
     // A top-level named group whose class is fixed by its folder (a ship under `ships/`), guarded by
@@ -718,6 +760,16 @@ export const groupClassCandidates = (group: GroupNode): string[] => {
             const companion = primary === expected.ref ? member : primary === member ? expected.ref : undefined;
             if (companion && companion !== primary) return [primary, companion];
         }
+        return [primary];
+    }
+    // No slot at all (an unrooted fragment, a group wired in through a mod action): the group may
+    // still be filling a wrapper slot, and the wrapper's own fields are read from the same flat group.
+    // A music track written in a cluster fragment is an `FsmState` as much as it is the track class,
+    // so its `NextTracks` and `MaxConsecutivePlays` are read keys. Every class that a wrapper carries
+    // has exactly one such wrapper, so this adds no ambiguity.
+    if (!expected) {
+        const wrappers = possibleWrapperClasses(primary);
+        if (wrappers.length === 1) return [primary, wrappers[0]];
     }
     return [primary];
 };
@@ -775,6 +827,19 @@ export const possibleWrapperClasses = (cls: string): readonly string[] => {
  * @returns true when the field declaring the group's container chain types its slot.
  */
 export const groupSlotIsAnchored = (group: GroupNode): boolean => expectedValueType(group, 0) !== undefined;
+
+/**
+ * The concrete class a group's own slot declares, when the declaring field names one class outright (a
+ * `group<C>` field, or a list of them). A polymorphic slot answers nothing here: there the `Type=`
+ * picks the class, which is a different question with a different confidence.
+ *
+ * @param group the group node to ask about.
+ * @returns the class FullName the slot pins, or undefined when the slot is unknown or polymorphic.
+ */
+export const slotDeclaredClass = (group: GroupNode): string | undefined => {
+    const slot = expectedValueType(group, 0);
+    return slot?.kind === 'group' ? slot.ref : undefined;
+};
 
 /**
  * The schema type expected at top-level (or nested) member `member` of `container`, which is either a

@@ -23,6 +23,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { CancellationError } from '../../utils/cancellation';
 import { activeNavigationDeps, collectNavigationDeps, navigationDepKey } from '../../utils/navigation-deps';
 import { perfCount } from '../../utils/perf-counters';
+import { resolveThroughModContext } from '../../mod/mod-context-fallback';
 
 // Absolute references (`&<file>/…` file-relative, `&/…` super-path) resolve to the same target no
 // matter which node bears them: the file form depends only on the bearer's directory, the super
@@ -143,7 +144,7 @@ const isRuntimeReferenceValue = (node: AbstractNode | null | undefined): node is
  * Such a reference names a sibling of the inheriting group, so a relative `&`
  * lookup must resolve against the group's container, not the group's own members.
  */
-const isInheritanceMember = (node: AbstractNode | null | undefined): boolean =>
+export const isInheritanceMember = (node: AbstractNode | null | undefined): boolean =>
     !!node &&
     !!node.parent &&
     (isGroupNode(node.parent) || isListNode(node.parent)) &&
@@ -308,9 +309,13 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
         inheritanceVisited?: Set<AbstractNode>
     ): Promise<AbstractNode | null> => {
         // Resolve inheritance refs through `navigate` while forwarding both guard sets, so
-        // an inheritance lookup that loops back here shares the same `visited` set.
-        const resolveReference: ResolveReferenceFn = (p, n, location, token, inherited) =>
-            this.navigate(p, n, location, token, visited, inherited);
+        // an inheritance lookup that loops back here shares the same `visited` set. A hop that
+        // vanilla cannot answer is retried against the mod's own additions, the same fallback the
+        // outermost resolution gets: a base, alias or list element the mod injects has to keep
+        // working once the path continues through it.
+        const resolveReference: ResolveReferenceFn = async (p, n, location, token, inherited) =>
+            (await this.navigate(p, n, location, token, visited, inherited)) ??
+            (await resolveThroughModContext(p, n, token));
         const substrings = extractSubstrings(path);
         let node: AbstractNode | null | undefined = startNode;
         let lastNode: AbstractNode | null | undefined = startNode;
@@ -375,14 +380,19 @@ export class FullNavigationStrategy extends NavigationStrategy<AbstractNode | nu
                 if (index === substrings.length && isRuntimeReferenceValue(node)) return node;
                 if (visited.has(node)) return null;
                 visited.add(node);
-                const nextNode = await this.navigate(
-                    String(node.valueType.value),
-                    node,
-                    getStartOfAstNode(node).uri,
-                    cancellationToken,
-                    visited,
-                    inheritanceVisited
-                ).catch(() => null);
+                const referencePath = String(node.valueType.value);
+                const nextNode =
+                    (await this.navigate(
+                        referencePath,
+                        node,
+                        getStartOfAstNode(node).uri,
+                        cancellationToken,
+                        visited,
+                        inheritanceVisited
+                    ).catch(() => null)) ??
+                    // The alias points at something only the mod adds (`AL = &/SW_SOUNDS/…`), so the
+                    // rest of the path can only continue through the mod's effective game tree.
+                    (await resolveThroughModContext(referencePath, node, cancellationToken));
                 if (!nextNode) return null;
                 if (isFile(nextNode as unknown as FileTree)) {
                     // The reference points at a whole file (no member after `>`), e.g.

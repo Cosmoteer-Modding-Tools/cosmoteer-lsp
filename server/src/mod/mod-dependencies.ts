@@ -4,6 +4,7 @@ import { Position, TextEdit } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isAssignmentNode, isListNode, isValueNode } from '../core/ast/ast';
 import { isManifestBasename } from '../document/document-kind';
 import { filePathToUri } from '../features/navigation/navigation-strategy';
+import { lineEndingOf } from '../features/refactor/command-host';
 import { workshopModOf } from '../features/mod-schema/workshop-link';
 import { parseText } from '../utils/ast.utils';
 import { safeReaddir } from '../utils/fs.utils';
@@ -201,12 +202,16 @@ export const addDependencyEdit = async (
     const actions = manifest.elements.find(
         (element) => isListNode(element) && element.identifier?.name.toLowerCase() === 'actions'
     );
+    const lineEnding = lineEndingOf(text);
     if (actions) {
         const at = Position.create(startLineOf(actions), 0);
-        return { uri, edit: { range: { start: at, end: at }, newText: `Dependencies = [${quoted}]\n\n` } };
+        const newText = `Dependencies = [${quoted}]${lineEnding}${lineEnding}`;
+        return { uri, edit: { range: { start: at, end: at }, newText } };
     }
     const lines = text.split('\n');
-    const at = Position.create(lines.length - 1, lines[lines.length - 1].length);
-    const lead = text.endsWith('\n') ? '' : '\n';
-    return { uri, edit: { range: { start: at, end: at }, newText: `${lead}Dependencies = [${quoted}]\n` } };
+    const last = lines[lines.length - 1];
+    const at = Position.create(lines.length - 1, last.replace(/\r$/, '').length);
+    const lead = text.endsWith('\n') ? '' : lineEnding;
+    const newText = `${lead}Dependencies = [${quoted}]${lineEnding}`;
+    return { uri, edit: { range: { start: at, end: at }, newText } };
 };

@@ -131,20 +131,20 @@ describe('AutoCompletionModRules', () => {
         expect(buildActionSnippet('RemoveMany')).toBe('{\n\tAction = RemoveMany\n\tRemoveMany\n\t[\n\t\t"$1"\n\t]\n}');
     });
 
-    it('offers a full-action snippet per verb at the Actions list level', () => {
+    it('offers a full-action snippet per verb at the Actions list level', async () => {
         const src = 'Actions\n[\n\t\n]\n';
         const doc = parser(lexer(src), 'file:///mod.rules').value;
         const offset = src.indexOf('[\n\t\n') + 3; // the blank line directly inside the Actions list
-        const result = modRulesOffsetCompletions(doc, offset);
+        const result = await modRulesOffsetCompletions(doc, offset, '\t', token);
         expect(labels(result).sort()).toEqual([...ACTION_VERBS_FOR_TEST].sort());
         expect(result.every((c) => typeof c !== 'string' && c.isSnippet)).toBe(true);
     });
 
-    it('offers field names (not snippets) at an empty insertion point inside an entry', () => {
+    it('offers field names (not snippets) at an empty insertion point inside an entry', async () => {
         const src = 'Actions\n[\n\t{\n\t\tAction = Replace\n\t\tReplace = "<a.rules>"\n\t\t\n\t}\n]\n';
         const doc = parser(lexer(src), 'file:///mod.rules').value;
         const offset = src.indexOf('"\n\t\t\n') + 3;
-        const result = modRulesOffsetCompletions(doc, offset);
+        const result = await modRulesOffsetCompletions(doc, offset, '\t\t', token);
         expect(labels(result).sort()).toEqual(['IgnoreIfNotExisting', 'With'].sort());
         expect(result.some((c) => typeof c !== 'string' && c.isSnippet)).toBe(false);
     });

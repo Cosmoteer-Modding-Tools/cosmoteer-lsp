@@ -19,8 +19,15 @@ export const removalRange = (doc: TextDocument, start: number, end: number): Ran
     let e = end;
     // Swallow a trailing separator and the spaces around it, so `X = 1, Y = 2` minus X leaves `Y = 2`.
     while (e < text.length && (text[e] === ' ' || text[e] === '\t')) e++;
-    if (text[e] === ',' || text[e] === ';') e++;
+    const separated = text[e] === ',' || text[e] === ';';
+    if (separated) e++;
     while (s > 0 && (text[s - 1] === ' ' || text[s - 1] === '\t')) s--;
+    // The last member of a list has no separator after it, so the one in front of it is the one
+    // that goes, or `[a, Foo]` minus `Foo` would be left as `[a, ]`.
+    if (!separated && (text[s - 1] === ',' || text[s - 1] === ';')) {
+        s--;
+        while (s > 0 && (text[s - 1] === ' ' || text[s - 1] === '\t')) s--;
+    }
     const atLineStart = s === 0 || text[s - 1] === '\n';
     const restOfLine = text.slice(e, text.indexOf('\n', e) === -1 ? text.length : text.indexOf('\n', e));
     if (atLineStart && /^\s*$/.test(restOfLine)) {

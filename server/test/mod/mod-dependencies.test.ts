@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import {
     addDependencyEdit,
@@ -64,6 +66,19 @@ describe('mod dependencies', () => {
         expect(insert!.edit.range.start.character).toBe(0);
         // The `Actions` line, so the new member sits with ID, Name and Version rather than below them.
         expect(insert!.edit.range.start.line).toBe(5);
+    });
+
+    // A manifest written with `\r\n` used to get a bare `\n` written into it, which leaves the file
+    // mixed and shows the whole manifest as changed in the author's next diff.
+    it('writes the line ending the manifest already uses', async () => {
+        const root = mkdtempSync(join(tmpdir(), 'crlf-manifest-'));
+        try {
+            writeFileSync(join(root, 'mod.rules'), 'ID = "test.mod"\r\nName = "Test"\r\nActions\r\n[\r\n]\r\n');
+            const insert = await addDependencyEdit(root, 'Other.Mod');
+            expect(insert!.edit.newText).toBe('Dependencies = ["Other.Mod"]\r\n\r\n');
+        } finally {
+            rmSync(root, { recursive: true, force: true });
+        }
     });
 
     it('answers nothing for a folder that is not a mod', async () => {

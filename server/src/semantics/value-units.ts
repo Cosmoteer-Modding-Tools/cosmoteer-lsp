@@ -61,6 +61,10 @@ const suffixUnitOf = (node: ValueNode): ValueUnit | undefined => {
 export const sourceUnitOf = (nodes: readonly AbstractNode[]): ValueUnit | undefined => {
     const found = new Set<ValueUnit>();
     let decidable = true;
+    // A percentage scaled by a plain number is still a percentage, but one multiplied by a
+    // reference is whatever that reference measures: vanilla's `300% * (&~/EMITTER/Recoil)` is a
+    // recoil, and reading it back as 3000% was wrong by a factor of a hundred.
+    let hasReferenceOperand = false;
     const walk = (node: AbstractNode | null | undefined): void => {
         if (!node || !decidable) return;
         if (isFunctionCallNode(node)) {
@@ -78,10 +82,13 @@ export const sourceUnitOf = (nodes: readonly AbstractNode[]): ValueUnit | undefi
         if (isValueNode(node)) {
             const unit = suffixUnitOf(node);
             if (unit) found.add(unit);
+            else if (node.valueType.type === 'Reference') hasReferenceOperand = true;
         }
     };
     for (const node of nodes) walk(node);
-    return decidable && found.size === 1 ? [...found][0] : undefined;
+    if (!decidable || found.size !== 1) return undefined;
+    const unit = [...found][0];
+    return unit === 'percent' && hasReferenceOperand ? undefined : unit;
 };
 
 /**

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateShaderDocument } from '../../../src/features/shader/shader-diagnostics';
+import { resolveInclude } from '../../../src/features/shader/shader-source';
 
 /** Validates a self-contained shader (no readable includes) with an optional include-file override. */
 const validate = (text: string, override?: (p: string) => string | undefined) =>
@@ -122,5 +123,24 @@ describe('shader function-argument and return-type checks', () => {
         const src = 'float4 pix() { float = _time; return float4(0); }';
         const msgs = await messages(src);
         expect(msgs.some((m) => m.includes('variable name') && m.includes('float'))).toBe(true);
+    });
+});
+
+describe('shader include resolution', () => {
+    it('resolves a relative include against the including file only', () => {
+        // The engine's IncludeHandler resolves a relative include against the directory of the file
+        // that wrote it, with no second attempt at the mirrored location in the game tree. A mod
+        // include that only exists there throws in the game, so the server must not resolve it either.
+        const resolved = resolveInclude(
+            'C:/mods/my_mod/effects/fire.shader',
+            '../../common_effects/base_particle.shader',
+            'C:/game/Data'
+        );
+        expect(resolved.replace(/\\/g, '/')).toBe('C:/mods/common_effects/base_particle.shader');
+    });
+
+    it('resolves a root-anchored include against the game Data directory', () => {
+        const resolved = resolveInclude('C:/mods/my_mod/effects/fire.shader', './Data/base.shader', 'C:/game/Data');
+        expect(resolved.replace(/\\/g, '/')).toBe('C:/game/Data/base.shader');
     });
 });

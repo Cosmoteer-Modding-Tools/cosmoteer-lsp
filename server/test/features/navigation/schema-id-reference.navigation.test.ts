@@ -18,7 +18,7 @@ import {
 import { resolveSchemaIdReference } from '../../../src/features/navigation/schema-id-reference.navigation';
 import { SchemaIdIndex } from '../../../src/features/completion/schema-id.index';
 import { ReferenceIndex } from '../../../src/features/navigation/reference-index';
-import { RenameService, dropEditsUnderRoot } from '../../../src/features/navigation/rename.service';
+import { RenameRefusedError, RenameService, refuseEditsUnderRoot } from '../../../src/features/navigation/rename.service';
 import { TextEdit } from 'vscode-languageserver';
 import { HoverService } from '../../../src/features/hover/hover.service';
 
@@ -311,16 +311,24 @@ describe('resolveSchemaIdReference: cross-file ID<X> go-to-definition', () => {
         expect(value).toContain('battery.rules'); // → defined in `battery.rules`
     });
 
-    it('dropEditsUnderRoot strips edits to the read-only vanilla Data tree (never overwrites vanilla)', () => {
+    // Dropping the vanilla half used to leave the mod renaming its own uses of a symbol the game
+    // still calls by the old name, with nothing said about it.
+    it('refuseEditsUnderRoot turns down a rename that reaches the read-only vanilla Data tree', () => {
         const te = [TextEdit.replace({ start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, 'x')];
         const edit = {
             changes: {
-                'file:///C:/Steam/Cosmoteer/Data/ships/armor.rules': te, // vanilla → must be dropped
-                'file:///C:/Mods/MyMod/parts/store.rules': te, // mod → kept
+                'file:///C:/Steam/Cosmoteer/Data/ships/armor.rules': te,
+                'file:///C:/Mods/MyMod/parts/store.rules': te,
             },
         };
-        const guarded = dropEditsUnderRoot(edit, 'C:\\Steam\\Cosmoteer\\Data');
-        const uris = Object.keys(guarded.changes!);
-        expect(uris).toEqual(['file:///C:/Mods/MyMod/parts/store.rules']);
+        expect(() => refuseEditsUnderRoot(edit, 'C:\\Steam\\Cosmoteer\\Data')).toThrow(RenameRefusedError);
+    });
+
+    it('refuseEditsUnderRoot passes a rename that stays inside the mod', () => {
+        const te = [TextEdit.replace({ start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, 'x')];
+        const edit = { changes: { 'file:///C:/Mods/MyMod/parts/store.rules': te } };
+        expect(Object.keys(refuseEditsUnderRoot(edit, 'C:\\Steam\\Cosmoteer\\Data').changes!)).toEqual([
+            'file:///C:/Mods/MyMod/parts/store.rules',
+        ]);
     });
 });

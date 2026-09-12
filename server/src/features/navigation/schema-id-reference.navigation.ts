@@ -17,7 +17,12 @@ import { documentRootClass } from '../../document/schema/document-root';
 import { fieldOf, scalarReferenceTargetOf, typeDef } from '../../document/schema/schema';
 import { entityDeclarationsOf, REFERENCE_MAP_KEY_FIELDS, sameId } from '../../document/schema/entity-schema';
 import { definitionLocationOf } from './reference-location';
-import { documentsMentioning } from './workspace-files';
+import { documentsMentioning, uriToFsPath } from './workspace-files';
+import { findModRoot } from '../../mod/mod-root';
+import { reachabilityKey, reachabilityMemo } from '../../mod/mod-reachability';
+
+/** Per-mod reachability closures, so a run of id lookups does not re-walk the mod for each one. */
+const reachabilityClosures = reachabilityMemo();
 
 /** The class that owns `fieldName` for a member-bearing container (a group, or a whole-file-root document). */
 const ownerClassOf = (container: AbstractNode): string | undefined =>
@@ -265,19 +270,47 @@ export const resolveIdReferenceTarget = async (
     folderPaths: string[],
     cancellationToken: CancellationToken
 ): Promise<Location | null> => {
+    const candidates: Location[] = [];
     for await (const document of documentsMentioning(folderPaths, value, cancellationToken)) {
         // Whole-file root: the file whose root class is the target and whose top-level `ID` matches.
         const rootClass = documentRootClass(document);
         if (rootClass && isSameOrSubclass(rootClass, targetClass)) {
             const idNode = topLevelIdNode(document);
-            if (idNode && sameId(String(idNode.valueType.value), value)) return definitionLocationOf(idNode);
+            if (idNode && sameId(String(idNode.valueType.value), value)) candidates.push(definitionLocationOf(idNode));
         }
         // Aggregate entity: a `Factions [ { ID } ]` / `PartToggles [ { ToggleID } ]` / buff member.
         for (const decl of entityDeclarationsOf(document)) {
             if (sameId(decl.id, value) && isSameOrSubclass(decl.elementClass, targetClass)) {
-                return definitionLocationOf(decl.node);
+                candidates.push(definitionLocationOf(decl.node));
             }
         }
     }
-    return null;
+    if (candidates.length <= 1) return candidates[0] ?? null;
+    return (await firstReachable(candidates, cancellationToken)) ?? candidates[0];
+};
+
+/**
+ * The first of several declarations of one id that the mod actually loads. A copy kept in a
+ * `_backup` file declares the id as convincingly as the live one, and jumping into a file the game
+ * never reads is worse than any ordering, so the mod's reachability closure decides. Computed only
+ * when there is a choice to make, and memoized per mod, so the ordinary single-declaration lookup
+ * pays nothing for it.
+ *
+ * @param candidates the declaration locations found, in scan order.
+ * @param cancellationToken cancels the reachability walk.
+ * @returns the first reachable declaration, or undefined when none is known to be reachable.
+ */
+const firstReachable = async (
+    candidates: Location[],
+    cancellationToken: CancellationToken
+): Promise<Location | undefined> => {
+    for (const candidate of candidates) {
+        const path = uriToFsPath(candidate.uri);
+        const modRoot = findModRoot(candidate.uri);
+        // Outside a mod (the game's own tree) there is nothing that could be unreachable.
+        if (!modRoot) return candidate;
+        const reachability = await reachabilityClosures.of(modRoot, cancellationToken).catch(() => undefined);
+        if (!reachability || reachability.reachable.has(reachabilityKey(path))) return candidate;
+    }
+    return undefined;
 };
