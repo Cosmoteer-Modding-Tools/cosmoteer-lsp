@@ -122,7 +122,8 @@
                 <key>name</key>
                 <string>entity.name.tag</string>
                 <key>match</key>
-                <string>(&lt;[^&gt;\n"]*\.(?i:rules|txt)[^&gt;\n"]*&gt;(?:/[\w.^~&lt;&gt;-]*)*|&amp;[\w./^~&lt;&gt;-]*|\^/[\w./^~&lt;&gt;-]*|~/[\w./^~&lt;&gt;-]*)</string>
+                <string>(&lt;[^&gt;\n"]*\.(?i:rules|txt)[^&gt;\n"]*&gt;(?:/[\w.^~&lt;&gt;\-]*)*|&amp;(?:&lt;[^&gt;
+]*&gt;)?[\w./^~&lt;&gt;\-]*|\^/[\w./^~&lt;&gt;\-]*|~/[\w./^~&lt;&gt;\-]*)</string>
               </dict>
             </array>
           </dict>
@@ -146,7 +147,8 @@
             <key>name</key>
             <string>entity.name.tag</string>
             <key>match</key>
-            <string>(?&lt;![\w.])(&lt;[^&gt;\n]*\.(?i:rules|txt)[^&gt;\n]*&gt;(?:/[\w.^~&lt;&gt;-]*)*|&amp;[\w./^~&lt;&gt;-]*|\^/[\w./^~&lt;&gt;-]*|~/?[\w./^~&lt;&gt;-]*|\.\.?/[\w./^~&lt;&gt;-]*|/[A-Za-z_][\w./^~&lt;&gt;-]*)</string>
+            <string>(?&lt;![\w.])(&lt;[^&gt;\n]*\.(?i:rules|txt)[^&gt;\n]*&gt;(?:/[\w.^~&lt;&gt;\-]*)*|&amp;(?:&lt;[^&gt;
+]*&gt;)?[\w./^~&lt;&gt;\-]*|\^/[\w./^~&lt;&gt;\-]*|~/?[\w./^~&lt;&gt;\-]*|\.\.?/[\w./^~&lt;&gt;\-]*|/[A-Za-z_][\w./^~&lt;&gt;\-]*)</string>
           </dict>
         </array>
       </dict>
@@ -170,7 +172,7 @@
             <key>name</key>
             <string>constant.numeric</string>
             <key>match</key>
-            <string>(?&lt;![\w.])-?(?:[Ii]nfinity|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?%?)</string>
+            <string>(?&lt;![\w.])-?(?:[Ii]nfinity|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?(?:[%dr](?![\w]))?)</string>
           </dict>
         </array>
       </dict>
@@ -216,7 +218,7 @@
             <key>name</key>
             <string>string.unquoted</string>
             <key>match</key>
-            <string>[a-zA-Z_][a-zA-Z0-9_.]*</string>
+            <string>[\p{L}_][\p{L}\p{N}_.]*</string>
           </dict>
         </array>
       </dict>

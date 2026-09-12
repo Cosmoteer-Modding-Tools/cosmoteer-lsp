@@ -49,9 +49,7 @@ const editScript = (before: readonly string[], after: readonly string[]): Step[]
     for (let i = before.length - 1; i >= 0; i--) {
         for (let j = after.length - 1; j >= 0; j--) {
             lengths[i][j] =
-                before[i] === after[j]
-                    ? lengths[i + 1][j + 1] + 1
-                    : Math.max(lengths[i + 1][j], lengths[i][j + 1]);
+                before[i] === after[j] ? lengths[i + 1][j + 1] + 1 : Math.max(lengths[i + 1][j], lengths[i][j + 1]);
         }
     }
     const steps: Step[] = [];

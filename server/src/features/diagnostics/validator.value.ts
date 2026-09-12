@@ -19,7 +19,7 @@ import { getStartOfAstNode } from '../../utils/ast.utils';
 import { isValidReference } from '../../utils/reference.utils';
 import { Validation, ValidationError } from './validator';
 import { extractSubstrings } from '../navigation/navigation-strategy';
-import { isActionTargetValueNode } from '../../mod/action';
+import { isActionNameValueNode, isActionTargetValueNode } from '../../mod/action';
 import { findModRoot } from '../../mod/mod-root';
 import { resolveFromModContextOnly } from '../../mod/mod-context';
 import { isStringsFile } from '../../mod/strings-folder';
@@ -165,6 +165,9 @@ const checkAssets = async (node: ValueNode, cancellationToken: CancellationToken
         // asset-like extension, it is not an asset path. The game never resolves these. Skip the
         // asset check so strings files don't show false "Asset not found" warnings.
         if (await isStringsFile(getStartOfAstNode(node).uri, cancellationToken)) return undefined;
+        // A mod action's `Name` is the key its entry is added under. A ship keyed
+        // `Name = "Small Pirate Lootbox.ship.png"` names no file the game loads.
+        if (isActionNameValueNode(node)) return undefined;
         // A field the game provably ignores (not in the resolved schema class, never referenced in
         // the file) never has its path resolved either. Vanilla's `Filename = SmoothFalloffRamp.png`
         // inside `Type = ValueCurve` updaters is dev-editor metadata, not a loaded asset.
@@ -192,10 +195,7 @@ const checkAssets = async (node: ValueNode, cancellationToken: CancellationToken
         // Not found. Offer a "did you mean" suggestion (closest existing file of this kind in
         // the same directories) as both extra info and a quick fix.
         const suggestion = await suggestAssetFilename(node, uri, cancellationToken).catch(() => null);
-        const base = l10n.t(
-            'The asset "{0}" could not be found relative to this file',
-            String(node.valueType.value)
-        );
+        const base = l10n.t('The asset "{0}" could not be found relative to this file', String(node.valueType.value));
         return {
             message: l10n.t('Asset not found'),
             node: node,
@@ -270,10 +270,14 @@ const checkReference = async (
                 // that rewrite instead of a name suggestion. Action targets are exempt even outside
                 // mod.rules (manifests include action lists from other files): the game resolves
                 // them against the Data root, where the bare `../` form is already correct.
-                const rewrite = isActionTargetValueNode(node) ? null : intendedWorkshopEscape(node.valueType.value, uri);
+                const rewrite = isActionTargetValueNode(node)
+                    ? null
+                    : intendedWorkshopEscape(node.valueType.value, uri);
                 if (
                     rewrite &&
-                    (await rulesNavigationStrategy.navigate(rewrite, startNode, uri, cancellationToken).catch(() => null))
+                    (await rulesNavigationStrategy
+                        .navigate(rewrite, startNode, uri, cancellationToken)
+                        .catch(() => null))
                 ) {
                     return {
                         message: l10n.t('Reference name is not known'),

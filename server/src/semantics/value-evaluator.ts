@@ -2,6 +2,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import {
     AbstractNode,
     FunctionCallNode,
+    isAssignmentNode,
     isExpressionNode,
     isFunctionCallNode,
     isGroupNode,
@@ -9,10 +10,13 @@ import {
     isValueNode,
     ValueNode,
 } from '../core/ast/ast';
+import { lexer } from '../core/lexer/lexer';
+import { parser } from '../core/parser/parser';
 import { getStartOfAstNode } from '../utils/ast.utils';
 import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
 import { FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { CONSTANTS, mathFunction } from './math-function-registry';
+import { decimalDiv, decimalMinus, decimalMultiply, decimalPlus } from './decimal-arithmetic';
 
 const navigation = new FullNavigationStrategy();
 
@@ -60,13 +64,33 @@ interface TraceSink {
     omitted: number;
 }
 
+/**
+ * The collector a checked evaluation hands down through its {@link EvalContext}, recording that a
+ * division folded with a divisor of exactly zero. `depth` is how many references the evaluation
+ * descended through to get there, so a division written in another field is not attributed to the
+ * value that merely reads it.
+ */
+interface ZeroDivisionSink {
+    hit: boolean;
+    depth: number;
+}
+
 interface EvalContext {
     token: CancellationToken;
     /** Reference value nodes already dereferenced on this path. Breaks `A = &B` / `B = &A` cycles. */
     visited: Set<AbstractNode>;
+    /** Division-by-zero collector, undefined on every path but the checked entry point. */
+    zero?: ZeroDivisionSink;
     /** Substitution collector, undefined on the untraced path. Every entry point writes the slot
      *  explicitly, even as undefined, so both paths hand the evaluation the same object shape. */
     trace?: TraceSink;
+    /**
+     * How many function-argument lists the evaluation is currently inside. The game evaluates a
+     * whole field value in one `calculate()` and rounds almost-integers once, at the very end, so an
+     * argument must not be snapped on its own: the game reads `ceil(2.0000000000000004)` as 3, and
+     * snapping the argument first would read it as 2.
+     */
+    argumentDepth?: number;
 }
 
 /**
@@ -77,14 +101,11 @@ interface EvalContext {
  * (strings, percentages/units, unknown functions, unresolved refs, cycles) so callers can
  * simply show nothing rather than a wrong value.
  */
-export const evaluateNumericValue = async (
-    node: AbstractNode,
-    token: CancellationToken
-): Promise<number | null> => {
+export const evaluateNumericValue = async (node: AbstractNode, token: CancellationToken): Promise<number | null> => {
     // The explicit `trace: undefined` is deliberate: this runs on the whole-workspace diagnostics
     // pass, and giving it a different object shape than the traced entry point would make every
-    // context read inside the evaluation polymorphic.
-    return evaluate(node, { token, visited: new Set(), trace: undefined });
+    // context read inside the evaluation polymorphic. Same for the `zero` slot below.
+    return evaluate(node, { token, visited: new Set(), trace: undefined, zero: undefined });
 };
 
 /**
@@ -103,7 +124,7 @@ export const evaluateNumericValueTraced = async (
     token: CancellationToken
 ): Promise<TracedValue> => {
     const trace: TraceSink = { entries: [], seen: new Set(), depth: 0, omitted: 0 };
-    const value = await evaluate(node, { token, visited: new Set(), trace });
+    const value = await evaluate(node, { token, visited: new Set(), trace, zero: undefined });
     if (value === null) return { value: null, substitutions: [], omitted: 0 };
     return { value, substitutions: trace.entries, omitted: trace.omitted };
 };
@@ -118,7 +139,28 @@ export const evaluateExpressionGroup = async (
     token: CancellationToken
 ): Promise<number | null> => {
     // Same explicit `trace: undefined` as above, for the same shape reason.
-    return evaluateSequence(parts, { token, visited: new Set(), trace: undefined });
+    return evaluateSequence(parts, { token, visited: new Set(), trace: undefined, zero: undefined });
+};
+
+/**
+ * Compute the same number {@link evaluateNumericValue} does, and report whether the value divides
+ * by zero. The game's own evaluator answers `NaN` for every spelling of it (`1 / 0`, `1 / (2 - 2)`,
+ * the modulo `10 # 0`), which a `float` field stores as-is and an `int` field refuses with an
+ * `OverflowException` while loading, so a caller that knows the field's type can say which of the
+ * two a file is heading for. Only a division written in the evaluated value itself is reported: one
+ * inside a field this value merely references belongs to that field, where it is reported already.
+ *
+ * @param node the node to evaluate.
+ * @param token cancellation token of the surrounding request.
+ * @returns the computed number (null when it does not evaluate) and whether it divided by zero.
+ */
+export const evaluateNumericValueChecked = async (
+    node: AbstractNode,
+    token: CancellationToken
+): Promise<{ value: number | null; dividedByZero: boolean }> => {
+    const zero: ZeroDivisionSink = { hit: false, depth: 0 };
+    const value = await evaluate(node, { token, visited: new Set(), trace: undefined, zero });
+    return { value, dividedByZero: zero.hit };
 };
 
 /**
@@ -160,9 +202,7 @@ export const resolveReferencedBaseValue = async (
         .catch(() => null);
     if (!target || isFile(target as FileWithPath) || !isGroupNode(target as AbstractNode)) return null;
     const group = target as AbstractNode;
-    const member = await navigation
-        .navigate('BaseValue', group, getStartOfAstNode(group).uri, token)
-        .catch(() => null);
+    const member = await navigation.navigate('BaseValue', group, getStartOfAstNode(group).uri, token).catch(() => null);
     if (!member || isFile(member as FileWithPath)) return null;
     return member as AbstractNode;
 };
@@ -210,9 +250,10 @@ const arithmeticLiteral = (literal: string): number => {
  * the lexer hands them over as a single string token where a spaced `10 - 3.4` would have become
  * three nodes. The game has no such split, it evaluates the token's text either way.
  * @param text the value's text, whitespace already stripped.
+ * @param zero collector of a division by a zero divisor, on the checked path only.
  * @returns the number, or null when the text is not such a run.
  */
-const evaluateArithmeticText = (text: string): number | null => {
+const evaluateArithmeticText = (text: string, zero?: ZeroDivisionSink): number | null => {
     const items: (number | { op: string })[] = [];
     let rest = text;
     let expectOperand = true;
@@ -243,17 +284,74 @@ const evaluateArithmeticText = (text: string): number | null => {
     }
     // A lone literal is the plain-number case the caller already handled, and a trailing operator is
     // not an expression at all.
-    return expectOperand || items.length < 3 ? null : foldItems(items);
+    return expectOperand || items.length < 3 ? null : foldItems(items, true, zero);
+};
+
+// A quoted value is only re-read as an expression when it carries an expression's punctuation. A
+// quoted word or sentence stays a string, so localization text never picks up a number.
+const EXPRESSION_PUNCTUATION = /[&(]|\d\s*[-+*/^#]/;
+
+// Parses of quoted expressions, keyed by the text inside the quotes. The same `"round((&A), 2)"` is
+// re-evaluated on every hint pass over a file, and the parse is pure, so one entry serves them all.
+const quotedExpressionCache = new Map<string, AbstractNode | null>();
+const MAX_QUOTED_EXPRESSION_CACHE = 500;
+
+/**
+ * Evaluate the expression inside a quoted value.
+ *
+ * The parse is done on the text alone and then anchored to the quoted node's own parent, so a
+ * reference inside the quotes resolves against the place the value is written, exactly as the game
+ * resolves it.
+ *
+ * @param node the quoted value node.
+ * @param context the running evaluation.
+ * @returns the number the expression evaluates to, or null when the text is not one.
+ */
+const evaluateQuotedExpression = async (node: ValueNode, context: EvalContext): Promise<number | null> => {
+    const text = String(node.valueType.value);
+    if (!EXPRESSION_PUNCTUATION.test(text)) return null;
+    let parsed = quotedExpressionCache.get(text);
+    if (parsed === undefined) {
+        parsed = parseExpressionText(text);
+        if (quotedExpressionCache.size >= MAX_QUOTED_EXPRESSION_CACHE) quotedExpressionCache.clear();
+        quotedExpressionCache.set(text, parsed);
+    }
+    if (!parsed) return null;
+    // The parse is shared, so anchor it per use rather than mutating one tree per document.
+    const anchored = Object.create(parsed) as AbstractNode;
+    anchored.parent = node.parent;
+    return evaluate(anchored, context);
+};
+
+/**
+ * Parse a piece of text as a field value, for re-reading the inside of a quoted expression.
+ *
+ * @param text the text between the quotes.
+ * @returns the value node it parses to when it is an expression, else null.
+ */
+const parseExpressionText = (text: string): AbstractNode | null => {
+    // A synthetic assignment is the shape the parser reads a value in; the name is never used.
+    const document = parser(lexer(`_ = ${text}`), 'file:///quoted-expression.rules').value;
+    const first = document.elements[0];
+    if (!first || !isAssignmentNode(first)) return null;
+    const value = first.right;
+    if (!value) return null;
+    // Only a real expression counts. A quoted word parses to a plain string and must stay one.
+    return isMathExpressionNode(value) || isFunctionCallNode(value) ? value : null;
 };
 
 const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<number | null> => {
     if (node.valueType.type === 'Number') return node.valueType.value;
+    // Quotes are how an expression carrying a comma is written, since a bare comma would end the
+    // value: vanilla writes every `round(x, n)` and every multi-argument call that way. The quotes
+    // only escape the text, the game still evaluates what is inside them.
+    if (node.quoted) return evaluateQuotedExpression(node, context);
     // A bare mXparser constant (`pi`, `e`) lexes as an unquoted token, sometimes typed `String`,
     // sometimes `Reference`, so check it before the reference-navigation path. A quoted "pi" is a
     // real string and must not match.
-    if (!node.quoted) {
+    {
         const text = String(node.valueType.value);
-        const constant = CONSTANTS[text.toLowerCase()];
+        const constant = CONSTANTS[text];
         if (constant !== undefined && !REFERENCE_SIGIL.test(text)) return constant;
         // The game's ExpressionEvaluator rewrites suffixed numbers before handing the string to
         // mXparser: `50%` → 0.5, `90d` (degrees) → radians, `2r` (radians) → the bare number.
@@ -264,7 +362,7 @@ const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<num
         if (DEGREES_LITERAL.test(literal)) return (parseFloat(literal) / 360) * (Math.PI * 2);
         if (RADIANS_LITERAL.test(literal)) return parseFloat(literal);
         if (!REFERENCE_SIGIL.test(literal)) {
-            const arithmetic = evaluateArithmeticText(literal);
+            const arithmetic = evaluateArithmeticText(literal, context.zero);
             if (arithmetic !== null) return arithmetic;
         }
     }
@@ -278,6 +376,7 @@ const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<num
     const sink = context.trace;
     const slot = sink ? reserveSubstitution(sink, String(node.valueType.value)) : -1;
     if (sink) sink.depth++;
+    if (context.zero) context.zero.depth++;
     try {
         const target = await navigation
             .navigate(String(node.valueType.value), node, getStartOfAstNode(node).uri, context.token)
@@ -291,6 +390,7 @@ const evaluateValue = async (node: ValueNode, context: EvalContext): Promise<num
     } finally {
         context.visited.delete(node);
         if (sink) sink.depth--;
+        if (context.zero) context.zero.depth--;
     }
 };
 
@@ -326,12 +426,7 @@ const reserveSubstitution = (sink: TraceSink, path: string): number => {
  * @param target the node the reference resolved to, or null when it did not resolve.
  * @returns nothing, the sink is updated in place.
  */
-const settleSubstitution = (
-    sink: TraceSink,
-    slot: number,
-    value: number | null,
-    target: AbstractNode | null
-): void => {
+const settleSubstitution = (sink: TraceSink, slot: number, value: number | null, target: AbstractNode | null): void => {
     const entry = sink.entries[slot];
     if (value === null || !target) {
         sink.entries.length = slot;
@@ -407,21 +502,33 @@ const evaluateSequence = async (parts: AbstractNode[], context: EvalContext): Pr
             items.push(value);
         }
     }
-    return foldItems(items);
+    return foldItems(items, !context.argumentDepth, context.zero);
 };
 
 /**
  * Folds a resolved operand/operator stream to its single value, in mXparser's operator order.
  * @param items the stream, operands as numbers and operators as their spelling.
+ * @param settle whether the finished value gets mXparser's almost-integer rounding. Only the
+ * outermost expression does: the game rounds once, when the whole field value is done.
+ * @param zero collector of a division by a zero divisor, on the checked path only.
  * @returns the value, or null when the stream does not collapse to one finite number.
  */
-const foldItems = (items: (number | { op: string })[]): number | null => {
+const foldItems = (items: (number | { op: string })[], settle = true, zero?: ZeroDivisionSink): number | null => {
+    // A divisor of exactly zero, in the value the caller asked about rather than in one it reads
+    // through a reference. Both the game and the folds below answer NaN for it.
+    const noteZeroDivisor = (divisor: number): void => {
+        if (zero && zero.depth === 0 && divisor === 0) zero.hit = true;
+    };
     if (items.length === 0) return null;
 
     const isOperand = (item: number | { op: string } | undefined): item is number => typeof item === 'number';
     // Fold every `operand op operand` triple whose operator is in `ops`, taking the leftmost match
     // each round (rightmost for the right-associative power) exactly like calculate()'s scan order.
-    const foldBinary = (ops: readonly string[], apply: (op: string, a: number, b: number) => number, rightAssoc = false) => {
+    const foldBinary = (
+        ops: readonly string[],
+        apply: (op: string, a: number, b: number) => number,
+        rightAssoc = false
+    ) => {
         for (;;) {
             let found = -1;
             for (let i = 0; i < items.length; i++) {
@@ -451,13 +558,37 @@ const foldItems = (items: (number | { op: string })[]): number | null => {
         }
     };
 
+    // A `-` or `+` with nothing to its left that a value could come from is a sign on the operand
+    // behind it, not an operator: `-(&A)` is one negated value and `2 * -(3)` is -6. A postfix `!`
+    // completes the value before it, so the `-` in `5! - 3` is still binary. Folding from the right
+    // lets a run of signs collapse one at a time.
+    const completesValue = (item: number | { op: string } | undefined): boolean =>
+        isOperand(item) || (typeof item === 'object' && item.op === '!');
+    for (let at = items.length - 2; at >= 0; at--) {
+        const item = items[at];
+        if (typeof item === 'number' || (item.op !== '-' && item.op !== '+')) continue;
+        if (at > 0 && completesValue(items[at - 1])) continue;
+        const operand = items[at + 1];
+        if (!isOperand(operand)) continue;
+        items.splice(at, 2, item.op === '-' ? -operand : operand);
+    }
+
     foldBinary(['^^'], (_, a, b) => tetration(a, b), true); // tetration, right-associative
     foldBinary(['^'], (_, a, b) => a ** b, true); // power, right-associative
     // `!` folds AFTER the power level: mXparser computes `2^3!` as `(2^3)!` = 40320.
     foldPostfix('!', (a) => factorial(a));
-    foldBinary(['#'], (_, a, b) => (Number.isNaN(a) || Number.isNaN(b) ? NaN : a % b)); // MathFunctions.mod
-    foldBinary(['*', '/'], (op, a, b) => (op === '*' ? a * b : a / b));
-    foldBinary(['+', '-'], (op, a, b) => (op === '+' ? a + b : a - b));
+    foldBinary(['#'], (_, a, b) => {
+        noteZeroDivisor(b);
+        return Number.isNaN(a) || Number.isNaN(b) ? NaN : a % b; // MathFunctions.mod
+    });
+    // The four arithmetic operators go through decimal, the way mXparser computes them with
+    // canonical rounding on. A plain double reads `10 / 3 * 3` as 10 and hides that the game reads
+    // 9.99999999999999 and refuses the value in an int field. See decimal-arithmetic.ts.
+    foldBinary(['*', '/'], (op, a, b) => {
+        if (op === '/') noteZeroDivisor(b);
+        return op === '*' ? decimalMultiply(a, b) : decimalDiv(a, b);
+    });
+    foldBinary(['+', '-'], (op, a, b) => (op === '+' ? decimalPlus(a, b) : decimalMinus(a, b)));
     // Binary relations: calculate() checks each spelling group in this fixed order, so all
     // not-equals fold before all equals, which fold before `<`, `>`, `<=`, `>=`.
     foldBinary(['<>', '~=', '!='], (_, a, b) => negate3(relationEq(a, b)));
@@ -468,9 +599,7 @@ const foldItems = (items: (number | { op: string })[]): number | null => {
     foldBinary(['>='], (_, a, b) => relationCompare(a, b, (x, y, eps) => x >= y - eps));
     // Boolean families in BooleanAlgebra's three-valued logic (NaN = unknown): the AND/NAND level,
     // then OR/NOR/XOR, then the implications, mirroring bolCalc's priority groups.
-    foldBinary(['&', '&&', '~&', '~&&'], (op, a, b) =>
-        op.startsWith('~') ? negate3(and3(a, b)) : and3(a, b)
-    );
+    foldBinary(['&', '&&', '~&', '~&&'], (op, a, b) => (op.startsWith('~') ? negate3(and3(a, b)) : and3(a, b)));
     foldBinary(['|', '||', '~|', '~||', '(+)'], (op, a, b) =>
         op === '(+)' ? xor3(a, b) : op.startsWith('~') ? negate3(or3(a, b)) : or3(a, b)
     );
@@ -486,9 +615,9 @@ const foldItems = (items: (number | { op: string })[]): number | null => {
     // the left operand as the "result" would lie. Show nothing instead.
     if (items.length !== 1 || !isOperand(items[0])) return null;
     // calculate() finishes with almost-integer rounding, which is what lets the game read
-    // `(&A) * (0.2 / 0.1)` into an int field. Division by zero (`Infinity`) and NaN are not real
-    // numbers; return null like evaluateFunction so callers show nothing rather than "= Infinity".
-    const settled = almostIntRound(items[0]);
+    // `(&A) * (0.2 / 0.1)` into an int field. A division by zero (`NaN` here and in the game's own
+    // evaluator) is not a real number, so return null like evaluateFunction and show nothing.
+    const settled = settle ? almostIntRound(items[0]) : items[0];
     return isFinite(settled) ? settled : null;
 };
 
@@ -629,16 +758,20 @@ const evaluateFunction = async (node: FunctionCallNode, context: EvalContext): P
     const fn = mathFunction(node.name)?.evaluate;
     if (!fn) return null;
     const args: number[] = [];
+    // An argument is folded without the almost-integer rounding: the game rounds the finished field
+    // value once, so `ceil(2.0000000000000004)` reaches ceil unrounded and reads as 3.
+    const inner = { ...context, argumentDepth: (context.argumentDepth ?? 0) + 1 };
     for (const group of segmentArguments(node.arguments)) {
-        const value = await evaluateSequence(group, context);
+        const value = await evaluateSequence(group, inner);
         if (value === null) return null;
         args.push(value);
     }
     const result = args.length ? fn(args) : null;
     if (result === null) return null;
     // A function call standing alone as the field value still goes through one calculate() in the
-    // game, so its result gets the same almost-integer rounding as a folded sequence.
-    const settled = almostIntRound(result);
+    // game, so its result gets the same almost-integer rounding as a folded sequence. Nested in an
+    // argument it does not: the rounding belongs to the outermost expression.
+    const settled = context.argumentDepth ? result : almostIntRound(result);
     return isFinite(settled) ? settled : null;
 };
 

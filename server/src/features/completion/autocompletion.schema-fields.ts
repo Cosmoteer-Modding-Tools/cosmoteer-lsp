@@ -1,4 +1,4 @@
-import { CancellationToken, CompletionItemKind } from 'vscode-languageserver';
+import { CancellationToken, CompletionItemKind, Range } from 'vscode-languageserver';
 import {
     AbstractNode,
     AbstractNodeDocument,
@@ -27,6 +27,7 @@ import {
     fieldSignatureMarkdown,
     fieldsOf,
     isLocalizationKeyType,
+    requiredFieldsOf,
     scalarReferenceTargetOf,
     schema,
     valueTypeLabel,
@@ -35,6 +36,7 @@ import { SchemaField, SchemaRegistry, ValueType } from '../../document/schema/sc
 import { Completion } from './autocompletion.service';
 import { completeFieldValue, discriminatorCompletions, enumOrBoolCompletions } from './autocompletion.schema';
 import { componentIdCompletions } from './autocompletion.component-id';
+import { isLabelField } from './schema-id.index';
 import { componentNameCompletions } from './autocompletion.component-name';
 import { declaringFieldOf, mapEntryKeyTargetOf } from '../navigation/schema-id-reference.navigation';
 import { isIdDeclarationField } from '../../document/schema/entity-schema';
@@ -221,8 +223,16 @@ export const schemaFieldNameCompletions = async (
     // A required field the chain already supplies is not missing, the game reads it here, so
     // scaffolding it would write an override that changes nothing and would say the opposite of what
     // the required-field check says about the same group.
+    // Required means what the game's deserializer means by it, which is what `requiredFieldsOf`
+    // answers, so the scaffold offers exactly the set the required-field check reports as missing.
+    // Reading `optional` here instead left the two disagreeing about the same group.
+    const requiredNames = new Set(
+        [...new Set(missing.map(({ owner }) => owner))].flatMap((owner) =>
+            requiredFieldsOf(owner).map((field) => field.name.toLowerCase())
+        )
+    );
     const requiredMissing = missing
-        .filter(({ field }) => !field.optional && !suppliedByChain(field, inherited))
+        .filter(({ field }) => requiredNames.has(field.name.toLowerCase()) && !suppliedByChain(field, inherited))
         .map(({ field }) => field);
     if (requiredMissing.length >= 2) {
         completions.unshift({
@@ -277,12 +287,17 @@ export const isBareFieldNameIdentifier = (node: AbstractNode): boolean => {
     return true;
 };
 
-/** Matches an in-progress value assignment at the end of a line: `Key = ` (value still empty), or
- *  `Key = "…` whose opening quote is not closed yet. The unclosed quote makes the parser produce no
- *  value node to complete against, so the offset path is the only one that can serve a quoted value
- *  while it is being typed (`Layer = "roo`). A closed quoted value is left out on purpose: it has a
- *  value node, which the richer node-based completers serve. */
-const VALUE_POSITION = /(?:^|[\s{;[])([A-Za-z_]\w*)\s*=\s*(?:"[^"]*)?$/;
+/** Matches a value position at the end of a line: a `Key =` whose value is still being written. The
+ *  whole tail after the `=` belongs to the value, so a caret further along the same expression
+ *  (`Density = 1 / <cursor>`) is a value position too, and the field snippets that used to be offered
+ *  there wrote a `Foo = $0` into the middle of a formula. A `;` ends the assignment and a `{` or `[`
+ *  opens a container whose members are their own scope, so any of them in the tail ends the match,
+ *  and a closing `]` or `}` means the value is already complete. */
+const VALUE_POSITION = /(?:^|[\s{;[])([A-Za-z_]\w*)\s*=([^;{}[\]]*)$/;
+
+/** A quoted value the user has already closed. The caret behind it is past the value, not in it, so
+ *  a suggestion accepted there would be appended to the finished one (`"Parts/Test"Parts/Airlock`). */
+const CLOSED_QUOTED_VALUE = /^\s*"[^"]*"\s*$/;
 
 /**
  * Where a comment opens on the line left of the cursor, ignoring a `//` or `/*` that is part of a
@@ -303,10 +318,87 @@ const commentStartInPrefix = (linePrefix: string): number => {
     return -1;
 };
 
-/** The field being assigned at an empty `Key = ` insertion point, or undefined if not one. */
+/**
+ * Whether a byte offset sits inside a comment, a `//` line comment or a `/* … *\/` block. The scan
+ * runs from the start of the text because a block comment opens on an earlier line, and it tracks
+ * quotes so an asset path or a url written in a value never reads as one.
+ *
+ * @param text the whole document text.
+ * @param offset the cursor byte offset.
+ * @returns true when the cursor is inside a comment.
+ */
+export const isInsideComment = (text: string, offset: number): boolean => {
+    let inString = false;
+    let index = 0;
+    while (index < offset) {
+        const character = text[index];
+        if (inString) {
+            if (character === '"') inString = false;
+            else if (character === '\n') inString = false;
+            index++;
+            continue;
+        }
+        if (character === '"') {
+            inString = true;
+            index++;
+            continue;
+        }
+        if (character === '/' && text[index + 1] === '/') {
+            const lineEnd = text.indexOf('\n', index);
+            if (lineEnd === -1 || lineEnd >= offset) return true;
+            index = lineEnd + 1;
+            continue;
+        }
+        if (character === '/' && text[index + 1] === '*') {
+            const close = text.indexOf('*/', index + 2);
+            if (close === -1 || close + 2 > offset) return true;
+            index = close + 2;
+            continue;
+        }
+        index++;
+    }
+    return false;
+};
+
+/**
+ * Strips the scaffolding off field-name completions, for a name typed over a key that already has
+ * its `=` and its value. The snippet would write a second assignment into the line, and the label
+ * alone is what belongs there.
+ *
+ * @param completions the field-name completions.
+ * @param range the range the typed name occupies.
+ * @returns the completions as bare names.
+ */
+export const asBareFieldNames = (completions: Completion[], range: Range): Completion[] =>
+    completions
+        .filter((completion) => typeof completion === 'string' || completion.kind !== CompletionItemKind.Snippet)
+        .map((completion) => {
+            const suggestion = typeof completion === 'string' ? { label: completion } : { ...completion };
+            return { ...suggestion, insertText: suggestion.label, isSnippet: false, triggerSuggest: false, range };
+        });
+
+/**
+ * Whether the line is a finished `Key = "value"` with the caret behind it.
+ *
+ * Nothing can be written there: the value is complete and a second member needs a separator
+ * first. Offering the field names read as though a new member could start mid-line, and accepting
+ * one wrote it straight onto the end of the value.
+ *
+ * @param linePrefix the line up to the caret.
+ * @returns true when the caret sits behind a completed quoted value.
+ */
+export const atFinishedQuotedValue = (linePrefix: string): boolean => {
+    const match = VALUE_POSITION.exec(linePrefix);
+    if (!match || !CLOSED_QUOTED_VALUE.test(match[2])) return false;
+    const comment = commentStartInPrefix(linePrefix);
+    return comment < 0 || comment > match.index;
+};
+
+/** The field being assigned at a `Key = ` value position, or undefined if the caret is not at one. */
 const fieldNameAtValuePosition = (linePrefix: string): string | undefined => {
     const match = VALUE_POSITION.exec(linePrefix);
     if (!match) return undefined;
+    if (CLOSED_QUOTED_VALUE.test(match[2])) return undefined;
     const comment = commentStartInPrefix(linePrefix);
     return comment >= 0 && comment < match.index ? undefined : match[1];
 };
@@ -382,6 +474,9 @@ export const crossFileReferenceTargetAtOffset = (
 ): string | undefined => {
     const fieldName = fieldNameAtValuePosition(linePrefix);
     if (!fieldName) return undefined;
+    // A label field borrows the id type without the engine resolving it, so the project's ids are
+    // not what belongs in it.
+    if (isLabelField(fieldName)) return undefined;
     const valueType = fieldAtOffset(document, offset, fieldName)?.valueType;
     const direct = referenceTargetOf(valueType);
     if (direct !== undefined) return direct;
@@ -476,7 +571,10 @@ export const isLocalizationKeyFieldAtOffset = (
 /** The `Type = …` field-name completion for a polymorphic group, documenting its discriminator set. */
 const discriminatorFieldCompletion = (registry: SchemaRegistry): Completion => {
     const members = Object.keys(registry.members);
-    const shown = members.slice(0, 20).map((m) => `\`${m}\``).join(', ');
+    const shown = members
+        .slice(0, 20)
+        .map((m) => `\`${m}\``)
+        .join(', ');
     return {
         label: registry.typeField,
         kind: CompletionItemKind.Field,

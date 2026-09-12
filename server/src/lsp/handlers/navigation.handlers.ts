@@ -13,8 +13,12 @@ import {
 import { ReferenceIndex } from '../../features/navigation/reference-index';
 import { documentHighlightsAt } from '../../features/navigation/document-highlight';
 import { WorkspaceSymbolService } from '../../features/navigation/workspace-symbol.service';
-import { RenameRefusedError, RenameService, dropEditsUnderRoot } from '../../features/navigation/rename.service';
-import { shaderDocumentDefinition, shaderDocumentSymbols, shaderSymbolDefinition } from '../../features/shader/shader-document-features';
+import { RenameRefusedError, RenameService, refuseEditsUnderRoot } from '../../features/navigation/rename.service';
+import {
+    shaderDocumentDefinition,
+    shaderDocumentSymbols,
+    shaderSymbolDefinition,
+} from '../../features/shader/shader-document-features';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { isShaderDocument } from '../../document/document-kind';
 import { globalSettings } from '../../settings';
@@ -42,7 +46,13 @@ export function register(): void {
             const dataDir = CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath;
             const include = shaderDocumentDefinition(text, offset, params.textDocument.uri, dataDir);
             if (include) return include;
-            return await shaderSymbolDefinition(text, offset, params.textDocument.uri, dataDir, openBufferReadOverride());
+            return await shaderSymbolDefinition(
+                text,
+                offset,
+                params.textDocument.uri,
+                dataDir,
+                openBufferReadOverride()
+            );
         }
         const parserResult = ensureParserResult(params.textDocument.uri);
         if (!parserResult) return null;
@@ -332,10 +342,10 @@ export function register(): void {
                 openBufferReadOverride()
             );
             // Safety: rename searches the whole game tree but must never write to the read-only vanilla
-            // install. Strip any edits under the Data root so we only touch the open mod. A developer
-            // working on the game data can opt into editing vanilla via the setting.
+            // install, and half a rename would leave the mod broken, so one that reaches the install is
+            // refused. A developer working on the game data can opt into editing vanilla via the setting.
             if (!edit || globalSettings.allowEditingVanillaFiles) return edit;
-            return dropEditsUnderRoot(edit, CosmoteerWorkspaceService.instance.dataRootPath);
+            return refuseEditsUnderRoot(edit, CosmoteerWorkspaceService.instance.dataRootPath);
         } catch (e) {
             // A refusal carries the reason the rename cannot be done, which the author reads.
             if (e instanceof RenameRefusedError) return new ResponseError(LSPErrorCodes.RequestFailed, e.message);

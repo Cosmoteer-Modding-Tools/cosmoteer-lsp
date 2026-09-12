@@ -15,6 +15,7 @@ Actions
 			&<registered_a.rules>/Part
 			&<registered_b.rules>/Part
 			&<registered_c.rules>/Part
+			&<registered_vanilla_clash.rules>/Part
 		]
 	}
 ]

@@ -15,7 +15,7 @@ import { extractSubstrings } from '../features/navigation/navigation-strategy';
 import { FullNavigationStrategy } from '../features/navigation/full.navigation-strategy';
 import { FileTree, FileWithPath, isFile } from '../workspace/cosmoteer-workspace.service';
 import { ActionSource } from './action';
-import { parseModActions } from './action-parser';
+import { findActionEntryLists, parseModActions } from './action-parser';
 import { normalizeTargetPath, resolveActionTarget } from './action-target-resolver';
 import { findModRoot } from './mod-root';
 import { overrideMembersOf } from './override-members';
@@ -24,6 +24,7 @@ import { isManifestBasename, isRulesPathSegment } from '../document/document-kin
 import { ParserResultRegistrar } from '../registrar/parser-result-registrar';
 import { recordNavigationDep } from '../utils/navigation-deps';
 import { uriToFsPath } from '../features/navigation/workspace-files';
+import { setModContextResolver, withinModContext } from './mod-context-fallback';
 
 const navigation = new FullNavigationStrategy();
 
@@ -43,6 +44,47 @@ const COSMOTEER_RULES_KEY = targetKeyOf('<cosmoteer.rules>');
 const loadDocument = async (osPath: string): Promise<AbstractNodeDocument | null> => {
     recordNavigationDep(osPath);
     return ParserResultRegistrar.instance.getResultByPath(osPath) ?? (await parseFilePath(osPath).catch(() => null));
+};
+
+/** The `<…>` file path written inside a reference value, or null when it names no file. */
+const referencedFilePath = (value: string): string | null => /<([^>]+)>/.exec(value)?.[1] ?? null;
+
+/**
+ * Every document one manifest reads actions from: the manifest itself, plus the fragment files its
+ * action lists inherit (`Actions : &<fragment.rules>/Actions`). A fragment may inherit further
+ * fragments, so the walk follows them until no new file under the mod root turns up. Fragments have
+ * to be read here because a member an action creates (`Add` with a `Name`) is only known to the mod
+ * context through the action that writes it, and a later action into that member would otherwise
+ * read as a target the game does not have.
+ *
+ * @param modRoot the mod's root folder.
+ * @param manifest the parsed manifest document.
+ * @param seen the fragment paths already taken, shared across the mod's manifests.
+ * @returns the manifest followed by the action fragments no earlier manifest took.
+ */
+const actionDocumentsOf = async (
+    modRoot: string,
+    manifest: AbstractNodeDocument,
+    seen: Set<string>
+): Promise<AbstractNodeDocument[]> => {
+    const documents = [manifest];
+    for (let index = 0; index < documents.length; index++) {
+        for (const list of findActionEntryLists(documents[index])) {
+            for (const base of list.inheritance ?? []) {
+                if (base.valueType.type !== 'Reference') continue;
+                const inner = referencedFilePath(String(base.valueType.value));
+                if (!inner) continue;
+                const osPath = join(modRoot, inner);
+                const key = osPath.toLowerCase();
+                if (seen.has(key)) continue;
+                seen.add(key);
+                if (!existsSync(osPath)) continue;
+                const fragment = await loadDocument(osPath);
+                if (fragment) documents.push(fragment);
+            }
+        }
+    }
+    return documents;
 };
 
 /** Split a target `<file...>/container...` path into its normalized file key and container segments. */
@@ -77,9 +119,10 @@ const splitEffectivePath = (path: string): { fileKey: string; segments: string[]
  * into each game file, captured from the mod's own root `cosmoteer.rules` globals and
  * the `Add (Name)` / root `Overrides` actions in its manifests.
  *
- * Scope (first cut): file-root additions, which covers the dominant pattern: globals
- * added to `<cosmoteer.rules>` and referenced via super-paths `&/SW_X/…` and targets
- * `<cosmoteer.rules>/SW_X`. Nested-container Overrides are not flattened yet.
+ * Scope: file-root additions, keyed both by the target path a reference may name directly and by
+ * the file the target resolves to, so a reference reaching that file through a vanilla global
+ * (`&/INDICATORS/…`) finds them as well. A merge into a true sub-container of a file is not
+ * flattened, its members would lose their container sub-path if attributed at the file level.
  */
 export class ModContext {
     private constructor(
@@ -88,8 +131,9 @@ export class ModContext {
         // normalized target path (`<./Data/cosmoteer.rules>`), so super-paths `&/X` and direct file
         // refs `&<file>/X` find their additions.
         private readonly additions: Map<string, Map<string, ActionSource[]>>,
-        // Members the mod merges into a concrete vanilla file via a whole-file `Overrides`
-        // (`OverrideIn=<…file> Overrides=&<modfile>` or an inline `{}`). Keyed by the targeted file's
+        // Members the mod puts into a concrete vanilla file, through a whole-file `Overrides`
+        // (`OverrideIn=<…file> Overrides=&<modfile>` or an inline `{}`) or a file-root `Add`
+        // (`AddTo=<…file> Name=X`). Keyed by the targeted file's
         // resolved normalized absolute path, so a reference reaching that file through a vanilla global
         // (e.g. `&/INDICATORS/SWX` → indicators.rules), not by naming the file directly, still finds
         // the added member. See {@link ModContext.resolveThroughFileOverride}.
@@ -122,11 +166,16 @@ export class ModContext {
             if (doc) for (const [name, source] of mergeAwareGlobals(doc)) add(COSMOTEER_RULES_KEY, name, source);
         }
 
-        // 2. Add(Name) / root Overrides from every manifest in the mod root. Sorted so the
-        //    "first declaration wins" tie-break is deterministic, not filesystem-order dependent.
+        // 2. Add(Name) / root Overrides from every manifest in the mod root and from the action
+        //    fragments those manifests include. Sorted so the "first declaration wins" tie-break is
+        //    deterministic, not filesystem-order dependent.
+        const actionDocuments: AbstractNodeDocument[] = [];
+        const takenFragments = new Set<string>();
         for (const name of safeReaddir(modRoot).filter(isManifestBasename).sort()) {
-            const doc = await loadDocument(join(modRoot, name));
-            if (!doc) continue;
+            const manifest = await loadDocument(join(modRoot, name));
+            if (manifest) actionDocuments.push(...(await actionDocumentsOf(modRoot, manifest, takenFragments)));
+        }
+        for (const doc of actionDocuments) {
             for (const action of parseModActions(doc)) {
                 const target = action.targets[0];
                 const source = action.sources[0];
@@ -135,7 +184,13 @@ export class ModContext {
                 if (!fc) continue;
                 if (fc.container.length === 0 && action.type === 'Add' && action.nameNode && source) {
                     // A file-root `Add` injects a new named global into the targeted file.
-                    add(fc.fileKey, String(action.nameNode.valueType.value), source);
+                    const name2 = String(action.nameNode.valueType.value);
+                    add(fc.fileKey, name2, source);
+                    // The same member keyed by the file the target resolves to, so a reference that
+                    // reaches the file through a vanilla global (`&/INDICATORS/NoFreeSpace`) rather
+                    // than by naming it finds the addition too.
+                    const targetKey = await resolveOverrideTargetKey(target);
+                    if (targetKey) addFileOverride(targetKey, name2, source);
                 } else if (action.type === 'Overrides' && source) {
                     // An override merges the source's members into the target. We capture them keyed by
                     // the target's resolved file, so refs reaching that file through a vanilla global
@@ -147,12 +202,15 @@ export class ModContext {
                     const members = await overrideMembers(source);
                     if (members.length) {
                         const targetKey = await resolveOverrideTargetKey(target);
-                        if (targetKey) for (const [name2, src2] of members) addFileOverride(targetKey, name2, src2 as ActionSource);
+                        if (targetKey)
+                            for (const [name2, src2] of members)
+                                addFileOverride(targetKey, name2, src2 as ActionSource);
                     }
                     // Also keep the legacy target-path-keyed entry for a whole-file inline group, so a
                     // direct `<file>/X` ref (which keys by the `<…>` path, not the resolved file) works.
                     if (fc.container.length === 0 && isGroupNode(source))
-                        for (const [name2, src2] of namedMembersOf(source)) add(fc.fileKey, name2, src2 as ActionSource);
+                        for (const [name2, src2] of namedMembersOf(source))
+                            add(fc.fileKey, name2, src2 as ActionSource);
                 }
             }
         }
@@ -180,7 +238,7 @@ export class ModContext {
         const byName = this.additions.get(split.fileKey);
         if (byName) {
             const [first, ...rest] = split.segments;
-            const sources = byName.get(first);
+            const sources = membersNamed(byName, first);
             // A group-merge global maps to several sources; the member may live in any of them, so
             // try each and return the first that yields the remaining path.
             if (sources)
@@ -225,7 +283,7 @@ export class ModContext {
             const key = fileKeyOfResolved(fileNode);
             if (!key) continue;
             const byName = this.fileOverrides.get(key);
-            const sources = byName?.get(rest[0]);
+            const sources = byName && membersNamed(byName, rest[0]);
             if (!sources) continue;
             for (const source of sources) {
                 const resolved = await this.resolveSource(source, rest.slice(1), cancellationToken);
@@ -263,6 +321,24 @@ export class ModContext {
             .catch(() => null);
     }
 }
+
+/**
+ * The sources stored under a member name, matched the way the game's node lookup matches: exact
+ * first, then ignoring case, since `OTGroupNode` keys its children with InvariantCultureIgnoreCase.
+ *
+ * @param byName the member map of one file.
+ * @param name the member name a reference wrote.
+ * @returns the sources under that name, or undefined.
+ */
+const membersNamed = (byName: Map<string, ActionSource[]>, name: string): ActionSource[] | undefined => {
+    const exact = byName.get(name);
+    if (exact) return exact;
+    const folded = name.toLowerCase();
+    for (const [key, sources] of byName) {
+        if (key.toLowerCase() === folded) return sources;
+    }
+    return undefined;
+};
 
 /**
  * Top-level globals of the mod's cosmoteer.rules, expanding Cosmoteer's group-merge syntax. The game
@@ -309,21 +385,28 @@ const overrideMembers = (source: ActionSource): Promise<[string, AbstractNode][]
 /** Dereference a `&<file>` source value to that file's parsed document (or null). */
 const dereferenceSourceToDocument = async (source: ActionSource): Promise<AbstractNodeDocument | null> => {
     const resolved = await navigation
-        .navigate(String((source as { valueType: { value: unknown } }).valueType.value), source, getStartOfAstNode(source).uri, CancellationToken.None)
+        .navigate(
+            String((source as { valueType: { value: unknown } }).valueType.value),
+            source,
+            getStartOfAstNode(source).uri,
+            CancellationToken.None
+        )
         .catch(() => null);
     if (!resolved) return null;
     // A workspace-tree file resolves to a FileWithPath (parse it). A mod-relative whole-file ref
     // resolves through `navigateRulesByCurrentLocation`, which returns the already-parsed document.
-    if (isFile(resolved as unknown as FileTree)) return parseFilePath((resolved as FileWithPath).path).catch(() => null);
+    if (isFile(resolved as unknown as FileTree))
+        return parseFilePath((resolved as FileWithPath).path).catch(() => null);
     if (isDocumentNode(resolved as AbstractNode)) return resolved as AbstractNodeDocument;
     return null;
 };
 
-/** Resolve a whole-file Override target (`<…/indicators.rules>`) to the key its file is stored under. */
+/** Resolve a whole-file action target (`<…/indicators.rules>`) to the key its file is stored under. */
 const resolveOverrideTargetKey = async (target: ActionSource): Promise<string | null> => {
-    const resolved = await resolveActionTarget(target as Parameters<typeof resolveActionTarget>[0], CancellationToken.None).catch(
-        () => null
-    );
+    const resolved = await resolveActionTarget(
+        target as Parameters<typeof resolveActionTarget>[0],
+        CancellationToken.None
+    ).catch(() => null);
     return fileKeyOfResolved(resolved);
 };
 
@@ -341,7 +424,8 @@ const fileKeyOfResolved = (resolved: AbstractNode | null | FileWithPath | undefi
     if (isFile(resolved as unknown as FileTree)) return normFileKey((resolved as FileWithPath).path);
     // A document node carries a uri while the file form carries an OS path, and the same file has to
     // key the same either way or a lookup answers nothing for a store the other form filled.
-    if (isDocumentNode(resolved as AbstractNode)) return normFileKey(uriToFsPath((resolved as AbstractNodeDocument).uri));
+    if (isDocumentNode(resolved as AbstractNode))
+        return normFileKey(uriToFsPath((resolved as AbstractNodeDocument).uri));
     return null;
 };
 
@@ -368,8 +452,13 @@ export const resolveFromModContextOnly = async (
 ): Promise<AbstractNode | null | FileWithPath> => {
     const modRoot = findModRoot(getStartOfAstNode(node).uri);
     if (!modRoot) return null;
-    return (await getModContext(modRoot)).resolve(path, node, cancellationToken);
+    const context = await getModContext(modRoot);
+    return withinModContext(() => context.resolve(path, node, cancellationToken));
 };
+
+// Navigation retries a failed nested hop here, so a reference that walks through a mod-added base,
+// alias or list element keeps seeing the mod's effective game tree instead of bare vanilla.
+setModContextResolver(resolveFromModContextOnly);
 
 /**
  * Resolve a reference against the effective game tree = vanilla + the mod's own

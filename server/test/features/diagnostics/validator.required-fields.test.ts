@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
+import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
+import { TemplateBaseIndex } from '../../../src/features/diagnostics/template-base.index';
+import { clearFsCaches } from '../../../src/workspace/fs-cache';
 import { lexer } from '../../../src/core/lexer/lexer';
 import { parser } from '../../../src/core/parser/parser';
 import { validateRequiredFields } from '../../../src/features/diagnostics/validator.required-fields';
@@ -49,12 +55,11 @@ describe('validateRequiredFields', () => {
         expect(await validateRequiredFields(parse(src), token)).toHaveLength(0);
     });
 
-    it('does not flag a group named as a base in the workspace index (cross-file template)', async () => {
-        // X has its own Type and lacks Mode, but the project index says its name is an inheritance base.
+    it('still flags a group whose name only collides with a workspace base name', async () => {
+        // A shared name proves nothing: 15.7% of vanilla's typed groups are named like some base leaf
+        // elsewhere in the install, and nothing in this workspace inherits from this X.
         const doc = parse(toggle(''));
-        const groupName = 'X';
-        expect(await validateRequiredFields(doc, token, new Set([groupName]))).toHaveLength(0);
-        // Without the index entry it IS flagged (sanity that the set is what suppresses it).
+        expect(await validateRequiredFields(doc, token, new Set(['X']))).toHaveLength(1);
         expect(await validateRequiredFields(doc, token, new Set())).toHaveLength(1);
     });
 
@@ -90,6 +95,87 @@ describe('validateRequiredFields', () => {
     it('does not flag a Layers music track that writes its Layers collection', async () => {
         const src = nestedLayers('\t\tLayers\n\t\t[\n\t\t\t{\n\t\t\t\tType = File\n\t\t\t\tFile = "x.music"\n\t\t\t}\n\t\t]');
         expect(await validateRequiredFields(parse(src, musicUri), token)).toHaveLength(0);
+    });
+
+    // Beyond the registry-dispatched groups: a nested group whose declaring field names one concrete
+    // class is judged the same way, which is 1686 required fields the check never reached.
+    describe('slot-typed nested groups', () => {
+        // A part's salvage effects: the field names `MultiMediaEffectRules` outright, the group carries
+        // no `Type=`, and the game throws on an absent `Effects` (`[Serialize]` with no `Optional = true`).
+        const effects = (body: string, base = '') => `Part${base}\n{\n\tSalvageProgressMediaEffects\n\t{\n${body}\n\t}\n}`;
+
+        it('flags a slot-typed group missing a required field', async () => {
+            const errors = await validateRequiredFields(parse(effects('')), token);
+            expect(errors.map((error) => error.message)).toEqual([
+                "Missing required field 'Effects' on MultiMediaEffectRules.",
+            ]);
+        });
+
+        it('does not flag the complete group', async () => {
+            expect(await validateRequiredFields(parse(effects('\t\tEffects\n\t\t[\n\t\t]')), token)).toHaveLength(0);
+        });
+
+        it('does not flag anything under a container that inherits', async () => {
+            // The base merges its own tree in member by member, so a nested group may be completed by a
+            // node this file never mentions.
+            expect(await validateRequiredFields(parse(effects('', ' : &<other.rules>/Part')), token)).toHaveLength(0);
+        });
+
+        it('does not flag a class the game also reads in another write form', async () => {
+            // `Size { X … Y … }` is one spelling of an IntVector2, which the engine also reads
+            // positionally, so an absent member is not an absent value.
+            const src = 'Part\n{\n\tSize\n\t{\n\t\tX = 1\n\t}\n}';
+            expect(await validateRequiredFields(parse(src), token)).toHaveLength(0);
+        });
+
+        it('does not flag a file root, whose class is only how something else pulls the file in', async () => {
+            expect(await validateRequiredFields(parse('Part\n{\n}'), token)).toHaveLength(0);
+        });
+    });
+
+    // A real cross-file template: another file inherits from this very group, so it is completed by its
+    // deriver and must stay silent. This is the positional half of the workspace-base test above.
+    describe('cross-file template base', () => {
+        let dir: string | undefined;
+
+        afterEach(() => {
+            TemplateBaseIndex.instance.reset();
+            clearFsCaches();
+            if (dir) rmSync(dir, { recursive: true, force: true });
+            dir = undefined;
+        });
+
+        const component = (name: string, body: string) =>
+            `Part\n{\n\tComponents\n\t{\n\t\t${name}\n\t\t{\n\t\t\tType = MultiToggle\n${body}\n\t\t}\n\t}\n}`;
+        const BASE = component('X', '');
+        const DERIVED = component('Real : <base.rules>/Part/Components/X', '\t\t\tMode = All');
+
+        const buildWorkspace = async (files: Record<string, string>): Promise<string> => {
+            dir = mkdtempSync(join(tmpdir(), 'required-fields-'));
+            for (const [name, content] of Object.entries(files)) writeFileSync(join(dir, name), content);
+            TemplateBaseIndex.instance.reset();
+            clearFsCaches();
+            await TemplateBaseIndex.instance.baseNames([dir], token);
+            return dir;
+        };
+
+        const validateBase = async (root: string): Promise<number> => {
+            const names = await TemplateBaseIndex.instance.baseNames([root], token);
+            const doc = parse(BASE, pathToFileURL(join(root, 'base.rules')).href);
+            return (await validateRequiredFields(doc, token, names)).length;
+        };
+
+        it('does not flag the base another file really inherits from', async () => {
+            expect(await validateBase(await buildWorkspace({ 'base.rules': BASE, 'derived.rules': DERIVED }))).toBe(0);
+        });
+
+        it('flags the same group when the other file inherits a same-named group elsewhere', async () => {
+            // `Other/X` shares X's name but is a different node, so the group under test is no template.
+            const elsewhere =
+                'Other\n{\n\tX\n\t{\n\t\tType = MultiToggle\n\t\tMode = All\n\t}\n}\n' +
+                component('Real : <other.rules>/Other/X', '');
+            expect(await validateBase(await buildWorkspace({ 'base.rules': BASE, 'other.rules': elsewhere }))).toBe(1);
+        });
     });
 
     // The finding is anchored on the group's name, which is not a place anything can be written, so

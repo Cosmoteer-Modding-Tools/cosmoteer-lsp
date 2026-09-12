@@ -87,7 +87,8 @@ export const shaderDocumentHover = (text: string, offset: number, includeText = 
     }
 
     // A function the file or one of its includes defines.
-    if (shader.functions.includes(word)) return codeHover(`${word}(…)`, 'A function defined in this shader or an include.');
+    if (shader.functions.includes(word))
+        return codeHover(`${word}(…)`, 'A function defined in this shader or an include.');
 
     // A preprocessor macro: an engine feature-level gate, a macro defined in scope (shown with its
     // replacement), or a guard an included base shader tests (the defining-before-include pattern).
@@ -97,10 +98,16 @@ export const shaderDocumentHover = (text: string, offset: number, includeText = 
     const definition = new RegExp(`^\\s*#\\s*define\\s+${word}\\b[ \\t]*(.*)$`, 'm').exec(scopeText);
     if (definition) {
         const replacement = definition[1].trim();
-        return codeHover(`#define ${word}${replacement ? ` ${replacement}` : ''}`, 'Preprocessor macro defined in this shader or an include.');
+        return codeHover(
+            `#define ${word}${replacement ? ` ${replacement}` : ''}`,
+            'Preprocessor macro defined in this shader or an include.'
+        );
     }
     if (new RegExp(`#\\s*(?:ifdef|ifndef)\\s+${word}\\b|\\bdefined\\s*\\(\\s*${word}\\s*\\)`).test(scopeText)) {
-        return codeHover(word, 'Preprocessor guard tested in this shader or an include — define it before the `#include` to switch the guarded path on.');
+        return codeHover(
+            word,
+            'Preprocessor guard tested in this shader or an include — define it before the `#include` to switch the guarded path on.'
+        );
     }
 
     return null;

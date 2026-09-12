@@ -1078,6 +1078,9 @@ void main() {
         vertexStage = data.translationOk ? data.vertexStage : null;
         program = vertexStage ? link(vertexStage.fragment, vertexStage.glsl) : null;
         usingVertexStage = !!program;
+        // A vertex stage that will not compile is a silent downgrade: the render still looks live but
+        // runs the stand-in varyings, so the reason is kept and shown beside the status.
+        const vertexStageError = vertexStage && !program ? lastGlError : null;
         if (!program && data.translationOk && data.glsl) program = link(data.glsl);
         usingFallback = !program;
         const glslError = lastGlError;
@@ -1121,6 +1124,9 @@ void main() {
         const blendLabel = data.blend && data.blend.label !== 'AlphaBlend' ? data.blend.label : null;
         const tags = [
             usingVertexStage ? t('vertex stage ({0})', vertexStage.kind) : null,
+            vertexStageError
+                ? t('vertex stage ({0})', t('shader compile failed: {0}', vertexStageError.split('\n')[0].slice(0, 160)))
+                : null,
             blendLabel,
             particleRamp ? t('particle: color ramp animated') : data.isParticle ? t('particle: vertex colour animated') : null,
             data.isBeam ? t('beam') : null,

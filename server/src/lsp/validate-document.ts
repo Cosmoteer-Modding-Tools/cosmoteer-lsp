@@ -40,6 +40,8 @@ import { validateUnderlyingParts } from '../features/diagnostics/validator.under
 import { validateBulletComponents } from '../features/diagnostics/validator.bullet-components';
 import { validateChainedBuffReceivable } from '../features/diagnostics/validator.unreceivable-buff';
 import { validateValueRanges } from '../features/diagnostics/validator.value-range';
+import { validateDivisionByZero } from '../features/diagnostics/validator.division-by-zero';
+import { validateColorValues } from '../features/color/validator.color-value';
 import { validateTextMarkup } from '../features/diagnostics/validator.text-markup';
 import { validateChainedToCycles } from '../features/diagnostics/validator.chained-to-cycle';
 import { validateMishandledFields } from '../features/diagnostics/validator.mishandled-field';
@@ -317,15 +319,21 @@ export async function validateTextDocument(
         // scan, since separators never become AST nodes. Hint severity keeps the finding out of the
         // Problems panel (vanilla itself ships hundreds of trailing separators).
         if (settings.diagnostics?.validateRedundantSeparators) {
-            validationErrors = validationErrors.concat(tagged(validateRedundantSeparators(tokens), 'validateRedundantSeparators'));
+            validationErrors = validationErrors.concat(
+                tagged(validateRedundantSeparators(tokens), 'validateRedundantSeparators')
+            );
         }
         // Separate pass: a second member started on a line the member before it already owns, a second
         // reference hung on a field by a `,`, and a `*/` that closes no comment. All three are hard
         // load failures the parser cannot see, since the first two fold into a value and the third
         // lexes as an operator pair. Ungated, like the parser errors they belong with.
         validationErrors = validationErrors.concat(tagged(validateMissingSeparators(tokens), 'missing-separator'));
-        validationErrors = validationErrors.concat(tagged(validateUnbracketedValueList(tokens), 'unbracketed-value-list'));
-        validationErrors = validationErrors.concat(tagged(validateOrphanCommentTerminators(tokens), 'orphan-comment-terminator'));
+        validationErrors = validationErrors.concat(
+            tagged(validateUnbracketedValueList(tokens), 'unbracketed-value-list')
+        );
+        validationErrors = validationErrors.concat(
+            tagged(validateOrphanCommentTerminators(tokens), 'orphan-comment-terminator')
+        );
         // Separate pass: block comments the game's scanner never closes (an even run of `*` before the
         // closing `/`), which swallow every rule between them and the next `*/`. Comments produce no
         // tokens, so it reads the spans the lexer collected alongside them.
@@ -424,9 +432,7 @@ export async function validateTextDocument(
             const particleChannelErrors = await timedPass('scan.vParticleChannelMs', async () =>
                 validateUnusedParticleChannels(parserResult.value, cancelToken).catch(() => [])
             );
-            validationErrors = validationErrors.concat(
-                tagged(particleChannelErrors, 'validateUnusedParticleChannels')
-            );
+            validationErrors = validationErrors.concat(tagged(particleChannelErrors, 'validateUnusedParticleChannels'));
         }
         // Separate pass: an id two files of this mod both register for one game collection, which
         // the game resolves by keeping one entry and dropping the rest. Needs the game index, like
@@ -514,6 +520,13 @@ export async function validateTextDocument(
         // Separate pass: a language file string the markup reader refuses, which the game answers silently
         // by drawing the tags themselves. Judged on a mod's own language files only, since the game's
         // translations are not the author's to correct.
+        // Separate pass: a colour written as one word that names no colour the engine knows. Its
+        // reader answers that with an exception that takes the whole data tree down, so the game
+        // does not start at all.
+        if (settings.diagnostics?.validateColorValues) {
+            const passErrors = validateColorValues(parserResult.value);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateColorValues'));
+        }
         if (settings.diagnostics?.validateTextMarkup) {
             const passErrors = await validateTextMarkup(
                 parserResult.value,
@@ -528,6 +541,12 @@ export async function validateTextDocument(
         if (settings.diagnostics?.validateValueRanges) {
             const passErrors = await validateValueRanges(parserResult.value, cancelToken).catch(() => []);
             validationErrors = validationErrors.concat(tagged(passErrors, 'validateValueRanges'));
+        }
+        // Separate pass: a numeric value that divides by zero. Needs the field's type to say whether the
+        // game stores the NaN or refuses the file over it, and resolves only the values that divide at all.
+        if (settings.diagnostics?.validateDivisionByZero) {
+            const passErrors = await validateDivisionByZero(parserResult.value, cancelToken).catch(() => []);
+            validationErrors = validationErrors.concat(tagged(passErrors, 'validateDivisionByZero'));
         }
         // Separate pass: a provider chaining from a buff the part cannot receive, which the game answers by
         // refusing the whole data tree. Kept apart from the buff hints above, which are lint-level, so a

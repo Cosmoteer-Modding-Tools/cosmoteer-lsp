@@ -86,11 +86,7 @@ export async function showDiffPreview(
  * @param diff the unified diff to show.
  * @returns once the tab is open.
  */
-export async function showPatchPreview(
-    provider: DiffPreviewProvider,
-    planId: string,
-    diff: string
-): Promise<void> {
+export async function showPatchPreview(provider: DiffPreviewProvider, planId: string, diff: string): Promise<void> {
     const uri = Uri.from({ scheme: DIFF_PREVIEW_SCHEME, path: `/${planId}/preview.diff`, query: 'patch' });
     provider.set(uri, diff);
     const document = await workspace.openTextDocument(uri);

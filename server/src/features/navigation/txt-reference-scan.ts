@@ -29,7 +29,10 @@ const TXT_HINT = /\.txt/i;
  * @returns the case-folded candidate keys.
  */
 const candidateKeys = (inner: string, fromDir: string, dataRoot: string | undefined): string[] => {
-    const relative = inner.trim().replace(/\\/g, '/').replace(/^\.\/data\//i, '');
+    const relative = inner
+        .trim()
+        .replace(/\\/g, '/')
+        .replace(/^\.\/data\//i, '');
     const bases = [fromDir];
     if (dataRoot) bases.push(dataRoot, dirname(dataRoot));
     const keys: string[] = [];
@@ -57,6 +60,11 @@ const candidateKeys = (inner: string, fromDir: string, dataRoot: string | undefi
  * a container it could not root. Those drops are correct for typing and would be silent diagnostic
  * suppression here, which measured at a quarter of the referenced `.txt` files in the workshop corpus.
  *
+ * Only a `.rules` file seeds the set, because those are the ones the loader discovers on its own. A
+ * `.txt` passes its own references on once something has named it, so a live chain
+ * (`part.rules` names `base.txt`, which names `shared.txt`) still roots all of it, while a folder of
+ * renamed leftovers that only name each other roots none of it.
+ *
  * @param folderPaths the project folders (the mod plus the game `Data` tree) to scan.
  * @param token cancels the walk between files.
  * @returns the referenced keys, or undefined when the project holds no `.txt` at all (no gate needed).
@@ -79,16 +87,31 @@ export const collectReferencedTxtKeys = async (
 
     const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
     const referenced = new Set<string>();
+    const fromTxt = new Map<string, string[]>();
     for await (const { file, text } of readFilesAhead(files)) {
         if (token.isCancellationRequested) return undefined;
         if (!text || !TXT_HINT.test(text)) continue;
         const fromDir = dirname(file);
+        const keys: string[] = [];
         for (const match of text.matchAll(TXT_REFERENCE)) {
             // A ref naming nothing but the extension names no file. Anything else is resolved even
             // when it looks odd, since a candidate that names nothing is harmless and skipping one
             // that does would suppress a real file's diagnostics.
             if (match[1].trim().length <= '.txt'.length) continue;
-            for (const key of candidateKeys(match[1], fromDir, dataRoot)) referenced.add(key);
+            keys.push(...candidateKeys(match[1], fromDir, dataRoot));
+        }
+        if (file.toLowerCase().endsWith('.txt')) fromTxt.set(foldPathCase(file), keys);
+        else for (const key of keys) referenced.add(key);
+    }
+    // A `.txt` hands its own refs on only once something has named it, so the set grows until it
+    // settles. Each file is passed on once, so the walk is linear in the refs the project writes.
+    for (let growing = true; growing;) {
+        growing = false;
+        for (const [txtKey, keys] of fromTxt) {
+            if (!referenced.has(txtKey)) continue;
+            fromTxt.delete(txtKey);
+            for (const key of keys) referenced.add(key);
+            growing = true;
         }
     }
     return referenced;

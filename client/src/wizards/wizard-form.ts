@@ -49,7 +49,12 @@ type FormMessage = { type: 'submit'; answer: unknown } | { type: 'pick'; what: s
  * @returns the text with the five markup characters escaped.
  */
 export const escapeHtml = (text: string): string =>
-    text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
 /**
  * Serializes a value into a script, with the one character that could end the script escaped.
@@ -85,7 +90,11 @@ export const showWizardForm = <T>(context: ExtensionContext, spec: WizardFormSpe
             } else if (message.type === 'pick') {
                 const picker = spec.pickers?.[message.what];
                 if (!picker) return;
-                const picked = await window.showOpenDialog({ canSelectMany: false, filters: picker.filters, openLabel: picker.openLabel });
+                const picked = await window.showOpenDialog({
+                    canSelectMany: false,
+                    filters: picker.filters,
+                    openLabel: picker.openLabel,
+                });
                 const path = picked?.[0]?.fsPath;
                 if (path && !settled) await panel.webview.postMessage({ type: 'picked', what: message.what, path });
             } else if (message.type === 'cancel') {

@@ -60,6 +60,8 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
         var validateBulletComponents: Boolean = true
         var validateChainedBuffReceivable: Boolean = true
         var validateValueRanges: Boolean = true
+        var validateDivisionByZero: Boolean = true
+        var validateColorValues: Boolean = true
         var validateTextMarkup: Boolean = true
         var validateChainedToCycles: Boolean = true
         var validateMishandledFields: Boolean = true
@@ -147,6 +149,8 @@ class CosmoteerSettings : PersistentStateComponent<CosmoteerSettings.SettingsSta
             "validateBulletComponents" to state.validateBulletComponents,
             "validateChainedBuffReceivable" to state.validateChainedBuffReceivable,
             "validateValueRanges" to state.validateValueRanges,
+            "validateDivisionByZero" to state.validateDivisionByZero,
+            "validateColorValues" to state.validateColorValues,
             "validateTextMarkup" to state.validateTextMarkup,
             "validateChainedToCycles" to state.validateChainedToCycles,
             "validateMishandledFields" to state.validateMishandledFields,

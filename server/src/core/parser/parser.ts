@@ -171,7 +171,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
      */
     const continuesPreviousLine = (token: Token, previous: Token | undefined): boolean =>
         !!previous && token.lineNumber > previous.lineNumber && !token.precededByNewline;
-    
+
     /**
      * Reports a member name the game refuses to read in group or document position. ObjectText reads
      * the name and then requires `=`, `:`, `{`, `[`, a terminator or a line break, and it never lets a
@@ -182,12 +182,20 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
      *
      * @param token the name token.
      * @param next the token following the name, undefined at the end of the file.
+     * @param previous the token before the name, undefined at the start of the file.
+     * @param numbersAllowed whether a number may name this member. It may on the left of an `=`,
+     * which is the list-form index field (`0 = 5`), and may not anywhere else.
      */
-    const reportInvalidMemberName = (token: Token, next: Token | undefined, previous: Token | undefined): void => {
+    const reportInvalidMemberName = (
+        token: Token,
+        next: Token | undefined,
+        previous: Token | undefined,
+        numbersAllowed = false
+    ): void => {
         // A `\` continuation glues the next line onto this value, so nothing in the run is a name.
         if (continuesPreviousLine(token, previous)) return;
         const name = typeof token.value === 'string' ? token.value : '';
-        if (IS_NUMBER.test(name)) {
+        if (!numbersAllowed && IS_NUMBER.test(name)) {
             errors.push({
                 message: l10n.t('A number cannot name a member'),
                 token,
@@ -412,6 +420,19 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
 
         if (token.type === TOKEN_TYPES.STRING) {
             current++;
+            if (token.unterminatedString) {
+                errors.push({
+                    message: l10n.t('This text is missing its closing quote'),
+                    token,
+                    additionalInfo: [
+                        {
+                            message: l10n.t(
+                                'A quoted value ends at the end of its line. Close the quote, or end the line with a backslash to carry the value on'
+                            ),
+                        },
+                    ],
+                } as ParserError);
+            }
             let value = token.value as string;
             // ObjectText concatenates consecutive string literals (C-style): `"a" "b"` and the
             // line-continued form `"a"\ <newline> "b"` are a single string. They lex as adjacent
@@ -553,9 +574,13 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 // Defensive guard: only fold values JS can actually coerce, anything else falls
                 // through to the unit-suffix branch below rather than folding to a NaN value.
                 !Number.isNaN(Number(tokenValue)) &&
+                // Only a sign folds into the number. Reading any operator as a minus turned `+3`
+                // into -3 and even `* 3` into -3, so a hint showed a number of the wrong sign and
+                // the stray operator the game refuses went unreported.
+                (token.value === '-' || token.value === '+') &&
                 !lastCompletesValue
             ) {
-                const value = -tokenValue;
+                const value = token.value === '-' ? -tokenValue : Number(tokenValue);
                 current++;
                 return {
                     type: 'Value',
@@ -565,7 +590,13 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     },
                     parent,
                     position: {
-                        characterEnd: token.lineOffset + (value as number).toString().length,
+                        // The span covers the sign and the digits as they are written, which a
+                        // rendering of the folded number does not: `-.5` renders as -0.5 and used to
+                        // paint one character too many, and `-1e3` ran past the end of the line.
+                        characterEnd:
+                            token.lineOffset +
+                            (token.value as string).length +
+                            String(tokens[current - 1]?.value ?? '').length,
                         characterStart: token.lineOffset,
                         // The number token was just consumed (now `tokens[current - 1]`). Read its
                         // end, not `tokens[current]` which is undefined when the negative number is
@@ -727,11 +758,22 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 const name = token.value;
                 current += 2;
                 if (
-                    tokens[current]?.type === TOKEN_TYPES.VALUE ||
-                    tokens[current]?.type === TOKEN_TYPES.LEFT_PAREN ||
-                    // A quoted-string argument, e.g. the Cosmoteer `db2vol("&~/…")` audio function.
-                    // The general loop below `walk`s it (its STRING branch yields a Value node).
-                    tokens[current]?.type === TOKEN_TYPES.STRING
+                    // A value ends at an unsuppressed line break, so a call left open at the end of
+                    // its line takes no argument from the line below. Without this, typing `Foo =
+                    // cos(` read the next line's member as the argument and reported an error on a
+                    // line the author had not touched.
+                    !tokens[current]?.precededByNewline &&
+                    (tokens[current]?.type === TOKEN_TYPES.VALUE ||
+                        tokens[current]?.type === TOKEN_TYPES.LEFT_PAREN ||
+                        // A quoted-string argument, e.g. the Cosmoteer `db2vol("&~/…")` audio
+                        // function. The general loop below `walk`s it (its STRING branch yields a
+                        // Value node).
+                        tokens[current]?.type === TOKEN_TYPES.STRING ||
+                        // A signed first argument, as in `round(-2.5, 0)`. The sign is an EXPRESSION
+                        // token, so without this the whole call fell back to a bare string and
+                        // neither evaluated nor offered signature help.
+                        (tokens[current]?.type === TOKEN_TYPES.EXPRESSION &&
+                            (tokens[current].value === '-' || tokens[current].value === '+')))
                 ) {
                     const args: ValueNode[] = [];
                     // A simple first argument is `VALUE` or `( VALUE )`. Only that shape
@@ -841,8 +883,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     // Remember the closing `)` so the node's end position spans the whole call,
                     // not just its name: callers (e.g. inlay hints) place markers after it. A
                     // function call that is never closed (`X = ceil(5`) is reported here.
-                    const closeParen =
-                        tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN ? tokens[current] : undefined;
+                    const closeParen = tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN ? tokens[current] : undefined;
                     if (closeParen) {
                         current++;
                     } else {
@@ -856,7 +897,9 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                         name,
                         arguments: args,
                         position: {
-                            characterEnd: closeParen ? closeParen.lineOffset + 1 : token.lineOffset + (name?.length ?? 0),
+                            characterEnd: closeParen
+                                ? closeParen.lineOffset + 1
+                                : token.lineOffset + (name?.length ?? 0),
                             characterStart: token.lineOffset,
                             end: closeParen?.end ?? tokens[current - 1]?.start ?? 0,
                             line: closeParen?.lineNumber ?? token.lineNumber,
@@ -865,6 +908,27 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                         parent,
                     } as FunctionCallNode;
                 }
+                // The call opened and the line ended, which is the state a half-typed `Foo = cos(`
+                // is in. It is still a call, so it is built as one with no arguments: reading the
+                // name as a plain identifier instead let the next line's member be absorbed as its
+                // value, and that member vanished from the tree.
+                errors.push({
+                    message: l10n.t('Expected right paren'),
+                    token,
+                } as ParserError);
+                return {
+                    type: 'FunctionCall',
+                    name,
+                    arguments: [],
+                    position: {
+                        characterEnd: token.lineOffset + (name?.length ?? 0) + 1,
+                        characterStart: token.lineOffset,
+                        end: tokens[current - 1]?.end ?? token.end ?? 0,
+                        line: token.lineNumber,
+                        start: token.start,
+                    },
+                    parent,
+                } as FunctionCallNode;
             } else {
                 const parenStartIndex = current;
                 const errorCountBeforeParen = errors.length;
@@ -972,8 +1036,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     // parenthesized group (e.g. `(6/1)` or `((&~/SIZE/0)/2)`). A missing `)`,
                     // whether a stray non-paren token interrupted the group or the file ended
                     // mid-expression (`X = (5 + 3`), leaves `closeParen` undefined and is reported.
-                    const closeParen =
-                        tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN ? tokens[current] : undefined;
+                    const closeParen = tokens[current]?.type === TOKEN_TYPES.RIGHT_PAREN ? tokens[current] : undefined;
                     if (!closeParen) {
                         errors.push({
                             message: l10n.t('Expected right paren'),
@@ -1007,6 +1070,9 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
             current++;
             let node: AbstractNode;
             if (tokens[current] && tokens[current].type === TOKEN_TYPES.EQUALS) {
+                // A name with a space in it is one the game refuses, whatever follows it. `Foo Bar {}`
+                // was already reported and `Foo Bar = 1` was not, although the game stops on both.
+                reportInvalidMemberName(token, tokens[current], tokens[current - 2], true);
                 current++;
                 if (current >= tokens.length) {
                     errors.push({
@@ -1054,7 +1120,12 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     type: 'Assignment',
                     assignmentType: 'Equals',
                     parent,
-                    left: { type: 'Identifier', name: token.value, parent, position: tokenPosition(token) } as IdentifierNode,
+                    left: {
+                        type: 'Identifier',
+                        name: token.value,
+                        parent,
+                        position: tokenPosition(token),
+                    } as IdentifierNode,
                     right: valueIsEmpty ? null : continueMathExpression(walk(_lastNode, parent), parent),
                 } as AssignmentNode;
             } else if (
@@ -1063,7 +1134,11 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 (tokens[current - 2].type === TOKEN_TYPES.EQUALS ||
                     tokens[current - 2].type === TOKEN_TYPES.COLON ||
                     tokens[current - 2].type === TOKEN_TYPES.LEFT_BRACKET ||
-                    tokens[current - 2].type === TOKEN_TYPES.EXPRESSION ||
+                    // An operator makes what follows it an operand, but only while the value is
+                    // still going: a value ends at the line break, so the word on the next line
+                    // names a member. Reading it as an operand of a trailing `-` left the group or
+                    // list it names anonymous.
+                    (tokens[current - 2].type === TOKEN_TYPES.EXPRESSION && !token.precededByNewline) ||
                     tokens[current - 2].type === TOKEN_TYPES.LEFT_PAREN ||
                     _lastNode?.type === 'Value' ||
                     // Right after a `,` field separator, an identifier that heads a group/list/
@@ -1083,7 +1158,12 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     position: tokenPosition(token),
                 } as ValueNode;
             } else {
-                node = { type: 'Identifier', name: token.value, parent, position: tokenPosition(token) } as IdentifierNode;
+                node = {
+                    type: 'Identifier',
+                    name: token.value,
+                    parent,
+                    position: tokenPosition(token),
+                } as IdentifierNode;
                 // The game accepts a bare `&…` reference only as a list element or a field
                 // value. In group or document position it throws `Unexpected "&"` and the whole
                 // file fails to load, so report it as a parse error while keeping the node for
@@ -1219,10 +1299,7 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 // pipebase.rules `ProxyableComponents`) is one element: a group inheriting from the
                 // ref with a `{}` override. Consuming the `;` here lets the body attach. Without it
                 // the `;` and `{ … }` leaked out and desynced the enclosing list's bracket matching.
-                if (
-                    tokens[current]?.type === TOKEN_TYPES.COMMA ||
-                    tokens[current]?.type === TOKEN_TYPES.SEMICOLON
-                ) {
+                if (tokens[current]?.type === TOKEN_TYPES.COMMA || tokens[current]?.type === TOKEN_TYPES.SEMICOLON) {
                     current++;
                     continue;
                 }
@@ -1241,9 +1318,10 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                 });
             } else {
                 // An inheritance describes what a body starts from, so the game demands that body
-                // right after it and throws when it is missing. Without the body there is nothing to
-                // hang the collected references on either, so they are dropped and the member
-                // disappears from our tree.
+                // right after it and throws when it is missing. It is also the state every such
+                // member passes through while it is being typed, so the member is kept with an empty
+                // body and its bases attached: dropping it left the editor with nothing to complete
+                // a base against, and no target to jump to, until the braces were written.
                 errors.push({
                     message: l10n.t('Expected a "{" or "[" body after the inheritance'),
                     token,
@@ -1255,6 +1333,30 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                         },
                     ],
                 } as ParserError);
+                const lastBase = inheritanceNodes[inheritanceNodes.length - 1];
+                const bodyless = {
+                    type: 'Group',
+                    elements: [],
+                    // Named the same way a group with a body is, so the half-written member reads as
+                    // itself rather than as an anonymous one.
+                    identifier:
+                        _lastNode && isIdentifierNode(_lastNode) && !isListElementIdentifier(parent)
+                            ? _lastNode
+                            : undefined,
+                    parent,
+                    position: {
+                        characterEnd: lastBase?.position.characterEnd ?? token.lineOffset + 1,
+                        characterStart: token.lineOffset,
+                        end: lastBase?.position.end ?? token.end ?? 0,
+                        line: token.lineNumber,
+                        start: token.start,
+                    },
+                } as GroupNode;
+                bodyless.inheritance = inheritanceNodes.map((base) => {
+                    base.parent = bodyless;
+                    return base;
+                });
+                return bodyless;
             }
             return right;
         }
@@ -1495,6 +1597,12 @@ export const parser = (tokens: Token[], uri: DocumentUri): TokenParserResult => 
                     },
                 } as ValueNode;
                 current++;
+            } else if (!operandToken || operandToken.precededByNewline) {
+                // The value ended at the line break, so the operator is trailing and the next line
+                // is a member of its own. Walking it anyway pulled the following field into this
+                // expression and made it disappear from the tree, while the missing operand went
+                // unreported. Leaving it here is what lets the math check name the real mistake.
+                break;
             } else {
                 operand = walk(undefined, parent);
             }

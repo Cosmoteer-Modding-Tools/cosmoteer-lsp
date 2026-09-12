@@ -3,13 +3,14 @@ import { existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { expandShaderSource } from '../../../src/features/shader/shader-source';
 import { translateToGlsl, type GlslTranslation } from '../../../src/features/shader/hlsl-to-glsl';
-import { DEFAULT_ENTRY_DEFINES, PREVIEW_SHADER_DEFINES } from '../../../src/features/shader/shader-preview.service';
+import { defaultEntryDefinesFor, PREVIEW_SHADER_DEFINES } from '../../../src/features/shader/shader-preview.service';
+import { compileGlslPrograms, findBrowser, type GlslProgram } from './glsl-compiler';
 
 /**
- * Whole-corpus conformance: every vanilla shader must translate to GLSL with no HLSL construct left
- * in the output, in both the fragment path and (when synthesized) the vertex stage. This is the
- * shader-side equivalent of the whole-vanilla schema coverage tests: it needs the game install and
- * self-skips without it.
+ * Whole-corpus conformance: every vanilla shader must translate to GLSL and the GLSL must compile, in
+ * both the fragment path and (when synthesized) the vertex stage. This is the shader-side equivalent of
+ * the whole-vanilla schema coverage tests: it needs the game install and self-skips without it. The
+ * compile half also needs a browser to borrow a GLSL compiler from and self-skips without one.
  */
 
 const DATA_DIR =
@@ -54,39 +55,57 @@ const translateLikePreview = async (path: string): Promise<GlslTranslation> => {
     if (translation.ok || translation.reason !== 'no recognizable pix entry point') return translation;
     const withDefaults = await expandShaderSource(
         path,
-        [...PREVIEW_SHADER_DEFINES, ...DEFAULT_ENTRY_DEFINES],
+        [...PREVIEW_SHADER_DEFINES, ...defaultEntryDefinesFor(expanded)],
         DATA_DIR
     );
     return translateToGlsl(withDefaults);
 };
 
+/** Translates the whole vanilla tree, collecting the structural failures and the compilable programs. */
+const translateVanilla = async (): Promise<{ failures: string[]; programs: GlslProgram[]; kinds: Map<string, number> }> => {
+    const failures: string[] = [];
+    const programs: GlslProgram[] = [];
+    const kinds = new Map<string, number>();
+    for (const path of findShaders(DATA_DIR)) {
+        const rel = path.slice(DATA_DIR.length + 1).replace(/\\/g, '/');
+        const result = await translateLikePreview(path);
+        if (!result.ok) {
+            failures.push(`${rel}: ${result.reason}`);
+            continue;
+        }
+        if (hasHlslLeftovers(result.glsl!)) failures.push(`${rel}: fragment has HLSL leftovers`);
+        if (!isBalanced(result.glsl!)) failures.push(`${rel}: fragment braces/parens unbalanced`);
+        programs.push({ id: `${rel} [fragment]`, fragment: result.glsl! });
+        kinds.set(result.vertex?.kind ?? 'none', (kinds.get(result.vertex?.kind ?? 'none') ?? 0) + 1);
+        if (result.vertex) {
+            if (hasHlslLeftovers(result.vertex.glsl)) failures.push(`${rel}: vertex stage has HLSL leftovers`);
+            if (hasHlslLeftovers(result.vertex.fragment)) {
+                failures.push(`${rel}: varying fragment has HLSL leftovers`);
+            }
+            if (!isBalanced(result.vertex.glsl)) failures.push(`${rel}: vertex stage unbalanced`);
+            programs.push({
+                id: `${rel} [vertex stage]`,
+                fragment: result.vertex.fragment,
+                vertex: result.vertex.glsl,
+            });
+        }
+    }
+    return { failures, programs, kinds };
+};
+
 describe('HLSL → GLSL whole-vanilla conformance', () => {
     it.runIf(HAVE_DATA)('translates every vanilla shader cleanly, vertex stages included', async () => {
-        const shaders = findShaders(DATA_DIR);
-        expect(shaders.length).toBeGreaterThan(100);
-        const failures: string[] = [];
-        const kinds = new Map<string, number>();
-        for (const path of shaders) {
-            const rel = path.slice(DATA_DIR.length + 1).replace(/\\/g, '/');
-            const result = await translateLikePreview(path);
-            if (!result.ok) {
-                failures.push(`${rel}: ${result.reason}`);
-                continue;
-            }
-            if (hasHlslLeftovers(result.glsl!)) failures.push(`${rel}: fragment has HLSL leftovers`);
-            if (!isBalanced(result.glsl!)) failures.push(`${rel}: fragment braces/parens unbalanced`);
-            const kind = result.vertex?.kind ?? 'none';
-            kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
-            if (result.vertex) {
-                if (hasHlslLeftovers(result.vertex.glsl)) failures.push(`${rel}: vertex stage has HLSL leftovers`);
-                if (hasHlslLeftovers(result.vertex.fragment)) {
-                    failures.push(`${rel}: varying fragment has HLSL leftovers`);
-                }
-                if (!isBalanced(result.vertex.glsl)) failures.push(`${rel}: vertex stage unbalanced`);
-            }
-        }
-        // eslint-disable-next-line no-console
+        const { failures, programs, kinds } = await translateVanilla();
+        expect(programs.length).toBeGreaterThan(100);
         console.log('vertex stage kinds:', Object.fromEntries(kinds));
         expect(failures, failures.join('\n')).toEqual([]);
     }, 120000);
+
+    const browser = findBrowser();
+    it.runIf(HAVE_DATA && browser)('compiles the translated GLSL of every vanilla shader', async () => {
+        const { programs } = await translateVanilla();
+        const failures = compileGlslPrograms(programs, browser!);
+        const reported = Object.entries(failures).map(([id, error]) => `${id}: ${error}`);
+        expect(reported, reported.join('\n')).toEqual([]);
+    }, 300000);
 });

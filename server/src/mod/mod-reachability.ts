@@ -250,7 +250,8 @@ export const computeModReachability = async (
         for (const base of findActionsList(document)?.inheritance ?? []) {
             if (!isValueNode(base) || base.valueType.type !== 'Reference') continue;
             const alias = parseAlias(String(base.valueType.value));
-            if (alias) enqueue(resolveRef(alias.fileRef.replace(/^</, '').replace(/>$/, ''), manifestDir, root, knownFiles));
+            if (alias)
+                enqueue(resolveRef(alias.fileRef.replace(/^</, '').replace(/>$/, ''), manifestDir, root, knownFiles));
         }
         // Language files under the StringsFolder are loaded by the game directly. The game's node
         // lookup is case-insensitive, so `Stringsfolder` (seen in a published mod) counts too.

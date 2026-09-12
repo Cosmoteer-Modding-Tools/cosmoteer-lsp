@@ -3,7 +3,7 @@ import { AbstractNode, AbstractNodeDocument, isValueNode, ValueNode } from '../.
 import { findNodeAtPosition, getStartOfAstNode } from '../../utils/ast.utils';
 import { warmInheritedClasses } from '../completion/inheritance-resolution';
 import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
-import { FullNavigationStrategy } from './full.navigation-strategy';
+import { FullNavigationStrategy, isInheritanceMember } from './full.navigation-strategy';
 import { isAssetValue, resolveAssetPath } from './asset-resolver';
 import { filePathToUri, stripReferenceWhitespace } from './navigation-strategy';
 import { dedupeLocations, definitionLocationOf } from './reference-location';
@@ -17,6 +17,7 @@ import {
     resolveIdReferenceTarget,
 } from './schema-id-reference.navigation';
 import { particleChannelAt, channelDefinitionSite } from './particle-channel';
+import { resolveLocalizationKeyDefinition } from './localization-key.navigation';
 import { isModRules } from '../../document/document-kind';
 import { parseModActions } from '../../mod/action-parser';
 import { normalizeTargetPath } from '../../mod/action-target-resolver';
@@ -91,6 +92,12 @@ export class DefinitionService {
             const site = channelDefinitionSite(document, channel.name);
             if (site) return definitionLocationOf(site.node);
         }
+        // A localization key (`NameKey = "Parts/Foo"`) names a path into the strings files, so it
+        // jumps to where each language declares it rather than to any rules node.
+        const keyTargets = await resolveLocalizationKeyDefinition(node, folderPaths, cancellationToken).catch(
+            () => null
+        );
+        if (keyTargets?.length) return keyTargets;
         // A cross-file `ID<X>` reference (e.g. `ResourceType = battery`) → the whole-file root that
         // declares it elsewhere in the project (the file whose root class is X with `ID = battery`).
         const idTarget = await resolveSchemaIdReference(node, folderPaths, cancellationToken).catch(() => null);
@@ -126,9 +133,13 @@ export class DefinitionService {
         // most-derived self) has no explicit base path, so fall back to the reference's own scope.
         const base = split.basePath.replace(/^&$/, '')
             ? await this.navigation.navigate(split.basePath, node, document.uri, cancellationToken).catch(() => null)
-            : node.parent ?? null;
+            : (node.parent ?? null);
         if (!base || isFile(base as FileTree)) return [];
-        const targets = await resolveVirtualInheritanceTargets(base as AbstractNode, split.memberPath, cancellationToken);
+        const targets = await resolveVirtualInheritanceTargets(
+            base as AbstractNode,
+            split.memberPath,
+            cancellationToken
+        );
         return targets.map(definitionLocationOf);
     }
 
@@ -194,6 +205,10 @@ export class DefinitionService {
      * `Toggles : ^/0/Toggles` has no concrete Toggles target, so we jump to what `^/0`
      * points at (the base being extended). A reference reached via a prefix is
      * dereferenced once to its concrete base group rather than the `^/N/X` text.
+     *
+     * The fallback is for inheritance bases only. Everywhere else a path that does not resolve is a
+     * broken reference, and answering it with its parent hides that: a typo lands the reader on the
+     * container it was written under and looks like it worked.
      */
     private async resolveWithPrefixFallback(
         node: ValueNode,
@@ -212,6 +227,9 @@ export class DefinitionService {
             const modTarget = await resolveFromModContextOnly(value, node, cancellationToken).catch(() => null);
             if (modTarget) return modTarget;
         }
+        // The mod's effective tree has already been tried above, so an unresolved reference that is
+        // not an inheritance base is simply broken and answers nothing.
+        if (!target && !isInheritanceMember(node)) return null;
         let path = value;
         while (!target) {
             const lastSlash = path.lastIndexOf('/');

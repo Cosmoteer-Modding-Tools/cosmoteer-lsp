@@ -211,7 +211,10 @@ export const readMetadataImage = (buffer: Buffer): MetadataImage | undefined => 
         for (const section of sections) {
             // A section's virtual size can exceed its raw size (bss-style padding), so the raw span
             // is the bound that matters for reading bytes back out of the file.
-            if (rva >= section.virtualAddress && rva < section.virtualAddress + Math.max(section.virtualSize, section.rawSize)) {
+            if (
+                rva >= section.virtualAddress &&
+                rva < section.virtualAddress + Math.max(section.virtualSize, section.rawSize)
+            ) {
                 const offset = section.rawAddress + (rva - section.virtualAddress);
                 return offset < buffer.length ? offset : undefined;
             }
@@ -363,10 +366,7 @@ export const readColumn = (image: MetadataImage, table: number, row: number, col
  * @param value the raw column value.
  * @returns the target table id and 1-based row, or undefined for a null or reserved-tag index.
  */
-export const decodeCodedIndex = (
-    name: CodedIndexName,
-    value: number
-): { table: number; row: number } | undefined => {
+export const decodeCodedIndex = (name: CodedIndexName, value: number): { table: number; row: number } | undefined => {
     const bits = tagBits(name);
     const tag = value & ((1 << bits) - 1);
     const row = value >>> bits;

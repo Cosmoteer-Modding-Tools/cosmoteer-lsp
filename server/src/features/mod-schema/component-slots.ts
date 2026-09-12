@@ -26,7 +26,15 @@
  * already in the shipped bundle, so where a mod type's ancestry runs into a game class or
  * interface, the kinds that game type satisfies are read from the bundle's `componentAncestry`.
  */
-import { CallTarget, DotNetAssembly, FieldRef, Instruction, MethodInfo, TypeInfo, TypeSig } from './dotnet-assembly.types';
+import {
+    CallTarget,
+    DotNetAssembly,
+    FieldRef,
+    Instruction,
+    MethodInfo,
+    TypeInfo,
+    TypeSig,
+} from './dotnet-assembly.types';
 
 /** One recovered lookup of a slot: the runtime kind asked for, and whether the lookup throws. */
 export interface SlotLookup {
@@ -314,7 +322,10 @@ const shortOf = (fullName: string): string => {
  * @param fallback the C# member name, used when no alias is declared.
  * @returns the serialized name.
  */
-const serializedNameOf = (attributes: readonly { typeFullName: string; named: ReadonlyMap<string, unknown> }[], fallback: string): string => {
+const serializedNameOf = (
+    attributes: readonly { typeFullName: string; named: ReadonlyMap<string, unknown> }[],
+    fallback: string
+): string => {
     const serialize = attributes.find((attribute) => attribute.typeFullName === SERIALIZE);
     if (!serialize) return fallback;
     const alias = serialize.named.get('Alias');
@@ -571,7 +582,8 @@ const branchTargetsOf = (instruction: Instruction): readonly number[] => {
     if (instruction.targets) return instruction.targets;
     const short = opcode >= OP.br_s && opcode <= OP.blt_un_s;
     const long = opcode >= OP.br && opcode <= OP.blt_un;
-    if ((short || long || opcode === OP.leave || opcode === OP.leave_s) && typeof operand === 'number') return [operand];
+    if ((short || long || opcode === OP.leave || opcode === OP.leave_s) && typeof operand === 'number')
+        return [operand];
     return [];
 };
 
@@ -788,7 +800,8 @@ class ComponentSlotPass {
             method.parameters.forEach((parameter, index) => {
                 if (componentIdShape(parameter.type) === 0) return;
                 const key = `${type.fullName}::#${index}`;
-                if (!this.slotMembers.has(key)) this.slotMembers.set(key, { declaring: type.fullName, serialized: `${index}` });
+                if (!this.slotMembers.has(key))
+                    this.slotMembers.set(key, { declaring: type.fullName, serialized: `${index}` });
             });
         }
 
@@ -837,7 +850,11 @@ class ComponentSlotPass {
     ): void {
         const { opcode, operand } = instruction;
         if (opcode === OP.ldstr) {
-            state.push({ literal: typeof operand === 'string' ? operand : undefined, localAddress: -1, fromComponentLookup: false });
+            state.push({
+                literal: typeof operand === 'string' ? operand : undefined,
+                localAddress: -1,
+                fromComponentLookup: false,
+            });
             return;
         }
         if ((opcode >= OP.ldarg_0 && opcode <= OP.ldarg_3) || opcode === OP.ldarg_s || opcode === OP.ldarg) {
@@ -895,7 +912,13 @@ class ComponentSlotPass {
             // names no kind: the walk is reading one method body at a time and has no instantiation
             // to read it through.
             const cast = typeof operand === 'number' ? assembly.typeOfToken(operand) : undefined;
-            if (value.fromComponentLookup && value.tags && cast && cast.kind !== 'typeParam' && !containsTypeParam(cast)) {
+            if (
+                value.fromComponentLookup &&
+                value.tags &&
+                cast &&
+                cast.kind !== 'typeParam' &&
+                !containsTypeParam(cast)
+            ) {
                 const throws = opcode !== OP.isinst;
                 for (const tag of value.tags) this.recordLookup(tag, { kind: fullNameOf(cast), throws });
             }
@@ -999,9 +1022,11 @@ class ComponentSlotPass {
             const literal = args.find((argument) => argument.literal !== undefined)?.literal;
             if (literal !== undefined) {
                 const key = `${type.fullName}::#${literal}`;
-                if (!this.slotMembers.has(key)) this.slotMembers.set(key, { declaring: type.fullName, serialized: literal });
+                if (!this.slotMembers.has(key))
+                    this.slotMembers.set(key, { declaring: type.fullName, serialized: literal });
                 // The read writes through an `out` local, which is how the value reaches its member.
-                for (const argument of args) if (argument.localAddress >= 0) state.setLocal(argument.localAddress, valueOf(key));
+                for (const argument of args)
+                    if (argument.localAddress >= 0) state.setLocal(argument.localAddress, valueOf(key));
                 if (!returnsVoid && componentIdShape(called.returnType) !== 0) {
                     state.push(valueOf(key));
                     return;
@@ -1029,7 +1054,8 @@ class ComponentSlotPass {
 
         // A call that hands the value straight back, so the tag rides through it.
         const passthrough =
-            (shortOf(declaringType).startsWith('Nullable`') && (name === 'get_Value' || name === 'GetValueOrDefault')) ||
+            (shortOf(declaringType).startsWith('Nullable`') &&
+                (name === 'get_Value' || name === 'GetValueOrDefault')) ||
             PASSTHROUGH_NAMES.has(name);
 
         // A value added to a tagged collection is stored into whatever that collection is.
@@ -1154,7 +1180,9 @@ class ComponentSlotPass {
             const current = this.types.get(name);
             if (!current) return this.game.capabilitiesOf(name) ? { gameBase: name } : undefined;
             const assembly = this.ownerOf.get(current.fullName);
-            const factory = current.methods.find((method) => method.name === 'CreateComponent' && method.body().length > 0);
+            const factory = current.methods.find(
+                (method) => method.name === 'CreateComponent' && method.body().length > 0
+            );
             if (!factory || !assembly) continue;
             let made: string | undefined;
             for (const instruction of factory.body()) {
@@ -1185,7 +1213,9 @@ class ComponentSlotPass {
             const current = this.types.get(name);
             if (!current) return undefined;
             const assembly = this.ownerOf.get(current.fullName);
-            const builder = current.methods.find((method) => method.name === 'AddComponents' && method.body().length > 0);
+            const builder = current.methods.find(
+                (method) => method.name === 'AddComponents' && method.body().length > 0
+            );
             if (!builder || !assembly) continue;
             const made: string[] = [];
             for (const instruction of builder.body()) {
@@ -1222,18 +1252,27 @@ class ComponentSlotPass {
                 // stating, while no entry means the walk could not tell and the check abstains.
                 const produced = this.registeredBulletComponent(type);
                 const ancestry = produced ? this.ancestryOf(produced) : new Set<string>();
-                capabilities.set(type.fullName, kindNames.filter((kind) => ancestry.has(kind)));
+                capabilities.set(
+                    type.fullName,
+                    kindNames.filter((kind) => ancestry.has(kind))
+                );
                 continue;
             }
             const produced = this.producedComponent(type);
             if (!produced) continue;
             if (produced.gameBase !== undefined) {
                 const inherited = this.game.capabilitiesOf(produced.gameBase) ?? [];
-                capabilities.set(type.fullName, inherited.map((index) => this.game.kindNames[index]).filter((kind) => kind !== undefined));
+                capabilities.set(
+                    type.fullName,
+                    inherited.map((index) => this.game.kindNames[index]).filter((kind) => kind !== undefined)
+                );
                 continue;
             }
             const ancestry = this.ancestryOf(produced.produced!);
-            capabilities.set(type.fullName, kindNames.filter((kind) => ancestry.has(kind)));
+            capabilities.set(
+                type.fullName,
+                kindNames.filter((kind) => ancestry.has(kind))
+            );
         }
         return capabilities;
     }

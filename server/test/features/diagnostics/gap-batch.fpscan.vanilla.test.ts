@@ -18,6 +18,7 @@ import { validateValueRanges } from '../../../src/features/diagnostics/validator
 import { validateBulletComponents } from '../../../src/features/diagnostics/validator.bullet-components';
 import { validateUnderlyingParts } from '../../../src/features/diagnostics/validator.underlying-part';
 import { validateChainedBuffReceivable } from '../../../src/features/diagnostics/validator.unreceivable-buff';
+import { validateDivisionByZero } from '../../../src/features/diagnostics/validator.division-by-zero';
 
 // False-positive scan of the checks that judge a file against the game's own rules. Everything the
 // game ships loads and runs, so every finding here is a false positive by definition, and all of
@@ -40,6 +41,7 @@ const PASSES: { name: string; run: Pass; trigger: RegExp }[] = [
     { name: 'bullet components', run: validateBulletComponents, trigger: /Components/i },
     { name: 'underlying parts', run: validateUnderlyingParts, trigger: /UnderlyingPart|CreatePart/i },
     { name: 'chained buffs', run: validateChainedBuffReceivable, trigger: /ChainsFromBuffType/i },
+    { name: 'division by zero', run: validateDivisionByZero, trigger: /[\d)]\s*[/#]/ },
 ];
 
 const rulesUnder = (root: string): string[] => {

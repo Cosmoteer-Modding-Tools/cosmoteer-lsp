@@ -1,0 +1,8 @@
+// Each of these reaches `/FOO`, a global only the mod's manifest adds, through a first hop that
+// vanilla can resolve. The member lookup after that hop has to consult the mod context as well.
+ALIAS = &/FOO
+BASE : &/FOO {}
+ELEMENTS
+[
+	&/FOO
+]

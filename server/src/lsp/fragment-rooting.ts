@@ -92,9 +92,9 @@ export async function ensureFragmentRooting(cancellationToken: CancellationToken
     const actionRevisionBefore = AddBaseIndex.instance.revision + MemberInjectionIndex.instance.revision;
     const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
     const aliasCacheScope = dataRoot ? { dataRoot, folderPaths: await workspaceFolderPaths() } : undefined;
-    await timedStartupPhase('startup.aliasRootMs', () => ensureAliasRootIndex(cancellationToken, aliasCacheScope)).catch(
-        () => undefined
-    );
+    await timedStartupPhase('startup.aliasRootMs', () =>
+        ensureAliasRootIndex(cancellationToken, aliasCacheScope)
+    ).catch(() => undefined);
     const folders = await searchFolderUris();
     await timedStartupPhase('startup.buildTogetherMs', () =>
         WatchedDocumentIndex.buildTogether(

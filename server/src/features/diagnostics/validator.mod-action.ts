@@ -14,7 +14,7 @@ import { listElementType } from '../../document/schema/schema-context';
 import { Action, ACTION_VERBS, ActionSource, SourceShape, TargetShape, VERB_SCHEMA } from '../../mod/action';
 import { normalizeTargetPath } from '../../mod/action-target-resolver';
 import { resolveWithModContext } from '../../mod/mod-context';
-import { isUnderFolder, resolveStringsFolders } from '../../mod/strings-folder';
+import { isStringsFile } from '../../mod/strings-folder';
 import { flattenGroup } from '../../semantics/effective-group';
 import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { foldPathCase } from '../../workspace/fs-cache';
@@ -87,7 +87,9 @@ const targetMatchesShape = (node: AbstractNode, shape: TargetShape): boolean => 
         case 'list':
             return isListNode(node);
         case 'container':
-            return isGroupNode(node) || isListNode(node);
+            // A file is one of the three shapes the game names here, and a target whose value is a
+            // whole-file reference (`EditorGroups = &<editor_groups.rules>`) resolves to one.
+            return isGroupNode(node) || isListNode(node) || isDocumentNode(node);
         case 'group':
             // The game throws while loading an `Overrides` whose target is not a group or a file,
             // so a list or a plain value there costs the user the whole mod rather than one action.
@@ -117,7 +119,9 @@ const targetShapeDescription = (shape: TargetShape): string => {
  * @returns true for a list of lists, false for a list of anything else, undefined when unknown.
  */
 const targetHoldsLists = (target: ListNode): boolean | undefined => {
-    const entries = target.elements.filter((element) => isGroupNode(element) || isListNode(element) || isValueNode(element));
+    const entries = target.elements.filter(
+        (element) => isGroupNode(element) || isListNode(element) || isValueNode(element)
+    );
     if (entries.length > 0) return entries.every((element) => isListNode(element));
     const element = listElementType(target);
     return element ? element.kind === 'list' : undefined;
@@ -315,7 +319,9 @@ const deeperOverridesRewrite = (
     const innerText = text
         .slice(inner.position.start, inner.position.end)
         .split('\n')
-        .map((line, index) => (index > 0 && line.startsWith(innerIndent) ? bodyIndent + line.slice(innerIndent.length) : line))
+        .map((line, index) =>
+            index > 0 && line.startsWith(innerIndent) ? bodyIndent + line.slice(innerIndent.length) : line
+        )
         .join('\n');
     return {
         title: l10n.t('Target {0} and override only its members', path),
@@ -370,7 +376,9 @@ const overridesReplacingGroups = async (
         if (!replaced) continue;
         const kept = declaredNames(node);
         const flattened = await flattenGroup(replaced, cancellationToken).catch(() => null);
-        const dropped = (flattened?.members ?? []).map((member) => member.name).filter((member) => !kept.has(member.toLowerCase()));
+        const dropped = (flattened?.members ?? [])
+            .map((member) => member.name)
+            .filter((member) => !kept.has(member.toLowerCase()));
         if (dropped.length === 0) continue;
 
         // The fix follows the body down while it holds one bare group that the target holds a group
@@ -444,11 +452,6 @@ export const validateModActions = async (
 ): Promise<ValidationError[]> => {
     const errors: ValidationError[] = [];
 
-    // Files under a `StringsFolder` (language strings) cannot be targeted by actions. Resolved
-    // once for the whole pass from the game root + the editing mod's manifests.
-    const documentUri = actions.length > 0 ? getStartOfAstNode(actions[0].group).uri : undefined;
-    const stringsFolders = await resolveStringsFolders(documentUri, cancellationToken);
-
     for (const action of actions) {
         if (action.type === 'Unknown') {
             errors.push({
@@ -503,8 +506,10 @@ export const validateModActions = async (
             }
         }
 
-        // If the action tolerates a missing target (skip or create it), don't check existence.
-        if (action.flags.IgnoreIfNotExisting === true || action.flags.CreateIfNotExisting === true) continue;
+        // A flag that tolerates a missing target only excuses the target being missing. When it is
+        // there, the game applies the action to it and every check below still decides whether it
+        // can (`ModAddAction.ApplyAction` throws on a leaf whether or not CreateIfNotExisting is set).
+        const toleratesMissing = action.flags.IgnoreIfNotExisting === true || action.flags.CreateIfNotExisting === true;
 
         for (const target of action.targets) {
             if (cancellationToken.isCancellationRequested) return errors;
@@ -514,6 +519,7 @@ export const validateModActions = async (
                 cancellationToken
             ).catch(() => null);
             if (resolved === null) {
+                if (toleratesMissing) continue;
                 errors.push({
                     message: l10n.t('Action target not found'),
                     node: target,
@@ -524,9 +530,10 @@ export const validateModActions = async (
                 continue;
             }
 
-            // Language string files (under a `StringsFolder`) can't be touched by actions at all,
-            // takes precedence over the shape/Name checks below.
-            if (stringsFolders.some((folder) => isUnderFolder(targetFilePath(resolved), folder))) {
+            // Language string files can't be touched by actions at all, takes precedence over the
+            // shape/Name checks below. The shared predicate also knows the base game's own language
+            // files, which no manifest declares a `StringsFolder` for.
+            if (await isStringsFile(targetFilePath(resolved), cancellationToken)) {
                 errors.push({
                     message: l10n.t('Mod action cannot target a language string file'),
                     node: target,
@@ -551,7 +558,8 @@ export const validateModActions = async (
                         ),
                     });
                 }
-            } else if (wholeFile && !schema.allowsWholeFileTarget) {
+            }
+            if (wholeFile && !schema.allowsWholeFileTarget) {
                 // Most verbs operate on a node inside a file; a whole `.rules` file cannot itself
                 // be replaced or removed. Overrides is the exception (its top level is a group).
                 errors.push({
@@ -581,7 +589,11 @@ export const validateModActions = async (
             }
 
             // An entry that is a whole list, which the game appends as one entry it cannot read.
-            if ((action.type === 'Add' || action.type === 'AddMany') && !wholeFile && isListNode(resolved as AbstractNode)) {
+            if (
+                (action.type === 'Add' || action.type === 'AddMany') &&
+                !wholeFile &&
+                isListNode(resolved as AbstractNode)
+            ) {
                 errors.push(...(await listAppendedAsEntry(action, resolved as ListNode, cancellationToken)));
             }
 

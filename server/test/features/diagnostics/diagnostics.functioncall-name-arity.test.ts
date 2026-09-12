@@ -37,8 +37,10 @@ describe('unknown function name diagnostics', () => {
         expect(await validate('X = gamma(&A)\n')).toBeUndefined();
     });
 
-    it('matches function names case-insensitively', async () => {
-        expect(await validate('X = CEIL(&A)\n')).toBeUndefined();
+    it('flags a miscased name, since the game reads it as an unknown token', async () => {
+        const error = await validate('X = CEIL(&A)\n');
+        expect(error?.message).toBe('Unknown function "CEIL", did you mean "ceil"?');
+        expect(error?.data?.quickFix?.newText).toBe('ceil');
     });
 
     it('accepts the Cosmoteer-custom `db2vol` with a quoted-string argument', async () => {
@@ -56,9 +58,14 @@ describe('unknown function name diagnostics', () => {
 
 describe('function arity diagnostics', () => {
     it('flags too few arguments for a binary function', async () => {
-        const error = await validate('X = pow(&A)\n');
-        expect(error?.message).toBe('Too few arguments for "pow"');
-        expect(error?.additionalInfo).toBe('The "pow" function takes exactly 2 argument(s), but got 1');
+        const error = await validate('X = log(&A)\n');
+        expect(error?.message).toBe('Too few arguments for "log"');
+        expect(error?.additionalInfo).toBe('The "log" function takes exactly 2 argument(s), but got 1');
+    });
+
+    it('flags a name mXparser has no function for', async () => {
+        // `pow` looks like it should work and does not: the game reports an invalid token.
+        expect((await validate('X = pow(&A)\n'))?.message).toBe('Unknown function "pow"');
     });
 
     it('flags too many arguments for a unary function', async () => {
@@ -70,10 +77,10 @@ describe('function arity diagnostics', () => {
         expect(error?.additionalInfo).toBe('The "ceil" function takes exactly 1 argument(s), but got 2');
     });
 
-    it('names the maximum when the function takes a range of arguments', async () => {
+    it('names the count when a function takes a fixed number of arguments', async () => {
         const error = await validate('X = round((&A), 2, 3)\n');
         expect(error?.message).toBe('Too many arguments for "round"');
-        expect(error?.additionalInfo).toBe('The "round" function takes at most 2 argument(s), but got 3');
+        expect(error?.additionalInfo).toBe('The "round" function takes exactly 2 argument(s), but got 3');
     });
 
     it('does NOT false-positive on a nested function call in argument position', async () => {
@@ -82,13 +89,14 @@ describe('function arity diagnostics', () => {
         expect(await validate('X = floor(sqrt(&A) * 2)\n')).toBeUndefined();
     });
 
-    it('accepts a variadic function with several arguments', async () => {
-        expect(await validate('X = max((&A), (&B), (&C))\n')).toBeUndefined();
+    it('asks for quotes around a call whose arguments carry a comma', async () => {
+        // Written bare, the game stops the value at the first comma, so vanilla quotes these.
+        expect((await validate('X = max((&A), (&B), (&C))\n'))?.message).toMatch(/quotes/);
+        expect((await validate('X = round((&A), 2)\n'))?.message).toMatch(/quotes/);
     });
 
-    it('accepts round with its optional second argument', async () => {
-        expect(await validate('X = round((&A), 2)\n')).toBeUndefined();
-        expect(await validate('X = round(&A)\n')).toBeUndefined();
+    it('wants both arguments of round, which mXparser has no one-argument form of', async () => {
+        expect((await validate('X = round(&A)\n'))?.message).toBe('Too few arguments for "round"');
     });
 
     it('flags too few arguments for an unevaluated mXparser function (registry-wide arity)', async () => {

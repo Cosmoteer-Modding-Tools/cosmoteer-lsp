@@ -9,6 +9,7 @@ import {
     isGroupNode,
     isIdentifierNode,
     isMathExpressionNode,
+    isValueNode,
 } from '../core/ast/ast';
 import { FileWithPath } from '../workspace/cosmoteer-workspace.service';
 import { readFile } from 'fs/promises';
@@ -212,25 +213,34 @@ const findNodeAtPositionRecursive = (node: AbstractNode, position: Position): Ab
                 return foundNode;
             }
         }
-        if (
-            node.right?.position &&
-            position.line === node.right.position.line &&
-            position.character <= node.right.position.characterEnd &&
-            position.character >= node.right.position.characterStart
-        ) {
+        if (node.right && coversPosition(node.right, position)) {
             return node.right;
         }
     } else {
-        if (
-            node.position &&
-            position.line === node.position.line &&
-            position.character <= node.position.characterEnd &&
-            position.character >= node.position.characterStart
-        ) {
+        if (coversPosition(node, position)) {
             return node;
         }
     }
     return undefined;
+};
+
+/**
+ * Whether a leaf node's written span covers a position.
+ *
+ * The end is inclusive for an unquoted value, where the caret right behind the last character is
+ * still inside the value being typed (`Mode = All<cursor>` is still that value). A quoted value ends
+ * at its closing quote: the caret behind that quote is past the value, and treating it as inside is
+ * what re-completed a finished `"Parts/Test"` into `"Parts/Test"Parts/Airlock`.
+ *
+ * @param node the leaf node.
+ * @param position the cursor position.
+ * @returns true when the position is inside the node.
+ */
+const coversPosition = (node: AbstractNode, position: Position): boolean => {
+    if (!node.position || position.line !== node.position.line) return false;
+    if (position.character < node.position.characterStart) return false;
+    const closed = isValueNode(node) && node.quoted;
+    return closed ? position.character < node.position.characterEnd : position.character <= node.position.characterEnd;
 };
 
 /**

@@ -8,8 +8,11 @@ import {
     isGroupNode,
     isListNode,
     isValueNode,
+    ValueNode,
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
+import { warmInheritedClasses } from '../completion/inheritance-resolution';
+import { inheritanceBaseLeafName } from '../../utils/reference.utils';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { acceptsShaderConstants } from '../../document/schema/schema';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
@@ -81,8 +84,48 @@ export const shaderVariantSiblings = async (shaderPath: string): Promise<string[
     return siblings;
 };
 
-/** Yields every material group (one that accepts shader constants) in a document. */
-function* materialGroupsOf(document: AbstractNodeDocument): Generator<GroupNode> {
+/**
+ * The shader each group in a document points at, keyed by the lower-cased leaf name of the base it
+ * derives from. A sprite family splits the two halves apart: vanilla's `MainSprite` writes
+ * `_highlightTime` and `_clickTime` while the shader that declares them is on `HighlightSprite :
+ * MainSprite`, which the engine builds from the same constant block. So a constant any deriver's
+ * shader declares is meaningful on the base too.
+ *
+ * @param document the parsed document to scan.
+ * @returns the derivers' shader value nodes, keyed by the lower-cased base name.
+ */
+const derivedShadersByBase = (document: AbstractNodeDocument): Map<string, ValueNode[]> => {
+    const byBase = new Map<string, ValueNode[]>();
+    const visit = (node: AbstractNode): void => {
+        if (isGroupNode(node)) {
+            const shader = materialShaderNode(node);
+            for (const reference of shader ? (node.inheritance ?? []) : []) {
+                if (!isValueNode(reference) || reference.valueType.type !== 'Reference') continue;
+                const leaf = inheritanceBaseLeafName(String(reference.valueType.value));
+                if (!leaf) continue;
+                const list = byBase.get(leaf.toLowerCase());
+                if (list) list.push(shader!);
+                else byBase.set(leaf.toLowerCase(), [shader!]);
+            }
+        }
+        if (isGroupNode(node) || isListNode(node)) {
+            for (const child of node.elements) visit(child);
+        } else if (isAssignmentNode(node) && node.right) {
+            visit(node.right);
+        }
+    };
+    for (const element of document.elements) visit(element);
+    return byBase;
+};
+
+/**
+ * Yields every material group (one that accepts shader constants) in a document. Exported so the
+ * whole-vanilla test can assert the scan actually reached materials rather than passing on an empty set.
+ *
+ * @param document the parsed document to walk.
+ * @returns each group whose schema class accepts inline shader constants.
+ */
+export function* materialGroupsOf(document: AbstractNodeDocument): Generator<GroupNode> {
     const visit = function* (node: AbstractNode): Generator<GroupNode> {
         if (isGroupNode(node)) {
             const cls = resolveGroupClass(node);
@@ -135,6 +178,11 @@ export const validateShaderConstants = async (
 
     const errors: ValidationError[] = [];
     const dataDir = CosmoteerWorkspaceService.instance.CosmoteerWorkspacePath;
+    // `materialGroupsOf` classifies groups synchronously, which sees nothing for a group deriving from
+    // a base in another file until the cross-file walk has run. Without this the check silently passed
+    // over whole documents wherever the caller had not warmed them first.
+    await warmInheritedClasses(document, cancellationToken).catch(() => undefined);
+    const derivedShaders = derivedShadersByBase(document);
 
     for (const group of materialGroupsOf(document)) {
         if (cancellationToken.isCancellationRequested) return errors;
@@ -160,9 +208,25 @@ export const validateShaderConstants = async (
         }
         const settable = await shaderConstants(shaderPath, dataDir).catch(() => []);
         const kinds = new Map(settable.map((constant) => [constant.name, constant.kind]));
+        // The derivers' shaders are only read when a name is about to be reported, so the common
+        // material (no derivers, every constant known) still reads exactly one shader.
+        let derivedRead = false;
+        const readDerivedShaders = async (): Promise<void> => {
+            derivedRead = true;
+            for (const derivedShader of derivedShaders.get(group.identifier?.name.toLowerCase() ?? '') ?? []) {
+                const derivedPath = await resolveAssetPath(derivedShader, document.uri, cancellationToken).catch(
+                    () => null
+                );
+                const derivedNames = derivedPath
+                    ? await allShaderUniformNames(derivedPath, dataDir).catch(() => null)
+                    : null;
+                for (const name of derivedNames ?? []) names.add(name);
+            }
+        };
 
         for (const constant of constants) {
             if (VANILLA_DEAD_KEYS.has(constant.name)) continue;
+            if (!names.has(constant.name) && !derivedRead) await readDerivedShaders();
             if (!names.has(constant.name)) {
                 const suggestion = closestMatch(constant.name, [...names], true);
                 errors.push({

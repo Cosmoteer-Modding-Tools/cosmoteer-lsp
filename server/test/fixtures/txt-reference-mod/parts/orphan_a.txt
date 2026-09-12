@@ -1,0 +1,6 @@
+// A renamed leftover: the only file naming it is orphan_b.txt, which nothing names either.
+Part
+{
+	ID = fixture.orphan_a
+	Base = &<orphan_b.txt>/Part
+}

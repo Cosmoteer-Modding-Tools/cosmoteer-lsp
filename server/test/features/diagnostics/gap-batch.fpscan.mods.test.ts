@@ -24,6 +24,7 @@ import { validateValueRanges } from '../../../src/features/diagnostics/validator
 import { validateBulletComponents } from '../../../src/features/diagnostics/validator.bullet-components';
 import { validateUnderlyingParts } from '../../../src/features/diagnostics/validator.underlying-part';
 import { validateChainedBuffReceivable } from '../../../src/features/diagnostics/validator.unreceivable-buff';
+import { validateDivisionByZero } from '../../../src/features/diagnostics/validator.division-by-zero';
 import { validateTextMarkup } from '../../../src/features/diagnostics/validator.text-markup';
 import { buildActionRootingForScan, resetActionRootingForScan } from '../../scan-rooting-helper';
 
@@ -52,6 +53,7 @@ const PASSES: { name: string; run: Pass }[] = [
     { name: 'bulletcomp', run: validateBulletComponents },
     { name: 'underlying', run: validateUnderlyingParts },
     { name: 'chainedbuff', run: validateChainedBuffReceivable },
+    { name: 'divzero', run: validateDivisionByZero },
     { name: 'markup', run: (document, token) => validateTextMarkup(document, scanFolders, token) },
 ];
 

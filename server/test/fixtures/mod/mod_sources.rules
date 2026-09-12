@@ -13,4 +13,11 @@ Actions
 		OverrideIn = "<a.rules>"
 		Overrides = &<nonexistent.rules>/Provider
 	}
+	{
+		// A `Name` is the key the entry is added under, not a file the game loads.
+		Action = Add
+		AddTo = "<a.rules>"
+		Name = "Small Pirate Lootbox.ship.png"
+		ToAdd = 1
+	}
 ]

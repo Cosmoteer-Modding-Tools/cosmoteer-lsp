@@ -2,12 +2,13 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode } from '../../src/core/ast/ast';
+import { AbstractNode, AbstractNodeDocument } from '../../src/core/ast/ast';
 import { lexer } from '../../src/core/lexer/lexer';
 import { parser } from '../../src/core/parser/parser';
 import { parseFilePath } from '../../src/utils/ast.utils';
 import { findModRoot, clearModRootCache } from '../../src/mod/mod-root';
 import { invalidateModContext, resolveFromModContextOnly, resolveWithModContext } from '../../src/mod/mod-context';
+import { FullNavigationStrategy } from '../../src/features/navigation/full.navigation-strategy';
 import { ParserResultRegistrar } from '../../src/registrar/parser-result-registrar';
 import { globalSettings } from '../../src/settings';
 import { initWorkspace, valueOf, WORKSPACE_DATA_DIR } from '../workspace-helper';
@@ -59,6 +60,20 @@ describe('resolveWithModContext (effective game = vanilla + mod)', () => {
         expect(result).not.toBeNull();
     });
 
+    // `OTGroupNode` keys its children with InvariantCultureIgnoreCase, so the game finds a global
+    // whatever case the reference spells it in.
+    it('matches a mod-added global ignoring case, the way the game looks nodes up', async () => {
+        expect(valueOf(await resolveWithModContext('/foo/Bar', node, token))).toBe(7);
+    });
+
+    // The `Add` that creates this member lives in an included action fragment, not in the manifest
+    // itself. A later action into the member is only valid because that fragment ran first.
+    it('resolves a member an action fragment adds to a vanilla file', async () => {
+        expect(valueOf(await resolveWithModContext('<indicators/indicators.rules>/FragmentAdded/Bar', node, token))).toBe(
+            7
+        );
+    });
+
     it('returns null for a name that neither vanilla nor the mod provides', async () => {
         expect(await resolveWithModContext('/DEFINITELY_NOT_A_GLOBAL', node, token)).toBeNull();
     });
@@ -94,6 +109,17 @@ describe('resolveWithModContext (effective game = vanilla + mod)', () => {
         expect(valueOf(await resolveWithModContext('<indicators/indicators.rules>/SWNoShields/Y', node, token))).toBe(42);
     });
 
+    // A file-root `Add` (`AddTo=<indicators/indicators.rules> Name=SWAddedIndicator`) puts the member
+    // in the same place a whole-file Override would, so both spellings of the reference must find it:
+    // the direct file path, and the vanilla global that aliases the file.
+    it('resolves a MOD-added member of a vanilla file through the vanilla global that aliases it', async () => {
+        expect(await resolveWithModContext('/INDICATORS/SWAddedIndicator', node, token)).not.toBeNull();
+    });
+
+    it('resolves that same file-root addition named through a DIRECT file reference', async () => {
+        expect(await resolveWithModContext('<indicators/indicators.rules>/SWAddedIndicator', node, token)).not.toBeNull();
+    });
+
     it('returns null for a member that neither the vanilla file nor the mod override provides', async () => {
         expect(await resolveWithModContext('/INDICATORS/SWNotAThing', node, token)).toBeNull();
     });
@@ -107,6 +133,42 @@ describe('resolveWithModContext (effective game = vanilla + mod)', () => {
 
     it('still resolves the vanilla member of that aliased file (`/BASE_AUDIO/BaseAudio`, regression)', async () => {
         expect(await resolveWithModContext('/BASE_AUDIO/BaseAudio', node, token)).not.toBeNull();
+    });
+});
+
+// A mod-added global reached through a first hop vanilla CAN resolve: the alias value, the
+// inheritance base and the list element all point at `/FOO`, so continuing the path past them fails
+// unless the nested hop falls back to the mod context the way the outermost one does.
+describe('nested hops resolve through the mod context', () => {
+    const navigation = new FullNavigationStrategy();
+    let document: AbstractNodeDocument;
+
+    beforeAll(async () => {
+        await initWorkspace();
+        globalSettings.cosmoteerPath = WORKSPACE_DATA_DIR;
+        clearModRootCache();
+        invalidateModContext();
+        document = (await parseFilePath(join(MOD_DIR, 'nested_refs.rules'))) as AbstractNodeDocument;
+    });
+
+    // The return type is inferred rather than written as `unknown`: `valueOf` takes the node shapes
+    // navigation answers, and `unknown` is assignable to none of them.
+    const navigate = (path: string) => navigation.navigate(path, document.elements[0], document.uri, token);
+
+    it('continues past an alias whose value is a mod-added global (`ALIAS = &/FOO` then `&ALIAS/Bar`)', async () => {
+        expect(valueOf(await navigate('&ALIAS/Bar'))).toBe(7);
+    });
+
+    it('finds a member through an inheritance base that is a mod-added global (`BASE : &/FOO`)', async () => {
+        expect(valueOf(await navigate('&BASE/Bar'))).toBe(7);
+    });
+
+    it('continues past a list element that is a mod-added global (`&ELEMENTS/0/Bar`)', async () => {
+        expect(valueOf(await navigate('&ELEMENTS/0/Bar'))).toBe(7);
+    });
+
+    it('still answers nothing for a member none of them provides', async () => {
+        expect(await navigate('&ALIAS/NotAThing')).toBeNull();
     });
 });
 

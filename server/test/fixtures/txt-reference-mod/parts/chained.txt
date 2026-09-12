@@ -1,0 +1,5 @@
+// Named only by included.txt, which a .rules file names in turn, so the chain is live.
+Part
+{
+	ID = fixture.chained
+}

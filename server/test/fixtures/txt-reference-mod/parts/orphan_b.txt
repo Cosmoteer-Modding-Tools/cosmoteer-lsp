@@ -1,0 +1,5 @@
+Part
+{
+	ID = fixture.orphan_b
+	Base = &<orphan_a.txt>/Part
+}

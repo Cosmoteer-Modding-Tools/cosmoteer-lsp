@@ -21,7 +21,14 @@
  * `cosmoteer.rules` changes. The file resolver is injected so this schema-layer module needs no
  * dependency on the navigation layer.
  */
-import { AbstractNodeDocument, isAssignmentNode, isDocumentNode, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
+import {
+    AbstractNodeDocument,
+    isAssignmentNode,
+    isDocumentNode,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+} from '../../core/ast/ast';
 import { fieldOf, schema } from './schema';
 import { classFitsDocument, topLevelType } from './document-root';
 import { ValueType } from './schema.types';
@@ -40,12 +47,20 @@ const MAX_DEPTH = 12;
 /** Resolve a file-only reference (`<path/to.rules>`) written in `fromUri` to its parsed document. */
 type FileRefResolver = (fileRef: string, fromUri: string) => Promise<AbstractNodeDocument | undefined>;
 
-/** Split `&<path/to.rules>/Member/…` into the file ref and the first member segment (if any). */
-export const parseAlias = (raw: string): { fileRef: string; member?: string } | undefined => {
+/**
+ * Split `&<path/to.rules>/Member/…` into the file ref and the first member segment (if any). `deep`
+ * says the path went on past that member, which matters to anyone typing the member: the slot then
+ * describes a leaf inside it, not the member itself.
+ */
+export const parseAlias = (raw: string): { fileRef: string; member?: string; deep: boolean } | undefined => {
     const m = /^&?\s*(<[^>]*>)\s*(?:\/\s*(.+))?$/.exec(raw.trim());
     if (!m) return undefined;
-    const member = m[2]?.split('/')[0]?.trim();
-    return { fileRef: m[1], member: member || undefined };
+    const segments =
+        m[2]
+            ?.split('/')
+            .map((segment) => segment.trim())
+            .filter(Boolean) ?? [];
+    return { fileRef: m[1], member: segments[0] || undefined, deep: segments.length > 1 };
 };
 
 class AliasRootIndex {
@@ -110,7 +125,8 @@ class AliasRootIndex {
             if (!Array.isArray(entry) || typeof entry[0] !== 'string' || !Array.isArray(entry[1])) return false;
         }
         for (const entry of candidate.macros) {
-            if (!Array.isArray(entry) || entry.length !== 3 || entry.some((part) => typeof part !== 'string')) return false;
+            if (!Array.isArray(entry) || entry.length !== 3 || entry.some((part) => typeof part !== 'string'))
+                return false;
         }
         this.index.clear();
         this.macroTargets.clear();
@@ -195,7 +211,11 @@ class AliasRootIndex {
 
         for (const element of container.elements) {
             // `Field = &<file>[/member]`: an alias to another file.
-            if (isAssignmentNode(element) && isValueNode(element.right) && element.right.valueType.type === 'Reference') {
+            if (
+                isAssignmentNode(element) &&
+                isValueNode(element.right) &&
+                element.right.valueType.type === 'Reference'
+            ) {
                 const fieldType = fieldOf(ownerClass, element.left.name)?.valueType;
                 const alias = parseAlias(String(element.right.valueType.value));
                 if (!alias) continue;
@@ -217,6 +237,11 @@ class AliasRootIndex {
                 }
                 const target = await resolve(alias.fileRef, sourceUri).catch(() => undefined);
                 if (!target || !isDocumentNode(target)) continue;
+                // A deep alias (`FtlRemoveDelay = &<base_ship.rules>/FtlEffects/TotalDuration`) reads
+                // one leaf value, and the field's type says nothing about the member that leaf sits
+                // in, nor about what to walk into. Recording it there typed base_ship's whole
+                // `FtlEffects` group as a Time.
+                if (alias.deep) continue;
                 this.put(target.uri, alias.member ?? '', fieldType);
                 if (!alias.member && fieldType.kind === 'group' && !seen.has(normalizeUri(target.uri))) {
                     seen.add(normalizeUri(target.uri));
@@ -229,10 +254,18 @@ class AliasRootIndex {
                 if (alias.member && fieldType.kind === 'list' && fieldType.element.kind === 'group') {
                     const member = target.elements.find(
                         (child) =>
-                            (isListNode(child) && child.identifier?.name.toLowerCase() === alias.member!.toLowerCase()) ||
-                            (isAssignmentNode(child) && child.left.name.toLowerCase() === alias.member!.toLowerCase() && isListNode(child.right))
+                            (isListNode(child) &&
+                                child.identifier?.name.toLowerCase() === alias.member!.toLowerCase()) ||
+                            (isAssignmentNode(child) &&
+                                child.left.name.toLowerCase() === alias.member!.toLowerCase() &&
+                                isListNode(child.right))
                     );
-                    const list = member && isListNode(member) ? member : member && isAssignmentNode(member) && isListNode(member.right) ? member.right : undefined;
+                    const list =
+                        member && isListNode(member)
+                            ? member
+                            : member && isAssignmentNode(member) && isListNode(member.right)
+                              ? member.right
+                              : undefined;
                     if (list) {
                         await this.walkAliasList(list, fieldType.element.ref, target.uri, resolve, seen, depth + 1);
                     }
@@ -244,11 +277,12 @@ class AliasRootIndex {
             // Each element roots the group it names in the target file as the list's element class, so
             // that group's own `ID` is harvestable and its members type. Without this the whole subtree
             // hanging off those files stayed unrooted.
-            const list = isListNode(element) && element.identifier
-                ? { name: element.identifier.name, node: element }
-                : isAssignmentNode(element) && isListNode(element.right)
-                  ? { name: element.left.name, node: element.right }
-                  : undefined;
+            const list =
+                isListNode(element) && element.identifier
+                    ? { name: element.identifier.name, node: element }
+                    : isAssignmentNode(element) && isListNode(element.right)
+                      ? { name: element.left.name, node: element.right }
+                      : undefined;
             if (list) {
                 const fieldType = fieldOf(ownerClass, list.name)?.valueType;
                 const element = fieldType?.kind === 'list' ? fieldType.element : undefined;
@@ -292,10 +326,15 @@ class AliasRootIndex {
         for (const element of list.elements) {
             if (!isValueNode(element) || element.valueType.type !== 'Reference') continue;
             const alias = parseAlias(String(element.valueType.value));
-            if (!alias) continue;
+            // A deep element alias names something inside the member, so the member is not the element.
+            if (!alias || alias.deep) continue;
             const target = await resolve(alias.fileRef, sourceUri).catch(() => undefined);
             if (!target || !isDocumentNode(target)) continue;
-            const elementType: ValueType = { kind: 'group', ref: elementClass, name: elementClass.split('.').pop() ?? elementClass };
+            const elementType: ValueType = {
+                kind: 'group',
+                ref: elementClass,
+                name: elementClass.split('.').pop() ?? elementClass,
+            };
             this.put(target.uri, alias.member ?? '', elementType);
             const key = `${normalizeUri(target.uri)}#${(alias.member ?? '').toLowerCase()}`;
             if (seen.has(key)) continue;
@@ -304,7 +343,8 @@ class AliasRootIndex {
             // element, else the top-level group it points at.
             const container = alias.member
                 ? target.elements.find(
-                      (child) => isGroupNode(child) && child.identifier?.name.toLowerCase() === alias.member!.toLowerCase()
+                      (child) =>
+                          isGroupNode(child) && child.identifier?.name.toLowerCase() === alias.member!.toLowerCase()
                   )
                 : target;
             if (container && (isDocumentNode(container) || isGroupNode(container))) {

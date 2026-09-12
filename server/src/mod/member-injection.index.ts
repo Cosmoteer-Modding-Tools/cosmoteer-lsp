@@ -285,7 +285,11 @@ export class MemberInjectionIndex extends ModActionNodeIndex<InjectedMember> {
      * @param cancellationToken cancels the target resolution.
      * @returns the target node keys the action contributed to.
      */
-    protected async indexAction(action: ModAction, source: string, cancellationToken: CancellationToken): Promise<string[]> {
+    protected async indexAction(
+        action: ModAction,
+        source: string,
+        cancellationToken: CancellationToken
+    ): Promise<string[]> {
         if (action.type === 'Replace' || action.type === 'Remove' || action.type === 'RemoveMany') {
             const keys: string[] = [];
             for (const target of action.targets) {

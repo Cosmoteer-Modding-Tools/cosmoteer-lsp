@@ -187,9 +187,7 @@ const describe = (value: AbstractNode | null, origin: MemberOrigin): InheritedMe
  * @returns its zero-based line.
  */
 const declaringLineOf = (node: AbstractNode): number =>
-    (isGroupNode(node) || isListNode(node)) && node.identifier
-        ? node.identifier.position.line
-        : node.position.line;
+    (isGroupNode(node) || isListNode(node)) && node.identifier ? node.identifier.position.line : node.position.line;
 
 /**
  * A written value on one line.

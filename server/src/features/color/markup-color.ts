@@ -3,7 +3,7 @@ import { AbstractNodeDocument, isValueNode, ValueNode } from '../../core/ast/ast
 import { keyDeclarationsOf } from '../completion/localization-key.index';
 import { normalizeUri } from '../navigation/reference-location';
 import { colorOfTag, markupPositionOf, markupTextOf, NAMED_COLORS, scanMarkup } from '../text-markup/text-markup';
-import { MarkupSpan, MarkupTag } from '../text-markup/text-markup.types';
+import { MarkupColor, MarkupSpan, MarkupTag } from '../text-markup/text-markup.types';
 
 /**
  * Colour swatches for the markup of a language file. The text the game draws carries its own colour
@@ -111,31 +111,45 @@ const nameOf = (color: Color): string | undefined => {
     return undefined;
 };
 
+/** Whether the picked colour is the one the tag already sets, down to the byte the game reads. */
+const isSameColor = (a: MarkupColor, b: Color): boolean =>
+    byteOf(a.red) === byteOf(b.red) &&
+    byteOf(a.green) === byteOf(b.green) &&
+    byteOf(a.blue) === byteOf(b.blue) &&
+    byteOf(a.alpha) === byteOf(b.alpha);
+
 /**
- * The tag text the picked colour is written back as, in the form the author wrote the tag in. A
- * `name` form that no longer names a colour becomes a `hex` one, which is the only other form that
- * writes a colour in a single attribute.
+ * The tag text the picked colour is written back as, in the form the author wrote the tag in. A tag
+ * the pick did not move keeps every byte it was written with, so a `r='127.5'` survives the picker.
+ * A `name` form that no longer names a colour becomes a `hex` one, which is the only other form that
+ * writes a colour in a single attribute. A channel the reader defaults anyway (a missing `r` is 0, a
+ * missing `a` is opaque) is left out rather than spelled in.
  *
  * @param tag the tag as written.
  * @param color the colour the user picked.
+ * @param text the written text the tag's offsets index into.
  * @returns the whole replacement tag, angle brackets included.
  */
-const rewrittenTag = (tag: MarkupTag, color: Color): string => {
+const rewrittenTag = (tag: MarkupTag, color: Color, text: string): string => {
+    const current = colorOfTag(tag);
+    if (current && isSameColor(current, color)) return text.slice(tag.start, tag.end);
     const quote = tag.attributes[0]?.quote ?? "'";
     const written = (name: string, value: string) => `${name}=${quote}${value}${quote}`;
-    const hasAlpha = color.alpha < 1 || tag.attributes.some((attribute) => attribute.name === 'a');
+    const wrote = (name: string) => tag.attributes.some((attribute) => attribute.name === name);
     const attributes = (() => {
-        if (tag.attributes.some((attribute) => attribute.name === 'hex')) return [written('hex', hexOf(color))];
-        if (tag.attributes.some((attribute) => attribute.name === 'name')) {
+        if (wrote('hex')) return [written('hex', hexOf(color))];
+        if (wrote('name')) {
             const name = nameOf(color);
             return [name ? written('name', name) : written('hex', hexOf(color))];
         }
-        const channels = [
-            written('r', String(byteOf(color.red))),
-            written('g', String(byteOf(color.green))),
-            written('b', String(byteOf(color.blue))),
-        ];
-        return hasAlpha ? [...channels, written('a', String(byteOf(color.alpha)))] : channels;
+        const channel = (name: string, value: number, fallback: number) =>
+            !wrote(name) && byteOf(value) === fallback ? undefined : written(name, String(byteOf(value)));
+        return [
+            channel('r', color.red, 0),
+            channel('g', color.green, 0),
+            channel('b', color.blue, 0),
+            channel('a', color.alpha, 255),
+        ].filter((attribute): attribute is string => attribute !== undefined);
     })();
     return `<${tag.name} ${attributes.join(' ')}${tag.selfClosing ? '/>' : '>'}`;
 };
@@ -157,7 +171,7 @@ export const markupColorPresentations = (
     for (const found of markupColorTags(document)) {
         const bounds = tagRange(found);
         if (bounds.start.line !== range.start.line || bounds.start.character !== range.start.character) continue;
-        const text = rewrittenTag(found.tag, color);
+        const text = rewrittenTag(found.tag, color, found.span.text);
         return [{ label: text, textEdit: TextEdit.replace(bounds, text) }];
     }
     return [];

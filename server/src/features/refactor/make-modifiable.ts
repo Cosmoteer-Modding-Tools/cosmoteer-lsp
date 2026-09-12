@@ -14,11 +14,9 @@ import { memberTypeIn } from '../../document/schema/schema-context';
 import { findModRoot } from '../../mod/mod-root';
 import { globalSettings } from '../../settings';
 import { memberIndentAt } from '../diagnostics/required-field-insert';
+import { indentUnitOf, lineEndingOf } from './command-host';
 import { memberSpanOf } from './shared-base/member-record';
 import { snippetCodeAction } from './snippet-action';
-
-/** The indentation one level deeper, which is what the game's own files are written with. */
-const INDENT = '\t';
 
 /** The member a `ModifiableValue` group carries the plain number in. */
 const BASE_VALUE = 'BaseValue';
@@ -44,11 +42,7 @@ interface Located {
  * @param chain the members found so far, appended to as the walk descends.
  * @returns the chain, empty when nothing holds the offset.
  */
-const locateChain = (
-    container: AbstractNodeDocument | GroupNode,
-    offset: number,
-    chain: Located[] = []
-): Located[] => {
+const locateChain = (container: AbstractNodeDocument | GroupNode, offset: number, chain: Located[] = []): Located[] => {
     for (const element of container.elements) {
         const span = memberSpanOf(element);
         if (!span || offset < span.start || offset >= span.end) continue;
@@ -205,15 +199,17 @@ export const makeModifiableCodeActions = (
     const value = writtenValueOf(text, located.element);
     if (value.length === 0) return [];
     const indent = memberIndentAt(text, span.start);
-    const lineEnding = text.includes('\r\n') ? '\r\n' : '\n';
+    const lineEnding = lineEndingOf(text);
+    // One level deeper in whatever the file itself indents with, so a space-indented mod stays one.
+    const step = indentUnitOf(text);
     const body = [
         `${name}`,
         `${indent}{`,
-        `${indent}${INDENT}${BASE_VALUE} = ${escapeSnippet(value)}`,
-        `${indent}${INDENT}${MODIFIERS}`,
-        `${indent}${INDENT}[`,
-        `${indent}${INDENT}${INDENT}$0`,
-        `${indent}${INDENT}]`,
+        `${indent}${step}${BASE_VALUE} = ${escapeSnippet(value)}`,
+        `${indent}${step}${MODIFIERS}`,
+        `${indent}${step}[`,
+        `${indent}${step}${step}$0`,
+        `${indent}${step}]`,
         `${indent}}`,
     ].join(lineEnding);
     const title = l10n.t("Make '{0}' modifiable", name);

@@ -13,6 +13,27 @@ import { ActionRootingIndex } from '../../mod/action-rooting.index';
 import { Completion } from './autocompletion.service';
 
 /**
+ * The fields that borrow an id type in the C# without the engine ever resolving their value to an
+ * object: `SelectionTypeID` only groups parts in the build UI, `FlipWhenLoadingIDs` names removed
+ * legacy parts for save compatibility, and `UpgradedFrom` names the tech a tech replaces. Offering
+ * the project's ids there suggests picking a live object for a slot that is a plain label.
+ *
+ * The reference validator derives the same set mechanically from the base game's own usage, but its
+ * derivation is not exported (and costs a game-tree scan per field), so the names it settles on are
+ * kept here as a list. Its vanilla test pins that set, so a divergence shows up there.
+ */
+const LABEL_FIELDS = new Set(['selectiontypeid', 'flipwhenloadingids', 'upgradedfrom']);
+
+/**
+ * Whether a field is a label field, which names an id without ever resolving it.
+ *
+ * @param fieldName the written field name, in any casing.
+ * @returns true for a label field.
+ */
+export const isLabelField = (fieldName: string | undefined): boolean =>
+    !!fieldName && LABEL_FIELDS.has(fieldName.toLowerCase());
+
+/**
  * The class a whole file declares an instance of, path and content first and the wiring afterwards.
  *
  * A mod is free to keep a declaration where it likes and hand the file to the game from somewhere
@@ -179,7 +200,11 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         if (rootClass && id) entries.push({ cls: rootClass, id });
         // Aggregate list-element entities: each `Factions [ { ID } ]`, `PartToggles [ { ToggleID } ]`, …
         for (const decl of entityDeclarationsOf(document)) {
-            entries.push(decl.alias ? { cls: decl.elementClass, id: decl.id, alias: true } : { cls: decl.elementClass, id: decl.id });
+            entries.push(
+                decl.alias
+                    ? { cls: decl.elementClass, id: decl.id, alias: true }
+                    : { cls: decl.elementClass, id: decl.id }
+            );
         }
         // Usage-defined marker targets (part categories, features, damage types, effect buckets, …)
         // have no declaration file, so each used name is itself an entry to complete and resolve.
@@ -274,6 +299,7 @@ export class SchemaIdIndex extends WatchedDocumentIndex {
         // An `ID = ` slot (or an `OtherIDs` alias entry) declares an id instead of naming one, so
         // every id the project already has is exactly the set the user must not pick here.
         if (!ref || isIdDeclarationField(ref.ownerClass, ref.fieldName, ref.targetClass)) return [];
+        if (isLabelField(ref.fieldName)) return [];
         return this.idCompletionsForClass(ref.targetClass, folderPaths, cancellationToken);
     }
 

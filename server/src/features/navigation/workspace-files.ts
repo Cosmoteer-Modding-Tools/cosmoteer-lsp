@@ -65,7 +65,6 @@ export async function* collectRulesFiles(dir: string): AsyncGenerator<string> {
     }
 }
 
-
 /** How many file reads are kept in flight ahead of the consumer during a project walk. */
 const READ_AHEAD = 16;
 
@@ -193,6 +192,26 @@ export function documentsMentioning(
     cancellationToken: CancellationToken
 ): AsyncGenerator<AbstractNodeDocument> {
     return documentsMentioningWhere(folderPaths, name, cancellationToken, (text) => text.includes(name), parsedMention);
+}
+
+/**
+ * {@link documentsMentioning} with a stricter text test than "contains the name". A search that
+ * knows the shape its sites are written in (a reference position, say) narrows the candidates the
+ * index names before any of them is parsed, which is where the cost of a common name sits.
+ *
+ * @param folderPaths the workspace folders to search.
+ * @param name the word the mention index is asked about.
+ * @param cancellationToken cancels the search.
+ * @param mentions whether a candidate's raw text is worth parsing.
+ * @returns every open buffer, plus each parsed candidate whose text passes the test.
+ */
+export function documentsMatching(
+    folderPaths: string[],
+    name: string,
+    cancellationToken: CancellationToken,
+    mentions: (text: string) => boolean
+): AsyncGenerator<AbstractNodeDocument> {
+    return documentsMentioningWhere(folderPaths, name, cancellationToken, mentions, parsedMention);
 }
 
 /**

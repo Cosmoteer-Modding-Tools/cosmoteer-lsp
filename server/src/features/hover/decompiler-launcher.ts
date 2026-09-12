@@ -57,15 +57,15 @@ export const openInDecompiler = async (args: OpenInDecompilerArgs, connection: C
  */
 const launch = (decompiler: Decompiler, assemblyPath: string, docId: string, connection: Connection): void => {
     const cliArgs =
-        decompiler.tool === 'dotpeek'
-            ? [`/select=${assemblyPath}!${docId}`]
-            : [assemblyPath, `/navigateTo:${docId}`];
+        decompiler.tool === 'dotpeek' ? [`/select=${assemblyPath}!${docId}`] : [assemblyPath, `/navigateTo:${docId}`];
     const isMacAppBundle = process.platform === 'darwin' && decompiler.executable.toLowerCase().endsWith('.app');
     const command = isMacAppBundle ? 'open' : decompiler.executable;
     const commandArgs = isMacAppBundle ? ['-a', decompiler.executable, '--args', ...cliArgs] : cliArgs;
     const child = spawn(command, commandArgs, { detached: true, stdio: 'ignore' });
     child.on('error', (e) => {
-        void connection.window.showErrorMessage(`Could not start the decompiler "${decompiler.executable}": ${e.message}`);
+        void connection.window.showErrorMessage(
+            `Could not start the decompiler "${decompiler.executable}": ${e.message}`
+        );
     });
     child.unref();
 };
@@ -75,7 +75,7 @@ const resolveDecompiler = async (): Promise<Decompiler | null> => {
     const settings = globalSettings.decompiler;
     const configured = settings?.executablePath?.trim();
     if (configured) {
-        const tool = settings.tool !== 'auto' && settings.tool ? settings.tool : toolFromName(configured) ?? 'ilspy';
+        const tool = settings.tool !== 'auto' && settings.tool ? settings.tool : (toolFromName(configured) ?? 'ilspy');
         return { executable: configured, tool };
     }
     const preferred = settings?.tool && settings.tool !== 'auto' ? settings.tool : undefined;
@@ -125,19 +125,27 @@ const findDecompiler = async (preferred?: DecompilerTool): Promise<Decompiler | 
             add('dotpeek', await existing(path.join(dir, 'dotPeek32.exe')));
         }
         // winget portable packages: Packages/icsharpcode.ILSpy_<source>/(ILSpy.exe | <subdir>/ILSpy.exe).
-        for (const pkg of await matching(path.join(localAppData, 'Microsoft', 'WinGet', 'Packages'), /^icsharpcode\.ilspy/i)) {
+        for (const pkg of await matching(
+            path.join(localAppData, 'Microsoft', 'WinGet', 'Packages'),
+            /^icsharpcode\.ilspy/i
+        )) {
             add('ilspy', await findFileShallow(pkg, 'ilspy.exe', 2));
         }
         for (const programs of programDirs) {
-            for (const dir of await matching(programs, /^ilspy/i)) add('ilspy', await existing(path.join(dir, 'ILSpy.exe')));
+            for (const dir of await matching(programs, /^ilspy/i))
+                add('ilspy', await existing(path.join(dir, 'ILSpy.exe')));
             for (const dir of await matching(path.join(programs, 'JetBrains'), /dotpeek/i)) {
                 add('dotpeek', await findFileShallow(dir, 'dotpeek64.exe', 2));
             }
         }
         // JetBrains Toolbox (both the 1.x `ch-0/<build>` and the 2.x flat layout) and the
         // standalone web installer's per-user location.
-        for (const apps of [path.join(localAppData, 'JetBrains', 'Toolbox', 'apps'), path.join(localAppData, 'JetBrains', 'Installations')]) {
-            for (const dir of await matching(apps, /dotpeek/i)) add('dotpeek', await findFileShallow(dir, 'dotpeek64.exe', 3));
+        for (const apps of [
+            path.join(localAppData, 'JetBrains', 'Toolbox', 'apps'),
+            path.join(localAppData, 'JetBrains', 'Installations'),
+        ]) {
+            for (const dir of await matching(apps, /dotpeek/i))
+                add('dotpeek', await findFileShallow(dir, 'dotpeek64.exe', 3));
         }
     } else {
         const names = ['ILSpy', 'ilspy', 'AvaloniaILSpy', 'ilspycmd'];

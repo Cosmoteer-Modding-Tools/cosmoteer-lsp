@@ -85,7 +85,7 @@
     ],
     "wordPattern": "[A-Za-z0-9_.-]+",
     "indentationRules": {
-        "increaseIndentPattern": "[{\\[]\\s*(//.*)?$",
+        "increaseIndentPattern": "^(?:[^/]|/(?!/))*[{\\[]\\s*(//.*)?$",
         "decreaseIndentPattern": "^\\s*[}\\]]"
     }
 }

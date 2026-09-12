@@ -116,7 +116,9 @@ function migrationReport(summary: MigrationSummary): string {
         a === '' ? 1 : b === '' ? -1 : a.localeCompare(b, undefined, { numeric: true })
     );
     for (const [version, count] of versions) {
-        lines.push(`- ${version === '' ? l10n.t('pre-changelog game versions') : l10n.t('game version {0}', version)}: ${count}`);
+        lines.push(
+            `- ${version === '' ? l10n.t('pre-changelog game versions') : l10n.t('game version {0}', version)}: ${count}`
+        );
     }
     if (summary.deadFieldsRemoved > 0) {
         lines.push('', l10n.t('Removed {0} fields the game never reads.', summary.deadFieldsRemoved));

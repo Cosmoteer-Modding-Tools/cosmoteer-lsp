@@ -70,8 +70,16 @@ const OVERLAY_TYPES: Record<string, SchemaTypeDef> = {
         name: 'LoadingScreen',
         namespace: 'Cosmoteer.Data',
         fields: [
-            { name: 'Background', valueType: { kind: 'group', ref: 'Halfling.Gui.Image', name: 'Image' }, optional: true },
-            { name: 'Background2x', valueType: { kind: 'group', ref: 'Halfling.Gui.Image', name: 'Image' }, optional: true },
+            {
+                name: 'Background',
+                valueType: { kind: 'group', ref: 'Halfling.Gui.Image', name: 'Image' },
+                optional: true,
+            },
+            {
+                name: 'Background2x',
+                valueType: { kind: 'group', ref: 'Halfling.Gui.Image', name: 'Image' },
+                optional: true,
+            },
             {
                 name: 'LoadingBar',
                 valueType: { kind: 'group', ref: 'Halfling.Gui.ProgressBar', name: 'ProgressBar' },
@@ -213,9 +221,15 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
     ],
     // The buff provider parts read `BuffType` off the game buff registry in a custom constructor (a
     // non-generic read schemagen's IL scan does not catch).
-    'Cosmoteer.Ships.Parts.Buffs.PartSelfBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
-    'Cosmoteer.Ships.Parts.Buffs.PartAreaBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
-    'Cosmoteer.Ships.Parts.Buffs.PartGridBuffProviderRules': [{ name: 'BuffType', valueType: BUFF_REF, optional: true }],
+    'Cosmoteer.Ships.Parts.Buffs.PartSelfBuffProviderRules': [
+        { name: 'BuffType', valueType: BUFF_REF, optional: true },
+    ],
+    'Cosmoteer.Ships.Parts.Buffs.PartAreaBuffProviderRules': [
+        { name: 'BuffType', valueType: BUFF_REF, optional: true },
+    ],
+    'Cosmoteer.Ships.Parts.Buffs.PartGridBuffProviderRules': [
+        { name: 'BuffType', valueType: BUFF_REF, optional: true },
+    ],
     // The thruster part reads these force/fuel values off the part rules, none as a generic
     // `*FromPath<T>` call. `Flammable` is the opposite case: the Meltdown fire rework deleted it from
     // the game entirely (fire immunity moved to the `non_flammable` part category), but vanilla and
@@ -244,9 +258,23 @@ const OVERLAY_FIELD_ADDITIONS: Record<string, SchemaField[]> = {
             optional: true,
         },
     ],
-    // `ProxyRules` is embedded inline by every proxy part (below). Its `ComponentID` lives on a nested
-    // helper class in C#, so neither reflection nor the IL scan sees it, but the OT writes it directly.
-    'Cosmoteer.Ships.Parts.Logic.ProxyRules': [{ name: 'ComponentID', valueType: COMPONENT_REF, optional: true }],
+    // `ProxyRules` is embedded inline by every proxy part (below). Its `ComponentID` and `PartCriteria`
+    // live on the nested `ProxyableComponent` helper class in C#, so neither reflection nor the IL scan
+    // sees them, but the OT writes them directly: the constructor falls back to
+    // `reader.Read<ProxyableComponent>()` on the proxy's own node when no `ProxyableComponents` list is
+    // written, so the single-component shorthand reads both classes from the one group.
+    'Cosmoteer.Ships.Parts.Logic.ProxyRules': [
+        { name: 'ComponentID', valueType: COMPONENT_REF, optional: true },
+        {
+            name: 'PartCriteria',
+            valueType: {
+                kind: 'group',
+                ref: 'Cosmoteer.Ships.Parts.RelativePartCriteria',
+                name: 'RelativePartCriteria',
+            },
+            optional: true,
+        },
+    ],
     // A bullet emitter reads the resources it consumes and the storage they come from.
     'Cosmoteer.Ships.Parts.Weapons.BulletEmitterRules': [
         { name: 'ResourcesUsed', valueType: MODIFIABLE_FLOAT, optional: true },

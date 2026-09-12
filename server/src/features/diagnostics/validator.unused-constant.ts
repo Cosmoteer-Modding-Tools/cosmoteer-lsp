@@ -329,6 +329,4 @@ export const validateUnusedConstants = async (
  * @returns true when another file reads one of the names.
  */
 const readElsewhere = (names: string[], selfKey: string, folderPaths: string[]): boolean =>
-    names.some((name) =>
-        MentionIndex.instance.filesReading(name, folderPaths).some((key) => key !== selfKey)
-    );
+    names.some((name) => MentionIndex.instance.filesReading(name, folderPaths).some((key) => key !== selfKey));

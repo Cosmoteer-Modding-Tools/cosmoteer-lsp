@@ -105,7 +105,12 @@ const findingFile = async (finding: GameLogFinding, modRoot: string, installRoot
               ? resolve(installRoot, candidate)
               : null;
         if (!absolute || !isUnder(absolute, modRoot)) continue;
-        if (await stat(absolute).then((entry) => entry.isFile()).catch(() => false)) return absolute;
+        if (
+            await stat(absolute)
+                .then((entry) => entry.isFile())
+                .catch(() => false)
+        )
+            return absolute;
     }
     return null;
 };
@@ -197,7 +202,12 @@ export const importGameLog = async (
             // A run that loaded the mod and reported nothing is the newest word on it; an older
             // run's findings would describe files that have moved on since.
             if (modId && report.modIds.some((id) => id.toLowerCase() === modId)) {
-                return { kind: 'loaded-clean', log: { path: log.path, time: '', gameVersion: report.gameVersion }, diagnostics: [], stale: 0 };
+                return {
+                    kind: 'loaded-clean',
+                    log: { path: log.path, time: '', gameVersion: report.gameVersion },
+                    diagnostics: [],
+                    stale: 0,
+                };
             }
             continue;
         }

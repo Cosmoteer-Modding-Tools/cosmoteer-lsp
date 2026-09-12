@@ -1,16 +1,14 @@
-import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
-import { dirname, relative as relativePath, resolve as resolvePath } from 'path';
-import { findModRoot } from '../../mod/mod-root';
+import { dirname, resolve as resolvePath } from 'path';
 
 /**
  * Resolves a shader `#include` path to an absolute path. Cosmoteer shaders use two include forms, a
  * path relative to the including file (`"../base.shader"`) and a root-anchored path that names the game
  * data tree (`"./Data/base.shader"`). The latter is resolved against the game's `Data` directory, the
- * former against the including file's own directory. A relative include that does not exist on disk is
- * also tried at the same mod-relative location inside the game tree: a mod mirrors the `Data` layout
- * and the game merges the two at load, so a mod's `common_effects/x.shader` can include vanilla's
- * sibling `base_particle.shader` even though the mod folder holds no such file.
+ * former against the including file's own directory, and there is no third rule: the engine's
+ * `D3D11Shader.IncludeHandler.Open` resolves a relative include against the directory of the file that
+ * wrote it and nothing else, so a mod include that only exists at the mirrored location in the game
+ * tree throws when the game compiles the shader and must not quietly resolve here.
  *
  * @param fromFile the absolute path of the file that contains the include directive.
  * @param includePath the literal path written in the `#include "…"` directive.
@@ -20,14 +18,7 @@ import { findModRoot } from '../../mod/mod-root';
 export const resolveInclude = (fromFile: string, includePath: string, dataDir?: string): string => {
     const rooted = /^\.?[\\/]?[Dd]ata[\\/](.+)$/.exec(includePath);
     if (rooted && dataDir) return resolvePath(dataDir, rooted[1]);
-    const relative = resolvePath(dirname(fromFile), includePath);
-    if (!dataDir || existsSync(relative)) return relative;
-    const modRoot = findModRoot(fromFile);
-    if (!modRoot) return relative;
-    const withinMod = relativePath(resolvePath(modRoot), relative);
-    if (withinMod.startsWith('..')) return relative;
-    const inGameTree = resolvePath(dataDir, withinMod);
-    return existsSync(inGameTree) ? inGameTree : relative;
+    return resolvePath(dirname(fromFile), includePath);
 };
 
 /**
@@ -83,32 +74,64 @@ const evalCondition = (expr: string, macros: Map<string, string>): boolean => {
     }
 };
 
+/** An expanded shader source together with the files it was built from and the includes that failed. */
+export interface ExpandedShader {
+    /** The expanded, preprocessed source. */
+    readonly text: string;
+    /** The include paths, as written, that resolved to nothing readable. */
+    readonly unresolved: readonly string[];
+    /** The absolute path of every file that was read, the entry file first. */
+    readonly files: readonly string[];
+}
+
 /**
  * Reads a shader file and its includes into a single preprocessed source string.
  *
  * @param entryPath the absolute path of the shader to expand.
  * @param predefined macros considered already defined before processing (rarely needed).
  * @param dataDir the absolute path of the game's `Data` directory, for root-anchored includes.
+ * @param readOverride prefers an open buffer's text over disk for a given path.
  * @returns the expanded, preprocessed source, or an empty string when the entry file cannot be read.
  */
 export const expandShaderSource = async (
     entryPath: string,
     predefined: readonly string[] = [],
     dataDir?: string,
+    readOverride?: (absPath: string) => string | undefined
+): Promise<string> => (await expandShaderSourceDetailed(entryPath, predefined, dataDir, readOverride)).text;
+
+/**
+ * Reads a shader file and its includes into a single preprocessed source string, and reports the
+ * includes that resolved to nothing. A caller that renders the result needs the second half: an
+ * expansion missing a base library compiles into nonsense, so the honest answer is the unresolved
+ * include, not whatever the compiler says about the structs the missing file declares.
+ *
+ * @param entryPath the absolute path of the shader to expand.
+ * @param predefined macros considered already defined before processing (rarely needed).
+ * @param dataDir the absolute path of the game's `Data` directory, for root-anchored includes.
+ * @param readOverride prefers an open buffer's text over disk for a given path.
+ * @returns the expanded source and the include paths that could not be read.
+ */
+export const expandShaderSourceDetailed = async (
+    entryPath: string,
+    predefined: readonly string[] = [],
+    dataDir?: string,
     // Prefer an open editor buffer's text over the on-disk file, so a live preview reflects unsaved
     // shader edits. Returns undefined for a path that is not open, which falls back to reading disk.
     readOverride?: (absPath: string) => string | undefined
-): Promise<string> => {
+): Promise<ExpandedShader> => {
     const macros = new Map<string, string>();
     for (const name of predefined) macros.set(name, '');
     const stack: CondFrame[] = [];
     const out: string[] = [];
     const visiting = new Set<string>();
+    const unresolved: string[] = [];
+    const files: string[] = [];
 
     /** True when every enclosing conditional branch is currently emitting. */
     const emitting = (): boolean => stack.every((frame) => frame.active);
 
-    const process = async (path: string): Promise<void> => {
+    const process = async (path: string, writtenAs?: string): Promise<void> => {
         const key = resolvePath(path);
         if (visiting.has(key)) return; // guard against an include cycle
         visiting.add(key);
@@ -120,11 +143,13 @@ export const expandShaderSource = async (
             try {
                 text = await readFile(key, 'utf8');
             } catch {
+                if (writtenAs !== undefined) unresolved.push(writtenAs);
                 visiting.delete(key);
                 return;
             }
         }
 
+        files.push(key);
         for (const raw of text.split(/\r?\n/)) {
             const directive = /^\s*#\s*(\w+)\b\s*(.*)$/.exec(raw);
             if (directive) {
@@ -150,7 +175,12 @@ export const expandShaderSource = async (
                 }
                 if (keyword === 'else') {
                     const frame = stack.pop();
-                    if (frame) stack.push({ active: frame.parentActive && !frame.taken, taken: true, parentActive: frame.parentActive });
+                    if (frame)
+                        stack.push({
+                            active: frame.parentActive && !frame.taken,
+                            taken: true,
+                            parentActive: frame.parentActive,
+                        });
                     continue;
                 }
                 if (keyword === 'endif') {
@@ -169,7 +199,12 @@ export const expandShaderSource = async (
                 }
                 if (keyword === 'include') {
                     const inc = /"([^"]+)"/.exec(rest);
-                    if (inc) await process(resolveInclude(key, inc[1], dataDir));
+                    // A root-anchored include cannot be judged without the game path, so it is read
+                    // but never reported, the same rule the include diagnostic applies.
+                    if (inc) {
+                        const judgeable = dataDir || !/^\.?[\\/]?[Dd]ata[\\/]/.test(inc[1]);
+                        await process(resolveInclude(key, inc[1], dataDir), judgeable ? inc[1] : undefined);
+                    }
                     continue;
                 }
                 // Any other directive (`#pragma`, …) is dropped, it has no GLSL meaning here.
@@ -182,5 +217,5 @@ export const expandShaderSource = async (
     };
 
     await process(entryPath);
-    return out.join('\n');
+    return { text: out.join('\n'), unresolved, files };
 };

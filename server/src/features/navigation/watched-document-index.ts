@@ -442,10 +442,12 @@ export abstract class WatchedDocumentIndex {
             // The combined project cache first: game plus workspace state in one load, with
             // a per-workspace-file stamp diff standing in for the walk.
             const project = liveFolders.length > 0 ? await tryLoadProjectCache(dataRoot!, liveFolderPaths) : undefined;
-            const projectLoaded = !!project && pending.every((index) => {
-                const state = project.states[index.cacheId!];
-                return state !== undefined && index.loadState(state);
-            });
+            const projectLoaded =
+                !!project &&
+                pending.every((index) => {
+                    const state = project.states[index.cacheId!];
+                    return state !== undefined && index.loadState(state);
+                });
             if (projectLoaded) {
                 const current = await statProjectFiles(liveFolderPaths);
                 const savedByKey = new Map(project!.stamps.map((stamp) => [normalizeUri(stamp[0]), stamp]));
@@ -472,10 +474,12 @@ export abstract class WatchedDocumentIndex {
                 // game-tree cache still applies on its own.
                 if (project) for (const index of pending) index.clear();
                 const cached = await tryLoadIndexCache(dataRoot!);
-                const loaded = !!cached && pending.every((index) => {
-                    const state = cached[index.cacheId!];
-                    return state !== undefined && index.loadState(state);
-                });
+                const loaded =
+                    !!cached &&
+                    pending.every((index) => {
+                        const state = cached[index.cacheId!];
+                        return state !== undefined && index.loadState(state);
+                    });
                 if (loaded) {
                     progress.report('game data from cache');
                 } else {

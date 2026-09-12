@@ -3,6 +3,7 @@ import { HoverService } from '../../features/hover/hover.service';
 import { InlayHintService } from '../../features/inlay/inlay-hint.service';
 import { documentColors, colorPresentations } from '../../features/color/document-color';
 import { markupColors, markupColorPresentations } from '../../features/color/markup-color';
+import { warmInheritedClasses } from '../../features/completion/inheritance-resolution';
 import { buildSemanticTokens } from '../../features/semantic/semantic-tokens.service';
 import { buildShaderSemanticTokens } from '../../features/semantic/shader-semantic-tokens';
 import { computeSignatureHelp } from '../../features/signature/signature-help.service';
@@ -46,7 +47,7 @@ const computeSemanticTokens = (uri: string): { resultId: string; data: number[] 
         data = document ? buildShaderSemanticTokens(document.getText()).data : [];
     } else {
         const parserResult = ensureParserResult(uri);
-        data = parserResult ? buildSemanticTokens(parserResult).data : [];
+        data = parserResult ? buildSemanticTokens(parserResult, documents.get(uri)?.getText()).data : [];
     }
     const entry = { version: version ?? -1, resultId: String(++semanticTokensResultIdCounter), data };
     if (version !== undefined) semanticTokensCache.set(uri, entry);
@@ -62,7 +63,10 @@ const computeSemanticTokens = (uri: string): { resultId: string; data: number[] 
  * @param after the token data of the current document version.
  * @returns zero edits for identical arrays, otherwise the one covering edit.
  */
-const semanticTokensEdits = (before: number[], after: number[]): Array<{ start: number; deleteCount: number; data?: number[] }> => {
+const semanticTokensEdits = (
+    before: number[],
+    after: number[]
+): Array<{ start: number; deleteCount: number; data?: number[] }> => {
     let start = 0;
     const minLength = Math.min(before.length, after.length);
     while (start < minLength && before[start] === after[start]) start++;
@@ -125,9 +129,7 @@ const formattingEdits = (uri: string, options: { tabSize: number; insertSpaces: 
     const document = documents.get(uri);
     if (!document) return [];
     const text = document.getText();
-    const formatted = isShaderDocument(uri)
-        ? formatShaderDocument(text, options)
-        : formatRulesDocument(text, options);
+    const formatted = isShaderDocument(uri) ? formatShaderDocument(text, options) : formatRulesDocument(text, options);
     if (formatted === null) return [];
     return minimalReplacementEdits(document, formatted);
 };
@@ -184,15 +186,18 @@ export function register(): void {
     });
 
     // Document colours: render an inline swatch for `{ Rf Gf Bf Af }` / `{ R G B A }` colour groups.
-    connection.onDocumentColor((params) => {
+    connection.onDocumentColor(async (params, cancellationToken) => {
         // Colour swatches come from schema-typed `.rules` colour groups, which a `.shader` has none of.
         if (isShaderDocument(params.textDocument.uri)) return [];
         const parserResult = ensureParserResult(params.textDocument.uri);
         if (!parserResult) return [];
         try {
+            // A colour slot reached only through a base in another file is typed by the same warm-up
+            // hover and definition run, so a `VertexColor` under an inherited sprite gets its swatch.
+            await warmInheritedClasses(parserResult, cancellationToken).catch(() => undefined);
             // A language file adds the colours its markup sets (`<color r='250' …>`), which the
             // schema knows nothing about because they live inside a translated string.
-            return [...documentColors(parserResult), ...markupColors(parserResult)];
+            return [...(await documentColors(parserResult, cancellationToken)), ...markupColors(parserResult)];
         } catch (e) {
             if (globalSettings.trace.server === 'messages') console.error(e);
             return [];
@@ -200,7 +205,7 @@ export function register(): void {
     });
 
     // Colour picker: rewrite the chosen colour's component values in place (braces/layout untouched).
-    connection.onColorPresentation((params) => {
+    connection.onColorPresentation(async (params, cancellationToken) => {
         // A shader is never lexed as ObjectText: `ensureParserResult` caches whatever it parses, so an
         // unguarded call here would leave a nonsense tree behind for that uri.
         if (isShaderDocument(params.textDocument.uri)) return [];
@@ -208,7 +213,14 @@ export function register(): void {
         const document = documents.get(params.textDocument.uri);
         if (!parserResult || !document) return [];
         try {
-            const presentations = colorPresentations(parserResult, document.getText(), params.range, params.color);
+            await warmInheritedClasses(parserResult, cancellationToken).catch(() => undefined);
+            const presentations = await colorPresentations(
+                parserResult,
+                document.getText(),
+                params.range,
+                params.color,
+                cancellationToken
+            );
             return presentations.length > 0
                 ? presentations
                 : markupColorPresentations(parserResult, params.range, params.color);
@@ -233,7 +245,11 @@ export function register(): void {
                 // version supersedes the entry. Binding it to the first request's token let that
                 // request's cancellation truncate the hints every later same-version request served.
                 const source = new CancellationTokenSource();
-                const promise = InlayHintService.instance.getInlayHints(parserResult, FULL_DOCUMENT_RANGE, source.token);
+                const promise = InlayHintService.instance.getInlayHints(
+                    parserResult,
+                    FULL_DOCUMENT_RANGE,
+                    source.token
+                );
                 if (version !== undefined) {
                     inlayHintCache.get(uri)?.source.cancel();
                     entry = { version, promise, source };

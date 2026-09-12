@@ -3,7 +3,14 @@ import { dirname } from 'path';
 import * as l10n from '@vscode/l10n';
 import { CancellationToken, CodeAction, CodeActionKind, Position, Range, TextEdit } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { AbstractNode, AbstractNodeDocument, ValueNode, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    ValueNode,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+} from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { isReferenceValue } from '../navigation/definition.service';
 import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
@@ -88,11 +95,7 @@ const isInheritanceMember = (node: AbstractNode): boolean => {
  * @param documentText the caret document's text, already in hand.
  * @returns the text, or null when the file could not be read.
  */
-const sourceTextOf = async (
-    targetUri: string,
-    documentUri: string,
-    documentText: string
-): Promise<string | null> => {
+const sourceTextOf = async (targetUri: string, documentUri: string, documentText: string): Promise<string | null> => {
     if (targetUri === documentUri) return documentText;
     return readFile(uriToFsPath(targetUri), { encoding: 'utf-8' }).catch(() => null);
 };

@@ -24,6 +24,14 @@ describe('.rules formatter', () => {
         expect(format('Child:Parent\n{\n}\n')).toBe('Child : Parent\n{\n}\n');
     });
 
+    it('leaves punctuation that belongs to the value where the author put it', () => {
+        // The game joins two tokens of a value with no space between them, and a whitespace run as
+        // one space, so putting a space around these would change the value the game reads.
+        expect(format('Key = a:b\n')).toBe('Key = a:b\n');
+        expect(format('Key = a=b\n')).toBe('Key = a=b\n');
+        expect(format('Key = http://example.com\n')).toBe('Key = http://example.com\n');
+    });
+
     it('normalizes comma and semicolon spacing', () => {
         expect(format('L = [1,2 ,3]\n')).toBe('L = [1, 2, 3]\n');
         expect(format('G { A = 1;B = 2 }\n')).toBe('G { A = 1; B = 2 }\n');
@@ -99,8 +107,14 @@ describe('.rules formatter', () => {
         expect(format('A\n{\nB = 1  // note\n}\n')).toBe('A\n{\n\tB = 1  // note\n}\n');
     });
 
-    it('preserves multi-line strings verbatim', () => {
-        const input = 'A = "line1\n   line2"\nB = 1\n';
+    it('indents the line after an unclosed quote as the ordinary member it is', () => {
+        // A plain string ends at its line break, the way the game's tokenizer ends it, so what
+        // follows is not string content and is laid out like any other line.
+        expect(format('A = "line1\n   line2"\nB = 1\n')).toBe('A = "line1\nline2"\nB = 1\n');
+    });
+
+    it('preserves a string continued over a line break verbatim', () => {
+        const input = 'A = "line1 \\\n   line2"\nB = 1\n';
         expect(format(input)).toBe(input);
     });
 

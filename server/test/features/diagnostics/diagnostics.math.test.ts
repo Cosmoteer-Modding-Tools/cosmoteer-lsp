@@ -10,7 +10,12 @@ const token = CancellationToken.None;
 const pos = (): AstPosition => ({ line: 0, characterStart: 0, characterEnd: 0, start: 0, end: 0 });
 const op = (t: ExpressionNode['expressionType']): ExpressionNode => ({ type: 'Expression', expressionType: t, position: pos() });
 const num = (v: number): ValueNode => ({ type: 'Value', valueType: { type: 'Number', value: v }, position: pos() });
-const ref = (v: string): ValueNode => ({ type: 'Value', valueType: { type: 'Reference', value: v }, position: pos() });
+const ref = (v: string, extra: Partial<ValueNode> = {}): ValueNode => ({
+    type: 'Value',
+    valueType: { type: 'Reference', value: v },
+    position: pos(),
+    ...extra,
+});
 const str = (v: string): ValueNode => ({ type: 'Value', valueType: { type: 'String', value: v }, position: pos() });
 const math = (...elements: AbstractNode[]): MathExpressionNode => ({ type: 'MathExpression', elements: elements as MathExpressionNode['elements'], position: pos() });
 
@@ -36,7 +41,13 @@ describe('math expression diagnostics', () => {
     });
 
     it('accepts a well-formed number/operator/reference expression', async () => {
-        expect(await run(math(num(5), op('+'), ref('&A')))).toBeUndefined();
+        expect(await run(math(num(5), op('+'), ref('&A', { parenthesized: true })))).toBeUndefined();
+    });
+
+    it('asks for parentheses around a bare reference operand', async () => {
+        // The game substitutes only `(&path)`; written bare it reads the rest of the line as path.
+        const finding = await run(math(num(5), op('+'), ref('&A')));
+        expect(finding?.message).toMatch(/parentheses/);
     });
 
     it('does not treat a trailing postfix factorial "!" as a dangling operator', async () => {
@@ -46,7 +57,12 @@ describe('math expression diagnostics', () => {
     it('accepts a bare math constant (pi, e) as an operand', async () => {
         // mXparser constants lex as String but are valid numeric operands (`pi * (&R)^2`).
         expect(await run(math(str('pi'), op('*'), num(2)))).toBeUndefined();
-        expect(await run(math(num(2), op('*'), str('E')))).toBeUndefined();
+        expect(await run(math(num(2), op('*'), str('e')))).toBeUndefined();
+    });
+
+    it('flags a miscased constant, which the game reads as an unknown token', async () => {
+        const finding = await run(math(num(2), op('*'), str('E')));
+        expect(finding?.message).toMatch(/did you mean "e"/);
     });
 
     it('accepts a unit-suffixed number (%, d, r) as an operand', async () => {

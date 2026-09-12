@@ -46,7 +46,12 @@ export async function createNewAsteroidType(
 ): Promise<void> {
     const uri = wizardAnchor(anchor);
     if (!uri) return;
-    const scan = await scanForWizard<NewAsteroidTypeScanResult>(client, NEW_ASTEROID_TYPE_SERVER_COMMAND, uri, failureMessage);
+    const scan = await scanForWizard<NewAsteroidTypeScanResult>(
+        client,
+        NEW_ASTEROID_TYPE_SERVER_COMMAND,
+        uri,
+        failureMessage
+    );
     if (!scan) return;
     if (scan.resources.length === 0 || scan.looks.length === 0) {
         window.showWarningMessage(
@@ -63,7 +68,12 @@ export async function createNewAsteroidType(
     const form = await showAsteroidTypeForm(context, scan);
     if (!form) return;
 
-    const result = await applyForWizard<NewAsteroidTypeApplyResult>(client, NEW_ASTEROID_TYPE_SERVER_COMMAND, { uri, ...form }, failureMessage);
+    const result = await applyForWizard<NewAsteroidTypeApplyResult>(
+        client,
+        NEW_ASTEROID_TYPE_SERVER_COMMAND,
+        { uri, ...form },
+        failureMessage
+    );
     if (!result) return;
     const notes = [
         l10n.t('Cosmoteer: created the asteroid type {0}, spawning in career sectors from now on.', result.id),

@@ -74,8 +74,7 @@ export async function createNewMod(client: LanguageClient): Promise<void> {
         title: l10n.t('Cosmoteer: New Mod'),
         prompt: l10n.t('Your name as the game shows it. It also becomes the first half of the mod id.'),
         value: scan.knownAuthors[0],
-        validateInput: (value) =>
-            /[A-Za-z0-9]/.test(value) ? undefined : l10n.t('Use at least one letter or digit.'),
+        validateInput: (value) => (/[A-Za-z0-9]/.test(value) ? undefined : l10n.t('Use at least one letter or digit.')),
     });
     if (!author) return;
 
@@ -126,7 +125,9 @@ async function pickNewModDestination(scan: NewModScanResult): Promise<string | u
         })),
         { label: l10n.t('Choose a folder…'), description: '', path: BROWSE },
     ];
-    const picked = await window.showQuickPick(items, { placeHolder: l10n.t('Where should the mod folder be created?') });
+    const picked = await window.showQuickPick(items, {
+        placeHolder: l10n.t('Where should the mod folder be created?'),
+    });
     if (!picked) return undefined;
     if (picked.path !== BROWSE) return picked.path;
     const chosen = await window.showOpenDialog({
@@ -155,7 +156,9 @@ function newModFailureMessage(failure: NewModFailure): string {
         case 'pathTaken':
             return l10n.t('Cosmoteer: a folder of that name is already there, and it was left alone.');
         case 'idTaken':
-            return l10n.t('Cosmoteer: another mod on this machine already carries that id, and the game tells mods apart by it.');
+            return l10n.t(
+                'Cosmoteer: another mod on this machine already carries that id, and the game tells mods apart by it.'
+            );
         case 'writeFailed':
             return l10n.t('Cosmoteer: the mod folder could not be written, so nothing was created.');
     }

@@ -4,8 +4,11 @@ import { AbstractNodeDocument, isAssignmentNode } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { migrationSymbolOf, RENAMED_MOD_RULES_FIELDS } from '../../document/schema/deprecations';
 import { ValidationError } from '../diagnostics/validator';
+import { compatibleVersionsRewrite, namesInstalledGameVersion } from '../diagnostics/validator.manifest-version';
 import { validateSchema } from '../diagnostics/validator.schema';
 import { validateIgnoredFields } from '../diagnostics/validator.ignored-field';
+import { readGameVersionInfo } from '../game-version';
+import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { removalRange } from '../../utils/removal-range';
 import { unifiedDiff } from '../../utils/unified-diff';
 import { ManualFinding, MigrationPreview, MigrationPreviewFile } from './migration.types';
@@ -118,6 +121,35 @@ interface FileMigrationResult {
  * deprecations.ts), which is what turns the whole-file migration into a single bulk rename.
  * @returns the file's edits and report bookkeeping.
  */
+/**
+ * Bring a manifest's `CompatibleGameVersions` to the version the installed build is.
+ *
+ * Nothing is rewritten while the list already names that version, which also makes a second
+ * migration run over the same mod a no-op, and an install whose version cannot be read rewrites
+ * nothing rather than writing a guess into the manifest.
+ *
+ * @param documentNode the parsed manifest.
+ * @param doc the buffer the edit is computed against.
+ * @returns the edit and the game version it brings the manifest to, or undefined when there is
+ *          nothing to change.
+ */
+const manifestVersionEdit = async (
+    documentNode: AbstractNodeDocument,
+    doc: TextDocument
+): Promise<{ edit: TextEdit; version: string } | undefined> => {
+    if (await namesInstalledGameVersion(documentNode)) return undefined;
+    const rewrite = await compatibleVersionsRewrite(documentNode);
+    if (!rewrite) return undefined;
+    const info = await readGameVersionInfo(CosmoteerWorkspaceService.instance.dataRootPath).catch(() => undefined);
+    return {
+        edit: {
+            range: { start: doc.positionAt(rewrite.start), end: doc.positionAt(rewrite.end) },
+            newText: rewrite.newText,
+        },
+        version: info?.installed ?? '',
+    };
+};
+
 export const collectFileMigration = async (
     documentNode: AbstractNodeDocument,
     doc: TextDocument,
@@ -136,6 +168,17 @@ export const collectFileMigration = async (
     };
 
     if (isModRules(documentNode.uri)) {
+        // The version list comes first: a manifest naming no version the installed build accepts
+        // leaves the game turning the mod off while it loads, and every other fix would then land in
+        // a mod the game never reads. A bulk fix for one deprecation stays out of it, since the
+        // rewrite is not the change it offered to make.
+        if (symbol === undefined) {
+            const versionEdit = await manifestVersionEdit(documentNode, doc);
+            if (versionEdit) {
+                result.edits.push(versionEdit.edit);
+                bump(versionEdit.version);
+            }
+        }
         // The manifest loader lives outside the serialization system, so no validator flags its
         // fields and the rename registry is applied directly to the top-level assignments.
         for (const element of documentNode.elements) {

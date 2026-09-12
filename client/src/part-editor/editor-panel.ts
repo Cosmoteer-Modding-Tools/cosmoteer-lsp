@@ -1,4 +1,15 @@
-import { Disposable, ExtensionContext, Position, Uri, ViewColumn, WebviewPanel, commands, l10n, window, workspace } from 'vscode';
+import {
+    Disposable,
+    ExtensionContext,
+    Position,
+    Uri,
+    ViewColumn,
+    WebviewPanel,
+    commands,
+    l10n,
+    window,
+    workspace,
+} from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { createCosmoteerPanel, disposeAll, imageDataUri, stringsScript, webviewShell } from '../webview-util';
 import { partGridEditorStrings } from '../webview-strings';
@@ -30,7 +41,12 @@ export class PartGridEditorPanel {
         private readonly context: ExtensionContext,
         private readonly client: LanguageClient
     ) {
-        this.panel = createCosmoteerPanel(context, 'cosmoteerPartGridEditor', l10n.t('Part Grid Editor'), ViewColumn.Beside);
+        this.panel = createCosmoteerPanel(
+            context,
+            'cosmoteerPartGridEditor',
+            l10n.t('Part Grid Editor'),
+            ViewColumn.Beside
+        );
         this.panel.onDidDispose(() => this.dispose());
         this.panel.webview.onDidReceiveMessage((message) => void this.onMessage(message));
         // Live update: re-render when the edited part document changes, whether through the grid
@@ -118,7 +134,11 @@ export class PartGridEditorPanel {
         dataVersion?: number;
     }): Promise<void> {
         if (message.type === 'edit' && this.tracked && this.anchor) {
-            await this.applyMutation({ type: 'edit', mutation: message.mutation, dataVersion: message.dataVersion ?? -1 });
+            await this.applyMutation({
+                type: 'edit',
+                mutation: message.mutation,
+                dataVersion: message.dataVersion ?? -1,
+            });
         } else if (message.type === 'openLocation' && message.uri) {
             const target = Uri.parse(message.uri);
             const options = message.range ? { selection: message.range } : undefined;

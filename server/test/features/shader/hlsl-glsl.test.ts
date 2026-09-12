@@ -478,4 +478,141 @@ PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
         // The rich feature-level branch is active (the low-end branch has no scrolling function).
         expect(result.glsl).toContain('CreateNebulaBaseScrolling');
     });
+
+    it('constructs a vector when a scalar is written into one (the grayscale post-shader pattern)', () => {
+        // GLSL has no scalar-to-vector conversion, so each of these is a dimension mismatch as written.
+        const glsl = translateToGlsl(`
+typedef float4 PIX_OUTPUT;
+struct VERT_OUTPUT { float2 uv : TEXCOORD0; float4 color : COLOR0; };
+static const float BRIGHTNESS = 0.5;
+PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
+{
+    float4 ret = 0;
+    ret.rgb = (input.color.r + input.color.g + input.color.b) / 3 * BRIGHTNESS;
+    ret.rb = 0;
+    ret.a = max(input.color.a, 0.5);
+    return ret;
+}
+`);
+        expect(glsl.ok).toBe(true);
+        expect(glsl.glsl).toContain('vec4 ret = vec4(0.0);');
+        expect(glsl.glsl).toContain('ret.rgb = vec3((vsIn.color.r + vsIn.color.g + vsIn.color.b) / 3.0 * BRIGHTNESS);');
+        expect(glsl.glsl).toContain('ret.rb = vec2(0.0);');
+        // A matching width is left exactly as written.
+        expect(glsl.glsl).toContain('ret.a = max(vsIn.color.a, 0.5);');
+    });
+
+    it('truncates a wider value written into a narrower one (the nebula transform pattern)', () => {
+        const glsl = translateToGlsl(`
+typedef float4 PIX_OUTPUT;
+struct VERT_OUTPUT { float2 uv : TEXCOORD0; float4 color : COLOR0; };
+matrix _transform;
+PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
+{
+    float2 uv = mul(float4(input.uv.x, input.uv.y, 0, 1), _transform);
+    return float4(uv, 0, 1);
+}
+`);
+        expect(glsl.ok).toBe(true);
+        expect(glsl.glsl).toContain(
+            'vec2 uv = (mul_(vec4(vsIn.uv.x, vsIn.uv.y, 0.0, 1.0), _transform)).xy;'
+        );
+    });
+
+    it('drops a swizzle written on a scalar (the background rotSpeed pattern)', () => {
+        const glsl = translateToGlsl(`
+typedef float4 PIX_OUTPUT;
+struct VERT_OUTPUT { float2 uv : TEXCOORD0; float rotSpeed : POSITION1; float4 color : COLOR0; };
+float _gameTime;
+PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
+{
+    float spin = input.rotSpeed.x * _gameTime;
+    return float4(input.uv.x, spin, 0, 1);
+}
+`);
+        expect(glsl.ok).toBe(true);
+        expect(glsl.glsl).toContain('float spin = vsIn.rotSpeed * _gameTime;');
+        // A swizzle on a real vector is untouched.
+        expect(glsl.glsl).toContain('vsIn.uv.x');
+    });
+
+    it('keeps the else branch of a ternary whose right side is an identifier', () => {
+        // The semantic strip once matched any `: name`, so `cond ? a : b` lost its `: b`.
+        const glsl = translateToGlsl(`
+typedef float4 PIX_OUTPUT;
+struct VERT_OUTPUT { float2 uv : TEXCOORD0; float4 color : COLOR0; };
+float _threshold;
+PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
+{
+    float lo = 0.25;
+    float hi = 0.75;
+    float picked = input.uv.x > _threshold ? hi : lo;
+    return float4(picked, 0, 0, 1);
+}
+`);
+        expect(glsl.ok).toBe(true);
+        expect(glsl.glsl).toContain('? hi : lo;');
+    });
+
+    it('leaves an exponent literal alone when coercing integers to floats', () => {
+        const glsl = translateToGlsl(`
+typedef float4 PIX_OUTPUT;
+struct VERT_OUTPUT { float2 uv : TEXCOORD0; float4 color : COLOR0; };
+PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
+{
+    float epsilon = 1e-3;
+    float huge = 3.5e10;
+    return float4(input.uv.x + epsilon, huge, 0, 1);
+}
+`);
+        expect(glsl.ok).toBe(true);
+        expect(glsl.glsl).toContain('float epsilon = 1e-3;');
+        expect(glsl.glsl).toContain('float huge = 3.5e10;');
+        expect(glsl.glsl).not.toContain('1e-3.0');
+    });
+
+    it('declares the vertex output with the vert own return type (the beacon geometry pattern)', () => {
+        // The vert returns GEOM_OUTPUT while pix takes VERT_OUTPUT. The two match type for type, which
+        // is all the engine needs, but GLSL refuses to assign one struct to the other.
+        const glsl = translateToGlsl(`
+typedef float4 PIX_OUTPUT;
+struct VERT_INPUT { float4 location : POSITION; float4 color : COLOR0; float2 uv : TEXCOORD0; };
+struct GEOM_OUTPUT { float4 loc : SV_POSITION; float4 tint : COLOR0; float2 texcoord : TEXCOORD0; };
+struct VERT_OUTPUT { float4 location : SV_POSITION; float4 color : COLOR0; float2 uv : TEXCOORD0; };
+GEOM_OUTPUT vert(in VERT_INPUT input)
+{
+    GEOM_OUTPUT output;
+    output.loc = input.location;
+    output.tint = input.color;
+    output.texcoord = input.uv;
+    return output;
+}
+PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
+{
+    return input.color;
+}
+`);
+        expect(glsl.ok).toBe(true);
+        expect(glsl.vertex).toBeDefined();
+        expect(glsl.vertex!.glsl).toContain('GEOM_OUTPUT vout = vert(vin);');
+        // The varyings are named after the pix struct and fed from the vert's own field names.
+        expect(glsl.vertex!.glsl).toContain('vOut_color = vout.tint;');
+        expect(glsl.vertex!.glsl).toContain('vOut_uv = vout.texcoord;');
+        expect(glsl.vertex!.glsl).toContain('gl_Position = vout.loc;');
+    });
+
+    it('drops a uniform an include and its includer both declare', () => {
+        const glsl = translateToGlsl(`
+typedef float4 PIX_OUTPUT;
+struct VERT_OUTPUT { float2 uv : TEXCOORD0; float4 color : COLOR0; };
+float _extraBeginLength;
+float _extraBeginLength;
+PIX_OUTPUT pix(in VERT_OUTPUT input) : SV_TARGET
+{
+    return float4(_extraBeginLength, 0, 0, 1);
+}
+`);
+        expect(glsl.ok).toBe(true);
+        expect(glsl.glsl!.match(/uniform float _extraBeginLength;/g)?.length).toBe(1);
+    });
 });

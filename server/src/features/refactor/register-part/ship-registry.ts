@@ -49,7 +49,10 @@ export interface ShipClassesHost {
  * @param cancellationToken cancels the manifest reads.
  * @returns the ship classes, empty when the game path is unset and no mod adds one.
  */
-export const shipClassesFor = async (host: ShipClassesHost, cancellationToken: CancellationToken): Promise<ShipClassEntry[]> => {
+export const shipClassesFor = async (
+    host: ShipClassesHost,
+    cancellationToken: CancellationToken
+): Promise<ShipClassEntry[]> => {
     const root = await host.gameRoot().catch(() => undefined);
     const rootDocument = (root?.content as CosmoteerWorkspaceData | undefined)?.parsedDocument;
     const folders = await host.folderPaths().catch(() => []);
@@ -291,11 +294,7 @@ export const collectShipClasses = async (
  * @returns the group with its `ID` and its local `Parts` list, or undefined when the file no longer
  *          holds a top-level group of that name.
  */
-export const shipPartsIn = (
-    text: string,
-    document: AbstractNodeDocument,
-    groupName: string
-): ShipParts | undefined => {
+export const shipPartsIn = (text: string, document: AbstractNodeDocument, groupName: string): ShipParts | undefined => {
     const lower = groupName.toLowerCase();
     const group = document.elements.find(
         (element): element is GroupNode => isGroupNode(element) && element.identifier?.name.toLowerCase() === lower

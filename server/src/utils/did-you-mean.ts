@@ -104,10 +104,39 @@ const isMatchPool = (candidates: Iterable<string> | MatchPool): candidates is Ma
     'originals' in candidates && 'lowered' in candidates;
 
 /**
+ * The most edits a suggestion may be away from what was written, however long the name is. A
+ * mistyped name is off by a letter or two, and a long id or localization key given a free hand by
+ * the length rule below used to pull in whole different names: a pool of ids is full of names that
+ * share a prefix and mean something else, and one of them is always within a third of the target.
+ */
+const MAX_ACCEPTED_DISTANCE = 3;
+
+/** A run of digits, the part of a name that numbers a variant rather than spelling it. */
+const DIGIT_RUN = /\d+/g;
+
+/** Whether a name carries a number at all, which is what makes the variant rule apply to it. */
+const HAS_DIGIT = /\d/;
+
+/**
+ * Whether two names differ only in the numbers they carry, which makes them siblings rather than
+ * one being a typo of the other. `Turret_2` beside `Turret_3` and `Armor_8x8` beside `Armor_1x1`
+ * are two things that both exist, and offering one as the correction of the other quietly rewires
+ * the file to a part the author did not ask for.
+ *
+ * @param target the name as it was written.
+ * @param candidate the name being offered for it.
+ * @returns true when the two agree on everything but their numbers.
+ */
+const differOnlyInNumbers = (target: string, candidate: string): boolean => {
+    if (!HAS_DIGIT.test(target) && !HAS_DIGIT.test(candidate)) return false;
+    return target.replace(DIGIT_RUN, '#').toLowerCase() === candidate.replace(DIGIT_RUN, '#').toLowerCase();
+};
+
+/**
  * The candidate closest to `target`, or `null` when nothing is close enough to be a
  * plausible typo. "Close enough" scales with the target length (a longer word tolerates
- * more typos) and never matches across more than ~40% of the word, so unrelated names
- * are not suggested.
+ * more typos), never matches across more than ~40% of the word and never spans more than
+ * {@link MAX_ACCEPTED_DISTANCE} edits, so unrelated names are not suggested.
  * @param target the possibly mistyped string to match
  * @param candidates the pool of valid strings to match against, or a prepared {@link MatchPool}
  * @param caseInsensitive whether to compare without regard to letter case
@@ -120,7 +149,7 @@ export const closestMatch = (
 ): string | null => {
     const needle = caseInsensitive ? target.toLowerCase() : target;
     // Allow more edits for longer words, but stay strict for short ones (≤4 chars → 1 edit).
-    const maxDistance = Math.max(1, Math.floor(target.length * 0.4));
+    const maxDistance = Math.min(MAX_ACCEPTED_DISTANCE, Math.max(1, Math.floor(target.length * 0.4)));
 
     let best: string | null = null;
     let bestDistance = Infinity;
@@ -133,7 +162,7 @@ export const closestMatch = (
         if (Math.abs(candidate.length - needle.length) > bound) return true;
         if (candidate === target || hay === needle) return true;
         const distance = levenshtein(needle, hay, bound);
-        if (distance < bestDistance && distance <= bound) {
+        if (distance < bestDistance && distance <= bound && !differOnlyInNumbers(target, candidate)) {
             best = candidate;
             bestDistance = distance;
         }

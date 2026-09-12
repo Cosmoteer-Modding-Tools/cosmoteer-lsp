@@ -78,7 +78,10 @@ const overriddenNamesOf = async (source: ActionSource, declaringDir: string): Pr
         const file = await readRulesFile(resolve(declaringDir, match[1].trim()).replace(/\\/g, '/'));
         if (!file) return names;
         group = file.document;
-        for (const segment of match[2].split('/').map((part) => part.trim()).filter((part) => part.length > 0)) {
+        for (const segment of match[2]
+            .split('/')
+            .map((part) => part.trim())
+            .filter((part) => part.length > 0)) {
             if (!group) return names;
             group = stepIntoNode(group, segment);
         }
@@ -194,7 +197,8 @@ const scanRound = async (value: ResolvedValue, host: OverrideInModHost): Promise
             modRoot,
             manifests: manifests.map(basenameOf),
             alreadyOverridden: await modAlreadyOverrides(modRoot, value.member.target, value.member.name),
-            blocked: manifests.length === 0 ? 'notEditable' : manifestToWrite(manifests) ? undefined : 'ambiguousManifest',
+            blocked:
+                manifests.length === 0 ? 'notEditable' : manifestToWrite(manifests) ? undefined : 'ambiguousManifest',
         });
     }
     return {

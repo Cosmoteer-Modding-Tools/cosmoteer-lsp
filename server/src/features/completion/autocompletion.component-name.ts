@@ -176,7 +176,10 @@ const isComponentsMapType = (slot: ValueType | undefined): boolean =>
  * @param token cancels the target navigation.
  * @returns the scope documents, the edited document first.
  */
-const scopeDocuments = async (document: AbstractNodeDocument, token: CancellationToken): Promise<AbstractNodeDocument[]> => {
+const scopeDocuments = async (
+    document: AbstractNodeDocument,
+    token: CancellationToken
+): Promise<AbstractNodeDocument[]> => {
     const docs: AbstractNodeDocument[] = [];
     const seen = new Set<string>();
     const queue: Array<{ doc: AbstractNodeDocument; upward: boolean }> = [{ doc: document, upward: true }];
@@ -223,7 +226,9 @@ const loadByNormalizedKey = async (key: string): Promise<AbstractNodeDocument | 
 };
 
 /** The document a resolved action target lives in: parsed from a file, or the target node's root. */
-const documentOfResolved = async (resolved: AbstractNode | FileWithPath | null): Promise<AbstractNodeDocument | null> => {
+const documentOfResolved = async (
+    resolved: AbstractNode | FileWithPath | null
+): Promise<AbstractNodeDocument | null> => {
     if (!resolved) return null;
     if (isFile(resolved as FileWithPath)) {
         return cachedParseFilePath((resolved as FileWithPath).path).catch(() => null);

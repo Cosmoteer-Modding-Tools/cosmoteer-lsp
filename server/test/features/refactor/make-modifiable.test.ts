@@ -78,6 +78,14 @@ describe('make a value modifiable', () => {
         expect(applied(action, text)).toContain('BaseValue = (&~/THRUST)');
     });
 
+    // A mod written with spaces used to get the group's inner members indented with a tab, which
+    // is the one line of the file that does not line up with the rest.
+    it('indents the group with whatever the file indents with', () => {
+        const text = source('4.5').replace(/\t/g, '    ');
+        const [action] = actionsAt(text, 'Force');
+        expect(applied(action, text)).toContain('Force\n            {\n                BaseValue = 4.5');
+    });
+
     it('is not offered on a field the game reads only as a plain number', () => {
         const text = source('4.5').replace('Force = 4.5', 'Force = 4.5\n\t\t\tResourceStorage = fuel');
         expect(actionsAt(text, 'ResourceStorage')).toHaveLength(0);

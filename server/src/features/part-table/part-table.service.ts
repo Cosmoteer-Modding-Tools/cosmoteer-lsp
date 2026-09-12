@@ -882,7 +882,10 @@ const numberReader = (entry: WalkedPart, token: CancellationToken): ((path: stri
  * @param numberAt the part's number reader.
  * @returns the capacity, zero for a part that houses nobody.
  */
-const crewCapacityOf = async (entry: WalkedPart, numberAt: (path: string) => Promise<number | null>): Promise<number> => {
+const crewCapacityOf = async (
+    entry: WalkedPart,
+    numberAt: (path: string) => Promise<number | null>
+): Promise<number> => {
     let capacity = 0;
     for (const path of entry.values.keys()) {
         const segments = path.split('/');
@@ -911,7 +914,9 @@ const crewCapacityOf = async (entry: WalkedPart, numberAt: (path: string) => Pro
  * @param numberAt the part's number reader.
  * @returns width and height in cells, or null when either is unreadable.
  */
-const sizeOf = async (numberAt: (path: string) => Promise<number | null>): Promise<readonly [number, number] | null> => {
+const sizeOf = async (
+    numberAt: (path: string) => Promise<number | null>
+): Promise<readonly [number, number] | null> => {
     const width = await numberAt(SIZE_PATHS[0]);
     const height = await numberAt(SIZE_PATHS[1]);
     return width !== null && height !== null ? [width, height] : null;
@@ -1567,8 +1572,7 @@ const overwriteInPlace = async (
     };
     const file = basenameOf(uri);
     const plain = isValueNode(node) && node.valueType.type !== 'Reference';
-    const snippet =
-        replaced.length > NOTE_SNIPPET_LENGTH ? `${replaced.slice(0, NOTE_SNIPPET_LENGTH - 1)}…` : replaced;
+    const snippet = replaced.length > NOTE_SNIPPET_LENGTH ? `${replaced.slice(0, NOTE_SNIPPET_LENGTH - 1)}…` : replaced;
     let note: string;
     if (where && plain) note = l10n.t('Written into {0}, {1}.', file, where);
     else if (where) note = l10n.t('Written into {0}, {1}, in place of {2}.', file, where, snippet);

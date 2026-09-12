@@ -130,7 +130,10 @@ const wordTablesOf = (text: string): { words: Set<string>; readWords: Set<string
         const before = wordStart > 0 ? text[wordStart - 1] : '';
         if (before !== '&' && before !== '/' && !isInheritanceTarget(text, wordStart)) {
             let after = wordEnd;
-            while (after < text.length && (text[after] === ' ' || text[after] === '\t' || text[after] === '\r' || text[after] === '\n')) {
+            while (
+                after < text.length &&
+                (text[after] === ' ' || text[after] === '\t' || text[after] === '\r' || text[after] === '\n')
+            ) {
                 after++;
             }
             const opener = text[after];
@@ -646,7 +649,12 @@ export class MentionIndex {
      */
     private cacheNameFor(folderPaths: string[]): string {
         const folderKey = createHash('sha1')
-            .update([...folderPaths].map((folder) => normalizeUri(folder)).sort().join('\n'))
+            .update(
+                [...folderPaths]
+                    .map((folder) => normalizeUri(folder))
+                    .sort()
+                    .join('\n')
+            )
             .digest('hex')
             .slice(0, 16);
         return `mention-cache-${folderKey}`;
@@ -664,7 +672,9 @@ export class MentionIndex {
         const buildId = currentServerBuildId();
         if (!dataRoot || !buildId) return;
         try {
-            const raw = await readFile(cacheArtifactPath(dataRoot, this.cacheNameFor(folderPaths)), { encoding: 'utf-8' });
+            const raw = await readFile(cacheArtifactPath(dataRoot, this.cacheNameFor(folderPaths)), {
+                encoding: 'utf-8',
+            });
             const cache = JSON.parse(raw) as MentionCacheFile;
             if (cache.formatVersion !== MENTION_CACHE_FORMAT_VERSION) return;
             if (cache.serverBuildId !== buildId) return;
