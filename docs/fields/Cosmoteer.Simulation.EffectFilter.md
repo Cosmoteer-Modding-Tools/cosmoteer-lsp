@@ -23,7 +23,7 @@ Allows the effect to hit parts with operational health (the normal health pool o
 ## StructuralHealth
 `bool` · optional
 
-Allows the effect to hit parts with structural health, such as armor and structure. True by default. See [[Cosmoteer.Simulation.EffectFilter.OperationalHealth]].
+Allows the effect to hit parts with structural health, whose [[Cosmoteer.Ships.Parts.PartRules.HealthType]] is `Structural`. In vanilla that is the structure pieces, armor counts as operational. True by default. See [[Cosmoteer.Simulation.EffectFilter.OperationalHealth]].
 
 ## OnlyPartCategories
 `→ PartCategory[]` · optional

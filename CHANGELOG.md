@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - A call whose arguments carry a comma is now reported unless it is quoted, because a comma ends a value. The same goes for a reference written bare in an expression, where only `(&path)` is substituted.
 - An expression written in quotes is now evaluated, so the hover and the hint show its value. That is the form the game's own files use for every call with a comma in it.
 - A percentage multiplied by a reference is no longer labelled a percentage, which read a recoil as 3000%.
+- Field documentation no longer calls armor a structural part. `HealthType` is `Operational` on every vanilla part but the five structure pieces, so a bullet's structural hit, penetration and status rules never apply to armor plating.
 - Signature help now reads only the line the cursor is on and ignores what a comment or an escaped quote says.
 - A string left without its closing quote now ends at the end of its line, the way the game's own reader ends it, and is reported on the quote that opened it. Typing a quote in front of a word that was already there used to swallow the rest of the file.
 - A value left half written no longer takes the member below it. A line ending in an operator, in a sign, or in a call that is still open used to absorb the next field, which then disappeared.

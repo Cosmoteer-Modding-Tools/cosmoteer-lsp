@@ -28,7 +28,7 @@ Whether the projectile can penetrate into operational parts. When false it expen
 ## PenetratesStructural
 `bool` · optional · default `true`
 
-Whether the projectile can penetrate into structural parts such as armor and structure. When false it expends all remaining [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] on the first structural part it hits and is destroyed there.
+Whether the projectile can penetrate into structural parts, those whose [[Cosmoteer.Ships.Parts.PartRules.HealthType]] is `Structural`. When false it expends all remaining [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] on the first structural part it hits and is destroyed there.
 
 ## PenetratesShields
 `bool` · optional · default `true`
@@ -53,7 +53,7 @@ Multiplier on the penetration resistance of operational parts. Values below 1 le
 ## StructuralPenetrationFactor
 `float` · optional · default `1`
 
-Multiplier on the penetration resistance of structural parts such as armor and structure. Values below 1 let the projectile penetrate deeper through them, values above 1 drain [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] faster.
+Multiplier on the penetration resistance of structural parts, those whose [[Cosmoteer.Ships.Parts.PartRules.HealthType]] is `Structural`. Values below 1 let the projectile penetrate deeper through them, values above 1 drain [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] faster.
 
 ## ShieldPenetrationFactor
 `float` · optional · default `1`
@@ -123,7 +123,7 @@ Effects applied the first time the projectile hits an operational part. Further 
 ## HitStructural
 `HitRules` · optional
 
-Effects applied the first time the projectile hits a structural part such as armor or structure. Hitting an operational part also counts as the first structural hit, so further structural parts use [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.PenetratingStructural]] instead.
+Effects applied the first time the projectile hits a structural part, one whose [[Cosmoteer.Ships.Parts.PartRules.HealthType]] is `Structural`. Vanilla armor is operational, so armor plating takes the operational effects. Hitting an operational part also counts as the first structural hit, so further structural parts use [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.PenetratingStructural]] instead.
 
 ## PenetratingOperational
 `HitRules` · optional
@@ -138,12 +138,12 @@ Effects applied to each further structural part the projectile penetrates after 
 ## FinishedPenetratingOperational
 `HitRules` · optional
 
-Effects applied when the projectile runs out of [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] inside an operational part, its final stop. If that part is also the first operational part hit, [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitOperational]] plays instead.
+Effects applied when the projectile runs out of [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] inside an operational part, its final stop. If that part is also the first operational part hit, [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitOperational]] plays instead. The slot is reached only while the projectile tunnels on through a ship it has already entered. Running dry on the tile where the projectile first touches a ship plays [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitOperational]] or [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.PenetratingOperational]], so a payload written here alone can be skipped.
 
 ## FinishedPenetratingStructural
 `HitRules` · optional
 
-Effects applied when the projectile runs out of [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] inside a structural part, its final stop. If that part is also the first part hit, [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitStructural]] plays instead.
+Effects applied when the projectile runs out of [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.Penetration]] inside a structural part, its final stop. If that part is also the first part hit, [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitStructural]] plays instead. The slot is reached only while the projectile tunnels on through a ship it has already entered. Running dry on the tile where the projectile first touches a ship plays [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitStructural]] or [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.PenetratingStructural]], so a payload written here alone can be skipped. Unlike the other structural slots, this one is not filtered by [[Cosmoteer.Bullets.Hits.BulletPenetratingHitRules.HitsFriendlyStructure]].
 
 ## HitShield
 `HitRules` · optional

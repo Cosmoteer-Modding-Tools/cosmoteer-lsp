@@ -73,7 +73,7 @@ Effects applied when the projectile hits an operational part. Unless [[Cosmoteer
 ## HitStructural
 `HitRules` · optional
 
-Effects applied when the projectile hits a structural part such as armor or structure. Structural parts are only collided with at all when the projectile's deliberate target is structural, unless [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.IgnoreStructureUnlessTargeted]] is disabled or [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.HitsFriendlyStructure]] is set.
+Effects applied when the projectile hits a structural part, one whose [[Cosmoteer.Ships.Parts.PartRules.HealthType]] is `Structural`. Vanilla armor is operational, so armor plating takes the operational effects. Structural parts are only collided with at all when the projectile's deliberate target is structural, unless [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.IgnoreStructureUnlessTargeted]] is disabled or [[Cosmoteer.Bullets.Hits.BulletSimpleHitRules.HitsFriendlyStructure]] is set.
 
 ## HitShield
 `HitRules` · optional
@@ -103,4 +103,4 @@ Whether structural hit effects also trigger on ships the projectile cannot damag
 ## IgnoreStructureUnlessTargeted
 `bool` · optional · default `true`
 
-Whether the projectile ignores structural parts such as armor and structure unless its deliberate target is a structural part. When true, a shot aimed at an operational part flies over bare armor and structure instead of detonating on it.
+Whether the projectile ignores structural parts, those whose [[Cosmoteer.Ships.Parts.PartRules.HealthType]] is `Structural`, unless its deliberate target is one of them. When true, a shot aimed at an operational part flies over bare structure instead of detonating on it. Armor is operational and still stops the shot.
