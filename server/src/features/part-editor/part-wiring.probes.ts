@@ -116,9 +116,14 @@ const navigation = new FullNavigationStrategy();
 
 /** Adapts the shared navigation strategy to the inheritance resolver's reference-resolution shape. */
 const resolveReference: ResolveReferenceFn = (path, startNode, currentLocation, token, inheritanceVisited) =>
-    navigation.navigate(path, startNode, currentLocation, token, new Set(), inheritanceVisited) as ReturnType<
-        ResolveReferenceFn
-    >;
+    navigation.navigate(
+        path,
+        startNode,
+        currentLocation,
+        token,
+        new Set(),
+        inheritanceVisited
+    ) as ReturnType<ResolveReferenceFn>;
 
 /**
  * A member of a container by name, matched case-insensitively like the game's own node lookup. The
@@ -249,7 +254,8 @@ export const registrationRow = (part: GroupNode, identity: PartIdentity): Wiring
     const aliased = member === '' ? aliasRootIndex.rootType(uri) : aliasRootIndex.memberType(uri, member);
     if (isPartSlot(aliased)) findings.push(l10n.t('Registered in the game data tree.'));
 
-    const actioned = member === '' ? ActionRootingIndex.instance.rootType(uri) : ActionRootingIndex.instance.memberType(uri, member);
+    const actioned =
+        member === '' ? ActionRootingIndex.instance.rootType(uri) : ActionRootingIndex.instance.memberType(uri, member);
     if (isPartSlot(actioned)) findings.push(l10n.t('Wired in by a mod.rules action.'));
 
     const includers = new Set<string>();
@@ -265,7 +271,9 @@ export const registrationRow = (part: GroupNode, identity: PartIdentity): Wiring
         title,
         mark: 'missing',
         findings: [
-            l10n.t('Nothing pulls this part file into a ship, so the game never registers it and it can never be built.'),
+            l10n.t(
+                'Nothing pulls this part file into a ship, so the game never registers it and it can never be built.'
+            ),
         ],
     };
 };
@@ -331,14 +339,21 @@ export const paletteRow = async (
 
     if (accepted) return { id: 'palette', title, mark: 'ok', findings };
     if (!groupsCovered) {
-        return { id: 'palette', title, mark: 'unknown', findings: [l10n.t('Not enough of the game is indexed to judge this.')] };
+        return {
+            id: 'palette',
+            title,
+            mark: 'unknown',
+            findings: [l10n.t('Not enough of the game is indexed to judge this.')],
+        };
     }
     return {
         id: 'palette',
         title,
         mark: 'missing',
         findings: [
-            l10n.t('No editor group, no parent part and no ship makes this its default part, so the palette never shows it.'),
+            l10n.t(
+                'No editor group, no parent part and no ship makes this its default part, so the palette never shows it.'
+            ),
         ],
     };
 };
@@ -374,7 +389,12 @@ export const modeOfferingsRow = async (
     // nothing was searched and "no tech names it" would be an artefact rather than a fact.
     await SchemaIdIndex.instance.idsForClass(PART_RULES_CLASS, folderPaths, token);
     if (!SchemaIdIndex.instance.hasFileDeclarationsFor(PART_RULES_CLASS)) {
-        return { id: 'modes', title, mark: 'unknown', findings: [l10n.t('Not enough of the game is indexed to judge this.')] };
+        return {
+            id: 'modes',
+            title,
+            mark: 'unknown',
+            findings: [l10n.t('Not enough of the game is indexed to judge this.')],
+        };
     }
 
     const techIds = new Set<string>();
@@ -483,7 +503,11 @@ const declaringFieldOfValue = (node: AbstractNode): { ownerClass?: string; field
 };
 
 /** Collects every plain-value site in a document that writes one of `names` under a wiring field. */
-const collectNameSites = (document: AbstractNodeDocument, names: ReadonlySet<string>, out: PartReferenceSite[]): void => {
+const collectNameSites = (
+    document: AbstractNodeDocument,
+    names: ReadonlySet<string>,
+    out: PartReferenceSite[]
+): void => {
     const visit = (node: AbstractNode): void => {
         if (isValueNode(node)) {
             if (node.valueType.type === 'String' && names.has(String(node.valueType.value))) {

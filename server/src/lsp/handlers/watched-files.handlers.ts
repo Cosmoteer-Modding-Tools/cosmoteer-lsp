@@ -49,7 +49,10 @@ export function register(): void {
         // A code mod being developed in the workspace: its assembly (or the XML doc file beside it) was
         // just rebuilt, so the types and prose merged into the schema are one build behind. The
         // re-extraction runs in the background, since nothing in this handler depends on it.
-        if (codeModAutoRefreshEnabled() && params.changes.some((change) => /\.(dll|xml)$/i.test(basenameOf(change.uri)))) {
+        if (
+            codeModAutoRefreshEnabled() &&
+            params.changes.some((change) => /\.(dll|xml)$/i.test(basenameOf(change.uri)))
+        ) {
             void refreshModSchema();
         }
         // Asset (sprite/sound/shader) changes only affect the fs-derived caches: dropping the path
@@ -137,7 +140,9 @@ export function register(): void {
                     await validateWorkspaceFile(inScope[next++], openNorms, CancellationToken.None);
                 }
             };
-            await Promise.all(Array.from({ length: Math.min(WORKSPACE_DIAGNOSTIC_CONCURRENCY, inScope.length) }, worker));
+            await Promise.all(
+                Array.from({ length: Math.min(WORKSPACE_DIAGNOSTIC_CONCURRENCY, inScope.length) }, worker)
+            );
         }
     });
 }

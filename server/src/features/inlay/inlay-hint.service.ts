@@ -244,12 +244,7 @@ export class InlayHintService {
     ): Promise<void> {
         if (globalSettings.inlayHints?.showTargetValue === false) return;
         const target = await navigation
-            .navigate(
-                String(reference.valueType.value),
-                reference,
-                getStartOfAstNode(reference).uri,
-                cancellationToken
-            )
+            .navigate(String(reference.valueType.value), reference, getStartOfAstNode(reference).uri, cancellationToken)
             .catch(() => null);
         if (!target) return;
         const label = describeTargetInline(target as AbstractNode | FileWithPath);

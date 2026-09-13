@@ -11,11 +11,7 @@ import { findEnclosingGroup, resolveGroupClass } from '../../document/schema/sch
 import { classAncestry, enumDef } from '../../document/schema/schema';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { findMemberThroughInheritance } from '../../semantics/inheritance-resolver';
-import {
-    EffectiveMember,
-    effectiveMember,
-    resolveReference,
-} from '../../semantics/effective-member';
+import { EffectiveMember, effectiveMember, resolveReference } from '../../semantics/effective-member';
 import { componentsOfPart as allComponents } from '../../semantics/part-components';
 import { resolveAssetPath } from '../navigation/asset-resolver';
 import { FullNavigationStrategy } from '../navigation/full.navigation-strategy';
@@ -62,13 +58,7 @@ import {
     readVectorEvaluated,
 } from './vector-forms';
 import { fieldOf } from '../../document/schema/schema';
-import {
-    ADJACENCY_FLAGS_ENUM,
-    CELL_SET_FIELDS,
-    MAP_FIELDS,
-    PART_RULES_CLASS,
-    RECT_FIELDS,
-} from './part-fields';
+import { ADJACENCY_FLAGS_ENUM, CELL_SET_FIELDS, MAP_FIELDS, PART_RULES_CLASS, RECT_FIELDS } from './part-fields';
 
 /**
  * Builds the {@link PartGridData} payload the grid editor webview renders: the part's effective
@@ -1133,7 +1123,13 @@ const readSize = async (
 const marginFor = (size: { width: number; height: number }, layers: readonly GridLayerData[]): number => {
     let margin = 1;
     const cover = (x: number, y: number): void => {
-        margin = Math.max(margin, -Math.floor(x), -Math.floor(y), Math.ceil(x - size.width + 1), Math.ceil(y - size.height + 1));
+        margin = Math.max(
+            margin,
+            -Math.floor(x),
+            -Math.floor(y),
+            Math.ceil(x - size.width + 1),
+            Math.ceil(y - size.height + 1)
+        );
     };
     const coverRect = (rect: { x: number; y: number; width: number; height: number }): void => {
         cover(rect.x, rect.y);

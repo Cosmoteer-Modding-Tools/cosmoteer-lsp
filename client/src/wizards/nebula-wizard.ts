@@ -23,26 +23,44 @@ const NEW_NEBULA_SERVER_COMMAND = 'cosmoteer.newNebula';
  * @param client the language client the command runs through.
  * @param anchor the uri the mod is found from, absent to find it from the editor.
  */
-export async function createNewNebula(context: ExtensionContext, client: LanguageClient, anchor?: string): Promise<void> {
+export async function createNewNebula(
+    context: ExtensionContext,
+    client: LanguageClient,
+    anchor?: string
+): Promise<void> {
     const uri = wizardAnchor(anchor);
     if (!uri) return;
-    const scan = await scanForWizard<NewNebulaScanResult>(client, NEW_NEBULA_SERVER_COMMAND, uri, creationFailureMessage);
+    const scan = await scanForWizard<NewNebulaScanResult>(
+        client,
+        NEW_NEBULA_SERVER_COMMAND,
+        uri,
+        creationFailureMessage
+    );
     if (!scan) return;
     if (scan.bases.length === 0) {
-        window.showWarningMessage(l10n.t("Cosmoteer: the game's nebulas could not be read, so there is no look to start from."));
+        window.showWarningMessage(
+            l10n.t("Cosmoteer: the game's nebulas could not be read, so there is no look to start from.")
+        );
         return;
     }
     const form = await showNebulaForm(context, scan);
     if (!form) return;
 
-    const result = await applyForWizard<NewNebulaApplyResult>(client, NEW_NEBULA_SERVER_COMMAND, { uri, ...form }, creationFailureMessage);
+    const result = await applyForWizard<NewNebulaApplyResult>(
+        client,
+        NEW_NEBULA_SERVER_COMMAND,
+        { uri, ...form },
+        creationFailureMessage
+    );
     if (!result) return;
     const notes = [l10n.t('Cosmoteer: created the nebula {0}, spawning in career sectors from now on.', result.id)];
     notes.push(...wiringNotes(result.wiring, result.manifests));
     if (result.localizationFiles.length === 0) {
         notes.push(l10n.t('This mod ships no language file, so its tooltip and HUD text were not declared anywhere.'));
     } else {
-        notes.push(l10n.t('Its tooltip is a placeholder in the language files: {0}.', result.localizationKeys.join(', ')));
+        notes.push(
+            l10n.t('Its tooltip is a placeholder in the language files: {0}.', result.localizationKeys.join(', '))
+        );
     }
     const document = await workspace.openTextDocument(Uri.file(result.nebulaFile));
     await window.showTextDocument(document, { preview: false });
@@ -58,7 +76,8 @@ export async function createNewNebula(context: ExtensionContext, client: Languag
  */
 const showNebulaForm = (context: ExtensionContext, scan: NewNebulaScanResult): Promise<NebulaForm | undefined> => {
     const modName = scan.modRoot.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? scan.modRoot;
-    const hex = (rgb: Rgb): string => `#${rgb.map((channel) => Math.max(0, Math.min(255, channel)).toString(16).padStart(2, '0')).join('')}`;
+    const hex = (rgb: Rgb): string =>
+        `#${rgb.map((channel) => Math.max(0, Math.min(255, channel)).toString(16).padStart(2, '0')).join('')}`;
     const first = scan.bases[0];
     const fieldsHtml = `
 <div class="row">
@@ -117,11 +136,15 @@ ${scan.bases.map((base) => `<option value="${escapeHtml(base.id)}">${escapeHtml(
 </div>`;
     return showWizardForm<NebulaForm>(context, {
         title: l10n.t('New Nebula'),
-        lead: l10n.t('Pick a look, give it your colours and say where it spawns. The files, the doodad for creative mode and the manifest actions are written for you.'),
+        lead: l10n.t(
+            'Pick a look, give it your colours and say where it spawns. The files, the doodad for creative mode and the manifest actions are written for you.'
+        ),
         fieldsHtml,
         facts: [
             escapeHtml(l10n.t('Written into the mod {0}, under nebulas/.', modName)),
-            escapeHtml(l10n.t('Its tooltip and HUD text are keys in the language files, with a placeholder to rewrite.')),
+            escapeHtml(
+                l10n.t('Its tooltip and HUD text are keys in the language files, with a placeholder to rewrite.')
+            ),
         ],
         strings: {
             invalidId: l10n.t('One word: letters, digits and underscores, starting with a letter.'),
@@ -185,14 +208,25 @@ ${scan.bases.map((base) => `<option value="${escapeHtml(base.id)}">${escapeHtml(
  * @returns the sentences, empty when everything was wired.
  */
 export const wiringNotes = (wiring: Record<string, string>, manifests?: string[]): string[] => {
-    const unwired = Object.entries(wiring).filter(([, outcome]) => outcome !== 'written' && outcome !== 'present' && outcome !== 'skipped');
+    const unwired = Object.entries(wiring).filter(
+        ([, outcome]) => outcome !== 'written' && outcome !== 'present' && outcome !== 'skipped'
+    );
     if (unwired.length === 0) return [];
     const reason = unwired[0][1];
     if (reason === 'ambiguousManifest') {
-        return [l10n.t('The mod has several manifests and none is mod.rules, so the actions wiring it in are yours to write. Candidates: {0}.', (manifests ?? []).join(', '))];
+        return [
+            l10n.t(
+                'The mod has several manifests and none is mod.rules, so the actions wiring it in are yours to write. Candidates: {0}.',
+                (manifests ?? []).join(', ')
+            ),
+        ];
     }
     if (reason === 'manifestUnusable') {
-        return [l10n.t("The mod's Actions come from an included file, which cannot be appended to, so the actions wiring it in are yours to write.")];
+        return [
+            l10n.t(
+                "The mod's Actions come from an included file, which cannot be appended to, so the actions wiring it in are yours to write."
+            ),
+        ];
     }
     return [l10n.t('Some of it could not be wired in: {0}.', unwired.map(([key]) => key).join(', '))];
 };
@@ -208,9 +242,13 @@ export const creationFailureMessage = (failure: string): string => {
         case 'noModRoot':
             return l10n.t('Cosmoteer: this folder is in no mod. Open a mod with a mod.rules manifest first.');
         case 'notEditable':
-            return l10n.t("Cosmoteer: this is the game's own data or somebody else's installed mod, which is not yours to add to.");
+            return l10n.t(
+                "Cosmoteer: this is the game's own data or somebody else's installed mod, which is not yours to add to."
+            );
         case 'noGameRoot':
-            return l10n.t("Cosmoteer: the game path is unset, so the game's own files this builds on could not be read.");
+            return l10n.t(
+                "Cosmoteer: the game path is unset, so the game's own files this builds on could not be read."
+            );
         case 'invalidId':
             return l10n.t('Cosmoteer: an id is one word of letters, digits and underscores.');
         case 'idTaken':

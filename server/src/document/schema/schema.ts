@@ -93,14 +93,22 @@ export const extendSchemaWithMods = (extension: ModSchemaExtension | undefined):
         for (const fullName of appliedModKeys.types) delete schema.types[fullName];
         for (const fullName of appliedModKeys.enums) delete schema.enums[fullName];
         for (const fullName of appliedModKeys.registries) delete schema.registries[fullName];
-        for (const [registryName, disc] of appliedModKeys.members) delete schema.registries[registryName]?.members[disc];
+        for (const [registryName, disc] of appliedModKeys.members)
+            delete schema.registries[registryName]?.members[disc];
         if (appliedModKeys.kinds > 0 && schema.componentKinds) schema.componentKinds.length -= appliedModKeys.kinds;
         for (const fullName of appliedModKeys.capabilities) delete schema.componentCapabilities?.[fullName];
     }
     appliedModExtension = extension;
     appliedModKeys = undefined;
     if (extension) {
-        const applied: AppliedModKeys = { types: new Set(), enums: [], registries: [], members: [], kinds: 0, capabilities: [] };
+        const applied: AppliedModKeys = {
+            types: new Set(),
+            enums: [],
+            registries: [],
+            members: [],
+            kinds: 0,
+            capabilities: [],
+        };
         for (const [fullName, type] of Object.entries(extension.types)) {
             if (schema.types[fullName]) continue;
             schema.types[fullName] = type;
@@ -163,7 +171,9 @@ export const modSchemaSignature = (): string => {
     if (!extension) return '';
     const parts: string[] = [];
     for (const [fullName, type] of Object.entries(extension.types)) {
-        parts.push(`T ${fullName} ${type.fields.map((field) => `${field.name}${field.description ? '*' : ''}`).join(',')}`);
+        parts.push(
+            `T ${fullName} ${type.fields.map((field) => `${field.name}${field.description ? '*' : ''}`).join(',')}`
+        );
     }
     for (const [fullName, def] of Object.entries(extension.enums)) parts.push(`E ${fullName} ${def.members.join(',')}`);
     for (const [name, registry] of Object.entries(extension.registries)) {
@@ -356,15 +366,31 @@ export const fieldsOf = (fullName: string): SchemaField[] => {
 const requiredFieldsCache = new Map<string, SchemaField[]>();
 
 /**
+ * `class FullName` → fields whose `[Serialize]` carries no `Optional = true`, and that the rules text
+ * still need not write because the game fills them in before the reflective read can throw. Each entry
+ * names the C# that supplies the field.
+ */
+const SUPPLIED_ELSEWHERE: Record<string, ReadonlySet<string>> = {};
+
+/**
  * The fields of a class the game requires, own and inherited. Memoized per class.
  *
+ * Required means what the deserializer means by it: `BaseSerializer` reads `Optional = attr?.Optional
+ * ?? true` and then throws `Unable to find source for non-optional field` for an absent field that is
+ * not optional, whatever the field's type. So the flag to read is {@link SchemaField.absentThrows},
+ * the one that mirrors that attribute. The broader {@link SchemaField.optional} heuristic also counts
+ * a nullable, collection or constructor-initialized member as optional, which hid 319 fields the game
+ * load does reject. {@link SUPPLIED_ELSEWHERE} carries the few classes where another code path fills
+ * the field in before the throw can happen.
+ *
  * @param fullName the class FullName.
- * @returns the class's own and inherited fields that are not optional.
+ * @returns the class's own and inherited fields the game load requires.
  */
 export const requiredFieldsOf = (fullName: string): SchemaField[] => {
     const cached = requiredFieldsCache.get(fullName);
     if (cached) return cached;
-    const out = fieldsOf(fullName).filter((field) => !field.optional);
+    const exempt = SUPPLIED_ELSEWHERE[fullName];
+    const out = fieldsOf(fullName).filter((field) => field.absentThrows === true && !exempt?.has(field.name));
     requiredFieldsCache.set(fullName, out);
     return out;
 };
@@ -517,7 +543,10 @@ let fieldNameSetsByPredicate: Map<string, ReadonlySet<string>> | undefined;
  * @param predicate what makes a field's type interesting.
  * @returns the lower-cased field names, computed once per schema generation.
  */
-const fieldNamesTyped = (key: string, predicate: (valueType: ValueType | undefined) => boolean): ReadonlySet<string> => {
+const fieldNamesTyped = (
+    key: string,
+    predicate: (valueType: ValueType | undefined) => boolean
+): ReadonlySet<string> => {
     fieldNameSetsByPredicate ??= new Map();
     const cached = fieldNameSetsByPredicate.get(key);
     if (cached) return cached;
@@ -616,6 +645,17 @@ export const isShaderConstantField = (cls: string, fieldName: string): boolean =
 
 /** True if a `Type=` discriminator is declared by more than one registry (resolution needs a hint). */
 export const discriminatorIsAmbiguous = (disc: string): boolean => (discriminatorIndex.get(disc)?.length ?? 0) > 1;
+
+/**
+ * Every class a discriminator selects, one per registry declaring it, in registry order. More than one
+ * means the name collides (`ArcShield` is both a part component and a media effect) and the context
+ * has to break the tie.
+ *
+ * @param disc the `Type=` discriminator.
+ * @returns the candidate class FullNames, or an empty array for an unknown discriminator.
+ */
+export const classesByDiscriminator = (disc: string): string[] =>
+    (discriminatorIndex.get(disc) ?? []).map((candidate) => candidate.cls);
 
 /**
  * Whether registry `key`'s base class is, or derives from, the registry named by `hint` (a registry
@@ -1024,16 +1064,21 @@ export const fieldExampleMarkdown = (field: SchemaField): string | undefined => 
 };
 
 /**
- * Turn authored `[[Type.FullName.Member]]` cross-references in doc prose into readable Markdown.
- * These crefs are written freely in `docs/fields/*.md` but have no target URL, so the whole `[[…]]`
- * would otherwise render literally in every client's hover. We show the last dotted segment (the
- * member name a modder actually types in the .rules file) as an inline code span.
- * @param prose The raw field description, possibly containing `[[…]]` crefs.
- * @returns The prose with every cref replaced by an inline code span of its final segment.
+ * Turn authored cross-references in doc prose into readable Markdown. These crefs are written freely
+ * in `docs/fields/*.md` but have no target URL, so the whole `[[…]]` would otherwise render literally
+ * in every client's hover. Three spellings are in use: `[[Type#Member|Label]]` with an explicit label,
+ * `[[Type#Member]]`, and the dotted `[[Type.Member]]`. All show the member name a modder actually
+ * types in the `.rules` file, as an inline code span.
+ *
+ * @param prose the raw field description, possibly containing `[[…]]` crefs.
+ * @returns the prose with every cref replaced by an inline code span.
  */
 const renderDocCrefs = (prose: string): string =>
     prose.replace(/\[\[([^\]]+)\]\]/g, (_, ref: string) => {
-        const last = ref.split('.').pop()?.trim();
+        const labelled = ref.split('|');
+        const target =
+            labelled.length > 1 ? labelled[labelled.length - 1] : (labelled[0].split('#').pop() ?? labelled[0]);
+        const last = target.split('.').pop()?.trim();
         return last ? `\`${last}\`` : ref;
     });
 
@@ -1043,7 +1088,9 @@ const renderDocCrefs = (prose: string): string =>
  * documentation and the field hover so they read identically.
  */
 export const fieldSignatureMarkdown = (field: SchemaField, owningType?: string): string => {
-    const head = `**${field.name}**: \`${valueTypeLabel(field.valueType)}\`${field.optional ? '' : ' — required'}`;
+    // Required is what the deserializer means by it: the field's `[Serialize]` carries no
+    // `Optional = true`, so the game load throws when it is absent (see {@link requiredFieldsOf}).
+    const head = `**${field.name}**: \`${valueTypeLabel(field.valueType)}\`${field.absentThrows ? ', required' : ''}`;
     const extra: string[] = [];
     if (field.default !== undefined) extra.push(`default \`${field.default}\``);
     const vt = field.valueType;
@@ -1053,7 +1100,10 @@ export const fieldSignatureMarkdown = (field: SchemaField, owningType?: string):
         const members = enumDef(inner.ref)?.members ?? [];
         // Cap the inline listing: only ViKey (103 keyboard keys) exceeds it, and a hover-sized
         // sample plus the total serves better than a screen-filling dump.
-        const shown = members.slice(0, 24).map((m) => `\`${m}\``).join(', ');
+        const shown = members
+            .slice(0, 24)
+            .map((m) => `\`${m}\``)
+            .join(', ');
         if (members.length > 0) {
             extra.push(`one of: ${shown}${members.length > 24 ? `, … (${members.length} total)` : ''}`);
         }

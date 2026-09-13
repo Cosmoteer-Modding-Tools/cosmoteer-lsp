@@ -48,7 +48,12 @@ type FormMessage =
  * @returns the text with the five markup characters escaped.
  */
 const escapeHtml = (text: string): string =>
-    text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
 /**
  * Reads a `#rrggbb` colour into its three channels.
@@ -69,7 +74,10 @@ const channelsOf = (hex: string): [number, number, number] => {
  * @param facts what the form validates against and tells the author.
  * @returns what was entered, or undefined when the form was closed instead.
  */
-export const showNewFactionForm = (context: ExtensionContext, facts: NewFactionFormFacts): Promise<NewFactionForm | undefined> =>
+export const showNewFactionForm = (
+    context: ExtensionContext,
+    facts: NewFactionFormFacts
+): Promise<NewFactionForm | undefined> =>
     new Promise((resolve) => {
         const panel = window.createWebviewPanel('cosmoteerNewFaction', l10n.t('New Faction'), ViewColumn.Active, {
             enableScripts: true,

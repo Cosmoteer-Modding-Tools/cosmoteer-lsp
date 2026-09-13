@@ -16,7 +16,15 @@ import { parseFilePath } from '../utils/ast.utils';
 import * as l10n from '@vscode/l10n';
 
 /** The top-level manifest fields worth echoing in the overview header, in display order. */
-const HEADER_FIELDS = ['ID', 'Name', 'Version', 'Author', 'CompatibleGameVersions', 'StringsFolder', 'ModifiesGameplay'];
+const HEADER_FIELDS = [
+    'ID',
+    'Name',
+    'Version',
+    'Author',
+    'CompatibleGameVersions',
+    'StringsFolder',
+    'ModifiesGameplay',
+];
 
 /** A top-level scalar manifest field's written text, unquoted, or undefined. Name match is case-insensitive like the game's. */
 const headerField = (document: AbstractNodeDocument, name: string): string | undefined => {
@@ -159,7 +167,12 @@ export const generateModOverview = async (
     }
     lines.push('');
     if (broken > 0) {
-        lines.push(l10n.t('⚠ {0} action(s) have a target that resolves to nothing, so they silently do nothing in game.', broken));
+        lines.push(
+            l10n.t(
+                '⚠ {0} action(s) have a target that resolves to nothing, so they silently do nothing in game.',
+                broken
+            )
+        );
         lines.push('');
     }
 
@@ -190,10 +203,14 @@ export const generateModOverview = async (
             // The conventional convenience-globals file at the mod root deserves its own explanation:
             // it is expected to be here, not forgotten. The game applies the manifest actions to its
             // own Data/cosmoteer.rules and never opens the mod's copy.
-            if (reachability.unreachable.some((file) => relativeToMod(modRoot, file).toLowerCase() === 'cosmoteer.rules')) {
+            if (
+                reachability.unreachable.some(
+                    (file) => relativeToMod(modRoot, file).toLowerCase() === 'cosmoteer.rules'
+                )
+            ) {
                 lines.push(
                     l10n.t(
-                        'ℹ The root `cosmoteer.rules` here is a documentation convention: the game injects such globals via the manifest actions into its own `Data/cosmoteer.rules` and never loads the mod\'s copy.'
+                        "ℹ The root `cosmoteer.rules` here is a documentation convention: the game injects such globals via the manifest actions into its own `Data/cosmoteer.rules` and never loads the mod's copy."
                     )
                 );
                 lines.push('');
@@ -246,9 +263,7 @@ export const generateModOverview = async (
                 for (const chain of chains.slice(0, REVIVAL_CHAIN_LIMIT)) {
                     const disabled = chain.disabledBy ? ` ← ${fileLink(modRoot, chain.disabledBy)}` : '';
                     const alike =
-                        chain.alike > 0
-                            ? ` · ${l10n.t('and {0} more of this name', String(chain.alike))}`
-                            : '';
+                        chain.alike > 0 ? ` · ${l10n.t('and {0} more of this name', String(chain.alike))}` : '';
                     const brings =
                         chain.revived === 1
                             ? l10n.t('brings one file back with it')
@@ -303,7 +318,9 @@ export const generateModOverview = async (
             )
         );
         lines.push('');
-        lines.push(`| ${l10n.t('Node')} | ${l10n.t('This mod')} | ${l10n.t('Other mod')} | ${l10n.t('Applied last')} |`);
+        lines.push(
+            `| ${l10n.t('Node')} | ${l10n.t('This mod')} | ${l10n.t('Other mod')} | ${l10n.t('Applied last')} |`
+        );
         lines.push('| --- | --- | --- | --- |');
         for (const conflict of conflicts.slice(0, CONFLICT_LIMIT)) {
             const where = placeLink(modRoot, { file: conflict.file, line: conflict.line });

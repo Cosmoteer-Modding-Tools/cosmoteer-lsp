@@ -42,7 +42,8 @@ export const recordNavigationDep = (uriOrPath: string): void => {
  * @param run the resolution to execute.
  * @returns the resolution's result.
  */
-export const collectNavigationDeps = <T>(deps: Set<string>, run: () => Promise<T>): Promise<T> => storage.run(deps, run);
+export const collectNavigationDeps = <T>(deps: Set<string>, run: () => Promise<T>): Promise<T> =>
+    storage.run(deps, run);
 
 /**
  * The dependency collector of the resolution currently running, when one is collecting. Used to

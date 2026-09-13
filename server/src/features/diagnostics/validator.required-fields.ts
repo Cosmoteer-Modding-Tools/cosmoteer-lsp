@@ -8,6 +8,7 @@ import {
     isGroupNode,
     isListNode,
     isValueNode,
+    ValueNode,
 } from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { childNodesOf, namedMembersOf, getStartOfAstNode } from '../../utils/ast.utils';
@@ -16,10 +17,13 @@ import {
     registryForGroup,
     registryHintFromContainer,
     resolveGroupClass,
+    slotDeclaredClass,
 } from '../../document/schema/schema-context';
-import { discriminatorIsAmbiguous, requiredFieldsOf } from '../../document/schema/schema';
+import { discriminatorIsAmbiguous, fieldsOf, requiredFieldsOf, typeDef } from '../../document/schema/schema';
 import { SchemaField } from '../../document/schema/schema.types';
 import { DefinitionService } from '../navigation/definition.service';
+import { definitionLocationOf, locationKey } from '../navigation/reference-location';
+import { findInheritorsOf } from '../../semantics/inheritor-resolver';
 import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { ValidationError } from './validator';
 import { requiredFieldInsert } from './required-field-insert';
@@ -44,10 +48,12 @@ import * as l10n from '@vscode/l10n';
  *   - Inheritance guard: if any inheritance reference on the group or a resolved ancestor does not
  *     resolve (a base in the unindexed vanilla install, a cross-file base the project has not loaded),
  *     the group is skipped entirely, since the missing field may be supplied by that unseen base.
- *   - Template skip: a group whose name is used as an inheritance base, anywhere in this document, or
- *     (via the {@link TemplateBaseIndex} `workspaceBaseNames` set) anywhere in the project, is a
- *     template completed by its deriving groups, never instantiated on its own, so it is not checked.
- *     Unlike the allowlist this also covers a mod's own `BASE_*` templates.
+ *   - Template skip: a group that some other group really inherits from is a template completed by its
+ *     deriving groups, never instantiated on its own, so it is not checked. Unlike the allowlist this
+ *     also covers a mod's own `BASE_*` templates. The test is positional: a base reference has to
+ *     resolve to this very node. A bare name is not enough, since 15.7% of vanilla's typed named
+ *     groups (`Sprite`, `BulletEmitter`, `Hit`, `Blueprints`) share a name with some base leaf
+ *     somewhere else in the install, which would silence the whole class of them.
  *   - `~`-rooted bases and runtime/unresolvable inheritance skip the group (see the guard above).
  *   - mod.rules manifests are skipped (they are actions, not instances).
  *
@@ -83,18 +89,22 @@ export const validateRequiredFields = async (
     const errors: ValidationError[] = [];
 
     const groups: GroupNode[] = [];
-    // Names used as an inheritance base anywhere in this document (`Floor : BASE_SPRITES` →
-    // `BASE_SPRITES`). A group with such a name is a template: its deriving groups complete its
-    // required fields, and it is never instantiated on its own, so checking it would false-positive on
-    // the vanilla `BASE_*` pattern. This works for a mod's own templates too, unlike a fixed allowlist.
-    // The optional `workspaceBaseNames` adds the cross-file bases a single file cannot see.
-    const inheritedBaseNames = new Set<string>();
+    // Inheritance base references written in this document, keyed by the base's leaf name (`Floor :
+    // BASE_SPRITES` → `base_sprites`). A candidate group named like one of them may be the template
+    // those references point at, which the check confirms by resolving them (see
+    // {@link isInheritanceBase}). The optional `workspaceBaseNames` opens the same question for the
+    // cross-file bases a single file cannot see.
+    const localBaseReferences = new Map<string, ValueNode[]>();
     const collect = (node: AbstractNode): void => {
         if (isGroupNode(node) || isListNode(node)) {
             for (const reference of node.inheritance ?? []) {
                 if (!isValueNode(reference) || reference.valueType.type !== 'Reference') continue;
                 const leaf = inheritanceBaseLeafName(reference.valueType.value);
-                if (leaf) inheritedBaseNames.add(leaf);
+                if (!leaf) continue;
+                const key = leaf.toLowerCase();
+                const bucket = localBaseReferences.get(key);
+                if (bucket) bucket.push(reference);
+                else localBaseReferences.set(key, [reference]);
             }
         }
         if (isGroupNode(node)) {
@@ -108,6 +118,8 @@ export const validateRequiredFields = async (
             const unresolvableAmbiguity = disc && discriminatorIsAmbiguous(disc) && !registryHintFromContainer(node);
             if (disc && !unresolvableAmbiguity && registryForGroup(node) && resolveGroupClass(node)) {
                 groups.push(node);
+            } else if (isSlotTypedInstance(node)) {
+                groups.push(node);
             }
         }
         const children = childNodesOf(node);
@@ -115,12 +127,32 @@ export const validateRequiredFields = async (
     };
     for (const element of document.elements) collect(element);
 
+    /**
+     * Whether some group really inherits from this very node, which makes it a template rather than an
+     * instance. Same-file base references are resolved first (they also see an unsaved edit), then the
+     * cross-file ones the workspace index knows about. Only asked of a group that is already missing a
+     * field, so the resolution cost lands on the few findings rather than on every typed group.
+     *
+     * @param group the candidate group.
+     * @returns true when a base reference resolves to this group.
+     */
+    const isInheritanceBase = async (group: GroupNode): Promise<boolean> => {
+        const name = group.identifier?.name;
+        if (!name) return false;
+        const key = locationKey(definitionLocationOf(group));
+        for (const reference of localBaseReferences.get(name.toLowerCase()) ?? []) {
+            const target = await DefinitionService.instance
+                .resolveReferenceTarget(document, reference, cancellationToken)
+                .catch(() => null);
+            if (!target || isFile(target as FileWithPath)) continue;
+            if (locationKey(definitionLocationOf(target as AbstractNode)) === key) return true;
+        }
+        if (!workspaceBaseNames?.has(name)) return false;
+        return (await findInheritorsOf(group, cancellationToken).catch(() => [])).length > 0;
+    };
+
     for (const group of groups) {
         if (cancellationToken.isCancellationRequested) break;
-        // A template base completed by its deriving groups (same file or, via the workspace index,
-        // another file), not an instance, so not checked.
-        const name = group.identifier?.name;
-        if (name && (inheritedBaseNames.has(name) || workspaceBaseNames?.has(name))) continue;
         const cls = resolveGroupClass(group);
         if (!cls) continue;
         const required = requiredFieldsOf(cls);
@@ -136,6 +168,8 @@ export const validateRequiredFields = async (
         const runtimeProvided = RUNTIME_REQUIRED_ALLOWLIST[cls];
         const missing = required.filter((field) => !isSatisfied(field, present) && !runtimeProvided?.has(field.name));
         if (missing.length === 0) continue;
+        // A template completed by its deriving groups, not an instance, so not checked.
+        if (await isInheritanceBase(group)) continue;
         // Where the quick fix writes the fields, computed here because the finding is anchored on the
         // group's name, which is not a place anything can be written. Undefined when the group cannot
         // be edited safely or when no missing field has a value the fix may invent, and then the
@@ -154,6 +188,43 @@ export const validateRequiredFields = async (
     }
     return errors;
 };
+
+/**
+ * Whether a nested group is an instance the check may judge on its slot alone: its declaring field
+ * names one concrete class, so no discriminator is involved, and nothing in its container chain
+ * inherits. The chain matters because a deriving ancestor merges its base's tree in member by member,
+ * so a nested group under one may be completed by a node this file never mentions.
+ *
+ * A file root is left out: an unrooted fragment's own root is typed by how something else pulls the
+ * file in, and that is exactly the kind of guess this check must not build a warning on.
+ *
+ * @param group the candidate group.
+ * @returns true when the group can be judged against its slot class.
+ */
+const isSlotTypedInstance = (group: GroupNode): boolean => {
+    if (group.inheritance?.length) return false;
+    let node: AbstractNode | undefined = group.parent ?? undefined;
+    if (!node || isDocumentNode(node)) return false;
+    while (node && !isDocumentNode(node)) {
+        if ((isGroupNode(node) || isListNode(node)) && node.inheritance?.length) return false;
+        node = node.parent ?? undefined;
+    }
+    const cls = slotDeclaredClass(group);
+    return !!cls && !hasAlternativeWriteForms(cls);
+};
+
+/**
+ * Whether a class is one the game reads through spellings other than its named members: a scalar form
+ * (`Color = white`), or a positional one (`[0, 0, 0, 255]`, read through the class's digit fields).
+ * Such a class has a deserializer of its own that accepts several shapes, so a named member being
+ * absent says nothing about the write being incomplete: a `Color { Rf … }` and a `Color { R … }` are
+ * the same value written two ways.
+ *
+ * @param cls the class FullName.
+ * @returns true when the class carries more than one write form.
+ */
+const hasAlternativeWriteForms = (cls: string): boolean =>
+    !!typeDef(cls)?.scalarForm || fieldsOf(cls).some((field) => /^\d+$/.test(field.name));
 
 /** A required field is satisfied if it, or any of its aliases, is among the present member names (lower-cased on both sides). */
 const isSatisfied = (field: SchemaField, present: Set<string>): boolean =>
@@ -196,6 +267,16 @@ const gatherInheritedNames = async (
             continue;
         }
         const base = target as AbstractNode;
+        // The navigator answers a path whose last segment misses with the deepest container it did
+        // reach, so a base naming a group that no longer exists lands on its parent. Taking that as
+        // the base would judge the group against the wrong member set, so a resolved node whose name
+        // is not the one the reference asked for counts as unresolved.
+        const leaf = inheritanceBaseLeafName(refValue);
+        const resolvedName = (isGroupNode(base) || isListNode(base)) && base.identifier?.name;
+        if (leaf && resolvedName && /^[A-Za-z_]\w*$/.test(leaf) && resolvedName.toLowerCase() !== leaf.toLowerCase()) {
+            fullyResolved = false;
+            continue;
+        }
         // A base can be a group, a list, or a whole file (`: <…/walls.rules>` inherits the file's root
         // members), all of which expose `.elements`, so gather named members from any of them.
         if (isGroupNode(base) || isListNode(base) || isDocumentNode(base)) {

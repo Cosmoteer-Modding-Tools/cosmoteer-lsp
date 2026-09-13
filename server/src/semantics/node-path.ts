@@ -13,12 +13,7 @@ import { memberNameOf, memberValueOf } from './reference-resolver';
  * digit for a name, which the game reads as a position rather than as a name, so a path through one
  * means the same load-order-dependent thing even though no list is involved.
  */
-export type NodePathRefusal =
-    | 'listElement'
-    | 'indexName'
-    | 'unnamed'
-    | 'shadowedName'
-    | 'detached';
+export type NodePathRefusal = 'listElement' | 'indexName' | 'unnamed' | 'shadowedName' | 'detached';
 
 /** The member path of a node, or the reason it has none. */
 interface NodePathResult {
@@ -61,7 +56,11 @@ const nameInContainer = (node: AbstractNode): string | undefined => {
  * @param node the node the name is meant to reach.
  * @returns true when the first member of that name is the node itself.
  */
-const nameReaches = (container: AbstractNode & { elements: AbstractNode[] }, name: string, node: AbstractNode): boolean => {
+const nameReaches = (
+    container: AbstractNode & { elements: AbstractNode[] },
+    name: string,
+    node: AbstractNode
+): boolean => {
     for (const element of container.elements) {
         if (memberNameOf(element) !== name) continue;
         return element === node || memberValueOf(element) === node;

@@ -4,4 +4,9 @@
     semi: true,
     singleQuote: true,
     printWidth: 120,
+    // Source files are checked out CRLF here (core.autocrlf is on) while prettier writes LF by
+    // default, which rewrites every line of every file it touches. 'auto' keeps the endings each
+    // file already has, so a formatting diff shows only what the formatting changed. Git still
+    // normalizes to LF on commit, so what is stored is the same either way.
+    endOfLine: 'auto',
 }

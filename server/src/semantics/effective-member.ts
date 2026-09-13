@@ -87,10 +87,7 @@ export interface EffectiveSubGroup {
  * @param token cancels reference resolution.
  * @returns the sub-groups, local ones first, then each base's in declaration order.
  */
-export const effectiveSubGroups = async (
-    group: GroupNode,
-    token: CancellationToken
-): Promise<EffectiveSubGroup[]> => {
+export const effectiveSubGroups = async (group: GroupNode, token: CancellationToken): Promise<EffectiveSubGroup[]> => {
     const found = new Map<string, EffectiveSubGroup>();
     const visited = new Set<AbstractNode>();
 

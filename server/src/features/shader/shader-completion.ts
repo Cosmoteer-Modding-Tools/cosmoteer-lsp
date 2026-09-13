@@ -46,7 +46,10 @@ export const shaderCompletions = (text: string, offset: number, includeText = ''
 /** The preprocessor directives the game's shader loader understands, with what each does. */
 const DIRECTIVES: ReadonlyArray<readonly [string, string]> = [
     ['include', 'Inline another shader file: `#include "../base.shader"` or `#include "./Data/base.shader"`.'],
-    ['define', 'Define a macro. Feature guards (`USE_DEFAULT_PIX`, `ENABLE_…`) are defined before the include that tests them.'],
+    [
+        'define',
+        'Define a macro. Feature guards (`USE_DEFAULT_PIX`, `ENABLE_…`) are defined before the include that tests them.',
+    ],
     ['undef', 'Remove a macro definition.'],
     ['if', 'Conditional compilation on an expression, e.g. `#if defined(GTE_PS_4_0) || defined(GTE_VS_4_0)`.'],
     ['ifdef', 'Compile the block only when the macro is defined.'],
@@ -80,9 +83,18 @@ export const ENGINE_MACROS: ReadonlyArray<readonly [string, string]> = (() => {
     for (const [prefix, stage] of stages) {
         for (const level of levels) {
             const pretty = level.replace(/_/g, '.').replace('.level.', ' level ');
-            macros.push([`${prefix}_${level}`, `Engine macro: the ${stage} stage compiles exactly at shader model ${pretty}.`]);
-            macros.push([`GTE_${prefix}_${level}`, `Engine macro: the ${stage} stage compiles at shader model ${pretty} or above.`]);
-            macros.push([`LTE_${prefix}_${level}`, `Engine macro: the ${stage} stage compiles at shader model ${pretty} or below.`]);
+            macros.push([
+                `${prefix}_${level}`,
+                `Engine macro: the ${stage} stage compiles exactly at shader model ${pretty}.`,
+            ]);
+            macros.push([
+                `GTE_${prefix}_${level}`,
+                `Engine macro: the ${stage} stage compiles at shader model ${pretty} or above.`,
+            ]);
+            macros.push([
+                `LTE_${prefix}_${level}`,
+                `Engine macro: the ${stage} stage compiles at shader model ${pretty} or below.`,
+            ]);
         }
     }
     return macros;
@@ -162,7 +174,10 @@ export const shaderIncludePathCompletions = async (
     const lastSlash = Math.max(typedPath.lastIndexOf('/'), typedPath.lastIndexOf('\\'));
     const dirPart = lastSlash >= 0 ? typedPath.slice(0, lastSlash + 1) : '';
     const rooted = /^\.?[\\/]?[Dd]ata[\\/]/.exec(dirPart);
-    const baseDir = rooted && dataDir ? resolvePath(dataDir, dirPart.slice(rooted[0].length)) : resolvePath(dirname(documentPath), dirPart);
+    const baseDir =
+        rooted && dataDir
+            ? resolvePath(dataDir, dirPart.slice(rooted[0].length))
+            : resolvePath(dirname(documentPath), dirPart);
     let entries;
     try {
         entries = await readdir(baseDir, { withFileTypes: true });
@@ -172,7 +187,12 @@ export const shaderIncludePathCompletions = async (
     const items: CompletionItem[] = [];
     for (const entry of entries) {
         if (entry.isDirectory()) {
-            items.push({ label: entry.name, kind: CompletionItemKind.Folder, detail: 'folder', insertText: `${entry.name}/` });
+            items.push({
+                label: entry.name,
+                kind: CompletionItemKind.Folder,
+                detail: 'folder',
+                insertText: `${entry.name}/`,
+            });
         } else if (entry.name.toLowerCase().endsWith('.shader') && entry.name !== basename(documentPath)) {
             items.push({ label: entry.name, kind: CompletionItemKind.File, detail: 'shader file' });
         }
@@ -223,7 +243,11 @@ const localSymbols = (scope: string, currentText: string, offset: number): Local
         `(?:^|[;{(,]|\\bin\\b|\\bout\\b|\\binout\\b|\\bconst\\b|\\bstatic\\b)\\s*(${types})\\b\\s+([A-Za-z_]\\w*)\\b(?!\\s*\\()`,
         'g'
     );
-    for (let m = declaration.exec(fnScope.bodyBeforeOffset); m !== null; m = declaration.exec(fnScope.bodyBeforeOffset)) {
+    for (
+        let m = declaration.exec(fnScope.bodyBeforeOffset);
+        m !== null;
+        m = declaration.exec(fnScope.bodyBeforeOffset)
+    ) {
         symbols.push({ name: m[2], type: m[1], parameter: false });
     }
     return symbols;
@@ -269,7 +293,8 @@ const globalCompletions = (text: string, locals: readonly LocalSymbol[] = []): C
     for (const keyword of HLSL_KEYWORDS) add(keyword, CompletionItemKind.Keyword, 'HLSL keyword');
 
     const shader = parseShader(text);
-    for (const constant of shader.constants) add(constant.name, CompletionItemKind.Variable, `${constant.hlslType} (uniform)`);
+    for (const constant of shader.constants)
+        add(constant.name, CompletionItemKind.Variable, `${constant.hlslType} (uniform)`);
     for (const fn of shader.functions) add(fn, CompletionItemKind.Function, 'shader function');
     // Engine-provided uniforms (`_texture`, `_time`, …) live in an include, so the file scan above
     // misses them. Offer them here so they still autocomplete. Added last so a file redeclaration wins.

@@ -69,11 +69,15 @@ export function registerGameLog(context: ExtensionContext, client: LanguageClien
             }
             gameLogDiagnostics.clear();
             if (result.kind === 'no-mod') {
-                window.showInformationMessage(l10n.t('This file is not inside a mod: no mod.rules was found above it.'));
+                window.showInformationMessage(
+                    l10n.t('This file is not inside a mod: no mod.rules was found above it.')
+                );
                 return;
             }
             if (result.kind === 'no-logs') {
-                window.showInformationMessage(l10n.t('Cosmoteer has written no logs yet. Run the game once, then try again.'));
+                window.showInformationMessage(
+                    l10n.t('Cosmoteer has written no logs yet. Run the game once, then try again.')
+                );
                 return;
             }
             if (result.kind === 'loaded-clean') {
@@ -103,7 +107,7 @@ export function registerGameLog(context: ExtensionContext, client: LanguageClien
                     range,
                     entry.diagnostic.message,
                     // The protocol counts severities from one, the editor from zero.
-                    (entry.diagnostic.severity ?? 1) - 1 as DiagnosticSeverity
+                    ((entry.diagnostic.severity ?? 1) - 1) as DiagnosticSeverity
                 );
                 diagnostic.source = 'cosmoteer-game-log';
                 const existing = byUri.get(entry.uri);

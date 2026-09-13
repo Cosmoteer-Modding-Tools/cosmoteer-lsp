@@ -43,8 +43,10 @@ describe('function-call argument diagnostics', () => {
         expect(error?.additionalInfo).toContain('String');
     });
 
-    it('accepts a number plus a parenthesized reference', async () => {
-        expect(await run(call(num(1), ref('&A', { parenthesized: true })))).toBeUndefined();
+    it('asks for quotes around a call that carries a comma', async () => {
+        // Two arguments mean a comma, and a comma ends the value before the game ever evaluates it.
+        const finding = await run(call(num(1), ref('&A', { parenthesized: true })));
+        expect(finding?.message).toMatch(/quotes/);
     });
 
     it('accepts a single unparenthesized reference (no sibling to separate from)', async () => {

@@ -272,6 +272,15 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                     )
             }
             row {
+                checkBox("Check colour values")
+                    .bindSelected(state::validateColorValues)
+                    .comment(
+                        "Reports a colour written as a single word that names no colour the engine " +
+                        "knows. Its reader answers a name it does not hold with an exception that " +
+                        "takes the whole data tree down, so the game does not start."
+                    )
+            }
+            row {
                 checkBox("Check text markup")
                     .bindSelected(state::validateTextMarkup)
                     .comment(
@@ -287,6 +296,15 @@ class CosmoteerSettingsConfigurable : BoundConfigurable("Cosmoteer Rules") {
                         "Reports a range written the wrong way round where the class reading it cares, " +
                         "such as one the game rolls a whole number out of, which throws on a high end " +
                         "below its low one."
+                    )
+            }
+            row {
+                checkBox("Check division by zero")
+                    .bindSelected(state::validateDivisionByZero)
+                    .comment(
+                        "Reports a value that divides by zero, which the game reads as NaN. A " +
+                        "fractional field keeps that as its value, while a whole-number field " +
+                        "refuses it and the file never loads."
                     )
             }
             row {

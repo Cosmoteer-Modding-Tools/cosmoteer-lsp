@@ -10,9 +10,7 @@ const referenceAutoCompletionStrategy = new ReferenceAutoCompletionStrategy();
  * `:` of `Child : Parent`), whose relative lookups resolve against the group's container.
  */
 const isInheritanceReference = (node: ValueNode): boolean =>
-    !!node.parent &&
-    (isGroupNode(node.parent) || isListNode(node.parent)) &&
-    !!node.parent.inheritance?.includes(node);
+    !!node.parent && (isGroupNode(node.parent) || isListNode(node.parent)) && !!node.parent.inheritance?.includes(node);
 
 /**
  * The reference value text up to the cursor, or undefined when the cursor is not inside the value (so
@@ -65,14 +63,17 @@ const referenceReplaceRange = (node: ValueNode, cursorOffset?: number, wholeValu
 };
 
 /**
- * Tags leaf-segment labels with the range they replace.
+ * Tags leaf-segment options with the range they replace, keeping whatever the strategy already said
+ * about an option (the file an inherited member comes from).
  *
- * @param labels the labels the strategy answered with.
+ * @param options the options the strategy answered with.
  * @param range the replace range, or undefined to leave the client its own.
  * @returns the completions to offer.
  */
-const withSegmentRange = (labels: string[], range: Range | undefined): Completion[] =>
-    range ? labels.map((label) => ({ label, range })) : labels;
+const withSegmentRange = (options: Completion[], range: Range | undefined): Completion[] =>
+    range
+        ? options.map((option) => (typeof option === 'string' ? { label: option, range } : { ...option, range }))
+        : options;
 
 /**
  * A quoted value node that is a reference and is therefore worth offering reference-path completions for.

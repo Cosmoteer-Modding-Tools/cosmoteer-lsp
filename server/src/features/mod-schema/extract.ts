@@ -20,7 +20,14 @@
  * degrades to an opaque value rather than being guessed at, which costs completion detail on that
  * one field and never invents a rule that flags a valid file.
  */
-import { SchemaBundle, SchemaEnum, SchemaField, SchemaRegistry, SchemaTypeDef, ValueType } from '../../document/schema/schema.types';
+import {
+    SchemaBundle,
+    SchemaEnum,
+    SchemaField,
+    SchemaRegistry,
+    SchemaTypeDef,
+    ValueType,
+} from '../../document/schema/schema.types';
 import { analyzeComponentSlots, ComponentSlotAnalysis } from './component-slots';
 import { OPCODES, shortNameOf } from './dotnet-assembly';
 import {
@@ -219,7 +226,8 @@ class ModSchemaExtractor {
         const known = new Set(game.componentKinds());
         const extra = new Set<string>();
         for (const slot of this.slots.slots.values()) if (!known.has(slot.kind)) extra.add(slot.kind);
-        for (const kinds of this.slots.capabilities.values()) for (const kind of kinds) if (!known.has(kind)) extra.add(kind);
+        for (const kinds of this.slots.capabilities.values())
+            for (const kind of kinds) if (!known.has(kind)) extra.add(kind);
         this.extraKinds = [...extra].sort();
         if (this.extraKinds.length > 0) this.out.componentKinds = [...this.extraKinds];
     }
@@ -261,7 +269,9 @@ class ModSchemaExtractor {
         for (const fullName of Object.keys(this.out.types).sort()) {
             const kinds = this.slots.capabilities.get(fullName);
             if (!kinds) continue;
-            out[fullName] = kinds.map((kind) => this.kindIndexOf(kind)).filter((index): index is number => index !== undefined);
+            out[fullName] = kinds
+                .map((kind) => this.kindIndexOf(kind))
+                .filter((index): index is number => index !== undefined);
         }
         if (Object.keys(out).length > 0) this.out.componentCapabilities = out;
     }
@@ -385,7 +395,8 @@ class ModSchemaExtractor {
             const derivedAttrs = type.attributes.filter((a) => a.typeFullName === DERIVED);
             const members = this.membersOf(registry);
             if (derivedAttrs.length > 0) {
-                for (const attr of derivedAttrs) members[(named(attr, 'TypeName') as string) ?? type.name] = type.fullName;
+                for (const attr of derivedAttrs)
+                    members[(named(attr, 'TypeName') as string) ?? type.name] = type.fullName;
                 continue;
             }
             if (type.isAbstract || !participates(type)) continue;
@@ -649,7 +660,9 @@ class ModSchemaExtractor {
         const initializers = this.inlineDefaults(type);
         const ctorInitialized = this.constructorInitializedMembers(type);
         const members: { name: string; attributes: readonly CustomAttr[]; type: TypeSig }[] = [
-            ...type.fields.filter((f) => !f.isStatic).map((f: FieldInfo) => ({ name: f.name, attributes: f.attributes, type: f.type })),
+            ...type.fields
+                .filter((f) => !f.isStatic)
+                .map((f: FieldInfo) => ({ name: f.name, attributes: f.attributes, type: f.type })),
             ...type.properties.map((p: PropertyInfo) => ({ name: p.name, attributes: p.attributes, type: p.type })),
         ];
         for (const member of members) {
@@ -811,7 +824,8 @@ class ModSchemaExtractor {
      * @returns the member's name, or undefined when no member has that value.
      */
     private enumDefaultName(sig: TypeSig, value: number): string | undefined {
-        const fullName = sig.kind === 'generic' && sig.name.startsWith('Nullable`') ? baseName(sig.args[0]) : baseName(sig);
+        const fullName =
+            sig.kind === 'generic' && sig.name.startsWith('Nullable`') ? baseName(sig.args[0]) : baseName(sig);
         if (!fullName) return undefined;
         const local = this.modTypes.get(fullName);
         if (!local?.isEnum) return undefined;
@@ -939,7 +953,12 @@ class ModSchemaExtractor {
                 NUMERIC_NAMES.has(shortNameOf(baseName(m.returnType) ?? ''))
         );
         if (constants.length >= 2 && !hasNumericConversion && type.name !== 'Angle') {
-            this.registerEnum(fullName, type, constants.map((f) => f.name), true);
+            this.registerEnum(
+                fullName,
+                type,
+                constants.map((f) => f.name),
+                true
+            );
             return { kind: 'enum', ref: fullName, name: type.name, enumLike: true };
         }
         const constructor = type.methods.find(
@@ -1090,7 +1109,8 @@ const constantOf = (instruction: Instruction): number | string | boolean | undef
 /** The literal of the nearest `ldstr` before an index, which is a call's string argument. */
 const nearestPrecedingString = (body: readonly Instruction[], from: number): string | undefined => {
     for (let i = from - 1; i >= 0; i--) {
-        if (body[i].opcode === OPCODES.ldstr) return typeof body[i].operand === 'string' ? (body[i].operand as string) : undefined;
+        if (body[i].opcode === OPCODES.ldstr)
+            return typeof body[i].operand === 'string' ? (body[i].operand as string) : undefined;
     }
     return undefined;
 };

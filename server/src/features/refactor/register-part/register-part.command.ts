@@ -62,9 +62,14 @@ const navigation = new FullNavigationStrategy();
 
 /** Adapts the shared navigation strategy to the inheritance resolver's reference-resolution shape. */
 const resolveReference: ResolveReferenceFn = (path, startNode, currentLocation, token, inheritanceVisited) =>
-    navigation.navigate(path, startNode, currentLocation, token, new Set(), inheritanceVisited) as ReturnType<
-        ResolveReferenceFn
-    >;
+    navigation.navigate(
+        path,
+        startNode,
+        currentLocation,
+        token,
+        new Set(),
+        inheritanceVisited
+    ) as ReturnType<ResolveReferenceFn>;
 
 /** The part the offer was made on, resolved against what its file says right now. */
 interface ResolvedPart {
@@ -391,9 +396,7 @@ export const registerPartInShip = async (
 ): Promise<RegisterPartScanResult | RegisterPartApplyResult> => {
     const part = await resolvePart(args, host, cancellationToken);
     if (!part) {
-        return args.ship
-            ? applyFailed('stale')
-            : { kind: 'scan', partGroupName: '', candidates: [], failure: 'stale' };
+        return args.ship ? applyFailed('stale') : { kind: 'scan', partGroupName: '', candidates: [], failure: 'stale' };
     }
     const entries = await shipClassesFor(host, cancellationToken);
     if (!args.ship) return await scanRound(part, entries, host);

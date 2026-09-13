@@ -528,12 +528,21 @@ export const lexer = (input: string, blockComments?: BlockCommentSpan[]): Token[
             // The value keeps escape sequences raw, so it is exactly the input between the quotes:
             // the loop only counts lines and finds the closing quote, and the value is sliced once.
             let contentEnd = input.length;
+            let unterminated = false;
             while (current < input.length) {
                 const c = input.charCodeAt(current);
                 if (c === CHAR.BACKSLASH) {
                     current++;
                     lineOffset++;
                     if (current < input.length) {
+                        // A `\` before the line break is ObjectText's line continuation, so the
+                        // string really does carry on below. Count the line it crosses.
+                        if (input.charCodeAt(current) === CHAR.NEWLINE) {
+                            lineNumber++;
+                            lineOffset = 0;
+                            current++;
+                            continue;
+                        }
                         current++;
                         lineOffset++;
                     }
@@ -546,15 +555,22 @@ export const lexer = (input: string, blockComments?: BlockCommentSpan[]): Token[
                     break;
                 }
                 if (c === CHAR.NEWLINE) {
-                    lineNumber++;
-                    lineOffset = 0;
-                } else {
-                    lineOffset++;
+                    // The game's tokenizer ends a plain string at the line break and reports the
+                    // missing quote there. Running on would hand the rest of the file to one string:
+                    // typing an opening quote in front of an existing word used to swallow hundreds
+                    // of lines and bury the file in errors far from the edit.
+                    contentEnd = current;
+                    unterminated = true;
+                    break;
                 }
+                lineOffset++;
                 current++;
             }
+            if (current >= input.length && contentEnd === input.length) unterminated = true;
             const value = input.slice(start + 1, Math.min(contentEnd, current));
-            pushToken(createToken(TOKEN_TYPES.STRING, lineOffsetBefore, lineNumber, start, current, value));
+            const stringToken = createToken(TOKEN_TYPES.STRING, lineOffsetBefore, lineNumber, start, current, value);
+            if (unterminated) stringToken.unterminatedString = true;
+            pushToken(stringToken);
             continue;
         }
 
@@ -710,4 +726,11 @@ export interface Token {
      * when no newline, or only a suppressed one, precedes the token.
      */
     precededByNewline?: boolean;
+    /**
+     * True when a plain `"…"` string reached the end of its line without a closing quote. The game's
+     * tokenizer ends such a string at the newline and reports it there, so the rest of the file is
+     * read as ordinary rules. Carrying the fact on the token lets the parser report it on the
+     * opening quote, where the missing quote belongs.
+     */
+    unterminatedString?: boolean;
 }

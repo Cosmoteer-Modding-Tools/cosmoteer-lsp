@@ -34,7 +34,13 @@ export interface ScannedShip {
     valueTier: number;
     tierByRole: Record<ShipRole, number>;
     difficulty: ShipDifficulty;
-    strength: { weaponShare: number; typicalWeaponShare: number; armorShare: number; typicalArmorShare: number; score: number };
+    strength: {
+        weaponShare: number;
+        typicalWeaponShare: number;
+        armorShare: number;
+        typicalArmorShare: number;
+        score: number;
+    };
     roles: ShipRole[];
     blocked?: 'unreadable' | 'idTaken';
 }

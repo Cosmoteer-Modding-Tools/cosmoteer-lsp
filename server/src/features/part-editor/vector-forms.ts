@@ -8,11 +8,7 @@ import {
     isListNode,
     isValueNode,
 } from '../../core/ast/ast';
-import {
-    evaluateExpressionGroup,
-    evaluateNumericValue,
-    resolveValueReference,
-} from '../../semantics/value-evaluator';
+import { evaluateExpressionGroup, evaluateNumericValue, resolveValueReference } from '../../semantics/value-evaluator';
 
 /**
  * Structural readers for the geometry value forms part fields are written in. ObjectText lets every
@@ -114,9 +110,7 @@ export const readRect = (node: AbstractNode | null | undefined): ReadRect | null
         const y = numberOf(childNamed(node, 'Y'));
         const width = numberOf(childNamed(node, 'Width'));
         const height = numberOf(childNamed(node, 'Height'));
-        return x !== null && y !== null && width !== null && height !== null
-            ? { x, y, width, height, node }
-            : null;
+        return x !== null && y !== null && width !== null && height !== null ? { x, y, width, height, node } : null;
     }
     return null;
 };

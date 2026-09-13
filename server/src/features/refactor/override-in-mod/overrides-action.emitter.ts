@@ -91,11 +91,7 @@ const bodyLines = (body: string, indent: string): string[] => {
  * arrive with a different one than every file around it.
  * @returns the file's contents, newline terminated.
  */
-export const sparseOverrideFileText = (
-    groupName: string,
-    body: string,
-    lineEnding: '\n' | '\r\n' = '\n'
-): string => {
+export const sparseOverrideFileText = (groupName: string, body: string, lineEnding: '\n' | '\r\n' = '\n'): string => {
     // The body is indented for an action entry, which sits three tabs in. A file of its own starts
     // one tab in, so the surplus comes off every line.
     const lines = body.split('\n').map((line) => (line.startsWith('\t\t') ? line.slice(2) : line));

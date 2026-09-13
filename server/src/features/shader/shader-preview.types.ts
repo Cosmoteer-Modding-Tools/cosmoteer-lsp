@@ -104,6 +104,12 @@ export interface ShaderPreviewData {
     readonly shaderName: string;
     /** The `file://` URI of the resolved shader, for the "open shader" affordance. */
     readonly shaderUri: string | null;
+    /**
+     * The `file://` URI of every file the expansion read, the shader and its whole `#include` chain.
+     * The client watches them all, so editing a base library refreshes the preview of a shader that
+     * only includes it.
+     */
+    readonly sourceUris: readonly string[];
     /** The translated GLSL ES 1.00 fragment shader, or null when translation failed. */
     readonly glsl: string | null;
     /**

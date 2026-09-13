@@ -56,6 +56,16 @@ describe('txt reference scan', () => {
         expect(referenced(await scan(), 'readme.txt')).toBe(false);
     });
 
+    it('records a .txt named only by another .txt the project reaches', async () => {
+        expect(referenced(await scan(), 'chained.txt')).toBe(true);
+    });
+
+    it('does not record a pair of .txt leftovers that name only each other', async () => {
+        const keys = await scan();
+        expect(referenced(keys, 'orphan_a.txt')).toBe(false);
+        expect(referenced(keys, 'orphan_b.txt')).toBe(false);
+    });
+
     it('reports no set for a project holding no .txt', async () => {
         expect(await collectReferencedTxtKeys([join(FIXTURES_DIR, 'scope-mod')], token)).toBeUndefined();
     });

@@ -235,10 +235,8 @@ export const installedModClaims = async (): Promise<ModClaims[]> => {
  * @param document the parsed manifest.
  * @returns the actions, local and inherited.
  */
-export const manifestActionsWithFragments = (
-    manifestPath: string,
-    document: AbstractNodeDocument
-): Promise<Action[]> => actionsWithFragments(manifestPath, document, readManifest);
+export const manifestActionsWithFragments = (manifestPath: string, document: AbstractNodeDocument): Promise<Action[]> =>
+    actionsWithFragments(manifestPath, document, readManifest);
 
 /**
  * The sentence naming what the other mod does to the same node.

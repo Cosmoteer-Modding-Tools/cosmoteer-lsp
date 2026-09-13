@@ -1,5 +1,5 @@
 ID = author.testmod
-Actions
+Actions : &<fragment_actions.rules>/FragmentActions
 [
 	{
 		Action = Add
@@ -22,5 +22,11 @@ Actions
 		Action = Overrides
 		OverrideIn = <cosmoteer.rules>/BASE_AUDIO
 		Overrides = &<mod_base_audio.rules>
+	}
+	{
+		Action = Add
+		AddTo = <indicators/indicators.rules>
+		Name = SWAddedIndicator
+		ToAdd = "logo.png"
 	}
 ]

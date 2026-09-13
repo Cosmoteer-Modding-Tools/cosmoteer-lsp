@@ -130,8 +130,7 @@ export const fieldOfAssignedNode = async (
 export const fieldOfValueNode = async (
     node: AbstractNode,
     cancellationToken: CancellationToken
-): Promise<SchemaField | undefined> =>
-    isValueNode(node) ? fieldOfAssignedNode(node, cancellationToken) : undefined;
+): Promise<SchemaField | undefined> => (isValueNode(node) ? fieldOfAssignedNode(node, cancellationToken) : undefined);
 
 /**
  * Enum (or bool) completions for a value typed inside `list`, resolving the element type through both
@@ -192,10 +191,7 @@ const enclosingMapType = (entry: GroupNode): (ValueType & { kind: 'map' }) | und
  * @param at the group and field being written, where the caller knows them.
  * @returns the legal value completions for that slot, empty for every other kind.
  */
-export const enumOrBoolCompletions = (
-    valueType: ValueType,
-    at?: { group: GroupNode; field: string }
-): Completion[] => {
+export const enumOrBoolCompletions = (valueType: ValueType, at?: { group: GroupNode; field: string }): Completion[] => {
     if (valueType.kind === 'enum') {
         const accepted = at ? acceptedMembersAt(at.group, at.field) : undefined;
         const allowed = accepted ? new Set(accepted.map((member) => member.toLowerCase())) : undefined;

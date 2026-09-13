@@ -15,6 +15,9 @@ import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VirtualFileManager
+import com.intellij.openapi.vfs.newvfs.BulkFileListener
+import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.util.Alarm
 import com.redhat.devtools.lsp4ij.LSPIJUtils
@@ -49,8 +52,11 @@ class ShaderPreviewService(private val project: Project) : Disposable {
     )
     /** The material being previewed, re-queried when its document or its shader changes. */
     @Volatile private var tracked: Pair<VirtualFile, Int>? = null
-    /** Lower-cased path of the shader the last render resolved, so an edit to it refreshes too. */
-    @Volatile private var previewedShaderPath: String? = null
+    /**
+     * Lower-cased paths of every file the last render read, the shader and its whole `#include` chain,
+     * so editing a base library refreshes a shader that only includes it.
+     */
+    @Volatile private var previewedSourcePaths: Set<String> = emptySet()
     private val refreshAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
 
     init {
@@ -59,6 +65,16 @@ class ShaderPreviewService(private val project: Project) : Disposable {
                 onDocumentChanged(FileDocumentManager.getInstance().getFile(event.document) ?: return)
             }
         }, this)
+        // The document listener only sees files open in an editor. A shader in the include chain is
+        // usually not open, and it can also change outside the IDE, so the VFS events cover the rest.
+        project.messageBus.connect(this).subscribe(
+            VirtualFileManager.VFS_CHANGES,
+            object : BulkFileListener {
+                override fun after(events: List<VFileEvent>) {
+                    for (event in events) onDocumentChanged(event.file ?: continue)
+                }
+            }
+        )
     }
 
     /** The Swing component the tool window shows: the browser, or a notice when JCEF is unavailable. */
@@ -102,12 +118,16 @@ class ShaderPreviewService(private val project: Project) : Disposable {
     /** Converts the server payload to the page's `render`/`empty` message and posts it. */
     private fun postRender(data: JsonObject?) {
         if (data == null) {
-            previewedShaderPath = null
+            previewedSourcePaths = emptySet()
             page.post("""{"type":"empty"}""")
             return
         }
-        previewedShaderPath = data.get("shaderUri")?.takeUnless { it.isJsonNull }?.asString
-            ?.let { JcefSupport.uriToPath(it)?.toString()?.lowercase() }
+        val sourceUris = data.getAsJsonArray("sourceUris")?.mapNotNull { it.takeUnless { e -> e.isJsonNull }?.asString }
+            ?.takeIf { it.isNotEmpty() }
+            ?: listOfNotNull(data.get("shaderUri")?.takeUnless { it.isJsonNull }?.asString)
+        previewedSourcePaths = sourceUris
+            .mapNotNull { JcefSupport.uriToPath(it)?.toString()?.replace('\\', '/')?.lowercase() }
+            .toSet()
         val textureData = JsonObject()
         val textures = data.getAsJsonArray("textures") ?: com.google.gson.JsonArray()
         for (texture in textures) {
@@ -140,15 +160,14 @@ class ShaderPreviewService(private val project: Project) : Disposable {
     }
 
     /**
-     * Re-render (debounced) when the changed document is the tracked material or the shader it
-     * resolved to, matching by path so editor and server URI encodings still line up.
+     * Re-render (debounced) when the changed file is the tracked material or any file in the shader's
+     * include chain, matching by path so editor and server URI encodings still line up.
      */
     private fun onDocumentChanged(changed: VirtualFile) {
         val (file, _) = tracked ?: return
         val changedPath = changed.path.replace('\\', '/').lowercase()
         val trackedPath = file.path.replace('\\', '/').lowercase()
-        val shaderPath = previewedShaderPath?.replace('\\', '/')
-        if (changedPath != trackedPath && changedPath != shaderPath) return
+        if (changedPath != trackedPath && changedPath !in previewedSourcePaths) return
         refreshAlarm.cancelAllRequests()
         refreshAlarm.addRequest({ render() }, 250)
     }

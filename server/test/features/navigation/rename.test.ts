@@ -91,4 +91,46 @@ describe('RenameService', () => {
         const edit = await service.rename(bDoc, positionOf(inner.position), 'bad name/slash', FOLDERS, token);
         expect(edit).toBeNull();
     });
+
+    it('rejects a bare index as a new name, which would move an element instead of naming one', async () => {
+        const inner = assignmentKey(bDoc, 'InnerValue');
+        expect(await service.rename(bDoc, positionOf(inner.position), '0', FOLDERS, token)).toBeNull();
+    });
+
+    // The caret on `B` in `&<./Data/b.rules>/B/Nested/Deep/Leaf` names B, not the Leaf the path ends
+    // on. Resolving the whole value instead used to rename the endpoint everywhere it is written.
+    it('renames the segment under the caret, not the one the path ends on', async () => {
+        const toNested = [...walkAst(aDoc)].find(
+            (n) => isValueNode(n) && n.valueType.value === '&<./Data/b.rules>/B/Nested/Deep/Leaf'
+        )!;
+        const position = {
+            line: toNested.position.line,
+            character: toNested.position.characterStart + '&<./Data/b.rules>/'.length,
+        };
+
+        expect((await service.prepareRename(aDoc, position))?.placeholder).toBe('B');
+
+        const edit = await service.rename(aDoc, position, 'Bee', FOLDERS, token);
+        expect(edit).not.toBeNull();
+        const edits = Object.values(edit!.changes!).flat();
+        expect(edits.length).toBeGreaterThan(0);
+        // Every rewritten span is the one-character `B`, never the four-character `Leaf`.
+        expect(edits.every((e) => e.range.end.character - e.range.start.character === 1)).toBe(true);
+    });
+
+    // `AliasedFile = &<./Data/b.rules>` names a whole file, which has no name of its own, so the key
+    // is the symbol. Following the reference used to answer a file and leave the key unrenameable.
+    it('renames the key of a whole-file reference, and the uses that go through it', async () => {
+        const aliasDoc = await parseFilePath(workspaceFile('repeated-refs.rules'));
+        const alias = assignmentKey(aliasDoc, 'AliasedFile');
+
+        expect((await service.prepareRename(aliasDoc, positionOf(alias.position)))?.placeholder).toBe('AliasedFile');
+
+        const edit = await service.rename(aliasDoc, positionOf(alias.position), 'Renamed', FOLDERS, token);
+        expect(edit).not.toBeNull();
+        const aliasFile = Object.keys(edit!.changes!).find((f) => f.endsWith('repeated-refs.rules'))!;
+        // The declaration plus the `&AliasedFile/B/InnerValue` use.
+        expect(edit!.changes![aliasFile].length).toBe(2);
+        expect(edit!.changes![aliasFile].every((e) => e.newText === 'Renamed')).toBe(true);
+    });
 });

@@ -18,6 +18,9 @@ import { initWorkspace, workspaceFile } from '../../workspace-helper';
 const strat = new ReferenceAutoCompletionStrategy();
 const token = CancellationToken.None;
 
+/** The labels of a completion list, which answers a bare string and a suggestion object alike. */
+const labelsOf = (cs: Completion[]): string[] => cs.map((c) => (typeof c === 'string' ? c : c.label));
+
 beforeAll(async () => {
     await initWorkspace();
 });
@@ -47,7 +50,7 @@ const completeCaretRef = async (ampPrefix: '&' | '', ref: string): Promise<strin
     };
     doc.elements.forEach(walk);
     expect(refNode, `no reference node found for ${ref}`).toBeDefined();
-    return strat.complete({ node: refNode!, isInheritanceNode: false, cancellationToken: token });
+    return labelsOf(await strat.complete({ node: refNode!, isInheritanceNode: false, cancellationToken: token }));
 };
 
 describe('caret-inheritance reference completion', () => {

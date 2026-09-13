@@ -91,8 +91,10 @@ describe('validateSpriteGeometry', () => {
         rmSync(join(probeDir, '..', '..'), { recursive: true, force: true });
     });
 
-    it('flags a level whose art is stretched differently from the first one', async () => {
-        // The XWing thruster shape: the same wide art drawn upright once the part takes damage.
+    it('flags the one level whose art is stretched differently from the rest', async () => {
+        // The XWing thruster shape: the same wide art, one level of which is drawn upright. The
+        // two that agree are what the list means by its shape, so the single one is the finding,
+        // whichever end of the list it is written at.
         const found = await check(
             part(
                 [
@@ -102,11 +104,25 @@ describe('validateSpriteGeometry', () => {
                 ].join('\n')
             )
         );
-        expect(found).toHaveLength(2);
+        expect(found).toHaveLength(1);
         expect(found[0].severity).toBe('hint');
         expect(found[0].message).toContain('128 by 64 pixels');
-        expect(found[0].message).toContain('[2, 1]');
-        expect(found.map((error) => error.data?.quickFix?.newText)).toEqual(['[2, 1]', '[2, 1]']);
+        expect(found[0].message).toContain('[1, 2]');
+        expect(found.map((error) => error.data?.quickFix?.newText)).toEqual(['[1, 2]']);
+    });
+
+    it('measures against the rest of the list when the first level is the odd one out', async () => {
+        const found = await check(
+            part(
+                [
+                    level('File = "wide.png"\n\t\t\t\t\t\tSize = [1, 2]'),
+                    level('File = "wide.png"\n\t\t\t\t\t\tSize = [2, 1]'),
+                    level('File = "wide.png"\n\t\t\t\t\t\tSize = [2, 1]'),
+                ].join('\n')
+            )
+        );
+        expect(found).toHaveLength(1);
+        expect(found[0].data?.quickFix?.newText).toBe('[2, 1]');
     });
 
     it('covers the written size with the finding, so the fix replaces it', async () => {

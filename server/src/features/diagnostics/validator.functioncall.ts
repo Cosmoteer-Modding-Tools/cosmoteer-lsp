@@ -6,6 +6,7 @@ import {
     KNOWN_CONSTANT_NAMES,
     KNOWN_FUNCTION_NAMES,
     mathFunction,
+    mathNameWithCorrectCase,
 } from '../../semantics/math-function-registry';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { isStringsFile } from '../../mod/strings-folder';
@@ -14,6 +15,12 @@ import * as l10n from '@vscode/l10n';
 // A numeric literal with a unit suffix (percent `%`, degrees `d`, radians `r`) lexes as an
 // unquoted String but is a valid numeric argument (e.g., the `30%` in `ceil((&A) * 30%)`).
 const NUMBER_WITH_UNIT = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?[%dr]$/;
+
+// Arithmetic written with nothing between its operators and operands (`1.5-32/64`). The lexer
+// hands the whole run over as one String, and the game evaluates the token's text either way,
+// so it is as numeric an argument as a spaced expression is.
+const GLUED_ARITHMETIC =
+    /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?[%dr]?(?:[-+*/^#](?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?[%dr]?)+$/;
 
 // Every real math function is named like an identifier. A non-identifier "name" (a lone `&`
 // operator, a stray punctuation run) is a parser artifact of text the game reads flat, not a
@@ -34,12 +41,27 @@ const arityDescription = (name: string, min: number, max: number, got: number): 
 export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
     type: 'FunctionCall',
     callback: async (node: FunctionCallNode, cancellationToken) => {
-        const name = node.name.toLowerCase();
+        const name = node.name;
         if (!IDENTIFIER_NAME.test(node.name)) return undefined;
         // Language-strings files hold localization text, not expressions: a value like
         // `Desejado(s)` (vanilla `strings/pt-br.rules`) parses as a call of an unknown function.
         // The game reads the whole thing as a flat string, so skip function-call validation here.
         if (await isStringsFile(getStartOfAstNode(node).uri, cancellationToken)) return undefined;
+        // The game's expression parser is case-sensitive, so a capitalized spelling of a real
+        // function is a load error rather than a variant of the same call.
+        const corrected = mathNameWithCorrectCase(name);
+        if (corrected) {
+            // Underline the name alone, not the whole call: the quick fix replaces the underlined
+            // span, and swapping the arguments away with it would be worse than the typo.
+            const start = node.position?.start;
+            return {
+                message: l10n.t('Unknown function "{0}", did you mean "{1}"?', node.name, corrected),
+                node,
+                ...(start === undefined ? {} : { range: { start, end: start + node.name.length } }),
+                additionalInfo: l10n.t('Math function names are case-sensitive, write "{0}"', corrected),
+                data: { quickFix: { title: l10n.t('Change to "{0}"', corrected), newText: corrected } },
+            };
+        }
         // A name the math-function registry does not know is almost certainly a typo.
         if (!ALL_MATH_FUNCTION_NAMES.has(name)) {
             return {
@@ -113,12 +135,13 @@ export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
                 // quotes just escape the text and the content is evaluated as an expression. Vanilla
                 // `missile_launcher_thermal` has `ceil("(&~/BASE/…/MaxResources) / (&…)")`. Only an
                 // unknown bare word still reports.
-                const text = String(arg.valueType.value).toLowerCase();
+                const text = String(arg.valueType.value);
                 const isValidStringArgument =
                     arg.quoted ||
                     ALL_MATH_FUNCTION_NAMES.has(text) ||
                     KNOWN_CONSTANT_NAMES.has(text) ||
-                    NUMBER_WITH_UNIT.test(text.replace(/\s+/g, ''));
+                    NUMBER_WITH_UNIT.test(text.replace(/\s+/g, '')) ||
+                    GLUED_ARITHMETIC.test(text.replace(/\s+/g, ''));
                 if (!isValidStringArgument) {
                     return {
                         message: l10n.t(
@@ -133,6 +156,20 @@ export const ValidationForFunctionCall: Validation<FunctionCallNode> = {
                     };
                 }
             }
+        }
+        // Reported last, so a call with a broken argument still names the argument first: a comma
+        // ends a value in the rules format, so an unquoted call with more than one argument never
+        // reaches the expression evaluator. The game stops the value at the comma and reports the
+        // rest as unexpected, which is why vanilla writes every such call in quotes.
+        if (functionArgumentCount(node) > 1) {
+            return {
+                message: l10n.t('Put this call in quotes, a comma ends the value'),
+                node,
+                additionalInfo: l10n.t(
+                    'The game reads the value up to the first comma, so "{0}" only loads when the whole expression is quoted',
+                    node.name
+                ),
+            };
         }
     },
 };

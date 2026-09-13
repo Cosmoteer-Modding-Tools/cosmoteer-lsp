@@ -156,7 +156,10 @@ export const validateShaderDocument = async (
         });
     }
 
-    const chain = await readIncludeChain(text, entryPath, dataDir, readOverride).catch(() => ({ text: '', complete: false }));
+    const chain = await readIncludeChain(text, entryPath, dataDir, readOverride).catch(() => ({
+        text: '',
+        complete: false,
+    }));
     // A partial include chain means an unknown symbol might simply live in the file we could not read.
     // Skip the undeclared checks entirely rather than risk a false positive.
     if (!chain.complete) return diagnostics;
@@ -213,7 +216,10 @@ export const validateShaderDocument = async (
         if (token.startsWith('_')) {
             if (!knownUniforms.has(token)) {
                 diagnostics.push({
-                    message: l10n.t("Unknown shader uniform '{0}'. Nothing in this shader or its includes declares it.", token),
+                    message: l10n.t(
+                        "Unknown shader uniform '{0}'. Nothing in this shader or its includes declares it.",
+                        token
+                    ),
                     range: rangeAt(m.index, token.length),
                     severity: DiagnosticSeverity.Warning,
                     source: 'cosmoteer-shader',
@@ -223,7 +229,10 @@ export const validateShaderDocument = async (
         }
         if (isCall && !knownFunctions.has(token)) {
             diagnostics.push({
-                message: l10n.t("Unknown function '{0}'. It is not an HLSL intrinsic and nothing in scope defines it.", token),
+                message: l10n.t(
+                    "Unknown function '{0}'. It is not an HLSL intrinsic and nothing in scope defines it.",
+                    token
+                ),
                 range: rangeAt(m.index, token.length),
                 severity: DiagnosticSeverity.Warning,
                 source: 'cosmoteer-shader',
@@ -289,7 +298,10 @@ const validateDeclarations = (
     }
 
     // A declaration whose initializer is exactly one function call: `TYPE name = fn(`.
-    const declaration = new RegExp(`(?:^|[;{}])\\s*(${typeTokens})\\b\\s+[A-Za-z_]\\w*\\s*=\\s*([A-Za-z_]\\w*)\\s*\\(`, 'g');
+    const declaration = new RegExp(
+        `(?:^|[;{}])\\s*(${typeTokens})\\b\\s+[A-Za-z_]\\w*\\s*=\\s*([A-Za-z_]\\w*)\\s*\\(`,
+        'g'
+    );
     for (let m = declaration.exec(text); m !== null; m = declaration.exec(text)) {
         const signature = signatures.get(m[2]);
         if (!signature) continue;

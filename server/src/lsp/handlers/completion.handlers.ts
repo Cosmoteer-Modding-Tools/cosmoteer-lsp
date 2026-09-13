@@ -1,26 +1,44 @@
-import { CompletionItem, CompletionItemKind, CompletionList, TextDocumentPositionParams } from 'vscode-languageserver/node';
+import {
+    CompletionItem,
+    CompletionItemKind,
+    CompletionList,
+    TextDocumentPositionParams,
+} from 'vscode-languageserver/node';
 import { AutoCompletionService, Completion } from '../../features/completion/autocompletion.service';
-import { openQuoteSuffix, valueRunAtCursor, wholeValueRange, withReplaceRange } from '../../features/completion/completion-range';
+import {
+    openQuoteSuffix,
+    valueRunAtCursor,
+    wholeValueRange,
+    withReplaceRange,
+} from '../../features/completion/completion-range';
 import { modRulesOffsetCompletions } from '../../features/completion/autocompletion.mod-rules';
-import { inheritanceTargetCompletions } from '../../features/completion/autocompletion.inheritance-target';
+import { inheritanceTargetCompletionsAt } from '../../features/completion/autocompletion.inheritance-target';
 import { warmInheritedClasses } from '../../features/completion/inheritance-resolution';
 import { mathFunctionCompletionsAtLinePrefix } from '../../features/completion/autocompletion.math-function';
 import { markupCompletionsAt } from '../../features/completion/autocompletion.text-markup';
 import { textImageNames } from '../../features/text-markup/text-image.names';
 import {
+    asBareFieldNames,
     crossFileReferenceTargetAtOffset,
     isBareFieldNameIdentifier,
     isIdDeclarationPositionAt,
+    isInsideComment,
     isLocalizationKeyFieldAtOffset,
+    atFinishedQuotedValue,
     schemaFieldNameCompletions,
     schemaValueCompletionsAtOffset,
 } from '../../features/completion/autocompletion.schema-fields';
 import { componentIdCompletionsForTarget } from '../../features/completion/autocompletion.component-id';
+import { assetCompletionsAtOffset } from '../../features/completion/autocompletion.asset';
 import { SchemaIdIndex } from '../../features/completion/schema-id.index';
 import { LocalizationKeyIndex } from '../../features/completion/localization-key.index';
 import { particleChannelCompletionsAtOffset } from '../../features/navigation/particle-channel';
 import { mapKeyTargetOf, schemaReferenceFieldOf } from '../../features/navigation/schema-id-reference.navigation';
-import { findEnclosingGroup, findEnclosingList, listElementReferenceTarget } from '../../document/schema/schema-context';
+import {
+    findEnclosingGroup,
+    findEnclosingList,
+    listElementReferenceTarget,
+} from '../../document/schema/schema-context';
 import { shaderCompletions, shaderIncludePathCompletions } from '../../features/shader/shader-completion';
 import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { isModRules, isShaderDocument } from '../../document/document-kind';
@@ -38,7 +56,10 @@ import { searchFolderUris } from '../workspace-folders';
 export function register(): void {
     // This handler provides the initial list of the completion items.
     connection.onCompletion(
-        async (textDocumentPosition: TextDocumentPositionParams, cancellationToken): Promise<CompletionItem[] | CompletionList> => {
+        async (
+            textDocumentPosition: TextDocumentPositionParams,
+            cancellationToken
+        ): Promise<CompletionItem[] | CompletionList> => {
             // `.shader` files get HLSL completion (builtins plus the uniforms/functions/structs the file and
             // its `#include` chain declare), not the OT schema completion below.
             if (isShaderDocument(textDocumentPosition.textDocument.uri)) {
@@ -101,7 +122,11 @@ export function register(): void {
                 // The images a `<img name='…'/>` may name are the ones the project registers: the
                 // game root's text sprites, the resources and the factions.
                 const images: Completion[] = markup.imageNames
-                    ? [...(await textImageNames(await searchFolderUris(), cancellationToken).catch(() => new Set<string>()))]
+                    ? [
+                          ...(await textImageNames(await searchFolderUris(), cancellationToken).catch(
+                              () => new Set<string>()
+                          )),
+                      ]
                           .sort()
                           .map((name) => ({ label: name, kind: CompletionItemKind.Value }))
                     : [];
@@ -114,6 +139,15 @@ export function register(): void {
                 // refilter what it already holds.
                 return { ...list, isIncomplete: true };
             }
+            // Text the game never reads gets no suggestions: a commented-out assignment still reads
+            // as one, so without this a `// Layer = "` was answered with the render layers, and a
+            // `/* Mode = */` with the enum members, of a line that is not in the file's data at all.
+            if (
+                openDocument &&
+                isInsideComment(openDocument.getText(), openDocument.offsetAt(textDocumentPosition.position))
+            ) {
+                return { isIncomplete: false, items: [] };
+            }
             const parserResult = ensureParserResult(textDocumentPosition.textDocument.uri);
             let completions: Completion[] = [];
             try {
@@ -125,23 +159,24 @@ export function register(): void {
                 // group deriving from a base in another file is classified for them up front.
                 await warmInheritedClasses(parserResult, cancellationToken).catch(() => undefined);
                 /** The project's ids for a reference target, ship-layer narrowed and ranged onto the value. */
-                const idCompletionsFor = async (target: string): Promise<Completion[]> =>
-                    withReplaceRange(
-                        await scopedToShipLayers(
-                            (await componentIdCompletionsForTarget(target, parserResult, cancellationToken).catch(
-                                () => undefined
-                            )) ??
-                                (await SchemaIdIndex.instance
-                                    .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
-                                    .catch(() => [])),
-                            target,
-                            textDocumentPosition.textDocument.uri,
-                            parserResult,
-                            cancellationToken
-                        ),
-                        valueRange,
-                        valueSuffix
+                const idCompletionsFor = async (target: string): Promise<Completion[]> => {
+                    const part = await componentIdCompletionsForTarget(target, parserResult, cancellationToken).catch(
+                        () => undefined
                     );
+                    const ids =
+                        part ??
+                        (await SchemaIdIndex.instance
+                            .idCompletionsForClass(target, await searchFolderUris(), cancellationToken)
+                            .catch(() => []));
+                    const scoped = await scopedToShipLayers(
+                        ids,
+                        target,
+                        textDocumentPosition.textDocument.uri,
+                        parserResult,
+                        cancellationToken
+                    );
+                    return withReplaceRange(scoped, valueRange, valueSuffix);
+                };
                 // Offset-based completion, shared by the no-leaf branch below and the bare-identifier
                 // fallback: at an empty `Key = ` value position offer that field's legal values, else
                 // offer the enclosing group's not-yet-present schema field names.
@@ -157,14 +192,35 @@ export function register(): void {
                         mathCompletions.length > 0
                             ? mathCompletions
                             : await schemaValueCompletionsAtOffset(parserResult, offset, linePrefix, cancellationToken);
-                    if (valueCompletions === undefined) {
-                        // Not a `Key = ` value position → offer field names instead.
-                        return schemaFieldNameCompletions(parserResult, offset, cancellationToken);
+                    if (valueCompletions === undefined && atFinishedQuotedValue(linePrefix)) {
+                        // The line already carries a finished `Key = "value"`, so the caret sits
+                        // behind it with nothing to write: a member of its own needs a separator
+                        // first, and a field name accepted here landed on the end of the value.
+                        return [];
                     }
+                    if (valueCompletions === undefined) {
+                        // Not a `Key = ` value position → offer field names instead. A name being
+                        // retyped over an existing key (`Max<cursor> = 1`) takes the bare name: the
+                        // scaffolding snippet would write a second ` = ` after the one already there.
+                        const fieldNames = await schemaFieldNameCompletions(parserResult, offset, cancellationToken);
+                        return /^\s*=/.test(lineSuffix) ? asBareFieldNames(fieldNames, valueRange) : fieldNames;
+                    }
+                    // An asset path whose opening quote is not closed yet has no value node, so the
+                    // files it could name are read off the line instead of the tree.
+                    const assets = await assetCompletionsAtOffset(
+                        parserResult,
+                        offset,
+                        linePrefix,
+                        textDocumentPosition.position,
+                        cancellationToken
+                    ).catch(() => undefined);
+                    if (assets && assets.length > 0) return assets;
                     if (valueCompletions.length > 0) {
                         // Only inside an unclosed quote do these need the whole-value range: the insert
                         // has to land on the typed text and carry the missing closing quote with it.
-                        return valueSuffix ? withReplaceRange(valueCompletions, valueRange, valueSuffix) : valueCompletions;
+                        return valueSuffix
+                            ? withReplaceRange(valueCompletions, valueRange, valueSuffix)
+                            : valueCompletions;
                     }
                     // A value position with no sync values: maybe a cross-file `ID<X>` field. Offer the
                     // project's ids of the target class (e.g. `ResourceType = ` → resource ids). An
@@ -188,12 +244,32 @@ export function register(): void {
                     }
                     return [];
                 };
+                // An inheritance header (`Child : <cursor>`) is answered before anything else. The line
+                // declares what a body starts from, so it is never a field-name and never a value
+                // position, and the schema completions answering there is what buried the base targets
+                // under a hundred field snippets inside every typed group.
+                const headerOffset = openDocument?.offsetAt(textDocumentPosition.position);
+                const headerCompletions =
+                    headerOffset === undefined || isModRules(textDocumentPosition.textDocument.uri)
+                        ? undefined
+                        : await inheritanceTargetCompletionsAt(
+                              parserResult,
+                              headerOffset,
+                              linePrefix,
+                              textDocumentPosition.position,
+                              cancellationToken
+                          ).catch(() => undefined);
+                if (headerCompletions) {
+                    return finishCompletionList(headerCompletions, wordPrefix);
+                }
                 const node = findNodeAtPosition(parserResult, textDocumentPosition?.position);
                 if (node) {
                     // The cursor offset lets the reference completer complete the path segment at the
                     // cursor rather than the whole written value, so editing a middle segment of a long
                     // reference path offers that segment's members instead of a stale suggestion.
-                    const cursorOffset = documents.get(textDocumentPosition.textDocument.uri)?.offsetAt(textDocumentPosition.position);
+                    const cursorOffset = documents
+                        .get(textDocumentPosition.textDocument.uri)
+                        ?.offsetAt(textDocumentPosition.position);
                     completions = await AutoCompletionService.instance
                         .getCompletions(node, cancellationToken, cursorOffset)
                         .catch(() => []);
@@ -261,9 +337,11 @@ export function register(): void {
                     // offset, so use the open document.
                     const document = documents.get(textDocumentPosition.textDocument.uri);
                     if (document) {
-                        completions = modRulesOffsetCompletions(
+                        completions = await modRulesOffsetCompletions(
                             parserResult,
-                            document.offsetAt(textDocumentPosition.position)
+                            document.offsetAt(textDocumentPosition.position),
+                            linePrefix,
+                            cancellationToken
                         );
                     }
                 } else {
@@ -279,14 +357,6 @@ export function register(): void {
                     const document = documents.get(textDocumentPosition.textDocument.uri);
                     if (document) {
                         const offset = document.offsetAt(textDocumentPosition.position);
-                        // An inheritance-target header position (`Child : <cursor>`, or a lone `^` after
-                        // it): the parser produces no reference value node there, so offer the sibling
-                        // names, `^/N/` caret paths and reference-path prefixes directly. In a Components
-                        // map the siblings are the sibling component ids.
-                        const inheritanceTargets = inheritanceTargetCompletions(parserResult, offset, linePrefix);
-                        if (inheritanceTargets && inheritanceTargets.length > 0) {
-                            completions = inheritanceTargets;
-                        } else {
                         // A particle data channel field (`AIn = `, `DataOut = `) offers the file's channel
                         // names, a same-file symbol set, no project index needed.
                         const channels = particleChannelCompletionsAtOffset(parserResult, offset, linePrefix);
@@ -304,7 +374,6 @@ export function register(): void {
                             if (target && !isIdDeclarationPositionAt(parserResult, offset, linePrefix)) {
                                 completions = await idCompletionsFor(target);
                             }
-                        }
                         }
                     }
                 }

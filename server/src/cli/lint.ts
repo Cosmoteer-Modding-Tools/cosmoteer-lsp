@@ -63,9 +63,7 @@ const main = async (argv: readonly string[]): Promise<number> => {
         // The load check answers a question about one mod, so a folder that is not a mod is a
         // mistake worth stopping on rather than a mod with nothing wrong with it.
         if (options.assertLoads && (await walkModFiles(folder)).manifests.length === 0) {
-            writeError(
-                `There is no mod.rules or mod_*.rules under "${folder}", so there is no mod there to check.`
-            );
+            writeError(`There is no mod.rules or mod_*.rules under "${folder}", so there is no mod there to check.`);
             return EXIT_USAGE;
         }
     }

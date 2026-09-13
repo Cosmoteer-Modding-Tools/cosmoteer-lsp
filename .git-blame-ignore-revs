@@ -1,0 +1,11 @@
+# Commits listed here are skipped by `git blame`, so a whole-file reformat does not become the
+# answer to "who wrote this line". Only commits that change formatting and nothing else belong in
+# it. Git reads the file on its own once the repo is told where it is, which is done once per clone:
+#
+#     git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# GitHub reads it without any setup.
+
+# Prettier applied to client/src, server/src and the build scripts for the first time, and
+# `npm run lint` made to check the formatting from then on. Formatting only, no behaviour change.
+# Append the SHA of that commit on the line below once it is made.

@@ -111,7 +111,11 @@ const classThroughOwnBases = async (
         // A base that lands on a macro's reference value (`: /BASE_SHAKE` → the `&<file>` value of
         // `BASE_SHAKE = &<…>` in cosmoteer.rules) is not the base body yet: dereference it (bounded,
         // a macro can alias another macro) until a group, a file, or a dead end.
-        for (let hops = 0; target && !isFile(target as FileWithPath) && isReferenceValue(target as AbstractNode) && hops < 8; hops++) {
+        for (
+            let hops = 0;
+            target && !isFile(target as FileWithPath) && isReferenceValue(target as AbstractNode) && hops < 8;
+            hops++
+        ) {
             const ref = target as ValueNode;
             target = await DefinitionService.instance
                 .resolveReferenceTarget(getStartOfAstNode(ref), ref, cancellationToken)
@@ -182,7 +186,8 @@ export const warmInheritedClasses = async (
         if (resolveGroupClass(group)) continue;
         await resolveClassThroughInheritance(group, cancellationToken).catch(() => undefined);
     }
-    if (!cancellationToken.isCancellationRequested && schemaContextEpoch() === epoch) warmedDocuments.set(document, epoch);
+    if (!cancellationToken.isCancellationRequested && schemaContextEpoch() === epoch)
+        warmedDocuments.set(document, epoch);
 };
 
 /**

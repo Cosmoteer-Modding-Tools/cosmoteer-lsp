@@ -35,7 +35,10 @@ function runGameRefusalMessage(reason: string, detail?: string): string {
         case 'no-user-data':
             return l10n.t('Cosmoteer has no user folder yet. Start the game once, then try again.');
         case 'no-settings-file':
-            return l10n.t('Cosmoteer has never written its settings file at {0}, so there is nothing to enable the mod in.', detail ?? '');
+            return l10n.t(
+                'Cosmoteer has never written its settings file at {0}, so there is nothing to enable the mod in.',
+                detail ?? ''
+            );
         case 'game-running':
             return l10n.t('Cosmoteer is running. It rewrites its settings when it exits, so close it first.');
         case 'duplicate-mod-enabled':

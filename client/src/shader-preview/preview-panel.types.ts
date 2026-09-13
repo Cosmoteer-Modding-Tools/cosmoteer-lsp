@@ -7,6 +7,8 @@
 export interface ShaderPreviewData {
     shaderName: string;
     shaderUri: string | null;
+    /** The shader and its whole `#include` chain, watched so an edit to any of them re-renders. */
+    sourceUris: string[];
     glsl: string | null;
     vertexStage: {
         glsl: string;

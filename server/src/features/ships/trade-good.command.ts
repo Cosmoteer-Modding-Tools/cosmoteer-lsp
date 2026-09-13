@@ -1,12 +1,6 @@
 import { Dirent, existsSync, readdirSync } from 'fs';
 import { CancellationToken } from 'vscode-languageserver';
-import {
-    AbstractNode,
-    AbstractNodeDocument,
-    isGroupNode,
-    isListNode,
-    isValueNode,
-} from '../../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
 import { ActionSource } from '../../mod/action';
 import { identityOfMod, ModIdentity } from '../../mod/mod-dependencies';
 import {

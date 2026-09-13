@@ -92,10 +92,18 @@ export const findInheritorsOf = async (
         for (const { deriver, reference } of candidates) {
             if (seen.has(deriver) || !isValueNode(reference)) continue;
             const resolved = await navigation
-                .navigate(String(reference.valueType.value), reference, getStartOfAstNode(reference).uri, cancellationToken)
+                .navigate(
+                    String(reference.valueType.value),
+                    reference,
+                    getStartOfAstNode(reference).uri,
+                    cancellationToken
+                )
                 .catch(() => null);
-            if (resolved && !isFile(resolved as FileTree) &&
-                locationKey(definitionLocationOf(resolved as AbstractNode)) === baseKey) {
+            if (
+                resolved &&
+                !isFile(resolved as FileTree) &&
+                locationKey(definitionLocationOf(resolved as AbstractNode)) === baseKey
+            ) {
                 seen.add(deriver);
                 inheritors.push(deriver);
             }

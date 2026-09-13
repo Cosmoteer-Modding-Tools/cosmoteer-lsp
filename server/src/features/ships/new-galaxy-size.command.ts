@@ -2,7 +2,16 @@ import { existsSync, readdirSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { posix } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isIdentifierNode, isListNode, isValueNode, ValueNode } from '../../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    GroupNode,
+    isGroupNode,
+    isIdentifierNode,
+    isListNode,
+    isValueNode,
+    ValueNode,
+} from '../../core/ast/ast';
 import { identityOfMod, ModIdentity } from '../../mod/mod-dependencies';
 import { namedMembersOf } from '../../utils/ast.utils';
 import { indentOfLineAt } from '../../utils/text.utils';
@@ -112,7 +121,9 @@ interface StandardGenerator {
  * @returns true when one of its bases ends in that member.
  */
 const inheritsMapNodes = (group: GroupNode): boolean =>
-    (group.inheritance ?? []).some((base) => String(base.valueType.value).trim().toLowerCase().endsWith(`/${MAP_NODES_MEMBER.toLowerCase()}`));
+    (group.inheritance ?? []).some((base) =>
+        String(base.valueType.value).trim().toLowerCase().endsWith(`/${MAP_NODES_MEMBER.toLowerCase()}`)
+    );
 
 /**
  * The `Count` assignment of a spawner group, as the value node the number is written in.
@@ -137,7 +148,9 @@ const standardGeneratorOf = async (dataRoot: string): Promise<StandardGenerator 
     if (!file) return undefined;
     const list = memberOf(file.document, SPAWNERS_MEMBER);
     if (!isListNode(list)) return undefined;
-    const mapNodes = list.elements.find((element): element is GroupNode => isGroupNode(element) && inheritsMapNodes(element));
+    const mapNodes = list.elements.find(
+        (element): element is GroupNode => isGroupNode(element) && inheritsMapNodes(element)
+    );
     const count = mapNodes ? countValueOf(mapNodes) : undefined;
     const systems = count ? Number(count.valueType.value) : NaN;
     return {
@@ -178,7 +191,12 @@ const againstInstall = (text: string): string =>
  * @param indent the indentation the clone's first line gets.
  * @returns the clone's lines, or nothing for an element that cannot be cloned.
  */
-const clonedSpawner = (element: AbstractNode, generator: StandardGenerator, systems: number, indent: string): string[] => {
+const clonedSpawner = (
+    element: AbstractNode,
+    generator: StandardGenerator,
+    systems: number,
+    indent: string
+): string[] => {
     if (isIdentifierNode(element)) return [`${indent}${againstInstall(element.name)}`];
     if (isValueNode(element)) return [`${indent}${againstInstall(String(element.valueType.value))}`];
     if (!isGroupNode(element) && !isListNode(element)) return [];
@@ -213,7 +231,7 @@ const clonedSpawner = (element: AbstractNode, generator: StandardGenerator, syst
  */
 const sizeFileText = (label: string, generator: StandardGenerator, systems: number, lineEnding: LineEnding): string =>
     [
-        '// The galaxy size: the game\'s standard generator with another number of systems, and the entry',
+        "// The galaxy size: the game's standard generator with another number of systems, and the entry",
         '// both new-game screens list it under. Change the count here, or any other spawner, and the',
         '// entry follows.',
         GENERATOR_MEMBER,
@@ -278,7 +296,12 @@ const takenIdsOf = async (modRoot: string, dataRoot: string | undefined): Promis
  * @param member the game root member naming the mode.
  * @returns the target, or undefined when the game root names no such mode.
  */
-const modeSizesTarget = (rootDocument: AbstractNodeDocument, rootFsPath: string, dataRoot: string, member: string): string | undefined => {
+const modeSizesTarget = (
+    rootDocument: AbstractNodeDocument,
+    rootFsPath: string,
+    dataRoot: string,
+    member: string
+): string | undefined => {
     const file = gameRootListTarget(rootDocument, rootFsPath, dataRoot, member);
     if (!file) return undefined;
     return `${file.replace(/>.*$/, '>')}/${MAP_SIZES_MEMBER}`;
@@ -363,8 +386,18 @@ const applyRound = async (
         manifestPath = choice.fsPath;
         const reference = `&${relativeRulesReference(dirOf(choice.fsPath), file, SIZE_MEMBER)}`;
         const wirings: Wiring[] = [
-            { key: 'career', target: modeSizesTarget(rootDocument, root.path, dataRoot, CAREER_MODE_MEMBER), reference, file },
-            { key: 'creative', target: modeSizesTarget(rootDocument, root.path, dataRoot, CREATIVE_MODE_MEMBER), reference, file },
+            {
+                key: 'career',
+                target: modeSizesTarget(rootDocument, root.path, dataRoot, CAREER_MODE_MEMBER),
+                reference,
+                file,
+            },
+            {
+                key: 'creative',
+                target: modeSizesTarget(rootDocument, root.path, dataRoot, CREATIVE_MODE_MEMBER),
+                reference,
+                file,
+            },
         ];
         if (await wireIntoManifest(choice.fsPath, modRoot, wirings, wiring, host)) changed.push(choice.fsPath);
     }
@@ -399,7 +432,8 @@ export const newGalaxySize = async (
 ): Promise<NewGalaxySizeResult> => {
     const scanning = args.id === undefined;
     const located = modRootFor(args.uri, host.dataRoot());
-    if ('failure' in located) return scanning ? scanFailed(located.failure) : applyFailed(args.id ?? '', located.failure);
+    if ('failure' in located)
+        return scanning ? scanFailed(located.failure) : applyFailed(args.id ?? '', located.failure);
     if (scanning) {
         const identity = await identityOfMod(located.modRoot).catch((): ModIdentity => ({ root: located.modRoot }));
         const dataRoot = host.dataRoot();

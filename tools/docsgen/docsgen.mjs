@@ -65,22 +65,36 @@ const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 /** A short human label for a field value type. Mirrors valueTypeLabel in schema.ts (cosmetic only). */
 const label = (vt) => {
     switch (vt.kind) {
-        case 'enum': return `enum ${vt.name}`;
-        case 'reference': return `→ ${vt.targetName}`;
+        case 'enum':
+            return `enum ${vt.name}`;
+        case 'reference':
+            return `→ ${vt.targetName}`;
         case 'group':
-        case 'polymorphicGroup': return vt.name;
-        case 'list': return `${label(vt.element)}[]`;
-        case 'range': return `range<${label(vt.element)}>`;
-        case 'interpolated': return `interpolated<${label(vt.element)}>`;
-        case 'map': return `map<${label(vt.key)}, ${label(vt.value)}>`;
-        case 'tuple': return `[${vt.elements.map(label).join(', ')}]`;
-        case 'asset': return `asset (${vt.assetKind})`;
-        case 'code': return `code (${vt.lang})`;
+        case 'polymorphicGroup':
+            return vt.name;
+        case 'list':
+            return `${label(vt.element)}[]`;
+        case 'range':
+            return `range<${label(vt.element)}>`;
+        case 'interpolated':
+            return `interpolated<${label(vt.element)}>`;
+        case 'map':
+            return `map<${label(vt.key)}, ${label(vt.value)}>`;
+        case 'tuple':
+            return `[${vt.elements.map(label).join(', ')}]`;
+        case 'asset':
+            return `asset (${vt.assetKind})`;
+        case 'code':
+            return `code (${vt.lang})`;
         case 'constructed':
-        case 'generic': return vt.type;
-        case 'number': return vt.unit ? `number (${vt.unit})` : 'number';
-        case 'opaque': return vt.reason === 'typeParam' ? 'any' : vt.type;
-        default: return vt.kind;
+        case 'generic':
+            return vt.type;
+        case 'number':
+            return vt.unit ? `number (${vt.unit})` : 'number';
+        case 'opaque':
+            return vt.reason === 'typeParam' ? 'any' : vt.type;
+        default:
+            return vt.kind;
     }
 };
 
@@ -92,7 +106,8 @@ const signatureLine = (field, enums) => {
     const vt = field.valueType;
     if (vt.kind === 'enum') {
         const members = enums[vt.ref]?.members ?? [];
-        if (members.length > 0 && members.length <= 12) parts.push(`one of: ${members.map((m) => `\`${m}\``).join(', ')}`);
+        if (members.length > 0 && members.length <= 12)
+            parts.push(`one of: ${members.map((m) => `\`${m}\``).join(', ')}`);
     }
     return parts.join(' · ');
 };
@@ -114,7 +129,11 @@ const parseDoc = (md) => {
     let i = 0;
     for (; i < lines.length; i++) {
         const m = lines[i].match(/^# (.+?)\s*$/);
-        if (m) { type = m[1]; i++; break; }
+        if (m) {
+            type = m[1];
+            i++;
+            break;
+        }
     }
     const summaryLines = [];
     for (; i < lines.length && !lines[i].startsWith('## '); i++) {
@@ -127,13 +146,22 @@ const parseDoc = (md) => {
     let sawSignature = false;
     const flush = () => {
         if (cur != null) fields.set(cur, buf.join('\n').trim());
-        cur = null; buf = []; sawSignature = false;
+        cur = null;
+        buf = [];
+        sawSignature = false;
     };
     for (; i < lines.length; i++) {
         const h = lines[i].match(/^## (.+?)\s*$/);
-        if (h) { flush(); cur = h[1]; continue; }
+        if (h) {
+            flush();
+            cur = h[1];
+            continue;
+        }
         if (cur == null) continue;
-        if (!sawSignature) { if (lines[i].trim() !== '') sawSignature = true; continue; }
+        if (!sawSignature) {
+            if (lines[i].trim() !== '') sawSignature = true;
+            continue;
+        }
         buf.push(lines[i]);
     }
     flush();
@@ -181,8 +209,10 @@ const scaffold = () => {
     const schema = readJson(SCHEMA_PATH);
     const seed = mergedSeed();
     if (!existsSync(SEED_PATH)) {
-        console.warn(`note: ${SEED_PATH} not found, scaffolding from the wiki seed and TODO placeholders only.\n` +
-            '      Regenerate it with schemagen (needs the game DLLs) to also pre-fill from the game XML docs.');
+        console.warn(
+            `note: ${SEED_PATH} not found, scaffolding from the wiki seed and TODO placeholders only.\n` +
+                '      Regenerate it with schemagen (needs the game DLLs) to also pre-fill from the game XML docs.'
+        );
     }
     mkdirSync(DOCS_DIR, { recursive: true });
     const existing = readExistingDocs();
@@ -198,9 +228,7 @@ const scaffold = () => {
         const schemaNames = new Set(fields.map((f) => f.name));
         // Same precedence as a field: prose already written wins, then the seed, then a placeholder.
         const priorSummary = existing.get(fullName)?.summary;
-        const summary = isDocumented(priorSummary)
-            ? priorSummary
-            : (seed[fullName]?.[CLASS_KEY] ?? CLASS_TODO);
+        const summary = isDocumented(priorSummary) ? priorSummary : (seed[fullName]?.[CLASS_KEY] ?? CLASS_TODO);
         if (summary !== CLASS_TODO) classesDocumented++;
         const out = [`# ${fullName}`, '', summary, '', fields.length > 0 ? PREAMBLE : PREAMBLE_SUMMARY_ONLY, ''];
 
@@ -231,9 +259,11 @@ const scaffold = () => {
     }
 
     const total = documented + todo;
-    console.log(`scaffold: ${filesWritten} files · ${classesDocumented}/${filesWritten} classes summarized · ` +
-        `${documented}/${total} fields documented ` +
-        `(${((100 * documented) / total).toFixed(1)}%) · ${todo} TODO · ${outdated} removed-but-kept`);
+    console.log(
+        `scaffold: ${filesWritten} files · ${classesDocumented}/${filesWritten} classes summarized · ` +
+            `${documented}/${total} fields documented ` +
+            `(${((100 * documented) / total).toFixed(1)}%) · ${todo} TODO · ${outdated} removed-but-kept`
+    );
 };
 
 /**
@@ -253,10 +283,16 @@ const compiledDocs = (schema) => {
         const prior = existing.get(fullName);
         if (!prior) continue;
         const entry = {};
-        if (isDocumented(prior.summary)) { entry[CLASS_KEY] = prior.summary; classes++; }
+        if (isDocumented(prior.summary)) {
+            entry[CLASS_KEY] = prior.summary;
+            classes++;
+        }
         for (const field of ownFieldsOf(type)) {
             const prose = prior.fields.get(field.name);
-            if (isDocumented(prose)) { entry[field.name] = prose; fields++; }
+            if (isDocumented(prose)) {
+                entry[field.name] = prose;
+                fields++;
+            }
         }
         if (Object.keys(entry).length > 0) docs[fullName] = entry;
     }
@@ -269,8 +305,10 @@ const compile = () => {
     const schema = readJson(SCHEMA_PATH);
     const { docs, fields, classes } = compiledDocs(schema);
     writeFileSync(OUT_JSON, `${JSON.stringify(docs, null, 4)}\n`, 'utf8');
-    console.log(`compile: ${classes} class summaries and ${fields} documented fields across ` +
-        `${Object.keys(docs).length} types → ${OUT_JSON}`);
+    console.log(
+        `compile: ${classes} class summaries and ${fields} documented fields across ` +
+            `${Object.keys(docs).length} types → ${OUT_JSON}`
+    );
     return docs;
 };
 
@@ -288,13 +326,20 @@ const lint = () => {
         for (const name of readdirSync(DOCS_DIR)) {
             if (!name.endsWith('.md') || name === 'README.md') continue;
             const { type, summary, fields } = parseDoc(readFileSync(join(DOCS_DIR, name), 'utf8'));
-            if (!type) { problems.push(`${name}: missing '# <TypeFullName>' H1`); continue; }
-            if (!schema.types[type] && !schema.registries[type]) { problems.push(`${name}: type '${type}' is not in the schema`); continue; }
+            if (!type) {
+                problems.push(`${name}: missing '# <TypeFullName>' H1`);
+                continue;
+            }
+            if (!schema.types[type] && !schema.registries[type]) {
+                problems.push(`${name}: type '${type}' is not in the schema`);
+                continue;
+            }
             if (isDocumented(summary)) classesDocumented++;
             const own = ownFields(type);
             for (const [field, prose] of fields) {
                 if (!own.has(field)) {
-                    if (isDocumented(prose)) problems.push(`${name}: '${field}' is not a field of ${type} (documented but unknown)`);
+                    if (isDocumented(prose))
+                        problems.push(`${name}: '${field}' is not a field of ${type} (documented but unknown)`);
                     continue;
                 }
                 if (isDocumented(prose)) documented++;
@@ -310,8 +355,10 @@ const lint = () => {
             problems.push('field-docs.json is stale — run `node tools/docsgen/docsgen.mjs compile`');
     }
 
-    console.log(`lint: ${classesDocumented}/${classes.length} classes summarized · ` +
-        `${documented}/${total} fields documented (${((100 * documented) / total).toFixed(1)}%)`);
+    console.log(
+        `lint: ${classesDocumented}/${classes.length} classes summarized · ` +
+            `${documented}/${total} fields documented (${((100 * documented) / total).toFixed(1)}%)`
+    );
     if (problems.length > 0) {
         console.error(`\n${problems.length} problem(s):`);
         for (const p of problems) console.error(`  - ${p}`);

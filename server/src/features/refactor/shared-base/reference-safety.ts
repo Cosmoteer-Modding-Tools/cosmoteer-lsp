@@ -170,8 +170,7 @@ export const analyzeReferences = (
         }
         i = close;
     }
-    const insideReference = (at: number): boolean =>
-        referenceSpans.some((span) => at >= span.start && at < span.end);
+    const insideReference = (at: number): boolean => referenceSpans.some((span) => at >= span.start && at < span.end);
 
     // Scope-relative forms never survive the move, quoted or not.
     for (let i = 0; i < raw.length; i++) {

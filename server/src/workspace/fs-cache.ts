@@ -108,8 +108,7 @@ const CASE_INSENSITIVE_PATHS = process.platform === 'win32' || process.platform 
  * @param pathKey the path or path-derived string to fold.
  * @returns the folded key on Windows/macOS, the unchanged string elsewhere.
  */
-export const foldPathCase = (pathKey: string): string =>
-    CASE_INSENSITIVE_PATHS ? pathKey.toLowerCase() : pathKey;
+export const foldPathCase = (pathKey: string): string => (CASE_INSENSITIVE_PATHS ? pathKey.toLowerCase() : pathKey);
 
 // The same paths are canonicalized on every cache lookup (one per stat-validated hit), and
 // path.resolve plus two string passes per call showed up in scan profiles. Bounded by wholesale
@@ -360,7 +359,7 @@ export const invalidateFsPath = (fsPath: string): void => {
     // inside a directory the memo had never seen changes the answer for that directory too. Every
     // other answer stands, so only the path and its ancestors are forgotten. Emptying the whole memo
     // here made every save re-probe the thousands of paths the refactoring analyses ask about.
-    for (let ancestor = key; ; ) {
+    for (let ancestor = key; ;) {
         existsMemo.delete(ancestor);
         const parent = ancestor.slice(0, ancestor.lastIndexOf('/'));
         if (parent.length === 0 || parent === ancestor) break;

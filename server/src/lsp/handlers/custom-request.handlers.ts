@@ -153,18 +153,25 @@ const onPositionRequest = <T>(
         cancellationToken: CancellationToken
     ) => Promise<T | null | undefined>
 ): void => {
-    connection.onRequest(method, async (params: TextDocumentPositionParams, cancellationToken) => {
-        const parserResult = ensureParserResult(params.textDocument.uri);
-        const document = documents.get(params.textDocument.uri);
-        if (!parserResult || !document) return null;
-        try {
-            await ensureFragmentRooting(cancellationToken);
-            return (await build(parserResult, document, params, cancellationToken)) ?? null;
-        } catch (e) {
-            traceFailure(e);
-            return null;
+    // The connection is told the answer is `unknown` rather than `T`. Its own result type folds a
+    // conditional over whatever it is given, which an unresolved `T` leaves unreduced and so
+    // assignable to nothing, and what travels the wire is JSON either way. The answer `build` owes
+    // is still `T`.
+    connection.onRequest<unknown, void>(
+        method,
+        async (params: TextDocumentPositionParams, cancellationToken: CancellationToken): Promise<T | null> => {
+            const parserResult = ensureParserResult(params.textDocument.uri);
+            const document = documents.get(params.textDocument.uri);
+            if (!parserResult || !document) return null;
+            try {
+                await ensureFragmentRooting(cancellationToken);
+                return (await build(parserResult, document, params, cancellationToken)) ?? null;
+            } catch (e) {
+                traceFailure(e);
+                return null;
+            }
         }
-    });
+    );
 };
 
 export function register(): void {
@@ -220,25 +227,27 @@ export function register(): void {
 
     // Mod overview: render the "what does this mod.rules do" markdown report, the manifest header,
     // every action with its resolution status, and the reachability section listing dead files.
-    connection.onRequest('cosmoteer/modOverview', async (params: { textDocument: { uri: string } }, cancellationToken) => {
-        try {
-            // Action targets resolve against the effective game tree, so the workspace and the fragment
-            // indexes must be ready, exactly as for validation of the manifest itself.
-            await ensureFragmentRooting(cancellationToken);
-            return (
-                (await generateModOverview(
-                    params.textDocument.uri,
-                    await searchFolderUris(),
-                    cancellationToken,
-                    scanFindings()
-                )) ?? null
-            );
-        } catch (e) {
-            traceFailure(e);
-            return null;
+    connection.onRequest(
+        'cosmoteer/modOverview',
+        async (params: { textDocument: { uri: string } }, cancellationToken) => {
+            try {
+                // Action targets resolve against the effective game tree, so the workspace and the fragment
+                // indexes must be ready, exactly as for validation of the manifest itself.
+                await ensureFragmentRooting(cancellationToken);
+                return (
+                    (await generateModOverview(
+                        params.textDocument.uri,
+                        await searchFolderUris(),
+                        cancellationToken,
+                        scanFindings()
+                    )) ?? null
+                );
+            } catch (e) {
+                traceFailure(e);
+                return null;
+            }
         }
-    });
-
+    );
 
     // Resource flow diagram: the drawn resource wiring of the part at a position.
     onPositionRequest('cosmoteer/resourceFlowDiagram', (parserResult, document, params, cancellationToken) =>
@@ -254,7 +263,12 @@ export function register(): void {
     // position, the four rows of registration on a ship, build palette placement, game mode offerings
     // and language files. On demand only, it must never join validation or the workspace scan.
     onPositionRequest('cosmoteer/partWiring', async (parserResult, document, params, cancellationToken) =>
-        generatePartWiringReport(parserResult, document.offsetAt(params.position), await searchFolderUris(), cancellationToken)
+        generatePartWiringReport(
+            parserResult,
+            document.offsetAt(params.position),
+            await searchFolderUris(),
+            cancellationToken
+        )
     );
 
     // Effective group: render the "what the game actually loads here" report for the container at a
@@ -416,18 +430,21 @@ export function register(): void {
 
     // A value typed over a cell of the part table, written into the file it belongs in. The edit is
     // built here and applied by the client, so it lands in the editor with its undo.
-    connection.onRequest('cosmoteer/partTableEdit', async (params: PartTableEditParams): Promise<PartTableEditResult> => {
-        try {
-            const openText = openBufferReadOverride();
-            return await buildPartTableEdit(params.row, params.column, params.text, {
-                openText: (uri) => openText(uriToFsPath(uri)),
-                dataRootPath: CosmoteerWorkspaceService.instance.dataRootPath,
-            });
-        } catch (e) {
-            traceFailure(e);
-            return { status: 'notFound', message: 'The table has to be read again before it can be edited.' };
+    connection.onRequest(
+        'cosmoteer/partTableEdit',
+        async (params: PartTableEditParams): Promise<PartTableEditResult> => {
+            try {
+                const openText = openBufferReadOverride();
+                return await buildPartTableEdit(params.row, params.column, params.text, {
+                    openText: (uri) => openText(uriToFsPath(uri)),
+                    dataRootPath: CosmoteerWorkspaceService.instance.dataRootPath,
+                });
+            } catch (e) {
+                traceFailure(e);
+                return { status: 'notFound', message: 'The table has to be read again before it can be edited.' };
+            }
         }
-    });
+    );
 
     // Performance introspection for the scan bench (server/test/perf/scan-bench.mjs): the hot-path
     // counters, the peak heap sampled during workspace scans, and the current memory usage. The

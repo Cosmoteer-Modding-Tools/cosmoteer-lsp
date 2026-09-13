@@ -184,7 +184,11 @@ const verdictText = (trace: ReferenceTrace): string => {
             return l10n.t('The walk was stopped before it finished, so this report is only as far as it got.');
         case 'broken':
             return trace.lastGood
-                ? l10n.t('The step {0} does not resolve. The walk got as far as {1}.', failing, placeLink(trace.lastGood))
+                ? l10n.t(
+                      'The step {0} does not resolve. The walk got as far as {1}.',
+                      failing,
+                      placeLink(trace.lastGood)
+                  )
                 : l10n.t('The step {0} does not resolve, and nothing before it resolved either.', failing);
     }
 };
@@ -241,7 +245,9 @@ const stoppedSection = (trace: ReferenceTrace): string[] => {
             }
             if (available.total > available.names.length) {
                 lines.push('');
-                lines.push(l10n.t('{0} more members are not listed.', String(available.total - available.names.length)));
+                lines.push(
+                    l10n.t('{0} more members are not listed.', String(available.total - available.names.length))
+                );
             }
             break;
         }
@@ -400,7 +406,12 @@ export const renderReferenceTrace = (trace: ReferenceTrace): string => {
 const asReference = (node: AbstractNode | null | undefined): ValueNode | undefined => {
     if (!node) return undefined;
     if (isValueNode(node) && node.valueType.type === 'Reference') return node;
-    if (isIdentifierNode(node) && typeof node.name === 'string' && node.name.startsWith('&') && isListNode(node.parent)) {
+    if (
+        isIdentifierNode(node) &&
+        typeof node.name === 'string' &&
+        node.name.startsWith('&') &&
+        isListNode(node.parent)
+    ) {
         return {
             type: 'Value',
             valueType: { type: 'Reference', value: node.name },
@@ -421,7 +432,8 @@ const asReference = (node: AbstractNode | null | undefined): ValueNode | undefin
  * @returns the reference value, or undefined when the caret is on something else.
  */
 const referenceAt = (document: AbstractNodeDocument, position: Position): ValueNode | undefined =>
-    asReference(findNodeAtPosition(document, position)) ?? asReference(findReferenceTargetAtPosition(document, position));
+    asReference(findNodeAtPosition(document, position)) ??
+    asReference(findReferenceTargetAtPosition(document, position));
 
 /**
  * Renders the reference report for the reference under a caret.

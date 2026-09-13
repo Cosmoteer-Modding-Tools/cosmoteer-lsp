@@ -224,7 +224,10 @@ export type ModVersionVerdict =
  * @param info the installed game's version facts.
  * @returns the verdict.
  */
-export const modVersionVerdict = (declared: readonly string[] | undefined, info: GameVersionInfo): ModVersionVerdict => {
+export const modVersionVerdict = (
+    declared: readonly string[] | undefined,
+    info: GameVersionInfo
+): ModVersionVerdict => {
     if (info.source === 'none' || info.accepted.length === 0) return 'unknown';
     if (declared === undefined) return 'undeclared';
     if (info.installed && declared.includes(info.installed)) return 'namesInstalled';

@@ -43,8 +43,9 @@ const output = (command: string, args: string[]): Promise<string | null> =>
  */
 export const gameLiveness = async (installRoot: string): Promise<GameLiveness> => {
     if (process.platform === 'win32') {
-        const handle = await open(join(installRoot, 'Bin', GAME_EXECUTABLE), 'r+').catch((error: NodeJS.ErrnoException) =>
-            error.code === 'EBUSY' || error.code === 'EPERM' || error.code === 'EACCES' ? 'busy' : null
+        const handle = await open(join(installRoot, 'Bin', GAME_EXECUTABLE), 'r+').catch(
+            (error: NodeJS.ErrnoException) =>
+                error.code === 'EBUSY' || error.code === 'EPERM' || error.code === 'EACCES' ? 'busy' : null
         );
         if (handle === 'busy') return 'running';
         if (handle && typeof handle !== 'string') await handle.close().catch(() => undefined);
@@ -71,7 +72,12 @@ export const findSteamExecutable = async (installRoot: string): Promise<string |
     }
     for (const candidate of candidates) {
         const path = join(candidate, executable);
-        if (await stat(path).then((entry) => entry.isFile()).catch(() => false)) return path;
+        if (
+            await stat(path)
+                .then((entry) => entry.isFile())
+                .catch(() => false)
+        )
+            return path;
     }
     return undefined;
 };

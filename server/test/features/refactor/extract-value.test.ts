@@ -66,6 +66,17 @@ describe('extractValueCodeAction', () => {
         expect(edits.slice(1).every((edit) => edit.newText === '&~/MAX_HEALTH_2')).toBe(true);
     });
 
+    // A bare `\n` written into a file the author keeps in `\r\n` leaves it mixed, which the editor
+    // then reports as a whole-file change.
+    it('writes the shared field with the line ending the file already uses', () => {
+        const crlf = 'Header = 1\r\nPart\r\n{\r\n\tMaxHealth = 12000\r\n\tSub\r\n\t{\r\n\t\tHealth = 12000\r\n\t}\r\n}\r\n';
+        const doc = parse(crlf);
+        const action = actionAt(crlf, valueNodeOf(doc, 12000));
+        expect(action).toBeDefined();
+        const edits = action!.edit!.changes![URI] as TextEdit[];
+        expect(edits[0].newText).toBe('MAX_HEALTH = 12000\r\n');
+    });
+
     it('does not offer the extraction for a value that appears only once', () => {
         const singleSrc = 'Part\n{\n\tMaxHealth = 12000\n\tArmor = 4\n}\n';
         const doc = parse(singleSrc);

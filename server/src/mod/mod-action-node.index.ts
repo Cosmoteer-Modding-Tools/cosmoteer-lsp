@@ -55,7 +55,10 @@ export abstract class ModActionNodeIndex<T extends { readonly source: string }> 
      * @param cancellationToken cancels the action walk.
      * @returns true when this source's contribution differs from the one it replaced.
      */
-    protected async indexDocument(document: AbstractNodeDocument, cancellationToken: CancellationToken): Promise<boolean> {
+    protected async indexDocument(
+        document: AbstractNodeDocument,
+        cancellationToken: CancellationToken
+    ): Promise<boolean> {
         const source = normalizeUri(document.uri);
         const previous = this.bySource.get(source) ?? [];
         this.removeSource(source);
@@ -78,7 +81,11 @@ export abstract class ModActionNodeIndex<T extends { readonly source: string }> 
      * @param cancellationToken cancels the target resolution.
      * @returns the target node keys the action contributed to, one per bucket written.
      */
-    protected abstract indexAction(action: ModAction, source: string, cancellationToken: CancellationToken): Promise<string[]>;
+    protected abstract indexAction(
+        action: ModAction,
+        source: string,
+        cancellationToken: CancellationToken
+    ): Promise<string[]>;
 
     /**
      * The entries recorded for a target node, created empty on first use.

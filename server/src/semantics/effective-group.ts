@@ -125,7 +125,9 @@ const basesOf = async (
 };
 
 /** Whether an inheritance entry is a reference this module can follow. */
-const isReferenceEntry = (entry: AbstractNode): entry is ValueNode & { valueType: { type: 'Reference'; value: string } } =>
+const isReferenceEntry = (
+    entry: AbstractNode
+): entry is ValueNode & { valueType: { type: 'Reference'; value: string } } =>
     (entry as ValueNode).valueType?.type === 'Reference';
 
 /** The written text of an inheritance entry, for messages. */
@@ -161,7 +163,7 @@ const unreadableBase = (ref: AbstractNode, reason: UnreadableReason, hop: number
  */
 const originOf = (node: AbstractNode, hop: number): MemberOrigin => ({
     uri: getStartOfAstNode(node).uri,
-    node: node.position ? node : (isAssignmentNode(node) ? node.left : node),
+    node: node.position ? node : isAssignmentNode(node) ? node.left : node,
     hop,
     inherited: hop > 0,
 });
@@ -178,10 +180,7 @@ const originOf = (node: AbstractNode, hop: number): MemberOrigin => ({
  * @param token cancels the cross-file walk.
  * @returns the effective members with their provenance, plus whatever could not be read.
  */
-export const flattenGroup = async (
-    group: FlattenableContainer,
-    token: CancellationToken
-): Promise<EffectiveGroup> => {
+export const flattenGroup = async (group: FlattenableContainer, token: CancellationToken): Promise<EffectiveGroup> => {
     // One flattening per container per epoch. An edit to this file produces a new AST (new keys), and
     // an edit to a file the chain crosses bumps the epoch through the server's cross-file
     // invalidation. Without the memo, a view of a 61-field part with a three-link chain re-runs the

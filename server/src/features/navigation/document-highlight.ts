@@ -1,30 +1,3 @@
-import { CancellationToken, DocumentHighlight, DocumentHighlightKind, Position, Range } from 'vscode-languageserver';
-import {
-    AbstractNode,
-    AbstractNodeDocument,
-    isAssignmentNode,
-    isDocumentNode,
-    isGroupNode,
-    isListNode,
-    isValueNode,
-    ValueNode,
-} from '../../core/ast/ast';
-import { isShaderDocument } from '../../document/document-kind';
-import { warmInheritedClasses } from '../completion/inheritance-resolution';
-import { documentRootClass } from '../../document/schema/document-root';
-import { entityDeclarationsOf, sameId } from '../../document/schema/entity-schema';
-import { getStartOfAstNode } from '../../utils/ast.utils';
-import { FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
-import { onFsInvalidation } from '../../workspace/fs-cache';
-import { DefinitionService, isReferenceValue } from './definition.service';
-import { FullNavigationStrategy } from './full.navigation-strategy';
-import { segmentName, segmentSpans, SegmentSpan } from './navigation-strategy';
-import { ChannelOccurrence, channelOccurrences, channelRangeOf, particleChannelAt } from './particle-channel';
-import { enclosingContainerKey, findReferenceTargetAtPosition, referenceNodesOf } from './reference-index';
-import { definitionLocationOf, definitionNameOf, locationKey, normalizeUri, rangeOf } from './reference-location';
-import { isSameOrSubclass, mapKeyReferenceAt, mapKeyReferencesOf, schemaReferenceFieldOf } from './schema-id-reference.navigation';
-import { resolveSchemaSiblingReference, stringValueNodesOf, valueTextRange } from './schema-reference.navigation';
-
 /**
  * Occurrence highlighting (`textDocument/documentHighlight`).
  *
@@ -37,7 +10,40 @@ import { resolveSchemaSiblingReference, stringValueNodesOf, valueTextRange } fro
  * editors keep a plain word matcher behind the language server and fall back to it whenever the
  * server declines, so an empty list would replace the reader's word highlighting with nothing at all.
  */
-const navigation = new FullNavigationStrategy();
+import { CancellationToken, DocumentHighlight, DocumentHighlightKind, Position, Range } from 'vscode-languageserver';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    isAssignmentNode,
+    isDocumentNode,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+} from '../../core/ast/ast';
+import { isShaderDocument } from '../../document/document-kind';
+import { warmInheritedClasses } from '../completion/inheritance-resolution';
+import { documentRootClass } from '../../document/schema/document-root';
+import { entityDeclarationsOf, sameId } from '../../document/schema/entity-schema';
+import { onFsInvalidation } from '../../workspace/fs-cache';
+import { isReferenceValue } from './definition.service';
+import { segmentName, segmentSpans } from './navigation-strategy';
+import {
+    MEMBER_SEGMENT_NAME,
+    segmentNameRange,
+    segmentSpanAt,
+    segmentTargetKey,
+    segmentTargetNode,
+} from './reference-segment';
+import { ChannelOccurrence, channelOccurrences, channelRangeOf, particleChannelAt } from './particle-channel';
+import { enclosingContainerKey, findReferenceTargetAtPosition, referenceNodesOf } from './reference-index';
+import { definitionLocationOf, definitionNameOf, locationKey, normalizeUri, rangeOf } from './reference-location';
+import {
+    isSameOrSubclass,
+    mapKeyReferenceAt,
+    mapKeyReferencesOf,
+    schemaReferenceFieldOf,
+} from './schema-id-reference.navigation';
+import { resolveSchemaSiblingReference, stringValueNodesOf, valueTextRange } from './schema-reference.navigation';
 
 /** A cross-file id under the cursor: the written id and the class the cursor's site names. */
 interface CrossFileIdCursor {
@@ -85,42 +91,6 @@ const HIGHLIGHT_MEMO_POSITION_CAP = 512;
 // A reference branch answer depends on the files the reference resolves through, so it goes stale
 // when a sibling file changes even though this buffer did not. The fs caches announce exactly that.
 onFsInvalidation(() => highlightMemo.clear());
-
-/** A plain member name, the only kind of segment that names something a reader can look for. */
-const MEMBER_NAME = /^[A-Za-z_]\w*$/;
-
-/**
- * How far an offset into the stored reference text has to move to land on the same character of the
- * line, or undefined when the two cannot be lined up at all.
- *
- * The stored text is not always the text on the line. An inheritance reference is written without a
- * sigil (`Child : Base`) and stored as `&Base`, so its offsets sit one character ahead. A reference
- * inside a math expression (`RecCrew = (&CrewRequired) + 1`) carries the closing paren in its span,
- * so its span is one character longer than what it stores while the offsets still line up.
- */
-const valueShift = (node: ValueNode, value: string): number | undefined => {
-    const span = node.position.characterEnd - node.position.characterStart;
-    if (value.length === span || value.length === span - 1) return 0;
-    if (value.length === span + 1 && value.startsWith('&')) return 1;
-    return undefined;
-};
-
-/** The document range covering a segment's name, so a long path lights up only the part that matches. */
-const segmentNameRange = (node: ValueNode, span: SegmentSpan): Range => {
-    const { line, characterStart, characterEnd } = node.position;
-    const value = String(node.valueType.value);
-    const wholeValue = Range.create(line, characterStart, line, characterEnd);
-    const shift = valueShift(node, value);
-    if (shift === undefined) return wholeValue;
-    const sigil = span.text.startsWith('&') ? 1 : 0;
-    const start = characterStart + span.start + sigil - shift;
-    const end = characterStart + span.end - shift;
-    // An offset that still lands outside the value falls back to the whole value, which is real text
-    // whatever the reference is written like.
-    return start < characterStart || end > characterEnd || end <= start
-        ? wholeValue
-        : Range.create(line, start, line, end);
-};
 
 /** True when a position falls inside a range, both ends included, as the cursor sits on a character. */
 const rangeCovers = (range: Range, position: Position): boolean =>
@@ -268,38 +238,6 @@ const idHighlights = (document: AbstractNodeDocument, cursor: CrossFileIdCursor)
 };
 
 /**
- * The identity a reference segment resolves to. The last segment is resolved the way
- * go-to-definition resolves the whole reference, so a mod-action target and a prefix fallback answer
- * the same as they do everywhere else, while an inner segment is resolved by navigating the path up
- * to it, which is what lets a mid-path name be highlighted at all.
- *
- * @param document the document the reference lives in.
- * @param reference the reference value node.
- * @param span the segment being resolved.
- * @param cancellationToken cancels the cross-file resolution.
- * @returns the {@link locationKey} of the segment's target, or null when it resolves nowhere or to a file.
- */
-const segmentTargetKey = async (
-    document: AbstractNodeDocument,
-    reference: ValueNode,
-    span: SegmentSpan,
-    cancellationToken: CancellationToken
-): Promise<string | null> => {
-    const value = String(reference.valueType.value);
-    if (span.end === value.length) {
-        const location = await DefinitionService.instance
-            .resolveReferenceLocation(document, reference, cancellationToken)
-            .catch(() => null);
-        return location ? locationKey(location) : null;
-    }
-    const resolved = await navigation
-        .navigate(value.substring(0, span.end), reference, getStartOfAstNode(reference).uri, cancellationToken)
-        .catch(() => null);
-    if (!resolved || isFile(resolved as unknown as FileWithPath)) return null;
-    return locationKey(definitionLocationOf(resolved as AbstractNode));
-};
-
-/**
  * The symbol the cursor names in the generic case: a reference resolves to what its segment points
  * at, a schema `ID<>` sibling value resolves to the component it names, and anything else is its own
  * declaration. A cursor on an inner segment of a path names that segment, not the path's endpoint,
@@ -320,20 +258,13 @@ const resolveHighlightSymbol = async (
     let target: AbstractNode;
     let cursorRange: Range | undefined;
     if (isReferenceValue(cursorNode)) {
-        const value = String(cursorNode.valueType.value);
-        const relative = position.character - cursorNode.position.characterStart + (valueShift(cursorNode, value) ?? 0);
-        const spans = segmentSpans(value);
-        const span = spans.find((candidate) => relative >= candidate.start && relative <= candidate.end) ?? spans.at(-1);
+        const span = segmentSpanAt(cursorNode, position);
         // Only a plain member name names something to look for. A path sigil, a positional index and
         // the `<file.rules>` part of a path are steps on the way, not symbols in their own right.
-        if (!span || !MEMBER_NAME.test(segmentName(span))) return null;
-        const resolved = await (span.end === value.length
-            ? DefinitionService.instance.resolveReferenceTarget(document, cursorNode, cancellationToken).catch(() => null)
-            : navigation
-                  .navigate(value.substring(0, span.end), cursorNode, getStartOfAstNode(cursorNode).uri, cancellationToken)
-                  .catch(() => null));
-        if (!resolved || isFile(resolved as unknown as FileWithPath)) return null;
-        target = resolved as AbstractNode;
+        if (!span || !MEMBER_SEGMENT_NAME.test(segmentName(span))) return null;
+        const resolved = await segmentTargetNode(document, cursorNode, span, cancellationToken);
+        if (!resolved) return null;
+        target = resolved;
         cursorRange = segmentNameRange(cursorNode, span);
     } else {
         target = resolveSchemaSiblingReference(cursorNode) ?? cursorNode;

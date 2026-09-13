@@ -61,7 +61,12 @@ export const languageOf = (document: AbstractNodeDocument): string => {
     for (const [name, value] of namedMembersOf(document)) {
         if (name === '__Name' && isValueNode(value)) return String(value.valueType.value);
     }
-    return normalizeUri(document.uri).split('/').pop()?.replace(/\.rules$/i, '') ?? '';
+    return (
+        normalizeUri(document.uri)
+            .split('/')
+            .pop()
+            ?.replace(/\.rules$/i, '') ?? ''
+    );
 };
 
 /** One path a strings file declares, at the node that spells the path's last segment. */
@@ -265,10 +270,7 @@ export class LocalizationKeyIndex extends WatchedDocumentIndex {
     }
 
     /** Every localization key declared across the project's strings files, as completions. */
-    public async allKeyCompletions(
-        folderPaths: string[],
-        cancellationToken: CancellationToken
-    ): Promise<Completion[]> {
+    public async allKeyCompletions(folderPaths: string[], cancellationToken: CancellationToken): Promise<Completion[]> {
         await this.ensureBuilt(folderPaths, cancellationToken);
 
         const seen = new Set<string>();

@@ -369,8 +369,10 @@ export const readShipBlueprint = async (path: string): Promise<Blueprint | undef
             const id = textOf(element.entries.get('ID'));
             if (!id) continue;
             const location = element.entries.get('Location');
-            const x = location && location.kind === 'data' && location.data.length >= 8 ? location.data.readInt32LE(0) : 0;
-            const y = location && location.kind === 'data' && location.data.length >= 8 ? location.data.readInt32LE(4) : 0;
+            const x =
+                location && location.kind === 'data' && location.data.length >= 8 ? location.data.readInt32LE(0) : 0;
+            const y =
+                location && location.kind === 'data' && location.data.length >= 8 ? location.data.readInt32LE(4) : 0;
             const flip = element.entries.get('FlipX');
             parts.push({
                 id,

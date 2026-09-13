@@ -1,12 +1,5 @@
 import { dirname, resolve } from 'path';
-import {
-    AbstractNode,
-    AbstractNodeDocument,
-    isGroupNode,
-    isListNode,
-    isValueNode,
-    ListNode,
-} from '../../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, isGroupNode, isListNode, isValueNode, ListNode } from '../../core/ast/ast';
 import { isActionFragmentDocument, parseModActions } from '../../mod/action-parser';
 import { ModAction } from '../../mod/action';
 import { namedMembersOf } from '../../utils/ast.utils';
@@ -135,7 +128,8 @@ export const collectManifestActions = async (
                 continue;
             }
             for (const action of actionsInList(list, parsed)) records.push(toRecord(parsed, action));
-            for (const entry of referenceEntriesOf(list)) referenceEntries.push({ file: parsed.file, reference: entry });
+            for (const entry of referenceEntriesOf(list))
+                referenceEntries.push({ file: parsed.file, reference: entry });
             await follow(parsed, list, depth + 1);
         }
     };

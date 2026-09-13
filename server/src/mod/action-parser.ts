@@ -16,6 +16,7 @@ import {
     ActionSource,
     ActionVerb,
     isActionEntryGroup,
+    isActionsList,
     isActionVerb,
     ModAction,
     VERB_SCHEMA,
@@ -30,22 +31,34 @@ export const findActionsList = (document: AbstractNodeDocument): ListNode | unde
     document.elements.find((e): e is ListNode => isListNode(e) && e.identifier?.name.toLowerCase() === 'actions');
 
 /**
- * Whether a document is an included action fragment: it has a top-level `Actions` list holding at
- * least one action entry (a `{}` group with an `Action` field). Such a file (launcher.rules,
- * register.rules) is concatenated into a manifest's `Actions` at load time via
- * `Actions: &<file>/Actions`, so its action targets resolve against the game root exactly like a
- * manifest's and are validated the same way. Callers gate this on the file NOT being a manifest
- * (a manifest is handled through the registrar).
+ * Every top-level list of the document the game reads action entries from: the `Actions` list, plus
+ * any other top-level list whose entries declare `Action = …`. A fragment file names its list after
+ * itself (`ParryList`, `PartOverrides`) and a manifest concatenates it into its own `Actions`, so
+ * the name alone cannot say which list holds actions.
+ *
+ * @param document the parsed document.
+ * @returns the action lists, in declaration order.
  */
-export const isActionFragmentDocument = (document: AbstractNodeDocument): boolean => {
-    const list = findActionsList(document);
-    return !!list && list.elements.some((element) => isGroupNode(element) && isActionEntryGroup(element));
-};
+export const findActionEntryLists = (document: AbstractNodeDocument): ListNode[] =>
+    document.elements.filter((e): e is ListNode => isListNode(e) && isActionsList(e));
 
-/** A file naming a top-level `Actions` list writes the word out. The lexer reads a `\` as
-    whitespace, which ends a token rather than continuing one, so no continuation can split the name
-    across the text, and neither quoting form hides its letters. */
-const ACTIONS_WORD = /actions/i;
+/**
+ * Whether a document is an included action fragment: it has a top-level list holding at least one
+ * action entry (a `{}` group with an `Action` field). Such a file (launcher.rules, register.rules)
+ * is concatenated into a manifest's `Actions` at load time via `Actions: &<file>/Actions`, so its
+ * action targets resolve against the game root exactly like a manifest's and are validated the same
+ * way. Callers gate this on the file NOT being a manifest (a manifest is handled through the
+ * registrar).
+ */
+export const isActionFragmentDocument = (document: AbstractNodeDocument): boolean =>
+    findActionEntryLists(document).some((list) =>
+        list.elements.some((element) => isGroupNode(element) && isActionEntryGroup(element))
+    );
+
+/** An action entry writes its verb out as `Action`, whatever its list is called. The lexer reads a
+    `\` as whitespace, which ends a token rather than continuing one, so no continuation can split
+    the word across the text, and neither quoting form hides its letters. */
+const ACTIONS_WORD = /action/i;
 
 /**
  * Whether a file's raw text leaves it possible that the file carries mod actions, the cheap gate in
@@ -54,10 +67,9 @@ const ACTIONS_WORD = /actions/i;
  *
  * @param uri the file's uri.
  * @param text the file's raw text.
- * @returns false only when the file provably declares no `Actions` list.
+ * @returns false only when the file provably declares no action entry.
  */
-export const textCouldCarryActions = (uri: string, text: string): boolean =>
-    isModRules(uri) || ACTIONS_WORD.test(text);
+export const textCouldCarryActions = (uri: string, text: string): boolean => isModRules(uri) || ACTIONS_WORD.test(text);
 
 /**
  * An action group's field names mapped to their value node (assignment RHS or identified
@@ -137,10 +149,8 @@ const parseAction = (group: GroupNode): ModAction => {
 export const parseActionList = (list: ListNode): Action[] => list.elements.filter(isGroupNode).map(parseAction);
 
 /**
- * Parse the `Actions` list of a `mod.rules` manifest into structured {@link Action}s.
- * Returns `[]` when the document has no `Actions` list.
+ * Parse the action lists of a `mod.rules` manifest or an included fragment into structured
+ * {@link Action}s. Returns `[]` when the document declares no action entry.
  */
-export const parseModActions = (document: AbstractNodeDocument): Action[] => {
-    const actions = findActionsList(document);
-    return actions ? parseActionList(actions) : [];
-};
+export const parseModActions = (document: AbstractNodeDocument): Action[] =>
+    findActionEntryLists(document).flatMap(parseActionList);

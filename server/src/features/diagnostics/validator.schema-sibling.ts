@@ -14,7 +14,12 @@ import {
 import type { ValueType } from '../../document/schema/schema.types';
 import { isModRules } from '../../document/document-kind';
 import { documentRootClass } from '../../document/schema/document-root';
-import { classOfGroup, listSlotType, registryForContainer, resolveGroupClass } from '../../document/schema/schema-context';
+import {
+    classOfGroup,
+    listSlotType,
+    registryForContainer,
+    resolveGroupClass,
+} from '../../document/schema/schema-context';
 import {
     componentKindName,
     componentSatisfiesKind,

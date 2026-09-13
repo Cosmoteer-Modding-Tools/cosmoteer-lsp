@@ -1,12 +1,6 @@
 import * as l10n from '@vscode/l10n';
 import { CancellationToken } from 'vscode-languageserver';
-import {
-    AbstractNode,
-    AbstractNodeDocument,
-    GroupNode,
-    isGroupNode,
-    isListNode,
-} from '../../core/ast/ast';
+import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode } from '../../core/ast/ast';
 import { childNodesOf, memberValueNamed } from '../../utils/ast.utils';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { classAncestry } from '../../document/schema/schema';

@@ -81,7 +81,11 @@ const isInert = (group: GroupNode, condition: InertCondition): boolean => {
 const messageFor = (field: string, condition: InertCondition): string => {
     switch (condition.kind) {
         case 'siblingPresent':
-            return l10n.t("'{0}' has no effect while '{1}' is written here, which the game reads instead.", field, condition.sibling);
+            return l10n.t(
+                "'{0}' has no effect while '{1}' is written here, which the game reads instead.",
+                field,
+                condition.sibling
+            );
         case 'siblingAbsent':
             return l10n.t("'{0}' has no effect unless '{1}' is written in the same group.", field, condition.sibling);
         case 'siblingFalse':

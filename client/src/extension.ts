@@ -38,11 +38,7 @@ import {
 import { BASE_DIFF_SCHEME, BaseDiffContentProvider, showBaseDiff } from './base-diff/base-diff';
 import { DiagramPanel } from './diagram/diagram-panel';
 import { PartTablePanel } from './part-table/table-panel';
-import {
-    SHIP_BLUEPRINT_SCHEME,
-    ShipBlueprintContentProvider,
-    showShipBlueprint,
-} from './ships/ship-blueprint';
+import { SHIP_BLUEPRINT_SCHEME, ShipBlueprintContentProvider, showShipBlueprint } from './ships/ship-blueprint';
 import {
     ADD_SHIP_TO_FACTION_COMMAND,
     addShipToFaction,
@@ -210,7 +206,6 @@ export async function activate(context: ExtensionContext) {
             await showModOverview(client, modOverviewProvider, uri);
         })
     );
-
 
     // Part wiring: a CodeLens above each root `Part` group and a command that render what the part
     // still needs before the game can build it (the lens passes the part's line, the palette uses
@@ -386,9 +381,7 @@ export async function activate(context: ExtensionContext) {
     // the shared-base extraction, the migration and the clone all write into.
     const diffPreviewProvider = new DiffPreviewProvider();
     setPreviewScheme(DIFF_PREVIEW_SCHEME);
-    context.subscriptions.push(
-        workspace.registerTextDocumentContentProvider(DIFF_PREVIEW_SCHEME, diffPreviewProvider)
-    );
+    context.subscriptions.push(workspace.registerTextDocumentContentProvider(DIFF_PREVIEW_SCHEME, diffPreviewProvider));
 
     // Every command that asks the author something before the server writes anything lives in a
     // module of its own, and each registers what it contributes.

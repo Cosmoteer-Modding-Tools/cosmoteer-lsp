@@ -41,6 +41,16 @@ describe('prose where a member name belongs', () => {
         expect(findings('G\n{\n\tFoo "bar"\n}\n')).toHaveLength(1);
     });
 
+    it('flags a spaced name on the left of an assignment', () => {
+        // The game stops on the space whatever follows the name, so `Foo Bar = 1` fails to load
+        // exactly like `Foo Bar {}` does.
+        expect(findings('G\n{\n\tFoo Bar = 1\n}\n')).toHaveLength(1);
+    });
+
+    it('accepts a number naming a list-form index field', () => {
+        expect(errorsMatching('G\n{\n\t0 = 5\n\t1 = 6\n}\n', NUMBER_MESSAGE)).toHaveLength(0);
+    });
+
     it('accepts a void node on its own line', () => {
         expect(findings('G\n{\n\tFoo\n\tBar = 1\n}\n')).toHaveLength(0);
     });
@@ -130,20 +140,26 @@ describe('an inheritance with no body', () => {
 // Only a `{` or a `[` ends an inheritance list in the game, so a head whose body never comes collects
 // references until path validation throws and the file is dropped. That is the shape a group has for
 // as long as it takes to type its opening brace, and it used to take the rest of the file with it.
-describe('a body-less inheritance head stops at the next member', () => {
+describe('a body-less inheritance head is kept and stops at the next member', () => {
     const names = (src: string) =>
         parse(src).value.elements.map((e) => {
             const named = e as { identifier?: { name: string } };
             return named.identifier?.name ?? e.type;
         });
 
-    it('keeps the members written after it at the top level', () => {
-        expect(names('ID = x\nActions : &<f.rules>/Actions\nName = "y"\n')).toHaveLength(2);
+    it('keeps itself and the members written after it at the top level', () => {
+        // The head is a state every such member is typed through, so it stays in the tree with its
+        // bases attached, and the members below it are still read as themselves.
+        expect(names('ID = x\nActions : &<f.rules>/Actions\nName = "y"\n')).toEqual([
+            'Assignment',
+            'Actions',
+            'Assignment',
+        ]);
     });
 
     it('keeps the members written after it inside a group', () => {
         const group = parse('G\n{\n\tChild : Base\n\tX = 1\n\tY = 2\n}\nAfter = 3\n').value.elements[0];
-        expect(isGroupNode(group) && group.elements).toHaveLength(2);
+        expect(isGroupNode(group) && group.elements).toHaveLength(3);
     });
 
     it('keeps the file readable past the group holding it', () => {
@@ -155,7 +171,7 @@ describe('a body-less inheritance head stops at the next member', () => {
     });
 
     it('leaves the next member alone when it is an inheritance head of its own', () => {
-        expect(names('Actions : Base\nOther : Base2\n{\n}\n')).toEqual(['Other']);
+        expect(names('Actions : Base\nOther : Base2\n{\n}\n')).toEqual(['Actions', 'Other']);
     });
 
     // The corpus shapes the stop must not break: the game reads a newline inside an inheritance list

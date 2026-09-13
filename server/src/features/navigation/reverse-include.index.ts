@@ -26,7 +26,12 @@ import { stepIntoNode } from '../../semantics/reference-resolver';
 import { commonAncestorClass } from '../../document/schema/schema';
 import { documentRootClass } from '../../document/schema/document-root';
 import { ValueType } from '../../document/schema/schema.types';
-import { aliasRootIndex, AliasMemberSource, parseAlias, registerAliasFallbackSource } from '../../document/schema/alias-root';
+import {
+    aliasRootIndex,
+    AliasMemberSource,
+    parseAlias,
+    registerAliasFallbackSource,
+} from '../../document/schema/alias-root';
 import { resolveWithModContext } from '../../mod/mod-context';
 import { FileTree, FileWithPath, isFile } from '../../workspace/cosmoteer-workspace.service';
 import { FullNavigationStrategy } from './full.navigation-strategy';
@@ -50,7 +55,10 @@ interface ParsedBase {
 const parseAliasPath = (raw: string): ParsedBase | undefined => {
     const m = /^&?\s*(<[^>]*>)\s*(?:\/\s*(.+))?$/.exec(raw.trim());
     if (!m) return undefined;
-    const segments = (m[2] ?? '').split('/').map((s) => s.trim()).filter(Boolean);
+    const segments = (m[2] ?? '')
+        .split('/')
+        .map((s) => s.trim())
+        .filter(Boolean);
     return { fileRef: m[1], member: segments[0], deep: segments.length > 1 };
 };
 
@@ -128,7 +136,10 @@ const parseAliasBase = (raw: string, node: GroupNode | ListNode): ParsedBase | u
         if (!value || !isValueNode(value) || value.valueType.type !== 'Reference') return undefined;
         const aliased = parseAliasPath(String(value.valueType.value));
         if (!aliased) return undefined;
-        const tail = m[2].split('/').map((s) => s.trim()).filter(Boolean);
+        const tail = m[2]
+            .split('/')
+            .map((s) => s.trim())
+            .filter(Boolean);
         const segments = [...(aliased.member ? [aliased.member] : []), ...tail];
         return { fileRef: aliased.fileRef, member: segments[0], deep: aliased.deep || segments.length > 1 };
     }
@@ -629,7 +640,10 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
      * @param document the including document to index.
      * @param cancellationToken cancels the slow-path navigation used for game-root and overlay includes.
      */
-    protected async indexDocument(document: AbstractNodeDocument, cancellationToken: CancellationToken): Promise<boolean> {
+    protected async indexDocument(
+        document: AbstractNodeDocument,
+        cancellationToken: CancellationToken
+    ): Promise<boolean> {
         const source = normalizeUri(document.uri);
         // Remember the source's real path too: a fragment can itself be the file another read wants
         // to open (the including part behind a reverse-include), and its key is equally lower-cased.
@@ -665,7 +679,11 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
         }
         await this.collectIncludes(document, source, contributed, inherited, state, cancellationToken);
         if (contributed.length) this.bySource.set(source, contributed);
-        if (inherited.length) this.inheritanceBySource.set(source, inherited.map(({ target, member }) => ({ target, member })));
+        if (inherited.length)
+            this.inheritanceBySource.set(
+                source,
+                inherited.map(({ target, member }) => ({ target, member }))
+            );
         if (macros.length) this.macroBySource.set(source, macros);
         if (!this.built && !this.inFixpointPass && state.sawAlias) this.fixpointDocuments?.push(document);
         const signature = [
@@ -739,7 +757,8 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
                     const alias = parseAliasPath(raw);
                     if (alias) state.sawAlias = true;
                     const slot = alias && !alias.deep && memberTypeIn(container, element.left.name);
-                    if (alias && slot) await this.recordInclude(element.right, alias, slot, source, contributed, cancellationToken);
+                    if (alias && slot)
+                        await this.recordInclude(element.right, alias, slot, source, contributed, cancellationToken);
                     if (!alias) {
                         await this.recordMacroUsage(
                             raw,
@@ -761,9 +780,17 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
                 const alias = parseAliasPath(raw);
                 if (alias) state.sawAlias = true;
                 const slot = alias && !alias.deep && listElementType(container);
-                if (alias && slot) await this.recordInclude(element, alias, slot, source, contributed, cancellationToken);
+                if (alias && slot)
+                    await this.recordInclude(element, alias, slot, source, contributed, cancellationToken);
                 if (!alias) {
-                    await this.recordMacroUsage(raw, () => listElementType(container), source, contributed, state, cancellationToken);
+                    await this.recordMacroUsage(
+                        raw,
+                        () => listElementType(container),
+                        source,
+                        contributed,
+                        state,
+                        cancellationToken
+                    );
                 }
                 continue;
             }
@@ -830,7 +857,10 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             const registryHint = !deriverClass && isGroupNode(node) ? registryHintFromContainer(node) : undefined;
             const recorded = deriverClass ?? (registryHint ? `#${registryHint}` : '');
             const resolved = alias
-                ? { target: await this.resolveTarget(base, alias.fileRef, cancellationToken), member: alias.member ?? '' }
+                ? {
+                      target: await this.resolveTarget(base, alias.fileRef, cancellationToken),
+                      member: alias.member ?? '',
+                  }
                 : await this.resolveNavigatedBase(raw, base, cancellationToken);
             if (!resolved?.target) continue;
             const { target, member } = resolved;
@@ -959,7 +989,10 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
      * @param group the deriving group, used to look up a sibling alias and as the origin node.
      * @returns the file ref and the reference node it is written on, or undefined.
      */
-    private wholeFileBaseRef(raw: string, group: GroupNode): { fileRef: string; referenceNode: AbstractNode } | undefined {
+    private wholeFileBaseRef(
+        raw: string,
+        group: GroupNode
+    ): { fileRef: string; referenceNode: AbstractNode } | undefined {
         const direct = parseAlias(raw);
         if (direct) return direct.member ? undefined : { fileRef: direct.fileRef, referenceNode: group };
         // A same-file `&NAME` with no path or member. Follow it to a sibling `NAME = &<file>`.
@@ -1030,7 +1063,10 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
     ): Promise<void> {
         const m = /^&\s*\/\s*([A-Za-z_]\w*)((?:\s*\/\s*[\w.]+)+)\s*$/.exec(raw.trim());
         if (!m) return;
-        const segments = m[2].split('/').map((s) => s.trim()).filter(Boolean);
+        const segments = m[2]
+            .split('/')
+            .map((s) => s.trim())
+            .filter(Boolean);
         const targets = new Map<string, string | undefined>();
         const vanilla = aliasRootIndex.macroAliasTarget(m[1]);
         if (vanilla) targets.set(vanilla, aliasRootIndex.macroAliasFsPath(m[1]));
@@ -1054,7 +1090,8 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             return;
         }
         for (const [target, fsPath] of targets) {
-            if (fsPath) await this.recordMacroLeaf(target, fsPath, segments, slot, source, contributed, cancellationToken);
+            if (fsPath)
+                await this.recordMacroLeaf(target, fsPath, segments, slot, source, contributed, cancellationToken);
         }
     }
 
@@ -1098,7 +1135,8 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             if (!alias || alias.member) return;
             const resolved = await this.resolveTargetFile(node, alias.fileRef, cancellationToken);
             if (!resolved) return;
-            const members = this.byTarget.get(resolved.key) ?? this.byTarget.set(resolved.key, new Map()).get(resolved.key)!;
+            const members =
+                this.byTarget.get(resolved.key) ?? this.byTarget.set(resolved.key, new Map()).get(resolved.key)!;
             const sources = members.get('') ?? members.set('', new Map()).get('')!;
             sources.set(source, slot);
             contributed.push({ target: resolved.key, member: '', slot: JSON.stringify(slot) });
@@ -1287,7 +1325,9 @@ export class ReverseIncludeIndex extends WatchedDocumentIndex implements AliasMe
             return this.recordTargetPath(normalizeUri(cheapPath), cheapPath);
         }
 
-        const resolved = await navigation.navigate(fileRef, referenceNode, sourceUri, cancellationToken).catch(() => null);
+        const resolved = await navigation
+            .navigate(fileRef, referenceNode, sourceUri, cancellationToken)
+            .catch(() => null);
         if (!resolved) return undefined;
         if (isFile(resolved as unknown as FileTree)) {
             const path = (resolved as FileWithPath).path;

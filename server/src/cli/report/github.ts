@@ -31,8 +31,7 @@ export const escapeMessage = (text: string): string =>
  * @param text the text to escape.
  * @returns the escaped text.
  */
-export const escapeProperty = (text: string): string =>
-    escapeMessage(text).replace(/:/g, '%3A').replace(/,/g, '%2C');
+export const escapeProperty = (text: string): string => escapeMessage(text).replace(/:/g, '%3A').replace(/,/g, '%2C');
 
 /**
  * One annotation line.

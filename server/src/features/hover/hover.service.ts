@@ -101,7 +101,9 @@ export class HoverService {
                 const described = describeTarget(sibling);
                 if (described) lines.push(`→ ${described}`);
             } else {
-                const idLocation = await resolveSchemaIdReference(node, folderPaths, cancellationToken).catch(() => null);
+                const idLocation = await resolveSchemaIdReference(node, folderPaths, cancellationToken).catch(
+                    () => null
+                );
                 if (idLocation) lines.push(`→ defined in \`${idLocation.uri.split('/').pop()}\``);
             }
         }
@@ -161,11 +163,7 @@ export class HoverService {
  * Markdown for an asset value: its kind, whether it resolves on disk, the path, and for a
  * sprite an inline preview of the image (rendered by clients that support images in hovers).
  */
-const describeAsset = async (
-    node: ValueNode,
-    uri: string,
-    cancellationToken: CancellationToken
-): Promise<string> => {
+const describeAsset = async (node: ValueNode, uri: string, cancellationToken: CancellationToken): Promise<string> => {
     const kind = node.valueType.type;
     const value = String(node.valueType.value);
     const path = await resolveAssetPath(node, uri, cancellationToken).catch(() => null);

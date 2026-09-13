@@ -1,4 +1,11 @@
-import { CancellationToken, CodeAction, CodeActionKind, Position, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
+import {
+    CancellationToken,
+    CodeAction,
+    CodeActionKind,
+    Position,
+    TextEdit,
+    WorkspaceEdit,
+} from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
     AbstractNode,

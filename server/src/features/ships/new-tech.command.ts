@@ -6,10 +6,7 @@ import { identityOfMod, ModIdentity } from '../../mod/mod-dependencies';
 import { isUnder } from '../../utils/relative-path';
 import { lineEndingOf } from '../refactor/command-host';
 import { rulesFilesUnder } from '../refactor/new-content/content-id';
-import {
-    gameRootListTarget,
-    manifestForRegistration,
-} from '../refactor/new-content/registration.emitter';
+import { gameRootListTarget, manifestForRegistration } from '../refactor/new-content/registration.emitter';
 import {
     memberOf,
     memberTextOf,

@@ -403,11 +403,7 @@ const planFor = (
  * @param baseDir the directory the base file will live in.
  * @returns the rewritten reference, or undefined when it is not a form that can be moved.
  */
-export const rebaseInheritance = (
-    reference: string,
-    declaringDir: string,
-    baseDir: string
-): string | undefined => {
+export const rebaseInheritance = (reference: string, declaringDir: string, baseDir: string): string | undefined => {
     const match = /^\s*&?\s*<([^<>]+)>(.*)$/.exec(reference);
     if (!match) return undefined;
     const path = match[1].trim();
@@ -426,7 +422,10 @@ export const rebaseInheritance = (
  * @param options the anchor directory and the thresholds.
  * @returns the plans, largest saving first.
  */
-export const buildExtractionPlans = (files: readonly AnalysisFile[], options: AnalysisOptions = {}): ExtractionPlan[] => {
+export const buildExtractionPlans = (
+    files: readonly AnalysisFile[],
+    options: AnalysisOptions = {}
+): ExtractionPlan[] => {
     const anchorDir = options.anchorDir ?? '';
     const minFields = options.minFields ?? MIN_FIELDS;
     const candidates = files.flatMap((file) => candidatesInFile(file, anchorDir, minFields));

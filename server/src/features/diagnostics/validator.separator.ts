@@ -148,11 +148,7 @@ export const validateUnbracketedValueList = (tokens: Token[]): ValidationError[]
         const type = tokens[i].type;
         const boundary = MEMBER_BOUNDARIES.has(type);
         const enclosing = openers[openers.length - 1];
-        if (
-            type === TOKEN_TYPES.LEFT_BRACE ||
-            type === TOKEN_TYPES.LEFT_BRACKET ||
-            type === TOKEN_TYPES.LEFT_PAREN
-        ) {
+        if (type === TOKEN_TYPES.LEFT_BRACE || type === TOKEN_TYPES.LEFT_BRACKET || type === TOKEN_TYPES.LEFT_PAREN) {
             openers.push(type);
         } else if (
             type === TOKEN_TYPES.RIGHT_BRACE ||

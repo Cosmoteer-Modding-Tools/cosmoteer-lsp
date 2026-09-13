@@ -3,11 +3,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isAssignmentNode, isGroupNode, isValueNode } from '../../core/ast/ast';
 import { childNodesOf } from '../../utils/ast.utils';
 import { resolveGroupClass } from '../../document/schema/schema-context';
-import {
-    MishandledEffect,
-    MishandledFieldRule,
-    MISHANDLED_FIELD_RULES,
-} from '../../document/schema/mishandled-fields';
+import { MishandledEffect, MishandledFieldRule, MISHANDLED_FIELD_RULES } from '../../document/schema/mishandled-fields';
 import { ValidationError, ValidationErrorData } from './validator';
 
 /** The list field the inverted shorthand was meant to reach. */

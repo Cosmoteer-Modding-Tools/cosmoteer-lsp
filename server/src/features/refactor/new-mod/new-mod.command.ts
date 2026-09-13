@@ -138,7 +138,7 @@ const quoted = (raw: string): string => `"${raw.replace(/\\/g, '\\\\').replace(/
 const manifestText = (id: string, name: string, author: string, versions: string): string => {
     const lines = [
         '// The id the game matches this mod by. It has to carry a dot, and the part in front of it',
-        '// is yours rather than the mod\'s, so two mods of your own never collide.',
+        "// is yours rather than the mod's, so two mods of your own never collide.",
         `ID = ${id}`,
         '',
         '// What the game shows this mod as.',
@@ -186,7 +186,7 @@ const manifestText = (id: string, name: string, author: string, versions: string
 const stringsText = (name: string): string =>
     [
         `// The English names and descriptions ${name} adds.`,
-        '// A key written here overrides the game\'s own of the same name, and the',
+        "// A key written here overrides the game's own of the same name, and the",
         '// Cosmoteer: New Content File command adds the keys of everything it creates.',
         '',
     ].join('\n');

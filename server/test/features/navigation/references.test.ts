@@ -117,6 +117,26 @@ describe('ReferenceIndex: find-all-references', () => {
         expect(() => Array.from(referenceNodesOf(doc))).not.toThrow();
     });
 
+    // a.rules writes `B` once as the endpoint (`RefToB`) and three times mid-path (`…/B/InnerValue`,
+    // `…/B/ToC`, `…/B/Nested/Deep/Leaf`). Comparing whole references only ever found the endpoint.
+    it('finds the mid-path uses of a name, not only the references that end on it', async () => {
+        const refs = await index.findReferences(bDoc, positionOf(groupBIdentifier(bDoc).position), false, FOLDERS, token);
+        const sites = refs.filter((r) => r.uri.endsWith('a.rules'));
+        expect(sites.length).toBe(4);
+        // Each site is the one-character `B` segment rather than the whole path it sits in.
+        expect(sites.every((r) => r.range.end.character - r.range.start.character === 1)).toBe(true);
+    });
+
+    // `AliasedFile = &<./Data/b.rules>` names a whole file, which is no symbol, so the key is the
+    // one. Following the reference used to answer a file and the search returned nothing at all.
+    it('finds the uses of a key whose value is a whole-file reference', async () => {
+        const aliasDoc = await parseFilePath(workspaceFile('repeated-refs.rules'));
+        const alias = [...walkAst(aliasDoc)].find((n) => isAssignmentNode(n) && n.left.name === 'AliasedFile')!;
+        if (!isAssignmentNode(alias)) throw new Error('expected assignment node');
+        const refs = await index.findReferences(aliasDoc, positionOf(alias.left.position), false, FOLDERS, token);
+        expect(refs.some((r) => r.uri.endsWith('repeated-refs.rules'))).toBe(true);
+    });
+
     it('returns [] when the cursor is on nothing referenceable', async () => {
         const refs = await index.findReferences(bDoc, { line: 99, character: 0 }, true, FOLDERS, token);
         expect(refs).toEqual([]);

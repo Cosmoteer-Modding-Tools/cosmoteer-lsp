@@ -20,7 +20,10 @@ const rhsOf = (doc: AbstractNodeDocument, name: string): AbstractNode => {
 };
 
 // Cosmoteer math is mXparser-compatible: trig in radians, `ln` natural, `log(a,b)` base a,
-// `round(x,n)` to n decimals, variadic aggregates, and the `pi`/`e` constants.
+// `round(x,n)` to n decimals, and the `pi`/`e` constants. Every expectation here was taken from the
+// game itself, by running the same text through HalflingCore's ExpressionEvaluator (a throwaway C#
+// oracle referencing the game's Bin folder), which is why a call with a comma is written in quotes
+// and why `pow` and `Sqrt` are expected to evaluate to nothing.
 describe('mXparser-compatible functions and constants', () => {
     let doc: AbstractNodeDocument;
     beforeAll(async () => {
@@ -36,23 +39,33 @@ describe('mXparser-compatible functions and constants', () => {
      */
     const eval_ = (name: string) => evaluateNumericValue(rhsOf(doc, name), token);
 
-    it('evaluates trig (radians), exp and natural log', async () => {
+    it('evaluates trig (radians), exp, natural log and sign', async () => {
         expect(await eval_('Sine')).toBe(0); // sin(0)
         expect(await eval_('Cosine')).toBe(1); // cos(0)
         expect(await eval_('NatLog')).toBe(0); // ln(1)
         expect(await eval_('Exp0')).toBe(1); // exp(0)
-        expect(await eval_('Atan2')).toBe(0); // atan2(0,1)
+        expect(await eval_('Sgn')).toBe(-1); // sgn(-5)
     });
 
-    it('evaluates binary functions: pow, log(base, x), round(x, n)', async () => {
-        expect(await eval_('Pow')).toBe(1024); // pow(2,10)
-        expect(await eval_('LogBase')).toBe(3); // log(2,8) = log2(8)
-        expect(await eval_('RoundDec')).toBe(3.14); // round(3.14159, 2)
+    it('evaluates a quoted call, which is how a comma is written', async () => {
+        expect(await eval_('LogBase')).toBe(3); // "log(2, 8)" = log2(8)
+        expect(await eval_('RoundDec')).toBe(3.14); // "round(3.14159, 2)"
+        expect(await eval_('MinOf')).toBe(1); // "min(3, 1, 2)"
     });
 
-    it('evaluates variadic aggregates: sum, avg', async () => {
-        expect(await eval_('Sum')).toBe(10); // sum(1,2,3,4)
-        expect(await eval_('Avg')).toBe(4); // avg(2,4,6)
+    it('rounds halves away from zero, like the decimal round the game uses', async () => {
+        expect(await eval_('RoundHalf')).toBe(-3); // "round(-2.5, 0)", not -2
+    });
+
+    it('computes in decimal, so an expression the game cannot fit an int shows the drift', async () => {
+        expect(await eval_('DecimalDrift')).toBe(9.99999999999999);
+        expect(await eval_('FloorDrift')).toBe(9);
+    });
+
+    it('leaves names the game has no function for unevaluated', async () => {
+        // mXparser has no `pow`, and it is case-sensitive, so both are load errors rather than math.
+        expect(await eval_('NotAFunction')).toBeNull();
+        expect(await eval_('WrongCase')).toBeNull();
     });
 
     it('resolves the pi and e constants', async () => {

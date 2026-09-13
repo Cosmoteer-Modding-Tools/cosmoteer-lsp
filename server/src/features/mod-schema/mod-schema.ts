@@ -221,7 +221,10 @@ const cachePath = (dataRoot: string): string => cacheArtifactPath(dataRoot, 'mod
  * @param stamps the assemblies discovered now.
  * @returns the cached extension, or undefined when there is no usable cache.
  */
-const loadCache = async (dataRoot: string, stamps: readonly AssemblyStamp[]): Promise<ModSchemaExtension | undefined> => {
+const loadCache = async (
+    dataRoot: string,
+    stamps: readonly AssemblyStamp[]
+): Promise<ModSchemaExtension | undefined> => {
     try {
         const cache = JSON.parse(await readFile(cachePath(dataRoot), 'utf8')) as ModSchemaCache;
         if (cache.version !== CACHE_FORMAT_VERSION) return undefined;
@@ -283,7 +286,15 @@ export const buildModSchema = async (
     const assemblyPaths = stamps.map((stamp) => stamp.path);
     if (stamps.length === 0) {
         extendSchemaWithMods(undefined);
-        return { assemblies: 0, types: 0, discriminators: 0, fromCache: false, unreadable: [], documented: 0, assemblyPaths };
+        return {
+            assemblies: 0,
+            types: 0,
+            discriminators: 0,
+            fromCache: false,
+            unreadable: [],
+            documented: 0,
+            assemblyPaths,
+        };
     }
     const cached = options.force ? undefined : await loadCache(dataRoot, stamps);
     if (cached) {
@@ -292,7 +303,15 @@ export const buildModSchema = async (
     }
     const { extension, unreadable, read, documented } = await extractFrom(stamps, cancellationToken);
     if (cancellationToken.isCancellationRequested) {
-        return { assemblies: 0, types: 0, discriminators: 0, fromCache: false, unreadable: [], documented: 0, assemblyPaths };
+        return {
+            assemblies: 0,
+            types: 0,
+            discriminators: 0,
+            fromCache: false,
+            unreadable: [],
+            documented: 0,
+            assemblyPaths,
+        };
     }
     extendSchemaWithMods(extension);
     await saveCache(dataRoot, stamps, extension);

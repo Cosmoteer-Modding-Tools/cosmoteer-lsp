@@ -52,10 +52,7 @@ export interface LintOptions {
 
 /** What reading the command line produced. */
 type ParsedArguments =
-    | { kind: 'run'; options: LintOptions }
-    | { kind: 'help' }
-    | { kind: 'version' }
-    | { kind: 'error'; message: string };
+    { kind: 'run'; options: LintOptions } | { kind: 'help' } | { kind: 'version' } | { kind: 'error'; message: string };
 
 const FORMATS: readonly OutputFormat[] = ['text', 'json', 'sarif', 'github'];
 const SCOPES: readonly ValidationScope[] = ['allFiles', 'modRulesReachable'];
@@ -229,7 +226,10 @@ export const parseArguments = (argv: readonly string[]): ParsedArguments => {
 
     if (folders.length === 0) folders.push(resolve('.'));
     if (gamePath !== undefined && !useGame) {
-        return { kind: 'error', message: 'A game path was given together with --no-game, which contradict each other.' };
+        return {
+            kind: 'error',
+            message: 'A game path was given together with --no-game, which contradict each other.',
+        };
     }
     if (only && exclude.size > 0) {
         return { kind: 'error', message: '--rule and --no-rule cannot both be used in one run.' };

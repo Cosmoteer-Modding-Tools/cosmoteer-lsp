@@ -61,13 +61,15 @@ export const saveAndTidy = async (
     // a tab can be closed. A tab's input is one of several shapes (a plain editor, a two-way diff, a
     // multi-file diff), each naming its uris under different properties, so they are read by shape
     // rather than by type: a tab qualifies when every file uri it shows is one we may close.
-    const tabs = window.tabGroups.all.flatMap((group) => group.tabs).filter((tab) => {
-        const uris = urisOf(tab.input);
-        if (uris.length === 0) return false;
-        return uris.every(
-            (uri) => uri.scheme === previewScheme || (uri.scheme === 'file' && closable.has(key(uri.fsPath)))
-        );
-    });
+    const tabs = window.tabGroups.all
+        .flatMap((group) => group.tabs)
+        .filter((tab) => {
+            const uris = urisOf(tab.input);
+            if (uris.length === 0) return false;
+            return uris.every(
+                (uri) => uri.scheme === previewScheme || (uri.scheme === 'file' && closable.has(key(uri.fsPath)))
+            );
+        });
     if (tabs.length > 0) {
         await window.tabGroups.close(tabs, false);
         cleanup.closed = tabs.length;

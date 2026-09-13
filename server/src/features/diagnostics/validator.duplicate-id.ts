@@ -20,6 +20,7 @@ import { ActionRootingIndex } from '../../mod/action-rooting.index';
 import { ModReachability, reachabilityKey, reachabilityMemo, relativeToMod } from '../../mod/mod-reachability';
 import { findModRoot } from '../../mod/mod-root';
 import { isStringsFile } from '../../mod/strings-folder';
+import { CosmoteerWorkspaceService } from '../../workspace/cosmoteer-workspace.service';
 import { documentsMentioning, uriToFsPath } from '../navigation/workspace-files';
 import { ValidationError } from './validator';
 import * as l10n from '@vscode/l10n';
@@ -70,6 +71,27 @@ function* partDeclarationOf(document: AbstractNodeDocument): Generator<ModIdDecl
 }
 
 /**
+ * The collection a list joins when its own name does not say so, read from the slot a manifest
+ * action wires it into. A fragment names its list whatever it likes (`ManyToAdd = &<x>/MyFactions`),
+ * and the action's target slot is what decides which collection its entries end up in.
+ *
+ * @param list the named list to type.
+ * @returns a single ENTITY_FIELDS-shaped candidate, or undefined when the slot says nothing.
+ */
+const registeredListEntity = (list: AbstractNode): Array<{ elementClass: string; identityKey: string }> | undefined => {
+    if (!isListNode(list)) return undefined;
+    const slot = ActionRootingIndex.instance.nodeSlotType(list);
+    if (slot?.kind !== 'list') return undefined;
+    const element = slot.element;
+    if (element.kind !== 'group') return undefined;
+    const candidates = [...ENTITY_FIELDS.values()].flat().filter((candidate) => candidate.elementClass === element.ref);
+    // Several field names can reach one class with different identity keys. Only an unambiguous
+    // identity key says which member of an element is its id.
+    const keys = new Set(candidates.map((candidate) => candidate.identityKey.toLowerCase()));
+    return keys.size === 1 ? [{ elementClass: element.ref, identityKey: candidates[0].identityKey }] : undefined;
+};
+
+/**
  * The ids a `Factions [ { ID } ]` kind of list declares, restricted to field names ENTITY_FIELDS
  * gives exactly one candidate class. A name that reaches two classes (`Ships` and `Techs` do, the
  * career and build-battle collections) says nothing about which collection an element joins, and
@@ -77,7 +99,7 @@ function* partDeclarationOf(document: AbstractNodeDocument): Generator<ModIdDecl
  */
 function* listDeclarationsIn(node: AbstractNode): Generator<ModIdDeclaration> {
     if (isListNode(node) && node.identifier) {
-        const candidates = ENTITY_FIELDS.get(node.identifier.name.toLowerCase());
+        const candidates = ENTITY_FIELDS.get(node.identifier.name.toLowerCase()) ?? registeredListEntity(node);
         if (candidates?.length === 1) {
             const { elementClass, identityKey } = candidates[0];
             for (const element of node.elements) {
@@ -228,11 +250,16 @@ const peerFilesDeclaring = async (
     if (cached) return cached.filter((peer) => realKey(peer) !== ownKey);
     const declaring: string[] = [];
     for await (const candidate of documentsMentioning(folderPaths, declaration.id, cancellationToken)) {
-        // The mention walk also yields every open buffer and the game tree, and a nested sub-mod is
-        // a mod of its own, so the peer must root to the very same manifest folder.
-        if (findModRoot(candidate.uri) !== modRoot) continue;
+        // A nested sub-mod is a mod of its own, so a peer inside a mod must root to the very same
+        // manifest folder. A peer outside every mod is the game's own tree, whose entry the mod's
+        // registration collides with just as hard: the game loads that tree whole, so it needs no
+        // reachability check of its own.
+        const peerRoot = findModRoot(candidate.uri);
         const fsPath = uriToFsPath(candidate.uri);
-        if (!reachability.reachable.has(reachabilityKey(fsPath))) continue;
+        if (peerRoot !== null) {
+            if (peerRoot !== modRoot) continue;
+            if (!reachability.reachable.has(reachabilityKey(fsPath))) continue;
+        }
         // A language file holds localization text. A rules-shaped copy in one is dead content the
         // game reads as strings, never a second entry in a collection.
         if (await isStringsFile(candidate.uri, cancellationToken)) continue;
@@ -240,7 +267,10 @@ const peerFilesDeclaring = async (
             // The engine interns ids ignoring case, so `SW.Armor` and `SW.armor` take the same slot
             // in the collection and the second one really does drop the first.
             if (peer.cls !== declaration.cls || !sameId(peer.id, declaration.id)) continue;
-            if (!isRegistered(candidate.uri, peer.member)) continue;
+            // A mod file only counts once something roots it into a collection. The game's own
+            // tree is loaded whole, and the rooting indexes speak for mods rather than for it, so
+            // a vanilla declaration of the same shape is taken at face value.
+            if (peerRoot !== null && !isRegistered(candidate.uri, peer.member)) continue;
             declaring.push(fsPath);
             break;
         }
@@ -251,8 +281,28 @@ const peerFilesDeclaring = async (
 };
 
 /**
- * Flags an id two files of one mod both register for the same collection, which the game resolves
- * by keeping one entry and dropping the other, so half the content silently never appears.
+ * How a colliding file is named in the message: relative to the mod for the mod's own files, and
+ * relative to the game's `Data` root for a vanilla one, so the two cases read as what they are
+ * rather than as a path climbing out of the mod.
+ *
+ * @param modRoot the validated file's mod root.
+ * @param peer the colliding file's absolute path.
+ * @returns the display path.
+ */
+const peerName = (modRoot: string, peer: string): string => {
+    const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
+    const normalized = peer.replace(/\\/g, '/');
+    if (dataRoot) {
+        const prefix = `${dataRoot.replace(/\\/g, '/').replace(/\/+$/, '')}/`;
+        if (normalized.toLowerCase().startsWith(prefix.toLowerCase())) return normalized.slice(prefix.length);
+    }
+    return relativeToMod(modRoot, peer);
+};
+
+/**
+ * Flags an id two files both register for the same collection, whether the second one is another
+ * file of the mod or the game's own tree. The game builds each collection in a dictionary keyed by
+ * id and throws on the second entry, so the mod does not load at all.
  *
  * Every gate is there to keep the check silent where a second writer is legitimate: the vocabulary
  * shapes are outside the harvest, a name that could mean two collections is skipped, a file the mod
@@ -288,22 +338,15 @@ export const validateDuplicateModIds = async (
     for (const declaration of declarations) {
         if (cancellationToken.isCancellationRequested) return errors;
         if (!isRegistered(document.uri, declaration.member)) continue;
-        const peers = await peerFilesDeclaring(
-            declaration,
-            ownKey,
-            modRoot,
-            closure,
-            folderPaths,
-            cancellationToken
-        );
+        const peers = await peerFilesDeclaring(declaration, ownKey, modRoot, closure, folderPaths, cancellationToken);
         if (peers.length === 0) continue;
         const targetName = typeDef(declaration.cls)?.name ?? declaration.cls.split('.').pop()!;
         errors.push({
             message: l10n.t(
-                "The {0} id '{1}' is registered here and in {2}. The game keeps one of them and drops the rest.",
+                "The {0} id '{1}' is registered here and in {2}. The game throws on the second registration, so nothing loads.",
                 targetName,
                 declaration.id,
-                peers.map((peer) => relativeToMod(modRoot, peer)).join(', ')
+                peers.map((peer) => peerName(modRoot, peer)).join(', ')
             ),
             node: declaration.node,
             severity: 'warning',

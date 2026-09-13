@@ -154,7 +154,11 @@ export const buildInsertSchemaFieldEdit = async (
 
     // Same rules the required-field quick fix follows, with an empty stop for a kind it may not
     // invent a value for, which leaves the caret's own line inside the scaffold.
-    const snippet = fieldSnippet(entry.field.name, entry.field.valueType, placeholderValue(entry.field.valueType) ?? '');
+    const snippet = fieldSnippet(
+        entry.field.name,
+        entry.field.valueType,
+        placeholderValue(entry.field.valueType) ?? ''
+    );
     const lineEnding = text.includes('\r\n') ? '\r\n' : '\n';
     const body = snippet
         .split('\n')

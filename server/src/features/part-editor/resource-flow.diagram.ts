@@ -12,7 +12,12 @@ import {
 import { classAncestry } from '../../document/schema/schema';
 import { resolveGroupClass } from '../../document/schema/schema-context';
 import { evaluateNumericValue } from '../../semantics/value-evaluator';
-import { ComponentReference, PartComponent, componentReferenceOf, componentsOfPart } from '../../semantics/part-components';
+import {
+    ComponentReference,
+    PartComponent,
+    componentReferenceOf,
+    componentsOfPart,
+} from '../../semantics/part-components';
 import { getStartOfAstNode } from '../../utils/ast.utils';
 import { memberOrInherited } from '../../semantics/effective-member';
 import { BUFF_PROXY_CLASS, proxyTargetsOf } from '../../semantics/part-components';
@@ -412,7 +417,8 @@ const numberMember = (group: GroupNode, field: string): AbstractNode | undefined
 const conversionEntries = (group: GroupNode, side: 'From' | 'To'): ConversionEntry[] => {
     const entries: ConversionEntry[] = [];
     for (const element of group.elements) {
-        const list = isListNode(element) && element.identifier?.name.toLowerCase() === side.toLowerCase() ? element : null;
+        const list =
+            isListNode(element) && element.identifier?.name.toLowerCase() === side.toLowerCase() ? element : null;
         if (!list) continue;
         for (const entry of list.elements) {
             if (!isGroupNode(entry)) continue;
@@ -474,8 +480,7 @@ const numberText = (value: number): string => String(Math.round(value * 1000) / 
  * @param part the part group.
  * @returns the display name.
  */
-const partNameOf = (part: GroupNode): string =>
-    memberText(part, 'ID') ?? part.identifier?.name ?? l10n.t('this part');
+const partNameOf = (part: GroupNode): string => memberText(part, 'ID') ?? part.identifier?.name ?? l10n.t('this part');
 
 /**
  * Builds the drawn resource wiring of the part at an offset.
@@ -589,7 +594,6 @@ export const buildResourceFlowDiagram = async (
         byName.set(key, { component, id: `c:${key}`, role, resource });
     }
 
-
     /**
      * What a component does, in one sentence with its own numbers in it. This is the line that makes
      * the picture readable without the schema open beside it, so it says the behavior rather than
@@ -638,7 +642,10 @@ export const buildResourceFlowDiagram = async (
                 const scale = await numberOf(numberMember(group, 'QuantityScale'));
                 return scale === null || scale === 1
                     ? l10n.t('stands in for another storage, holding nothing itself')
-                    : l10n.t('stands in for another storage, counting {0} for each of its resources', numberText(scale));
+                    : l10n.t(
+                          'stands in for another storage, counting {0} for each of its resources',
+                          numberText(scale)
+                      );
             }
             case 'flex-grid':
                 // A cargo hold names no resource: it takes whatever stacks, and the crew both fill
@@ -655,9 +662,7 @@ export const buildResourceFlowDiagram = async (
                 const when = trigger ? l10n.t('each time {0} fires', trigger) : l10n.t('each time it is triggered');
                 if (amount === null) return l10n.t('changes {0} {1}', target ?? l10n.t('a storage'), when);
                 const moved = movementLabel(Math.abs(amount), target, '');
-                return amount < 0
-                    ? l10n.t('takes {0} out {1}', moved, when)
-                    : l10n.t('puts {0} in {1}', moved, when);
+                return amount < 0 ? l10n.t('takes {0} out {1}', moved, when) : l10n.t('puts {0} in {1}', moved, when);
             }
             case 'drain-sink': {
                 const absorbs = await numberOf(numberMember(group, 'AbsorbsResourceDrain'));
@@ -921,7 +926,10 @@ export const buildResourceFlowDiagram = async (
             for (const element of group.elements) {
                 // Found by the class the schema types the group as, the same way the sibling check
                 // finds it, rather than by the member name each of them would otherwise repeat.
-                if (!isGroupNode(element) || !classAncestry(resolveGroupClass(element) ?? '').includes(BUFF_PROXY_CLASS)) {
+                if (
+                    !isGroupNode(element) ||
+                    !classAncestry(resolveGroupClass(element) ?? '').includes(BUFF_PROXY_CLASS)
+                ) {
                     continue;
                 }
                 const incoming = memberValues(element, INCOMING_BUFFS_MEMBER).length > 0;
@@ -968,9 +976,7 @@ export const buildResourceFlowDiagram = async (
         ),
     ];
     if (unresolved > 0) {
-        notes.push(
-            l10n.t('{0} of the names written here match no component of this part.', String(unresolved))
-        );
+        notes.push(l10n.t('{0} of the names written here match no component of this part.', String(unresolved)));
     }
     if (switched > 0) {
         notes.push(
@@ -990,7 +996,9 @@ export const buildResourceFlowDiagram = async (
     }
     if (edges.some((edge) => edge.kind === 'warning')) {
         notes.push(
-            l10n.t('A red arrow runs between two components holding different resources, which is only marked where both of them resolved.')
+            l10n.t(
+                'A red arrow runs between two components holding different resources, which is only marked where both of them resolved.'
+            )
         );
     }
 

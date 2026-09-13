@@ -93,6 +93,7 @@ All settings live under the `cosmoteerLSPRules.` prefix.
 | `diagnostics.validateBulletComponents` | on | Report a bullet with two physics components, with none, or with a hit written above its physics component |
 | `diagnostics.validateRefusedEnumValues` | on | Report an enum value the field type allows and the class reading it refuses, such as a fixed weapon auto-targeting anything but ship parts. The value popup leaves such a member out either way |
 | `diagnostics.validateValueRanges` | on | Report a range written the wrong way round where its consumer rolls or compares rather than interpolates |
+| `diagnostics.validateDivisionByZero` | on | Report a numeric value that divides by zero, which the game reads as NaN and a whole-number field refuses while it loads |
 | `diagnostics.validateBlendSpriteCodes` | on | Report a blend sprite situation code carrying a character the expander cannot read, or one whose length its slot does not allow |
 | `diagnostics.validateMishandledFields` | on | Report a field the game reads and then acts on wrongly, such as an `ExcludeID` the engine adds to the list of parts a criteria matches |
 | `diagnostics.validateUnderlyingParts` | on | Report a part naming itself as the part it leaves behind when destroyed, which the engine walks with no guard against a loop |

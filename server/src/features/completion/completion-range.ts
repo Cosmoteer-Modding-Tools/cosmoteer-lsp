@@ -62,6 +62,7 @@ export const withReplaceRange = (completions: Completion[], range: Range, suffix
         suggestion.range = range;
         // A snippet writes its own delimiters and tab stops, so a raw suffix would land after the
         // final stop and unbalance it.
-        if (suffix && !suggestion.isSnippet) suggestion.insertText = (suggestion.insertText ?? suggestion.label) + suffix;
+        if (suffix && !suggestion.isSnippet)
+            suggestion.insertText = (suggestion.insertText ?? suggestion.label) + suffix;
         return suggestion;
     });

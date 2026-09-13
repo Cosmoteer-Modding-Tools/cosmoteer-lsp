@@ -151,7 +151,12 @@ export async function createNewTech(context: ExtensionContext, client: LanguageC
     });
     if (!form) return;
 
-    const result = await applyForWizard<NewTechApplyResult>(client, NEW_TECH_SERVER_COMMAND, { uri, ...form }, techFailureMessage);
+    const result = await applyForWizard<NewTechApplyResult>(
+        client,
+        NEW_TECH_SERVER_COMMAND,
+        { uri, ...form },
+        techFailureMessage
+    );
     if (!result) return;
     const notes = [
         l10n.t(

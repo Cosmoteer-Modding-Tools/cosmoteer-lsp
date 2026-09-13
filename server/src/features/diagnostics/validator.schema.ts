@@ -161,7 +161,11 @@ export const validateSchema = async (
     // superseded by a richer one. Both deserialize fine (the schema carries the old alias and the old
     // member), so no other check ever surfaces them and the deprecations registry is the only source.
     // Hint severity: the game reads the value, this is a modernization nudge, not a load problem.
-    const checkFieldDeprecations = (container: { elements: AbstractNode[] }, cls: string, element: AssignmentNode): void => {
+    const checkFieldDeprecations = (
+        container: { elements: AbstractNode[] },
+        cls: string,
+        element: AssignmentNode
+    ): void => {
         const written = element.left.name;
         let rename: ReturnType<typeof renamedFieldAlias>;
         let obsolete: ReturnType<typeof obsoleteField>;
@@ -199,7 +203,10 @@ export const validateSchema = async (
                               apply: 'quickFix',
                               symbol: migrationSymbolOf('renamedAlias', written),
                           },
-                          quickFix: { title: l10n.t("Change to '{0}'", rename.replacement), newText: rename.replacement },
+                          quickFix: {
+                              title: l10n.t("Change to '{0}'", rename.replacement),
+                              newText: rename.replacement,
+                          },
                       },
             });
             return;
@@ -365,11 +372,7 @@ export const validateSchema = async (
     const flagNonNumber = (value: ValueNode, written: string): void => {
         if (value.quoted || value.parenthesized) return;
         const word = written.toLowerCase();
-        if (
-            !BARE_WORD.test(written) ||
-            NUMERIC_LITERAL_WORDS.has(word) ||
-            ALL_MATH_FUNCTION_NAMES.has(word)
-        ) {
+        if (!BARE_WORD.test(written) || NUMERIC_LITERAL_WORDS.has(word) || ALL_MATH_FUNCTION_NAMES.has(word)) {
             return;
         }
         errors.push({
@@ -747,8 +750,7 @@ export const validateSchema = async (
                 flagForm(l10n.t('list'));
             }
         } else if (isGroupNode(value) && !value.inheritance?.length) {
-            const groupFormless =
-                (vt.kind === 'int' || vt.kind === 'float' || vt.kind === 'number') && !vt.groupForm;
+            const groupFormless = (vt.kind === 'int' || vt.kind === 'float' || vt.kind === 'number') && !vt.groupForm;
             if (TEXTUAL_KINDS.has(vt.kind) || groupFormless) flagForm(l10n.t('group'));
         } else if (isValueNode(value)) {
             // A literal scalar in a group/map slot (`Offset = 5`), which only the custom-serialized

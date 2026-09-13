@@ -2,7 +2,14 @@ import { existsSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { relative } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, isGroupNode, isListNode, isValueNode, ValueNode } from '../../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+    ValueNode,
+} from '../../core/ast/ast';
 import { identityOfMod, ModIdentity } from '../../mod/mod-dependencies';
 import { namedMembersOf } from '../../utils/ast.utils';
 import { filePathToUri } from '../navigation/navigation-strategy';
@@ -127,7 +134,9 @@ const applyFailed = (id: string, failure: NewNebulaFailure): NewNebulaApplyResul
  */
 const colorOf = (value: unknown): NebulaColor | undefined => {
     if (!Array.isArray(value) || value.length !== 3) return undefined;
-    const channels = value.map((channel) => (Number.isInteger(channel) && channel >= 0 && channel <= 255 ? (channel as number) : undefined));
+    const channels = value.map((channel) =>
+        Number.isInteger(channel) && channel >= 0 && channel <= 255 ? (channel as number) : undefined
+    );
     if (channels.some((channel) => channel === undefined)) return undefined;
     return channels as NebulaColor;
 };
@@ -192,7 +201,9 @@ const basesOf = async (dataRoot: string): Promise<(NebulaBase & { file: string }
         const id = isValueNode(idNode) ? String(idNode.valueType.value).trim() : '';
         if (!NEBULA_ID.test(id)) continue;
         const material = memberOf(read.document, MATERIAL_LOW_MEMBER);
-        const colors = COLOR_FIELDS.map((field) => (material ? materialColorOf(material, field) : undefined) ?? FALLBACK_COLOR) as NebulaColors;
+        const colors = COLOR_FIELDS.map(
+            (field) => (material ? materialColorOf(material, field) : undefined) ?? FALLBACK_COLOR
+        ) as NebulaColors;
         bases.push({ id, colors, file });
     }
     return bases;
@@ -211,11 +222,7 @@ const coloredMembersOf = (document: AbstractNodeDocument): string[] => {
     for (const [name, node] of namedMembersOf(document)) {
         if (!isGroupNode(node)) continue;
         const bases = (node.inheritance ?? []).map((base) =>
-            String(base.valueType.value)
-                .trim()
-                .replace(/^&\s*/, '')
-                .replace(/^~\//, '')
-                .toLowerCase()
+            String(base.valueType.value).trim().replace(/^&\s*/, '').replace(/^~\//, '').toLowerCase()
         );
         groups.set(name.toLowerCase(), { node, bases });
     }
@@ -273,7 +280,8 @@ const nebulaFilesOf = (modRoot: string, id: string): NebulaFiles => {
  * @param file a file under it.
  * @returns the reference, without the reading sigil.
  */
-const installReference = (dataRoot: string, file: string): string => `<./Data/${relative(dataRoot, file).replace(/\\/g, '/')}>`;
+const installReference = (dataRoot: string, file: string): string =>
+    `<./Data/${relative(dataRoot, file).replace(/\\/g, '/')}>`;
 
 /**
  * The nebula file: the base inherited whole, with the id, the texts and every coloured material
@@ -298,8 +306,8 @@ const nebulaFileText = (
 ): string => {
     const colorLines = COLOR_FIELDS.map((field, index) => `${field} = [${colors[index].join(', ')}, 255];`).join(' ');
     return [
-        '// The nebula, built on one of the game\'s own: everything not named here (the textures, the',
-        '// shaders, how ships see through it) is the base\'s. Override more of its fields here as the',
+        "// The nebula, built on one of the game's own: everything not named here (the textures, the",
+        "// shaders, how ships see through it) is the base's. Override more of its fields here as the",
         '// look needs, and the materials below carry the three colours it is drawn in.',
         `Nebula : ${baseReference}`,
         '{',
@@ -333,7 +341,7 @@ interface SpawnerFigures {
 const spawnerFileText = (id: string, figures: SpawnerFigures, lineEnding: LineEnding): string =>
     [
         '// How the career mode places the nebula: how many a system gets, how far from its centre and',
-        '// how wide each is. The starting system is kept clear of it the way the game\'s own storms are.',
+        "// how wide each is. The starting system is kept clear of it the way the game's own storms are.",
         SPAWNER_LIST,
         '[',
         '\t{',
@@ -363,7 +371,7 @@ const spawnerFileText = (id: string, figures: SpawnerFigures, lineEnding: LineEn
  */
 const doodadFileText = (doodadId: string, id: string, label: string, lineEnding: LineEnding): string =>
     [
-        '// The creative palette entry that places the nebula by hand. The icon is the game\'s own until',
+        "// The creative palette entry that places the nebula by hand. The icon is the game's own until",
         '// you draw one: put a PNG beside this file and name it here.',
         `ID = ${doodadId}`,
         'Type = Nebula',
@@ -393,10 +401,16 @@ const doodadFileText = (doodadId: string, id: string, label: string, lineEnding:
  * @param dataRoot the game's `Data` directory.
  * @returns the target, or undefined when neither names a registry.
  */
-const registryTarget = (rootDocument: AbstractNodeDocument, rootFsPath: string, dataRoot: string): string | undefined => {
+const registryTarget = (
+    rootDocument: AbstractNodeDocument,
+    rootFsPath: string,
+    dataRoot: string
+): string | undefined => {
     const file = gameRootListTarget(rootDocument, rootFsPath, dataRoot, NEBULAS_MEMBER);
     if (file) return `${file.replace(/>.*$/, '>')}/${REGISTRY_LIST}`;
-    return existsSync(`${dataRoot.replace(/\\/g, '/')}/${REGISTRY_FILE}`) ? `<${REGISTRY_FILE}>/${REGISTRY_LIST}` : undefined;
+    return existsSync(`${dataRoot.replace(/\\/g, '/')}/${REGISTRY_FILE}`)
+        ? `<${REGISTRY_FILE}>/${REGISTRY_LIST}`
+        : undefined;
 };
 
 /** One manifest action to write, keyed by the wiring it reports as. */
@@ -410,9 +424,15 @@ type Wiring = ManifestWiring<keyof NewNebulaApplyResult['wiring']>;
  * @param cancellationToken cancels the lookup.
  * @returns the ids.
  */
-const takenIdsOf = async (bases: readonly NebulaBase[], host: NewContentHost, cancellationToken: CancellationToken): Promise<Set<string>> => {
+const takenIdsOf = async (
+    bases: readonly NebulaBase[],
+    host: NewContentHost,
+    cancellationToken: CancellationToken
+): Promise<Set<string>> => {
     const taken = new Set(bases.map((base) => base.id.toLowerCase()));
-    const declared = await host.existingIds?.(NEBULA_CLASS, cancellationToken).catch((): ReadonlySet<string> => new Set());
+    const declared = await host
+        .existingIds?.(NEBULA_CLASS, cancellationToken)
+        .catch((): ReadonlySet<string> => new Set());
     for (const id of declared ?? []) taken.add(id.toLowerCase());
     return taken;
 };
@@ -449,15 +469,22 @@ const applyRound = async (
     const base = bases.find((candidate) => candidate.id.toLowerCase() === wantedBase) ?? bases[0];
     const baseFile = await readRulesFile(base.file);
     if (!baseFile) return applyFailed(id, 'noGameRoot');
-    const colors = (Array.isArray(args.colors) && args.colors.length === 3
-        ? args.colors.map((color, index) => colorOf(color) ?? base.colors[index])
-        : base.colors) as NebulaColors;
+    const colors = (
+        Array.isArray(args.colors) && args.colors.length === 3
+            ? args.colors.map((color, index) => colorOf(color) ?? base.colors[index])
+            : base.colors
+    ) as NebulaColors;
     const figures: SpawnerFigures = {
-        radius: Number.isFinite(args.radius) && (args.radius as number) > 0 ? Math.round(args.radius as number) : DEFAULT_RADIUS,
+        radius:
+            Number.isFinite(args.radius) && (args.radius as number) > 0
+                ? Math.round(args.radius as number)
+                : DEFAULT_RADIUS,
         count: rangeOf(args.count, DEFAULT_COUNT),
         distance: rangeOf(args.distance, DEFAULT_DISTANCE),
         spawnChance:
-            Number.isFinite(args.spawnChance) && (args.spawnChance as number) >= 0 && (args.spawnChance as number) <= 100
+            Number.isFinite(args.spawnChance) &&
+            (args.spawnChance as number) >= 0 &&
+            (args.spawnChance as number) <= 100
                 ? Math.round(args.spawnChance as number)
                 : DEFAULT_SPAWN_CHANCE,
         avoidStartingSector: args.avoidStartingSector !== false,
@@ -479,11 +506,21 @@ const applyRound = async (
         await mkdir(files.folder, { recursive: true });
         await writeFile(
             files.nebula,
-            nebulaFileText(id, label, installReference(dataRoot, base.file), coloredMembersOf(baseFile.document), colors, lineEnding),
+            nebulaFileText(
+                id,
+                label,
+                installReference(dataRoot, base.file),
+                coloredMembersOf(baseFile.document),
+                colors,
+                lineEnding
+            ),
             { encoding: 'utf-8', flag: 'wx' }
         );
         await writeFile(files.spawner, spawnerFileText(id, figures, lineEnding), { encoding: 'utf-8', flag: 'wx' });
-        await writeFile(files.doodad, doodadFileText(doodadId, id, label, lineEnding), { encoding: 'utf-8', flag: 'wx' });
+        await writeFile(files.doodad, doodadFileText(doodadId, id, label, lineEnding), {
+            encoding: 'utf-8',
+            flag: 'wx',
+        });
         created.push(files.nebula, files.spawner, files.doodad);
     } catch {
         return applyFailed(id, 'writeFailed');
@@ -514,7 +551,8 @@ const applyRound = async (
     } else if (choice.kind === 'manifest') {
         manifestPath = choice.fsPath;
         const manifestDir = dirOf(choice.fsPath);
-        const reference = (file: string, member?: string): string => `&${relativeRulesReference(manifestDir, file, member)}`;
+        const reference = (file: string, member?: string): string =>
+            `&${relativeRulesReference(manifestDir, file, member)}`;
         const spawnerExists = existsSync(`${dataRoot.replace(/\\/g, '/')}/${SPAWNER_FILE}`);
         const wirings: Wiring[] = [
             {
@@ -574,7 +612,8 @@ export const newNebula = async (
 ): Promise<NewNebulaResult> => {
     const scanning = args.id === undefined;
     const located = modRootFor(args.uri, host.dataRoot());
-    if ('failure' in located) return scanning ? scanFailed(located.failure) : applyFailed(args.id ?? '', located.failure);
+    if ('failure' in located)
+        return scanning ? scanFailed(located.failure) : applyFailed(args.id ?? '', located.failure);
     if (scanning) {
         const identity = await identityOfMod(located.modRoot).catch((): ModIdentity => ({ root: located.modRoot }));
         const dataRoot = host.dataRoot();

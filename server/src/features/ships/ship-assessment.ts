@@ -1,6 +1,13 @@
 import { PartStats, PartStatsIndex } from '../part-table/part-table.types';
 import { CareerBalance, estimatedTier } from './career-balance';
-import { ShipAssessment, ShipDifficulty, ShipRole, ShipSignals, ShipStrength, ShipValue } from './ship-assessment.types';
+import {
+    ShipAssessment,
+    ShipDifficulty,
+    ShipRole,
+    ShipSignals,
+    ShipStrength,
+    ShipValue,
+} from './ship-assessment.types';
 import { Blueprint } from './ship-blueprint';
 
 /**
@@ -57,14 +64,14 @@ const ARMOR_CATEGORY = 'armor';
  * its tier, and the last entry stands for every tier past the table.
  */
 const TYPICAL_WEAPON_SHARE: readonly number[] = [
-    0.067, 0.108, 0.158, 0.178, 0.213, 0.25, 0.221, 0.235, 0.246, 0.26, 0.227, 0.219, 0.249, 0.239, 0.235, 0.237,
-    0.233, 0.279,
+    0.067, 0.108, 0.158, 0.178, 0.213, 0.25, 0.221, 0.235, 0.246, 0.26, 0.227, 0.219, 0.249, 0.239, 0.235, 0.237, 0.233,
+    0.279,
 ];
 
 /** The same for armor. */
 const TYPICAL_ARMOR_SHARE: readonly number[] = [
-    0.02, 0.037, 0.044, 0.056, 0.047, 0.059, 0.075, 0.066, 0.07, 0.075, 0.065, 0.092, 0.087, 0.093, 0.095, 0.109,
-    0.116, 0.118,
+    0.02, 0.037, 0.044, 0.056, 0.047, 0.059, 0.075, 0.066, 0.07, 0.075, 0.065, 0.092, 0.087, 0.093, 0.095, 0.109, 0.116,
+    0.118,
 ];
 
 /** How much of the strength score the weapons decide, the armor deciding the rest. */

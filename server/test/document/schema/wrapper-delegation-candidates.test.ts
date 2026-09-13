@@ -92,6 +92,19 @@ describe('wrapper-delegation class candidates', () => {
         expect(memberTypeIn(wrapperHeavy, 'NextTracks')?.kind).toBe('list');
     });
 
+    // A track written as a top-level group of a cluster fragment has no slot at all, so nothing names
+    // the wrapper. Every class a wrapper carries has exactly one, so the companion is still knowable,
+    // and without it 55 vanilla music members read as unrecognised.
+    it('yields the wrapper as companion for a group with no slot', () => {
+        const src = ['Track1', '{', '\tType = Layers', '\tLayers', '\t[', '\t]', '\tNextTracks', '\t[', '\t]', '}', ''].join('\n');
+        const doc = parse(src);
+        const track = doc.elements.find((e) => isGroupNode(e) && e.identifier?.name === 'Track1') as GroupNode;
+        expect(resolveGroupClass(track)).toBe(MEMBER);
+        expect(groupClassCandidates(track)).toEqual([MEMBER, WRAPPER]);
+        expect(memberTypeIn(track, 'NextTracks')?.kind).toBe('list');
+        expect(memberTypeIn(track, 'MaxConsecutivePlays')).toBeDefined();
+    });
+
     it('offers the fields of both sides in completion, deduped', async () => {
         const offset = MEMBER_HEAVY.indexOf('Loop = true');
         const labels = labelsOf(await schemaFieldNameCompletions(parse(MEMBER_HEAVY), offset, token));

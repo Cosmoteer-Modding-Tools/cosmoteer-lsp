@@ -405,6 +405,15 @@ export const RULES: readonly LintRule[] = [
         needsGameData: false,
     },
     {
+        id: 'validateColorValues',
+        title: 'Colour values',
+        description:
+            'A colour written as one word that names no colour the engine knows. Its reader looks the word up in a fixed table and answers a miss with an exception that takes the whole data tree down, so the game does not start.',
+        defaultLevel: 'warning',
+        setting: 'validateColorValues',
+        needsGameData: false,
+    },
+    {
         id: 'validateTextMarkup',
         title: 'Text markup',
         description:
@@ -420,6 +429,15 @@ export const RULES: readonly LintRule[] = [
             'A range written the wrong way round where its consumer cares, such as one the game rolls a whole number out of, which throws on a high end below its low one.',
         defaultLevel: 'error',
         setting: 'validateValueRanges',
+        needsGameData: false,
+    },
+    {
+        id: 'validateDivisionByZero',
+        title: 'Division by zero',
+        description:
+            'A numeric value that divides by zero, which the game reads as NaN. A fractional field keeps it as its value, and a whole-number field refuses it with an overflow while loading the file.',
+        defaultLevel: 'error',
+        setting: 'validateDivisionByZero',
         needsGameData: false,
     },
     {

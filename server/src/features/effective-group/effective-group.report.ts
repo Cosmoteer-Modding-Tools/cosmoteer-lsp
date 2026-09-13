@@ -57,7 +57,8 @@ export const pathOf = (node: AbstractNode): string => {
     const segments: string[] = [];
     for (let current: AbstractNode | undefined = node; current; current = current.parent) {
         if (isDocumentNode(current)) break;
-        if ((isGroupNode(current) || isListNode(current)) && current.identifier) segments.unshift(current.identifier.name);
+        if ((isGroupNode(current) || isListNode(current)) && current.identifier)
+            segments.unshift(current.identifier.name);
     }
     return segments.length > 0 ? segments.join('/') : basenameOf(getStartOfAstNode(node).uri);
 };
@@ -129,9 +130,7 @@ const memberRow = (member: EffectiveMemberEntry): string => {
           ? l10n.t('inherited from {0}', originLink(member.origin))
           : l10n.t('written here, {0}', originLink(member.origin));
     const shadowed =
-        member.shadows.length > 0
-            ? ` · ${l10n.t('shadows {0}', member.shadows.map(originLink).join(', '))}`
-            : '';
+        member.shadows.length > 0 ? ` · ${l10n.t('shadows {0}', member.shadows.map(originLink).join(', '))}` : '';
     return `| ${cell(code(member.name))} | ${cell(valueText(member.value))} | ${where}${shadowed} |`;
 };
 
@@ -228,10 +227,7 @@ export const generateEffectiveGroupReport = async (
     if (flattened.bases.length === 0) {
         lines.push(l10n.t('This group inherits nothing, so what it writes is all the game reads.'));
     } else {
-        lines.push(
-            `**${l10n.t('Chain')}** · ` +
-                flattened.bases.map((base) => originLink(base)).join(' → ')
-        );
+        lines.push(`**${l10n.t('Chain')}** · ` + flattened.bases.map((base) => originLink(base)).join(' → '));
     }
 
     if (!flattened.complete) {
@@ -295,8 +291,7 @@ export const generateEffectiveGroupReport = async (
 };
 
 /** One line of the incomplete-chain warning. */
-const unreadableBaseLine = (base: UnreadableBase): string =>
-    `${code(base.reference)}: ${unreadableText(base.reason)}`;
+const unreadableBaseLine = (base: UnreadableBase): string => `${code(base.reference)}: ${unreadableText(base.reason)}`;
 
 /**
  * The nearest enclosing group of a list, so a caret inside `[ … ]` reports on the group holding it.

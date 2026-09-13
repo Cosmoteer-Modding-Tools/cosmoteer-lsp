@@ -64,6 +64,21 @@ describe('validateDuplicateModIds', () => {
     it('says nothing about a rules-shaped file inside the strings folder', async () => {
         expect(await findingsFor('strings/en.rules')).toEqual([]);
     });
+
+    // The game's own entry is as real a second registration as another mod file's, and the
+    // dictionary the collection is built in throws on it either way.
+    it('reports an id the mod registers that the game already registers', async () => {
+        const found = await findingsFor('registered_vanilla_clash.rules');
+        expect(found).toHaveLength(1);
+        expect(found[0].message).toContain('test.vanilla.block');
+        expect(found[0].message).toContain('partship.rules');
+    });
+
+    it('says the game refuses to load rather than that it keeps one of them', async () => {
+        const [found] = await findingsFor('registered_a.rules');
+        expect(found.message).toContain('throws');
+        expect(found.message).not.toContain('keeps one');
+    });
 });
 
 // A mod may ship several manifests and let the game pick the one whose CompatibleGameVersions fits,

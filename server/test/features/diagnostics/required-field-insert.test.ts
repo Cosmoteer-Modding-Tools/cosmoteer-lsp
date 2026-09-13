@@ -18,18 +18,59 @@ describe('requiredFieldInsertText', () => {
 
     it('opens a new line and matches the indentation of the members already there', () => {
         const insert = insertFor(SOURCE, FIELDS);
-        expect(requiredFieldInsertText(SOURCE, insert, [FIELDS[0]])).toBe('\n\tForce = 0');
+        expect(requiredFieldInsertText(SOURCE, insert, [FIELDS[0]])?.newText).toBe('\n\tForce = 0');
     });
 
     it('writes several fields as several lines', () => {
         const insert = insertFor(SOURCE, FIELDS);
-        expect(requiredFieldInsertText(SOURCE, insert, FIELDS)).toBe('\n\tForce = 0\n\tMass = 0');
+        expect(requiredFieldInsertText(SOURCE, insert, FIELDS)?.newText).toBe('\n\tForce = 0\n\tMass = 0');
     });
 
     it('keeps the line ending the file already uses', () => {
         const crlf = 'Part\r\n{\r\n\tType = Thruster\r\n}\r\n';
         const insert = { ...insertFor(crlf, FIELDS), offset: crlf.indexOf('Thruster') + 'Thruster'.length };
-        expect(requiredFieldInsertText(crlf, insert, [FIELDS[0]])).toBe('\r\n\tForce = 0');
+        expect(requiredFieldInsertText(crlf, insert, [FIELDS[0]])?.newText).toBe('\r\n\tForce = 0');
+    });
+
+    it('writes the scaffold after the separator the last member carries', () => {
+        const text = 'Part\n{\n\tType = Thruster ;\n}\n';
+        const offset = text.indexOf('Thruster') + 'Thruster'.length;
+        const insert = { offset, groupEnd: text.indexOf('}') + 1, fields: FIELDS, fieldIndex: 0 };
+        const written = requiredFieldInsertText(text, insert, [FIELDS[0]])!;
+        expect(text.slice(0, written.offset) + written.newText).toBe('Part\n{\n\tType = Thruster ;\n\tForce = 0');
+    });
+
+    it('writes the scaffold after a trailing block comment', () => {
+        const text = 'Part\n{\n\tType = Thruster /* the only kind */\n}\n';
+        const offset = text.indexOf('Thruster') + 'Thruster'.length;
+        const insert = { offset, groupEnd: text.indexOf('}') + 1, fields: FIELDS, fieldIndex: 0 };
+        const written = requiredFieldInsertText(text, insert, [FIELDS[0]])!;
+        expect(written.offset).toBe(text.indexOf('*/') + '*/'.length);
+    });
+
+    it('writes the scaffold after a trailing line comment', () => {
+        const text = 'Part\n{\n\tType = Thruster // the only kind\n}\n';
+        const offset = text.indexOf('Thruster') + 'Thruster'.length;
+        const insert = { offset, groupEnd: text.indexOf('}') + 1, fields: FIELDS, fieldIndex: 0 };
+        const written = requiredFieldInsertText(text, insert, [FIELDS[0]])!;
+        expect(written.offset).toBe(text.indexOf('kind') + 'kind'.length);
+    });
+
+    it('keeps a one-line group on its line and separates the members', () => {
+        const text = 'Part { Type = Thruster }\n';
+        const offset = text.indexOf('Thruster') + 'Thruster'.length;
+        const insert = { offset, groupEnd: text.indexOf('}') + 1, fields: FIELDS, fieldIndex: 0 };
+        const written = requiredFieldInsertText(text, insert, FIELDS)!;
+        expect(text.slice(0, written.offset) + written.newText + text.slice(written.offset)).toBe(
+            'Part { Type = Thruster, Force = 0, Mass = 0 }\n'
+        );
+    });
+
+    it('writes a space-indented group with its own indentation', () => {
+        const text = 'Part\n{\n    Type = Thruster\n}\n';
+        const offset = text.indexOf('Thruster') + 'Thruster'.length;
+        const insert = { offset, groupEnd: text.indexOf('}') + 1, fields: FIELDS, fieldIndex: 0 };
+        expect(requiredFieldInsertText(text, insert, [FIELDS[0]])?.newText).toBe('\n    Force = 0');
     });
 
     it('refuses when the group no longer closes where the payload says', () => {

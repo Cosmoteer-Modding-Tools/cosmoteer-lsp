@@ -61,7 +61,8 @@ export const bucketOrderHover = async (
         );
         if (index < 0) continue;
         const below = index > 0 ? String(list.entries[index - 1].valueType.value).trim() : undefined;
-        const above = index + 1 < list.entries.length ? String(list.entries[index + 1].valueType.value).trim() : undefined;
+        const above =
+            index + 1 < list.entries.length ? String(list.entries[index + 1].valueType.value).trim() : undefined;
         const place = l10n.t(
             '**{0}** in `{1}`, #{2} of {3}',
             name,

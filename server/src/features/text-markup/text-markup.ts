@@ -205,7 +205,13 @@ const CUSTOM_TAGS: readonly TagSpec[] = [
         detail: 'A fame amount in the cannot-afford colour.',
         attributes: [],
     },
-    { name: 'limited_color', caseSensitive: true, wrapsText: true, detail: 'The limited-stock colour.', attributes: [] },
+    {
+        name: 'limited_color',
+        caseSensitive: true,
+        wrapsText: true,
+        detail: 'The limited-stock colour.',
+        attributes: [],
+    },
     { name: 'player', caseSensitive: true, wrapsText: true, detail: 'The local player colour.', attributes: [] },
     { name: 'enemy', caseSensitive: true, wrapsText: true, detail: 'The enemy colour.', attributes: [] },
     { name: 'ally', caseSensitive: true, wrapsText: true, detail: 'The ally colour.', attributes: [] },
@@ -247,9 +253,12 @@ const SIZE_TAG = /^s([0-9]+)$/i;
 export const MARKUP_TAGS: readonly TagSpec[] = [
     ...BUILTIN_TAGS,
     ...CUSTOM_TAGS,
-    ...[...NAMED_COLORS.keys()].map(
-        (name): TagSpec => ({ name, wrapsText: true, detail: 'The colour ' + name.toLowerCase() + '.', attributes: [] })
-    ),
+    ...[...NAMED_COLORS.keys()].map((name): TagSpec => ({
+        name,
+        wrapsText: true,
+        detail: 'The colour ' + name.toLowerCase() + '.',
+        attributes: [],
+    })),
 ];
 
 /**
@@ -264,7 +273,12 @@ export const tagSpecOf = (name: string): TagSpec | undefined => {
     if (builtin) return builtin;
     for (const [colorName] of NAMED_COLORS) {
         if (colorName.toLowerCase() === lowered) {
-            return { name: colorName, wrapsText: true, detail: 'The colour ' + colorName.toLowerCase() + '.', attributes: [] };
+            return {
+                name: colorName,
+                wrapsText: true,
+                detail: 'The colour ' + colorName.toLowerCase() + '.',
+                attributes: [],
+            };
         }
     }
     if (SIZE_TAG.test(name)) {
@@ -517,7 +531,11 @@ export const scanMarkup = (written: string): MarkupScan => {
         if (tag.closing) {
             const expected = open.pop();
             if (expected === undefined) {
-                return { hasMarkup: true, tags, fault: { kind: 'stray', detail: tag.name, start: tag.start, end: tag.end } };
+                return {
+                    hasMarkup: true,
+                    tags,
+                    fault: { kind: 'stray', detail: tag.name, start: tag.start, end: tag.end },
+                };
             }
             // XML matches an end tag against its start tag by ordinal comparison, so a case that
             // differs is a mismatch even where the element name itself is matched case-insensitively.
@@ -535,7 +553,11 @@ export const scanMarkup = (written: string): MarkupScan => {
     }
     if (open.length > 0) {
         const last = open[open.length - 1];
-        return { hasMarkup: true, tags, fault: { kind: 'unclosed', detail: last.name, start: last.start, end: last.end } };
+        return {
+            hasMarkup: true,
+            tags,
+            fault: { kind: 'unclosed', detail: last.name, start: last.start, end: last.end },
+        };
     }
     return { hasMarkup: true, tags };
 };
@@ -567,13 +589,17 @@ export const isIntegerValue = (value: string): boolean => /^[+-]?\d+$/.test(valu
 /** Whether a written value is one `IntColor.FromHex` reads: six or eight hex digits, no leading hash. */
 export const isHexColorValue = (value: string): boolean => /^[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(value);
 
+/** The colour table keyed the way `Color.NamedColors` is keyed, which is case-insensitively. */
+const NAMED_COLORS_LOWERCASE: ReadonlyMap<string, readonly [number, number, number, number]> = new Map(
+    [...NAMED_COLORS].map(([name, channels]) => [name.toLowerCase(), channels])
+);
+
+/** The shape every colour name has, which rules out a whole translated sentence before it is copied. */
+const COLOR_NAME_SHAPED = /^\s*[A-Za-z]{1,32}\s*$/;
+
 /** The named colour a value names, matched case-insensitively as `Color.NamedColors` is keyed. */
-export const namedColorOf = (value: string): readonly [number, number, number, number] | undefined => {
-    for (const [name, channels] of NAMED_COLORS) {
-        if (name.toLowerCase() === value.trim().toLowerCase()) return channels;
-    }
-    return undefined;
-};
+export const namedColorOf = (value: string): readonly [number, number, number, number] | undefined =>
+    COLOR_NAME_SHAPED.test(value) ? NAMED_COLORS_LOWERCASE.get(value.trim().toLowerCase()) : undefined;
 
 /**
  * The colour a `<color>` or `<background>` tag sets, read the way `TextBuilder.ParseColor` reads it:
@@ -710,7 +736,13 @@ export const tagIssues = (tag: MarkupTag): MarkupIssue[] => {
     }
     const issues: MarkupIssue[] = [];
     if (spec.unusable) {
-        issues.push({ kind: 'unusableTag', name: spec.name, reason: spec.unusable, start: tag.nameStart, end: tag.nameEnd });
+        issues.push({
+            kind: 'unusableTag',
+            name: spec.name,
+            reason: spec.unusable,
+            start: tag.nameStart,
+            end: tag.nameEnd,
+        });
     }
     for (const attribute of spec.attributes) {
         if (!attribute.required) continue;

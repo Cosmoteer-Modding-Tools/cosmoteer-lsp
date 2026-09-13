@@ -24,15 +24,26 @@ const NEW_GALAXY_SIZE_SERVER_COMMAND = 'cosmoteer.newGalaxySize';
  * @param client the language client the command runs through.
  * @param anchor the uri the mod is found from, absent to find it from the editor.
  */
-export async function createNewGalaxySize(context: ExtensionContext, client: LanguageClient, anchor?: string): Promise<void> {
+export async function createNewGalaxySize(
+    context: ExtensionContext,
+    client: LanguageClient,
+    anchor?: string
+): Promise<void> {
     const uri = wizardAnchor(anchor);
     if (!uri) return;
-    const scan = await scanForWizard<NewGalaxySizeScanResult>(client, NEW_GALAXY_SIZE_SERVER_COMMAND, uri, creationFailureMessage);
+    const scan = await scanForWizard<NewGalaxySizeScanResult>(
+        client,
+        NEW_GALAXY_SIZE_SERVER_COMMAND,
+        uri,
+        creationFailureMessage
+    );
     if (!scan) return;
     const modName = scan.modRoot.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? scan.modRoot;
     const form = await showWizardForm<GalaxySizeForm>(context, {
         title: l10n.t('New Galaxy Size'),
-        lead: l10n.t("Name it and say how many systems it holds. The game's standard generator is cloned with that count, and the size is offered when a new career or creative game begins."),
+        lead: l10n.t(
+            "Name it and say how many systems it holds. The game's standard generator is cloned with that count, and the size is offered when a new career or creative game begins."
+        ),
         fieldsHtml: `
 <div class="row">
 <div class="field">
@@ -88,7 +99,12 @@ export async function createNewGalaxySize(context: ExtensionContext, client: Lan
     });
     if (!form) return;
 
-    const result = await applyForWizard<NewGalaxySizeApplyResult>(client, NEW_GALAXY_SIZE_SERVER_COMMAND, { uri, ...form }, creationFailureMessage);
+    const result = await applyForWizard<NewGalaxySizeApplyResult>(
+        client,
+        NEW_GALAXY_SIZE_SERVER_COMMAND,
+        { uri, ...form },
+        creationFailureMessage
+    );
     if (!result) return;
     const notes = [l10n.t('Cosmoteer: created the galaxy size {0}, offered when a new game begins.', result.id)];
     notes.push(...wiringNotes(result.wiring, result.manifests));

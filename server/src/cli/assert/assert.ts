@@ -148,7 +148,9 @@ const assertMod = async (folder: string, input: AssertInput, checked: Set<string
             findingsByFile,
             parseErrorsByFile,
             disclosures,
-            selectionNote: choice.undecided ? 'one of several manifests, chosen by the running game version' : undefined,
+            selectionNote: choice.undecided
+                ? 'one of several manifests, chosen by the running game version'
+                : undefined,
         });
         assertions.push(judged.assertion);
         for (const file of judged.includedFiles) included.add(pathKey(file));
@@ -257,7 +259,11 @@ const assertManifest = async (
 
     const actions: ActionVerdict[] = [];
     for (const record of collection.records) {
-        const judged = judgeAction(record, await findingsInside(record, scope.findingsByFile, scope.cache), scope.context);
+        const judged = judgeAction(
+            record,
+            await findingsInside(record, scope.findingsByFile, scope.cache),
+            scope.context
+        );
         actions.push(judged.verdict);
         scope.disclosures.push(...judged.disclosures);
     }

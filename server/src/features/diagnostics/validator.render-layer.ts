@@ -150,10 +150,7 @@ export const validateRenderLayers = async (
                           shipNames,
                           layer
                       )
-                    : l10n.t(
-                          "No ship declares the render layer '{0}', so the game throws when it draws this.",
-                          layer
-                      ),
+                    : l10n.t("No ship declares the render layer '{0}', so the game throws when it draws this.", layer),
             severity: 'warning',
         });
     }

@@ -14,6 +14,9 @@ set -e
 cd "$(dirname "$0")/.."
 
 node esbuild.mjs
-npx tsc -b
+# Called by path rather than as `tsc`: the repo also carries TypeScript 7 under the `tsgo` alias for
+# `check-types:fast`, and both packages declare the same `tsc` binary, so which one `node_modules/.bin`
+# holds is decided by whichever npm linked last. This build must be the 6.x compiler.
+node node_modules/typescript/bin/tsc -b
 
 node ./out/client/test/runTest

@@ -163,7 +163,7 @@ How much damage the part can endure before being destroyed.
 ## HealthType
 `enum HealthType` · required · one of: `Operational`, `Structural`
 
-The part's health category. See the HealthTypes reference.
+The part's health category, which decides whether damage, statuses and penetrating hits treat the part as machinery or as bare hull. `base_part.rules` inherits `Operational`, and in vanilla only the five structure pieces override it to `Structural`. Armor is operational despite sitting on the outside, so a bullet's structural hit and penetration rules never apply to it.
 
 ## ConstructionWork
 `float` · optional

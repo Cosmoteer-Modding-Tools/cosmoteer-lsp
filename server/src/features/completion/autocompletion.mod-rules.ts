@@ -12,7 +12,15 @@ import {
 } from '../../core/ast/ast';
 import { getStartOfAstNode, namedMembersOf } from '../../utils/ast.utils';
 import { isModRules } from '../../document/document-kind';
-import { ACTION_VERBS, ActionVerb, FLAG_FIELDS, isActionVerb, isTargetField, TARGET_FIELDS, VERB_SCHEMA } from '../../mod/action';
+import {
+    ACTION_VERBS,
+    ActionVerb,
+    FLAG_FIELDS,
+    isActionVerb,
+    isTargetField,
+    TARGET_FIELDS,
+    VERB_SCHEMA,
+} from '../../mod/action';
 import { normalizeTargetPath } from '../../mod/action-target-resolver';
 import { AutoCompletion, Completion, CompletionSuggestion } from './autocompletion.service';
 import { ReferenceAutoCompletionStrategy } from './strategy/reference.autocompletion-strategy';
@@ -131,7 +139,12 @@ export const fieldCompletionsForGroup = (actionGroup: GroupNode | undefined, par
     const verb = verbOf(actionGroup);
     const candidates = isActionVerb(verb) ? fieldNamesForVerb(verb) : ['Action', ...TARGET_FIELDS];
     const present = presentFieldNames(actionGroup);
-    return candidates.filter((name) => name.startsWith(partial) && (name === partial || !present.has(name.toLowerCase())));
+    // The game reads these names ignoring case, so a half-typed `addt` must still reach `AddTo`.
+    const typed = partial.toLowerCase();
+    return candidates.filter(
+        (name) =>
+            name.toLowerCase().startsWith(typed) && (name.toLowerCase() === typed || !present.has(name.toLowerCase()))
+    );
 };
 
 const containerChildren = (node: GroupNode | ListNode | AbstractNodeDocument): (GroupNode | ListNode)[] => {
@@ -175,13 +188,81 @@ export const findActionGroupAtOffset = (document: AbstractNodeDocument, offset: 
     return undefined;
 };
 
+/** A manifest assignment whose value is still being written: `Key = `, with whatever has been typed
+ *  of the value. `=` is a completion trigger character, so this is the popup a modder sees on every
+ *  field of every action they write. */
+const MOD_VALUE_POSITION = /(?:^|[\s{;[])([A-Za-z_]\w*)\s*=\s*("?[^"]*)$/;
+
+/** The reference-start prefixes a source field's value can take (`ToAdd = &<…>`). */
+const SOURCE_PREFIXES = ['&<', '&<./Data/', '&/', '&~/'];
+
+/** The source fields of every verb, whose value supplies the data the action adds. */
+const SOURCE_FIELDS = new Set(
+    Object.values(VERB_SCHEMA).flatMap((schema) => schema.sources.map((n) => n.toLowerCase()))
+);
+
+/**
+ * Completions for the value of one manifest action field.
+ *
+ * Without this the value position fell through to the field-name completion, so `Action = ` offered
+ * `AddTo` and `OverrideIn` instead of the verbs, and a flag field offered field names instead of
+ * `true` and `false`.
+ *
+ * @param fieldName the field being assigned.
+ * @param typed the value text typed so far.
+ * @param node a node of the manifest, for resolving a target path against the game root.
+ * @param cancellationToken cancels the path walk.
+ * @returns the values that fit, empty when the field takes free text (a `Name`, an `Index`).
+ */
+const valueCompletionsForField = async (
+    fieldName: string,
+    typed: string,
+    node: AbstractNode,
+    cancellationToken: CancellationToken
+): Promise<Completion[]> => {
+    const fieldKey = fieldName.toLowerCase();
+    if (fieldKey === 'action') {
+        return ACTION_VERBS.map((verb) => ({ label: verb, kind: CompletionItemKind.Keyword }));
+    }
+    if (flagFieldKeys.has(fieldKey)) {
+        return BOOLEAN_VALUES.map((value) => ({ label: value, kind: CompletionItemKind.Value }));
+    }
+    if (isTargetField(fieldName)) {
+        // A target path is rooted at the game's Data folder, written inside the `<…>` file token.
+        if (!typed.includes('<')) return ['<./Data/', '<'];
+        return referenceStrategy
+            .completeRawPath(normalizeTargetPath(typed.replace(/^"/, '')), node, cancellationToken)
+            .catch(() => []);
+    }
+    if (SOURCE_FIELDS.has(fieldKey)) {
+        if (!typed.includes('&')) return SOURCE_PREFIXES;
+        return referenceStrategy.completeRawPath(typed.replace(/^"/, ''), node, cancellationToken).catch(() => []);
+    }
+    return [];
+};
+
 /**
  * Completions at a byte offset inside a manifest (an empty insertion point, where no leaf node
- * matches): the remaining field names inside an action entry, or at the `Actions [ … ]` list
- * level itself, a full action block snippet per verb.
+ * matches): the value of the field being assigned, else the remaining field names inside an action
+ * entry, or at the `Actions [ … ]` list level itself, a full action block snippet per verb.
+ *
+ * @param document the parsed manifest.
+ * @param offset the cursor byte offset.
+ * @param linePrefix the current line's text up to the cursor.
+ * @param cancellationToken cancels a target-path walk.
+ * @returns the completions for that position.
  */
-export const modRulesOffsetCompletions = (document: AbstractNodeDocument, offset: number): Completion[] => {
+export const modRulesOffsetCompletions = async (
+    document: AbstractNodeDocument,
+    offset: number,
+    linePrefix: string,
+    cancellationToken: CancellationToken
+): Promise<Completion[]> => {
     const entry = findActionGroupAtOffset(document, offset);
+    const assignment = MOD_VALUE_POSITION.exec(linePrefix);
+    if (assignment) {
+        return valueCompletionsForField(assignment[1], assignment[2], entry ?? document, cancellationToken);
+    }
     if (entry) return fieldCompletionsForGroup(entry).map(fieldSuggestion);
 
     const container = deepestContainerAt(document, offset);
@@ -208,8 +289,12 @@ export class AutoCompletionModRules implements AutoCompletion<AbstractNode> {
             const fieldKey = field?.toLowerCase();
             const partial = String(node.valueType.value ?? '');
 
+            // The game reads a written value ignoring case, so the typed prefix is matched that way
+            // too: an `Action = ov` must still reach `Overrides`.
+            const typed = partial.toLowerCase();
+
             if (fieldKey && flagFieldKeys.has(fieldKey)) {
-                return BOOLEAN_VALUES.filter((value) => value.startsWith(partial)).map((value) => ({
+                return BOOLEAN_VALUES.filter((value) => value.startsWith(typed)).map((value) => ({
                     label: value,
                     kind: CompletionItemKind.Value,
                 }));
@@ -218,7 +303,7 @@ export class AutoCompletionModRules implements AutoCompletion<AbstractNode> {
             if (node.valueType.type === 'Boolean') return [];
 
             if (fieldKey === 'action') {
-                return ACTION_VERBS.filter((verb) => verb.startsWith(partial)).map((verb) => ({
+                return ACTION_VERBS.filter((verb) => verb.toLowerCase().startsWith(typed)).map((verb) => ({
                     label: verb,
                     kind: CompletionItemKind.Keyword,
                 }));

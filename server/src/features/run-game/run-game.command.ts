@@ -111,7 +111,9 @@ export const gameAlreadyDiscovers = (modRoot: string, installRoot: string, modsD
     const roots = [...modsDirs, join(installRoot, 'Standard Mods'), ...(workshop ? [workshop] : [])];
     // Only a direct child of one of those roots is enumerated, so a file deeper inside a mod does
     // not count and neither does the root itself.
-    return roots.some((root) => isUnder(modRoot, root) && foldPathCase(resolve(modRoot)) !== foldPathCase(resolve(root)));
+    return roots.some(
+        (root) => isUnder(modRoot, root) && foldPathCase(resolve(modRoot)) !== foldPathCase(resolve(root))
+    );
 };
 
 /** The folder a path really names, following links, or the path itself when it cannot be resolved. */

@@ -3,6 +3,8 @@ import { readFile } from 'fs/promises';
 import { dirname, join } from 'path';
 import { CancellationToken, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import { AbstractNode, AbstractNodeDocument, isGroupNode, GroupNode } from '../../core/ast/ast';
+import { isDocumentationFileName } from '../../document/document-kind';
+import { indentUnitOf, lineEndingOf } from '../refactor/command-host';
 import { parseText } from '../../utils/ast.utils';
 import { safeReaddir } from '../../utils/fs.utils';
 import { offsetToPosition } from '../../utils/text.utils';
@@ -33,7 +35,9 @@ export const modStringsFiles = async (documentUri: string, cancellationToken: Ca
     const files = new Set<string>();
     for (const folder of folders) {
         for (const name of safeReaddir(folder)) {
-            if (name.toLowerCase().endsWith('.rules')) files.add(join(folder, name));
+            // A readme or changelog parked in the strings folder is prose the game never loads, and
+            // writing a key into it puts a translation where no player will ever read it.
+            if (name.toLowerCase().endsWith('.rules') && !isDocumentationFileName(name)) files.add(join(folder, name));
         }
     }
     return [...files];
@@ -66,7 +70,23 @@ const hasMember = (container: { elements: AbstractNode[] }, name: string): boole
             (element.type === 'Assignment' && (element as { left?: { name?: string } }).left?.name === name)
     );
 
-const tabs = (n: number): string => '\t'.repeat(n);
+/** How a file writes its lines, so anything inserted into it is written the same way. */
+interface WritingStyle {
+    /** One level of indentation. */
+    readonly indent: string;
+    /** The ending each written line gets. */
+    readonly lineEnding: string;
+}
+
+/**
+ * How the file in front of the insertion is written. A strings file that indents with spaces or
+ * ends its lines with `\r\n` used to get tabs and bare `\n` written into it, which leaves the file
+ * mixed and shows up as a whole-file change in every diff the author looks at afterwards.
+ *
+ * @param text the file's own source.
+ * @returns the indentation and line ending to write with.
+ */
+const styleOf = (text: string): WritingStyle => ({ indent: indentUnitOf(text), lineEnding: lineEndingOf(text) });
 
 /** One key a batch declares, with the text that file gets for it. */
 export interface LocalizationKeyInsertion {
@@ -87,12 +107,13 @@ interface InsertBranch {
 /** A fresh, empty branch. */
 const newBranch = (): InsertBranch => ({ children: new Map(), leaves: [] });
 
-/** The branch's text, its own members first and each nested group after them, indented from `indent`. */
-const renderBranch = (branch: InsertBranch, indent: number): string[] => {
+/** The branch's text, its own members first and each nested group after them, indented from `depth`. */
+const renderBranch = (branch: InsertBranch, depth: number, style: WritingStyle): string[] => {
     const lines: string[] = [];
-    for (const leaf of branch.leaves) lines.push(`${tabs(indent)}${leaf.name} = ${leaf.value}`);
+    const pad = style.indent.repeat(depth);
+    for (const leaf of branch.leaves) lines.push(`${pad}${leaf.name} = ${leaf.value}`);
     for (const [name, child] of branch.children) {
-        lines.push(`${tabs(indent)}${name}`, `${tabs(indent)}{`, ...renderBranch(child, indent + 1), `${tabs(indent)}}`);
+        lines.push(`${pad}${name}`, `${pad}{`, ...renderBranch(child, depth + 1, style), `${pad}}`);
     }
     return lines;
 };
@@ -174,13 +195,14 @@ export const insertEditsForFile = (
     }
 
     const edits: Array<{ offset: number; edit: TextEdit }> = [];
+    const style = styleOf(text);
     for (const [container, branch] of byContainer) {
         if (isGroupNode(container)) {
             // Insert on its own line just before the group's closing `}` (its position ends right after it).
             const brace = container.position.end - 1;
             if (text[brace] !== '}') continue;
             const indent = childIndentOf(container);
-            const content = `${renderBranch(branch, indent).join('\n')}\n`;
+            const content = `${renderBranch(branch, indent, style).join(style.lineEnding)}${style.lineEnding}`;
             // A nested group closes with an indented `}`, and the new lines go in front of that
             // indentation rather than between it and the brace, or the brace would lose its own
             // indentation and the first new line would gain it. A brace that shares its line with
@@ -188,18 +210,21 @@ export const insertEditsForFile = (
             const lineStart = text.lastIndexOf('\n', brace - 1) + 1;
             const braceOnOwnLine = /^[ \t]*$/.test(text.slice(lineStart, brace));
             const offset = braceOnOwnLine ? lineStart : brace;
-            const newText = braceOnOwnLine ? content : `\n${content}${tabs(Math.max(0, indent - 1))}`;
+            const newText = braceOnOwnLine
+                ? content
+                : `${style.lineEnding}${content}${style.indent.repeat(Math.max(0, indent - 1))}`;
             const pos = offsetToPosition(text, offset);
             edits.push({ offset, edit: { range: { start: pos, end: pos }, newText } });
             continue;
         }
         // Document root: append at end of file.
         const offset = text.length;
-        const lead = text.length > 0 && !text.endsWith('\n') ? '\n' : '';
+        const lead = text.length > 0 && !text.endsWith('\n') ? style.lineEnding : '';
         const pos = offsetToPosition(text, offset);
+        const body = renderBranch(branch, 0, style).join(style.lineEnding);
         edits.push({
             offset,
-            edit: { range: { start: pos, end: pos }, newText: `${lead}${renderBranch(branch, 0).join('\n')}\n` },
+            edit: { range: { start: pos, end: pos }, newText: `${lead}${body}${style.lineEnding}` },
         });
     }
     return edits.sort((a, b) => a.offset - b.offset).map((entry) => entry.edit);

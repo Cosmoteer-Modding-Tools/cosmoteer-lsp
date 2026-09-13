@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { CancellationToken } from 'vscode-languageserver';
@@ -54,6 +54,10 @@ describe('shader preview service', () => {
         expect(data!.shaderName).toBe('particle_light_emissive.shader');
         expect(data!.translationOk).toBe(true);
         expect(data!.glsl).toContain('void main');
+
+        // The whole include chain is reported, so the client refreshes on an edit to a base library.
+        expect(data!.sourceUris.length).toBeGreaterThan(1);
+        expect(data!.sourceUris.some((uri) => /base_particle\.shader$/i.test(uri))).toBe(true);
 
         // The engine's Add mode is (One, One, Add) on both channels.
         expect(data!.blend.label).toBe('Add');
@@ -367,5 +371,70 @@ Sprite
         // The default vert is synthesizable, so the preview runs the real vertex stage too.
         expect(data!.vertexStage).not.toBeNull();
         expect(data!.vertexStage!.kind).toBe('sprite');
+    });
+
+    it.runIf(HAVE_DATA)('reads the ramp, renderer and lifetime of a def written at file scope', async () => {
+        // Every vanilla `*_def.rules` writes the particle system at the document root, so the material's
+        // siblings hang off the document node rather than a group. An ancestor walk that only accepted
+        // groups found none of them and the preview rendered a static, untinted, quad-sized particle.
+        clearShaderCache();
+        const path = join(DATA_DIR, 'common_effects/particles/explode_sparks_def.rules');
+        const src = readFileSync(path, 'utf8');
+        const doc = parser(lexer(src), pathToFileURL(path).href).value;
+        const data = await buildShaderPreview(doc, src, offsetOf(src, 'Shader = "particle_light_emissive'), token);
+        expect(data).not.toBeNull();
+        expect(data!.isParticle).toBe(true);
+        expect(data!.particleColor?.colors.length).toBe(3);
+        expect(data!.particleColor?.colors[0]).toEqual([1, 1, 0.5882353, 1]);
+        expect(data!.baseSize).toEqual([1, 1]);
+    });
+
+    it.runIf(HAVE_DATA)('names the unresolved include rather than the GLSL error it caused', async () => {
+        // An expansion missing a base library is missing the structs the shader is written against, so
+        // whatever the translator then says about it points at the wrong line.
+        clearShaderCache();
+        const src = `Part
+{
+	Components
+	{
+		T
+		{
+			Type = TurretWeapon
+			BlueprintArcSprite
+			{
+				Shader = "particle_light_emissive.shader"
+			}
+		}
+	}
+}`;
+        const shaderPath = join(DATA_DIR, 'common_effects/particles/particle_light_emissive.shader');
+        const doc = parser(lexer(src), DOC_URI).value;
+        const data = await buildShaderPreview(doc, src, offsetOf(src, 'Shader ='), token, (abs) =>
+            abs.toLowerCase() === shaderPath.toLowerCase()
+                ? '#include "no_such_base.shader"\nfloat4 pix(in VERT_OUTPUT input) { return input.color; }'
+                : undefined
+        );
+        expect(data).not.toBeNull();
+        expect(data!.translationOk).toBe(false);
+        expect(data!.reason).toContain('no_such_base.shader');
+        expect(data!.glsl).toBeNull();
+    });
+
+    it.runIf(HAVE_DATA)('leaves a colour constant whose components are math to the text path', async () => {
+        // Vanilla's beacon writes `[0.09 * 255, …]`. Reporting only the elements that happen to be plain
+        // numbers handed the webview a one-element list, which it read as pure red.
+        clearShaderCache();
+        const path = join(DATA_DIR, 'ships/terran/hyperdrive_beacon/hyperdrive_beacon_pulse.rules');
+        const src = readFileSync(path, 'utf8');
+        const doc = parser(lexer(src), pathToFileURL(path).href).value;
+        const data = await buildShaderPreview(doc, src, offsetOf(src, 'Shader = hyperdrive_beacon'), token);
+        expect(data).not.toBeNull();
+        const dark = data!.constants.find((c) => c.name === '_darkColor');
+        expect(dark?.value).toContain('0.09 * 255');
+        expect(dark?.components).toBeUndefined();
+        // One math element is enough, even next to plain numbers.
+        const bright = data!.constants.find((c) => c.name === '_brightColor');
+        expect(bright?.value).toContain('0.79 * 255');
+        expect(bright?.components).toBeUndefined();
     });
 });

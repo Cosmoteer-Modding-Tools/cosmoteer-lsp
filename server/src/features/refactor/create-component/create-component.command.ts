@@ -8,7 +8,7 @@ import { fieldSnippet } from '../../completion/autocompletion.schema-fields';
 import { memberIndentAt, placeholderValue } from '../../diagnostics/required-field-insert';
 import { ownerComponentRegistryOf } from '../../diagnostics/validator.schema-sibling';
 import { uriToFsPath } from '../../navigation/workspace-files';
-import { documentFor, openBuffers } from '../command-host';
+import { documentFor, indentUnitOf, lineEndingOf, openBuffers } from '../command-host';
 import { memberSpanOf } from '../shared-base/member-record';
 import { plainTextOf } from '../snippet-action';
 import { CreateComponentArgs, CreateComponentHost, CreateComponentResult } from './create-component.types';
@@ -31,9 +31,6 @@ export const CREATE_COMPONENT_ACTION_COMMAND = 'cosmoteer.createComponentFromAct
 /** The name of the group a part or bullet declares its components in. */
 const COMPONENTS = 'Components';
 
-/** The indentation one level deeper, which is what the game's own files are written with. */
-const INDENT = '\t';
-
 /**
  * The groups enclosing an offset, outermost first, so the walk can ask each level what it holds.
  *
@@ -42,7 +39,11 @@ const INDENT = '\t';
  * @param chain the groups found so far.
  * @returns the chain, empty when the offset falls in no group.
  */
-const groupChain = (container: AbstractNodeDocument | GroupNode, offset: number, chain: GroupNode[] = []): GroupNode[] => {
+const groupChain = (
+    container: AbstractNodeDocument | GroupNode,
+    offset: number,
+    chain: GroupNode[] = []
+): GroupNode[] => {
     for (const element of container.elements) {
         const span = memberSpanOf(element);
         if (!span || offset < span.start || offset >= span.end) continue;
@@ -87,7 +88,8 @@ const insertTarget = (
 ): { container: AbstractNodeDocument | GroupNode; isComponents: boolean } | undefined => {
     const chain = groupChain(document, offset);
     for (const group of [...chain].reverse()) {
-        if (group.identifier?.name.toLowerCase() === COMPONENTS.toLowerCase()) return { container: group, isComponents: true };
+        if (group.identifier?.name.toLowerCase() === COMPONENTS.toLowerCase())
+            return { container: group, isComponents: true };
         const components = componentsMemberOf(group);
         if (components) return { container: components, isComponents: true };
     }
@@ -142,6 +144,7 @@ const declares = (container: AbstractNodeDocument | GroupNode, name: string): bo
  * @param type the `Type` discriminator.
  * @param cls the class the discriminator selects.
  * @param indent the indentation the declaration is written at.
+ * @param step one level of indentation as the file writes it.
  * @param lineEnding the ending the file already uses.
  * @returns the snippet body.
  */
@@ -150,19 +153,20 @@ const declarationSnippet = (
     type: string,
     cls: string,
     indent: string,
+    step: string,
     lineEnding: string
 ): string => {
-    const lines = [`${name}`, `${indent}{`, `${indent}${INDENT}Type = ${type}`];
+    const lines = [`${name}`, `${indent}{`, `${indent}${step}Type = ${type}`];
     let stop = 0;
     for (const field of requiredFieldsOf(cls)) {
         if (field.name === 'Type') continue;
         // A kind with no literal the fix may invent is written as an empty tab stop for the author.
         const value = `\${${++stop}:${placeholderValue(field.valueType) ?? ''}}`;
         for (const line of fieldSnippet(field.name, field.valueType, value).split('\n')) {
-            lines.push(`${indent}${INDENT}${line}`);
+            lines.push(`${indent}${step}${line}`);
         }
     }
-    lines.push(`${indent}${INDENT}$0`, `${indent}}`);
+    lines.push(`${indent}${step}$0`, `${indent}}`);
     return lines.join(lineEnding);
 };
 
@@ -213,10 +217,12 @@ export const createComponent = async (
 
     const offset = appendOffsetIn(target.container);
     if (offset === undefined) return { failure: 'stale' };
-    const lineEnding = text.includes('\r\n') ? '\r\n' : '\n';
+    const lineEnding = lineEndingOf(text);
+    // One level deeper in whatever the file itself indents with, so a space-indented mod stays one.
+    const step = indentUnitOf(text);
     const memberIndent = memberIndentAt(text, offset);
-    const indent = target.isComponents ? memberIndent : `${memberIndent}${INDENT}`;
-    const declaration = declarationSnippet(args.name, args.type, cls, indent, lineEnding);
+    const indent = target.isComponents ? memberIndent : `${memberIndent}${step}`;
+    const declaration = declarationSnippet(args.name, args.type, cls, indent, step, lineEnding);
     // A file that declares no components group gets one written with the declaration, which is the
     // shape a part inheriting its components needs: the game merges the group into the inherited one.
     const snippet = target.isComponents
@@ -225,7 +231,7 @@ export const createComponent = async (
               '',
               `${memberIndent}${COMPONENTS}`,
               `${memberIndent}{`,
-              `${memberIndent}${INDENT}${declaration}`,
+              `${memberIndent}${step}${declaration}`,
               `${memberIndent}}`,
           ].join(lineEnding);
     const position = textDocument.positionAt(offset);

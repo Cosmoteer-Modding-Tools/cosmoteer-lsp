@@ -116,8 +116,7 @@ const toEntry = (seed: EntrySeed): SchemaSearchEntry => {
  * @param fieldName the field's OT name.
  * @returns the stable entry id.
  */
-export const fieldEntryId = (ownerFullName: string, fieldName: string): string =>
-    `f:${ownerFullName}:${fieldName}`;
+export const fieldEntryId = (ownerFullName: string, fieldName: string): string => `f:${ownerFullName}:${fieldName}`;
 
 /** The last dotted segment of a C# FullName, the short name a modder recognizes. */
 const shortNameOf = (fullName: string): string => fullName.split('.').pop() ?? fullName;
@@ -140,7 +139,10 @@ const buildEntries = (): SchemaSearchEntry[] => {
         // A registry base class gets one entry, the registry's, which documents its subtypes and its
         // own fields together. Two rows with the same label would only make the picker ambiguous.
         if (!schema.registries[fullName]) {
-            const details = [type.abstract ? 'abstract' : undefined, type.registry ? shortNameOf(type.registry) : undefined];
+            const details = [
+                type.abstract ? 'abstract' : undefined,
+                type.registry ? shortNameOf(type.registry) : undefined,
+            ];
             seeds.push({
                 id: `t:${fullName}`,
                 kind: 'type',

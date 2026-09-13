@@ -105,7 +105,10 @@ const gateTarget = (targetUri: string, ownUri: string): WriteRefusal | null => {
     const dataRoot = CosmoteerWorkspaceService.instance.dataRootPath;
     if (dataRoot && isUnderFolder(targetPath, dataRoot)) {
         return {
-            error: l10n.t("The value is declared in {0}, one of the game's own files, which a mod cannot edit.", fileNameOf(targetUri)),
+            error: l10n.t(
+                "The value is declared in {0}, one of the game's own files, which a mod cannot edit.",
+                fileNameOf(targetUri)
+            ),
         };
     }
 
@@ -269,12 +272,7 @@ const declarationName = (declaration: AbstractNode): string | null => {
  * @param declarationUri the file that is written in.
  * @returns true when the node lies within the declaration's span in the same file.
  */
-const within = (
-    node: AbstractNode,
-    nodeUri: string,
-    declaration: AbstractNode,
-    declarationUri: string
-): boolean =>
+const within = (node: AbstractNode, nodeUri: string, declaration: AbstractNode, declarationUri: string): boolean =>
     normalizeUri(nodeUri) === normalizeUri(declarationUri) &&
     node.position.start >= declaration.position.start &&
     node.position.end <= declaration.position.end;

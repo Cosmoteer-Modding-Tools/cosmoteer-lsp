@@ -298,7 +298,10 @@ class AssemblyReader {
     private indexCustomAttributes(): void {
         const count = this.image.rowCounts[TABLE.CustomAttribute];
         for (let row = 1; row <= count; row++) {
-            const parent = decodeCodedIndex('HasCustomAttribute', readColumn(this.image, TABLE.CustomAttribute, row, 0));
+            const parent = decodeCodedIndex(
+                'HasCustomAttribute',
+                readColumn(this.image, TABLE.CustomAttribute, row, 0)
+            );
             if (!parent) continue;
             const attribute = this.readCustomAttribute(row);
             if (!attribute) continue;
@@ -524,7 +527,10 @@ class AssemblyReader {
         const next = methodRow < methodCount ? readColumn(image, TABLE.MethodDef, methodRow + 1, 5) : total + 1;
         const names = new Map<number, string>();
         for (let row = first; row < next && row <= total; row++) {
-            names.set(readColumn(image, TABLE.Param, row, 1), readString(image, readColumn(image, TABLE.Param, row, 2)));
+            names.set(
+                readColumn(image, TABLE.Param, row, 1),
+                readString(image, readColumn(image, TABLE.Param, row, 2))
+            );
         }
         return names;
     }
@@ -656,15 +662,17 @@ class AssemblyReader {
         let paramTypes: TypeSig[] = [];
         if (ctor.table === TABLE.MethodDef) {
             typeFullName = this.typeDefNames.get(this.declaringTypeOf(ctor.row)) ?? '';
-            paramTypes = this.readMethodSig(readBlob(this.image, readColumn(this.image, TABLE.MethodDef, ctor.row, 4)))
-                .params;
+            paramTypes = this.readMethodSig(
+                readBlob(this.image, readColumn(this.image, TABLE.MethodDef, ctor.row, 4))
+            ).params;
         } else if (ctor.table === TABLE.MemberRef) {
             const parent = decodeCodedIndex('MemberRefParent', readColumn(this.image, TABLE.MemberRef, ctor.row, 0));
             if (!parent) return undefined;
             const sig = this.typeRefSig(parent.table, parent.row);
             typeFullName = 'fullName' in sig ? sig.fullName : '';
-            paramTypes = this.readMethodSig(readBlob(this.image, readColumn(this.image, TABLE.MemberRef, ctor.row, 2)))
-                .params;
+            paramTypes = this.readMethodSig(
+                readBlob(this.image, readColumn(this.image, TABLE.MemberRef, ctor.row, 2))
+            ).params;
         }
         if (!typeFullName) return undefined;
         const blob = readBlob(this.image, readColumn(this.image, TABLE.CustomAttribute, row, 2));
@@ -840,7 +848,8 @@ class AssemblyReader {
                 const count = reader.uint32();
                 if (count === 0xffffffff) return null;
                 const values: AttrValue[] = [];
-                for (let i = 0; i < count; i++) values.push(this.readElem(reader, { code: type.element?.code ?? 0x0e }));
+                for (let i = 0; i < count; i++)
+                    values.push(this.readElem(reader, { code: type.element?.code ?? 0x0e }));
                 return values;
             }
             default:
@@ -1044,7 +1053,8 @@ const decodeInstructions = (image: MetadataImage, buffer: Buffer, start: number,
             if (opcode === OPCODE_LDC_R8) operand = at + 8 <= end ? buffer.readDoubleLE(at) : 0;
             else if (opcode === OPCODE_LDC_I8) operand = at + 8 <= end ? Number(buffer.readBigInt64LE(at)) : 0;
         }
-        if (opcode === OPCODE_LDC_I4_S && typeof operand === 'number') operand = operand > 0x7f ? operand - 0x100 : operand;
+        if (opcode === OPCODE_LDC_I4_S && typeof operand === 'number')
+            operand = operand > 0x7f ? operand - 0x100 : operand;
         // A short branch names its target by a signed byte relative to the next instruction.
         if (SHORT_BRANCH_OPCODES.has(opcode) && typeof operand === 'number') {
             operand = at + 1 - start + (operand > 0x7f ? operand - 0x100 : operand);

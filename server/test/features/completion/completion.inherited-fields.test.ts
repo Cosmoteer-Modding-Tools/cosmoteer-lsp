@@ -230,8 +230,8 @@ describe('the aggregate required-fields pick inside a group that inherits', () =
     ].join('\n');
 
     it('scaffolds only the required fields the chain does not already supply', async () => {
-        const aggregate = itemNamed(await completeAtMarker(TURRET), 'Insert 2 required fields');
-        expect(aggregate.detail).toBe('FireThresholdAngle, FireInterval');
+        const aggregate = itemNamed(await completeAtMarker(TURRET), 'Insert 3 required fields');
+        expect(aggregate.detail).toBe('FireThresholdAngle, AutoTargets, FireInterval');
         expect(aggregate.insertText).not.toContain('FiringArc');
         expect(aggregate.insertText).not.toContain('RotateSpeed');
     });
@@ -241,7 +241,10 @@ describe('the aggregate required-fields pick inside a group that inherits', () =
         const reported = (await validateRequiredFields(document, token)).map((error) =>
             /'([^']+)'/.exec(error.message)?.[1]
         );
-        const aggregate = itemNamed(await schemaFieldNameCompletions(document, TURRET.indexOf('@@'), token), 'Insert 2 required fields');
+        const aggregate = itemNamed(
+            await schemaFieldNameCompletions(document, TURRET.indexOf('@@'), token),
+            'Insert 3 required fields'
+        );
         expect(aggregate.detail?.split(', ')).toEqual(reported);
     });
 });

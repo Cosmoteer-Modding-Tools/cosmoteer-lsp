@@ -66,7 +66,7 @@
                 {
                     "comment": "A value is a reference only when it starts with a sigil: <…rules>, &, ^/, ~/, ./, ../, or /Name. A bare leading / followed by a digit stays division (blocked by the digit and the no-word-before guard).",
                     "name": "entity.name.tag",
-                    "match": "(?<![\\w.])(<[^>\\n]*\\.(?i:rules|txt)[^>\\n]*>(?:/[\\w.^~<>-]*)*|&[\\w./^~<>-]*|\\^/[\\w./^~<>-]*|~/?[\\w./^~<>-]*|\\.\\.?/[\\w./^~<>-]*|/[A-Za-z_][\\w./^~<>-]*)"
+                    "match": "(?<![\\w.])(<[^>\\n]*\\.(?i:rules|txt)[^>\\n]*>(?:/[\\w.^~<>\\\\-]*)*|&(?:<[^>\\n]*>)?[\\w./^~<>\\\\-]*|\\^/[\\w./^~<>\\\\-]*|~/?[\\w./^~<>\\\\-]*|\\.\\.?/[\\w./^~<>\\\\-]*|/[A-Za-z_][\\w./^~<>\\\\-]*)"
                 }
             ]
         },
@@ -82,7 +82,8 @@
             "patterns": [
                 {
                     "name": "constant.numeric",
-                    "match": "(?<![\\w.])-?(?:[Ii]nfinity|(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?%?)"
+                    "comment": "The unit suffixes are part of the number the game reads: 50% is a fraction, 90d an angle in degrees and 1.5r one in radians. A letter after the suffix means the word carries on, so 2days stays a word.",
+                    "match": "(?<![\\w.])-?(?:[Ii]nfinity|(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?(?:[%dr](?![\\w]))?)"
                 }
             ]
         },
@@ -111,8 +112,9 @@
         "unquoted": {
             "patterns": [
                 {
+                    "comment": "An unquoted value is prose as often as it is a name, and the prose in a strings file is written in every alphabet the game ships a translation for.",
                     "name": "string.unquoted",
-                    "match": "[a-zA-Z_][a-zA-Z0-9_.]*"
+                    "match": "[\\p{L}_][\\p{L}\\p{N}_.]*"
                 }
             ]
         },

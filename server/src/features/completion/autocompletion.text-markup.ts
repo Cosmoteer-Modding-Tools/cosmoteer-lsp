@@ -53,7 +53,12 @@ const namedColorCompletions = (): Completion[] =>
             '#' +
             channels
                 .slice(0, 3)
-                .map((channel) => Math.round(channel * 255).toString(16).toUpperCase().padStart(2, '0'))
+                .map((channel) =>
+                    Math.round(channel * 255)
+                        .toString(16)
+                        .toUpperCase()
+                        .padStart(2, '0')
+                )
                 .join(''),
     }));
 
@@ -162,7 +167,12 @@ export const markupCompletionsAt = (
     }
     const naming = /^<([A-Za-z0-9_.:-]*)$/.exec(tag);
     if (naming) {
-        return { completions: tagCompletions(), localizationKeys: false, imageNames: false, range: replacing(naming[1]) };
+        return {
+            completions: tagCompletions(),
+            localizationKeys: false,
+            imageNames: false,
+            range: replacing(naming[1]),
+        };
     }
     const inside = /^<([A-Za-z_:][A-Za-z0-9_.:-]*)\s([\s\S]*)$/.exec(tag);
     if (!inside) return undefined;
@@ -187,7 +197,8 @@ export const markupCompletionsAt = (
         [...written.matchAll(/([A-Za-z_:][A-Za-z0-9_.:-]*)\s*=/g)].map((match) => match[1].toLowerCase())
     );
     const offered = spec.attributes.filter(
-        (attribute) => !present.has(attribute.name.toLowerCase()) || attribute.name.toLowerCase() === typed.toLowerCase()
+        (attribute) =>
+            !present.has(attribute.name.toLowerCase()) || attribute.name.toLowerCase() === typed.toLowerCase()
     );
     if (offered.length === 0) return undefined;
     return {

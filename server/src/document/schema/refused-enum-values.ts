@@ -85,15 +85,13 @@ export const REFUSED_ENUM_RULES: readonly RefusedEnumRule[] = [
     },
     // A beam has no bullet to take a velocity from, so BeamEmitter's own switch throws on that arm.
     // It is reached only once the hit draws something, which a block with no effects never does.
-    ...BEAM_HIT_MEMBERS.map(
-        (member): RefusedEnumRule => ({
-            owner: 'Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules',
-            path: [member, 'FrameOfReference'],
-            accepted: ['Grid', 'Inherit', 'HitObject'],
-            severity: 'warning',
-            consequence: 'beamHit',
-        })
-    ),
+    ...BEAM_HIT_MEMBERS.map((member): RefusedEnumRule => ({
+        owner: 'Cosmoteer.Ships.Parts.Weapons.BeamEmitterRules',
+        path: [member, 'FrameOfReference'],
+        accepted: ['Grid', 'Inherit', 'HitObject'],
+        severity: 'warning',
+        consequence: 'beamHit',
+    })),
 ];
 
 /**

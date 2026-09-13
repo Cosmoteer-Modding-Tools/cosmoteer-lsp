@@ -11,9 +11,14 @@
 .gitignore
 .prettierignore
 .prettierrc.json5
+.git-blame-ignore-revs
+.githooks/**
 eslint.config.mjs
-vitest.config.ts
+# Matched by extension rather than by name: the config is `.mts`, and a `vitest.config.ts` entry
+# stopped matching it without anything saying so.
+vitest.config.*
 esbuild.mjs
+esbuild.cache-id.mjs
 package-lock.json
 CONTRIBUTING
 SUPPORT.md
@@ -25,6 +30,11 @@ SUPPORT.md
 **/*.ts
 **/*.map
 out/**/*.tsbuildinfo
+# `tsc -b` (compile:tsc, and scripts/e2e.sh building the test runner) emits a `.js` beside every
+# source file under out/. Nothing loads them: the extension entry, the server the client spawns and
+# the lint command are all `.mjs` bundles, and esbuild writes only those three. A dev who has run
+# either command otherwise ships 8 MB of dead files.
+out/**/*.js
 
 # --- Tests, fixtures, snapshots ---
 **/test/**
@@ -34,6 +44,9 @@ out/**/*.tsbuildinfo
 
 # --- Repo tooling, docs, media and the JetBrains plugin (not part of the extension) ---
 jetbrains/**
+# The assembled npm package for the lint command, which `package:cli` writes and the npm release
+# publishes. It carries its own copy of the server bundle, so leaving it in doubled the VSIX.
+cli-package/**
 tools/**
 docs/**
 showcase/**

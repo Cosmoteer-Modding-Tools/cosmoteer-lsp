@@ -484,7 +484,12 @@ interface LoadedProjectCache {
  */
 const folderKeyOf = (folderPaths: string[]): string =>
     createHash('sha1')
-        .update([...folderPaths].map((folder) => folder.replace(/\\/g, '/').toLowerCase()).sort().join('\n'))
+        .update(
+            [...folderPaths]
+                .map((folder) => folder.replace(/\\/g, '/').toLowerCase())
+                .sort()
+                .join('\n')
+        )
         .digest('hex')
         .slice(0, 16);
 

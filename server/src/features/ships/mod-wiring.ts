@@ -9,7 +9,11 @@ import { uriToFsPath } from '../navigation/workspace-files';
 import { documentFor, lineEndingOf, openBuffers } from '../refactor/command-host';
 import { memberOf } from '../refactor/new-content/registry-ids';
 import { manifestActionMatches } from '../refactor/new-content/registration.emitter';
-import { addManyActionText, ManifestInsert, manifestActionInsert } from '../refactor/register-part/manifest-action.emitter';
+import {
+    addManyActionText,
+    ManifestInsert,
+    manifestActionInsert,
+} from '../refactor/register-part/manifest-action.emitter';
 import { referenceTextsOf } from '../refactor/register-part/ship-registry';
 import { editableModRootOf } from '../refactor/shared-base/shared-base.analysis-entry';
 
@@ -19,7 +23,8 @@ import { editableModRootOf } from '../refactor/shared-base/shared-base.analysis-
  */
 
 /** How one wiring of a piece of content went. */
-export type WiringOutcome = 'written' | 'present' | 'noTarget' | 'manifestUnusable' | 'ambiguousManifest' | 'editRejected' | 'skipped';
+export type WiringOutcome =
+    'written' | 'present' | 'noTarget' | 'manifestUnusable' | 'ambiguousManifest' | 'editRejected' | 'skipped';
 
 /** Why a command may not write beside the file or folder it was invoked on. */
 export type ModRootFailure = 'notEditable' | 'noModRoot';
@@ -137,11 +142,16 @@ export interface OpenManifest {
  * @param host the server facilities.
  * @returns the manifest and where its next entry goes.
  */
-export const openManifest = async (manifestFsPath: string, host: Pick<ManifestWiringHost, 'openDocuments'>): Promise<OpenManifest> => {
+export const openManifest = async (
+    manifestFsPath: string,
+    host: Pick<ManifestWiringHost, 'openDocuments'>
+): Promise<OpenManifest> => {
     const document = await documentFor(manifestFsPath, openBuffers(host));
     const text = document?.getText() ?? '';
     const lineEnding = lineEndingOf(text);
-    const insert = document ? manifestActionInsert(text, parseText(text, manifestFsPath), lineEnding) : { kind: 'unusable' as const };
+    const insert = document
+        ? manifestActionInsert(text, parseText(text, manifestFsPath), lineEnding)
+        : { kind: 'unusable' as const };
     return { fsPath: manifestFsPath, document, lineEnding, insert };
 };
 
@@ -164,7 +174,12 @@ export const appendManifestActions = async (
     const at = document.positionAt(insert.offset);
     const applied = await host
         .applyEdit({
-            [document.uri]: [{ range: { start: at, end: at }, newText: `${insert.before}${entries.join(lineEnding)}${insert.after}` }],
+            [document.uri]: [
+                {
+                    range: { start: at, end: at },
+                    newText: `${insert.before}${entries.join(lineEnding)}${insert.after}`,
+                },
+            ],
         })
         .catch(() => false);
     if (applied) host.filesChanged([manifest.fsPath]);
@@ -203,7 +218,15 @@ export const wireIntoManifest = async <K extends string>(
             outcomes[item.key] = 'manifestUnusable';
             continue;
         }
-        entries.push(addManyActionText(item.target, item.reference, manifest.insert.indent, manifest.lineEnding, item.wholeList ?? false));
+        entries.push(
+            addManyActionText(
+                item.target,
+                item.reference,
+                manifest.insert.indent,
+                manifest.lineEnding,
+                item.wholeList ?? false
+            )
+        );
         outcomes[item.key] = 'written';
         written.push(item.key);
     }

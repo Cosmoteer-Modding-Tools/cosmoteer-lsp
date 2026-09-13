@@ -77,4 +77,3 @@ export const scanRevisionSum = (): number =>
     TemplateBaseIndex.instance.revision +
     LocalizationKeyIndex.instance.revision +
     MentionIndex.instance.revision;
-

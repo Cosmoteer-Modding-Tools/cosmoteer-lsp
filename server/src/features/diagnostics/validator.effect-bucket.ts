@@ -147,7 +147,10 @@ export const validateEffectBuckets = async (
         }
     }
 
-    if (isWholeRegistry(document.uri) && ![...declared.values()].some((entry) => sameId(entry.id, DEFAULT_BULLET_BUCKET))) {
+    if (
+        isWholeRegistry(document.uri) &&
+        ![...declared.values()].some((entry) => sameId(entry.id, DEFAULT_BULLET_BUCKET))
+    ) {
         const anchor: AbstractNode = lists[0].node.identifier ?? lists[0].node;
         errors.push({
             message: l10n.t(

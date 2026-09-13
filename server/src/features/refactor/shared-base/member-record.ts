@@ -218,10 +218,7 @@ export const overlapsComment = (
  * @param text the full source text of the file the group lives in.
  * @returns one record per member that has a usable span, skipping anything the parser left incomplete.
  */
-export const topLevelMembersOf = (
-    container: GroupNode,
-    text: string
-): Array<MemberRecord & { node: AbstractNode }> => {
+export const topLevelMembersOf = (container: GroupNode, text: string): Array<MemberRecord & { node: AbstractNode }> => {
     const records: Array<MemberRecord & { node: AbstractNode }> = [];
     for (const element of container.elements) {
         const span = memberSpanOf(element);

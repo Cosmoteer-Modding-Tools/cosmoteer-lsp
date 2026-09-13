@@ -31,18 +31,20 @@ export const resolveSchemaSiblingReference = (node: AbstractNode | null | undefi
     const targetName = componentReferenceIdOf(node);
     if (targetName === undefined) return undefined;
 
-    // A component id written in a tuple slot (a network router's `Routes [ [A, B, 0] ]`): the engine
-    // resolves the id part-wide, so search the whole document for the named group (cross-file bases
-    // are out of this sync resolver's scope; the async part-wide resolver covers them).
+    // A component id written in a list slot (a network router's `Routes [ [A, B, 0] ]`, a
+    // `ToggledComponents [ A B ]`) or inside a group written as a list element: the engine resolves
+    // the id part-wide, so search the whole document for the named group (cross-file bases are out
+    // of this sync resolver's scope, the async part-wide resolver covers them).
     const list = node!.parent;
-    if (list && isListNode(list)) return findComponentInDocument(node!, targetName);
+    if (list && (isListNode(list) || isListNode(list.parent))) return findComponentInDocument(node!, targetName);
 
     // The value text is a sibling component's identifier, so find that group in the same container.
     // Case-folded with exact preference, matching the game's case-insensitive node lookup.
     const container = node!.parent?.parent;
     if (!container || !isGroupNode(container)) return undefined;
     const named = container.elements.filter(
-        (element): element is GroupNode | ListNode => (isGroupNode(element) || isListNode(element)) && !!element.identifier
+        (element): element is GroupNode | ListNode =>
+            (isGroupNode(element) || isListNode(element)) && !!element.identifier
     );
     return (
         named.find((element) => element.identifier!.name === targetName) ??
@@ -66,7 +68,9 @@ export const componentReferenceIdOf = (node: AbstractNode | null | undefined): s
     if (list && isListNode(list)) {
         if (list.inheritance?.length) return undefined;
         const slot = listSlotType(list);
-        const element = slot?.kind === 'tuple' ? slot.elements[list.elements.indexOf(node)] : undefined;
+        // A tuple slot types each position separately (a router's `Routes [ [from, to, cost] ]`);
+        // every other list gives all its elements the one slot type (`ToggledComponents [ A B ]`).
+        const element = slot?.kind === 'tuple' ? slot.elements[list.elements.indexOf(node)] : slot;
         if (element?.kind === 'reference' && registryOf(element.target)?.name === 'PartComponentRules') {
             return String(node.valueType.value);
         }
@@ -82,7 +86,20 @@ export const componentReferenceIdOf = (node: AbstractNode | null | undefined): s
     if (!fieldName) return undefined;
 
     const container = group.parent;
-    if (!container || !isGroupNode(container)) return undefined;
+    if (!container) return undefined;
+    // A group written as a list element (`MediaEffects [ { … ComponentID = Foo } ]`) has no
+    // container group to read a registry from, so its class comes from the list's slot and the id
+    // is resolved part-wide, the way the engine resolves a component id from anywhere in the part.
+    if (isListNode(container)) {
+        const slot = listSlotType(container);
+        const listCls = slot?.kind === 'group' ? slot.ref : undefined;
+        const listField = listCls ? fieldOf(listCls, fieldName) : undefined;
+        const listTarget = listField?.valueType.kind === 'reference' ? listField.valueType.target : undefined;
+        return listTarget && registryOf(listTarget)?.name === 'PartComponentRules'
+            ? String(node.valueType.value)
+            : undefined;
+    }
+    if (!isGroupNode(container)) return undefined;
     const registry = registryForContainer(container);
     if (!registry) return undefined;
 

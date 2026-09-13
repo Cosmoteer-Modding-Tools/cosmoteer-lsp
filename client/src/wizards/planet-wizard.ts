@@ -60,7 +60,12 @@ export async function createNewPlanet(
     const form = await showPlanetForm(context, scan);
     if (!form) return;
 
-    const result = await applyForWizard<NewPlanetApplyResult>(client, NEW_PLANET_SERVER_COMMAND, { uri, ...form }, planetFailureMessage);
+    const result = await applyForWizard<NewPlanetApplyResult>(
+        client,
+        NEW_PLANET_SERVER_COMMAND,
+        { uri, ...form },
+        planetFailureMessage
+    );
     if (!result) return;
     const notes = [
         result.wiring.spawner === 'skipped'

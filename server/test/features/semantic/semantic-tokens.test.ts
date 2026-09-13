@@ -14,9 +14,9 @@ interface DecodedToken {
 }
 
 /** Decode the delta-encoded `data` array into absolute tokens with their legend names. */
-const decode = (source: string): DecodedToken[] => {
+const decode = (source: string, clampToText = false): DecodedToken[] => {
     const parsed = parser(lexer(source), 'file:///test.rules');
-    const { data } = buildSemanticTokens(parsed.value);
+    const { data } = buildSemanticTokens(parsed.value, clampToText ? source : undefined);
     const tokens: DecodedToken[] = [];
     let line = 0;
     let char = 0;
@@ -79,6 +79,16 @@ describe('semantic tokens for .rules', () => {
         expect(base?.modifiers).not.toContain('declaration');
         // The nested `Inner` group is a field, not a top-level declaration.
         expect(tokenAt(tokens, 5, 1)?.type).toBe('property');
+    });
+
+    it('keeps a value that runs over several lines inside the line it starts on', () => {
+        // A verbatim string carries its whole span in one position, and a token reaching past its
+        // own line is one the editor cannot place.
+        const source = 'A = @"one' + String.fromCharCode(10) + 'two"' + String.fromCharCode(10);
+        const firstLineLength = source.split(String.fromCharCode(10))[0].length;
+        for (const token of decode(source, true)) {
+            expect(token.char + token.length).toBeLessThanOrEqual(firstLineLength);
+        }
     });
 
     it('produces a non-empty, position-ordered token stream', () => {

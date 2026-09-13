@@ -131,7 +131,11 @@ const localTypeCategoriesList = (group: FieldContainer): ListNode | undefined =>
             : isAssignmentNode(element) && element.right && isListNode(element.right)
               ? element.right
               : undefined;
-        const name = isListNode(element) ? element.identifier?.name : isAssignmentNode(element) ? element.left.name : undefined;
+        const name = isListNode(element)
+            ? element.identifier?.name
+            : isAssignmentNode(element)
+              ? element.left.name
+              : undefined;
         if (list && name?.toLowerCase() === 'typecategories' && list.position.end > list.position.start) return list;
     }
     return undefined;
@@ -280,7 +284,11 @@ const registryDeclaresClass = (registryKey: string, cls: string): boolean => {
  * @param document the containing document, for the reference-usage scan.
  * @returns the resolved class FullName when the field is provably ignored, undefined otherwise.
  */
-export const ignoredFieldClass = (group: GroupNode, name: string, document: AbstractNodeDocument): string | undefined => {
+export const ignoredFieldClass = (
+    group: GroupNode,
+    name: string,
+    document: AbstractNodeDocument
+): string | undefined => {
     if (/^\d+$/.test(name)) return undefined;
     // A `_`-prefixed name is a shader constant the engine passes to the shader by name (`_hotColor`
     // on a Sprite/Material group), never a schema member. The shader-constant validator owns those.
@@ -566,15 +574,20 @@ export const validateIgnoredFields = async (
         errors.push({
             message: deprecation
                 ? deprecation.version
-                    ? l10n.t("'{0}' was removed in game version {1} ({2}).", name, deprecation.version, deprecation.note)
+                    ? l10n.t(
+                          "'{0}' was removed in game version {1} ({2}).",
+                          name,
+                          deprecation.version,
+                          deprecation.note
+                      )
                     : l10n.t("'{0}' was removed in a newer game version ({1}).", name, deprecation.note)
                 : declaredButDead
-                ? l10n.t("'{0}' is declared by {1} but the game's code never reads it.", name, classLabel)
-                : l10n.t(
-                      "'{0}' is not a member of {1} and is never referenced in this file, so the game ignores it.",
-                      name,
-                      classLabel
-                  ),
+                  ? l10n.t("'{0}' is declared by {1} but the game's code never reads it.", name, classLabel)
+                  : l10n.t(
+                        "'{0}' is not a member of {1} and is never referenced in this file, so the game ignores it.",
+                        name,
+                        classLabel
+                    ),
             node: identifier,
             // Fade the value along with the key: the game reads neither, and the span then
             // matches what the remove fix deletes.

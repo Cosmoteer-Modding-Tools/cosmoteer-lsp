@@ -11,6 +11,7 @@ import {
     ValueNode,
 } from '../../core/ast/ast';
 import { findNodeAtPosition } from '../../utils/ast.utils';
+import { lineEndingOf } from './command-host';
 import * as l10n from '@vscode/l10n';
 
 /** The minimum number of identical values before extracting to a shared field is offered. */
@@ -117,12 +118,12 @@ export const extractValueCodeAction = (
     // (groups/lists on their identifier, falling back to the node position).
     const insertLine = isAssignmentNode(firstElement)
         ? firstElement.left.position?.line
-        : ((isGroupNode(firstElement) || isListNode(firstElement)) && firstElement.identifier
-              ? firstElement.identifier.position?.line
-              : firstElement.position?.line);
+        : (isGroupNode(firstElement) || isListNode(firstElement)) && firstElement.identifier
+          ? firstElement.identifier.position?.line
+          : firstElement.position?.line;
     if (insertLine === undefined) return undefined;
     const edits: TextEdit[] = [
-        TextEdit.insert(Position.create(insertLine, 0), `${name} = ${literal}\n`),
+        TextEdit.insert(Position.create(insertLine, 0), `${name} = ${literal}${lineEndingOf(text)}`),
         ...occurrences.flatMap((assignment) =>
             assignment.right ? [TextEdit.replace(rangeOf(assignment.right.position), `&~/${name}`)] : []
         ),

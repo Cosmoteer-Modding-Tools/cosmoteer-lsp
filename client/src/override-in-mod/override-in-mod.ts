@@ -168,11 +168,7 @@ async function showOverrideSummary(result: OverrideInModApplyResult, cleanup?: A
               workspace.asRelativePath(changed),
               workspace.asRelativePath(result.createdFsPath)
           )
-        : l10n.t(
-              'Cosmoteer: added the override of {0} to {1}.',
-              result.memberName,
-              workspace.asRelativePath(changed)
-          );
+        : l10n.t('Cosmoteer: added the override of {0} to {1}.', result.memberName, workspace.asRelativePath(changed));
     await offerToOpen(message + note, changed);
 }
 

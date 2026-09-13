@@ -31,7 +31,10 @@ export const ValidationForAssignment: Validation<AssignmentNode> = {
                 return {
                     message: l10n.t('Reference should start with an ampersand'),
                     node: node.right,
-                    additionalInfo: l10n.t('Prefix the reference with "&", e.g. "&{0}"', String(node.right.valueType.value)),
+                    additionalInfo: l10n.t(
+                        'Prefix the reference with "&", e.g. "&{0}"',
+                        String(node.right.valueType.value)
+                    ),
                 };
             }
         }

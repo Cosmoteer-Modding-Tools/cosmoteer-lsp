@@ -1,6 +1,13 @@
 import { dirname } from 'path';
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    GroupNode,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+} from '../../core/ast/ast';
 import { isModRules } from '../../document/document-kind';
 import { fieldOf } from '../../document/schema/schema';
 import { registryForGroup, resolveGroupClass } from '../../document/schema/schema-context';
@@ -35,8 +42,7 @@ const IDENTITY_FIELDS = new Set(['id', 'otherids']);
  * @param normalized the member's normalized source, which starts with that name.
  * @returns the text two members are compared by.
  */
-const comparable = (key: string, name: string, normalized: string): string =>
-    key + normalized.slice(name.length);
+const comparable = (key: string, name: string, normalized: string): string => key + normalized.slice(name.length);
 
 /**
  * Whole-document pass fading a field whose value the container already inherits, so writing it

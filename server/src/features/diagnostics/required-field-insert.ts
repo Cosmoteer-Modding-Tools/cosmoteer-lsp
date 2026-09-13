@@ -2,6 +2,7 @@ import { GroupNode } from '../../core/ast/ast';
 import { enumDef } from '../../document/schema/schema';
 import { SchemaField, ValueType } from '../../document/schema/schema.types';
 import { fieldSnippet } from '../completion/autocompletion.schema-fields';
+import { lineEndingOf } from '../refactor/command-host';
 import { memberSpanOf } from '../refactor/shared-base/member-record';
 import type { ValidationErrorData } from './validator';
 
@@ -87,29 +88,58 @@ export const requiredFieldInsert = (
     return fields.length > 0 ? { offset, groupEnd, fields } : undefined;
 };
 
+/** Whatever may follow the last member on its line without being a member itself. */
+const TRAILING_RUN = /^[ \t]*[,;]?[ \t]*(\/\/.*|\/\*(?:(?!\*\/)[\s\S])*\*\/[ \t]*)?$/;
+
 /**
- * The text the quick fix inserts at the payload's offset, indented to sit with the group's other
- * members and written with the line ending the file already uses.
+ * The offset the scaffold is written at, moved past whatever trails the last member on its line.
+ * A member is often followed by its separator and a note about it, and a fix landing between the
+ * two would take the note over and leave the member it belongs to without one.
+ *
+ * @param text the current source of the file the fix runs in.
+ * @param offset the end of the last member the payload recorded.
+ * @returns the offset to write at, unchanged when the line holds something else.
+ */
+const pastTrailingRun = (text: string, offset: number): number => {
+    const newline = text.indexOf('\n', offset);
+    const lineEnd = newline === -1 ? text.length : newline;
+    const stop = lineEnd > offset && text[lineEnd - 1] === '\r' ? lineEnd - 1 : lineEnd;
+    const rest = text.slice(offset, stop);
+    return TRAILING_RUN.test(rest) ? stop : offset;
+};
+
+/**
+ * The edit the quick fix applies: where the scaffolded members go and the text they are written
+ * with, indented to sit with the group's other members and written with the line ending the file
+ * already uses. A group written on a single line keeps its shape and takes the members inline.
  *
  * @param text the current source of the file the fix runs in.
  * @param insert the payload the diagnostic carried.
  * @param fields the members to write, in the order they are written.
- * @returns the text to insert, or null when the payload no longer fits the file.
+ * @returns the insertion, or null when the payload no longer fits the file.
  */
 export const requiredFieldInsertText = (
     text: string,
     insert: RequiredFieldInsert,
     fields: ReadonlyArray<{ name: string; text: string }>
-): string | null => {
+): { offset: number; newText: string } | null => {
     if (fields.length === 0) return null;
     // The offset comes from the validation pass, which can be a version behind the buffer the fix runs
     // on, so the group's closing brace is checked before anything is written.
     if (insert.offset <= 0 || insert.offset >= insert.groupEnd || insert.groupEnd > text.length) return null;
     if (text[insert.groupEnd - 1] !== '}') return null;
 
+    // The closing brace on the member's own line means the whole group is written on one line, and
+    // the members are joined with the separator the game needs between two of them on a line.
+    if (!text.slice(insert.offset, insert.groupEnd).includes('\n')) {
+        const inline = fields.map((field) => field.text.replace(/\n[ \t]*/g, ' ')).join(', ');
+        return { offset: insert.offset, newText: `, ${inline}` };
+    }
+
+    const offset = pastTrailingRun(text, insert.offset);
     const indent = memberIndentAt(text, insert.offset);
-    const lineEnding = text.includes('\r\n') ? '\r\n' : '\n';
+    const lineEnding = lineEndingOf(text);
     // A scaffold is one line today, and the split keeps the indent right for a multi-line one.
     const lines = fields.flatMap((field) => field.text.split('\n')).map((line) => `${indent}${line}`);
-    return ['', ...lines].join(lineEnding);
+    return { offset, newText: ['', ...lines].join(lineEnding) };
 };

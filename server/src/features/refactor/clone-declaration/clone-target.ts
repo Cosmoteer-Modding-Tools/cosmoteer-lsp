@@ -96,10 +96,7 @@ const spanOf = (container: GroupNode | AbstractNodeDocument): { start: number; e
 };
 
 /** The identity a container writes itself, read by the name the class spells its identity slot with. */
-const ownIdentityOf = (
-    container: GroupNode | AbstractNodeDocument,
-    identityKey: string
-): CloneIdentity | undefined => {
+const ownIdentityOf = (container: GroupNode | AbstractNodeDocument, identityKey: string): CloneIdentity | undefined => {
     for (const element of container.elements) {
         if (!isAssignmentNode(element) || !isValueNode(element.right)) continue;
         if (element.left.name.toLowerCase() !== identityKey.toLowerCase()) continue;
@@ -217,9 +214,7 @@ const identityRefusalOf = async (
     if (!flattened) return 'unreadableBase';
     if (flattened.unreadable.length > 0) return 'unreadableBase';
     if (shape.identity) return undefined;
-    const inherited = flattened.members.find(
-        (member) => member.name.toLowerCase() === shape.identityKey.toLowerCase()
-    );
+    const inherited = flattened.members.find((member) => member.name.toLowerCase() === shape.identityKey.toLowerCase());
     return inherited?.origin.inherited ? 'inheritedIdentity' : 'noDeclaration';
 };
 

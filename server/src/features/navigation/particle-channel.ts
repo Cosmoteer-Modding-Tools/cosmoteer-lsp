@@ -91,10 +91,7 @@ export const channelOccurrences = (document: AbstractNodeDocument, name: string)
  * The declaration site of a channel for go-to-definition: the first occurrence that writes it
  * (`…Out`/`…InOut`). Returns undefined for an engine built-in that no field in the file writes.
  */
-export const channelDefinitionSite = (
-    document: AbstractNodeDocument,
-    name: string
-): ChannelOccurrence | undefined =>
+export const channelDefinitionSite = (document: AbstractNodeDocument, name: string): ChannelOccurrence | undefined =>
     [...particleChannelsOf(document)].find(
         (channel) => channel.name === name && (channel.direction === 'out' || channel.direction === 'inout')
     );

@@ -1,6 +1,13 @@
 import { readFile, stat } from 'fs/promises';
 import { dirname, join, resolve } from 'path';
-import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode, isValueNode } from '../../../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    GroupNode,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+} from '../../../core/ast/ast';
 import { parseText } from '../../../utils/ast.utils';
 import { indentOfLineAt } from '../../../utils/text.utils';
 import { CosmoteerWorkspaceService } from '../../../workspace/cosmoteer-workspace.service';
@@ -46,10 +53,7 @@ export const resolveBasePath = (path: string, declaringDir: string): string | un
  * @param groupPath the segment names, outermost first.
  * @returns the group, or undefined when the file does not hold it.
  */
-export const groupAtPath = (
-    document: AbstractNodeDocument,
-    groupPath: readonly string[]
-): GroupNode | undefined => {
+export const groupAtPath = (document: AbstractNodeDocument, groupPath: readonly string[]): GroupNode | undefined => {
     if (groupPath.length === 0) return undefined;
     let elements: readonly AbstractNode[] = document.elements;
     let found: GroupNode | undefined;
@@ -218,7 +222,10 @@ export const collectBaseUses = (
 export const locationOf = (reference: string, declaringDir: string): BaseLocation | undefined => {
     const match = /^\s*&?\s*<([^<>]+)>(.*)$/.exec(reference);
     if (!match) return undefined;
-    const groupPath = match[2].split('/').map((segment) => segment.trim()).filter((segment) => segment.length > 0);
+    const groupPath = match[2]
+        .split('/')
+        .map((segment) => segment.trim())
+        .filter((segment) => segment.length > 0);
     if (groupPath.length === 0) return undefined;
     const fsPath = resolveBasePath(match[1], declaringDir);
     return fsPath ? { fsPath: fsPath.replace(/\\/g, '/'), groupPath } : undefined;

@@ -50,8 +50,19 @@ export const definitionNameOf = (node: AbstractNode): string | null => {
 const normalizeUriMemo = new Map<string, string>();
 const NORMALIZE_URI_MEMO_CAP = 16384;
 
-/** Canonicalize a `file://` URI or OS path for identity comparison (decode, slashes, case). */
+/**
+ * Canonicalize a `file://` URI or OS path for identity comparison (decode, slashes, case).
+ *
+ * Every identity comparison in the server passes through here, including the keys read back out of
+ * the caches written to disk, so a missing key answers the empty string rather than throwing. A key
+ * that is not there matches nothing, which is what the callers want, and taking the whole server
+ * down over one is a far worse answer than looking the wrong entry up.
+ *
+ * @param uriOrPath the file's uri or OS path.
+ * @returns the canonical form, or the empty string when there is nothing to canonicalize.
+ */
 export const normalizeUri = (uriOrPath: string): string => {
+    if (!uriOrPath) return '';
     const cached = normalizeUriMemo.get(uriOrPath);
     if (cached !== undefined) return cached;
     let path = uriOrPath.startsWith('file://') ? uriOrPath.slice('file://'.length) : uriOrPath;

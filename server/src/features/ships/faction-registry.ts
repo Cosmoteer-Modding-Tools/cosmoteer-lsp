@@ -1,5 +1,12 @@
 import { CancellationToken } from 'vscode-languageserver';
-import { AbstractNode, AbstractNodeDocument, GroupNode, isGroupNode, isListNode, isValueNode } from '../../core/ast/ast';
+import {
+    AbstractNode,
+    AbstractNodeDocument,
+    GroupNode,
+    isGroupNode,
+    isListNode,
+    isValueNode,
+} from '../../core/ast/ast';
 import { parseModActions } from '../../mod/action-parser';
 import { normalizeTargetPath } from '../../mod/action-target-resolver';
 import { namedMembersOf } from '../../utils/ast.utils';
@@ -166,7 +173,9 @@ const factionsAt = async (
         const container = node as { elements?: AbstractNode[] } | undefined;
         if (!container?.elements) return [];
         const lower = segment.toLowerCase();
-        node = namedMembersOf(container as { elements: AbstractNode[] }).find(([name]) => name.toLowerCase() === lower)?.[1];
+        node = namedMembersOf(container as { elements: AbstractNode[] }).find(
+            ([name]) => name.toLowerCase() === lower
+        )?.[1];
         if (!node) return [];
     }
     if (isGroupNode(node)) {
@@ -207,7 +216,8 @@ export const collectFactions = async (
         if (root && isValueNode(root) && root.valueType.type === 'Reference') {
             for (const entry of await factionsAt(String(root.valueType.value), declaringDir, 'game')) push(entry);
         } else if (root && isListNode(root)) {
-            for (const entry of await factionsIn(root.elements, declaringDir, 'game', context.gameRootPath)) push(entry);
+            for (const entry of await factionsIn(root.elements, declaringDir, 'game', context.gameRootPath))
+                push(entry);
         }
     }
 
@@ -220,7 +230,8 @@ export const collectFactions = async (
             for (const action of parseModActions(file.document)) {
                 if (!ADDING_VERBS.has(action.type)) continue;
                 const hits = action.targets.some(
-                    (target) => normalizeTargetPath(String(target.valueType.value)).toLowerCase() === FACTIONS_TARGET_KEY
+                    (target) =>
+                        normalizeTargetPath(String(target.valueType.value)).toLowerCase() === FACTIONS_TARGET_KEY
                 );
                 if (!hits) continue;
                 for (const source of action.sources) {
@@ -230,7 +241,13 @@ export const collectFactions = async (
                         continue;
                     }
                     if (isListNode(source)) {
-                        for (const entry of await factionsIn(source.elements, declaringDir, 'mod', manifestFsPath, modRoot)) {
+                        for (const entry of await factionsIn(
+                            source.elements,
+                            declaringDir,
+                            'mod',
+                            manifestFsPath,
+                            modRoot
+                        )) {
                             push(entry);
                         }
                         continue;

@@ -173,7 +173,10 @@ export const parseShader = (source: string): ParsedShader => {
                 const fn = FUNCTION_RE.exec(code);
                 if (fn && !TYPE_KINDS[fn[1]]) {
                     functions.push(fn[1]);
-                    functionDecls.push({ name: fn[1], position: { line: lineIndex, column: columnOf(raw, code, fn[1]) } });
+                    functionDecls.push({
+                        name: fn[1],
+                        position: { line: lineIndex, column: columnOf(raw, code, fn[1]) },
+                    });
                 }
             }
         }
@@ -190,7 +193,7 @@ export const parseShader = (source: string): ParsedShader => {
     }
 
     return { includes, constants, functions, functionDecls };
-}
+};
 
 /** Control-flow keywords that read like `keyword (…) {` but are not function definitions. */
 const CONTROL_KEYWORDS = new Set(['if', 'else', 'for', 'while', 'switch', 'case', 'default', 'do', 'return']);
@@ -200,8 +203,7 @@ const blankComments = (source: string): string =>
     source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (m) => m.replace(/[^\n]/g, ' '));
 
 /** Matches a function definition `type name(params) [: SEMANTIC] {`, capturing type, name and params. */
-const SIGNATURE_RE =
-    /\b([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*\(([^{}();]*)\)\s*(?::\s*[A-Za-z_]\w*\s*)?\{/g;
+const SIGNATURE_RE = /\b([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*\(([^{}();]*)\)\s*(?::\s*[A-Za-z_]\w*\s*)?\{/g;
 
 /** Parses one parameter declaration (`in float2 uv : TEXCOORD0`) into its type and name, or null. */
 const parseParam = (part: string): ShaderParam | null => {

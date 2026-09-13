@@ -270,12 +270,7 @@ export const supertypesOf = async (
         // An appended base is written in the manifest, so each reference is resolved against the file
         // it is written in rather than against the container it was appended to.
         const target = await navigation
-            .navigate(
-                String(reference.valueType.value),
-                reference,
-                getStartOfAstNode(reference).uri,
-                cancellationToken
-            )
+            .navigate(String(reference.valueType.value), reference, getStartOfAstNode(reference).uri, cancellationToken)
             .catch(() => null);
         if (!target || isFile(target as FileTree)) continue;
         const base = target as AbstractNode;

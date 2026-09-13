@@ -141,7 +141,11 @@ const messageForIssue = (issue: MarkupIssue): string => {
                   )
                 : l10n.t("The '{0}' tag reads no '{1}' attribute, so this has no effect.", issue.name, issue.attribute);
         case 'ignoredAttribute':
-            return l10n.t("'{0}' already sets the colour of this tag, so '{1}' has no effect.", issue.winner, issue.attribute);
+            return l10n.t(
+                "'{0}' already sets the colour of this tag, so '{1}' has no effect.",
+                issue.winner,
+                issue.attribute
+            );
     }
 };
 

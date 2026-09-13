@@ -56,6 +56,11 @@ describe('generic validation of mod.rules SOURCES (the wholesale skip is gone)',
         expect(byValue.get('<a.rules>')).toBeUndefined();
     });
 
+    // Seen in workshop mod 3093774017: every ship it adds is keyed by its `.ship.png` file name.
+    it('does not read an action Name that ends in an asset extension as an asset path', () => {
+        expect(byValue.get('Small Pirate Lootbox.ship.png')).toBeUndefined();
+    });
+
     it('does not flag the manifest metadata (Logo asset resolves; ID/Name are plain strings)', () => {
         expect(byValue.get('logo.png')).toBeUndefined();
         expect(byValue.get('author.testmod')).toBeUndefined();

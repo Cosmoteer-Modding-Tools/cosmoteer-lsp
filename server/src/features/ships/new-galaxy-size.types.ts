@@ -7,7 +7,8 @@
 import { WiringOutcome } from './mod-wiring';
 
 /** Why the command created nothing. */
-export type NewGalaxySizeFailure = 'noModRoot' | 'notEditable' | 'noGameRoot' | 'invalidId' | 'idTaken' | 'pathTaken' | 'writeFailed';
+export type NewGalaxySizeFailure =
+    'noModRoot' | 'notEditable' | 'noGameRoot' | 'invalidId' | 'idTaken' | 'pathTaken' | 'writeFailed';
 
 /** What the client sends. Without an `id` the command reports what could be created here. */
 export interface NewGalaxySizeArgs {

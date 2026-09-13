@@ -12,8 +12,7 @@
  * value that ultimately failed drove exponential backtracking (a ReDoS that froze the whole server,
  * since `isValidReference` runs on every edit).
  */
-const PATH_RE =
-    /^\s*&?\s*(#?\.?\w[\w.]*|\^|~|\.|\.\.|:|<(.*)>|#)?\s*(?:\/\s*(?:\.?\w[\w.]*|\^|\.\.|:|#)\s*)*\/?\s*$/;
+const PATH_RE = /^\s*&?\s*(#?\.?\w[\w.]*|\^|~|\.|\.\.|:|<(.*)>|#)?\s*(?:\/\s*(?:\.?\w[\w.]*|\^|\.\.|:|#)\s*)*\/?\s*$/;
 
 // Mirrors .NET `Path.GetInvalidPathChars()` for the `<file path>` check: control chars (0x00-0x1F)
 // plus the quote/pipe/angle characters that can never appear in a path. Spaces and hyphens are
@@ -40,7 +39,11 @@ export const isValidReference = (value: string): boolean => {
  * @returns the final plain-name segment, or undefined when the reference does not end in one
  */
 export const inheritanceBaseLeafName = (reference: string): string | undefined => {
-    const segment = reference.replace(/^[&^~]+/, '').split('/').pop() ?? '';
+    const segment =
+        reference
+            .replace(/^[&^~]+/, '')
+            .split('/')
+            .pop() ?? '';
     return /^[A-Za-z_]\w*$/.test(segment) ? segment : undefined;
 };
 

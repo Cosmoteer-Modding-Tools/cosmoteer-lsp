@@ -1,0 +1,12 @@
+// An included action fragment: the manifest concatenates this list into its own `Actions`
+// through the inheritance header, so the member this `Add` creates is part of the effective game.
+FragmentActions
+[
+	{
+		Action = Add
+		AddTo = <indicators/indicators.rules>
+		Name = FragmentAdded
+		ToAdd = &<provider.rules>/Provider
+		OnlyIfNotExisting = true
+	}
+]

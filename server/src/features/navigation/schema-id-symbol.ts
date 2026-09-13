@@ -15,7 +15,12 @@ import { DefinitionService } from './definition.service';
 import { enclosingContainerKey, referenceNodesOf } from './reference-index';
 import { definitionLocationOf, locationKey } from './reference-location';
 import { Position } from 'vscode-languageserver';
-import { schemaReferenceFieldOf, isSameOrSubclass, mapKeyReferencesOf, mapKeyReferenceAt } from './schema-id-reference.navigation';
+import {
+    schemaReferenceFieldOf,
+    isSameOrSubclass,
+    mapKeyReferencesOf,
+    mapKeyReferenceAt,
+} from './schema-id-reference.navigation';
 import { stringValueNodesOf } from './schema-reference.navigation';
 import { documentsMentioning, uriToFsPath } from './workspace-files';
 

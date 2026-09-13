@@ -50,9 +50,15 @@ describe('folding ranges', () => {
     });
 
     it('does not treat a `//` inside a string as a comment', () => {
-        // The string is never closed, so it runs to the end of the file and swallows both `//` lines.
-        // Only the lexer knows that, which is why the run detection reads its spans.
-        const folds = foldsOf('Name = "unterminated\n// not a comment\n// still inside the string\n');
+        // Only the lexer knows the slashes sit inside a value, which is why the run detection reads
+        // its spans rather than the raw text.
+        const folds = foldsOf('Name = "http://example.com // not a comment"\nA = 1\n');
         expect(folds.filter((fold) => fold.kind === 'comment')).toEqual([]);
+    });
+
+    it('reads the lines after a string left open as the comments they are', () => {
+        // A plain string ends at its line break, so the lines below it are ordinary source again.
+        const folds = foldsOf('Name = "unterminated\n// a comment\n// and its second line\n');
+        expect(folds.filter((fold) => fold.kind === 'comment')).toHaveLength(1);
     });
 });

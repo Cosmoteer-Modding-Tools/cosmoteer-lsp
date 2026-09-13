@@ -151,7 +151,10 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
     /** Inline/deep node key → the slot type the action gives that node. */
     private readonly byNode = new Map<string, ValueType>();
     /** Source manifest uri → its contributions, so a re-index can drop them. */
-    private readonly bySource = new Map<string, { targets: Array<{ target: string; member: string }>; nodes: string[] }>();
+    private readonly bySource = new Map<
+        string,
+        { targets: Array<{ target: string; member: string }>; nodes: string[] }
+    >();
     /** Class FullName → id → declaring manifest uri, for the ids mod actions create in a game map. */
     private readonly idsByClass = new Map<string, Map<string, string>>();
     /** Source manifest uri → the `(class, id)` declarations it made, so a re-index can drop them. */
@@ -277,7 +280,10 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
      * @param cancellationToken cancels the action walk.
      * @returns true when this source's recorded entries differ from the ones they replaced.
      */
-    protected async indexDocument(document: AbstractNodeDocument, cancellationToken: CancellationToken): Promise<boolean> {
+    protected async indexDocument(
+        document: AbstractNodeDocument,
+        cancellationToken: CancellationToken
+    ): Promise<boolean> {
         const source = normalizeUri(document.uri);
         const previousSignature = this.sourceSignatures.get(source) ?? '';
         const previousTargets = new Set((this.bySource.get(source)?.targets ?? []).map((entry) => entry.target));
@@ -314,7 +320,14 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
             if (action.type === 'AddMany' && isListNode(value) && slot.kind === 'list') {
                 for (const element of value.elements) {
                     if (isValueNode(element) && element.valueType.type === 'Reference') {
-                        await this.recordValueLanding(element, slot.element, source, contributed, lines, cancellationToken);
+                        await this.recordValueLanding(
+                            element,
+                            slot.element,
+                            source,
+                            contributed,
+                            lines,
+                            cancellationToken
+                        );
                     } else if (isGroupNode(element) || isListNode(element)) {
                         this.recordNodeSlot(element, slot.element, contributed, lines);
                     }
@@ -653,7 +666,14 @@ export class ActionRootingIndex extends WatchedDocumentIndex implements AliasMem
             }
             if (isGroupNode(node) || isListNode(node)) {
                 if (node.identifier && node.parent && isDocumentNode(node.parent)) {
-                    this.recordTarget(normalizeUri(node.parent.uri), node.identifier.name, slot, source, contributed, lines);
+                    this.recordTarget(
+                        normalizeUri(node.parent.uri),
+                        node.identifier.name,
+                        slot,
+                        source,
+                        contributed,
+                        lines
+                    );
                 } else {
                     // A nested landing has no stable name to root by, so the node itself is recorded.
                     this.recordNodeSlot(node, slot, contributed, lines);

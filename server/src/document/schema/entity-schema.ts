@@ -77,10 +77,7 @@ export const identityKeyOf = (cls: string): string | undefined => {
     const fields = fieldsOf(cls);
     if (fields.some((field) => field.name === 'ID')) return 'ID';
     const selfIds = fields.filter(
-        (field) =>
-            field.name.endsWith('ID') &&
-            field.valueType.kind === 'reference' &&
-            field.valueType.target === cls
+        (field) => field.name.endsWith('ID') && field.valueType.kind === 'reference' && field.valueType.target === cls
     );
     return selfIds.length === 1 ? selfIds[0].name : undefined;
 };
@@ -114,7 +111,11 @@ export const ENTITY_FIELDS: ReadonlyMap<string, readonly EntityField[]> = (() =>
         for (const field of fieldsOf(cls)) {
             const elementClasses = elementClassesOf(field.valueType);
             for (const elementClass of elementClasses) if (!seen.has(elementClass)) stack.push(elementClass);
-            if (field.valueType.kind !== 'list' && field.valueType.kind !== 'range' && field.valueType.kind !== 'interpolated') {
+            if (
+                field.valueType.kind !== 'list' &&
+                field.valueType.kind !== 'range' &&
+                field.valueType.kind !== 'interpolated'
+            ) {
                 continue;
             }
             for (const elementClass of elementClasses) {
@@ -137,7 +138,11 @@ export const ENTITY_FIELDS: ReadonlyMap<string, readonly EntityField[]> = (() =>
 const idValueNodeOf = (element: AbstractNode, identityKey: string): ValueNode | undefined => {
     if (!isGroupNode(element)) return undefined;
     for (const member of element.elements) {
-        if (isAssignmentNode(member) && member.left.name.toLowerCase() === identityKey.toLowerCase() && isValueNode(member.right)) {
+        if (
+            isAssignmentNode(member) &&
+            member.left.name.toLowerCase() === identityKey.toLowerCase() &&
+            isValueNode(member.right)
+        ) {
             const value = member.right;
             if (value.valueType.type === 'String') return value;
         }
@@ -158,7 +163,11 @@ interface EntityDeclaration {
 const valueMemberOf = (group: AbstractNode, name: string): ValueNode | undefined => {
     if (!isGroupNode(group)) return undefined;
     for (const member of group.elements) {
-        if (isAssignmentNode(member) && member.left.name.toLowerCase() === name.toLowerCase() && isValueNode(member.right)) {
+        if (
+            isAssignmentNode(member) &&
+            member.left.name.toLowerCase() === name.toLowerCase() &&
+            isValueNode(member.right)
+        ) {
             return member.right;
         }
     }
@@ -209,16 +218,17 @@ const shipNameFromFile = (file: string): string | undefined => {
  * @param filePrefix the `IDPrefix` the document's root declares, when it has one.
  * @returns the ship's declaration, or undefined when the element names no ship file.
  */
-const builtinShipDeclarationOf = (element: AbstractNode, filePrefix: string | undefined): EntityDeclaration | undefined => {
+const builtinShipDeclarationOf = (
+    element: AbstractNode,
+    filePrefix: string | undefined
+): EntityDeclaration | undefined => {
     if (!isGroupNode(element)) return undefined;
     // Read value-kind-agnostically: `File` lexes as a Sprite (an asset path), not a String.
     const written = valueMemberOf(element, 'ID');
     const fileNode = valueMemberOf(element, 'File');
     const nameNode = written ?? fileNode;
     if (!nameNode) return undefined;
-    const name = written
-        ? String(written.valueType.value)
-        : shipNameFromFile(String(fileNode!.valueType.value));
+    const name = written ? String(written.valueType.value) : shipNameFromFile(String(fileNode!.valueType.value));
     if (!name) return undefined;
     const own = valueMemberOf(element, 'IDPrefix');
     const prefix = own ? String(own.valueType.value) : filePrefix;
@@ -368,7 +378,11 @@ export function* entityDeclarationsOf(document: AbstractNodeDocument): Generator
                         }
                         const idNode = idValueNodeOf(element, entity.identityKey);
                         if (idNode) {
-                            yield { elementClass: entity.elementClass, id: String(idNode.valueType.value), node: idNode };
+                            yield {
+                                elementClass: entity.elementClass,
+                                id: String(idNode.valueType.value),
+                                node: idNode,
+                            };
                             yield* otherIdAliasesOf(element, entity.elementClass);
                         }
                     }
@@ -396,9 +410,14 @@ export function* entityDeclarationsOf(document: AbstractNodeDocument): Generator
         // A part's `Stats { PowerUsage = … }` keys are the provider side of the stat relation: the
         // part writes the stat into existence and the GUI's stat entries and widgets reference it,
         // so each key declares the stat id.
-        if (selfKeyedMember && isGroupNode(selfKeyedMember.container) && STAT_PROVIDER_FIELDS.has(selfKeyedMember.name.toLowerCase())) {
+        if (
+            selfKeyedMember &&
+            isGroupNode(selfKeyedMember.container) &&
+            STAT_PROVIDER_FIELDS.has(selfKeyedMember.name.toLowerCase())
+        ) {
             for (const member of selfKeyedMember.container.elements) {
-                if (isAssignmentNode(member)) yield { elementClass: PART_STAT_CLASS, id: member.left.name, node: member.left };
+                if (isAssignmentNode(member))
+                    yield { elementClass: PART_STAT_CLASS, id: member.left.name, node: member.left };
             }
         }
         // A damage effect's `DamageType = fire` declares the type, like a category: the resistance
@@ -458,7 +477,8 @@ export function* entityDeclarationsOf(document: AbstractNodeDocument): Generator
             }
             // A member aliased as a list of instances under a different name than the schema field
             // (`MissionCategories = &<mission_categories.rules>/Categories`) still declares them.
-            const elementClass = memberType?.kind === 'list' && memberType.element.kind === 'group' ? memberType.element.ref : undefined;
+            const elementClass =
+                memberType?.kind === 'list' && memberType.element.kind === 'group' ? memberType.element.ref : undefined;
             if (elementClass && isListNode(element)) {
                 for (const entry of element.elements) yield* aliasRootedIdOf(entry, elementClass);
             }
@@ -597,7 +617,12 @@ export const SELF_KEYED_MAP_FIELDS: ReadonlyMap<string, string> = (() => {
         for (const field of type.fields) {
             const vt = field.valueType;
             const key = field.name.toLowerCase();
-            if (vt.kind === 'map' && vt.key.kind === 'reference' && vt.value.kind === 'group' && vt.value.ref === vt.key.target) {
+            if (
+                vt.kind === 'map' &&
+                vt.key.kind === 'reference' &&
+                vt.value.kind === 'group' &&
+                vt.value.ref === vt.key.target
+            ) {
                 (candidates.get(key) ?? candidates.set(key, new Set()).get(key)!).add(vt.key.target);
             } else {
                 disqualified.add(key);
@@ -680,9 +705,7 @@ export const LABEL_DECLARATION_FIELDS: ReadonlyMap<string, string> = (() => {
 
 /** The named group/list a node declares, covering the named (`Foo { }` / `Foo [ ]`) and assignment
  *  (`Foo = { }` / `Foo = [ ]`) spellings, which the game reads identically. */
-const namedContainerOf = (
-    node: AbstractNode
-): { name: string; container: AbstractNode } | undefined => {
+const namedContainerOf = (node: AbstractNode): { name: string; container: AbstractNode } | undefined => {
     if ((isGroupNode(node) || isListNode(node)) && node.identifier) {
         return { name: node.identifier.name, container: node };
     }
@@ -779,7 +802,11 @@ function* spawnerTagDeclarationsOf(document: AbstractNodeDocument): Generator<En
             if (!resolvedElsewhere) {
                 for (const element of member.container.elements) {
                     if (isValueNode(element) && element.valueType.type === 'String') {
-                        yield { elementClass: SIM_OBJECT_SPAWNER_CLASS, id: String(element.valueType.value), node: element };
+                        yield {
+                            elementClass: SIM_OBJECT_SPAWNER_CLASS,
+                            id: String(element.valueType.value),
+                            node: element,
+                        };
                     }
                 }
             }

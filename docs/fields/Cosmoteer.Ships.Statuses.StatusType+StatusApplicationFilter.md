@@ -38,4 +38,4 @@ Whether the status may be applied to parts whose HealthType is `Operational`, me
 ## StructuralHealth
 `bool` · optional · default `true`
 
-Whether the status may be applied to parts whose HealthType is `Structural`, meaning armor and structure. Set false to make the status affect functional parts only.
+Whether the status may be applied to parts whose [[Cosmoteer.Ships.Parts.PartRules.HealthType]] is `Structural`. In vanilla that is the structure pieces, armor counts as operational. Set false to make the status affect functional parts only.

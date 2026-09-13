@@ -1,4 +1,5 @@
 Part
 {
 	ID = fixture.included
+	Base = &<chained.txt>/Part
 }

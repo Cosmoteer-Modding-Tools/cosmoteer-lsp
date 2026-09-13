@@ -9,7 +9,8 @@ import { WiringOutcome } from './mod-wiring';
 import { ShipLayerContext } from './ship-layer.index';
 
 /** Why the command created nothing. */
-export type NewFactionFailure = 'noModRoot' | 'notEditable' | 'noGameRoot' | 'invalidId' | 'idTaken' | 'pathTaken' | 'writeFailed';
+export type NewFactionFailure =
+    'noModRoot' | 'notEditable' | 'noGameRoot' | 'invalidId' | 'idTaken' | 'pathTaken' | 'writeFailed';
 
 /** What the client sends. Without an `id` the command reports what could be created here. */
 export interface NewFactionArgs {

@@ -14,7 +14,8 @@ import { CancellationTokenSource, Diagnostic, InlayHint } from 'vscode-languages
  * invalidates diagnostics (a new version, a cross-file edit, a config change) drops or replaces
  * the entry, so a matching id is proof the client's copy is current.
  */
-export const diagnosticsCache: Map<string, { version: number; promise: Promise<Diagnostic[]>; resultId: string }> = new Map();
+export const diagnosticsCache: Map<string, { version: number; promise: Promise<Diagnostic[]>; resultId: string }> =
+    new Map();
 
 /**
  * The inlay hints of each open document, computed once per version over the whole document. The

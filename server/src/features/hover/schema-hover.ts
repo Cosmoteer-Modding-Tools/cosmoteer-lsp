@@ -7,7 +7,12 @@ import {
     isValueNode,
     ListNode,
 } from '../../core/ast/ast';
-import { documentScopeClass, positionalElementField, registryForGroup, resolveGroupClass } from '../../document/schema/schema-context';
+import {
+    documentScopeClass,
+    positionalElementField,
+    registryForGroup,
+    resolveGroupClass,
+} from '../../document/schema/schema-context';
 import {
     classByDiscriminator,
     fieldOf,

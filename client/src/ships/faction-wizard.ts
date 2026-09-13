@@ -72,9 +72,7 @@ const roleReason = (ship: ScannedShip, role: ShipRole): string => {
             return l10n.t('armed and named as a platform');
         case 'trade_station':
         case 'military_station':
-            return signals.thrusters === 0
-                ? l10n.t('no thrusters')
-                : l10n.t('too few thrusters for its size to fly');
+            return signals.thrusters === 0 ? l10n.t('no thrusters') : l10n.t('too few thrusters for its size to fly');
         case 'wreckage':
             return l10n.t('a derelict for the debris fields, belonging to no faction');
         case 'starter':
@@ -88,11 +86,11 @@ const roleReason = (ship: ScannedShip, role: ShipRole): string => {
 const difficultyLabel = (difficulty: ShipDifficulty): string => {
     switch (difficulty) {
         case 1:
-            return l10n.t('1 · Easy: fewer weapons and less armor than the game\'s ships of its tier');
+            return l10n.t("1 · Easy: fewer weapons and less armor than the game's ships of its tier");
         case 2:
-            return l10n.t('2 · Average: armed and armored like the game\'s ships of its tier');
+            return l10n.t("2 · Average: armed and armored like the game's ships of its tier");
         case 3:
-            return l10n.t('3 · Hard: more weapons and armor than the game\'s ships of its tier');
+            return l10n.t("3 · Hard: more weapons and armor than the game's ships of its tier");
     }
 };
 
@@ -117,7 +115,7 @@ const difficultyWord = (difficulty: ShipDifficulty): string => {
  */
 const difficultyReason = (ship: ScannedShip): string =>
     l10n.t(
-        'Weapons take {0} of its value and armor {1}, where the game\'s tier {2} ships spend {3} and {4}, so it rates {5}.',
+        "Weapons take {0} of its value and armor {1}, where the game's tier {2} ships spend {3} and {4}, so it rates {5}.",
         percent(ship.strength.weaponShare),
         percent(ship.strength.armorShare),
         String(ship.valueTier),
@@ -147,11 +145,14 @@ const credits = (value: number): string => Math.round(value).toLocaleString();
  * @returns the detail line.
  */
 const shipDetail = (ship: ScannedShip, role: ShipRole): string => {
-    if (ship.blocked === 'idTaken') return l10n.t('A built-in ship of that name exists, so the game would refuse the duplicate. Rename the file to register it.');
+    if (ship.blocked === 'idTaken')
+        return l10n.t(
+            'A built-in ship of that name exists, so the game would refuse the duplicate. Rename the file to register it.'
+        );
     if (ship.blocked) return l10n.t('This file does not carry a saved ship.');
     const parts: string[] = [
         l10n.t(
-            'Worth {0} credits ({1} parts, {2} crew), which the game\'s tier table puts at tier {3}.',
+            "Worth {0} credits ({1} parts, {2} crew), which the game's tier table puts at tier {3}.",
             credits(ship.value.total),
             String(ship.signals.parts),
             String(ship.signals.crew),
@@ -161,7 +162,7 @@ const shipDetail = (ship: ScannedShip, role: ShipRole): string => {
     if (ship.tierByRole[role] !== ship.valueTier) {
         parts.push(
             l10n.t(
-                'Written at tier {0} instead, since the game\'s own stations sit below their value so they outweigh the ships around them.',
+                "Written at tier {0} instead, since the game's own stations sit below their value so they outweigh the ships around them.",
                 String(ship.tierByRole[role])
             )
         );
@@ -187,7 +188,11 @@ const blueprintPaths = async (uri?: Uri, uris?: Uri[]): Promise<string[]> => {
     const how = await window.showQuickPick(
         [
             { label: l10n.t('Pick saved ships'), detail: l10n.t('One or more .ship.png files'), folder: false },
-            { label: l10n.t('Pick a folder of saved ships'), detail: l10n.t('Every .ship.png directly in it'), folder: true },
+            {
+                label: l10n.t('Pick a folder of saved ships'),
+                detail: l10n.t('Every .ship.png directly in it'),
+                folder: true,
+            },
         ],
         { placeHolder: l10n.t('Which ships should join a faction?') }
     );
@@ -230,7 +235,9 @@ const pickFaction = async (
         })),
         {
             label: `$(add) ${l10n.t('Create a new faction…')}`,
-            detail: l10n.t('Writes the faction, its territory, its tiers and its FTL beacon, then puts the ships in it'),
+            detail: l10n.t(
+                'Writes the faction, its territory, its tiers and its FTL beacon, then puts the ships in it'
+            ),
             create: true,
         },
     ];
@@ -320,7 +327,9 @@ const adjustShip = async (ship: ScannedShip): Promise<ShipChoice | undefined> =>
         ship.roles.map((candidate, index) => ({
             label: roleLabel(candidate),
             description: index === 0 ? l10n.t('suggested') : '',
-            detail: l10n.t('tier {0}', String(ship.tierByRole[candidate])) + (index === 0 ? ` · ${roleReason(ship, candidate)}` : ''),
+            detail:
+                l10n.t('tier {0}', String(ship.tierByRole[candidate])) +
+                (index === 0 ? ` · ${roleReason(ship, candidate)}` : ''),
             role: candidate,
         })),
         { title: ship.name, placeHolder: l10n.t('What kind of ship is it?') }
@@ -334,7 +343,8 @@ const adjustShip = async (ship: ScannedShip): Promise<ShipChoice | undefined> =>
             String(ship.valueTier)
         ),
         value: String(ship.tierByRole[role.role]),
-        validateInput: (value) => (/^\d{1,2}$/.test(value.trim()) && Number(value) >= 1 ? undefined : l10n.t('A whole number from 1 up.')),
+        validateInput: (value) =>
+            /^\d{1,2}$/.test(value.trim()) && Number(value) >= 1 ? undefined : l10n.t('A whole number from 1 up.'),
     });
     if (tier === undefined) return undefined;
     const difficulty = await window.showQuickPick(
@@ -366,7 +376,9 @@ const registerFailureMessage = (failure: string): string => {
         case 'noModRoot':
             return l10n.t('Cosmoteer: this folder is in no mod. Open a mod with a mod.rules manifest first.');
         case 'notEditable':
-            return l10n.t("Cosmoteer: this is the game's own data or somebody else's installed mod, which is not yours to add to.");
+            return l10n.t(
+                "Cosmoteer: this is the game's own data or somebody else's installed mod, which is not yours to add to."
+            );
         case 'noGameRoot':
             return l10n.t('Cosmoteer: the game path is unset, so the ships could not be judged.');
         case 'noBlueprints':
@@ -416,7 +428,9 @@ const manifestFailureSentence = (failure: string, manifests?: string[]): string 
                 (manifests ?? []).join(', ')
             );
         case 'manifestUnusable':
-            return l10n.t("The mod's Actions come from an included file, which cannot be appended to, so the action adding the faction to the built-in ships is yours to write.");
+            return l10n.t(
+                "The mod's Actions come from an included file, which cannot be appended to, so the action adding the faction to the built-in ships is yours to write."
+            );
         case 'noGameRoot':
             return l10n.t('The game path is unset, so the manifest action could not be written.');
         default:
@@ -432,7 +446,12 @@ const manifestFailureSentence = (failure: string, manifests?: string[]): string 
  * @param uri the resource the explorer passed, absent from the palette.
  * @param uris every selected resource, when several were.
  */
-export async function addShipToFaction(context: ExtensionContext, client: LanguageClient, uri?: Uri, uris?: Uri[]): Promise<void> {
+export async function addShipToFaction(
+    context: ExtensionContext,
+    client: LanguageClient,
+    uri?: Uri,
+    uris?: Uri[]
+): Promise<void> {
     const anchor = anchorUri();
     if (!anchor) {
         window.showInformationMessage(l10n.t('Cosmoteer: open the folder of your mod first.'));
@@ -450,11 +469,17 @@ export async function addShipToFaction(context: ExtensionContext, client: Langua
             })) as RegisterShipScanResult | null
     );
     if (!scan || scan.failure) {
-        window.showWarningMessage(scan?.failure ? registerFailureMessage(scan.failure) : l10n.t('Cosmoteer: the ships could not be read.'));
+        window.showWarningMessage(
+            scan?.failure ? registerFailureMessage(scan.failure) : l10n.t('Cosmoteer: the ships could not be read.')
+        );
         return;
     }
     if (scan.balanceFallback) {
-        window.showWarningMessage(l10n.t('Cosmoteer: the game path is unset, so the tiers were worked out from the shipped tier table rather than the game\'s own.'));
+        window.showWarningMessage(
+            l10n.t(
+                "Cosmoteer: the game path is unset, so the tiers were worked out from the shipped tier table rather than the game's own."
+            )
+        );
     }
 
     // Nothing to register is said before a faction is asked for, with the reason, so a folder of
@@ -508,18 +533,29 @@ const showRegistrationSummary = async (result: RegisterShipApplyResult): Promise
                 'Cosmoteer: {0} registered in {1}: {2}.',
                 String(done.length),
                 result.faction,
-                done.map((ship) => `${ship.name} (${roleLabel(ship.role)}, ${l10n.t('tier {0}', String(ship.tier))})`).join(', ')
+                done
+                    .map((ship) => `${ship.name} (${roleLabel(ship.role)}, ${l10n.t('tier {0}', String(ship.tier))})`)
+                    .join(', ')
             )
         );
     }
     for (const ship of failed) notes.push(l10n.t('{0}: {1}.', ship.name, shipFailurePhrase(ship.failure ?? '')));
     if (result.manifestFailure) notes.push(manifestFailureSentence(result.manifestFailure, result.manifests));
-    else if (done.length > 0 && result.manifest) notes.push(l10n.t('The faction is wired in from {0}.', workspace.asRelativePath(result.manifest)));
+    else if (done.length > 0 && result.manifest)
+        notes.push(l10n.t('The faction is wired in from {0}.', workspace.asRelativePath(result.manifest)));
     const icons = done.filter((ship) => ship.stasisIcon).length;
-    if (icons > 0) notes.push(l10n.t('{0} station icons were drawn beside the ships, for you to replace if you like.', String(icons)));
+    if (icons > 0)
+        notes.push(
+            l10n.t('{0} station icons were drawn beside the ships, for you to replace if you like.', String(icons))
+        );
     const starterKeys = done.map((ship) => ship.starterDescriptionKey).filter((key): key is string => !!key);
     if (starterKeys.length > 0) {
-        notes.push(l10n.t('The career mode offers the starter ships with these descriptions to write in the language files: {0}.', starterKeys.join(', ')));
+        notes.push(
+            l10n.t(
+                'The career mode offers the starter ships with these descriptions to write in the language files: {0}.',
+                starterKeys.join(', ')
+            )
+        );
     }
     const message = notes.join(' ');
     const first = done[0];
@@ -553,7 +589,12 @@ export async function createNewFaction(
 ): Promise<string | undefined> {
     const uri = wizardAnchor(anchor);
     if (!uri) return undefined;
-    const scan = await scanForWizard<NewFactionScanResult>(client, NEW_FACTION_SERVER_COMMAND, uri, factionFailureMessage);
+    const scan = await scanForWizard<NewFactionScanResult>(
+        client,
+        NEW_FACTION_SERVER_COMMAND,
+        uri,
+        factionFailureMessage
+    );
     if (!scan) return undefined;
     const form = await showNewFactionForm(context, {
         modRoot: scan.modRoot,
@@ -565,7 +606,15 @@ export async function createNewFaction(
     const result = await applyForWizard<NewFactionApplyResult>(
         client,
         NEW_FACTION_SERVER_COMMAND,
-        { uri, id: form.id, name: form.name, color: form.color, icon: form.icon, beaconShip: form.beaconShip, lore: form.lore },
+        {
+            uri,
+            id: form.id,
+            name: form.name,
+            color: form.color,
+            icon: form.icon,
+            beaconShip: form.beaconShip,
+            lore: form.lore,
+        },
         factionFailureMessage
     );
     if (!result) return undefined;
@@ -578,31 +627,50 @@ export async function createNewFaction(
             String(result.civilianPlayerIndex)
         ),
     ];
-    const unwired = Object.entries(result.wiring).filter(([, outcome]) => outcome !== 'written' && outcome !== 'present' && outcome !== 'skipped');
+    const unwired = Object.entries(result.wiring).filter(
+        ([, outcome]) => outcome !== 'written' && outcome !== 'present' && outcome !== 'skipped'
+    );
     if (unwired.length > 0) {
         const reason = unwired[0][1];
         notes.push(
             reason === 'ambiguousManifest'
-                ? l10n.t('The mod has several manifests and none is mod.rules, so the actions wiring it in are yours to write. Candidates: {0}.', (result.manifests ?? []).join(', '))
+                ? l10n.t(
+                      'The mod has several manifests and none is mod.rules, so the actions wiring it in are yours to write. Candidates: {0}.',
+                      (result.manifests ?? []).join(', ')
+                  )
                 : reason === 'manifestUnusable'
-                  ? l10n.t("The mod's Actions come from an included file, which cannot be appended to, so the actions wiring it in are yours to write.")
+                  ? l10n.t(
+                        "The mod's Actions come from an included file, which cannot be appended to, so the actions wiring it in are yours to write."
+                    )
                   : l10n.t('Some of it could not be wired in: {0}.', unwired.map(([key]) => key).join(', '))
         );
     }
     if (result.localizationFiles.length === 0) {
-        notes.push(l10n.t('This mod ships no language file, so {0} was not declared anywhere and the game will show no name.', result.nameKey));
+        notes.push(
+            l10n.t(
+                'This mod ships no language file, so {0} was not declared anywhere and the game will show no name.',
+                result.nameKey
+            )
+        );
     }
     if (result.placeholderAssets.length === 2) {
-        notes.push(l10n.t('Its icon and its FTL beacon are the game\'s own for now, named in the files for you to replace.'));
+        notes.push(
+            l10n.t("Its icon and its FTL beacon are the game's own for now, named in the files for you to replace.")
+        );
     } else if (result.placeholderAssets.length === 1) {
         notes.push(
             result.iconFile
-                ? l10n.t('Its FTL beacon is the game\'s own for now, named in the beacon file for you to replace.')
-                : l10n.t('Its icon is the game\'s own for now, named in the faction file for you to replace.')
+                ? l10n.t("Its FTL beacon is the game's own for now, named in the beacon file for you to replace.")
+                : l10n.t("Its icon is the game's own for now, named in the faction file for you to replace.")
         );
     }
     if (result.loreFile) {
-        notes.push(l10n.t('Its lore page is in the codex, with {0} texts to write in the language files.', String(result.loreKeys.length)));
+        notes.push(
+            l10n.t(
+                'Its lore page is in the codex, with {0} texts to write in the language files.',
+                String(result.loreKeys.length)
+            )
+        );
     }
     if (options.silent) {
         window.showInformationMessage(notes.join(' '));
@@ -627,7 +695,9 @@ const factionFailureMessage = (failure: string): string => {
         case 'noModRoot':
             return l10n.t('Cosmoteer: this folder is in no mod. Open a mod with a mod.rules manifest first.');
         case 'notEditable':
-            return l10n.t("Cosmoteer: this is the game's own data or somebody else's installed mod, which is not yours to add to.");
+            return l10n.t(
+                "Cosmoteer: this is the game's own data or somebody else's installed mod, which is not yours to add to."
+            );
         case 'noGameRoot':
             return l10n.t('Cosmoteer: the game path is unset, so where the faction registry lives could not be read.');
         case 'invalidId':

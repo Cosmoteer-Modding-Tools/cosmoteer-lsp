@@ -48,6 +48,17 @@ describe('alias-root index', () => {
         expect(aliasedMemberType(factionsDoc, 'Factions')?.kind).toBe('list');
     });
 
+    // A deep alias reads one leaf out of the member, so the field's type describes the leaf, not the
+    // member. Recording it on the member typed base_ship's whole `FtlEffects` group as a Time.
+    it('does not type a member from an alias that reaches past it', async () => {
+        aliasRootIndex.invalidate();
+        await aliasRootIndex.build(
+            parser(lexer('Factions = &<factions/factions.rules>/Factions/Terran'), 'file:///game/cosmoteer.rules').value,
+            resolver
+        );
+        expect(aliasRootIndex.memberType(FACTIONS_URI, 'Factions')).toBeUndefined();
+    });
+
     it('returns undefined for a file that is not aliased', () => {
         expect(aliasRootIndex.rootType('file:///game/random.rules')).toBeUndefined();
         expect(aliasedMemberType(docWith('file:///game/random.rules'), 'Foo')).toBeUndefined();

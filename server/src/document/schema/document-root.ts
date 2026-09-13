@@ -74,7 +74,11 @@ const PATH_ROOTS: ReadonlyArray<RootRule> = [
     // is referenced nowhere (a parked file), and a mod's new encounter is unreferenced until it is wired
     // in, so both stayed dark. The path rule roots them the moment they exist. Guarded by the top-level
     // `ID` every encounter declares.
-    { test: /[/\\]encounters[/\\]/i, cls: 'Cosmoteer.Modes.Career.Encounter.EncounterRules', requireTopLevelField: 'ID' },
+    {
+        test: /[/\\]encounters[/\\]/i,
+        cls: 'Cosmoteer.Modes.Career.Encounter.EncounterRules',
+        requireTopLevelField: 'ID',
+    },
     { test: /[/\\]crew[/\\]crew\.rules$/i, cls: 'Cosmoteer.Crew.CrewRules' },
     { test: /\/name_generators\//i, registry: 'Cosmoteer.Generators.Names.NameGenerator' },
     // Career sector-generation files are whole-file `SimObjectSpawner`s dispatched by their top-level
@@ -151,14 +155,15 @@ const MIN_ROOT_COVERAGE = 0.5;
 export const classFitsDocument = (cls: string, document: AbstractNodeDocument): boolean => {
     const names = document.elements
         .filter((node): node is AbstractNode => isAssignmentNode(node) || isGroupNode(node))
-        .map((node) => (isAssignmentNode(node) ? node.left.name : isGroupNode(node) ? node.identifier?.name : undefined))
+        .map((node) =>
+            isAssignmentNode(node) ? node.left.name : isGroupNode(node) ? node.identifier?.name : undefined
+        )
         .filter((name): name is string => !!name)
         // The polymorphic `Type=` discriminator is structural, never a class field, so counting it
         // would understate coverage on `Type`-dispatched roots (a spawner file's only fields besides
         // `Type` may be a couple of base members). Drop it when it isn't a real field of the candidate.
         .filter((name) => name.toLowerCase() !== 'type' || !!fieldOf(cls, name));
-    const isMacroName = (name: string): boolean =>
-        /^[A-Z][A-Z0-9_]*$/.test(name) && fieldOf(cls, name)?.name !== name;
+    const isMacroName = (name: string): boolean => /^[A-Z][A-Z0-9_]*$/.test(name) && fieldOf(cls, name)?.name !== name;
     const judged = names.filter((name) => !isMacroName(name));
     const excludedConstants = judged.length < names.length;
     if (judged.length < 3) {

@@ -4,7 +4,7 @@
     "description": "A complete language server for Cosmoteer rules",
     "author": "Cosmoteer Modding Tools",
     "license": "MIT",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "repository": {
         "type": "git",
         "url": "https://github.com/Cosmoteer-Modding-Tools/cosmoteer-lsp"
@@ -21,7 +21,9 @@
         "vscode": "^1.100.0"
     },
     "activationEvents": [
-        "workspaceContains:**/*.rules"
+        "workspaceContains:**/*.rules",
+        "onLanguage:rules",
+        "onLanguage:cosmoteer-shader"
     ],
     "pricing": "Free",
     "icon": "./images/Language_Server_Icon.png",
@@ -619,6 +621,12 @@
                         "default": true,
                         "description": "Report a part component chain that comes back to a component it has already been through. A chainable component takes its position from the component it is chained to and nothing guards against a loop, so a closed chain takes the process down the moment the part is created, with no dialog and nothing in the log."
                     },
+                    "cosmoteerLSPRules.diagnostics.validateColorValues": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Check a colour written as a single word. The engine reads a lone colour value through a fixed table of names and answers a name it does not hold with an exception that takes the whole data tree down, so a misspelled colour, or a hex value the rules format has no form for, stops the game from starting."
+                    },
                     "cosmoteerLSPRules.diagnostics.validateTextMarkup": {
                         "scope": "resource",
                         "type": "boolean",
@@ -630,6 +638,12 @@
                         "type": "boolean",
                         "default": true,
                         "description": "Report a range written the wrong way round where the class reading it cares. The whole-number roll refuses a high end below its low one and throws where it draws the number, and a compared window the wrong way round is one nothing can ever fall into. Ranges read as interpolation bounds count down on purpose and are never judged."
+                    },
+                    "cosmoteerLSPRules.diagnostics.validateDivisionByZero": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Report a numeric value that divides by zero. The game's expression evaluator answers NaN for it, which a fractional field stores as the field's value while a whole-number field refuses it with an overflow and the file never loads."
                     },
                     "cosmoteerLSPRules.diagnostics.validateChainedBuffReceivable": {
                         "scope": "resource",
@@ -814,18 +828,22 @@
         "esbuild": "node esbuild.mjs",
         "esbuild-watch": "node esbuild.mjs --watch",
         "watch": "node esbuild.mjs --watch",
-        "compile:tsc": "tsc -b",
-        "watch:tsc": "tsc -b --noEmit --watch",
+        "compile:tsc": "node node_modules/typescript/bin/tsc -b",
+        "watch:tsc": "node node_modules/typescript/bin/tsc -b --noEmit --watch",
         "watch:esbuild": "node esbuild.mjs --watch",
         "watch:esbuild-test": "node esbuild.mjs --watch --test",
-        "lint": "eslint ./client/src ./server/src",
+        "lint": "eslint ./client/src ./server/src && npm run format:check",
         "lint:mod": "node out/server/src/cli/lint.mjs",
+        "format": "prettier --write \"client/src/**/*.ts\" \"server/src/**/*.ts\" \"*.mjs\" \"scripts/*.mjs\" \"tools/**/*.mjs\"",
+        "format:check": "prettier --check \"client/src/**/*.ts\" \"server/src/**/*.ts\" \"*.mjs\" \"scripts/*.mjs\" \"tools/**/*.mjs\"",
         "package:cli": "node scripts/build-cli-package.mjs",
         "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
+        "prepare": "git config core.hooksPath .githooks || true",
         "test": "sh ./scripts/e2e.sh",
         "test:server": "cd server && npm test",
-        "check-types": "tsc -b --noEmit",
-        "check-types:test": "cd server && tsc -p test/tsconfig.json",
+        "check-types": "node node_modules/typescript/bin/tsc -b --noEmit",
+        "check-types:fast": "node node_modules/tsgo/bin/tsc -b --noEmit",
+        "check-types:test": "cd server && node ../node_modules/typescript/bin/tsc -p test/tsconfig.json",
         "fieldstats": "cd server && npx vite-node ../tools/fieldstats/fieldstats.ts",
         "docs:scaffold": "node tools/docsgen/docsgen.mjs scaffold",
         "docs:compile": "node tools/docsgen/docsgen.mjs compile",
@@ -844,6 +862,7 @@
         "glob": "^13.0.6",
         "mocha": "^12.0.0",
         "prettier": "3.9.6",
+        "tsgo": "npm:typescript@^7.0.2",
         "typescript": "^6.0.3",
         "typescript-eslint": "^8.69.0"
     }

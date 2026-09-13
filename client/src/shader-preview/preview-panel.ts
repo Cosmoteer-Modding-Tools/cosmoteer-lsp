@@ -1,4 +1,14 @@
-import { Disposable, ExtensionContext, Position, Uri, ViewColumn, WebviewPanel, commands, l10n, workspace } from 'vscode';
+import {
+    Disposable,
+    ExtensionContext,
+    Position,
+    Uri,
+    ViewColumn,
+    WebviewPanel,
+    commands,
+    l10n,
+    workspace,
+} from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { createCosmoteerPanel, disposeAll, imageDataUri, stringsScript, webviewShell } from '../webview-util';
 import { shaderPreviewStrings } from '../webview-strings';
@@ -16,8 +26,11 @@ export class ShaderPreviewPanel {
     private readonly disposables: Disposable[] = [];
     /** The material being previewed, re-queried when its document or its shader changes. */
     private tracked: { uri: Uri; position: Position } | undefined;
-    /** The lower-cased fs path of the shader the last render resolved, so an edit to it triggers a refresh. */
-    private previewedShaderPath: string | undefined;
+    /**
+     * The lower-cased fs paths of every file the last render read, the shader and its whole `#include`
+     * chain, so editing a base library refreshes a shader that only includes it.
+     */
+    private previewedSourcePaths: ReadonlySet<string> = new Set();
     /** Debounce timer so a burst of keystrokes coalesces into one re-render. */
     private refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -25,12 +38,23 @@ export class ShaderPreviewPanel {
         private readonly context: ExtensionContext,
         private readonly client: LanguageClient
     ) {
-        this.panel = createCosmoteerPanel(context, 'cosmoteerShaderPreview', l10n.t('Shader Preview'), ViewColumn.Beside);
+        this.panel = createCosmoteerPanel(
+            context,
+            'cosmoteerShaderPreview',
+            l10n.t('Shader Preview'),
+            ViewColumn.Beside
+        );
         this.panel.onDidDispose(() => this.dispose());
         this.panel.webview.onDidReceiveMessage((message) => this.onMessage(message));
-        // Live update: re-render when the previewed material's document, or its resolved shader file,
-        // changes. The server reads open buffers, so this reflects unsaved edits too.
+        // Live update: re-render when the previewed material's document, or any file in its shader's
+        // include chain, changes. The server reads open buffers, so this reflects unsaved edits too,
+        // and the watcher adds the changes that happen outside the editor (a git checkout, a build).
         this.disposables.push(workspace.onDidChangeTextDocument((event) => this.onDocumentChanged(event.document.uri)));
+        const watcher = workspace.createFileSystemWatcher('**/*.shader');
+        this.disposables.push(watcher);
+        this.disposables.push(watcher.onDidChange((uri) => this.onDocumentChanged(uri)));
+        this.disposables.push(watcher.onDidCreate((uri) => this.onDocumentChanged(uri)));
+        this.disposables.push(watcher.onDidDelete((uri) => this.onDocumentChanged(uri)));
         this.panel.webview.html = this.html();
     }
 
@@ -42,13 +66,14 @@ export class ShaderPreviewPanel {
     }
 
     /**
-     * Re-render (debounced) when the changed document is the tracked material or the shader it resolved
-     * to. Matching is by fs path (case-insensitive) so editor and server URI encodings still line up.
+     * Re-render (debounced) when the changed file is the tracked material or any file in the shader's
+     * include chain. Matching is by fs path (case-insensitive) so editor and server URI encodings still
+     * line up.
      */
     private onDocumentChanged(changed: Uri): void {
         if (!this.tracked) return;
         const path = changed.fsPath.toLowerCase();
-        if (path !== this.tracked.uri.fsPath.toLowerCase() && path !== this.previewedShaderPath) return;
+        if (path !== this.tracked.uri.fsPath.toLowerCase() && !this.previewedSourcePaths.has(path)) return;
         if (this.refreshTimer) clearTimeout(this.refreshTimer);
         this.refreshTimer = setTimeout(() => {
             if (this.tracked) void this.render(this.tracked.uri, this.tracked.position);
@@ -87,11 +112,12 @@ export class ShaderPreviewPanel {
             position: { line: position.line, character: position.character },
         });
         if (!data) {
-            this.previewedShaderPath = undefined;
+            this.previewedSourcePaths = new Set();
             await this.panel.webview.postMessage({ type: 'empty' });
             return;
         }
-        this.previewedShaderPath = data.shaderUri ? Uri.parse(data.shaderUri).fsPath.toLowerCase() : undefined;
+        const sources = data.sourceUris?.length ? data.sourceUris : data.shaderUri ? [data.shaderUri] : [];
+        this.previewedSourcePaths = new Set(sources.map((uri) => Uri.parse(uri).fsPath.toLowerCase()));
         this.panel.title = l10n.t('Shader Preview: {0}', data.shaderName);
         // Every bound texture is inlined as a data URI keyed by its sampler uniform, so noise and ramp
         // textures load in the webview the same way the base texture does.

@@ -19,7 +19,15 @@ import {
     inheritedMemberHasValues,
     locatePartGroup,
 } from './part-grid-data.service';
-import { childNamed, enumNameOf, numberOf, readMapEntries, readRect, readVector, readVectorEvaluated } from './vector-forms';
+import {
+    childNamed,
+    enumNameOf,
+    numberOf,
+    readMapEntries,
+    readRect,
+    readVector,
+    readVectorEvaluated,
+} from './vector-forms';
 import {
     GridEditOptions,
     WriteSite,
@@ -260,7 +268,14 @@ const removeMemberEdit = (text: string, member: LocalMember): EditOutcome => {
 /** Rewrites a vector value in place, preserving its authored form. */
 const replaceVectorEdit = (text: string, node: AbstractNode, x: number, y: number): EditOutcome => {
     if (isGroupNode(node)) {
-        return [replaceSpan(text, node.position.start, node.position.end, `{X = ${formatNumber(x)}; Y = ${formatNumber(y)}}`)];
+        return [
+            replaceSpan(
+                text,
+                node.position.start,
+                node.position.end,
+                `{X = ${formatNumber(x)}; Y = ${formatNumber(y)}}`
+            ),
+        ];
     }
     return [replaceSpan(text, node.position.start, node.position.end, vectorText(x, y))];
 };
@@ -415,7 +430,8 @@ const writeTuple = async (
     } else if (isGroupNode(node)) {
         for (const name of members) {
             const child = childNamed(node, name);
-            if (!child) return { error: l10n.t('The value is not written as a full {0} tuple.', String(members.length)) };
+            if (!child)
+                return { error: l10n.t('The value is not written as a full {0} tuple.', String(members.length)) };
             components.push(child);
         }
     } else {
@@ -493,10 +509,7 @@ const materializeFieldEdit = (
 };
 
 /** The nth readable vector element of a list-like member, with its element node. */
-const vectorElementAt = (
-    member: AbstractNode,
-    index: number
-): { node: AbstractNode; x: number; y: number } | null => {
+const vectorElementAt = (member: AbstractNode, index: number): { node: AbstractNode; x: number; y: number } | null => {
     if (!isListNode(member) && !isGroupNode(member)) return null;
     let seen = 0;
     for (const element of member.elements) {
@@ -704,12 +717,7 @@ const resolveLayerMember = (
 };
 
 /** Toggle edits for the cell-set layers (door locations, blocked travel cells). */
-const cellSetEdit = async (
-    ctx: EditContext,
-    layerId: string,
-    cell: GridCell,
-    add: boolean
-): Promise<EditOutcome> => {
+const cellSetEdit = async (ctx: EditContext, layerId: string, cell: GridCell, add: boolean): Promise<EditOutcome> => {
     const { part, text, token } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
@@ -751,7 +759,8 @@ const mapEntryEdit = async (
     if (member) {
         const entry = readMapEntries(member.value).find(({ key }) => cellEquals(key, cell));
         if (entry) {
-            if (!values.length) return removeElementOrMemberEdit(text, container, fieldName, member, entry.entry, token);
+            if (!values.length)
+                return removeElementOrMemberEdit(text, container, fieldName, member, entry.entry, token);
             return writeValue(ctx, entry.value, enumListText(values));
         }
         if (!values.length) return { error: l10n.t('The cell has no entry to remove.') };
@@ -998,11 +1007,7 @@ const vectorMemberEdit = async (
 };
 
 /** Set/remove edit for a single-point layer (also the railgun scalar-pair synthetics). */
-const pointFieldEdit = async (
-    ctx: EditContext,
-    layerId: string,
-    point: GridPoint | null
-): Promise<EditOutcome> => {
+const pointFieldEdit = async (ctx: EditContext, layerId: string, point: GridPoint | null): Promise<EditOutcome> => {
     const { part, text } = ctx;
     const resolved = resolveLayerMember(part, layerId);
     if ('error' in resolved) return resolved;
@@ -1194,7 +1199,8 @@ const rectEntryEdit = async (
     if (member && index !== null) {
         const entry = rectEntryAt(member.value, index);
         if (!entry) return { error: l10n.t('The rect is not present in the local field.') };
-        if (tag) return [replaceSpan(text, entry.position.start, entry.position.end, rectEntryText(effectiveTag, rect))];
+        if (tag)
+            return [replaceSpan(text, entry.position.start, entry.position.end, rectEntryText(effectiveTag, rect))];
         return writeRect(ctx, entry.elements[1], rect);
     }
     if (member) return appendElementEdit(text, member.value as ListNode, rectEntryText(effectiveTag, rect));
@@ -1202,7 +1208,11 @@ const rectEntryEdit = async (
     const brace = closerOffset(text, container);
     if (brace < 0) return { error: l10n.t('The part group could not be edited safely.') };
     return [
-        insertAt(text, brace, `${tabs(indent)}${blockFieldText(fieldName, [rectEntryText(effectiveTag, rect)], indent)}\n`),
+        insertAt(
+            text,
+            brace,
+            `${tabs(indent)}${blockFieldText(fieldName, [rectEntryText(effectiveTag, rect)], indent)}\n`
+        ),
     ];
 };
 
@@ -1218,11 +1228,7 @@ const rectEntryRemoveEdit = async (ctx: EditContext, layerId: string, index: num
 };
 
 /** Moves a component's own `Location`, through the declaration when it is written as a reference. */
-const componentLocationEdit = async (
-    ctx: EditContext,
-    component: string,
-    point: GridPoint
-): Promise<EditOutcome> => {
+const componentLocationEdit = async (ctx: EditContext, component: string, point: GridPoint): Promise<EditOutcome> => {
     const container = containerForPath(ctx.part, ['Components', component]);
     if (!container) return { error: l10n.t('The component is inherited from a base part. Declare it locally first.') };
     return vectorMemberEdit(ctx, container, 'Location', point.x, point.y);
@@ -1268,11 +1274,7 @@ const FLAG_FIELD_DEFAULTS: Readonly<Record<string, readonly string[]>> = {
  * more. Writing the set the part would inherit anyway (from a base, or the game default) removes
  * the local field instead, so toggling away and back leaves no redundant override behind.
  */
-const flagsEdit = async (
-    ctx: EditContext,
-    field: string,
-    values: readonly string[] | null
-): Promise<EditOutcome> => {
+const flagsEdit = async (ctx: EditContext, field: string, values: readonly string[] | null): Promise<EditOutcome> => {
     const { part, text, token } = ctx;
     if (!values) {
         const member = localMember(part, field);

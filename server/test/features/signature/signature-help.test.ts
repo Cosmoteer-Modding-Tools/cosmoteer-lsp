@@ -10,14 +10,14 @@ const at = (marked: string) => {
 
 describe('signature help for math functions', () => {
     it('shows a curated signature with the active parameter inside a call', () => {
-        const help = at('Damage = pow(|');
-        expect(help?.signatures[0].label).toBe('pow(base, exponent)');
+        const help = at('Damage = log(|');
+        expect(help?.signatures[0].label).toBe('log(base, x)');
         expect(help?.activeParameter).toBe(0);
-        expect(help?.signatures[0].documentation).toMatch(/raised to the power/);
+        expect(help?.signatures[0].documentation).toMatch(/Logarithm of x/);
     });
 
     it('advances the active parameter past each comma', () => {
-        expect(at('X = pow(2, |')?.activeParameter).toBe(1);
+        expect(at('X = round(2, |')?.activeParameter).toBe(1);
         expect(at('X = log(10, |')?.activeParameter).toBe(1);
     });
 
@@ -66,7 +66,19 @@ describe('signature help for math functions', () => {
         expect(at('X = notafunc(|')).toBeNull();
     });
 
-    it('is case-insensitive on the function name', () => {
-        expect(at('X = CEIL(|')?.signatures[0].label).toBe('ceil(x)');
+    it('answers nothing for a miscased name, which the game refuses too', () => {
+        // mXparser is case-sensitive: `CEIL(0)` is an invalid token, not a call.
+        expect(at('X = CEIL(|')).toBeNull();
+        expect(at('X = ceil(|')?.signatures[0].label).toBe('ceil(x)');
+    });
+
+    it('does not answer inside a comment or after an escaped quote', () => {
+        expect(at('	// ceil(|')).toBeNull();
+        expect(at('X = 1 // see ceil(|')).toBeNull();
+        expect(at('A = "say \\"hi\\""\nX = |')).toBeNull();
+    });
+
+    it('does not carry a call across the line above', () => {
+        expect(at('X = ceil(\nY = |')).toBeNull();
     });
 });

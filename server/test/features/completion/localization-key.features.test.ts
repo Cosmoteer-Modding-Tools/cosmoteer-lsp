@@ -201,6 +201,26 @@ describe('localization key insertion edit', () => {
         const edit = insertEditForFile(parse(text, uri), text, 'Lore/X/Lore1')!;
         expect(applyInsert(text, edit)).toBe(`Lore\n{\n\tX { Title = "T" \n\t\tLore1 = ""\n\t}\n}\n`);
     });
+
+    // A strings file written with `\r\n` or with spaces used to come back mixed, which turns one
+    // added key into a whole-file change in the author's diff.
+    it('writes the line ending the file already uses', () => {
+        const text = `Misc\r\n{\r\n\tOkay = "Okay"\r\n}\r\n`;
+        const edit = insertEditForFile(parse(text, uri), text, 'Misc/New')!;
+        expect(edit.newText).toBe('\tNew = ""\r\n');
+    });
+
+    it('writes the indentation the file already uses', () => {
+        const text = `Misc\n{\n    Okay = "Okay"\n}\n`;
+        const edit = insertEditForFile(parse(text, uri), text, 'Misc/New')!;
+        expect(edit.newText).toBe('    New = ""\n');
+    });
+
+    it('indents a new group chain the way the file indents', () => {
+        const text = `Misc\n{\n    Okay = "Okay"\n}\n`;
+        const edit = insertEditForFile(parse(text, uri), text, 'Parts/Weapons/Laser')!;
+        expect(edit.newText).toBe('Parts\n{\n    Weapons\n    {\n        Laser = ""\n    }\n}\n');
+    });
 });
 
 describe('insert into all the mod’s language files', () => {

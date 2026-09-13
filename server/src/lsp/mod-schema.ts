@@ -54,7 +54,8 @@ export async function loadModSchema(): Promise<void> {
 export const codeModsEnabled = (): boolean => globalSettings.codeMods?.enabled ?? true;
 
 /** Whether those assemblies are watched, so a mod change is picked up without the command. */
-export const codeModAutoRefreshEnabled = (): boolean => codeModsEnabled() && (globalSettings.codeMods?.autoRefresh ?? true);
+export const codeModAutoRefreshEnabled = (): boolean =>
+    codeModsEnabled() && (globalSettings.codeMods?.autoRefresh ?? true);
 
 /** Closes the watch armed for the previous build, so re-arming never leaks handles. */
 let closeModAssemblyWatch: (() => void) | undefined;
@@ -161,18 +162,25 @@ export async function rebuildModSchema(): Promise<ModSchemaSummary | null> {
     // The command respects the switch: rebuilding into a schema the user asked to keep mod-free
     // would quietly re-enable the feature they turned off.
     if (!codeModsEnabled()) {
-        return { assemblies: 0, types: 0, discriminators: 0, fromCache: false, unreadable: [], documented: 0, assemblyPaths: [], disabled: true };
+        return {
+            assemblies: 0,
+            types: 0,
+            discriminators: 0,
+            fromCache: false,
+            unreadable: [],
+            documented: 0,
+            assemblyPaths: [],
+            disabled: true,
+        };
     }
     const roots = await modAssemblyRoots();
     if (roots.length === 0) return null;
     const progress = await connection.window.createWorkDoneProgress();
     progress.begin('Building code mod schema', 0, '', false);
     try {
-        const summary = await buildModSchema(
-            roots,
-            CosmoteerWorkspaceService.instance.dataRootPath ?? '',
-            { force: true }
-        );
+        const summary = await buildModSchema(roots, CosmoteerWorkspaceService.instance.dataRootPath ?? '', {
+            force: true,
+        });
         armModAssemblyWatch(summary.assemblyPaths, roots);
         applyModSchemaChange();
         return summary;

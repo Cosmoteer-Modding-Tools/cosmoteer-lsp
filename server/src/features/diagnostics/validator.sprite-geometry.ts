@@ -32,8 +32,8 @@ import * as l10n from '@vscode/l10n';
  * other in the same place, so every entry of one list divides its pixel aspect by its quad aspect
  * to the same number. When one entry does not, that entry alone is squashed or stood on its side
  * the moment the game switches to it, which is a drawing mistake rather than an art decision. The
- * check is that comparison and nothing else, and the first entry the pass can read sets the stretch
- * the others are judged against.
+ * check is that comparison and nothing else, and the stretch most of the list shares is what the
+ * remaining entries are judged against.
  *
  * The list is found by its element type rather than by its name, so all ten fields that hold
  * sprites this way are covered and a schema regeneration cannot leave one behind.
@@ -53,7 +53,7 @@ import * as l10n from '@vscode/l10n';
 const ATLAS_SPRITE_CLASS = 'Cosmoteer.Ships.Rendering.AtlasSprite';
 
 /**
- * How far a sprite's stretch may sit from the list's first one before it is reported. Art is
+ * How far a sprite's stretch may sit from the list's shared one before it is reported. Art is
  * exported at whole pixels, so a quad that was meant to match can still land a pixel or two off.
  * Every real distortion measured in the installed mods is at least an eighth off, so there is room.
  */
@@ -208,23 +208,51 @@ const stretchOf = (sprite: ReadSprite): number => {
 const formatTiles = (value: number): string => String(Math.round(value * 10_000) / 10_000);
 
 /**
- * The size that would draw this entry's art the way the list's first entry is drawn, by keeping the
- * first entry's pixels per tile on each axis.
+ * The size that would draw this entry's art the way the reference entry is drawn, by keeping the
+ * reference's pixels per tile on each axis.
  * @param sprite the entry to correct.
- * @param first the entry that sets the stretch.
+ * @param reference the entry that sets the stretch.
  * @returns the size as it would be written.
  */
-const correctedSize = (sprite: ReadSprite, first: ReadSprite): string => {
+const correctedSize = (sprite: ReadSprite, reference: ReadSprite): string => {
     const drawn = drawnPixels(sprite);
-    const reference = drawnPixels(first);
-    const width = (drawn.width * first.quadWidth) / reference.width;
-    const height = (drawn.height * first.quadHeight) / reference.height;
+    const referenceDrawn = drawnPixels(reference);
+    const width = (drawn.width * reference.quadWidth) / referenceDrawn.width;
+    const height = (drawn.height * reference.quadHeight) / referenceDrawn.height;
     return `[${formatTiles(width)}, ${formatTiles(height)}]`;
 };
 
 /**
- * Compares one sprite list and collects a finding for every entry drawn out of step with the first
- * entry the pass could read.
+ * The entry the rest of the list is judged against: the one whose stretch the most entries share,
+ * and the earliest of those when several are equally common.
+ *
+ * Reading the first entry as the reference made the odd one out the yardstick whenever it happened
+ * to be written first, which reported every other entry of the list and offered each of them the
+ * size the list does not use. The majority is what the list means by its own shape.
+ *
+ * @param sprites the entries the pass could read, in source order.
+ * @returns the entry to measure the others against, or null for an empty list.
+ */
+const referenceSprite = (sprites: readonly ReadSprite[]): ReadSprite | null => {
+    let best: ReadSprite | null = null;
+    let bestShared = 0;
+    for (const sprite of sprites) {
+        const stretch = stretchOf(sprite);
+        let shared = 0;
+        for (const other of sprites) {
+            if (Math.abs(stretchOf(other) - stretch) <= stretch * TOLERANCE) shared++;
+        }
+        if (shared > bestShared) {
+            best = sprite;
+            bestShared = shared;
+        }
+    }
+    return best;
+};
+
+/**
+ * Compares one sprite list and collects a finding for every entry drawn out of step with the
+ * stretch the rest of the list shares.
  * @param list the sprite list.
  * @param uri the document the list is written in.
  * @param cancellationToken cancels the reads.
@@ -239,21 +267,22 @@ const judgeList = async (
     // A list deriving from another list is drawn with the base's entries in front of these, so the
     // entries in the file are not the list the game holds.
     if (list.inheritance?.length) return;
-    let first: ReadSprite | null = null;
+    const sprites: ReadSprite[] = [];
     for (const element of list.elements) {
         if (cancellationToken.isCancellationRequested) return;
         const sprite = await readSprite(element, uri, cancellationToken);
-        if (!sprite) continue;
-        if (!first) {
-            first = sprite;
-            continue;
-        }
-        const reference = stretchOf(first);
+        if (sprite) sprites.push(sprite);
+    }
+    const majority = referenceSprite(sprites);
+    if (!majority) return;
+    const reference = stretchOf(majority);
+    for (const sprite of sprites) {
+        if (sprite === majority) continue;
         if (Math.abs(stretchOf(sprite) - reference) <= reference * TOLERANCE) continue;
-        const corrected = correctedSize(sprite, first);
+        const corrected = correctedSize(sprite, majority);
         errors.push({
             message: l10n.t(
-                'The game stretches a sprite to fill the size it names, so a size the rest of this list does not share draws this one distorted. Its art is {0} by {1} pixels, which the first sprite of the list draws at a size of {2}.',
+                'The game stretches a sprite to fill the size it names, so a size the rest of this list does not share draws this one distorted. Its art is {0} by {1} pixels, which the rest of this list draws at a size of {2}.',
                 sprite.pixelWidth,
                 sprite.pixelHeight,
                 corrected

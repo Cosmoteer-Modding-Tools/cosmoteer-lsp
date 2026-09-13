@@ -43,8 +43,18 @@ export const MAP_FIELDS: ReadonlyArray<{
         enumRef: TRAVEL_DIRECTION_ENUM,
         fallbackField: null,
     },
-    { field: 'ExternalWallsByCell', valueModel: 'flags', enumRef: ADJACENCY_FLAGS_ENUM, fallbackField: 'ExternalWalls' },
-    { field: 'InternalWallsByCell', valueModel: 'flags', enumRef: ADJACENCY_FLAGS_ENUM, fallbackField: 'InternalWalls' },
+    {
+        field: 'ExternalWallsByCell',
+        valueModel: 'flags',
+        enumRef: ADJACENCY_FLAGS_ENUM,
+        fallbackField: 'ExternalWalls',
+    },
+    {
+        field: 'InternalWallsByCell',
+        valueModel: 'flags',
+        enumRef: ADJACENCY_FLAGS_ENUM,
+        fallbackField: 'InternalWalls',
+    },
     {
         field: 'BlueprintExternalWallsByCell',
         valueModel: 'flags',
